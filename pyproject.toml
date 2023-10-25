@@ -29,13 +29,21 @@ line-length = 100
 [tool.mypy]
 mypy_path = "$MYPY_CONFIG_FILE_DIR:$MYPY_CONFIG_FILE_DIR/src"
 packages = ["coda", "tests"]
-exclude = ["migrations"]
 
 strict = true
 check_untyped_defs = true
 disallow_any_unimported = true
 no_implicit_optional = true
 show_error_codes = true
+
+plugins = [
+    "mypy_django_plugin.main",
+]
+
+[[tool.mypy.overrides]]
+# Django migrations should not produce any errors:
+module = "*.migrations.*"
+ignore_errors = true
 
 [tool.ruff]
 target-version = "py311"
