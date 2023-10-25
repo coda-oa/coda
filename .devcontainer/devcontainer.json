@@ -1,0 +1,25 @@
+{
+    "name": "coda-dev-local",
+    "dockerComposeFile": [
+        "../docker/compose.local.yml"
+    ],
+    "init": true,
+    "overrideCommand": false,
+    "service": "django",
+    "remoteUser": "dev-user",
+    "workspaceFolder": "/app",
+    "postCreateCommand": "pdm install --dev",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.mypy-type-checker",
+                "ms-python.black-formatter",
+                "charliermarsh.ruff",
+                "batisteo.vscode-django",
+                "monosans.djlint"
+            ]
+        }
+    }
+}

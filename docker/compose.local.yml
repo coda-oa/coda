@@ -1,0 +1,39 @@
+version: "3"
+
+volumes:
+  coda_local_postgres_data: {}
+
+services:
+  django:
+    build:
+      context: ..
+      dockerfile: ./docker/dockerfiles/local/Dockerfile.devcontainer
+    
+    image: coda_local_django
+    container_name: coda_local_django
+    depends_on:
+      - postgres
+    
+    volumes:
+      - .:/app:z
+    
+    env_file:
+      - ../.envs/.local/django.env
+      - ../.envs/.local/postgres.env
+
+    ports:
+      - "8000:8000"
+
+    command: |
+      python manage.py migrate
+      python manage.py runserver
+
+  postgres:
+    image: postgres:13.1-alpine
+    container_name: coda_local_postgres
+
+    volumes:
+      - coda_local_postgres_data:/var/lib/postgresql/data/
+
+    env_file:
+      - ../.envs/.local/postgres.env
