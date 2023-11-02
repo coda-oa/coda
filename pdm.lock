@@ -3,10 +3,9 @@
 
 [metadata]
 groups = ["default", "dev"]
-cross_platform = true
-static_urls = false
-lock_version = "4.3"
-content_hash = "sha256:b3432069d072f385a7c254d32b69d40c0b696974bc2b8d8d0f2492fe01642ae6"
+strategy = ["cross_platform"]
+lock_version = "4.4"
+content_hash = "sha256:c4547a64038f23460efe3385aac3b4024c0b94ecb984319c1732403c7b472187"
 
 [[package]]
 name = "asgiref"
@@ -370,6 +369,20 @@ dependencies = [
 files = [
     {file = "pre_commit-3.5.0-py2.py3-none-any.whl", hash = "sha256:841dc9aef25daba9a0238cd27984041fa0467b4199fc4852e27950664919f660"},
     {file = "pre_commit-3.5.0.tar.gz", hash = "sha256:5804465c675b659b0862f07907f96295d490822a450c4c40e747d0b1c6ebcb32"},
+]
+
+[[package]]
+name = "psycopg"
+version = "3.1.12"
+requires_python = ">=3.7"
+summary = "PostgreSQL database adapter for Python"
+dependencies = [
+    "typing-extensions>=4.1",
+    "tzdata; sys_platform == \"win32\"",
+]
+files = [
+    {file = "psycopg-3.1.12-py3-none-any.whl", hash = "sha256:8ec5230d6a7eb654b4fb3cf2d3eda8871d68f24807b934790504467f1deee9f8"},
+    {file = "psycopg-3.1.12.tar.gz", hash = "sha256:cec7ad2bc6a8510e56c45746c631cf9394148bdc8a9a11fd8cf8554ce129ae78"},
 ]
 
 [[package]]

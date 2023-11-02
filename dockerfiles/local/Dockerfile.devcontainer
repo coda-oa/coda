@@ -23,8 +23,15 @@ RUN groupadd --gid 1000 dev-user \
   && echo dev-user ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/dev-user \
   && chmod 0440 /etc/sudoers.d/dev-user
 
+COPY --chown=1000:1000 . /app/
+
 WORKDIR /app
 USER dev-user
 
+ENV PATH="/home/dev-user/.local/bin:${PATH}"
+
 RUN pip install --upgrade pip && \
-    pip install pdm 
+  pip install -U pdm  && \
+  pdm venv create -n dev && \
+  pdm use --venv dev && \
+  pdm install --dev

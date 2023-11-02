@@ -7,7 +7,7 @@ import environ
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # coda/
-APPS_DIR = BASE_DIR / "coda"
+APPS_DIR = BASE_DIR / "src" / "coda" / "django_apps"
 env = environ.Env()
 
 READ_DOT_ENV_FILE = env.bool("DJANGO_READ_DOT_ENV_FILE", default=False)
@@ -75,7 +75,7 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS: list[str] = []
 
 LOCAL_APPS = [
-    "coda.users",
+    "coda.django_apps.users",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

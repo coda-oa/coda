@@ -1,14 +1,13 @@
 {
     "name": "coda-dev-local",
     "dockerComposeFile": [
-        "../docker/compose.local.yml"
+        "../compose.local.yml"
     ],
     "init": true,
     "overrideCommand": false,
     "service": "django",
     "remoteUser": "dev-user",
     "workspaceFolder": "/app",
-    "postCreateCommand": "pdm install --dev",
     "customizations": {
         "vscode": {
             "extensions": [
