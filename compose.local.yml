@@ -22,10 +22,10 @@ services:
       - ./.envs/.local/postgres.env
 
     ports:
-      - "8000:8000"
+      - 8000:8000
 
     command: >
-      sh -c "pdm run manage.py migrate && pdm run manage.py runserver"
+      sh -c "pdm run manage.py migrate && pdm run manage.py runserver 0.0.0.0:8000"
 
   postgres:
     image: postgres:13.1-alpine
