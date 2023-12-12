@@ -3,7 +3,10 @@ Base settings to build other settings files upon.
 """
 from pathlib import Path
 
+import django_stubs_ext
 import environ
+
+django_stubs_ext.monkeypatch()
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # coda/

@@ -4,9 +4,10 @@ version = "0.1.0"
 description = ""
 authors = [{ name = "Sven Marcus", email = "sven.marcus@tu-braunschweig.de" }]
 dependencies = [
-    "Django>=4.2.6",
+    "Django<5",
     "django-environ>=0.11.2",
     "psycopg>=3.1.12",
+    "django-stubs-ext>=4.2.7",
 ]
 requires-python = ">=3.11"
 readme = "README.md"
@@ -23,8 +24,8 @@ dev = [
     "ruff>=0.1.1",
     "black>=23.10.1",
     "djlint>=1.34.0",
-    "django-stubs[compatible-mypy]>=4.2.6",
     "pytest-django>=4.5.2",
+    "django-stubs[compatible-mypy]>=4.2.7",
 ]
 
 [tool.black]
@@ -49,8 +50,12 @@ plugins = [
 module = "*.migrations.*"
 ignore_errors = true
 
+[tool.django-stubs]
+strict_settings = false
+django_settings_module = "config.settings.production"
+
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 
 force-exclude = true
 line-length = 100
