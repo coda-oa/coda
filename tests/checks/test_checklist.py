@@ -1,4 +1,4 @@
-from coda.checks import CheckResult, Checklist
+from coda.checks.checklist import CheckResult, Checklist
 
 
 class CheckSpy:
