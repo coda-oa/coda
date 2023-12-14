@@ -1,24 +1,30 @@
+from decimal import Decimal
+
 from coda.checks.checklist import CheckResult
 from coda.checks.costlimit import CostLimitCheck
+from coda.money import Currency, Money
+
+LIMIT = Money(Decimal(1000), currency=Currency.EUR)
+UNDER_LIMIT = Money(LIMIT.amount - 1, currency=Currency.EUR)
+OVER_LIMIT = Money(LIMIT.amount + 1, currency=Currency.EUR)
 
 
 class ApplicationTestDouble:
-    def __init__(self, cost: int, currency: str = "EUR") -> None:
+    def __init__(self, cost: Money) -> None:
         self.cost = cost
-        self.currency = currency
 
 
-def one2one(amount: int, origin: str, target: str) -> int:
-    return amount
+def one2one(origin: Currency, target: Currency) -> Decimal:
+    return Decimal(1)
 
 
-def make_sut(cost: int, currency: str = "EUR") -> CostLimitCheck:
-    return CostLimitCheck(cost, currency=currency, converter=one2one)
+def make_sut(cost: Money = LIMIT) -> CostLimitCheck:
+    return CostLimitCheck(cost, converter=one2one)
 
 
 def test__cost_limit_check__when_application_cost_is_below_threshold__returns_success() -> None:
-    app = ApplicationTestDouble(999)
-    sut = make_sut(1000)
+    app = ApplicationTestDouble(UNDER_LIMIT)
+    sut = make_sut(LIMIT)
 
     result = sut(app)
 
@@ -26,8 +32,8 @@ def test__cost_limit_check__when_application_cost_is_below_threshold__returns_su
 
 
 def test__cost_limit_check__when_application_cost_is_above_threshold__returns_failure() -> None:
-    app = ApplicationTestDouble(1001)
-    sut = make_sut(1000)
+    app = ApplicationTestDouble(OVER_LIMIT)
+    sut = make_sut(LIMIT)
 
     result = sut(app)
 
@@ -35,11 +41,11 @@ def test__cost_limit_check__when_application_cost_is_above_threshold__returns_fa
 
 
 def test__cost_above_limit_in_different_currency__returns_failure() -> None:
-    def usd2eur(amount: int, origin: str, target: str) -> int:
-        return amount * 2
+    def over_limit_exchange(origin: Currency, target: Currency) -> Decimal:
+        return Decimal(2)
 
-    app = ApplicationTestDouble(1000, "USD")
-    sut = CostLimitCheck(1000, currency="EUR", converter=usd2eur)
+    app = ApplicationTestDouble(Money(LIMIT.amount, Currency.USD))
+    sut = CostLimitCheck(LIMIT, converter=over_limit_exchange)
 
     result = sut(app)
 
@@ -47,11 +53,11 @@ def test__cost_above_limit_in_different_currency__returns_failure() -> None:
 
 
 def test__cost_below_limit_in_different_currency__returns_success() -> None:
-    def usd2eur(amount: int, origin: str, target: str) -> int:
-        return amount // 2
+    def under_limit_exchange(origin: Currency, target: Currency) -> Decimal:
+        return Decimal("0.5")
 
-    app = ApplicationTestDouble(1000, "USD")
-    sut = CostLimitCheck(1000, currency="EUR", converter=usd2eur)
+    app = ApplicationTestDouble(Money(LIMIT.amount, Currency.USD))
+    sut = CostLimitCheck(LIMIT, converter=under_limit_exchange)
 
     result = sut(app)
 

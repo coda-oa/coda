@@ -1,53 +1,24 @@
-from dataclasses import dataclass
-from typing import Callable, Protocol
+from typing import Protocol
 
 from coda.checks.checklist import CheckResult
+from coda.money import CurrencyExchange, Money
 
 
 class Application(Protocol):
     @property
-    def cost(self) -> int:
+    def cost(self) -> Money:
         ...
-
-    @property
-    def currency(self) -> str:
-        ...
-
-
-@dataclass
-class Money:
-    amount: int
-    currency: str
-
-    def convert_to(
-        self, target_currency: str, converter: Callable[[int, str, str], int]
-    ) -> "Money":
-        if self.currency == target_currency:
-            return self
-
-        return Money(
-            converter(self.amount, self.currency, target_currency),
-            target_currency,
-        )
 
 
 class CostLimitCheck:
-    def __init__(
-        self,
-        limit: int,
-        *,
-        currency: str = "EUR",
-        converter: Callable[[int, str, str], int],
-    ) -> None:
-        self.limit = Money(limit, currency)
-        self.currency = currency
+    def __init__(self, limit: Money, converter: CurrencyExchange) -> None:
+        self.limit = limit
         self.converter = converter
 
     def __call__(self, app: Application) -> CheckResult:
-        money = Money(app.cost, app.currency)
-        converted_cost = money.convert_to(self.currency, self.converter)
+        converted_cost = app.cost.convert_to(self.limit.currency, self.converter)
 
-        if converted_cost.amount <= self.limit.amount:
+        if converted_cost <= self.limit:
             return CheckResult.SUCCESS
         else:
             return CheckResult.FAILURE
