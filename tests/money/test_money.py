@@ -1,10 +1,11 @@
 from decimal import Decimal
-from operator import eq, ne, lt, le, gt, ge
+from operator import eq, ge, gt, le, lt, ne
 from typing import Callable
 
 import pytest
 
 from coda.money import Currency, Money
+from tests.checks.test_costlimit import one2one
 
 
 @pytest.mark.parametrize("value", [100, "100", "100.0", Decimal(100)])
@@ -28,6 +29,27 @@ def test__money__when_converted_to_different_currency__returns_converted_money()
     result = money.convert_to(Currency.USD, lambda origin, target: Decimal(2))
 
     assert result == Money(200, Currency.USD)
+
+
+@pytest.mark.parametrize(["origin", "expected"], [("1.005", "1.01"), ("1.004", "1.00")])
+def test__money_with_3_minor_units__when_converted_to_2_minor_units__converts_with_half_round_up(
+    origin: str, expected: str
+) -> None:
+    money = Money(origin, Currency.JOD)
+
+    actual = money.convert_to(Currency.EUR, one2one)
+
+    assert actual == Money(expected, Currency.EUR)
+
+
+def test__money_with_2_minor_units__when_converted_to_0_minor_units__converts_with_half_round_up() -> (
+    None
+):
+    money = Money("1.50", Currency.EUR)
+
+    actual = money.convert_to(Currency.JPY, one2one)
+
+    assert actual == Money("2.00", Currency.JPY)
 
 
 def test__money_cannot_be_compared_to_non_money() -> None:

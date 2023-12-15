@@ -20,4 +20,5 @@ class CachingCurrencyExchange:
         try:
             return self.cache[from_currency][to_currency]
         except KeyError:
+            self.cache[from_currency] = self.exchange_provider(from_currency)
             return self.exchange_provider(from_currency)[to_currency]

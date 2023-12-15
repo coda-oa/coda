@@ -22,7 +22,18 @@ class Money:
         return Money(self._exchanged(target_currency, exchange), target_currency)
 
     def _exchanged(self, target_currency: Currency, exchange: CurrencyExchange) -> Decimal:
-        return self.amount * exchange(self.currency, target_currency)
+        ex = self.amount * exchange(self.currency, target_currency)
+        ex = self._half_round_up(target_currency, ex)
+        return ex
+
+    def _half_round_up(self, target_currency: Currency, ex: Decimal) -> Decimal:
+        if target_currency.minor_units < self.currency.minor_units:
+            ex = ex.quantize(
+                Decimal("0.1") ** target_currency.minor_units,
+                rounding="ROUND_HALF_UP",
+            )
+
+        return ex
 
     def __eq__(self, v: object) -> bool | NotImplementedType:
         return self.amount == self._comparable_money(v).amount
@@ -41,3 +52,6 @@ class Money:
             raise TypeError("Cannot compare money in different currencies")
 
         return v
+
+    def __repr__(self) -> str:
+        return f"Money({self.amount}, {self.currency})"

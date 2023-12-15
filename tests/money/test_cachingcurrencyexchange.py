@@ -41,3 +41,28 @@ def test__caching_currency_exchange__when_rate_not_in_cache__pulls_from_exchange
 
     assert sut.rate(Currency.EUR, Currency.USD) == expected_usd_rate
     assert sut.rate(Currency.EUR, Currency.GBP) == expected_gbp_rate
+
+
+def test__caching_currency_exchange__when_rate_not_in_cache__adds_to_cache() -> None:
+    expected_usd_rate = Decimal(2)
+    expected_gbp_rate = Decimal(1.5)
+    exchange_provider = ExchangeProviderStub(
+        {
+            Currency.EUR: {
+                Currency.USD: expected_usd_rate,
+                Currency.GBP: expected_gbp_rate,
+            },
+        }
+    )
+    cache: dict[Currency, dict[Currency, Decimal]] = {}
+    sut = CachingCurrencyExchange(cache, exchange_provider)
+
+    sut.rate(Currency.EUR, Currency.USD)
+    sut.rate(Currency.EUR, Currency.GBP)
+
+    assert cache == {
+        Currency.EUR: {
+            Currency.USD: expected_usd_rate,
+            Currency.GBP: expected_gbp_rate,
+        },
+    }

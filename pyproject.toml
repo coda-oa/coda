@@ -8,6 +8,7 @@ dependencies = [
     "django-environ>=0.11.2",
     "psycopg>=3.1.12",
     "django-stubs-ext>=4.2.7",
+    "httpx>=0.25.2",
 ]
 requires-python = ">=3.11"
 readme = "README.md"
@@ -19,15 +20,20 @@ build-backend = "pdm.backend"
 
 [tool.pdm.dev-dependencies]
 dev = [
-    "mypy>=1.6.1",
+    "mypy>=1.7.1",
     "pre-commit>=3.5.0",
     "ruff>=0.1.1",
     "black>=23.10.1",
     "djlint>=1.34.0",
     "pytest-django>=4.5.2",
     "django-stubs[compatible-mypy]>=4.2.7",
-    "httpx>=0.25.2",
+    "pytest-sugar>=0.9.7",
+    "pytest-clarity>=1.0.1",
 ]
+
+[tool.pdm.scripts]
+unittests = "pytest -m 'not integration' -vv"
+alltests = "pytest -vv"
 
 [tool.black]
 line-length = 100
@@ -42,9 +48,7 @@ disallow_any_unimported = true
 no_implicit_optional = true
 show_error_codes = true
 
-plugins = [
-    "mypy_django_plugin.main",
-]
+plugins = ["mypy_django_plugin.main"]
 
 [[tool.mypy.overrides]]
 # Django migrations should not produce any errors:
@@ -54,6 +58,9 @@ ignore_errors = true
 [tool.django-stubs]
 strict_settings = false
 django_settings_module = "config.settings.production"
+
+[tool.pytest.ini_options]
+markers = ["integration: mark test as integration test"]
 
 [tool.ruff]
 target-version = "py312"
