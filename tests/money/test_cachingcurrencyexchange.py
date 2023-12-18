@@ -81,7 +81,6 @@ def test__caching_currency_exchange__when_rate_not_in_cache__adds_rates_and_time
     sut = make_sut(cache, exchange_provider)
 
     sut.rate(Currency.EUR, Currency.USD)
-    sut.rate(Currency.EUR, Currency.GBP)
 
     assert cache == eur_rates()
 
@@ -104,7 +103,6 @@ def test__cached_rates_a_day_old__pulls_new_rates_from_exchange_provider() -> No
     sut = make_sut(cache, exchange_provider, calendar=lambda: TOMORROW)
 
     sut.rate(Currency.EUR, Currency.USD)
-    sut.rate(Currency.EUR, Currency.GBP)
 
     assert cache == new_rates()
 
@@ -119,7 +117,6 @@ def test__cached_rates_less_than_a_day_old__does_not_pull_new_rates_from_exchang
     exchange_provider = ExchangeProviderStub(new_rates())
     sut = make_sut(cache, exchange_provider, calendar=not_quite_tomorrow)
 
-    sut.rate(Currency.EUR, Currency.USD)
     sut.rate(Currency.EUR, Currency.GBP)
 
     assert cache == eur_rates()
