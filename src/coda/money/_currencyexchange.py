@@ -1,18 +1,19 @@
 from decimal import Decimal
-from typing import Protocol
+from typing import Protocol, TypeAlias
 
 from coda.money import Currency
 
+Rates: TypeAlias = dict[Currency, Decimal]
+RatesLookup: TypeAlias = dict[Currency, Rates]
+
 
 class ExchangeProvider(Protocol):
-    def __call__(self, currency: Currency) -> dict[Currency, Decimal]:
+    def __call__(self, currency: Currency) -> Rates:
         ...
 
 
 class CachingCurrencyExchange:
-    def __init__(
-        self, cache: dict[Currency, dict[Currency, Decimal]], exchange_provider: ExchangeProvider
-    ) -> None:
+    def __init__(self, cache: RatesLookup, exchange_provider: ExchangeProvider) -> None:
         self.cache = cache
         self.exchange_provider = exchange_provider
 
