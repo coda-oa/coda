@@ -44,6 +44,7 @@ repos:
     hooks:
       - id: mypy
         args: [--strict]
+        additional_dependencies: ['django-stubs[compatible-mypy]']
 
   - repo: https://github.com/psf/black
     rev: 23.11.0
