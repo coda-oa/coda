@@ -112,9 +112,12 @@ def test__cached_rates_a_day_old__pulls_new_rates_from_exchange_provider() -> No
 def test__cached_rates_less_than_a_day_old__does_not_pull_new_rates_from_exchange_provider() -> (
     None
 ):
+    def not_quite_tomorrow():
+        return TOMORROW - timedelta(seconds=1)
+
     cache = eur_rates()
     exchange_provider = ExchangeProviderStub(new_rates())
-    sut = make_sut(cache, exchange_provider, calendar=lambda: TOMORROW - timedelta(seconds=1))
+    sut = make_sut(cache, exchange_provider, calendar=not_quite_tomorrow)
 
     sut.rate(Currency.EUR, Currency.USD)
     sut.rate(Currency.EUR, Currency.GBP)
