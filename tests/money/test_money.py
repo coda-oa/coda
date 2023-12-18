@@ -15,6 +15,11 @@ def test__money_inits_are_equivalent(value: int | str | Decimal) -> None:
     assert money == Money(100, Currency.EUR)
 
 
+def test__creating_money_with_more_minor_units_than_currency__uses_half_round_up() -> None:
+    assert Money("100.004", Currency.EUR) == Money("100.00", Currency.EUR)
+    assert Money("100.005", Currency.EUR) == Money("100.01", Currency.EUR)
+
+
 def test__money__when_converted_to_same_currency__returns_same_money() -> None:
     money = Money(100, Currency.EUR)
 

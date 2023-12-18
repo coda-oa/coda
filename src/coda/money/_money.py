@@ -12,7 +12,7 @@ class CurrencyExchange(Protocol):
 
 class Money:
     def __init__(self, amount: str | int | Decimal, currency: Currency) -> None:
-        self.amount = Decimal(amount)
+        self.amount = self._half_round_up(currency, Decimal(amount))
         self.currency = currency
 
     def convert_to(self, target_currency: Currency, exchange: CurrencyExchange) -> "Money":
@@ -22,18 +22,13 @@ class Money:
         return Money(self._exchanged(target_currency, exchange), target_currency)
 
     def _exchanged(self, target_currency: Currency, exchange: CurrencyExchange) -> Decimal:
-        ex = self.amount * exchange(self.currency, target_currency)
-        ex = self._half_round_up(target_currency, ex)
-        return ex
+        return self.amount * exchange(self.currency, target_currency)
 
     def _half_round_up(self, target_currency: Currency, ex: Decimal) -> Decimal:
-        if target_currency.minor_units < self.currency.minor_units:
-            ex = ex.quantize(
-                Decimal("0.1") ** target_currency.minor_units,
-                rounding="ROUND_HALF_UP",
-            )
-
-        return ex
+        return ex.quantize(
+            Decimal("0.1") ** target_currency.minor_units,
+            rounding="ROUND_HALF_UP",
+        )
 
     def __eq__(self, v: object) -> bool | NotImplementedType:
         return self.amount == self._comparable_money(v).amount
