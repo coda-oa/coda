@@ -1,5 +1,5 @@
 from ._currency import Currency, CurrencyDetails
-from ._currencyexchange import CachingCurrencyExchange, Rates, RatesLookup
+from .exchange import CachingCurrencyExchange, Rates, RatesLookup
 from ._money import CurrencyExchange, Money
 
 __all__ = [
