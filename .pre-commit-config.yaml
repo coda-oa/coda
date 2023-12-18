@@ -2,7 +2,7 @@ exclude: '^docs/|/migrations/|devcontainer.json'
 default_stages: [commit]
 
 default_language_version:
-  python: python3.11
+  python: python3.12
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -38,6 +38,12 @@ repos:
     hooks:
       - id: pyupgrade
         args: [--py311-plus]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: 'v1.7.1'
+    hooks:
+      - id: mypy
+        args: [--strict]
 
   - repo: https://github.com/psf/black
     rev: 23.11.0
