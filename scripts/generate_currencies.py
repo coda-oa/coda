@@ -1,8 +1,9 @@
 """
 This module is responsible for importing currency data from an XML file and generating an enum class representing the currencies.
 """
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, TypeAlias, TypeGuard
+from typing import TypeAlias, TypeGuard
 from xml.etree import ElementTree as et
 
 import httpx
@@ -12,7 +13,7 @@ output_file = "src/coda/money/_currency.py"
 
 enum_header = """
 from enum import Enum
-from typing import NamedTuple
+from typing import cast, NamedTuple
 
 
 class CurrencyDetails(NamedTuple):
@@ -31,12 +32,12 @@ enum_entry = """
 enum_methods = """
     @staticmethod
     def from_code(code: str) -> "Currency":
-        return getattr(Currency, code)
+        return cast(Currency, getattr(Currency, code))
 
     @staticmethod
     def allcodes() -> set[str]:
         return {c.code for c in Currency}
-    
+
     @property
     def code(self) -> str:
         return self.value.code

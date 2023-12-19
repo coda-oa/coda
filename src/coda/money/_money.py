@@ -43,6 +43,9 @@ class Money:
         if not isinstance(v, Money):
             raise TypeError("Cannot compare money to non-money")
 
+        if self.amount == 0 and v.amount == 0:
+            return v
+
         if self.currency != v.currency:
             raise TypeError("Cannot compare money in different currencies")
 

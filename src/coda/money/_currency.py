@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import NamedTuple
+from typing import NamedTuple, cast
 
 
 class CurrencyDetails(NamedTuple):
@@ -179,12 +179,12 @@ class Currency(Enum):
 
     @staticmethod
     def from_code(code: str) -> "Currency":
-        return getattr(Currency, code)
+        return cast(Currency, getattr(Currency, code))
 
     @staticmethod
     def allcodes() -> set[str]:
         return {c.code for c in Currency}
-    
+
     @property
     def code(self) -> str:
         return self.value.code
@@ -196,4 +196,3 @@ class Currency(Enum):
     @property
     def minor_units(self) -> int:
         return self.value.minor_units
-

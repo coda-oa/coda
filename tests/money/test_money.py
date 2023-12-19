@@ -1,6 +1,6 @@
+from collections.abc import Callable
 from decimal import Decimal
 from operator import eq, ge, gt, le, lt, ne
-from typing import Callable
 
 import pytest
 
@@ -68,6 +68,10 @@ def test__money_in_different_currencies_cannot_be_compared(
 ) -> None:
     with pytest.raises(TypeError):
         _ = compare(Money(100, Currency.EUR), Money(100, Currency.USD))
+
+
+def test__zero_money_in_different_currencies_is_equal() -> None:
+    assert Money(0, Currency.EUR) == Money(0, Currency.USD)
 
 
 def test__unequal_money_is_not_equal() -> None:
