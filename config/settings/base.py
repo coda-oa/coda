@@ -79,6 +79,7 @@ THIRD_PARTY_APPS: list[str] = []
 
 LOCAL_APPS = [
     "coda.apps.users",
+    "coda.apps.journals",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
