@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from coda.money import Currency
 from coda.money.exchange import (
     CachingCurrencyExchange,
     Calendar,
-    Currency,
     Rates,
     RatesLookup,
     RatesSnapshot,
@@ -110,7 +110,7 @@ def test__cached_rates_a_day_old__pulls_new_rates_from_exchange_provider() -> No
 def test__cached_rates_less_than_a_day_old__does_not_pull_new_rates_from_exchange_provider() -> (
     None
 ):
-    def not_quite_tomorrow():
+    def not_quite_tomorrow() -> datetime:
         return TOMORROW - timedelta(seconds=1)
 
     cache = eur_rates()
