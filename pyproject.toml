@@ -29,6 +29,7 @@ dev = [
     "django-stubs[compatible-mypy]>=4.2.7",
     "pytest-sugar>=0.9.7",
     "pytest-clarity>=1.0.1",
+    "commitizen>=3.13.0",
 ]
 
 [tool.pdm.scripts]
