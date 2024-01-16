@@ -55,6 +55,10 @@ plugins = ["mypy_django_plugin.main"]
 module = "*.migrations.*"
 ignore_errors = true
 
+[[tool.mypy.overrides]]
+module = "django-environ"
+ignore_missing_imports = true
+
 [tool.django-stubs]
 strict_settings = false
 django_settings_module = "config.settings.production"
