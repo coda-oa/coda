@@ -26,6 +26,7 @@ repos:
       - id: prettier
         args: ['--tab-width', '2', '--single-quote']
         exclude: 'src/django_apps/templates/'
+        types_or: [css, javascript]
 
   - repo: https://github.com/adamchainz/django-upgrade
     rev: '1.15.0'
@@ -57,11 +58,6 @@ repos:
     hooks:
       - id: black
 
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.12.0
-    hooks:
-      - id: isort
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.7
     hooks:
@@ -71,6 +67,7 @@ repos:
     rev: v1.34.0
     hooks:
       - id: djlint-reformat-django
+        args: ['--extension=html']
       - id: djlint-django
 
 # sets up .pre-commit-ci.yaml to ensure pre-commit dependencies stay up to date

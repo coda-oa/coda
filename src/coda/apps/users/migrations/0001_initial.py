@@ -3,7 +3,7 @@ import django.contrib.auth.validators
 from django.db import migrations, models
 import django.utils.timezone
 
-import coda.django_apps.users.models
+import coda.apps.users.models
 
 
 class Migration(migrations.Migration):

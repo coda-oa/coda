@@ -10,7 +10,7 @@ urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
     # User management
     path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
-    path("users/", include("coda.django_apps.users.urls", namespace="users")),
+    path("users/", include("coda.apps.users.urls", namespace="users")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
