@@ -1,3 +1,11 @@
-from django.shortcuts import render  # noqa: F401
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import DetailView
 
-# Create your views here.
+from coda.apps.journals.models import Journal
+
+
+class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
+    model = Journal
+
+
+journal_detail_view = JournalDetailView.as_view()

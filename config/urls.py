@@ -14,6 +14,7 @@ urlpatterns = [
     path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
     path("login/", view=LoginView.as_view(template_name="pages/login.html"), name="login"),
     path("users/", include("coda.apps.users.urls", namespace="users")),
+    path("journals/", include("coda.apps.journals.urls", namespace="journals")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
