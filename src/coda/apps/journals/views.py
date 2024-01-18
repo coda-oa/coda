@@ -1,5 +1,6 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import DetailView
+from django.db.models.base import Model as Model
+from django.views.generic import DetailView, ListView
 
 from coda.apps.journals.models import Journal
 
@@ -11,3 +12,10 @@ class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
 
 
 journal_detail_view = JournalDetailView.as_view()
+
+
+class JournalListView(LoginRequiredMixin, ListView[Journal]):
+    model = Journal
+
+
+journal_list_view = JournalListView.as_view()

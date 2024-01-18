@@ -1,4 +1,5 @@
 from django.db import models
+from django.urls import reverse
 
 
 class Publisher(models.Model):
@@ -19,3 +20,6 @@ class Journal(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def get_absolute_url(self) -> str:
+        return reverse("journals:detail", kwargs={"eissn": self.eissn})
