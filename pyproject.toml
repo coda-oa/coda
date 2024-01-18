@@ -32,6 +32,9 @@ dev = [
     "pytest-clarity>=1.0.1",
     "commitizen>=3.13.0",
 ]
+django-commands = [
+    "polars>=0.20.5",
+]
 
 [tool.pdm.scripts]
 unittests = "pytest -m 'not integration' -vv"

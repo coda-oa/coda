@@ -51,6 +51,7 @@ repos:
             'django-environ',
             'psycopg',
             'pytest',
+            'polars',
           ]
 
   - repo: https://github.com/psf/black
