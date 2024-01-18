@@ -9,13 +9,13 @@ class Publisher(models.Model):
 
 class Journal(models.Model):
     title = models.CharField(max_length=255)
-    publisher = models.ForeignKey(Publisher, on_delete=models.CASCADE, related_name="journals")
     eissn = models.CharField(max_length=9)
-    open_access_type = models.CharField(max_length=255)
+    licenses = models.CharField(max_length=255, null=True)
+    publisher = models.ForeignKey(Publisher, on_delete=models.CASCADE, related_name="journals")
+    open_access_type = models.CharField(max_length=255, null=True)
     successor_to = models.ForeignKey(
         "self", on_delete=models.SET_NULL, related_name="predecessor", null=True
     )
-    licenses = models.CharField(max_length=255)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
