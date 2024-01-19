@@ -10,8 +10,8 @@ class Journal(models.Model):
     licenses = models.CharField(max_length=255, null=True)
     publisher = models.ForeignKey(Publisher, on_delete=models.CASCADE, related_name="journals")
     open_access_type = models.CharField(max_length=255, null=True)
-    successor_to = models.OneToOneField(
-        "self", on_delete=models.CASCADE, null=True, related_name="predecessor"
+    predecessor = models.OneToOneField(
+        "self", on_delete=models.CASCADE, null=True, related_name="successor"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
