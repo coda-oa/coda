@@ -81,6 +81,7 @@ LOCAL_APPS = [
     "coda.apps.users",
     "coda.apps.journals",
     "coda.apps.publishers",
+    "coda.apps.publications",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
