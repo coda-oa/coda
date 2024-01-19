@@ -4,7 +4,8 @@ import polars as pl
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from coda.apps.journals.models import Journal, Publisher
+from coda.apps.journals.models import Journal
+from coda.apps.publishers.models import Publisher
 
 
 class Command(BaseCommand):
