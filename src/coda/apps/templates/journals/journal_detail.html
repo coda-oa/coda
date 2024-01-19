@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>{{ journal.title }}</h1>
+    <p>E-ISSN: {{ journal.eissn }}</p>
+    <p>Publisher: {{ journal.publisher.name }}</p>
+{% endblock content %}
