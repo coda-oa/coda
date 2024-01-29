@@ -50,7 +50,7 @@ class Command(BaseCommand):
                     eissn=row["e_issn"].strip(),
                     open_access_type=row["journal_type"],
                     licenses=row["license"],
-                    successor_to=None,
+                    predecessor=None,
                 )
                 for row in df.rows(named=True)
             ]
