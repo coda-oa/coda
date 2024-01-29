@@ -3,8 +3,9 @@
     {{ title }}
 {% endblock title %}
 {% block content %}
+    {% include "partials/pagination_nav.html" %}
     <ul>
-        {% for journal in journal_list %}
+        {% for journal in page_obj %}
             <li>
                 <p>
                     <a href="{{ journal.get_absolute_url }}">{{ journal.title }}</a>
@@ -14,4 +15,5 @@
             </li>
         {% endfor %}
     </ul>
+    {% include "partials/pagination_nav.html" %}
 {% endblock content %}
