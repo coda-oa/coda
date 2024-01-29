@@ -1,8 +1,12 @@
 from django.db import models
 
+from coda.apps.institutions.models import Institution
+
 
 class Author(models.Model):
-    affiliation = models.CharField(max_length=255)
+    affiliation = models.ForeignKey(
+        Institution, on_delete=models.SET_NULL, related_name="authors", null=True
+    )
 
 
 class Person(models.Model):
