@@ -4,8 +4,23 @@ from coda.apps.journals.models import Journal
 
 
 class Publication(models.Model):
+    class State:
+        PUBLISHED = "published"
+        ACCEPTED = "accepted"
+        SUBMITTED = "submitted"
+        REJECTED = "rejected"
+
+    STATES = (
+        (State.PUBLISHED, "Published"),
+        (State.ACCEPTED, "Accepted"),
+        (State.SUBMITTED, "Submitted"),
+        (State.REJECTED, "Rejected"),
+    )
+
     title = models.CharField(max_length=255)
     journal = models.ForeignKey(Journal, on_delete=models.CASCADE, related_name="publications")
+    publication_state = models.CharField(max_length=255, choices=STATES, default="submitted")
+    publication_date = models.DateField(null=True)
 
 
 class LinkType(models.Model):
