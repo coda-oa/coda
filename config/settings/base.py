@@ -79,6 +79,8 @@ THIRD_PARTY_APPS: list[str] = []
 
 LOCAL_APPS = [
     "coda.apps.users",
+    "coda.apps.authors",
+    "coda.apps.institutions",
     "coda.apps.journals",
     "coda.apps.publishers",
     "coda.apps.publications",
