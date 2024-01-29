@@ -5,8 +5,12 @@ from coda.apps.institutions.models import Institution
 
 class Author(models.Model):
     affiliation = models.ForeignKey(
-        Institution, on_delete=models.SET_NULL, related_name="authors", null=True
+        Institution,
+        on_delete=models.SET_NULL,
+        related_name="affiliated_authors",
+        null=True,
     )
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class Person(models.Model):
