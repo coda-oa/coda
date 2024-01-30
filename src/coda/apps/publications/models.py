@@ -1,4 +1,5 @@
 from django.db import models
+from coda.apps.authors.models import Author
 
 from coda.apps.journals.models import Journal
 
@@ -19,6 +20,10 @@ class Publication(models.Model):
 
     title = models.CharField(max_length=255)
     journal = models.ForeignKey(Journal, on_delete=models.CASCADE, related_name="publications")
+    submitting_author = models.OneToOneField(
+        Author, on_delete=models.CASCADE, related_name="submitted_publication", null=True
+    )
+
     publication_state = models.CharField(max_length=255, choices=STATES, default="submitted")
     publication_date = models.DateField(null=True)
 
