@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+    <form action="{% url authors:create %}" method="post">
+        {% csrf_token %}
+        <p>
+            <input type="text" name="name" id="name">
+        </p>
+        <p>
+            <input type="email" name="email" id="email">
+        </p>
+        <p>
+            <input type="text" name="orcid" id="orcid">
+        </p>
+        <input type="submit" value="Create">
+    </form>
+{% endblock content %}
