@@ -6,6 +6,8 @@ def parse(orcid: str | None) -> str:
         raise ValueError("ORCID is required")
 
     orcid = orcid.strip()
+    orcid = strip_url_components(orcid)
+
     split = orcid.split("-")
     if len(split) != 4 or not all(len(block) == 4 for block in split):
         raise ValueError("ORCID must consist of four blocks separated by hyphens")
@@ -14,6 +16,17 @@ def parse(orcid: str | None) -> str:
         raise ValueError("ORCID has an invalid checksum")
 
     return orcid
+
+
+def strip_url_components(orcid: str) -> str:
+    return (
+        orcid.removeprefix("https://")
+        .removeprefix("http://")
+        .removeprefix("www.")
+        .removeprefix("sandbox.")
+        .removeprefix("orcid.org/")
+        .removesuffix("/")
+    )
 
 
 def checksum(orcid: str) -> str:

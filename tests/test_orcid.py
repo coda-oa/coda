@@ -64,3 +64,21 @@ def test__orcids_with_an_invalid_checksum__are_invalid() -> None:
 
 def test__orcids_with_leading_or_trailing_whitespace__get_trimmed() -> None:
     assert orcid.parse(f" {JOSIAH_CARBERRY} ") == JOSIAH_CARBERRY
+
+
+@pytest.mark.parametrize(
+    "orcid_address",
+    [
+        f"https://orcid.org/{JOSIAH_CARBERRY}/",
+        f"http://orcid.org/{JOSIAH_CARBERRY}/",
+        f"orcid.org/{JOSIAH_CARBERRY}",
+        f"https://sandbox.orcid.org/{JOSIAH_CARBERRY}/",
+        f"http://sandbox.orcid.org/{JOSIAH_CARBERRY}/",
+        f"sandbox.orcid.org/{JOSIAH_CARBERRY}",
+        f"https://www.orcid.org/{JOSIAH_CARBERRY}/",
+        f"http://www.orcid.org/{JOSIAH_CARBERRY}/",
+        f"www.orcid.org/{JOSIAH_CARBERRY}",
+    ],
+)
+def test__orcids_with_orcid_address__get_stripped(orcid_address: str) -> None:
+    assert orcid.parse(orcid_address) == JOSIAH_CARBERRY

@@ -32,9 +32,7 @@ dev = [
     "pytest-clarity>=1.0.1",
     "commitizen>=3.13.0",
 ]
-django-commands = [
-    "polars>=0.20.5",
-]
+django-commands = ["polars>=0.20.5"]
 
 [tool.pdm.scripts]
 unittests = "pytest -m 'not integration' -vv"
@@ -69,6 +67,7 @@ strict_settings = false
 django_settings_module = "config.settings.production"
 
 [tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
 markers = ["integration: mark test as integration test"]
 
 [tool.ruff]
