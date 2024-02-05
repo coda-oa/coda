@@ -1,3 +1,4 @@
+from django.test import Client
 import pytest
 from django.core.exceptions import ValidationError
 
@@ -24,7 +25,7 @@ def test__cannot_create_author_from_person_with_invalid_orcid() -> None:
     person = Person(name="John Doe", email="john.doe@example.com", orcid="invalid")
 
     with pytest.raises(ValidationError):
-        sut = Author(details=person)
+        sut = Author(details=person, affiliation=None)
         sut.full_clean()
 
 
@@ -58,3 +59,15 @@ def test__orcids_must_be_unique() -> None:
         )
         person2.full_clean()
         person2.save()
+
+
+@pytest.mark.django_db
+def test__author_with_invalid_orcid__will_not_be_saved_to_db(client: Client) -> None:
+    with pytest.raises(ValidationError):
+        client.post(
+            "/authors/create/",
+            {"name": "John Doe", "email": "j.doe@example.com", "orcid": "invalid"},
+        )
+
+    assert Person.objects.count() == 0
+    assert Author.objects.count() == 0

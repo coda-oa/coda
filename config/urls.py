@@ -16,6 +16,7 @@ urlpatterns = [
     path("users/", include("coda.apps.users.urls", namespace="users")),
     path("journals/", include("coda.apps.journals.urls", namespace="journals")),
     path("publishers/", include("coda.apps.publishers.urls", namespace="publishers")),
+    path("authors/", include("coda.apps.authors.urls", namespace="authors")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

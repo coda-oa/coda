@@ -25,6 +25,7 @@ class Author(models.Model):
         on_delete=models.SET_NULL,
         related_name="affiliated_authors",
         null=True,
+        blank=True,
     )
     details = models.ForeignKey(
         Person,

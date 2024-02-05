@@ -1,16 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-    <form action="{% url authors:create %}" method="post">
+    {% if messages %}
+        <ul>
+            {% for message in messages %}<li>{{ message }}</li>{% endfor %}
+        </ul>
+    {% endif %}
+    <h1>Create Author</h1>
+    <form action="{% url "authors:create" %}" method="post">
         {% csrf_token %}
-        <p>
-            <input type="text" name="name" id="name">
-        </p>
-        <p>
-            <input type="email" name="email" id="email">
-        </p>
-        <p>
-            <input type="text" name="orcid" id="orcid">
-        </p>
+        {{ person_form.as_p }}
         <input type="submit" value="Create">
     </form>
 {% endblock content %}
