@@ -38,3 +38,23 @@ def test__person_with_orcid_url__is_saved_with_pure_orcid() -> None:
     sut.full_clean()
 
     assert sut.orcid == test_orcid.JOSIAH_CARBERRY
+
+
+@pytest.mark.django_db
+def test__orcids_must_be_unique() -> None:
+    person1 = Person(
+        name="Josiah Carberry",
+        email="j.carberry@example.com",
+        orcid=f"https://orcid.org/{test_orcid.JOSIAH_CARBERRY}",
+    )
+    person1.full_clean()
+    person1.save()
+
+    with pytest.raises(ValidationError):
+        person2 = Person(
+            name="Fake Josiah Carberry",
+            email="j.carberry@fake.com",
+            orcid=f"https://orcid.org/{test_orcid.JOSIAH_CARBERRY}",
+        )
+        person2.full_clean()
+        person2.save()

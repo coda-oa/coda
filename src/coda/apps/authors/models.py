@@ -10,7 +10,7 @@ orcid_validator = as_validator(orcid.parse)
 class Person(models.Model):
     name = models.CharField(max_length=255)
     email = models.EmailField(null=True)
-    orcid = models.CharField(max_length=255, null=True)
+    orcid = models.CharField(max_length=255, null=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
