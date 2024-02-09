@@ -9,6 +9,14 @@
     <form action="{% url "authors:create" %}" method="post">
         {% csrf_token %}
         {{ person_form.as_p }}
+        <p>
+            <select name="affiliation" id="affiliation">
+                <option>---------</option>
+                {% for institution in institution_list %}
+                    <option value="{{ institution.pk }}">{{ institution.name }}</option>
+                {% endfor %}
+            </select>
+        </p>
         <input type="submit" value="Create">
     </form>
 {% endblock content %}

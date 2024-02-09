@@ -1,8 +1,7 @@
 from django import forms
-from coda.apps.authors.models import Person
 
 
-class PersonForm(forms.ModelForm[Person]):
-    class Meta:
-        model = Person
-        fields = "__all__"
+class PersonForm(forms.Form):
+    name = forms.CharField()
+    email = forms.EmailField()
+    orcid = forms.CharField()

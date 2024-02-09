@@ -34,3 +34,15 @@ class Author(models.Model):
         null=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @classmethod
+    def create(
+        cls, name: str, email: str, orcid: str, affiliation_pk: int | None = None
+    ) -> "Author":
+        p = Person.objects.filter(name=name, email=email, orcid=orcid).first()
+        if p is None:
+            p = Person.objects.create(name=name, email=email, orcid=orcid)
+            p.full_clean()
+
+        affiliation = Institution.objects.get(pk=affiliation_pk) if affiliation_pk else None
+        return cls.objects.create(details=p, affiliation=affiliation)

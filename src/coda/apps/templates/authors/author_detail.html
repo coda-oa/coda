@@ -3,4 +3,5 @@
     <p>{{ author.details.name }}</p>
     <p>{{ author.details.email }}</p>
     <p>{{ author.details.orcid }}</p>
+    {% if author.affiliation %}<p>{{ author.affiliation.name }}</p>{% endif %}
 {% endblock content %}
