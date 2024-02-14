@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Funding Requests</h1>
+    {% for fr in funding_requests %}
+        <div>
+            <a href="{{ fr.get_absolute_url }}">{{ fr.publication.title }}</a>
+        </div>
+    {% endfor %}
+{% endblock content %}

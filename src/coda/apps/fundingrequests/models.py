@@ -1,10 +1,11 @@
 import datetime
 import uuid
 
+from django.core.validators import RegexValidator
 from django.db import models
+from django.urls import reverse
 
 from coda.apps.publications.models import Publication
-from django.core.validators import RegexValidator
 
 
 class Label(models.Model):
@@ -37,3 +38,6 @@ class FundingRequest(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def get_absolute_url(self) -> str:
+        return reverse("fundingrequests:detail", kwargs={"pk": self.pk})

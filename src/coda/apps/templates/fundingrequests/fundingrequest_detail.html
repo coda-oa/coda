@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Funding Request</h1>
+    <div>
+        <h2>{{ funding_request.request_id }}</h2>
+        <h3>Publication Details</h3>
+        <p>Title: {{ funding_request.publication.title }}</p>
+        <p>{{ funding_request.publication.journal.title }}</p>
+        {% if funding_request.publication.author %}
+            <p>{{ funding_request.publication.author.details.name }}</p>
+            {% if funding_request.publication.author.affiliation %}
+                <p>{{ funding_request.publication.author.affiliation.name }}</p>
+            {% endif %}
+        {% endif %}
+        <p>Estimated cost: {{ funding_request.estimated_cost }} {{ funding_request.estimated_cost_currency }}</p>
+    </div>
+{% endblock content %}
