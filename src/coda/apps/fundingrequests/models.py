@@ -34,3 +34,6 @@ class FundingRequest(models.Model):
     estimated_cost_currency = models.CharField(max_length=3)
     processing_status = models.CharField(max_length=20, choices=PROCESSING_CHOICES)
     labels = models.ManyToManyField(Label, related_name="requests")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
