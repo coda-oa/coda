@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>New Funding Request</h1>
+    <form class="card"
+          action="{% url "fundingrequests:create" %}"
+          method="post">
+        {% csrf_token %}
+        <h2>Author Details</h2>
+        {{ author_form.as_p }}
+        <h2>Publication Details</h2>
+        {{ publication_form.as_p }}
+        <label for="links">Links:</label>
+        <fieldset id="links" role="group">
+            {{ link_form }}
+        </fieldset>
+        <h2>Funding Request Details</h2>
+        <label for="estimated_cost">Estimated Cost:</label>
+        <fieldset role="group">
+            {{ fundingrequest_form }}
+        </fieldset>
+        <button type="submit">Submit</button>
+    </form>
+{% endblock content %}
