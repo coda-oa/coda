@@ -3,22 +3,10 @@
     <h1>New Funding Request</h1>
     <form action="{% url "fundingrequests:create" %}" method="post">
         {% csrf_token %}
-        <h2>Applicant</h2>
-        {{ submitter_form.as_p }}
-        {{ submitter_affiliation_form.as_p }}
-        <h2>Corresponding Author</h2>
-        {{ author_form.as_p }}
-        {{ author_affiliation_form.as_p }}
-        <h2>Publication Details</h2>
-        {{ publication_form.as_p }}
-        <label for="links">Links:</label>
-        <fieldset id="links" role="group">
-            {{ link_form }}
-        </fieldset>
-        <h2>Funding Request Details</h2>
-        <label for="estimated_cost">Estimated Cost:</label>
-        <fieldset role="group">
-            {{ fundingrequest_form }}
+        <fieldset>
+            <h2>Applicant</h2>
+            {{ submitter_form.as_p }}
+            {{ affiliation_form.as_p }}
         </fieldset>
         <button type="submit">Submit</button>
     </form>

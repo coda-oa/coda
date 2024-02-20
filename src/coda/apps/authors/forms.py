@@ -10,4 +10,6 @@ class PersonForm(forms.Form):
 
 
 class InstitutionForm(forms.Form):
-    name = forms.ChoiceField(choices=[(i.pk, i.name) for i in Institution.objects.all()])
+    name = forms.ChoiceField(
+        choices=[(i.pk, i.name) for i in Institution.objects.all()], label="Affiliation"
+    )
