@@ -1,0 +1,16 @@
+[
+    {
+        "model": "publications.LinkType",
+        "pk": 1,
+        "fields": {
+            "name": "DOI"
+        }
+    },
+    {
+        "model": "publications.LinkType",
+        "pk": 2,
+        "fields": {
+            "name": "Publication URL"
+        }
+    }
+]
