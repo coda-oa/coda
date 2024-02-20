@@ -13,5 +13,8 @@
             {% endif %}
         {% endif %}
         <p>Estimated cost: {{ funding_request.estimated_cost }} {{ funding_request.estimated_cost_currency }}</p>
+        <p>
+            <b>Status: {{ funding_request.get_processing_status_display }}</b>
+        </p>
     </div>
 {% endblock content %}

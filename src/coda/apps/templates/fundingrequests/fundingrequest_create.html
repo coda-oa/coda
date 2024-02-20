@@ -1,12 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
     <h1>New Funding Request</h1>
-    <form class="card"
-          action="{% url "fundingrequests:create" %}"
-          method="post">
+    <form action="{% url "fundingrequests:create" %}" method="post">
         {% csrf_token %}
-        <h2>Author Details</h2>
+        <h2>Applicant</h2>
+        {{ submitter_form.as_p }}
+        {{ submitter_affiliation_form.as_p }}
+        <h2>Corresponding Author</h2>
         {{ author_form.as_p }}
+        {{ author_affiliation_form.as_p }}
         <h2>Publication Details</h2>
         {{ publication_form.as_p }}
         <label for="links">Links:</label>

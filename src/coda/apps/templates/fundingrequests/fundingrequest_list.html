@@ -1,9 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
     <h1>Funding Requests</h1>
-    {% for fr in funding_requests %}
-        <div>
-            <a href="{{ fr.get_absolute_url }}">{{ fr.publication.title }}</a>
-        </div>
-    {% endfor %}
+    <ul>
+        {% for fr in funding_requests %}
+            <li>
+                <p>
+                    <a href="{{ fr.get_absolute_url }}">{{ fr.publication.title }}</a>
+                </p>
+                <p>
+                    Journal: <a href="{{ fr.publication.journal.get_absolute_url }}">{{ fr.publication.journal.title }}</a>
+                </p>
+                <p>Status: {{ fr.get_processing_status_display }}</p>
+            </li>
+        {% endfor %}
+    </ul>
+    {% include "partials/pagination_nav.html" %}
 {% endblock content %}
