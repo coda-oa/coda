@@ -4,6 +4,7 @@ import uuid
 from django.core.validators import RegexValidator
 from django.db import models
 from django.urls import reverse
+from coda.apps.authors.models import Author
 
 from coda.apps.publications.models import Publication
 
@@ -30,6 +31,9 @@ class FundingRequest(models.Model):
     ]
 
     request_id = models.CharField(max_length=23, unique=True, default=create_request_id())
+    submitter = models.ForeignKey(
+        Author, on_delete=models.CASCADE, related_name="funding_requests", null=True, blank=True
+    )
     publication = models.ForeignKey(Publication, on_delete=models.CASCADE)
     estimated_cost = models.DecimalField(max_digits=10, decimal_places=2)
     estimated_cost_currency = models.CharField(max_length=3)
