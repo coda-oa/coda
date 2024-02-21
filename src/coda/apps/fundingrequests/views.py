@@ -1,14 +1,12 @@
-import logging
 from typing import Any
-from django.http import HttpRequest, HttpResponse
 
-from django.views.generic import DetailView, ListView, TemplateView
+from django.urls import reverse
+from django.http import HttpResponse
+from django.views.generic import DetailView, ListView, FormView
 
-from coda.apps.authors.forms import InstitutionForm, PersonForm
+from coda.apps.authors.forms import AuthorForm
 from coda.apps.fundingrequests.models import FundingRequest
-
-
-logger = logging.getLogger(__name__)
+from coda.apps.publications.forms import PublicationForm
 
 
 class FundingRequestDetailView(DetailView[FundingRequest]):
@@ -24,25 +22,21 @@ class FundingRequestListView(ListView[FundingRequest]):
     paginate_by = 10
 
 
-class FundingRequestCreationWizard(TemplateView):
+class FundingRequestSubmitterStep(FormView[AuthorForm]):
     template_name = "fundingrequests/fundingrequest_create.html"
-    submitter_prefix = "submitter"
-    affiliation_prefix = "affiliation"
+    form_class = AuthorForm
 
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        ctx = super().get_context_data(**kwargs)
-        ctx["submitter_form"] = PersonForm(prefix=self.submitter_prefix)
-        ctx["affiliation_form"] = InstitutionForm(prefix=self.affiliation_prefix)
-        return ctx
+    def get_success_url(self) -> str:
+        return reverse("fundingrequests:create_publication")
 
-    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        submitter_form = PersonForm(request.POST, prefix=self.submitter_prefix)
-        affiliation_form = InstitutionForm(request.POST, prefix=self.affiliation_prefix)
-        if submitter_form.is_valid():
-            submitter_data = submitter_form.cleaned_data
-            affiliation_form.full_clean()
-            submitter_data[self.affiliation_prefix] = affiliation_form.cleaned_data
+    def form_valid(self, form: AuthorForm) -> HttpResponse:
+        self.request.session["submitter"] = form.to_dto()
+        return super().form_valid(form)
 
-            request.session[self.submitter_prefix] = submitter_data
 
-        return HttpResponse("POST request")
+class FundingRequestPublicationStep(FormView[PublicationForm]):
+    template_name = "fundingrequests/fundingrequest_publication.html"
+    form_class = PublicationForm
+
+    def get_success_url(self, **kwargs: Any) -> str:
+        return reverse("fundingrequests:create_funding")

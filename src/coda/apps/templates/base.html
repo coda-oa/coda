@@ -8,6 +8,11 @@
               href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
     </head>
     <body class="container">
+        {% if messages %}
+            <ul>
+                {% for message in messages %}<li>{{ message }}</li>{% endfor %}
+            </ul>
+        {% endif %}
         {% block content %}
         {% endblock content %}
     </body>

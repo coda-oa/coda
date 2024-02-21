@@ -18,3 +18,6 @@ class Journal(models.Model):
 
     def get_absolute_url(self) -> str:
         return reverse("journals:detail", kwargs={"eissn": self.eissn})
+
+    def __str__(self) -> str:
+        return f"{self.title} | {self.publisher.name}"

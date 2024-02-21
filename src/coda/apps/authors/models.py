@@ -1,3 +1,5 @@
+from typing import TypedDict
+
 from django.db import models
 
 from coda import orcid
@@ -5,6 +7,13 @@ from coda.apps.institutions.models import Institution
 from coda.validation import as_validator
 
 orcid_validator = as_validator(orcid.parse)
+
+
+class AuthorDto(TypedDict):
+    name: str
+    email: str
+    orcid: str | None
+    affiliation: int | None
 
 
 class Person(models.Model):
@@ -16,7 +25,8 @@ class Person(models.Model):
 
     def clean(self) -> None:
         super().clean()
-        self.orcid = orcid_validator(self.orcid) if self.orcid else None
+        if self.orcid:
+            self.orcid = orcid_validator(self.orcid)
 
 
 class Author(models.Model):
@@ -36,13 +46,16 @@ class Author(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     @classmethod
-    def create(
-        cls, name: str, email: str, orcid: str, affiliation_pk: int | None = None
-    ) -> "Author":
-        p = Person.objects.filter(name=name, email=email, orcid=orcid).first()
+    def create_from_dto(cls, dto: AuthorDto) -> "Author":
+        p = Person.objects.filter(name=dto["name"], email=dto["email"], orcid=dto["orcid"]).first()
         if p is None:
-            p = Person.objects.create(name=name, email=email, orcid=orcid)
+            p = Person.objects.create(name=dto["name"], email=dto["email"], orcid=dto["orcid"])
             p.full_clean()
 
-        affiliation = Institution.objects.get(pk=affiliation_pk) if affiliation_pk else None
+        affiliation_pk = dto.get("affiliation")
+        if affiliation_pk:
+            affiliation = Institution.objects.get(pk=affiliation_pk)
+        else:
+            affiliation = None
+
         return cls.objects.create(details=p, affiliation=affiliation)

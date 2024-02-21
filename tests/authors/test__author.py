@@ -71,11 +71,17 @@ def test__orcids_must_be_unique() -> None:
 
 @pytest.mark.django_db
 def test__author_with_invalid_orcid__will_not_be_saved_to_db(client: Client) -> None:
-    with pytest.raises(ValidationError):
-        client.post(
-            "/authors/create/",
-            {"name": "John Doe", "email": "j.doe@example.com", "orcid": "invalid"},
-        )
+    institution = Institution.objects.create(name="The Institution")
+
+    client.post(
+        "/authors/create/",
+        {
+            "name": "John Doe",
+            "email": "j.doe@example.com",
+            "orcid": "invalid",
+            "affiliation": institution.pk,
+        },
+    )
 
     assert Person.objects.count() == 0
     assert Author.objects.count() == 0

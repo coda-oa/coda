@@ -1,13 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
     <h1>New Funding Request</h1>
+    <h2>Applicant</h2>
     <form action="{% url "fundingrequests:create" %}" method="post">
         {% csrf_token %}
-        <fieldset>
-            <h2>Applicant</h2>
-            {{ submitter_form.as_p }}
-            {{ affiliation_form.as_p }}
-        </fieldset>
+        {{ form.as_p }}
         <button type="submit">Submit</button>
     </form>
 {% endblock content %}
