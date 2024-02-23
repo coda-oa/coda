@@ -1,4 +1,3 @@
-import datetime
 from typing import Any
 
 from django.http import HttpResponse
@@ -7,13 +6,11 @@ from django.views.generic import DetailView, FormView, ListView
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorForm
-from coda.apps.authors.models import Author
+from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.forms import FundingForm
 from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.forms import PublicationForm
-from coda.apps.publications.models import Publication
 
 
 class FundingRequestDetailView(DetailView[FundingRequest]):
@@ -61,22 +58,7 @@ class FundingRequestFundingStep(FormView[FundingForm]):
         funding = form.to_dto()
         author_dto: AuthorDto = self.request.session["submitter"]
         publication_dto: PublicationDto = self.request.session["publication"]
-        author = Author.create_from_dto(author_dto)
-        journal = Journal.objects.get(pk=publication_dto["journal"])
-        publication = Publication.objects.create(
-            title=publication_dto["title"],
-            publication_state=publication_dto["publication_state"],
-            publication_date=datetime.date.fromisoformat(publication_dto["publication_date"]),
-            submitting_author=author,
-            journal=journal,
-        )
-
-        self.funding_request = FundingRequest.objects.create(
-            submitter=author,
-            publication=publication,
-            estimated_cost=funding["estimated_cost"],
-            estimated_cost_currency=funding["estimated_cost_currency"],
-        )
+        self.funding_request = services.create(author_dto, publication_dto, funding)
         return super().form_valid(form)
 
     def get_success_url(self, **kwargs: Any) -> str:
