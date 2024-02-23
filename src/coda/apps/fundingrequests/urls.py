@@ -13,4 +13,9 @@ urlpatterns = [
         views.FundingRequestPublicationStep.as_view(),
         name="create_publication",
     ),
+    path(
+        "create/funding/",
+        views.FundingRequestFundingStep.as_view(),
+        name="create_funding",
+    ),
 ]

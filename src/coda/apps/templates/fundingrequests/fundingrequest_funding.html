@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+    <form action="{% url "fundingrequests:create_funding" %}" method="post">
+        {% csrf_token %}
+        <label for="id_estimated_cost">Estimated Publication Cost</label>
+        <fieldset role="group">
+            {{ form }}
+        </fieldset>
+        <button type="submit">Save</button>
+    </form>
+{% endblock content %}

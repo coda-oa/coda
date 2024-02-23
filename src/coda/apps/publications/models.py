@@ -1,7 +1,15 @@
+from typing import TypedDict
 from django.db import models
 from coda.apps.authors.models import Author
 
 from coda.apps.journals.models import Journal
+
+
+class PublicationDto(TypedDict):
+    title: str
+    journal: int
+    publication_state: str
+    publication_date: str
 
 
 class Publication(models.Model):

@@ -1,7 +1,7 @@
 from django import forms
 from coda.apps.journals.models import Journal
 
-from coda.apps.publications.models import LinkType, Publication
+from coda.apps.publications.models import LinkType, Publication, PublicationDto
 
 
 class PublicationForm(forms.Form):
@@ -11,6 +11,14 @@ class PublicationForm(forms.Form):
     )
     publication_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
     journal = forms.ModelChoiceField(queryset=Journal.objects.all())
+
+    def to_dto(self) -> PublicationDto:
+        return PublicationDto(
+            title=self.cleaned_data["title"],
+            journal=self.cleaned_data["journal"].pk,
+            publication_state=self.cleaned_data["publication_state"],
+            publication_date=str(self.cleaned_data["publication_date"]),
+        )
 
 
 class LinkForm(forms.Form):

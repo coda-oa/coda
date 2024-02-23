@@ -1,12 +1,18 @@
 import datetime
 import uuid
+from typing import TypedDict
 
 from django.core.validators import RegexValidator
 from django.db import models
 from django.urls import reverse
-from coda.apps.authors.models import Author
 
+from coda.apps.authors.models import Author
 from coda.apps.publications.models import Publication
+
+
+class FundingDto(TypedDict):
+    estimated_cost: float
+    estimated_cost_currency: str
 
 
 class Label(models.Model):
@@ -37,7 +43,9 @@ class FundingRequest(models.Model):
     publication = models.ForeignKey(Publication, on_delete=models.CASCADE)
     estimated_cost = models.DecimalField(max_digits=10, decimal_places=2)
     estimated_cost_currency = models.CharField(max_length=3)
-    processing_status = models.CharField(max_length=20, choices=PROCESSING_CHOICES)
+    processing_status = models.CharField(
+        max_length=20, choices=PROCESSING_CHOICES, default="in_progress"
+    )
     labels = models.ManyToManyField(Label, related_name="requests")
 
     created_at = models.DateTimeField(auto_now_add=True)

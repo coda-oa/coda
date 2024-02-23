@@ -12,12 +12,14 @@ def publisher() -> Publisher:
     return Publisher.objects.create(name="Test Publisher")
 
 
+def journal() -> Journal:
+    return Journal.objects.create(title="Test Journal", eissn="1234-5678", publisher=publisher())
+
+
 def publication() -> Publication:
     return Publication.objects.create(
         title="Test Publication",
-        journal=Journal.objects.create(
-            title="Test Journal", eissn="1234-5678", publisher=publisher()
-        ),
+        journal=journal(),
     )
 
 
