@@ -1,14 +1,17 @@
 from typing import cast
+
 import pytest
 from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
-from coda.apps.authors.models import AuthorDto, Person
-from coda.apps.fundingrequests.models import FundingDto, FundingRequest
+from coda.apps.authors.dto import AuthorDto
+from coda.apps.authors.models import Person
+from coda.apps.fundingrequests.dto import FundingDto
+from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.institutions.models import Institution
 from coda.apps.journals.models import Journal
-from coda.apps.publications.models import PublicationDto
+from coda.apps.publications.dto import PublicationDto
 from tests import test_orcid
 from tests.fundingrequests.test_fundingrequest_id import journal
 

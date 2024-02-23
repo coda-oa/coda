@@ -1,19 +1,11 @@
-from typing import TypedDict
-
 from django.db import models
 
 from coda import orcid
+from coda.apps.authors.dto import AuthorDto
 from coda.apps.institutions.models import Institution
 from coda.validation import as_validator
 
 orcid_validator = as_validator(orcid.parse)
-
-
-class AuthorDto(TypedDict):
-    name: str
-    email: str
-    orcid: str | None
-    affiliation: int | None
 
 
 class Person(models.Model):

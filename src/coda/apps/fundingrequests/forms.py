@@ -1,6 +1,6 @@
 from django import forms
-from coda.apps.fundingrequests.models import FundingDto
 
+from coda.apps.fundingrequests.dto import FundingDto
 from coda.money import Currency
 
 
@@ -11,7 +11,7 @@ class FundingForm(forms.Form):
     )
 
     def to_dto(self) -> FundingDto:
-        return {
-            "estimated_cost": self.cleaned_data["estimated_cost"],
-            "estimated_cost_currency": self.cleaned_data["estimated_cost_currency"],
-        }
+        return FundingDto(
+            estimated_cost=self.cleaned_data["estimated_cost"],
+            estimated_cost_currency=self.cleaned_data["estimated_cost_currency"],
+        )

@@ -1,6 +1,5 @@
 import datetime
 import uuid
-from typing import TypedDict
 
 from django.core.validators import RegexValidator
 from django.db import models
@@ -8,11 +7,6 @@ from django.urls import reverse
 
 from coda.apps.authors.models import Author
 from coda.apps.publications.models import Publication
-
-
-class FundingDto(TypedDict):
-    estimated_cost: float
-    estimated_cost_currency: str
 
 
 class Label(models.Model):

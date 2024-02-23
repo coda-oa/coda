@@ -1,17 +1,19 @@
 import datetime
 from typing import Any
 
-from django.urls import reverse
 from django.http import HttpResponse
-from django.views.generic import DetailView, ListView, FormView
+from django.urls import reverse
+from django.views.generic import DetailView, FormView, ListView
 
+from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorForm
-from coda.apps.authors.models import Author, AuthorDto
+from coda.apps.authors.models import Author
 from coda.apps.fundingrequests.forms import FundingForm
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.journals.models import Journal
+from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.forms import PublicationForm
-from coda.apps.publications.models import Publication, PublicationDto
+from coda.apps.publications.models import Publication
 
 
 class FundingRequestDetailView(DetailView[FundingRequest]):

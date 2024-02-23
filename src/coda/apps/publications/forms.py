@@ -1,7 +1,8 @@
 from django import forms
-from coda.apps.journals.models import Journal
 
-from coda.apps.publications.models import LinkType, Publication, PublicationDto
+from coda.apps.journals.models import Journal
+from coda.apps.publications.dto import PublicationDto
+from coda.apps.publications.models import LinkType, Publication
 
 
 class PublicationForm(forms.Form):

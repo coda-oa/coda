@@ -1,8 +1,10 @@
-from typing import Any
 from collections.abc import Mapping
-from django import forms
-from coda.apps.authors.models import AuthorDto, orcid_validator
+from typing import Any
 
+from django import forms
+
+from coda.apps.authors.dto import AuthorDto
+from coda.apps.authors.models import orcid_validator
 from coda.apps.institutions.models import Institution
 
 
