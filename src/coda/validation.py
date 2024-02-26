@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 T = TypeVar("T")
 
 
-def as_validator(func: Callable[[T], T]) -> Callable[[T], T]:
+def as_validator(func: Callable[..., T]) -> Callable[..., T]:
     """
     Decorator that converts errors raised by the given function into a ValidationError.
     """

@@ -4,7 +4,7 @@ from typing import Any
 from django import forms
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.models import orcid_validator
+from coda.apps.authors.services import orcid_validator
 from coda.apps.institutions.models import Institution
 
 

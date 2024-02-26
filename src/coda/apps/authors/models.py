@@ -1,10 +1,6 @@
 from django.db import models
 
-from coda import orcid
 from coda.apps.institutions.models import Institution
-from coda.validation import as_validator
-
-orcid_validator = as_validator(orcid.parse)
 
 
 class Person(models.Model):
@@ -13,11 +9,6 @@ class Person(models.Model):
     orcid = models.CharField(max_length=255, null=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def clean(self) -> None:
-        super().clean()
-        if self.orcid:
-            self.orcid = orcid_validator(self.orcid)
 
 
 class Author(models.Model):
