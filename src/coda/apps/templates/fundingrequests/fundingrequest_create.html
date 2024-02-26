@@ -5,6 +5,6 @@
     <form action="{% url "fundingrequests:create" %}" method="post">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit">Submit</button>
+        {% include "partials/wizard_nav.html" with step="first" %}
     </form>
 {% endblock content %}

@@ -1,0 +1,8 @@
+<div class="grid">
+    {% if step != "first" %}<button type="button" onclick="window.history.back()">Back</button>{% endif %}
+    {% if step == "last" %}
+        <button type="submit">Save</button>
+    {% else %}
+        <button type="submit">Next</button>
+    {% endif %}
+</div>

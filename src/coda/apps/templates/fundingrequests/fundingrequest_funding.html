@@ -6,6 +6,6 @@
         <fieldset role="group">
             {{ form }}
         </fieldset>
-        <button type="submit">Save</button>
+        {% include "partials/wizard_nav.html" with step="last" %}
     </form>
 {% endblock content %}
