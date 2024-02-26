@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.test import Client
 from coda.apps.authors.dto import AuthorDto
 
-from coda.apps.authors.models import Author, Person
+from coda.apps.authors.models import Author, PersonId
 from coda.apps.authors.services import author_create
 from coda.apps.institutions.models import Institution
 from tests import test_orcid
@@ -43,26 +43,20 @@ def test__author_with_orcid_url__is_saved_with_pure_orcid() -> None:
     author_create(josiah)
 
     author = cast(Author, Author.objects.first())
-    assert author.details is not None
-    assert author.details.orcid == josiah["orcid"]
+    assert author.identifier is not None
+    assert author.identifier.orcid == josiah["orcid"]
 
 
 @pytest.mark.django_db
 def test__orcids_must_be_unique() -> None:
-    person1 = Person(
-        name="Josiah Carberry",
-        email="j.carberry@example.com",
+    person1 = PersonId(
         orcid=f"https://orcid.org/{test_orcid.JOSIAH_CARBERRY}",
     )
     person1.full_clean()
     person1.save()
 
     with pytest.raises(ValidationError):
-        person2 = Person(
-            name="Fake Josiah Carberry",
-            email="j.carberry@fake.com",
-            orcid=f"https://orcid.org/{test_orcid.JOSIAH_CARBERRY}",
-        )
+        person2 = PersonId(orcid=f"https://orcid.org/{test_orcid.JOSIAH_CARBERRY}")
         person2.full_clean()
         person2.save()
 
@@ -81,7 +75,7 @@ def test__author_with_invalid_orcid__will_not_be_saved_to_db(client: Client) -> 
         },
     )
 
-    assert Person.objects.count() == 0
+    assert PersonId.objects.count() == 0
     assert Author.objects.count() == 0
 
 
@@ -93,7 +87,7 @@ def test__details_already_exist__reuses_existing_person(client: Client) -> None:
     form_data["affiliation"] = ""
     client.post("/authors/create/", form_data)
 
-    assert Person.objects.count() == 1
+    assert PersonId.objects.count() == 1
 
 
 @pytest.mark.django_db

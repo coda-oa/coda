@@ -34,9 +34,9 @@ def assert_publication_equal(
 
 def assert_author_equal(author: AuthorDto, funding_request: FundingRequest) -> None:
     assert funding_request.submitter is not None
+    assert funding_request.submitter.name == author["name"]
+    assert funding_request.submitter.email == author["email"]
 
-    details = funding_request.submitter.details
-    assert details is not None
-    assert details.name == author["name"]
-    assert details.email == author["email"]
-    assert details.orcid == author["orcid"]
+    identifier = funding_request.submitter.identifier
+    assert identifier is not None
+    assert identifier.orcid == author["orcid"]

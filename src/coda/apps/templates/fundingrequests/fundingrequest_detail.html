@@ -7,7 +7,7 @@
         <p>Title: {{ funding_request.publication.title }}</p>
         <p>{{ funding_request.publication.journal.title }}</p>
         {% if funding_request.publication.author %}
-            <p>{{ funding_request.publication.author.details.name }}</p>
+            <p>{{ funding_request.publication.author.name }}</p>
             {% if funding_request.publication.author.affiliation %}
                 <p>{{ funding_request.publication.author.affiliation.name }}</p>
             {% endif %}
