@@ -1,24 +1,17 @@
-import datetime
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.models import Author
+from coda.apps.authors.services import author_create
+from coda.apps.fundingrequests import repository as fundinqrequest_repository
 from coda.apps.fundingrequests.dto import FundingDto
 from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.journals.models import Journal
+from coda.apps.journals import repository as journal_repository
+from coda.apps.publications import repository as publication_repository
 from coda.apps.publications.dto import PublicationDto
-from coda.apps.publications.models import Publication
 
 
-def create(
+def fundingrequest_create(
     author: AuthorDto, publication: PublicationDto, journal_id: int, funding: FundingDto
 ) -> FundingRequest:
-    _author = Author.create_from_dto(author)
-    _journal = Journal.objects.get(pk=journal_id)
-    _publication = Publication.objects.create(
-        title=publication["title"],
-        publication_state=publication["publication_state"],
-        publication_date=datetime.date.fromisoformat(publication["publication_date"]),
-        submitting_author=_author,
-        journal=_journal,
-    )
-
-    return FundingRequest.objects.create(submitter=_author, publication=_publication, **funding)
+    _author = author_create(author)
+    _journal = journal_repository.get_by_id(journal_id)
+    _publication = publication_repository.create(publication, _author, _journal)
+    return fundinqrequest_repository.create(_author, _publication, funding)

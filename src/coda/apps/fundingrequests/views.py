@@ -89,7 +89,9 @@ class FundingRequestFundingStep(FormView[FundingForm]):
         author_dto: AuthorDto = self.request.session["submitter"]
         publication_dto: PublicationDto = self.request.session["publication"]
         journal = self.request.session["journal"]
-        self.funding_request = services.create(author_dto, publication_dto, journal, funding)
+        self.funding_request = services.fundingrequest_create(
+            author_dto, publication_dto, journal, funding
+        )
         return super().form_valid(form)
 
     def get_success_url(self, **kwargs: Any) -> str:

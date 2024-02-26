@@ -12,6 +12,6 @@ def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data() 
     publication = factory.publication_dto()
     funding = factory.funding_dto()
 
-    services.create(author, publication, journal, funding)
+    services.fundingrequest_create(author, publication, journal, funding)
 
     assert_correct_funding_request(author, publication, journal, funding)

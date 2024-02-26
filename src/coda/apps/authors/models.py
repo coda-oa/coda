@@ -1,7 +1,6 @@
 from django.db import models
 
 from coda import orcid
-from coda.apps.authors.dto import AuthorDto
 from coda.apps.institutions.models import Institution
 from coda.validation import as_validator
 
@@ -36,18 +35,3 @@ class Author(models.Model):
         null=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
-
-    @classmethod
-    def create_from_dto(cls, dto: AuthorDto) -> "Author":
-        p = Person.objects.filter(name=dto["name"], email=dto["email"], orcid=dto["orcid"]).first()
-        if p is None:
-            p = Person.objects.create(name=dto["name"], email=dto["email"], orcid=dto["orcid"])
-            p.full_clean()
-
-        affiliation_pk = dto.get("affiliation")
-        if affiliation_pk:
-            affiliation = Institution.objects.get(pk=affiliation_pk)
-        else:
-            affiliation = None
-
-        return cls.objects.create(details=p, affiliation=affiliation)
