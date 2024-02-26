@@ -20,7 +20,7 @@ class Label(models.Model):
 class FundingRequest(models.Model):
     @staticmethod
     def create_request_id(id: str | None = None, date: datetime.date | None = None) -> str:
-        id = id or uuid.uuid4().hex[:6]
+        id = id or uuid.uuid4().hex[:8]
         d = date or datetime.date.today()
         return f"coda-{id}-{d.strftime('%Y-%m-%d')}"
 
@@ -30,7 +30,7 @@ class FundingRequest(models.Model):
         ("rejected", "Rejected"),
     ]
 
-    request_id = models.CharField(max_length=23, unique=True, default=create_request_id())
+    request_id = models.CharField(max_length=25, unique=True, default=create_request_id())
     submitter = models.ForeignKey(
         Author, on_delete=models.CASCADE, related_name="funding_requests", null=True, blank=True
     )

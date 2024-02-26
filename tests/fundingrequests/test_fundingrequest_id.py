@@ -16,5 +16,5 @@ def test__fundingrequest__has_valid_id_pattern() -> None:
     uuid_component = len(split_id[1])
     date_component = datetime.date(*map(int, split_id[2:]))
     assert split_id[0] == "coda"
-    assert uuid_component == 6
+    assert uuid_component == 8
     assert date_component == request.created_at.date()
