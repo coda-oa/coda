@@ -29,7 +29,7 @@ class FundingRequestListView(ListView[FundingRequest]):
 
 
 class FundingRequestSubmitterStep(FormView[AuthorForm]):
-    template_name = "fundingrequests/fundingrequest_create.html"
+    template_name = "fundingrequests/fundingrequest_submitter.html"
     form_class = AuthorForm
     next = "fundingrequests:create_journal"
 

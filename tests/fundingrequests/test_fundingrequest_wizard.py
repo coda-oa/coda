@@ -12,7 +12,7 @@ def test__fundingrequest_wizard__first_step__when_valid_data__redirects_to_next_
     client: Client,
 ) -> None:
     form_data = factory.valid_author_dto(factory.institution().pk)
-    response = client.post(reverse("fundingrequests:create"), form_data)
+    response = client.post(reverse("fundingrequests:create_submitter"), form_data)
 
     assertRedirects(response, reverse("fundingrequests:create_journal"))
 
@@ -60,7 +60,7 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
 
     funding = factory.funding_dto()
 
-    client.post(reverse("fundingrequests:create"), author)
+    client.post(reverse("fundingrequests:create_submitter"), author)
     client.post(reverse("fundingrequests:create_journal"), journal)
     client.post(reverse("fundingrequests:create_publication"), publication)
     response = client.post(reverse("fundingrequests:create_funding"), funding)

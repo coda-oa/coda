@@ -2,7 +2,7 @@
 {% block content %}
     <h1>New Funding Request</h1>
     <h2>Applicant</h2>
-    <form action="{% url "fundingrequests:create" %}" method="post">
+    <form action="{% url "fundingrequests:create_submitter" %}" method="post">
         {% csrf_token %}
         {{ form.as_p }}
         {% include "partials/wizard_nav.html" with step="first" %}
