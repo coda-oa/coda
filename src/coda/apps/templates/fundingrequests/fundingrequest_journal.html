@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Find Journal</h1>
+    <form action="{% url "fundingrequests:create_journal" %}" method="get">
+        <input type="search" name="journal_title" id="journal_title">
+        <button type="submit">Search</button>
+    </form>
+    {% if journals %}
+        <form action="{% url "fundingrequests:create_journal" %}" method="post">
+            {% csrf_token %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Publisher</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for journal in journals %}
+                        <tr>
+                            <td>{{ journal.title }}</td>
+                            <td>{{ journal.publisher.name }}</td>
+                            <td>
+                                <input type="hidden" name="journal" value="{{ journal.pk }}">
+                                <button type="submit">Select</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </form>
+    {% endif %}
+    <button type="button" onclick="window.history.back()">Back</button>
+{% endblock content %}

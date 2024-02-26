@@ -8,15 +8,17 @@ from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.models import Publication
 
 
-def create(author: AuthorDto, publication: PublicationDto, funding: FundingDto) -> FundingRequest:
+def create(
+    author: AuthorDto, publication: PublicationDto, journal_id: int, funding: FundingDto
+) -> FundingRequest:
     _author = Author.create_from_dto(author)
-    journal = Journal.objects.get(pk=publication["journal"])
+    _journal = Journal.objects.get(pk=journal_id)
     _publication = Publication.objects.create(
         title=publication["title"],
         publication_state=publication["publication_state"],
         publication_date=datetime.date.fromisoformat(publication["publication_date"]),
         submitting_author=_author,
-        journal=journal,
+        journal=_journal,
     )
 
     return FundingRequest.objects.create(submitter=_author, publication=_publication, **funding)

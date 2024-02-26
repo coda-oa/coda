@@ -36,10 +36,9 @@ def valid_author_dto(affiliation_pk: int) -> AuthorDto:
     )
 
 
-def publication_dto(journal_pk: int) -> PublicationDto:
+def publication_dto() -> PublicationDto:
     return PublicationDto(
         title="My Paper",
-        journal=journal_pk,
         publication_state="submitted",
         publication_date="2021-01-01",
     )
