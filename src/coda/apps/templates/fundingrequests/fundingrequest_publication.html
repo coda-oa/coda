@@ -3,7 +3,47 @@
     <h1>Publication Details</h1>
     <form action="{% url "fundingrequests:create_publication" %}" method="post">
         {% csrf_token %}
-        {{ form.as_p }}
+        {{ publication_form.as_p }}
+        <h2>Links</h2>
+        <table x-data="{rows: []}">
+            <thead>
+                <td>Link Type</td>
+                <td>Link</td>
+                <td>
+                    <button type="button" x-on:click="addRow($data)">Add</button>
+                </td>
+            </thead>
+            <tbody x-ref="linktable" x-on:rm-linkrow="removeRow($el, $event, $data)">
+                <template x-for="index in $data.rows" :key="index">
+                    <tr x-bind:id="`linkrow-${index}`">
+                        <td>
+                            <select name="linktype" x-bind:id="`linktype-${index}`">
+                                {% for t in link_types %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" name="linkvalue" x-bind:id="`linkvalue-${index}`">
+                        </td>
+                        <td>
+                            <button type="button" x-on:click="$dispatch('rm-linkrow', { index: index })">Delete</button>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
         {% include "partials/wizard_nav.html" %}
     </form>
+    <script defer>
+        function addRow(data) {
+            data.rows.push(( data.rows.at(-1) ?? 0 ) + 1)
+        }
+
+        function removeRow(element, event, data) {
+            element.querySelector(`#linkrow-${event.detail.index}`).remove();
+            const index = data.rows.indexOf(event.detail.index);
+            if (index > -1) {
+                data.rows.splice(index, 1);
+            }
+        }
+    </script>
 {% endblock content %}
