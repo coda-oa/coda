@@ -2,7 +2,7 @@ from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests.dto import FundingDto
 from coda.apps.institutions.models import Institution
 from coda.apps.journals.models import Journal
-from coda.apps.publications.dto import PublicationDto
+from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.models import Publication
 from coda.apps.publishers.models import Publisher
 from tests import test_orcid
@@ -36,11 +36,12 @@ def valid_author_dto(affiliation_pk: int) -> AuthorDto:
     )
 
 
-def publication_dto() -> PublicationDto:
+def publication_dto(links: list[LinkDto] | None = None) -> PublicationDto:
     return PublicationDto(
         title="My Paper",
         publication_state="submitted",
         publication_date="2021-01-01",
+        links=links or [],
     )
 
 

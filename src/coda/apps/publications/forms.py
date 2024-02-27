@@ -16,6 +16,7 @@ class PublicationForm(forms.Form):
             title=self.cleaned_data["title"],
             publication_state=self.cleaned_data["publication_state"],
             publication_date=str(self.cleaned_data["publication_date"]),
+            links=[],
         )
 
 

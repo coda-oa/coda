@@ -12,6 +12,26 @@
                 <p>{{ funding_request.publication.author.affiliation.name }}</p>
             {% endif %}
         {% endif %}
+        {% if funding_request.publication.links %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Link Type</th>
+                        <th>Link</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for link in funding_request.publication.links.all %}
+                        <tr>
+                            <td>{{ link.type }}</td>
+                            <td>
+                                <a href="{{ link.value }}">{{ link.value }}</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
         <p>Estimated cost: {{ funding_request.estimated_cost }} {{ funding_request.estimated_cost_currency }}</p>
         <p>
             <b>Status: {{ funding_request.get_processing_status_display }}</b>

@@ -13,6 +13,7 @@ from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.forms import PublicationForm
+from coda.apps.publications.models import LinkType
 
 
 class FundingRequestDetailView(DetailView[FundingRequest]):
@@ -68,16 +69,32 @@ class FundingRequestJournalStep(TemplateView):
         return redirect(self.get_success_url())
 
 
-class FundingRequestPublicationStep(FormView[PublicationForm]):
+class FundingRequestPublicationStep(TemplateView):
     template_name = "fundingrequests/fundingrequest_publication.html"
-    form_class = PublicationForm
 
     def get_success_url(self, **kwargs: Any) -> str:
         return reverse("fundingrequests:create_funding")
 
-    def form_valid(self, form: PublicationForm) -> HttpResponse:
-        self.request.session["publication"] = form.to_dto()
-        return super().form_valid(form)
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["publication_form"] = PublicationForm()
+        context["link_types"] = LinkType.objects.all()
+        return context
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        form = PublicationForm(self.request.POST)
+        if not form.is_valid():
+            return redirect(reverse("fundingrequests:create_publication"))
+
+        dto = form.to_dto()
+        dto["links"] = [
+            {"link_type_id": int(linktype), "value": linkvalue}
+            for linktype, linkvalue in zip(
+                request.POST.getlist("linktype"), request.POST.getlist("linkvalue"), strict=True
+            )
+        ]
+        self.request.session["publication"] = dto
+        return redirect(self.get_success_url())
 
 
 class FundingRequestFundingStep(FormView[FundingForm]):

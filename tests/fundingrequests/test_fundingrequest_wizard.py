@@ -2,6 +2,8 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
+from coda.apps.publications.dto import LinkDto
+from coda.apps.publications.models import LinkType
 
 from tests.fundingrequests import factory
 from tests.fundingrequests.assertions import assert_correct_funding_request
@@ -56,13 +58,25 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
     author = factory.valid_author_dto(factory.institution().pk)
     journal_pk = factory.journal().pk
     journal = {"journal": journal_pk}
-    publication = factory.publication_dto()
+    doi = LinkType.objects.create(name="DOI")
+    url = LinkType.objects.create(name="URL")
+
+    doi_link = LinkDto(link_type_id=int(doi.pk), value="10.1234/5678")
+    url_link = LinkDto(link_type_id=int(url.pk), value="https://example.com")
+    publication = factory.publication_dto(links=[doi_link, url_link])
+    link_form_data = {
+        "linktype": [doi_link["link_type_id"], url_link["link_type_id"]],
+        "linkvalue": [doi_link["value"], url_link["value"]],
+    }
+
+    publication_data = {**publication, **link_form_data}
+    print(publication_data)
 
     funding = factory.funding_dto()
 
     client.post(reverse("fundingrequests:create_submitter"), author)
     client.post(reverse("fundingrequests:create_journal"), journal)
-    client.post(reverse("fundingrequests:create_publication"), publication)
+    client.post(reverse("fundingrequests:create_publication"), publication_data)
     response = client.post(reverse("fundingrequests:create_funding"), funding)
 
     funding_request = assert_correct_funding_request(author, publication, journal_pk, funding)

@@ -30,6 +30,13 @@ def assert_publication_equal(
 ) -> None:
     assert funding_request.publication.title == publication["title"]
     assert funding_request.publication.journal.pk == journal
+    assert len(funding_request.publication.links.all()) == len(publication["links"])
+    assert all(
+        funding_request.publication.links.filter(
+            type=link["link_type_id"], value=link["value"]
+        ).exists()
+        for link in publication["links"]
+    )
 
 
 def assert_author_equal(author: AuthorDto, funding_request: FundingRequest) -> None:
