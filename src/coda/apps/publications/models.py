@@ -47,4 +47,4 @@ class Link(models.Model):
 
     type = models.ForeignKey(LinkType, on_delete=models.CASCADE)
     value = models.TextField()
-    publications = models.ForeignKey(Publication, on_delete=models.CASCADE, related_name="links")
+    publication = models.ForeignKey(Publication, on_delete=models.CASCADE, related_name="links")
