@@ -1,4 +1,5 @@
 import datetime
+from typing import Any
 import uuid
 
 from django.core.validators import RegexValidator
@@ -30,7 +31,7 @@ class FundingRequest(models.Model):
         ("rejected", "Rejected"),
     ]
 
-    request_id = models.CharField(max_length=25, unique=True, default=create_request_id())
+    request_id = models.CharField(max_length=25, unique=True)
     submitter = models.ForeignKey(
         Author, on_delete=models.CASCADE, related_name="funding_requests", null=True, blank=True
     )
@@ -44,6 +45,11 @@ class FundingRequest(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        if not self.request_id:
+            self.request_id = self.create_request_id()
 
     def get_absolute_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.pk})
