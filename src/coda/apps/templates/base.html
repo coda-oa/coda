@@ -4,10 +4,10 @@
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{{ title }}</title>
-        <script defer
-                src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
         <link rel="stylesheet"
               href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+        {% load static %}
+        <script src="{% static 'js/linkrow.js' %}"></script>
     </head>
     <body class="container">
         {% if messages %}
