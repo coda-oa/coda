@@ -17,12 +17,12 @@
                 <template x-for="index in $data.rows" :key="index">
                     <tr x-bind:id="`linkrow-${index}`">
                         <td>
-                            <select name="linktype" x-bind:id="`linktype-${index}`">
+                            <select name="link_type" x-bind:id="`linktype-${index}`">
                                 {% for t in link_types %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}
                             </select>
                         </td>
                         <td>
-                            <input type="text" name="linkvalue" x-bind:id="`linkvalue-${index}`">
+                            <input type="text" name="link_value" x-bind:id="`linkvalue-${index}`">
                         </td>
                         <td>
                             <button type="button" x-on:click="$dispatch('rm-linkrow', { index: index })">Delete</button>

@@ -1,10 +1,13 @@
+from typing import Any
+
 import pytest
 from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
-from coda.apps.publications.dto import LinkDto
-from coda.apps.publications.models import LinkType
 
+from coda.apps.publications.dto import LinkDto, PublicationDto
+from coda.apps.publications.forms import PublicationFormData
+from coda.apps.publications.models import LinkType
 from tests.fundingrequests import factory
 from tests.fundingrequests.assertions import assert_correct_funding_request
 
@@ -45,7 +48,7 @@ def test__fundingrequest_wizard__journal_step__searching_for_journal__shows_sear
 def test__fundingrequest_wizard_publication_step__when_valid_data__redirects_to_next_step(
     client: Client,
 ) -> None:
-    form_data = factory.publication_dto()
+    form_data = factory.publication_dto(factory.journal().pk)
     response = client.post(reverse("fundingrequests:create_publication"), form_data)
 
     assertRedirects(response, reverse("fundingrequests:create_funding"))
@@ -58,26 +61,42 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
     author = factory.valid_author_dto(factory.institution().pk)
     journal_pk = factory.journal().pk
     journal = {"journal": journal_pk}
-    doi = LinkType.objects.create(name="DOI")
-    url = LinkType.objects.create(name="URL")
 
-    doi_link = LinkDto(link_type_id=int(doi.pk), value="10.1234/5678")
-    url_link = LinkDto(link_type_id=int(url.pk), value="https://example.com")
-    publication = factory.publication_dto(links=[doi_link, url_link])
-    link_form_data = {
-        "linktype": [doi_link["link_type_id"], url_link["link_type_id"]],
-        "linkvalue": [doi_link["value"], url_link["value"]],
-    }
-
-    publication_data = {**publication, **link_form_data}
-    print(publication_data)
-
+    links = create_link_dtos()
+    publication = factory.publication_dto(journal_pk, links)
+    publication_post_data = create_publication_post_data(links, publication)
     funding = factory.funding_dto()
 
     client.post(reverse("fundingrequests:create_submitter"), author)
     client.post(reverse("fundingrequests:create_journal"), journal)
-    client.post(reverse("fundingrequests:create_publication"), publication_data)
+    client.post(reverse("fundingrequests:create_publication"), publication_post_data)
     response = client.post(reverse("fundingrequests:create_funding"), funding)
 
-    funding_request = assert_correct_funding_request(author, publication, journal_pk, funding)
+    funding_request = assert_correct_funding_request(author, publication, funding)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
+
+
+def create_link_dtos() -> list[LinkDto]:
+    doi = LinkType.objects.create(name="DOI")
+    url = LinkType.objects.create(name="URL")
+
+    doi_link = LinkDto(link_type=int(doi.pk), link_value="10.1234/5678")
+    url_link = LinkDto(link_type=int(url.pk), link_value="https://example.com")
+    return [doi_link, url_link]
+
+
+def create_publication_post_data(
+    links: list[LinkDto], publication: PublicationDto
+) -> dict[str, Any]:
+    link_form_data: dict[str, list[str]] = {"link_type": [], "link_value": []}
+    for link in links:
+        link_form_data["link_type"].append(str(link["link_type"]))
+        link_form_data["link_value"].append(str(link["link_value"]))
+
+    publication_form_data = PublicationFormData(
+        title=publication["title"],
+        publication_state=publication["publication_state"],
+        publication_date=publication["publication_date"],
+    )
+
+    return {**publication_form_data, **link_form_data}

@@ -2,7 +2,7 @@ import datetime
 
 from coda.apps.authors.models import Author
 from coda.apps.journals.models import Journal
-from coda.apps.publications.dto import PublicationDto
+from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.models import Link, LinkType, Publication
 
 
@@ -15,18 +15,18 @@ def create(publication: PublicationDto, author: Author, journal: Journal) -> Pub
         journal=journal,
     )
 
-    _attach_links(publication, _publication)
+    _attach_links(_publication, publication["links"])
     return _publication
 
 
-def _attach_links(publication: PublicationDto, _publication: Publication) -> None:
+def _attach_links(publication: Publication, links: list[LinkDto]) -> None:
     Link.objects.bulk_create(
         [
             Link(
-                value=link["value"],
-                type=LinkType.objects.get(pk=link["link_type_id"]),
-                publication=_publication,
+                value=link["link_value"],
+                type=LinkType.objects.get(pk=link["link_type"]),
+                publication=publication,
             )
-            for link in publication["links"]
+            for link in links
         ]
     )

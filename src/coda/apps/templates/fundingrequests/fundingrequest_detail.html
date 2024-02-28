@@ -1,18 +1,48 @@
 {% extends "base.html" %}
 {% block content %}
     <h1>Funding Request</h1>
+    <p>
+        <b>Status: {{ funding_request.get_processing_status_display }}</b>
+    </p>
     <div>
-        <h2>{{ funding_request.request_id }}</h2>
-        <h3>Publication Details</h3>
-        <p>Title: {{ funding_request.publication.title }}</p>
-        <p>{{ funding_request.publication.journal.title }}</p>
-        {% if funding_request.publication.author %}
-            <p>{{ funding_request.publication.author.name }}</p>
-            {% if funding_request.publication.author.affiliation %}
-                <p>{{ funding_request.publication.author.affiliation.name }}</p>
-            {% endif %}
-        {% endif %}
+        <table>
+            <tbody>
+                <tr>
+                    <td>Request ID</td>
+                    <td>{{ funding_request.request_id }}</td>
+                </tr>
+                <tr>
+                    <td>Request Submitter</td>
+                    <td>
+                        <p>{{ funding_request.submitter.name }}</p>
+                        <p>{{ funding_request.submitter.affiliation.name }}</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <h2>Publication Details</h2>
+        <table>
+            <tbody>
+                <tr>
+                    <td>Title</td>
+                    <td>{{ funding_request.publication.title }}</td>
+                </tr>
+                <tr>
+                    <td>Journal</td>
+                    <td>{{ funding_request.publication.journal.title }}</td>
+                </tr>
+                <tr>
+                    <td>Author</td>
+                    <td>{{ funding_request.publication.author.name }}</td>
+                </tr>
+                <tr>
+                    <td>Estimated Cost</td>
+                    <td>{{ funding_request.estimated_cost }} {{ funding_request.estimated_cost_currency }}</td>
+                </tr>
+            </tbody>
+        </table>
         {% if funding_request.publication.links %}
+            <h3>References</h3>
             <table>
                 <thead>
                     <tr>
@@ -32,9 +62,5 @@
                 </tbody>
             </table>
         {% endif %}
-        <p>Estimated cost: {{ funding_request.estimated_cost }} {{ funding_request.estimated_cost_currency }}</p>
-        <p>
-            <b>Status: {{ funding_request.get_processing_status_display }}</b>
-        </p>
     </div>
 {% endblock content %}

@@ -2,8 +2,8 @@ from typing import TypedDict
 
 
 class LinkDto(TypedDict):
-    link_type_id: int
-    value: str
+    link_type: int
+    link_value: str
 
 
 class PublicationDto(TypedDict):
@@ -11,3 +11,4 @@ class PublicationDto(TypedDict):
     publication_state: str
     publication_date: str
     links: list[LinkDto]
+    journal: int

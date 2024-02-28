@@ -1,5 +1,7 @@
 from typing import Any
 
+from django.forms import formset_factory
+from django.forms.formsets import BaseFormSet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -11,8 +13,8 @@ from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.forms import FundingForm
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.journals.models import Journal
-from coda.apps.publications.dto import PublicationDto
-from coda.apps.publications.forms import PublicationForm
+from coda.apps.publications.dto import LinkDto, PublicationDto
+from coda.apps.publications.forms import LinkForm, PublicationForm, PublicationFormData
 from coda.apps.publications.models import LinkType
 
 
@@ -82,19 +84,29 @@ class FundingRequestPublicationStep(TemplateView):
         return context
 
     def post(self, request: HttpRequest) -> HttpResponse:
-        form = PublicationForm(self.request.POST)
-        if not form.is_valid():
+        publication_form = PublicationForm(self.request.POST)
+        link_formset = self.link_formset(request)
+        if not (publication_form.is_valid() and link_formset.is_valid()):
             return redirect(reverse("fundingrequests:create_publication"))
 
-        dto = form.to_dto()
-        dto["links"] = [
-            {"link_type_id": int(linktype), "value": linkvalue}
-            for linktype, linkvalue in zip(
-                request.POST.getlist("linktype"), request.POST.getlist("linkvalue"), strict=True
-            )
-        ]
-        self.request.session["publication"] = dto
+        request.session["links"] = [linkform.get_form_data() for linkform in link_formset.forms]
+        request.session["publication"] = publication_form.get_form_data()
         return redirect(self.get_success_url())
+
+    def link_formset(self, request: HttpRequest) -> BaseFormSet[LinkForm]:
+        types, values = request.POST.getlist("link_type"), request.POST.getlist("link_value")
+        links: dict[str, Any] = {
+            "form-TOTAL_FORMS": len(types),
+            "form-INITIAL_FORMS": 0,
+        }
+
+        for i, link in enumerate(zip(types, values)):
+            linktype, linkvalue = link
+            links[f"form-{i}-link_type"] = linktype
+            links[f"form-{i}-link_value"] = linkvalue
+
+        LinkFormSet: type[BaseFormSet[LinkForm]] = formset_factory(LinkForm)
+        return LinkFormSet(links)
 
 
 class FundingRequestFundingStep(FormView[FundingForm]):
@@ -104,11 +116,19 @@ class FundingRequestFundingStep(FormView[FundingForm]):
     def form_valid(self, form: FundingForm) -> HttpResponse:
         funding = form.to_dto()
         author_dto: AuthorDto = self.request.session["submitter"]
-        publication_dto: PublicationDto = self.request.session["publication"]
+        publication_form_data: PublicationFormData = self.request.session["publication"]
+        link_form_data: list[LinkDto] = self.request.session["links"]
         journal = self.request.session["journal"]
-        self.funding_request = services.fundingrequest_create(
-            author_dto, publication_dto, journal, funding
+
+        publication_dto = PublicationDto(
+            title=publication_form_data["title"],
+            publication_state=publication_form_data["publication_state"],
+            publication_date=publication_form_data["publication_date"],
+            links=link_form_data,
+            journal=int(journal),
         )
+
+        self.funding_request = services.fundingrequest_create(author_dto, publication_dto, funding)
         return super().form_valid(form)
 
     def get_success_url(self, **kwargs: Any) -> str:

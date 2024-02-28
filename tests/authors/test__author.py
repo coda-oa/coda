@@ -3,8 +3,8 @@ from typing import cast
 import pytest
 from django.core.exceptions import ValidationError
 from django.test import Client
-from coda.apps.authors.dto import AuthorDto
 
+from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Author, PersonId
 from coda.apps.authors.services import author_create
 from coda.apps.institutions.models import Institution

@@ -9,9 +9,9 @@ from coda.apps.publications.dto import PublicationDto
 
 
 def fundingrequest_create(
-    author: AuthorDto, publication: PublicationDto, journal_id: int, funding: FundingDto
+    author: AuthorDto, publication: PublicationDto, funding: FundingDto
 ) -> FundingRequest:
     _author = author_create(author)
-    _journal = journal_repository.get_by_id(journal_id)
+    _journal = journal_repository.get_by_id(publication["journal"])
     _publication = publication_repository.create(publication, _author, _journal)
     return fundinqrequest_repository.create(_author, _publication, funding)
