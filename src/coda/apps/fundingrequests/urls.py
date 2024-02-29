@@ -7,7 +7,6 @@ app_name = "fundingrequests"
 urlpatterns = [
     path("", views.FundingRequestListView.as_view(), name="list"),
     path("<int:pk>/", views.FundingRequestDetailView.as_view(), name="detail"),
-    path("attach_label/", views.attach_label, name="label_attach"),
     path("create/", views.FundingRequestSubmitterStep.as_view(), name="create_submitter"),
     path("create/journal/", views.FundingRequestJournalStep.as_view(), name="create_journal"),
     path(
@@ -20,4 +19,6 @@ urlpatterns = [
         views.FundingRequestFundingStep.as_view(),
         name="create_funding",
     ),
+    path("create_label/<int:next>", views.LabelCreateView.as_view(), name="label_create"),
+    path("attach_label/", views.attach_label, name="label_attach"),
 ]

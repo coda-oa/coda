@@ -17,6 +17,9 @@ class Label(models.Model):
     )
     hexcolor = models.CharField(max_length=7, validators=[color_validator])
 
+    def __str__(self) -> str:
+        return self.name
+
 
 class FundingRequest(models.Model):
     @staticmethod

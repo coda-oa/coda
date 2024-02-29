@@ -1,6 +1,7 @@
 from django import forms
 
 from coda.apps.fundingrequests.dto import FundingDto
+from coda.apps.fundingrequests.models import Label
 from coda.money import Currency
 
 
@@ -15,3 +16,14 @@ class FundingForm(forms.Form):
             estimated_cost=self.cleaned_data["estimated_cost"],
             estimated_cost_currency=self.cleaned_data["estimated_cost_currency"],
         )
+
+
+class LabelForm(forms.ModelForm[Label]):
+    class Meta:
+        model = Label
+        fields = "__all__"
+        widgets = {"hexcolor": forms.TextInput(attrs={"type": "color"})}
+
+
+class ChooseLabelForm(forms.Form):
+    label = forms.ModelChoiceField(queryset=Label.objects.all(), label="")

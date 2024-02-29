@@ -4,6 +4,27 @@
     <p>
         <b>Status: {{ funding_request.get_processing_status_display }}</b>
     </p>
+    <div class="flex justify-between my-2">
+        <div>
+            <span class="mr-2">Labels:</span>
+            {% for label in funding_request.labels.all %}
+                <span style="background-color: {{ label.hexcolor }};" class="pill">{{ label }}</span>
+            {% endfor %}
+        </div>
+        <div class="flex">
+            <form action="{% url "fundingrequests:label_attach" %}" method="post">
+                {% csrf_token %}
+                <fieldset role="group">
+                    <input type="hidden" name="fundingrequest" value="{{ funding_request.pk }}">
+                    {{ label_form }}
+                    <button type="submit">Attach</button>
+                </fieldset>
+            </form>
+            <a href="{% url "fundingrequests:label_create" next=funding_request.pk %}"
+               class="secondary"
+               role="button">Create new</a>
+        </div>
+    </div>
     <div>
         <table>
             <tbody>

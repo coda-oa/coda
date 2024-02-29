@@ -16,3 +16,33 @@ ul.no-decoration {
 ul.no-decoration > li {
   list-style-type: none;
 }
+
+.flex {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.mr-2 {
+  margin-inline-end: 2rem;
+}
+
+.my-2 {
+  margin-block: 2rem;
+}
+
+fieldset[role='group'] {
+  margin: 0;
+  padding: 0;
+}
+
+.pill {
+  padding: 0.75rem 1rem;
+  border-radius: 50px;
+  text-align: center;
+}

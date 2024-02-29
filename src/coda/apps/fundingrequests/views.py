@@ -7,14 +7,14 @@ from django.forms.formsets import BaseFormSet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.views.generic import DetailView, FormView, ListView, TemplateView
 from django.views.decorators.http import require_POST
+from django.views.generic import CreateView, DetailView, FormView, ListView, TemplateView
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorForm
 from coda.apps.fundingrequests import repository, services
-from coda.apps.fundingrequests.forms import FundingForm
-from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.fundingrequests.forms import ChooseLabelForm, FundingForm, LabelForm
+from coda.apps.fundingrequests.models import FundingRequest, Label
 from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.forms import LinkForm, PublicationForm, PublicationFormData
@@ -25,6 +25,11 @@ class FundingRequestDetailView(LoginRequiredMixin, DetailView[FundingRequest]):
     model = FundingRequest
     template_name = "fundingrequests/fundingrequest_detail.html"
     context_object_name = "funding_request"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["label_form"] = ChooseLabelForm()
+        return context
 
 
 @login_required
@@ -146,3 +151,12 @@ class FundingRequestFundingStep(LoginRequiredMixin, FormView[FundingForm]):
 
     def get_success_url(self, **kwargs: Any) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.funding_request.pk})
+
+
+class LabelCreateView(LoginRequiredMixin, CreateView[Label, LabelForm]):
+    template_name = "fundingrequests/forms/label_form.html"
+    model = Label
+    form_class = LabelForm
+
+    def get_success_url(self) -> str:
+        return reverse("fundingrequests:list")
