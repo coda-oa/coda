@@ -8,17 +8,19 @@
         <div>
             <span class="mr-2">Labels:</span>
             {% for label in funding_request.labels.all %}
-                <span style="background-color: {{ label.hexcolor }};" class="pill">{{ label }}</span>
+                <span style="--label-bg-color: {{ label.hexcolor }};
+                             --label-border-color: {{ label.hexcolor }}"
+                      class="label pill">{{ label }}</span>
             {% endfor %}
         </div>
         <div class="flex">
             <form action="{% url "fundingrequests:label_attach" %}" method="post">
                 {% csrf_token %}
-                <fieldset role="group">
-                    <input type="hidden" name="fundingrequest" value="{{ funding_request.pk }}">
+                <input type="hidden" name="fundingrequest" value="{{ funding_request.pk }}">
+                <div class="m-0" role="group">
                     {{ label_form }}
                     <button type="submit">Attach</button>
-                </fieldset>
+                </div>
             </form>
             <a href="{% url "fundingrequests:label_create" next=funding_request.pk %}"
                class="secondary"

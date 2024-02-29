@@ -1,0 +1,20 @@
+ul.no-decoration {
+  padding: 0;
+  margin: 0;
+  list-style-type: none;
+}
+
+ul.no-decoration > li {
+  list-style-type: none;
+}
+
+.pill {
+  padding: 0.75rem 1rem;
+  border-radius: 50px;
+  text-align: center;
+}
+
+.label {
+  background: color-mix(in hsl, var(--label-bg-color) 40%, transparent 60%);
+  border: 1px solid var(--label-border-color);
+}
