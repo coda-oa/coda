@@ -6,3 +6,7 @@ from coda.apps.publications.models import Publication
 
 def create(submitter: Author, publication: Publication, funding: FundingDto) -> FundingRequest:
     return FundingRequest.objects.create(submitter=submitter, publication=publication, **funding)
+
+
+def get_by_id(funding_request_id: int) -> FundingRequest:
+    return FundingRequest.objects.get(pk=funding_request_id)

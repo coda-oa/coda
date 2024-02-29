@@ -6,11 +6,12 @@ from django.forms.formsets import BaseFormSet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.views import View
 from django.views.generic import DetailView, FormView, ListView, TemplateView
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorForm
-from coda.apps.fundingrequests import services
+from coda.apps.fundingrequests import repository, services
 from coda.apps.fundingrequests.forms import FundingForm
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.journals.models import Journal
@@ -23,6 +24,15 @@ class FundingRequestDetailView(LoginRequiredMixin, DetailView[FundingRequest]):
     model = FundingRequest
     template_name = "fundingrequests/fundingrequest_detail.html"
     context_object_name = "funding_request"
+
+
+class FundingRequestLabelAttachView(LoginRequiredMixin, View):
+    def post(self, request: HttpRequest) -> HttpResponse:
+        funding_request_id = request.POST["fundingrequest"]
+        label_id = request.POST["label"]
+        funding_request = repository.get_by_id(int(funding_request_id))
+        services.label_attach(funding_request, int(label_id))
+        return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
 
 
 class FundingRequestListView(LoginRequiredMixin, ListView[FundingRequest]):
