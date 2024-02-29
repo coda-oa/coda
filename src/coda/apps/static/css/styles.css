@@ -1,0 +1,18 @@
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(40ch, 400px), 1fr));
+  grid-column-gap: 20px;
+  grid-row-gap: 20px;
+  justify-items: stretch;
+  align-items: stretch;
+}
+
+ul.no-decoration {
+  padding: 0;
+  margin: 0;
+  list-style-type: none;
+}
+
+ul.no-decoration > li {
+  list-style-type: none;
+}

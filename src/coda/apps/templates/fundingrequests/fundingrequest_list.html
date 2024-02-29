@@ -1,16 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
     <h1>Funding Requests</h1>
-    <ul>
+    <ul class="no-decoration grid-container">
         {% for fr in funding_requests %}
             <li>
-                <p>
-                    <a href="{{ fr.get_absolute_url }}">{{ fr.publication.title }}</a>
-                </p>
-                <p>
-                    Journal: <a href="{{ fr.publication.journal.get_absolute_url }}">{{ fr.publication.journal.title }}</a>
-                </p>
-                <p>Status: {{ fr.get_processing_status_display }}</p>
+                <article>
+                    <p>
+                        <a href="{{ fr.get_absolute_url }}">{{ fr.publication.title }}</a>
+                    </p>
+                    <p>
+                        Journal: <a href="{{ fr.publication.journal.get_absolute_url }}">{{ fr.publication.journal.title }}</a>
+                    </p>
+                    <p>Status: {{ fr.get_processing_status_display }}</p>
+                </article>
             </li>
         {% endfor %}
     </ul>

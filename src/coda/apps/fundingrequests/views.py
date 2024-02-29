@@ -1,5 +1,6 @@
 from typing import Any
 
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.forms import formset_factory
 from django.forms.formsets import BaseFormSet
 from django.http import HttpRequest, HttpResponse
@@ -18,20 +19,20 @@ from coda.apps.publications.forms import LinkForm, PublicationForm, PublicationF
 from coda.apps.publications.models import LinkType
 
 
-class FundingRequestDetailView(DetailView[FundingRequest]):
+class FundingRequestDetailView(LoginRequiredMixin, DetailView[FundingRequest]):
     model = FundingRequest
     template_name = "fundingrequests/fundingrequest_detail.html"
     context_object_name = "funding_request"
 
 
-class FundingRequestListView(ListView[FundingRequest]):
+class FundingRequestListView(LoginRequiredMixin, ListView[FundingRequest]):
     model = FundingRequest
     template_name = "fundingrequests/fundingrequest_list.html"
     context_object_name = "funding_requests"
     paginate_by = 10
 
 
-class FundingRequestSubmitterStep(FormView[AuthorForm]):
+class FundingRequestSubmitterStep(LoginRequiredMixin, FormView[AuthorForm]):
     template_name = "fundingrequests/fundingrequest_submitter.html"
     form_class = AuthorForm
     next = "fundingrequests:create_journal"
@@ -44,7 +45,7 @@ class FundingRequestSubmitterStep(FormView[AuthorForm]):
         return super().form_valid(form)
 
 
-class FundingRequestJournalStep(TemplateView):
+class FundingRequestJournalStep(LoginRequiredMixin, TemplateView):
     template_name = "fundingrequests/fundingrequest_journal.html"
     next = "fundingrequests:create_publication"
 
@@ -71,7 +72,7 @@ class FundingRequestJournalStep(TemplateView):
         return redirect(self.get_success_url())
 
 
-class FundingRequestPublicationStep(TemplateView):
+class FundingRequestPublicationStep(LoginRequiredMixin, TemplateView):
     template_name = "fundingrequests/fundingrequest_publication.html"
 
     def get_success_url(self, **kwargs: Any) -> str:
@@ -109,7 +110,7 @@ class FundingRequestPublicationStep(TemplateView):
         return LinkFormSet(links)
 
 
-class FundingRequestFundingStep(FormView[FundingForm]):
+class FundingRequestFundingStep(LoginRequiredMixin, FormView[FundingForm]):
     template_name = "fundingrequests/fundingrequest_funding.html"
     form_class = FundingForm
 
