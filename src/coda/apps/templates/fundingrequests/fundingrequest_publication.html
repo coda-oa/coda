@@ -17,12 +17,12 @@
                 <template>
                     <tr>
                         <td>
-                            <select slot="link_type" name="link_type">
+                            <select name="link_type">
                                 {% for t in link_types %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}
                             </select>
                         </td>
                         <td>
-                            <input type="text" slot="link_value" name="link_value">
+                            <input type="text" name="link_value">
                         </td>
                     </tr>
                 </template>
