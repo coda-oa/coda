@@ -148,8 +148,13 @@ class LabelCreateView(LoginRequiredMixin, CreateView[Label, LabelForm]):
     model = Label
     form_class = LabelForm
 
+    def get(self, request: HttpRequest, *args: str, **kwargs: Any) -> HttpResponse:
+        request.session["next"] = kwargs["next"]
+        return super().get(request, *args, **kwargs)
+
     def get_success_url(self) -> str:
-        return reverse("fundingrequests:list")
+        next = self.request.session.pop("next")
+        return reverse("fundingrequests:detail", kwargs={"pk": next})
 
 
 @login_required
