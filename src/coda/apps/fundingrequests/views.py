@@ -12,7 +12,7 @@ from django.views.generic import CreateView, DetailView, FormView, ListView, Tem
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorForm
-from coda.apps.fundingrequests import repository, services
+from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.forms import ChooseLabelForm, FundingForm, LabelForm
 from coda.apps.fundingrequests.models import FundingRequest, Label
 from coda.apps.journals.models import Journal
@@ -30,16 +30,6 @@ class FundingRequestDetailView(LoginRequiredMixin, DetailView[FundingRequest]):
         context = super().get_context_data(**kwargs)
         context["label_form"] = ChooseLabelForm()
         return context
-
-
-@login_required
-@require_POST
-def attach_label(request: HttpRequest) -> HttpResponse:
-    funding_request_id = request.POST["fundingrequest"]
-    label_id = request.POST["label"]
-    funding_request = repository.get_by_id(int(funding_request_id))
-    services.label_attach(funding_request, int(label_id))
-    return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
 
 
 class FundingRequestListView(LoginRequiredMixin, ListView[FundingRequest]):
@@ -160,3 +150,21 @@ class LabelCreateView(LoginRequiredMixin, CreateView[Label, LabelForm]):
 
     def get_success_url(self) -> str:
         return reverse("fundingrequests:list")
+
+
+@login_required
+@require_POST
+def attach_label(request: HttpRequest) -> HttpResponse:
+    funding_request_id = request.POST["fundingrequest"]
+    label_id = request.POST["label"]
+    services.label_attach(int(funding_request_id), int(label_id))
+    return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request_id}))
+
+
+@login_required
+@require_POST
+def detach_label(request: HttpRequest) -> HttpResponse:
+    funding_request_id = request.POST["fundingrequest"]
+    label_id = request.POST["label"]
+    services.label_detach(int(funding_request_id), int(label_id))
+    return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request_id}))

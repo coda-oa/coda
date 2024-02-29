@@ -22,7 +22,15 @@ def label_create(name: str, color: Color) -> Label:
     return Label.objects.create(name=name, hexcolor=color.hex())
 
 
-def label_attach(funding_request: FundingRequest, label_id: int) -> None:
+def label_attach(funding_request_id: int, label_id: int) -> None:
     label = Label.objects.get(pk=label_id)
+    funding_request = fundinqrequest_repository.get_by_id(funding_request_id)
     funding_request.labels.add(label)
+    funding_request.save()
+
+
+def label_detach(funding_request_id: int, label_id: int) -> None:
+    funding_request = fundinqrequest_repository.get_by_id(funding_request_id)
+    label = Label.objects.get(pk=label_id)
+    funding_request.labels.remove(label)
     funding_request.save()

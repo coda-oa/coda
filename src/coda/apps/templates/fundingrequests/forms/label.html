@@ -1,0 +1,12 @@
+<form action="{% url "fundingrequests:label_detach" %}"
+      method="post"
+      class="flex">
+    {% csrf_token %}
+    <input type="hidden" name="fundingrequest" value="{{ funding_request.pk }}">
+    <input type="hidden" name="label" value="{{ label.pk }}">
+    <span style="--label-bg-color: {{ label.hexcolor }};
+                 --label-border-color: {{ label.hexcolor }}"
+          class="flex label pill">{{ label }}
+        <button type="submit" class="button-empty">X</button>
+    </span>
+</form>

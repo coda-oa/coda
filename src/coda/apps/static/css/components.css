@@ -15,6 +15,17 @@ ul.no-decoration > li {
 }
 
 .label {
+  flex: auto;
   background: color-mix(in hsl, var(--label-bg-color) 40%, transparent 60%);
   border: 1px solid var(--label-border-color);
+}
+
+.button-empty {
+  flex: 0;
+  display: inline-block;
+  text-decoration: none;
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 0;
 }

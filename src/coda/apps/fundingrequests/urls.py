@@ -21,4 +21,5 @@ urlpatterns = [
     ),
     path("create_label/<int:next>", views.LabelCreateView.as_view(), name="label_create"),
     path("attach_label/", views.attach_label, name="label_attach"),
+    path("detach_label/", views.detach_label, name="label_detach"),
 ]
