@@ -1,13 +1,14 @@
 from typing import Any
 
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.forms import formset_factory
 from django.forms.formsets import BaseFormSet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.views import View
 from django.views.generic import DetailView, FormView, ListView, TemplateView
+from django.views.decorators.http import require_POST
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorForm
@@ -26,13 +27,14 @@ class FundingRequestDetailView(LoginRequiredMixin, DetailView[FundingRequest]):
     context_object_name = "funding_request"
 
 
-class FundingRequestLabelAttachView(LoginRequiredMixin, View):
-    def post(self, request: HttpRequest) -> HttpResponse:
-        funding_request_id = request.POST["fundingrequest"]
-        label_id = request.POST["label"]
-        funding_request = repository.get_by_id(int(funding_request_id))
-        services.label_attach(funding_request, int(label_id))
-        return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
+@login_required
+@require_POST
+def attach_label(request: HttpRequest) -> HttpResponse:
+    funding_request_id = request.POST["fundingrequest"]
+    label_id = request.POST["label"]
+    funding_request = repository.get_by_id(int(funding_request_id))
+    services.label_attach(funding_request, int(label_id))
+    return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
 
 
 class FundingRequestListView(LoginRequiredMixin, ListView[FundingRequest]):
