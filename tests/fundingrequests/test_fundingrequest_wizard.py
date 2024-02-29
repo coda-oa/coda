@@ -8,8 +8,15 @@ from pytest_django.asserts import assertRedirects
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.forms import PublicationFormData
 from coda.apps.publications.models import LinkType
+from coda.apps.users.models import User
 from tests.fundingrequests import factory
 from tests.fundingrequests.assertions import assert_correct_funding_request
+
+
+@pytest.fixture(autouse=True)
+@pytest.mark.django_db
+def login(client: Client) -> None:
+    client.force_login(User.objects.create_user(username="testuser"))
 
 
 @pytest.mark.django_db
