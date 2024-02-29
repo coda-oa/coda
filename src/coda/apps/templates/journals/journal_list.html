@@ -3,15 +3,18 @@
     {{ title }}
 {% endblock title %}
 {% block content %}
+    <h1>Journals</h1>
     {% include "partials/pagination_nav.html" %}
-    <ul>
+    <ul class="no-decoration grid-container">
         {% for journal in page_obj %}
             <li>
-                <p>
-                    <a href="{{ journal.get_absolute_url }}">{{ journal.title }}</a>
-                </p>
-                <p>EISSN: {{ journal.eissn }}</p>
-                <p>Publisher: {{ journal.publisher.name }}</p>
+                <article>
+                    <p>
+                        <a href="{{ journal.get_absolute_url }}">{{ journal.title }}</a>
+                    </p>
+                    <p>EISSN: {{ journal.eissn }}</p>
+                    <p>Publisher: {{ journal.publisher.name }}</p>
+                </article>
             </li>
         {% endfor %}
     </ul>

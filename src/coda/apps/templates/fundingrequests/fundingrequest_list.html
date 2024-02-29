@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
     <h1>Funding Requests</h1>
+    <p>
+        <a href="{% url "fundingrequests:create_submitter" %}" role="button">New</a>
+    </p>
     <ul class="no-decoration grid-container">
         {% for fr in funding_requests %}
             <li>

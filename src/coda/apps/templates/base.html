@@ -11,6 +11,7 @@
         <script src="{% static 'js/linkrow.js' %}"></script>
     </head>
     <body class="container">
+        {% include "partials/nav.html" %}
         {% if messages %}
             <ul>
                 {% for message in messages %}<li>{{ message }}</li>{% endfor %}
