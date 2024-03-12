@@ -23,4 +23,4 @@ def test__searching_for_funding_requests_by_title__shows_only_matching_funding_r
 
     response = client.get(reverse("fundingrequests:list"), data={"title": title})
 
-    assert response.context[FundingRequestListView.context_object_name] == [matching_request]
+    assert list(response.context[FundingRequestListView.context_object_name]) == [matching_request]
