@@ -15,14 +15,17 @@ ul.no-decoration > li {
 }
 
 .label {
+  --label-text-color: color-mix(in srgb, var(--label-border-color) 70%, white);
   flex: auto;
   background: color-mix(in hsl, var(--label-bg-color) 40%, transparent 60%);
   border: 1px solid var(--label-border-color);
+  color: var(--label-text-color);
 }
 
-.button-empty {
+.label__button-remove {
   flex: 0;
   display: inline-block;
+  color: var(--label-text-color);
   text-decoration: none;
   background: none;
   border: none;

@@ -1,0 +1,19 @@
+<details class="dropdown">
+    <summary>Labels</summary>
+    <ul>
+        {% for label in labels %}
+            <li class="my-1_25">
+                <input type="checkbox"
+                       id="label-{{ label.pk }}"
+                       name="labels"
+                       value="{{ label.pk }}"
+                       {% if label.pk in request.GET.labels %}checked{% endif %}>
+                <label class="label pill"
+                       for="label-{{ label.pk }}"
+                       style="--label-bg-color: {{ label.hexcolor }};
+                              --label-border-color: {{ label.hexcolor }};
+                              display: inline">{{ label.name }}</label>
+            </li>
+        {% endfor %}
+    </ul>
+</details>

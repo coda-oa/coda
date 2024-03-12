@@ -2,6 +2,10 @@
   margin: 0;
 }
 
+.my-1_25 {
+  margin-block: 1.25rem;
+}
+
 .mr-2 {
   margin-inline-end: 2rem;
 }

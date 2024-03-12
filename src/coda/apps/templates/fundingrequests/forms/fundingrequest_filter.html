@@ -1,0 +1,27 @@
+<form method="get">
+    <div role="group">
+        <input type="search"
+               name="title"
+               value="{{ request.GET.title }}"
+               placeholder="Search">
+        <button type="submit">Search</button>
+    </div>
+    <div class="grid">
+        <details class="dropdown">
+            <summary>Processing Status</summary>
+            <ul>
+                {% for status in processing_states %}
+                    <li>
+                        <input type="checkbox"
+                               id="status-{{ status.0 }}"
+                               name="processing_status"
+                               value="{{ status.0 }}"
+                               {% if status.0 in request.GET.processing_status %}checked{% endif %}>
+                        <label for="status-{{ status.0 }}">{{ status.1 }}</label>
+                    </li>
+                {% endfor %}
+            </ul>
+        </details>
+        {% include "fundingrequests/forms/label_dropdown.html" %}
+    </div>
+</form>
