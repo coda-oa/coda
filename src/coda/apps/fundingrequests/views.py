@@ -1,7 +1,8 @@
-from typing import Any
+from typing import Any, cast
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import QuerySet
 from django.forms import formset_factory
 from django.forms.formsets import BaseFormSet
 from django.http import HttpRequest, HttpResponse
@@ -12,7 +13,7 @@ from django.views.generic import CreateView, DetailView, FormView, ListView, Tem
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorForm
-from coda.apps.fundingrequests import services
+from coda.apps.fundingrequests import repository, services
 from coda.apps.fundingrequests.forms import ChooseLabelForm, FundingForm, LabelForm
 from coda.apps.fundingrequests.models import FundingRequest, Label
 from coda.apps.journals.models import Journal
@@ -37,6 +38,19 @@ class FundingRequestListView(LoginRequiredMixin, ListView[FundingRequest]):
     template_name = "fundingrequests/fundingrequest_list.html"
     context_object_name = "funding_requests"
     paginate_by = 10
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["labels"] = Label.objects.all()
+        context["processing_states"] = FundingRequest.PROCESSING_CHOICES
+        return context
+
+    def get_queryset(self) -> QuerySet[FundingRequest]:
+        title = self.request.GET.get("title")
+        if title:
+            return cast(QuerySet[FundingRequest], repository.search_by_publication_title(title))
+
+        return cast(QuerySet[FundingRequest], super().get_queryset())
 
 
 class FundingRequestSubmitterStep(LoginRequiredMixin, FormView[AuthorForm]):

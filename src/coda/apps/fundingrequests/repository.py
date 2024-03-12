@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 from coda.apps.authors.models import Author
 from coda.apps.fundingrequests.dto import FundingDto
 from coda.apps.fundingrequests.models import FundingRequest
@@ -8,5 +10,9 @@ def create(submitter: Author, publication: Publication, funding: FundingDto) -> 
     return FundingRequest.objects.create(submitter=submitter, publication=publication, **funding)
 
 
-def get_by_id(funding_request_id: int) -> FundingRequest:
-    return FundingRequest.objects.get(pk=funding_request_id)
+def get_by_pk(pk: int) -> FundingRequest:
+    return FundingRequest.objects.get(pk=pk)
+
+
+def search_by_publication_title(title: str) -> Iterable[FundingRequest]:
+    return FundingRequest.objects.filter(publication__title__icontains=title)
