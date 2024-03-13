@@ -1,13 +1,14 @@
+{% load getlist %}
 <details class="dropdown">
     <summary>Labels</summary>
     <ul>
         {% for label in labels %}
-            <li class="my-1_25">
+            <li>
                 <input type="checkbox"
                        id="label-{{ label.pk }}"
                        name="labels"
                        value="{{ label.pk }}"
-                       {% if label.pk in request.GET.labels %}checked{% endif %}>
+                       {% if label.pk|stringformat:"i" in request.GET|getlist:"labels" %}checked{% endif %}>
                 <label class="label pill"
                        for="label-{{ label.pk }}"
                        style="--label-bg-color: {{ label.hexcolor }};

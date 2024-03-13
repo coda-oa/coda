@@ -70,7 +70,7 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
     journal = {"journal": journal_pk}
 
     links = create_link_dtos()
-    publication = factory.publication_dto(journal_pk, links)
+    publication = factory.publication_dto(journal_pk, links=links)
     publication_post_data = create_publication_post_data(links, publication)
     funding = factory.funding_dto()
 

@@ -178,6 +178,9 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
             ],
+            "libraries": {
+                "getlist": "coda.apps.templatetags.getlist",
+            },
         },
     }
 ]

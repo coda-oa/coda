@@ -1,4 +1,5 @@
 import datetime
+import enum
 from typing import Any
 import uuid
 
@@ -21,6 +22,15 @@ class Label(models.Model):
         return self.name
 
 
+class ProcessingStatus(enum.Enum):
+    APPROVED = "approved"
+    IN_PROGRESS = "in_progress"
+    REJECTED = "rejected"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 class FundingRequest(models.Model):
     @staticmethod
     def create_request_id(id: str | None = None, date: datetime.date | None = None) -> str:
@@ -29,9 +39,9 @@ class FundingRequest(models.Model):
         return f"coda-{id}-{d.strftime('%Y-%m-%d')}"
 
     PROCESSING_CHOICES = [
-        ("approved", "Approved"),
-        ("in_progress", "In Progress"),
-        ("rejected", "Rejected"),
+        (ProcessingStatus.APPROVED.value, "Approved"),
+        (ProcessingStatus.IN_PROGRESS.value, "In Progress"),
+        (ProcessingStatus.REJECTED.value, "Rejected"),
     ]
 
     request_id = models.CharField(max_length=25, unique=True)
@@ -56,3 +66,11 @@ class FundingRequest(models.Model):
 
     def get_absolute_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.pk})
+
+    def approve(self) -> None:
+        self.processing_status = ProcessingStatus.APPROVED.value
+        self.save()
+
+    def reject(self) -> None:
+        self.processing_status = ProcessingStatus.REJECTED.value
+        self.save()

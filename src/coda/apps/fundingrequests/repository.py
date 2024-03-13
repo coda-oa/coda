@@ -1,3 +1,4 @@
+from django.db.models import Q
 from collections.abc import Iterable
 
 from coda.apps.authors.models import Author
@@ -14,5 +15,20 @@ def get_by_pk(pk: int) -> FundingRequest:
     return FundingRequest.objects.get(pk=pk)
 
 
-def search_by_publication_title(title: str) -> Iterable[FundingRequest]:
-    return FundingRequest.objects.filter(publication__title__icontains=title)
+def search(
+    *,
+    title: str | None = None,
+    processing_states: list[str] | None = None,
+    labels: Iterable[int] | None = None,
+) -> Iterable[FundingRequest]:
+    query = Q()
+    if title:
+        query = query & Q(publication__title__icontains=title)
+
+    if processing_states:
+        query = query & Q(processing_status__in=processing_states)
+
+    if labels:
+        query = query & Q(labels__in=labels)
+
+    return FundingRequest.objects.filter(query).distinct().order_by("-created_at")

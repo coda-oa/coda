@@ -46,11 +46,14 @@ class FundingRequestListView(LoginRequiredMixin, ListView[FundingRequest]):
         return context
 
     def get_queryset(self) -> QuerySet[FundingRequest]:
-        title = self.request.GET.get("title")
-        if title:
-            return cast(QuerySet[FundingRequest], repository.search_by_publication_title(title))
-
-        return cast(QuerySet[FundingRequest], super().get_queryset())
+        return cast(
+            QuerySet[FundingRequest],
+            repository.search(
+                title=self.request.GET.get("title"),
+                labels=map(int, self.request.GET.getlist("labels")),
+                processing_states=self.request.GET.getlist("processing_status"),
+            ),
+        )
 
 
 class FundingRequestSubmitterStep(LoginRequiredMixin, FormView[AuthorForm]):
