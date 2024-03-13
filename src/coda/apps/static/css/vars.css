@@ -1,0 +1,5 @@
+:root {
+  --coda-line-height: 1;
+
+  --pico-line-height: var(--coda-line-height);
+}

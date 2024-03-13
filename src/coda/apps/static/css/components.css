@@ -9,15 +9,15 @@ ul.no-decoration > li {
 }
 
 .pill {
-  padding: 0.75rem 1rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 50px;
   text-align: center;
 }
 
 .label {
-  --label-text-color: color-mix(in srgb, var(--label-border-color) 70%, white);
+  --label-text-color: color-mix(in srgb, var(--label-border-color) 85%, white);
   flex: auto;
-  background: color-mix(in hsl, var(--label-bg-color) 40%, transparent 60%);
+  background: color-mix(in hsl, var(--label-bg-color) 30%, transparent 70%);
   border: 1px solid var(--label-border-color);
   color: var(--label-text-color);
 }
@@ -31,4 +31,12 @@ ul.no-decoration > li {
   border: none;
   margin: 0;
   padding: 0;
+}
+
+details.dropdown > ul:has(.label) {
+  padding-block: 0.5rem;
+}
+
+details.dropdown > ul:has(.label) > li {
+  padding-block: 0.75rem;
 }
