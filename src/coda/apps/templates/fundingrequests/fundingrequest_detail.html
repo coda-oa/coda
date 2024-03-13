@@ -5,7 +5,7 @@
         <b>Status: {{ funding_request.get_processing_status_display }}</b>
     </p>
     <div class="flex wrap justify-between my-2">
-        <div class="flex wrap">
+        <div class="flex align-center wrap">
             <span class="mr-2">Labels:</span>
             {% for label in funding_request.labels.all %}
                 {% include "fundingrequests/forms/label.html" %}
