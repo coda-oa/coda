@@ -50,7 +50,7 @@ class FundingRequestListView(LoginRequiredMixin, ListView[FundingRequest]):
             QuerySet[FundingRequest],
             repository.search(
                 title=self.request.GET.get("title"),
-                labels=map(int, self.request.GET.getlist("labels")),
+                labels=list(map(int, self.request.GET.getlist("labels"))),
                 processing_states=self.request.GET.getlist("processing_status"),
             ),
         )
