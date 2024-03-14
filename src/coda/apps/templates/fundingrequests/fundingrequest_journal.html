@@ -2,8 +2,10 @@
 {% block content %}
     <h1>Find Journal</h1>
     <form action="{% url "fundingrequests:create_journal" %}" method="get">
-        <input type="search" name="journal_title" id="journal_title">
-        <button type="submit">Search</button>
+        <fieldset role="group">
+            <input type="search" name="journal_title" id="journal_title">
+            <button type="submit" class="inline-search-pill pill-right">Search</button>
+        </fieldset>
     </form>
     {% if journals %}
         <form action="{% url "fundingrequests:create_journal" %}" method="post">
@@ -23,7 +25,7 @@
                             <td>{{ journal.publisher.name }}</td>
                             <td>
                                 <input type="hidden" name="journal" value="{{ journal.pk }}">
-                                <button type="submit">Select</button>
+                                <button class="outline" type="submit">Select</button>
                             </td>
                         </tr>
                     {% endfor %}

@@ -8,6 +8,11 @@ ul.no-decoration > li {
   list-style-type: none;
 }
 
+.inline-search-pill {
+  border-top-right-radius: 50px;
+  border-bottom-right-radius: 50px;
+}
+
 .pill {
   padding: 0.35rem 0.75rem;
   border-radius: 50px;

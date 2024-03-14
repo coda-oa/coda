@@ -1,5 +1,11 @@
 :root {
   --coda-line-height: 1;
+  --coda-form-element-spacing-vertical: var(
+    --pico-form-element-spacing-vertical
+  );
+  --coda-form-element-spacing-horizontal: var(
+    --pico-form-element-spacing-horizontal
+  );
 
   --pico-line-height: var(--coda-line-height);
 }
