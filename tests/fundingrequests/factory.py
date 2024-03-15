@@ -1,4 +1,5 @@
 from coda.apps.authors.dto import AuthorDto
+from coda.apps.authors.models import Role
 from coda.apps.fundingrequests.dto import FundingDto
 from coda.apps.institutions.models import Institution
 from coda.apps.journals.models import Journal
@@ -33,6 +34,7 @@ def valid_author_dto(affiliation_pk: int) -> AuthorDto:
         email="carberry@example.com",
         orcid=test_orcid.JOSIAH_CARBERRY,
         affiliation=affiliation_pk,
+        roles=[Role.CORRESPONDING_AUTHOR.name],
     )
 
 

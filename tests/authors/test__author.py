@@ -1,20 +1,21 @@
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from django.core.exceptions import ValidationError
 from django.test import Client
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.models import Author, PersonId
+from coda.apps.authors.models import Author, PersonId, Role
 from coda.apps.authors.services import author_create
 from coda.apps.institutions.models import Institution
 from tests import test_orcid
 
-JOSIAHS_DATA = {
+JOSIAHS_DATA: AuthorDto = {
     "name": "Josiah Carberry",
     "email": "j.carberry@example.com",
     "orcid": test_orcid.JOSIAH_CARBERRY,
     "affiliation": None,
+    "roles": [],
 }
 
 
@@ -29,9 +30,8 @@ def test__cannot_create_author_with_empty_name() -> None:
 @pytest.mark.django_db
 def test__cannot_create_author_with_invalid_orcid() -> None:
     with pytest.raises(ValidationError):
-        dto = AuthorDto(
-            name="John Doe", email="john.doe@example.com", orcid="invalid", affiliation=None
-        )
+        dto = JOSIAHS_DATA.copy()
+        dto["orcid"] = "invalid"
         author_create(dto)
 
 
@@ -62,6 +62,16 @@ def test__orcids_must_be_unique() -> None:
 
 
 @pytest.mark.django_db
+def test__adding_roles_to_author__saves_roles_to_db() -> None:
+    josiah = JOSIAHS_DATA.copy()
+    josiah["roles"] = [Role.SUBMITTER.name, Role.CO_AUTHOR.name]
+
+    author = author_create(josiah)
+
+    assert author.get_roles() == {Role.SUBMITTER, Role.CO_AUTHOR}
+
+
+@pytest.mark.django_db
 def test__author_with_invalid_orcid__will_not_be_saved_to_db(client: Client) -> None:
     institution = Institution.objects.create(name="The Institution")
 
@@ -83,7 +93,7 @@ def test__author_with_invalid_orcid__will_not_be_saved_to_db(client: Client) -> 
 def test__details_already_exist__reuses_existing_person(client: Client) -> None:
     author_create(JOSIAHS_DATA)
 
-    form_data = JOSIAHS_DATA.copy()
+    form_data = cast(dict[str, Any], JOSIAHS_DATA.copy())
     form_data["affiliation"] = ""
     client.post("/authors/create/", form_data)
 
@@ -99,7 +109,7 @@ def test__given_institution_exits__when_author_is_affiliated__author_is_saved_wi
 
     affiliation = institution.pk
     josiah = JOSIAHS_DATA.copy()
-    josiah["affiliation"] = str(affiliation)
+    josiah["affiliation"] = affiliation
 
     client.post("/authors/create/", josiah)
 

@@ -6,3 +6,4 @@ class AuthorDto(TypedDict):
     email: str
     orcid: str | None
     affiliation: int | None
+    roles: list[str] | None

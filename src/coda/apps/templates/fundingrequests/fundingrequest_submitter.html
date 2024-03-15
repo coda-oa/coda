@@ -4,7 +4,9 @@
     <h2>Applicant</h2>
     <form action="{% url "fundingrequests:create_submitter" %}" method="post">
         {% csrf_token %}
-        {{ form.as_p }}
+        <table>
+            {{ form.as_table }}
+        </table>
         {% include "partials/wizard_nav.html" with step="first" %}
     </form>
 {% endblock content %}

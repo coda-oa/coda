@@ -4,6 +4,7 @@ from typing import Any
 from django import forms
 
 from coda.apps.authors.dto import AuthorDto
+from coda.apps.authors.models import Role
 from coda.apps.authors.services import orcid_validator
 from coda.apps.institutions.models import Institution
 
@@ -21,14 +22,16 @@ class AuthorForm(forms.Form):
     email = forms.EmailField()
     orcid = OrcidField(required=False)
     affiliation = forms.ModelChoiceField(queryset=Institution.objects.all(), required=False)
+    role = forms.ChoiceField(choices=((role.name, role.value) for role in Role), required=False)
 
     def to_dto(self) -> AuthorDto:
-        data = self.cleaned_data if self.is_valid() else self.data
+        data = self.cleaned_data
         return AuthorDto(
             name=data["name"],
             email=data["email"],
             orcid=data.get("orcid"),
             affiliation=self.affiliation_pk(data),
+            roles=[data["role"]],
         )
 
     def affiliation_pk(self, data: Mapping[str, Any]) -> int | None:

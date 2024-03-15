@@ -25,6 +25,9 @@
                     <td>
                         <p>{{ funding_request.submitter.name }}</p>
                         <p>{{ funding_request.submitter.affiliation.name }}</p>
+                        <p>
+                            {% for role in funding_request.submitter.get_roles %}<span>{{ role }}</span>{% endfor %}
+                        </p>
                     </td>
                 </tr>
             </tbody>
@@ -39,10 +42,6 @@
                 <tr>
                     <td>Journal</td>
                     <td>{{ funding_request.publication.journal.title }}</td>
-                </tr>
-                <tr>
-                    <td>Author</td>
-                    <td>{{ funding_request.publication.author.name }}</td>
                 </tr>
                 <tr>
                     <td>Estimated Cost</td>

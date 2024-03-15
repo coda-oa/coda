@@ -1,10 +1,13 @@
-from typing import Any
+from typing import Any, cast
 
 import pytest
+from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from coda.apps.authors.dto import AuthorDto
+from coda.apps.fundingrequests.dto import FundingDto
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.forms import PublicationFormData
 from coda.apps.publications.models import LinkType
@@ -65,22 +68,38 @@ def test__fundingrequest_wizard_publication_step__when_valid_data__redirects_to_
 def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
-    author = factory.valid_author_dto(factory.institution().pk)
+    author_dto = factory.valid_author_dto(factory.institution().pk)
     journal_pk = factory.journal().pk
-    journal = {"journal": journal_pk}
+    journal_post_data = {"journal": journal_pk}
 
     links = create_link_dtos()
-    publication = factory.publication_dto(journal_pk, links=links)
-    publication_post_data = create_publication_post_data(links, publication)
-    funding = factory.funding_dto()
+    publication_dto = factory.publication_dto(journal_pk, links=links)
+    publication_post_data = create_publication_post_data(links, publication_dto)
+    funding_dto = factory.funding_dto()
 
-    client.post(reverse("fundingrequests:create_submitter"), author)
+    response = submit_wizard(
+        client, author_dto, journal_post_data, publication_post_data, funding_dto
+    )
+
+    funding_request = assert_correct_funding_request(author_dto, publication_dto, funding_dto)
+    assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
+
+
+def submit_wizard(
+    client: Client,
+    author: AuthorDto,
+    journal: dict[str, int],
+    publication_post_data: dict[str, Any],
+    funding: FundingDto,
+) -> HttpResponse:
+    # NOTE: Currently we are only allowing one role per author, but this will change in the future
+    # Therefore, we already store the role as a list in the DTO, but convert it to a string here
+    author_post_data = {**author, "role": author["roles"][0]}  # type: ignore
+    author_post_data.pop("roles")
+    client.post(reverse("fundingrequests:create_submitter"), author_post_data)
     client.post(reverse("fundingrequests:create_journal"), journal)
     client.post(reverse("fundingrequests:create_publication"), publication_post_data)
-    response = client.post(reverse("fundingrequests:create_funding"), funding)
-
-    funding_request = assert_correct_funding_request(author, publication, funding)
-    assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
+    return cast(HttpResponse, client.post(reverse("fundingrequests:create_funding"), funding))
 
 
 def create_link_dtos() -> list[LinkDto]:
