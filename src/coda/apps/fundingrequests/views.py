@@ -190,3 +190,27 @@ def detach_label(request: HttpRequest) -> HttpResponse:
     label_id = request.POST["label"]
     services.label_detach(int(funding_request_id), int(label_id))
     return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request_id}))
+
+
+@login_required
+@require_POST
+def approve(request: HttpRequest) -> HttpResponse:
+    try:
+        funding_request_id = request.POST["fundingrequest"]
+        funding_request = repository.get_by_pk(int(funding_request_id))
+        funding_request.approve()
+        return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request_id}))
+    except FundingRequest.DoesNotExist:
+        return HttpResponse(status=404)
+
+
+@login_required
+@require_POST
+def reject(request: HttpRequest) -> HttpResponse:
+    try:
+        funding_request_id = request.POST["fundingrequest"]
+        funding_request = repository.get_by_pk(int(funding_request_id))
+        funding_request.reject()
+        return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request_id}))
+    except FundingRequest.DoesNotExist:
+        return HttpResponse(status=404)
