@@ -75,8 +75,15 @@ class FundingRequest(models.Model):
         self.processing_status = ProcessingStatus.REJECTED.value
         self.save()
 
+    def open(self) -> None:
+        self.processing_status = ProcessingStatus.IN_PROGRESS.value
+        self.save()
+
     def is_approved(self) -> bool:
         return self.processing_status == ProcessingStatus.APPROVED.value
 
     def is_rejected(self) -> bool:
         return self.processing_status == ProcessingStatus.REJECTED.value
+
+    def is_open(self) -> bool:
+        return self.processing_status == ProcessingStatus.IN_PROGRESS.value

@@ -30,6 +30,17 @@ def test__funding_request_reject_view__rejects_request(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__funding_request_open_view__rejects_request(client: Client) -> None:
+    request = factory.fundingrequest()
+
+    client.post(reverse("fundingrequests:open"), {"fundingrequest": request.pk})
+
+    request.refresh_from_db()
+    assert request.is_open()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 @pytest.mark.parametrize("view_name", ["approve", "reject"])
 def test__approving_or_requesting_request__redirects_to_funding_request_detail(
     client: Client, view_name: str

@@ -2,15 +2,12 @@ import datetime
 
 import pytest
 
-from coda.apps.fundingrequests.models import FundingRequest
 from tests.fundingrequests import factory
 
 
 @pytest.mark.django_db
 def test__fundingrequest__has_valid_id_pattern() -> None:
-    request = FundingRequest.objects.create(
-        publication=factory.publication(), estimated_cost=100, estimated_cost_currency="USD"
-    )
+    request = factory.fundingrequest()
 
     split_id = request.request_id.split("-")
     uuid_component = len(split_id[1])
@@ -22,9 +19,7 @@ def test__fundingrequest__has_valid_id_pattern() -> None:
 
 @pytest.mark.django_db
 def test__fundingrequest__approve__changes_processing_status() -> None:
-    request = FundingRequest.objects.create(
-        publication=factory.publication(), estimated_cost=100, estimated_cost_currency="USD"
-    )
+    request = factory.fundingrequest()
 
     request.approve()
 
@@ -33,10 +28,17 @@ def test__fundingrequest__approve__changes_processing_status() -> None:
 
 @pytest.mark.django_db
 def test__fundingrequest__reject__changes_processing_status() -> None:
-    request = FundingRequest.objects.create(
-        publication=factory.publication(), estimated_cost=100, estimated_cost_currency="USD"
-    )
+    request = factory.fundingrequest()
 
     request.reject()
 
     assert request.processing_status == "rejected"
+
+
+@pytest.mark.django_db
+def test__fundingrequest__open__changes_processing_status() -> None:
+    request = factory.fundingrequest()
+
+    request.open()
+
+    assert request.processing_status == "in_progress"

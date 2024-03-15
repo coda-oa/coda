@@ -1,4 +1,5 @@
 from typing import Any, cast
+from collections.abc import Callable
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -192,25 +193,23 @@ def detach_label(request: HttpRequest) -> HttpResponse:
     return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request_id}))
 
 
-@login_required
-@require_POST
-def approve(request: HttpRequest) -> HttpResponse:
-    try:
-        funding_request_id = request.POST["fundingrequest"]
-        funding_request = repository.get_by_pk(int(funding_request_id))
-        funding_request.approve()
-        return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request_id}))
-    except FundingRequest.DoesNotExist:
-        return HttpResponse(status=404)
+def fundingrequest_action(
+    action: Callable[[FundingRequest], None]
+) -> Callable[[HttpRequest], HttpResponse]:
+    @login_required
+    @require_POST
+    def post(request: HttpRequest) -> HttpResponse:
+        try:
+            funding_request_id = request.POST["fundingrequest"]
+            funding_request = repository.get_by_pk(int(funding_request_id))
+            action(funding_request)
+            return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request_id}))
+        except FundingRequest.DoesNotExist:
+            return HttpResponse(status=404)
+
+    return post
 
 
-@login_required
-@require_POST
-def reject(request: HttpRequest) -> HttpResponse:
-    try:
-        funding_request_id = request.POST["fundingrequest"]
-        funding_request = repository.get_by_pk(int(funding_request_id))
-        funding_request.reject()
-        return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request_id}))
-    except FundingRequest.DoesNotExist:
-        return HttpResponse(status=404)
+approve = fundingrequest_action(FundingRequest.approve)
+reject = fundingrequest_action(FundingRequest.reject)
+open = fundingrequest_action(FundingRequest.open)
