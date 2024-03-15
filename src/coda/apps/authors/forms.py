@@ -30,7 +30,6 @@ class AuthorForm(forms.Form):
 
     def to_dto(self) -> AuthorDto:
         data = self.cleaned_data
-        print(data)
         return AuthorDto(
             name=data["name"],
             email=data["email"],
