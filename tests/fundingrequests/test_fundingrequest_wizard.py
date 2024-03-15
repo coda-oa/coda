@@ -92,11 +92,7 @@ def submit_wizard(
     publication_post_data: dict[str, Any],
     funding: FundingDto,
 ) -> HttpResponse:
-    # NOTE: Currently we are only allowing one role per author, but this will change in the future
-    # Therefore, we already store the role as a list in the DTO, but convert it to a string here
-    author_post_data = {**author, "role": author["roles"][0]}  # type: ignore
-    author_post_data.pop("roles")
-    client.post(reverse("fundingrequests:create_submitter"), author_post_data)
+    client.post(reverse("fundingrequests:create_submitter"), author)
     client.post(reverse("fundingrequests:create_journal"), journal)
     client.post(reverse("fundingrequests:create_publication"), publication_post_data)
     return cast(HttpResponse, client.post(reverse("fundingrequests:create_funding"), funding))

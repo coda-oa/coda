@@ -22,16 +22,21 @@ class AuthorForm(forms.Form):
     email = forms.EmailField()
     orcid = OrcidField(required=False)
     affiliation = forms.ModelChoiceField(queryset=Institution.objects.all(), required=False)
-    role = forms.ChoiceField(choices=((role.name, role.value) for role in Role), required=False)
+    roles = forms.MultipleChoiceField(
+        choices=((role.name, role.value) for role in Role),
+        widget=forms.CheckboxSelectMultiple(),
+        required=False,
+    )
 
     def to_dto(self) -> AuthorDto:
         data = self.cleaned_data
+        print(data)
         return AuthorDto(
             name=data["name"],
             email=data["email"],
             orcid=data.get("orcid"),
             affiliation=self.affiliation_pk(data),
-            roles=[data["role"]],
+            roles=data["roles"],
         )
 
     def affiliation_pk(self, data: Mapping[str, Any]) -> int | None:

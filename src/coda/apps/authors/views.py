@@ -8,7 +8,6 @@ from django.views.generic import DetailView, TemplateView
 from coda.apps.authors.forms import AuthorForm
 from coda.apps.authors.models import Author
 from coda.apps.authors.services import author_create
-from coda.apps.institutions.models import Institution
 
 
 class AuthorDetailView(DetailView[Author]):
@@ -22,7 +21,7 @@ class AuthorCreateView(TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
-        ctx.update({"person_form": AuthorForm(), "institution_list": Institution.objects.all()})
+        ctx["author_form"] = AuthorForm()
         return ctx
 
     def post(self, request: HttpRequest) -> HttpResponse:
