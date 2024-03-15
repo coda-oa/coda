@@ -10,14 +10,8 @@ from coda.apps.fundingrequests.services import (
     label_create,
     label_detach,
 )
-from coda.apps.users.models import User
 from coda.color import Color
 from tests.fundingrequests import factory
-
-
-@pytest.fixture
-def logged_in(client: Client) -> None:
-    client.force_login(User.objects.create_user("testuser"))
 
 
 @pytest.mark.django_db

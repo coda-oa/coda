@@ -8,14 +8,13 @@ from django.urls import reverse
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.apps.fundingrequests.views import FundingRequestListView
 from coda.color import Color
-from tests.fundingrequests.test_fundingrequest_labels import logged_in  # noqa: F401
-from tests.fundingrequests.test_fundingrequest_repository import fundingrequest
+from tests.fundingrequests import factory
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__searching_for_funding_requests__shows_all_funding_requests(client: Client) -> None:
-    requests = {fundingrequest(), fundingrequest()}
+    requests = {factory.fundingrequest(), factory.fundingrequest()}
 
     response = fundingrequest_list(client)
 
@@ -28,9 +27,9 @@ def test__searching_for_funding_requests_by_title__shows_only_matching_funding_r
     client: Client,
 ) -> None:
     title = "The Search Term"
-    matching_request = fundingrequest(title)
+    matching_request = factory.fundingrequest(title)
 
-    _ = fundingrequest("No match")
+    _ = factory.fundingrequest("No match")
 
     response = fundingrequest_list(client, {"title": title})
 
@@ -42,13 +41,13 @@ def test__searching_for_funding_requests_by_title__shows_only_matching_funding_r
 def test__searching_for_funding_requests_by_label__shows_only_matching_funding_requests(
     client: Client,
 ) -> None:
-    matching_request = fundingrequest()
+    matching_request = factory.fundingrequest()
     first = label_create("The Label", Color())
     label_attach(matching_request.pk, first.pk)
     second = label_create("Another Label", Color())
     label_attach(matching_request.pk, second.pk)
 
-    _ = fundingrequest("No match")
+    _ = factory.fundingrequest("No match")
 
     response = fundingrequest_list(client, {"labels": [first.pk, second.pk]})
 
@@ -60,13 +59,13 @@ def test__searching_for_funding_requests_by_label__shows_only_matching_funding_r
 def test__searching_for_funding_requests_by_process_state__shows_only_matching_funding_requests(
     client: Client,
 ) -> None:
-    approved_request = fundingrequest()
+    approved_request = factory.fundingrequest()
     approved_request.approve()
 
-    rejected_request = fundingrequest()
+    rejected_request = factory.fundingrequest()
     rejected_request.reject()
 
-    in_progress_request = fundingrequest()  # noqa: F841
+    in_progress_request = factory.fundingrequest()  # noqa: F841
 
     query = {"processing_status": ["approved", "rejected"]}
     response = fundingrequest_list(client, query)

@@ -1,6 +1,8 @@
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Role
 from coda.apps.fundingrequests.dto import FundingDto
+from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
 from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
@@ -26,6 +28,14 @@ def publication() -> Publication:
         title="Test Publication",
         journal=journal(),
     )
+
+
+def fundingrequest(title: str = "") -> FundingRequest:
+    _journal = journal()
+    affiliation = institution().pk
+    author_dto = valid_author_dto(affiliation)
+    pub_dto = publication_dto(_journal.pk, title=title)
+    return fundingrequest_create(author_dto, pub_dto, funding_dto())
 
 
 def valid_author_dto(affiliation_pk: int) -> AuthorDto:
