@@ -17,7 +17,17 @@
                     <p>
                         Journal: <a href="{{ fr.publication.journal.get_absolute_url }}">{{ fr.publication.journal.title }}</a>
                     </p>
-                    <p>Status: {{ fr.get_processing_status_display }}</p>
+                    <p class="mt-1_5">
+                        <small>
+                            {% if fr.is_open %}
+                                <span class="pill fundingrequest__open">Open</span>
+                            {% elif fr.is_approved %}
+                                <span class="pill fundingrequest__approved">Approved</span>
+                            {% elif fr.is_rejected %}
+                                <span class="pill fundingrequest__rejected">Rejected</span>
+                            {% endif %}
+                        </small>
+                    </p>
                 </article>
             </li>
         {% endfor %}

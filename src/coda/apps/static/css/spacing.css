@@ -2,12 +2,28 @@
   margin: 0;
 }
 
-.my-1_25 {
-  margin-block: 1.25rem;
+.mt-1 {
+  margin-block-start: 1rem;
+}
+
+.mt-1_5 {
+  margin-block-start: 1.5rem;
+}
+
+.mt-2 {
+  margin-block-start: 2rem;
+}
+
+.mr-1 {
+  margin-inline-end: 1rem;
 }
 
 .mr-2 {
   margin-inline-end: 2rem;
+}
+
+.my-1_25 {
+  margin-block: 1.25rem;
 }
 
 .my-2 {

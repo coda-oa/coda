@@ -1,5 +1,10 @@
 :root {
+  /* CODA Variables */
   --coda-line-height: 1;
+
+  --coda-primary-background: var(--pico-primary-background);
+  --coda-primary-border: var(--pico-primary-border);
+
   --coda-form-element-spacing-vertical: var(
     --pico-form-element-spacing-vertical
   );
@@ -7,5 +12,21 @@
     --pico-form-element-spacing-horizontal
   );
 
+  --coda-pill-border-radius: 50px;
+  --coda-pill-padding-vertical: 0.35rem;
+  --coda-pill-padding-horizontal: 0.75rem;
+
+  --coda-validation-valid-color: var(
+    --pico-form-element-valid-active-border-color
+  );
+  --coda-validation-invalid-color: var(
+    --pico-form-element-invalid-active-border-color
+  );
+
+  /*
+  Pico Variables.
+  NOTE: We avoid referencing Pico variables directly in Coda.
+  Instead we define Coda variables that reference Pico variables to minimize the dependency on Pico.
+  */
   --pico-line-height: var(--coda-line-height);
 }

@@ -9,14 +9,29 @@ ul.no-decoration > li {
 }
 
 .inline-search-pill {
-  border-top-right-radius: 50px;
-  border-bottom-right-radius: 50px;
+  border-top-right-radius: var(--coda-pill-border-radius);
+  border-bottom-right-radius: var(--coda-pill-border-radius);
 }
 
 .pill {
-  padding: 0.35rem 0.75rem;
-  border-radius: 50px;
+  padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
+  border-radius: var(--coda-pill-border-radius);
   text-align: center;
+}
+
+.fundingrequest__approved {
+  background-color: var(--coda-validation-valid-color);
+  border-color: var(--coda-validation-valid-color);
+}
+
+.fundingrequest__rejected {
+  background-color: var(--coda-validation-invalid-color);
+  border-color: var(--coda-validation-invalid-color);
+}
+
+.fundingrequest__open {
+  background-color: var(--coda-primary-background);
+  border-color: var(--coda-primary-border);
 }
 
 .label {

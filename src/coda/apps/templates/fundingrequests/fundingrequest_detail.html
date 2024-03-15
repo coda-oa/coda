@@ -1,9 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1>Funding Request</h1>
-    <p>
-        <b>Status: {{ funding_request.get_processing_status_display }}</b>
-    </p>
+    <h1 class="my-2">
+        <span class="mr-1">Funding Request</span>
+        <small>
+            {% if funding_request.is_open %}
+                <span class="pill fundingrequest__open">Open</span>
+            {% elif funding_request.is_approved %}
+                <span class="pill fundingrequest__approved">Approved</span>
+            {% elif funding_request.is_rejected %}
+                <span class="pill fundingrequest__rejected">Rejected</span>
+            {% endif %}
+        </small>
+    </h1>
     <div class="flex wrap justify-between my-2">
         <div class="flex align-center wrap">
             <span class="mr-2">Labels:</span>
@@ -69,6 +77,26 @@
                     {% endfor %}
                 </tbody>
             </table>
+        {% endif %}
+    </div>
+    <div class="flex my-2">
+        {% if funding_request.is_open %}
+            <form method="post" action="{% url "fundingrequests:approve" %}">
+                {% csrf_token %}
+                <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
+                <button type="submit" class="fundingrequest__approved">Approve</button>
+            </form>
+            <form method="post" action="{% url "fundingrequests:reject" %}">
+                {% csrf_token %}
+                <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
+                <button type="submit" class="fundingrequest__rejected">Reject</button>
+            </form>
+        {% else %}
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
+                <button type="submit">Re-open</button>
+            </form>
         {% endif %}
     </div>
 {% endblock content %}
