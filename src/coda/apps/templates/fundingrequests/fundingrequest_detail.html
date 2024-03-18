@@ -84,15 +84,17 @@
             <form method="post" action="{% url "fundingrequests:approve" %}">
                 {% csrf_token %}
                 <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                <button type="submit" class="fundingrequest__approved">Approve</button>
+                <button type="submit"
+                        class="fundingrequest__status-label fundingrequest__approved">Approve</button>
             </form>
             <form method="post" action="{% url "fundingrequests:reject" %}">
                 {% csrf_token %}
                 <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                <button type="submit" class="fundingrequest__rejected">Reject</button>
+                <button type="submit"
+                        class="fundingrequest__status-label fundingrequest__rejected">Reject</button>
             </form>
         {% else %}
-            <form method="post">
+            <form method="post" action="{% url "fundingrequests:open" %}">
                 {% csrf_token %}
                 <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
                 <button type="submit">Re-open</button>
