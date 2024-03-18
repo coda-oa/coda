@@ -6,6 +6,7 @@ from faker import Faker
 from faker.providers import lorem
 
 from coda.apps.authors.dto import AuthorDto
+from coda.apps.authors.models import Role
 from coda.apps.fundingrequests.dto import FundingDto
 from coda.apps.fundingrequests.models import ProcessingStatus
 from coda.apps.fundingrequests.services import fundingrequest_create
@@ -40,7 +41,7 @@ class Command(BaseCommand):
                 email=faker.email(),
                 orcid=None,
                 affiliation=None,
-                roles=["SUBMITTER"],
+                roles=[Role.SUBMITTER.name],
             ),
             PublicationDto(
                 title=faker.sentence(),
