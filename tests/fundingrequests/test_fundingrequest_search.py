@@ -16,7 +16,7 @@ from tests.fundingrequests import factory
 def test__searching_for_funding_requests__shows_all_funding_requests(client: Client) -> None:
     requests = {factory.fundingrequest(), factory.fundingrequest()}
 
-    response = fundingrequest_list(client)
+    response = search_fundingrequests(client)
 
     assert set(response.context[FundingRequestListView.context_object_name]) == requests
 
@@ -31,7 +31,7 @@ def test__searching_for_funding_requests_by_title__shows_only_matching_funding_r
 
     _ = factory.fundingrequest("No match")
 
-    response = fundingrequest_list(client, {"title": title})
+    response = search_fundingrequests(client, {"title": title})
 
     assert list(response.context[FundingRequestListView.context_object_name]) == [matching_request]
 
@@ -49,7 +49,7 @@ def test__searching_for_funding_requests_by_label__shows_only_matching_funding_r
 
     _ = factory.fundingrequest("No match")
 
-    response = fundingrequest_list(client, {"labels": [first.pk, second.pk]})
+    response = search_fundingrequests(client, {"labels": [first.pk, second.pk]})
 
     assert list(response.context[FundingRequestListView.context_object_name]) == [matching_request]
 
@@ -68,11 +68,11 @@ def test__searching_for_funding_requests_by_process_state__shows_only_matching_f
     in_progress_request = factory.fundingrequest()  # noqa: F841
 
     query = {"processing_status": ["approved", "rejected"]}
-    response = fundingrequest_list(client, query)
+    response = search_fundingrequests(client, query)
 
     rendered_requests = response.context[FundingRequestListView.context_object_name]
     assert set(rendered_requests) == {approved_request, rejected_request}
 
 
-def fundingrequest_list(client: Client, query: dict[str, Any] | None = None) -> TemplateResponse:
+def search_fundingrequests(client: Client, query: dict[str, Any] | None = None) -> TemplateResponse:
     return cast(TemplateResponse, client.get(reverse("fundingrequests:list"), data=query))
