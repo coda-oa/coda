@@ -8,6 +8,11 @@ ul.no-decoration > li {
   list-style-type: none;
 }
 
+article {
+  border: 1px solid
+    color-mix(in srgb, var(--coda-validation-valid-color), transparent 50%);
+}
+
 .inline-search-pill {
   border-top-right-radius: var(--coda-pill-border-radius);
   border-bottom-right-radius: var(--coda-pill-border-radius);
@@ -19,19 +24,30 @@ ul.no-decoration > li {
   text-align: center;
 }
 
+.fundingrequest__title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .fundingrequest__approved {
-  background-color: var(--coda-validation-valid-color);
-  border-color: var(--coda-validation-valid-color);
+  --fundingrequest-status-color: var(--coda-validation-valid-color);
+  border-color: var(--fundingrequest-status-color);
 }
 
 .fundingrequest__rejected {
-  background-color: var(--coda-validation-invalid-color);
-  border-color: var(--coda-validation-invalid-color);
+  --fundingrequest-status-color: var(--coda-validation-invalid-color);
+  border-color: var(--fundingrequest-status-color);
 }
 
 .fundingrequest__open {
-  background-color: var(--coda-primary-background);
-  border-color: var(--coda-primary-border);
+  --fundingrequest-status-color: var(--coda-primary-border);
+  border-color: var(--fundingrequest-status-color);
+}
+
+.fundingrequest__status-label {
+  background-color: var(--fundingrequest-status-color);
+  color: var(--coda-validation-text-color);
 }
 
 .label {

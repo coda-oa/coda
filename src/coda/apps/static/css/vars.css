@@ -23,10 +23,18 @@
     --pico-form-element-invalid-active-border-color
   );
 
+  --coda-validation-text-color: white;
+
   /*
   Pico Variables.
   NOTE: We avoid referencing Pico variables directly in Coda.
   Instead we define Coda variables that reference Pico variables to minimize the dependency on Pico.
   */
   --pico-line-height: var(--coda-line-height);
+}
+
+@media only screen and (prefers-color-scheme: dark) {
+  :root {
+    --coda-validation-text-color: #c2c7d0;
+  }
 }

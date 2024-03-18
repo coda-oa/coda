@@ -10,8 +10,8 @@
     <ul class="no-decoration grid-container">
         {% for fr in funding_requests %}
             <li>
-                <article>
-                    <p>
+                <article class="{% if fr.is_open %}  fundingrequest__open  {% elif fr.is_approved %}  fundingrequest__approved  {% elif fr.is_rejected %}  fundingrequest__rejected  {% endif %}">
+                    <p class="fundingrequest__title">
                         <a href="{{ fr.get_absolute_url }}">{{ fr.publication.title }}</a>
                     </p>
                     <p>Submitted by: {{ fr.submitter.name }}</p>
@@ -21,11 +21,11 @@
                     <p class="mt-1_5">
                         <small>
                             {% if fr.is_open %}
-                                <span class="pill fundingrequest__open">Open</span>
+                                <span class="pill fundingrequest__status-label">Open</span>
                             {% elif fr.is_approved %}
-                                <span class="pill fundingrequest__approved">Approved</span>
+                                <span class="pill fundingrequest__status-label">Approved</span>
                             {% elif fr.is_rejected %}
-                                <span class="pill fundingrequest__rejected">Rejected</span>
+                                <span class="pill fundingrequest__status-label">Rejected</span>
                             {% endif %}
                         </small>
                     </p>
