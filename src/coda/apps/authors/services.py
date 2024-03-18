@@ -14,7 +14,8 @@ def author_create(dto: AuthorDto) -> Author:
     if not dto["name"]:
         raise ValueError("Author name is required")
 
-    dto["orcid"] = orcid_validator(dto.get("orcid"))
+    if dto.get("orcid"):
+        dto["orcid"] = orcid_validator(dto.get("orcid"))
 
     affiliation = _find_affiliation(dto)
     return author_repository.create(dto, affiliation)

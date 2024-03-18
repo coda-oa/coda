@@ -28,6 +28,13 @@ def test__cannot_create_author_with_empty_name() -> None:
 
 
 @pytest.mark.django_db
+def test__can_create_author_with_empty_orcid() -> None:
+    no_orcid = JOSIAHS_DATA.copy()
+    no_orcid["orcid"] = ""
+    author_create(no_orcid)
+
+
+@pytest.mark.django_db
 def test__cannot_create_author_with_invalid_orcid() -> None:
     with pytest.raises(ValidationError):
         dto = JOSIAHS_DATA.copy()
