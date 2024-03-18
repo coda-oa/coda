@@ -14,6 +14,7 @@
                     <p>
                         <a href="{{ fr.get_absolute_url }}">{{ fr.publication.title }}</a>
                     </p>
+                    <p>Submitted by: {{ fr.submitter.name }}</p>
                     <p>
                         Journal: <a href="{{ fr.publication.journal.get_absolute_url }}">{{ fr.publication.journal.title }}</a>
                     </p>
