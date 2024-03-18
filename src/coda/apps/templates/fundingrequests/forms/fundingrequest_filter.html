@@ -1,15 +1,23 @@
 <form method="get">
     <div role="group">
+        <select name="search_type" id="id_search-type">
+            <option value="submitter"
+                    {% if not request.GET.search_type or "submitter" == request.GET.search_type %}selected{% endif %}>
+                Submitter
+            </option>
+            <option value="title"
+                    {% if "title" == request.GET.search_type %}selected{% endif %}>Publication Title</option>
+        </select>
         <input type="search"
-               name="title"
-               value="{{ request.GET.title }}"
+               name="search-term"
+               value="{{ request.GET.search_term }}"
                placeholder="Search">
-        <button type="submit" class="inline-search-pill">Search</button>
+        <button type="submit">Search</button>
     </div>
-    <div class="grid">
+    <div>
         <details class="dropdown">
             <summary>Processing Status</summary>
-            <ul>
+            <ul class="no-decoration">
                 {% for status in processing_states %}
                     <li>
                         <input type="checkbox"

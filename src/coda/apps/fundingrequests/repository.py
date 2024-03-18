@@ -18,12 +18,16 @@ def get_by_pk(pk: int) -> FundingRequest:
 def search(
     *,
     title: str | None = None,
+    submitter: str | None = None,
     processing_states: list[str] | None = None,
     labels: Iterable[int] | None = None,
 ) -> Iterable[FundingRequest]:
     query = Q()
     if title:
         query = query & Q(publication__title__icontains=title)
+
+    if submitter:
+        query = query & Q(submitter__name__icontains=submitter)
 
     if processing_states:
         query = query & Q(processing_status__in=processing_states)

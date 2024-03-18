@@ -47,10 +47,16 @@ class FundingRequestListView(LoginRequiredMixin, ListView[FundingRequest]):
         return context
 
     def get_queryset(self) -> QuerySet[FundingRequest]:
+        search_type = self.request.GET.get("search_type")
+        if search_type in ["title", "submitter"]:
+            search_args = {search_type: self.request.GET.get("search_term")}
+        else:
+            search_args = {}
+
         return cast(
             QuerySet[FundingRequest],
             repository.search(
-                title=self.request.GET.get("title"),
+                **search_args,
                 labels=list(map(int, self.request.GET.getlist("labels"))),
                 processing_states=self.request.GET.getlist("processing_status"),
             ),
@@ -194,7 +200,7 @@ def detach_label(request: HttpRequest) -> HttpResponse:
 
 
 def fundingrequest_action(
-    action: Callable[[FundingRequest], None]
+    action: Callable[[FundingRequest], None],
 ) -> Callable[[HttpRequest], HttpResponse]:
     @login_required
     @require_POST

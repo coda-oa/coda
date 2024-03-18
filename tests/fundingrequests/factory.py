@@ -30,15 +30,15 @@ def publication() -> Publication:
     )
 
 
-def fundingrequest(title: str = "") -> FundingRequest:
+def fundingrequest(title: str = "", author_dto: AuthorDto | None = None) -> FundingRequest:
     _journal = journal()
     affiliation = institution().pk
-    author_dto = valid_author_dto(affiliation)
+    author_dto = author_dto or valid_author_dto(affiliation)
     pub_dto = publication_dto(_journal.pk, title=title)
     return fundingrequest_create(author_dto, pub_dto, funding_dto())
 
 
-def valid_author_dto(affiliation_pk: int) -> AuthorDto:
+def valid_author_dto(affiliation_pk: int | None = None) -> AuthorDto:
     return AuthorDto(
         name="Josiah Carberry",
         email="carberry@example.com",

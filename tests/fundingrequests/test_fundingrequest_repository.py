@@ -1,7 +1,8 @@
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
+from coda.apps.authors.models import Author
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.color import Color
@@ -16,6 +17,20 @@ def test__searching_for_funding_requests_by_title__returns_matching_funding_requ
     _ = factory.fundingrequest("No match")
 
     results = repository.search(title=title)
+
+    assert list(results) == [matching_request]
+
+
+@pytest.mark.django_db
+def test__searching_for_funding_requests_by_submitter__returns_matching_funding_requests() -> None:
+    matching_request = factory.fundingrequest()
+    submitter = cast(Author, matching_request.submitter)
+
+    non_matching_submitter = factory.valid_author_dto()
+    non_matching_submitter["name"] = "Not the submitter"
+    _ = factory.fundingrequest("No match", non_matching_submitter)
+
+    results = repository.search(submitter=submitter.name)
 
     assert list(results) == [matching_request]
 
