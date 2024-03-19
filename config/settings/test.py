@@ -1,6 +1,7 @@
 """
 With these settings, tests run faster.
 """
+from pathlib import Path
 
 from .base import *  # noqa
 from .base import env
@@ -27,9 +28,10 @@ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
 # DEBUGGING FOR TEMPLATES
 # ------------------------------------------------------------------------------
+TEMPLATES[0]["DIRS"].append(Path() / "tests" / "templates")  # type: ignore # noqa: F405
 TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore # noqa: F405
 
 # MEDIA
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#media-url
-MEDIA_URL = 'http://media.testserver'
+MEDIA_URL = "http://media.testserver"
