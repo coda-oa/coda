@@ -23,10 +23,6 @@ class Step:
 
 class SimpleStep(Step):
     template_name: str = "simple_template.html"
-    context: dict[str, str] = {}
-
-    def get_context_data(self) -> dict[str, str]:
-        return self.context
 
 
 class StepWithContext(SimpleStep):
