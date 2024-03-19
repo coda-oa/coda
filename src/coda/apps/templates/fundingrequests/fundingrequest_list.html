@@ -10,7 +10,7 @@
     <ul class="no-decoration grid-container">
         {% for fr in funding_requests %}
             <li>
-                <article class="{% if fr.is_open %}  fundingrequest__open  {% elif fr.is_approved %}  fundingrequest__approved  {% elif fr.is_rejected %}  fundingrequest__rejected  {% endif %}">
+                <article class="fundingrequest {% if fr.is_open %}  fundingrequest__open  {% elif fr.is_approved %}  fundingrequest__approved  {% elif fr.is_rejected %}  fundingrequest__rejected  {% endif %}">
                     <p class="fundingrequest__title">
                         <a href="{{ fr.get_absolute_url }}">{{ fr.publication.title }}</a>
                     </p>

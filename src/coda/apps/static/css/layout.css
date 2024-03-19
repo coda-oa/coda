@@ -38,7 +38,7 @@
 
 .grid-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(40ch, 400px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(30ch, 400px), 1fr));
   grid-column-gap: 20px;
   grid-row-gap: 20px;
   justify-items: stretch;

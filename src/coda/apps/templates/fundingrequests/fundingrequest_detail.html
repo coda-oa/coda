@@ -4,11 +4,11 @@
         <span class="mr-1">Funding Request</span>
         <small>
             {% if funding_request.is_open %}
-                <span class="pill fundingrequest__open">Open</span>
+                <span class="pill fundingrequest__status-label fundingrequest__open">Open</span>
             {% elif funding_request.is_approved %}
-                <span class="pill fundingrequest__approved">Approved</span>
+                <span class="pill fundingrequest__status-label fundingrequest__approved">Approved</span>
             {% elif funding_request.is_rejected %}
-                <span class="pill fundingrequest__rejected">Rejected</span>
+                <span class="pill fundingrequest__status-label fundingrequest__rejected">Rejected</span>
             {% endif %}
         </small>
     </h1>
@@ -34,7 +34,7 @@
                         <p>{{ funding_request.submitter.name }}</p>
                         <p>{{ funding_request.submitter.affiliation.name }}</p>
                         <p>
-                            {% for role in funding_request.submitter.get_roles %}<span>{{ role }}</span>{% endfor %}
+                            {% for role in funding_request.submitter.get_roles %}<span>{{ role.value }}</span>{% endfor %}
                         </p>
                     </td>
                 </tr>

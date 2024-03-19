@@ -1,3 +1,12 @@
-{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
-<span>Current: {{ page_obj.number }}</span>
-{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+<div class="my-2">
+    {% if page_obj.has_previous %}
+        <a class="mr-1" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+    {% else %}
+        <a class="mr-1 pagination__disabled" disabled>Previous</a>
+    {% endif %}
+    <span class="mr-1 pagination__current">{{ page_obj.number }}</span>
+    {% if page_obj.has_next %}
+        <a class="secondary outline"
+           href="?page={{ page_obj.next_page_number }}">Next</a>
+    {% endif %}
+</div>

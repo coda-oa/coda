@@ -8,9 +8,8 @@ ul.no-decoration > li {
   list-style-type: none;
 }
 
-article {
-  border: 1px solid
-    color-mix(in srgb, var(--coda-validation-valid-color), transparent 50%);
+article.fundingrequest {
+  border: 1px solid var(--fundingrequest-status-color);
 }
 
 .inline-search-pill {
@@ -75,4 +74,15 @@ details.dropdown > ul:has(.label) {
 
 details.dropdown > ul:has(.label) > li {
   padding-block: 0.75rem;
+}
+
+.pagination__current {
+  border: 1px solid var(--coda-primary-border);
+  border-radius: 0.25rem;
+  padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
+}
+
+.pagination__disabled {
+  color: var(--coda-disabled-text-color);
+  text-decoration: none;
 }
