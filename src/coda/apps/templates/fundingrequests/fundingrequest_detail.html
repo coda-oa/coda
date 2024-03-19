@@ -22,7 +22,7 @@
         <div class="flex">{% include "fundingrequests/forms/label_attach.html" %}</div>
     </div>
     <div>
-        <table>
+        <table class="fundingrequest__detail-table">
             <tbody>
                 <tr>
                     <td>Request ID</td>
@@ -41,7 +41,7 @@
             </tbody>
         </table>
         <h2>Publication Details</h2>
-        <table>
+        <table class="fundingrequest__detail-table">
             <tbody>
                 <tr>
                     <td>Title</td>
@@ -59,7 +59,7 @@
         </table>
         {% if funding_request.publication.links %}
             <h3>References</h3>
-            <table>
+            <table class="fundingrequest__detail-table">
                 <thead>
                     <tr>
                         <th>Link Type</th>

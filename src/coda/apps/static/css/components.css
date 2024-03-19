@@ -29,6 +29,10 @@ article.fundingrequest {
   text-overflow: ellipsis;
 }
 
+.fundingrequest__detail-table td:first-child {
+  width: min(30%, 20ch);
+}
+
 .fundingrequest__approved {
   --fundingrequest-status-color: var(--coda-validation-valid-color);
   border-color: var(--fundingrequest-status-color);
