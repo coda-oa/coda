@@ -3,26 +3,22 @@ from typing import cast
 from urllib.parse import urlencode
 
 import pytest
-from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.test import RequestFactory
-from django.views import View
 
-
-class Step:
-    template_name: str
-    context: dict[str, str] = {}
-
-    def __init__(self) -> None:
-        if not hasattr(self, "template_name"):
-            raise AttributeError("Step must have a template_name attribute")
-
-    def get_context_data(self) -> dict[str, str]:
-        return self.context
+from coda.apps.wizard import Step, Wizard
 
 
 class SimpleStep(Step):
     template_name: str = "simple_template.html"
+
+
+class InvalidStep(Step):
+    template_name: str = "template_with_data.html"
+    context: dict[str, str] = {"name": "Invalid"}
+
+    def is_valid(self, request: HttpRequest) -> bool:
+        return False
 
 
 class StepWithContext(SimpleStep):
@@ -30,27 +26,8 @@ class StepWithContext(SimpleStep):
     context: dict[str, str] = {"name": "Steven"}
 
 
-class Wizard(View):
-    steps: list[SimpleStep] = []
-
-    def get(self, request: HttpRequest) -> HttpResponse:
-        index = self.current_step(request)
-        return self.render_step(request, index)
-
-    def render_step(self, request: HttpRequest, index: int) -> HttpResponse:
-        step = self.steps[index]
-        return render(request, step.template_name, step.get_context_data())
-
-    def current_step(self, request: HttpRequest) -> int:
-        step = request.GET.get("step", 1)
-        return int(step) - 1
-
-    def post(self, request: HttpRequest) -> HttpResponse:
-        return self.render_step(request, self.current_step(request) + 1)
-
-
-def make_sut(steps: list[SimpleStep]) -> Callable[..., HttpResponse]:
-    return cast(Callable[..., HttpResponse], Wizard.as_view(steps=steps))
+def make_sut(steps: list[Step], success_url: str = "") -> Callable[..., HttpResponse]:
+    return cast(Callable[..., HttpResponse], Wizard.as_view(steps=steps, success_url=success_url))
 
 
 def get(
@@ -90,15 +67,15 @@ def test__wizard_with_step_and_context__get_renders_first_step_with_context() ->
 
     response = get(sut)
 
-    assert_rendered_content_with_context(response)
+    assert_rendered_with_context(response)
 
 
 def test__wizard_with_two_steps__get_step_2__renders_second_step() -> None:
     sut = make_sut(steps=[SimpleStep(), StepWithContext()])
 
-    response = get(sut, {"step": "2"})
+    response = get(sut, step(2))
 
-    assert_rendered_content_with_context(response)
+    assert_rendered_with_context(response)
 
 
 def test__wizard_with_two_steps__post_to_first_step__renders_second_step() -> None:
@@ -106,16 +83,63 @@ def test__wizard_with_two_steps__post_to_first_step__renders_second_step() -> No
 
     response = post(sut)
 
-    assert_rendered_content_with_context(response)
+    assert_rendered_with_context(response)
 
 
 def test__wizard_with_three_steps__post_to_second_step__renders_third_step() -> None:
     sut = make_sut(steps=[SimpleStep(), SimpleStep(), StepWithContext()])
 
-    response = post(sut, {"step": "2"})
+    response = post(sut, step(2))
 
-    assert_rendered_content_with_context(response)
+    assert_rendered_with_context(response)
 
 
-def assert_rendered_content_with_context(response: HttpResponse) -> None:
-    assert response.content.strip() == b"Hello Steven"
+def test__wizard__post_to_last_step__redirects_to_success_url() -> None:
+    sut = make_sut(steps=[SimpleStep()], success_url="/success")
+
+    response = cast(HttpResponseRedirect, post(sut))
+
+    assert response.status_code == 302
+    assert response.url == "/success"
+
+
+@pytest.mark.parametrize("s", [-5, 0, 2, 5])
+def test__wizard__post_to_step_out_of_bounds__renders_first_step(s: int) -> None:
+    sut = make_sut(steps=[SimpleStep()])
+
+    response = post(sut, step(s))
+
+    assert response.content.strip() == b"Hello World"
+
+
+@pytest.mark.parametrize("s", [-5, 0, 2, 5])
+def test__wizard__get_step_out_of_bounds__renders_first_step(s: int) -> None:
+    sut = make_sut(steps=[SimpleStep()])
+
+    response = get(sut, step(s))
+
+    assert response.content.strip() == b"Hello World"
+
+
+def test__wizard__post_to_invalid_step__rerenders_same_step() -> None:
+    sut = make_sut(steps=[InvalidStep(), SimpleStep()])
+
+    response = post(sut, step(1))
+
+    assert_rendered_with_context(response, "Invalid")
+
+
+def test__wizard__post_to_last_step_invalid__rerenders_last_step() -> None:
+    sut = make_sut(steps=[SimpleStep(), InvalidStep()])
+
+    response = post(sut, step(2))
+
+    assert_rendered_with_context(response, "Invalid")
+
+
+def step(s: int) -> dict[str, str]:
+    return {"step": str(s)}
+
+
+def assert_rendered_with_context(response: HttpResponse, expected: str = "Steven") -> None:
+    assert response.content.strip() == f"Hello {expected}".encode()
