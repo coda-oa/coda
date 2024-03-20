@@ -7,18 +7,8 @@ app_name = "fundingrequests"
 urlpatterns = [
     path("", views.FundingRequestListView.as_view(), name="list"),
     path("<int:pk>/", views.FundingRequestDetailView.as_view(), name="detail"),
-    path("create/", views.FundingRequestSubmitterStep.as_view(), name="create_submitter"),
-    path("create/journal/", views.FundingRequestJournalStep.as_view(), name="create_journal"),
-    path(
-        "create/publication/",
-        views.FundingRequestPublicationStep.as_view(),
-        name="create_publication",
-    ),
-    path(
-        "create/funding/",
-        views.FundingRequestFundingStep.as_view(),
-        name="create_funding",
-    ),
+    path("create/wizard/", views.FundingRequestWizard.as_view(), name="create_wizard"),
+    path("create/wizard/<int:step>", views.FundingRequestWizard.as_view(), name="create_wizard"),
     path("approve/", views.approve, name="approve"),
     path("reject/", views.reject, name="reject"),
     path("open/", views.open, name="open"),

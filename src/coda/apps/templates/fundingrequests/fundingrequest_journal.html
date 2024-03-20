@@ -1,14 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
     <h1>Find Journal</h1>
-    <form action="{% url "fundingrequests:create_journal" %}" method="get">
+    <form action="{% url "fundingrequests:create_wizard" step=step %}"
+          method="get">
         <fieldset role="group">
             <input type="search" name="journal_title" id="journal_title">
             <button type="submit" class="inline-search-pill pill-right">Search</button>
         </fieldset>
     </form>
     {% if journals %}
-        <form action="{% url "fundingrequests:create_journal" %}" method="post">
+        <form action="{% url "fundingrequests:create_wizard" step=step %}"
+              method="post">
             {% csrf_token %}
             <table>
                 <thead>

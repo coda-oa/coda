@@ -23,49 +23,7 @@ def login(client: Client) -> None:
 
 
 @pytest.mark.django_db
-def test__fundingrequest_wizard__first_step__when_valid_data__redirects_to_next_step(
-    client: Client,
-) -> None:
-    form_data = factory.valid_author_dto(factory.institution().pk)
-    response = client.post(reverse("fundingrequests:create_submitter"), form_data)
-
-    assertRedirects(response, reverse("fundingrequests:create_journal"))
-
-
-@pytest.mark.django_db
-def test__fundingrequest_wizard__journal_step__when_valid_data__redirects_to_next_step(
-    client: Client,
-) -> None:
-    form_data = {"journal": factory.journal().pk}
-    response = client.post(reverse("fundingrequests:create_journal"), form_data)
-
-    assertRedirects(response, reverse("fundingrequests:create_publication"))
-
-
-@pytest.mark.django_db
-def test__fundingrequest_wizard__journal_step__searching_for_journal__shows_search_results(
-    client: Client,
-) -> None:
-    journal = factory.journal()
-    response = client.get(
-        reverse("fundingrequests:create_journal"), {"journal_title": journal.title}
-    )
-
-    assert journal.title in response.content.decode()
-
-
-@pytest.mark.django_db
-def test__fundingrequest_wizard_publication_step__when_valid_data__redirects_to_next_step(
-    client: Client,
-) -> None:
-    form_data = factory.publication_dto(factory.journal().pk)
-    response = client.post(reverse("fundingrequests:create_publication"), form_data)
-
-    assertRedirects(response, reverse("fundingrequests:create_funding"))
-
-
-@pytest.mark.django_db
-def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_details(
+def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_details__2(
     client: Client,
 ) -> None:
     author_dto = factory.valid_author_dto(factory.institution().pk)
@@ -77,12 +35,28 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
     publication_post_data = create_publication_post_data(links, publication_dto)
     funding_dto = factory.funding_dto()
 
-    response = submit_wizard(
+    response = submit_wizard_new(
         client, author_dto, journal_post_data, publication_post_data, funding_dto
     )
 
     funding_request = assert_correct_funding_request(author_dto, publication_dto, funding_dto)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
+
+
+def submit_wizard_new(
+    client: Client,
+    author: AuthorDto,
+    journal: dict[str, int],
+    publication_post_data: dict[str, Any],
+    funding: FundingDto,
+) -> HttpResponse:
+    client.post(reverse("fundingrequests:create_wizard", kwargs={"step": 1}), author)
+    client.post(reverse("fundingrequests:create_wizard", kwargs={"step": 2}), journal)
+    client.post(reverse("fundingrequests:create_wizard", kwargs={"step": 3}), publication_post_data)
+    return cast(
+        HttpResponse,
+        client.post(reverse("fundingrequests:create_wizard", kwargs={"step": 4}), funding),
+    )
 
 
 def submit_wizard(

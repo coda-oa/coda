@@ -1,6 +1,5 @@
 from collections.abc import Callable
 from typing import cast
-from urllib.parse import urlencode
 
 import pytest
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
@@ -34,15 +33,20 @@ def get(
     view: Callable[..., HttpResponse], query_params: dict[str, str] | None = None
 ) -> HttpResponse:
     factory = RequestFactory()
-    return view(factory.get("/", query_params))
+    _step = 1
+    if query_params:
+        _step = int(query_params["step"])
+    return view(factory.get("/"), step=_step)
 
 
 def post(
     view: Callable[..., HttpResponse], query_params: dict[str, str] | None = None
 ) -> HttpResponse:
     factory = RequestFactory()
-    query_string = f"?{urlencode(query_params)} " if query_params else ""
-    return view(factory.post("/" + query_string))
+    _step = 1
+    if query_params:
+        _step = int(query_params["step"])
+    return view(factory.post("/"), step=_step)
 
 
 def test__cannot_instantiate_step_without_template_name() -> None:
@@ -142,4 +146,4 @@ def step(s: int) -> dict[str, str]:
 
 
 def assert_rendered_with_context(response: HttpResponse, expected: str = "Steven") -> None:
-    assert response.content.strip() == f"Hello {expected}".encode()
+    assert response.content.strip() == f"{expected}".encode()

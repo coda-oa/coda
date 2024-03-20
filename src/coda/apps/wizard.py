@@ -1,6 +1,7 @@
 from abc import ABC
 from typing import Any
 
+from django.forms import Form
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
@@ -21,6 +22,18 @@ class Step(ABC):
         return self.context
 
 
+class FormStep(Step, ABC):
+    form_class: type[Form]
+
+    def get_context_data(self, request: HttpRequest) -> dict[str, Any]:
+        form_data = request.POST if request.method == "POST" else None
+        return super().get_context_data(request) | {"form": self.form_class(form_data)}
+
+    def is_valid(self, request: HttpRequest) -> bool:
+        form = self.form_class(request.POST)
+        return form.is_valid()
+
+
 class Wizard(View):
     steps: list[Step] = []
     success_url: str = ""
@@ -28,21 +41,17 @@ class Wizard(View):
     def get_success_url(self) -> str:
         return self.success_url
 
-    def get(self, request: HttpRequest) -> HttpResponse:
-        index = self.current_step_index(request)
+    def index(self, step: int) -> int:
+        return step - 1
+
+    def get(self, request: HttpRequest, step: int = 1) -> HttpResponse:
+        index = self.index(step)
         if self._out_of_bounds(index):
             index = 0
         return self._render_step(request, index)
 
-    def current_step_index(self, request: HttpRequest) -> int:
-        step = request.GET.get("step", 1)
-        return int(step) - 1
-
-    def current_step(self, request: HttpRequest) -> int:
-        return int(request.GET.get("step", 1))
-
-    def post(self, request: HttpRequest) -> HttpResponse:
-        current_index = self.current_step_index(request)
+    def post(self, request: HttpRequest, step: int = 1) -> HttpResponse:
+        current_index = self.index(step)
         if self._out_of_bounds(current_index):
             return self._render_step(request, 0)
 
@@ -61,4 +70,6 @@ class Wizard(View):
 
     def _render_step(self, request: HttpRequest, index: int) -> HttpResponse:
         step = self.steps[index]
-        return render(request, step.template_name, step.get_context_data(request))
+        context = step.get_context_data(request)
+        context["step"] = index + 1
+        return render(request, step.template_name, context)

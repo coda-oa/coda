@@ -10,7 +10,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.decorators.http import require_POST
-from django.views.generic import CreateView, DetailView, FormView, ListView, TemplateView
+from django.views.generic import CreateView, DetailView, ListView
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorForm
@@ -21,6 +21,7 @@ from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.forms import LinkForm, PublicationForm, PublicationFormData
 from coda.apps.publications.models import LinkType
+from coda.apps.wizard import FormStep, Step, Wizard
 
 
 class FundingRequestDetailView(LoginRequiredMixin, DetailView[FundingRequest]):
@@ -63,33 +64,23 @@ class FundingRequestListView(LoginRequiredMixin, ListView[FundingRequest]):
         )
 
 
-class FundingRequestSubmitterStep(LoginRequiredMixin, FormView[AuthorForm]):
-    template_name = "fundingrequests/fundingrequest_submitter.html"
+class SubmitterStep(FormStep):
+    template_name: str = "fundingrequests/fundingrequest_submitter.html"
     form_class = AuthorForm
-    next = "fundingrequests:create_journal"
 
-    def get_success_url(self) -> str:
-        return reverse(self.next)
-
-    def form_valid(self, form: AuthorForm) -> HttpResponse:
-        self.request.session["submitter"] = form.to_dto()
-        return super().form_valid(form)
+    def is_valid(self, request: HttpRequest) -> bool:
+        form = AuthorForm(request.POST)
+        valid = form.is_valid()
+        request.session["submitter"] = form.to_dto()
+        return valid
 
 
-class FundingRequestJournalStep(LoginRequiredMixin, TemplateView):
-    template_name = "fundingrequests/fundingrequest_journal.html"
-    next = "fundingrequests:create_publication"
+class JournalStep(Step):
+    template_name: str = "fundingrequests/fundingrequest_journal.html"
 
-    def get_success_url(self) -> str:
-        return reverse(self.next)
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        ctx = super().get_context_data(**kwargs)
-        if self.request.method != "GET":
-            return ctx
-
-        req = self.request.GET
-        title = req.get("journal_title")
+    def get_context_data(self, request: HttpRequest) -> dict[str, Any]:
+        ctx = super().get_context_data(request)
+        title = request.GET.get("journal_title")
         if not title:
             return ctx
 
@@ -98,32 +89,29 @@ class FundingRequestJournalStep(LoginRequiredMixin, TemplateView):
 
         return ctx
 
-    def post(self, request: HttpRequest) -> HttpResponse:
+    def is_valid(self, request: HttpRequest) -> bool:
         request.session["journal"] = request.POST["journal"]
-        return redirect(self.get_success_url())
+        return True
 
 
-class FundingRequestPublicationStep(LoginRequiredMixin, TemplateView):
-    template_name = "fundingrequests/fundingrequest_publication.html"
+class PublicationStep(Step):
+    template_name: str = "fundingrequests/fundingrequest_publication.html"
 
-    def get_success_url(self, **kwargs: Any) -> str:
-        return reverse("fundingrequests:create_funding")
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
+    def get_context_data(self, request: HttpRequest) -> dict[str, Any]:
+        context = super().get_context_data(request)
         context["publication_form"] = PublicationForm()
         context["link_types"] = LinkType.objects.all()
         return context
 
-    def post(self, request: HttpRequest) -> HttpResponse:
-        publication_form = PublicationForm(self.request.POST)
+    def is_valid(self, request: HttpRequest) -> bool:
+        publication_form = PublicationForm(request.POST)
         link_formset = self.link_formset(request)
         if not (publication_form.is_valid() and link_formset.is_valid()):
-            return redirect(reverse("fundingrequests:create_publication"))
+            return False
 
         request.session["links"] = [linkform.get_form_data() for linkform in link_formset.forms]
         request.session["publication"] = publication_form.get_form_data()
-        return redirect(self.get_success_url())
+        return True
 
     def link_formset(self, request: HttpRequest) -> BaseFormSet[LinkForm]:
         types, values = request.POST.getlist("link_type"), request.POST.getlist("link_value")
@@ -141,16 +129,22 @@ class FundingRequestPublicationStep(LoginRequiredMixin, TemplateView):
         return LinkFormSet(links)
 
 
-class FundingRequestFundingStep(LoginRequiredMixin, FormView[FundingForm]):
-    template_name = "fundingrequests/fundingrequest_funding.html"
-    form_class = FundingForm
+class FundingStep(Step):
+    template_name: str = "fundingrequests/fundingrequest_funding.html"
 
-    def form_valid(self, form: FundingForm) -> HttpResponse:
+    def get_context_data(self, request: HttpRequest) -> dict[str, Any]:
+        context = super().get_context_data(request)
+        context["form"] = FundingForm()
+        return context
+
+    def is_valid(self, request: HttpRequest) -> bool:
+        form = FundingForm(request.POST)
+        valid = form.is_valid()
         funding = form.to_dto()
-        author_dto: AuthorDto = self.request.session["submitter"]
-        publication_form_data: PublicationFormData = self.request.session["publication"]
-        link_form_data: list[LinkDto] = self.request.session["links"]
-        journal = self.request.session["journal"]
+        author_dto: AuthorDto = request.session["submitter"]
+        publication_form_data: PublicationFormData = request.session["publication"]
+        link_form_data: list[LinkDto] = request.session["links"]
+        journal = request.session["journal"]
 
         publication_dto = PublicationDto(
             title=publication_form_data["title"],
@@ -160,11 +154,23 @@ class FundingRequestFundingStep(LoginRequiredMixin, FormView[FundingForm]):
             journal=int(journal),
         )
 
-        self.funding_request = services.fundingrequest_create(author_dto, publication_dto, funding)
-        return super().form_valid(form)
+        funding_request = services.fundingrequest_create(author_dto, publication_dto, funding)
+        request.session["funding_request"] = funding_request.pk
+        return valid
 
-    def get_success_url(self, **kwargs: Any) -> str:
-        return reverse("fundingrequests:detail", kwargs={"pk": self.funding_request.pk})
+
+class FundingRequestWizard(LoginRequiredMixin, Wizard):
+    steps = [
+        SubmitterStep(),
+        JournalStep(),
+        PublicationStep(),
+        FundingStep(),
+    ]
+
+    def get_success_url(self) -> str:
+        return reverse(
+            "fundingrequests:detail", kwargs={"pk": self.request.session["funding_request"]}
+        )
 
 
 class LabelCreateView(LoginRequiredMixin, CreateView[Label, LabelForm]):
