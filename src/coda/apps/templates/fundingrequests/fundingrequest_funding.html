@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-    <form action="{% url "fundingrequests:create_wizard" step=step %}"
-          method="post">
+    <form action="{% url "fundingrequests:create_wizard" %}" method="post">
         {% csrf_token %}
         <label for="id_estimated_cost">Estimated Publication Cost</label>
         <fieldset role="group">

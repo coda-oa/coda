@@ -13,6 +13,8 @@ class PublicationFormData(TypedDict):
 
 
 class PublicationForm(forms.Form):
+    use_required_attribute = False
+
     title = forms.CharField()
     publication_state = forms.ChoiceField(
         choices=Publication.STATES, initial=Publication.State.SUBMITTED
@@ -28,6 +30,7 @@ class PublicationForm(forms.Form):
 
 
 class LinkForm(forms.Form):
+    use_required_attribute = False
     link_type = forms.ModelChoiceField(queryset=LinkType.objects.all())
     link_value = forms.CharField()
 

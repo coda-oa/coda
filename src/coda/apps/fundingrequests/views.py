@@ -21,7 +21,7 @@ from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.forms import LinkForm, PublicationForm, PublicationFormData
 from coda.apps.publications.models import LinkType
-from coda.apps.wizard import FormStep, Step, Wizard
+from coda.apps.wizard import FormStep, SessionStore, Step, Store, Wizard
 
 
 class FundingRequestDetailView(LoginRequiredMixin, DetailView[FundingRequest]):
@@ -68,19 +68,24 @@ class SubmitterStep(FormStep):
     template_name: str = "fundingrequests/fundingrequest_submitter.html"
     form_class = AuthorForm
 
-    def is_valid(self, request: HttpRequest) -> bool:
+    def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
+        form_data = request.POST if request.method == "POST" else None
+        return super().get_context_data(request, store) | {"form": self.form_class(form_data)}
+
+    def is_valid(self, request: HttpRequest, store: Store) -> bool:
         form = AuthorForm(request.POST)
-        valid = form.is_valid()
-        request.session["submitter"] = form.to_dto()
-        return valid
+        if form.is_valid():
+            store["submitter"] = form.to_dto()
+            return True
+        return False
 
 
 class JournalStep(Step):
     template_name: str = "fundingrequests/fundingrequest_journal.html"
 
-    def get_context_data(self, request: HttpRequest) -> dict[str, Any]:
-        ctx = super().get_context_data(request)
-        title = request.GET.get("journal_title")
+    def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
+        ctx = super().get_context_data(request, store)
+        title = request.POST.get("journal_title")
         if not title:
             return ctx
 
@@ -89,28 +94,32 @@ class JournalStep(Step):
 
         return ctx
 
-    def is_valid(self, request: HttpRequest) -> bool:
-        request.session["journal"] = request.POST["journal"]
+    def is_valid(self, request: HttpRequest, store: Store) -> bool:
+        print(request.POST)
+        if not request.POST.get("journal"):
+            return False
+
+        store["journal"] = request.POST["journal"]
         return True
 
 
 class PublicationStep(Step):
     template_name: str = "fundingrequests/fundingrequest_publication.html"
 
-    def get_context_data(self, request: HttpRequest) -> dict[str, Any]:
-        context = super().get_context_data(request)
-        context["publication_form"] = PublicationForm()
+    def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
+        context = super().get_context_data(request, store)
+        context["publication_form"] = PublicationForm(store.get("publication", {}))
         context["link_types"] = LinkType.objects.all()
         return context
 
-    def is_valid(self, request: HttpRequest) -> bool:
+    def is_valid(self, request: HttpRequest, store: Store) -> bool:
         publication_form = PublicationForm(request.POST)
         link_formset = self.link_formset(request)
         if not (publication_form.is_valid() and link_formset.is_valid()):
             return False
 
-        request.session["links"] = [linkform.get_form_data() for linkform in link_formset.forms]
-        request.session["publication"] = publication_form.get_form_data()
+        store["links"] = [linkform.get_form_data() for linkform in link_formset.forms]
+        store["publication"] = publication_form.get_form_data()
         return True
 
     def link_formset(self, request: HttpRequest) -> BaseFormSet[LinkForm]:
@@ -132,19 +141,19 @@ class PublicationStep(Step):
 class FundingStep(Step):
     template_name: str = "fundingrequests/fundingrequest_funding.html"
 
-    def get_context_data(self, request: HttpRequest) -> dict[str, Any]:
-        context = super().get_context_data(request)
+    def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
+        context = super().get_context_data(request, store)
         context["form"] = FundingForm()
         return context
 
-    def is_valid(self, request: HttpRequest) -> bool:
+    def is_valid(self, request: HttpRequest, store: Store) -> bool:
         form = FundingForm(request.POST)
         valid = form.is_valid()
         funding = form.to_dto()
-        author_dto: AuthorDto = request.session["submitter"]
-        publication_form_data: PublicationFormData = request.session["publication"]
-        link_form_data: list[LinkDto] = request.session["links"]
-        journal = request.session["journal"]
+        author_dto: AuthorDto = store["submitter"]
+        publication_form_data: PublicationFormData = store["publication"]
+        link_form_data: list[LinkDto] = store["links"]
+        journal = store["journal"]
 
         publication_dto = PublicationDto(
             title=publication_form_data["title"],
@@ -155,11 +164,13 @@ class FundingStep(Step):
         )
 
         funding_request = services.fundingrequest_create(author_dto, publication_dto, funding)
-        request.session["funding_request"] = funding_request.pk
+        store["funding_request"] = funding_request.pk
         return valid
 
 
 class FundingRequestWizard(LoginRequiredMixin, Wizard):
+    store_name = "funding_request_wizard"
+    store_factory = SessionStore
     steps = [
         SubmitterStep(),
         JournalStep(),
@@ -168,9 +179,8 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
     ]
 
     def get_success_url(self) -> str:
-        return reverse(
-            "fundingrequests:detail", kwargs={"pk": self.request.session["funding_request"]}
-        )
+        store = self.get_store()
+        return reverse("fundingrequests:detail", kwargs={"pk": store["funding_request"]})
 
 
 class LabelCreateView(LoginRequiredMixin, CreateView[Label, LabelForm]):

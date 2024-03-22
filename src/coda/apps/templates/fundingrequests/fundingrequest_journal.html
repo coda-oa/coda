@@ -1,17 +1,16 @@
-{% extends "base.html" %}
-{% block content %}
-    <h1>Find Journal</h1>
-    <form action="{% url "fundingrequests:create_wizard" step=step %}"
-          method="get">
+{% extends "forms/wizardform.html" %}
+{% with hide_wizard_nav=True %}
+    {% block wizard_step %}
+        <h1>Find Journal</h1>
         <fieldset role="group">
-            <input type="search" name="journal_title" id="journal_title">
+            <input type="search"
+                   name="journal_title"
+                   id="journal_title"
+                   value="{{ request.POST.journal_title }}">
             <button type="submit" class="inline-search-pill pill-right">Search</button>
         </fieldset>
-    </form>
-    {% if journals %}
-        <form action="{% url "fundingrequests:create_wizard" step=step %}"
-              method="post">
-            {% csrf_token %}
+        <button type="submit" name="action" value="back">Back</button>
+        {% if journals %}
             <table>
                 <thead>
                     <tr>
@@ -27,13 +26,12 @@
                             <td>{{ journal.publisher.name }}</td>
                             <td>
                                 <input type="hidden" name="journal" value="{{ journal.pk }}">
-                                <button class="outline" type="submit">Select</button>
+                                <button class="outline" type="submit" name="action" value="next">Select</button>
                             </td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
-        </form>
-    {% endif %}
-    <button type="button" onclick="window.history.back()">Back</button>
-{% endblock content %}
+        {% endif %}
+    {% endblock wizard_step %}
+{% endwith %}

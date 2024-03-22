@@ -50,13 +50,11 @@ def submit_wizard_new(
     publication_post_data: dict[str, Any],
     funding: FundingDto,
 ) -> HttpResponse:
-    client.post(reverse("fundingrequests:create_wizard", kwargs={"step": 1}), author)
-    client.post(reverse("fundingrequests:create_wizard", kwargs={"step": 2}), journal)
-    client.post(reverse("fundingrequests:create_wizard", kwargs={"step": 3}), publication_post_data)
-    return cast(
-        HttpResponse,
-        client.post(reverse("fundingrequests:create_wizard", kwargs={"step": 4}), funding),
-    )
+    next = {"action": "next"}
+    client.post(reverse("fundingrequests:create_wizard"), next | author)
+    client.post(reverse("fundingrequests:create_wizard"), next | journal)
+    client.post(reverse("fundingrequests:create_wizard"), next | publication_post_data)
+    return cast(HttpResponse, client.post(reverse("fundingrequests:create_wizard"), next | funding))
 
 
 def submit_wizard(

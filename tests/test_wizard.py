@@ -1,11 +1,11 @@
 from collections.abc import Callable
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.test import RequestFactory
 
-from coda.apps.wizard import Step, Wizard
+from coda.apps.wizard import Step, Store, StoreFactory, Wizard
 
 
 class SimpleStep(Step):
@@ -16,7 +16,7 @@ class InvalidStep(Step):
     template_name: str = "template_with_data.html"
     context: dict[str, str] = {"name": "Invalid"}
 
-    def is_valid(self, request: HttpRequest) -> bool:
+    def is_valid(self, request: HttpRequest, store: Store) -> bool:
         return False
 
 
@@ -25,28 +25,70 @@ class StepWithContext(SimpleStep):
     context: dict[str, str] = {"name": "Steven"}
 
 
-def make_sut(steps: list[Step], success_url: str = "") -> Callable[..., HttpResponse]:
-    return cast(Callable[..., HttpResponse], Wizard.as_view(steps=steps, success_url=success_url))
+class DictStore(dict[str, Any]):
+    def __init__(self) -> None:
+        super().__init__()
+        self.save_state: dict[str, Any] = {}
+
+    def save(self) -> None:
+        self.save_state = self.copy()
+
+    def was_saved_with(self, expected: dict[str, Any]) -> bool:
+        return all(
+            key in self.save_state and self.save_state[key] == value
+            for key, value in expected.items()
+        ) and len(self.save_state) == len(expected)
+
+    def clear(self) -> None:
+        super().clear()
+
+    def reset_save_state(self) -> None:
+        self.save_state = {}
+
+
+class SingletonDictStoreFactory:
+    store_name: str = ""
+    store = DictStore()
+
+    @classmethod
+    def __call__(cls, store_name: str, request: HttpRequest) -> Store:
+        cls.store_name = store_name
+        return cast(Store, cls.store)
+
+    @staticmethod
+    def reset() -> None:
+        SingletonDictStoreFactory.store_name = ""
+        SingletonDictStoreFactory.store.clear()
+        SingletonDictStoreFactory.store.reset_save_state()
+
+
+class WizardTestImpl(Wizard):
+    store_name = "wizard_test"
+    success_url: str = "/success"
+    store_factory: StoreFactory = SingletonDictStoreFactory()
+
+
+@pytest.fixture(autouse=True)
+def reset_store() -> None:
+    SingletonDictStoreFactory.reset()
+
+
+def make_sut(steps: list[Step], success_url: str = "/success") -> Callable[..., HttpResponse]:
+    return cast(
+        Callable[..., HttpResponse], WizardTestImpl.as_view(steps=steps, success_url=success_url)
+    )
 
 
 def get(
     view: Callable[..., HttpResponse], query_params: dict[str, str] | None = None
 ) -> HttpResponse:
     factory = RequestFactory()
-    _step = 1
-    if query_params:
-        _step = int(query_params["step"])
-    return view(factory.get("/"), step=_step)
+    return view(factory.get("/", query_params))
 
 
-def post(
-    view: Callable[..., HttpResponse], query_params: dict[str, str] | None = None
-) -> HttpResponse:
+def post(view: Callable[..., HttpResponse], data: dict[str, str] | None = None) -> HttpResponse:
     factory = RequestFactory()
-    _step = 1
-    if query_params:
-        _step = int(query_params["step"])
-    return view(factory.post("/"), step=_step)
+    return view(factory.post("/", data))
 
 
 def test__cannot_instantiate_step_without_template_name() -> None:
@@ -65,6 +107,69 @@ def test__wizard_with_step__get_renders_first_step() -> None:
     assert response.content.strip() == b"Hello World"
 
 
+def test__wizard_at_second_step__get_renders_first_step() -> None:
+    sut = make_sut([StepWithContext(), SimpleStep()])
+    _ = post(sut, next())
+
+    response = get(sut)
+
+    assert_rendered_with_context(response)
+
+
+def test__wizard__get__clears_store() -> None:
+    store = SingletonDictStoreFactory.store
+    store["some_data"] = "some_value"
+    store.save()
+    sut = make_sut([SimpleStep()])
+
+    _ = get(sut)
+
+    assert store.was_saved_with({})
+
+
+def test__wizard_with_step__post_next__renders_second_step() -> None:
+    sut = make_sut([SimpleStep(), StepWithContext()])
+
+    response = post(sut, next())
+
+    assert_rendered_with_context(response)
+
+
+def test__wizard_with_step__post_next__saves_store() -> None:
+    sut = make_sut([SimpleStep(), StepWithContext()])
+
+    _ = post(sut, next())
+
+    store = SingletonDictStoreFactory.store
+    assert store.was_saved_with(step(1))
+
+
+def test__wizard__post_next__calls_done_on_current_step() -> None:
+    class StepWithDone(SimpleStep):
+        def done(self, request: HttpRequest, store: Store) -> None:
+            store["done_called"] = True
+
+    sut = make_sut([StepWithDone()])
+
+    _ = post(sut, next())
+
+    store = SingletonDictStoreFactory.store
+    assert "done_called" in store.save_state
+
+
+def test__wizard__post_no_action__does_not_call_done_on_current_step() -> None:
+    class StepWithDone(SimpleStep):
+        def done(self, request: HttpRequest, store: Store) -> None:
+            store["done_called"] = True
+
+    sut = make_sut([StepWithDone()])
+
+    _ = post(sut)
+
+    store = SingletonDictStoreFactory.store
+    assert "done_called" not in store.save_state
+
+
 def test__wizard_with_step_and_context__get_renders_first_step_with_context() -> None:
     step = StepWithContext()
     sut = make_sut(steps=[step])
@@ -74,26 +179,27 @@ def test__wizard_with_step_and_context__get_renders_first_step_with_context() ->
     assert_rendered_with_context(response)
 
 
-def test__wizard_with_two_steps__get_step_2__renders_second_step() -> None:
+def test__wizard_with_two_steps__post_next_in_first_step__renders_second_step() -> None:
     sut = make_sut(steps=[SimpleStep(), StepWithContext()])
 
-    response = get(sut, step(2))
+    response = post(sut, next())
 
     assert_rendered_with_context(response)
 
 
-def test__wizard_with_two_steps__post_to_first_step__renders_second_step() -> None:
+def test__wizard_with_two_steps__post_without_next_action__renders_first_step() -> None:
     sut = make_sut(steps=[SimpleStep(), StepWithContext()])
 
     response = post(sut)
 
-    assert_rendered_with_context(response)
+    assert response.content.strip() == b"Hello World"
 
 
-def test__wizard_with_three_steps__post_to_second_step__renders_third_step() -> None:
+def test__wizard_with_three_steps__post_next_action_twice__renders_third_step() -> None:
     sut = make_sut(steps=[SimpleStep(), SimpleStep(), StepWithContext()])
 
-    response = post(sut, step(2))
+    _ = post(sut, next())
+    response = post(sut, next())
 
     assert_rendered_with_context(response)
 
@@ -101,26 +207,28 @@ def test__wizard_with_three_steps__post_to_second_step__renders_third_step() -> 
 def test__wizard__post_to_last_step__redirects_to_success_url() -> None:
     sut = make_sut(steps=[SimpleStep()], success_url="/success")
 
-    response = cast(HttpResponseRedirect, post(sut))
+    response = cast(HttpResponseRedirect, post(sut, next()))
 
     assert response.status_code == 302
     assert response.url == "/success"
 
 
+def test__wizard__post_to_last_step__clears_store() -> None:
+    SingletonDictStoreFactory.store["some_data"] = "some_value"
+    sut = make_sut(steps=[SimpleStep()], success_url="/success")
+
+    _ = post(sut, next())
+
+    assert SingletonDictStoreFactory.store == {}
+
+
 @pytest.mark.parametrize("s", [-5, 0, 2, 5])
 def test__wizard__post_to_step_out_of_bounds__renders_first_step(s: int) -> None:
+    store = SingletonDictStoreFactory.store
+    store["step"] = s
     sut = make_sut(steps=[SimpleStep()])
 
-    response = post(sut, step(s))
-
-    assert response.content.strip() == b"Hello World"
-
-
-@pytest.mark.parametrize("s", [-5, 0, 2, 5])
-def test__wizard__get_step_out_of_bounds__renders_first_step(s: int) -> None:
-    sut = make_sut(steps=[SimpleStep()])
-
-    response = get(sut, step(s))
+    response = post(sut)
 
     assert response.content.strip() == b"Hello World"
 
@@ -128,7 +236,7 @@ def test__wizard__get_step_out_of_bounds__renders_first_step(s: int) -> None:
 def test__wizard__post_to_invalid_step__rerenders_same_step() -> None:
     sut = make_sut(steps=[InvalidStep(), SimpleStep()])
 
-    response = post(sut, step(1))
+    response = post(sut, next())
 
     assert_rendered_with_context(response, "Invalid")
 
@@ -136,13 +244,71 @@ def test__wizard__post_to_invalid_step__rerenders_same_step() -> None:
 def test__wizard__post_to_last_step_invalid__rerenders_last_step() -> None:
     sut = make_sut(steps=[SimpleStep(), InvalidStep()])
 
-    response = post(sut, step(2))
+    response = post(sut, next())
 
     assert_rendered_with_context(response, "Invalid")
 
 
-def step(s: int) -> dict[str, str]:
-    return {"step": str(s)}
+def test__wizard__at_last_step__back_action__renders_previous_step() -> None:
+    sut = make_sut(steps=[StepWithContext(), SimpleStep()])
+    _ = post(sut, next())
+
+    response = post(sut, back())
+
+    assert_rendered_with_context(response)
+
+
+def test__wizard__at_first_step__back_action__renders_first_step() -> None:
+    sut = make_sut(steps=[StepWithContext(), SimpleStep()])
+
+    response = post(sut, back())
+
+    assert_rendered_with_context(response)
+
+
+def test__wizard__get_and_post__pass_store_to_step() -> None:
+    store = SingletonDictStoreFactory.store
+
+    class StoringStep(Step):
+        template_name: str = "template_with_data.html"
+
+        def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
+            store["context"] = "updated"
+            return super().get_context_data(request, store)
+
+        def is_valid(self, request: HttpRequest, store: Store) -> bool:
+            store["valid"] = "updated"
+            return True
+
+    sut = make_sut(steps=[StoringStep(), SimpleStep()])
+
+    _ = get(sut)
+    _ = post(sut, next())
+
+    assert all(
+        key in store and store[key] == value
+        for key, value in {"context": "updated", "valid": "updated"}.items()
+    )
+
+
+def test__wizard__initializes_store_with_id() -> None:
+    sut = make_sut(steps=[SimpleStep()])
+
+    _ = get(sut)
+
+    assert SingletonDictStoreFactory.store_name == WizardTestImpl.store_name
+
+
+def next() -> dict[str, str]:
+    return {"action": "next"}
+
+
+def back() -> dict[str, str]:
+    return {"action": "back"}
+
+
+def step(s: int) -> dict[str, Any]:
+    return {"step": s}
 
 
 def assert_rendered_with_context(response: HttpResponse, expected: str = "Steven") -> None:

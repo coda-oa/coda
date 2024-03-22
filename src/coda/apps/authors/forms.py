@@ -18,6 +18,8 @@ class OrcidField(forms.CharField):
 
 
 class AuthorForm(forms.Form):
+    use_required_attribute = False
+
     name = forms.CharField()
     email = forms.EmailField()
     orcid = OrcidField(required=False)
