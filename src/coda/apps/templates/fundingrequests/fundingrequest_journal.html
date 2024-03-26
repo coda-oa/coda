@@ -11,26 +11,28 @@
         </fieldset>
         <input type="hidden" name="action" value="next">
         {% if journals %}
-            <table class="my-2">
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Publisher</th>
-                        <th>Select</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for journal in journals %}
+            <div class="journal__search-results__scroll-container">
+                <table class="journal__search-results my-2">
+                    <thead>
                         <tr>
-                            <td>{{ journal.title }}</td>
-                            <td>{{ journal.publisher.name }}</td>
-                            <td>
-                                <input type="radio" name="journal" value="{{ journal.pk }}">
-                            </td>
+                            <th>Title</th>
+                            <th>Publisher</th>
+                            <th>Select</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for journal in journals %}
+                            <tr>
+                                <td>{{ journal.title }}</td>
+                                <td>{{ journal.publisher.name }}</td>
+                                <td>
+                                    <input type="radio" name="journal" value="{{ journal.pk }}">
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         {% endif %}
     {% endblock wizard_step %}
 {% endwith %}

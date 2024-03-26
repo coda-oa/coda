@@ -53,6 +53,16 @@ article.fundingrequest {
   color: var(--coda-validation-text-color);
 }
 
+.journal__search-results__scroll-container {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.journal__search-results__scroll-container thead th {
+  position: sticky;
+  top: 0;
+}
+
 .label {
   --label-text-color: color-mix(in srgb, var(--label-border-color) 85%, white);
   flex: auto;
