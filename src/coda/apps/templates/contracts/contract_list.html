@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+    <ul class="no-decoration grid-container">
+        {% for contract in contracts %}
+            <li>
+                <article>
+                    <p>{{ contract.name }}</p>
+                    <p>{{ contract.publisher.name }}</p>
+                </article>
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock content %}

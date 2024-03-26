@@ -14,6 +14,7 @@ urlpatterns = [
     path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
     path("login/", view=LoginView.as_view(template_name="pages/login.html"), name="login"),
     path("users/", include("coda.apps.users.urls", namespace="users")),
+    path("contracts/", include("coda.apps.contracts.urls", namespace="contracts")),
     path("journals/", include("coda.apps.journals.urls", namespace="journals")),
     path("publishers/", include("coda.apps.publishers.urls", namespace="publishers")),
     path("authors/", include("coda.apps.authors.urls", namespace="authors")),

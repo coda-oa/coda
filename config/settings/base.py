@@ -83,6 +83,7 @@ LOCAL_APPS = [
     "coda.apps.institutions",
     "coda.apps.journals",
     "coda.apps.publishers",
+    "coda.apps.contracts",
     "coda.apps.publications",
     "coda.apps.fundingrequests",
 ]
