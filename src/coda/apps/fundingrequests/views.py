@@ -107,13 +107,27 @@ class PublicationStep(Step):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         context = super().get_context_data(request, store)
-        context["publication_form"] = PublicationForm(store.get("publication", None))
+        context["publication_form"] = PublicationForm(store.get("publication"))
         context["link_types"] = LinkType.objects.all()
 
         if store.get("links"):
             context["links"] = list(store["links"])
 
+        if self.has_links(request):
+            context["links"] = self.assemble_link_dtos(request)
+
         return context
+
+    def assemble_link_dtos(self, request: HttpRequest) -> list[LinkDto]:
+        return [
+            LinkDto(link_type=int(link_type), link_value=link_value)
+            for link_type, link_value in zip(
+                request.POST.getlist("link_type"), request.POST.getlist("link_value")
+            )
+        ]
+
+    def has_links(self, request: HttpRequest) -> bool:
+        return bool(request.POST.get("link_type") and request.POST.get("link_value"))
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         publication_form = PublicationForm(request.POST)
