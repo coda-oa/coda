@@ -1,5 +1,5 @@
-from typing import Any, cast
 from collections.abc import Callable
+from typing import Any, cast
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -69,15 +69,16 @@ class SubmitterStep(FormStep):
     form_class = AuthorForm
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
-        form_data = request.POST if request.method == "POST" else None
+        form_data = store.get("submitter") or (request.POST if request.method == "POST" else None)
         return super().get_context_data(request, store) | {"form": self.form_class(form_data)}
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
+        return AuthorForm(request.POST).is_valid()
+
+    def done(self, request: HttpRequest, store: Store) -> None:
         form = AuthorForm(request.POST)
-        if form.is_valid():
-            store["submitter"] = form.to_dto()
-            return True
-        return False
+        form.full_clean()
+        store["submitter"] = form.to_dto()
 
 
 class JournalStep(Step):
@@ -95,12 +96,10 @@ class JournalStep(Step):
         return ctx
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
-        print(request.POST)
-        if not request.POST.get("journal"):
-            return False
+        return bool(request.POST.get("journal"))
 
+    def done(self, request: HttpRequest, store: Store) -> None:
         store["journal"] = request.POST["journal"]
-        return True
 
 
 class PublicationStep(Step):
@@ -108,19 +107,24 @@ class PublicationStep(Step):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         context = super().get_context_data(request, store)
-        context["publication_form"] = PublicationForm(store.get("publication", {}))
+        context["publication_form"] = PublicationForm(store.get("publication", None))
         context["link_types"] = LinkType.objects.all()
         return context
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         publication_form = PublicationForm(request.POST)
         link_formset = self.link_formset(request)
-        if not (publication_form.is_valid() and link_formset.is_valid()):
-            return False
+        return publication_form.is_valid() and link_formset.is_valid()
+
+    def done(self, request: HttpRequest, store: Store) -> None:
+        publication_form = PublicationForm(request.POST)
+        publication_form.full_clean()
+
+        link_formset = self.link_formset(request)
+        link_formset.full_clean()
 
         store["links"] = [linkform.get_form_data() for linkform in link_formset.forms]
         store["publication"] = publication_form.get_form_data()
-        return True
 
     def link_formset(self, request: HttpRequest) -> BaseFormSet[LinkForm]:
         types, values = request.POST.getlist("link_type"), request.POST.getlist("link_value")
@@ -149,23 +153,13 @@ class FundingStep(Step):
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         form = FundingForm(request.POST)
         valid = form.is_valid()
-        funding = form.to_dto()
-        author_dto: AuthorDto = store["submitter"]
-        publication_form_data: PublicationFormData = store["publication"]
-        link_form_data: list[LinkDto] = store["links"]
-        journal = store["journal"]
-
-        publication_dto = PublicationDto(
-            title=publication_form_data["title"],
-            publication_state=publication_form_data["publication_state"],
-            publication_date=publication_form_data["publication_date"],
-            links=link_form_data,
-            journal=int(journal),
-        )
-
-        funding_request = services.fundingrequest_create(author_dto, publication_dto, funding)
-        store["funding_request"] = funding_request.pk
         return valid
+
+    def done(self, request: HttpRequest, store: Store) -> None:
+        form = FundingForm(request.POST)
+        form.full_clean()
+        funding = form.to_dto()
+        store["funding"] = funding
 
 
 class FundingRequestWizard(LoginRequiredMixin, Wizard):
@@ -181,6 +175,24 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
     def get_success_url(self) -> str:
         store = self.get_store()
         return reverse("fundingrequests:detail", kwargs={"pk": store["funding_request"]})
+
+    def complete(self) -> None:
+        store = self.get_store()
+        author_dto: AuthorDto = store["submitter"]
+        publication_form_data: PublicationFormData = store["publication"]
+        link_form_data: list[LinkDto] = store["links"]
+        journal = store["journal"]
+        publication_dto = PublicationDto(
+            title=publication_form_data["title"],
+            publication_state=publication_form_data["publication_state"],
+            publication_date=publication_form_data["publication_date"],
+            links=link_form_data,
+            journal=int(journal),
+        )
+        funding = store["funding"]
+
+        funding_request = services.fundingrequest_create(author_dto, publication_dto, funding)
+        store["funding_request"] = funding_request.pk
 
 
 class LabelCreateView(LoginRequiredMixin, CreateView[Label, LabelForm]):

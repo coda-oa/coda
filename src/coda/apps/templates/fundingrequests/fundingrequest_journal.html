@@ -9,14 +9,14 @@
                    value="{{ request.POST.journal_title }}">
             <button type="submit" class="inline-search-pill pill-right">Search</button>
         </fieldset>
-        <button type="submit" name="action" value="back">Back</button>
+        <input type="hidden" name="action" value="next">
         {% if journals %}
-            <table>
+            <table class="my-2">
                 <thead>
                     <tr>
                         <th>Title</th>
                         <th>Publisher</th>
-                        <th></th>
+                        <th>Select</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -25,8 +25,7 @@
                             <td>{{ journal.title }}</td>
                             <td>{{ journal.publisher.name }}</td>
                             <td>
-                                <input type="hidden" name="journal" value="{{ journal.pk }}">
-                                <button class="outline" type="submit" name="action" value="next">Select</button>
+                                <input type="radio" name="journal" value="{{ journal.pk }}">
                             </td>
                         </tr>
                     {% endfor %}

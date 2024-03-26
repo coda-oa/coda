@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any, cast
 
 import pytest
@@ -23,6 +23,11 @@ class InvalidStep(Step):
 class StepWithContext(SimpleStep):
     template_name: str = "template_with_data.html"
     context: dict[str, str] = {"name": "Steven"}
+
+
+class StepWithDone(SimpleStep):
+    def done(self, request: HttpRequest, store: Store) -> None:
+        store["done_called"] = True
 
 
 class DictStore(dict[str, Any]):
@@ -68,15 +73,35 @@ class WizardTestImpl(Wizard):
     store_factory: StoreFactory = SingletonDictStoreFactory()
 
 
+class CompletingWizardSpy(WizardTestImpl):
+    completed_state: dict[str, Any] = {}
+
+    def __init__(self, completed_state: dict[str, Any], **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.completed_state = completed_state
+
+    def get_success_url(self) -> str:
+        store = cast(DictStore, self.get_store())
+        self.completed_state["success_url"] = store.get("success_url")
+        return super().get_success_url()
+
+    def complete(self) -> None:
+        store = cast(DictStore, self.get_store())
+        self.completed_state["completed"] = store.get("completed")
+
+
 @pytest.fixture(autouse=True)
 def reset_store() -> None:
     SingletonDictStoreFactory.reset()
 
 
-def make_sut(steps: list[Step], success_url: str = "/success") -> Callable[..., HttpResponse]:
-    return cast(
-        Callable[..., HttpResponse], WizardTestImpl.as_view(steps=steps, success_url=success_url)
-    )
+def make_sut(
+    cls: type[Wizard] = WizardTestImpl,
+    /,
+    steps: Iterable[Step] = (),
+    **kwargs: Any,
+) -> Callable[..., HttpResponse]:
+    return cast(Callable[..., HttpResponse], cls.as_view(steps=list(steps), **kwargs))
 
 
 def get(
@@ -100,7 +125,7 @@ def test__cannot_instantiate_step_without_template_name() -> None:
 
 
 def test__wizard_with_step__get_renders_first_step() -> None:
-    sut = make_sut([SimpleStep()])
+    sut = make_sut(steps=[SimpleStep()])
 
     response = get(sut)
 
@@ -108,7 +133,7 @@ def test__wizard_with_step__get_renders_first_step() -> None:
 
 
 def test__wizard_at_second_step__get_renders_first_step() -> None:
-    sut = make_sut([StepWithContext(), SimpleStep()])
+    sut = make_sut(steps=[StepWithContext(), SimpleStep()])
     _ = post(sut, next())
 
     response = get(sut)
@@ -120,7 +145,7 @@ def test__wizard__get__clears_store() -> None:
     store = SingletonDictStoreFactory.store
     store["some_data"] = "some_value"
     store.save()
-    sut = make_sut([SimpleStep()])
+    sut = make_sut(steps=[SimpleStep()])
 
     _ = get(sut)
 
@@ -128,7 +153,7 @@ def test__wizard__get__clears_store() -> None:
 
 
 def test__wizard_with_step__post_next__renders_second_step() -> None:
-    sut = make_sut([SimpleStep(), StepWithContext()])
+    sut = make_sut(steps=[SimpleStep(), StepWithContext()])
 
     response = post(sut, next())
 
@@ -136,7 +161,7 @@ def test__wizard_with_step__post_next__renders_second_step() -> None:
 
 
 def test__wizard_with_step__post_next__saves_store() -> None:
-    sut = make_sut([SimpleStep(), StepWithContext()])
+    sut = make_sut(steps=[SimpleStep(), StepWithContext()])
 
     _ = post(sut, next())
 
@@ -145,11 +170,7 @@ def test__wizard_with_step__post_next__saves_store() -> None:
 
 
 def test__wizard__post_next__calls_done_on_current_step() -> None:
-    class StepWithDone(SimpleStep):
-        def done(self, request: HttpRequest, store: Store) -> None:
-            store["done_called"] = True
-
-    sut = make_sut([StepWithDone()])
+    sut = make_sut(steps=[StepWithDone(), SimpleStep()])
 
     _ = post(sut, next())
 
@@ -158,11 +179,7 @@ def test__wizard__post_next__calls_done_on_current_step() -> None:
 
 
 def test__wizard__post_no_action__does_not_call_done_on_current_step() -> None:
-    class StepWithDone(SimpleStep):
-        def done(self, request: HttpRequest, store: Store) -> None:
-            store["done_called"] = True
-
-    sut = make_sut([StepWithDone()])
+    sut = make_sut(steps=[StepWithDone()])
 
     _ = post(sut)
 
@@ -219,7 +236,7 @@ def test__wizard__post_to_last_step__clears_store() -> None:
 
     _ = post(sut, next())
 
-    assert SingletonDictStoreFactory.store == {}
+    assert SingletonDictStoreFactory.store.was_saved_with({})
 
 
 @pytest.mark.parametrize("s", [-5, 0, 2, 5])
@@ -239,6 +256,19 @@ def test__wizard__post_to_invalid_step__rerenders_same_step() -> None:
     response = post(sut, next())
 
     assert_rendered_with_context(response, "Invalid")
+
+
+def test__wizard__post_to_invalid_step__does_not_call_done_on_step() -> None:
+    class InvalidStepWithDone(InvalidStep):
+        def done(self, request: HttpRequest, store: Store) -> None:
+            store["done_called"] = True
+
+    sut = make_sut(steps=[InvalidStepWithDone(), SimpleStep()])
+
+    _ = post(sut, next())
+
+    store = SingletonDictStoreFactory.store
+    assert "done_called" not in store.save_state
 
 
 def test__wizard__post_to_last_step_invalid__rerenders_last_step() -> None:
@@ -289,6 +319,44 @@ def test__wizard__get_and_post__pass_store_to_step() -> None:
         key in store and store[key] == value
         for key, value in {"context": "updated", "valid": "updated"}.items()
     )
+
+
+def test__wizard__on_completions__calls_complete_on_self_before_clearing_store() -> None:
+    store = SingletonDictStoreFactory.store
+    store["completed"] = "completed called"
+    completed_state: dict[str, Any] = {}
+
+    sut = make_sut(CompletingWizardSpy, steps=[SimpleStep()], completed_state=completed_state)
+    _ = post(sut, next())
+
+    store = SingletonDictStoreFactory.store
+    assert completed_state["completed"] == "completed called"
+
+
+def test__wizard__on_completion__gets_success_url_before_clearing_store() -> None:
+    store = SingletonDictStoreFactory.store
+    store["success_url"] = "get_success_url called"
+    completed_state: dict[str, Any] = {}
+
+    sut = make_sut(CompletingWizardSpy, steps=[SimpleStep()], completed_state=completed_state)
+    _ = post(sut, next())
+
+    store = SingletonDictStoreFactory.store
+    assert completed_state["success_url"] == "get_success_url called"
+
+
+def test__wizard_not_completed__post_next__does_not_call_complete() -> None:
+    store = SingletonDictStoreFactory.store
+    store["completed"] = True
+    completed_state: dict[str, Any] = {}
+
+    sut = make_sut(
+        CompletingWizardSpy, steps=[SimpleStep(), SimpleStep()], completed_state=completed_state
+    )
+    _ = post(sut, next())
+
+    store = SingletonDictStoreFactory.store
+    assert "completed" not in completed_state
 
 
 def test__wizard__initializes_store_with_id() -> None:

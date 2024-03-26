@@ -38,12 +38,16 @@ class Store(Protocol):
     def get(self, key: str, /) -> Any | None:
         ...
 
-    def update(
-        self,
-        other: SupportsKeysAndGetItem[str, Any] | Iterable[tuple[str, Any]] = (),
-        /,
-        **kwargs: Any,
-    ) -> None:
+    @overload
+    def update(self, other: SupportsKeysAndGetItem[str, Any], /, **kwargs: Any) -> None:
+        pass
+
+    @overload
+    def update(self, other: Iterable[tuple[str, Any]], **kwargs: Any) -> None:
+        ...
+
+    @overload
+    def update(self, **kwargs: Any) -> None:
         ...
 
     def clear(self) -> None:
@@ -77,7 +81,8 @@ class SessionStore(Store):
         self.data.update(other, **kwargs)
 
     def clear(self) -> None:
-        del self.request.session[self.store_name]
+        if self.store_name in self.request.session:
+            del self.request.session[self.store_name]
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.data.get(key, default)
@@ -135,54 +140,64 @@ class Wizard(View):
 
         return step
 
+    def complete(self) -> None:
+        pass
+
     def get(self, request: HttpRequest) -> HttpResponse:
         self.get_store().clear()
         self.get_store().save()
         return self._render_step(request, self.index())
 
     def post(self, request: HttpRequest) -> HttpResponse:
+        next_index = self.determine_next_index(request)
         store = self.get_store()
+
+        response: HttpResponse
+        if self.is_last(next_index):
+            self.complete()
+            response = redirect(self.get_success_url())
+            store.clear()
+        else:
+            next_index = self.ensure_in_bounds(next_index)
+            response = self._render_step(request, next_index)
+            store["step"] = next_index
+
+        store.save()
+        return response
+
+    def ensure_in_bounds(self, index: int) -> int:
+        if self._out_of_bounds(index):
+            index = self.index()
+        return index
+
+    def is_last(self, index: int) -> bool:
+        return index == len(self.steps)
+
+    def determine_next_index(self, request: HttpRequest) -> int:
         match request.POST.get("action"):
             case "next":
-                current_step = self.steps[self.index()]
-                current_step.done(request, store)
-                store.save()
                 next_index = self.next_index()
             case "back":
                 next_index = self.index() - 1
             case _:
                 next_index = self.index()
-
-        if next_index == len(self.steps):
-            response = redirect(self.get_success_url())
-            store.clear()
-            return response
-
-        if self._out_of_bounds(next_index):
-            next_index = self.index()
-
-        store["step"] = next_index
-        store.save()
-
-        print(f"Storing {next_index} in session")
-        return self._render_step(request, self.index())
+        return next_index
 
     def next_index(self) -> int:
         current_index = self.index()
         current_step = self.steps[current_index]
-        if not current_step.is_valid(self.request, self.get_store()):
-            print(current_step.__class__.__name__, "is not valid", f"index: {current_index}")
-            return current_index
+        store = self.get_store()
+        if current_step.is_valid(self.request, store):
+            current_step.done(self.request, store)
+            current_index = current_index + 1
 
-        print(current_step.__class__.__name__, "is valid", f"index: {current_index}")
-        return current_index + 1
+        return current_index
 
     def _out_of_bounds(self, current_step: int) -> bool:
         return current_step < 0 or current_step >= len(self.steps)
 
     def _render_step(self, request: HttpRequest, index: int) -> HttpResponse:
         step = self.steps[index]
-        print("Rendering step", step.__class__.__name__, f"index: {index}")
         context = step.get_context_data(request, self.get_store())
         context["step"] = index + 1
         return render(request, step.template_name, context)
