@@ -109,6 +109,10 @@ class PublicationStep(Step):
         context = super().get_context_data(request, store)
         context["publication_form"] = PublicationForm(store.get("publication", None))
         context["link_types"] = LinkType.objects.all()
+
+        if store.get("links"):
+            context["links"] = list(store["links"])
+
         return context
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:

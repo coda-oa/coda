@@ -26,6 +26,23 @@
                         </td>
                     </tr>
                 </template>
+                {% for link in links %}
+                    <tr>
+                        <td>
+                            <select name="link_type">
+                                {% for t in link_types %}
+                                    <option value="{{ t.pk }}" {% if link.link_type == t.pk %}selected{% endif %}>{{ t.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" name="link_value" value="{{ link.link_value }}">
+                        </td>
+                        <td>
+                            <button type="button" onclick="removeRow(this)">Remove</button>
+                        </td>
+                    </tr>
+                {% endfor %}
             </tbody>
         </table>
         {% include "partials/wizard_nav.html" %}

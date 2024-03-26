@@ -23,8 +23,11 @@ function removeRowButton(row) {
   const button = document.createElement('button');
   button.type = 'button';
   button.textContent = 'Remove';
-  button.addEventListener('click', () => {
-    linkTable.removeChild(row);
-  });
+  button.addEventListener('click', removeRow.bind(null, button));
   return button;
+}
+
+function removeRow(button) {
+  const row = button.parentNode.parentNode;
+  linkTable.removeChild(row);
 }
