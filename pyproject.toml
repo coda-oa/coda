@@ -36,7 +36,7 @@ dev = [
 django-commands = ["polars>=0.20.5"]
 
 [tool.pdm.scripts]
-unittests = "pytest -m 'not integration' -vv"
+unittests = "pytest -m 'not integration'"
 alltests = "pytest -vv"
 
 [tool.black]

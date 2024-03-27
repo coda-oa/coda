@@ -1,16 +1,36 @@
-from django.forms import ModelForm
-from django.views.generic import CreateView, ListView
+from typing import Any
 
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import redirect, render
+from django.views.generic import FormView, ListView
+
+from coda.apps.contracts.forms import ContractForm
 from coda.apps.contracts.models import Contract
+from coda.apps.contracts.services import contract_create
 
 
-class ContractListView(ListView[Contract]):
+class ContractListView(LoginRequiredMixin, ListView[Contract]):
     model = Contract
     template_name = "contracts/contract_list.html"
+    queryset = Contract.objects.all()
     context_object_name = "contracts"
 
 
-class ContractCreateView(CreateView[Contract, ModelForm[Contract]]):
-    model = Contract
-    fields = ["name", "publishers", "start_date", "end_date", "is_active"]
+class ContractCreateView(LoginRequiredMixin, FormView[ContractForm]):
+    form_class = ContractForm
     template_name = "generic_form_view.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        return super().get_context_data(**kwargs) | {"title": "Create Contract"}
+
+    def form_valid(self, form: ContractForm) -> HttpResponse:
+        contract = contract_create(**form.cleaned_data)
+        return redirect("contracts:detail", contract.pk)
+
+
+@login_required
+def contract_detail(request: HttpRequest, pk: int) -> HttpResponse:
+    contract = Contract.objects.get(pk=pk)
+    return render(request, "contracts/contract_detail.html", {"contract": contract})
