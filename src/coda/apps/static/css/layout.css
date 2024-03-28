@@ -44,3 +44,7 @@
   justify-items: stretch;
   align-items: stretch;
 }
+
+.max-fit-content {
+  max-width: fit-content;
+}

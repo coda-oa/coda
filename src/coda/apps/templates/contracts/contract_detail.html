@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{# djlint:off H021 #}
 {% block content %}
     <h1>Contract</h1>
     <p>Name: {{ contract.name }}</p>
@@ -15,13 +14,18 @@
         {% if contract.end_date %}<p>End: {{ contract.end_date }}</p>{% endif %}
     {% endif %}
     <h2>Status</h2>
-    <p>{% include "contracts/contract_active_status.html" %}</p>
-    <form action="{% url "contracts:status" pk=contract.pk %}" method="post">
+    <form class="grid align-center"
+          action="{% url "contracts:status" pk=contract.pk %}"
+          method="post">
         {% csrf_token %}
+        <p>{% include "contracts/contract_active_status.html" %}</p>
         {% if contract.is_active %}
-            <button type="submit" name="status" value="inactive">Make inactive</button>
+            <button class="outline max-fit-content"
+                    type="submit"
+                    name="status"
+                    value="inactive">Make inactive</button>
         {% else %}
-            <button type="submit" name="status" value="active">Make active</button>
+            <button class="outline" type="submit" name="status" value="active">Make active</button>
         {% endif %}
     </form>
 {% endblock content %}
