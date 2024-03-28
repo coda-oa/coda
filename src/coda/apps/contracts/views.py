@@ -8,7 +8,7 @@ from django.views.generic import FormView, ListView
 
 from coda.apps.contracts.forms import ContractForm
 from coda.apps.contracts.models import Contract
-from coda.apps.contracts.services import contract_create
+from coda.apps.contracts.services import DateRange, contract_create
 
 
 class ContractListView(LoginRequiredMixin, ListView[Contract]):
@@ -26,7 +26,11 @@ class ContractCreateView(LoginRequiredMixin, FormView[ContractForm]):
         return super().get_context_data(**kwargs) | {"title": "Create Contract"}
 
     def form_valid(self, form: ContractForm) -> HttpResponse:
-        contract = contract_create(**form.cleaned_data)
+        form_data = form.cleaned_data
+        date_range = DateRange(
+            start_date=form_data.pop("start_date", None), end_date=form_data.pop("end_date", None)
+        )
+        contract = contract_create(**form_data, date_range=date_range)
         return redirect("contracts:detail", contract.pk)
 
 

@@ -1,3 +1,4 @@
+import datetime
 from django.db import models
 
 from coda.apps.publishers.models import Publisher
@@ -8,7 +9,13 @@ class Contract(models.Model):
     publishers = models.ManyToManyField(Publisher, related_name="contracts")
     start_date = models.DateField(null=True)
     end_date = models.DateField(null=True)
-    is_active = models.BooleanField(default=True)
+    active_status = models.BooleanField(default=True)
+
+    def is_active(self, now: datetime.date | None = None) -> bool:
+        now = now or datetime.date.today()
+        start_date = self.start_date or datetime.date.min
+        end_date = self.end_date or datetime.date.max
+        return start_date <= now <= end_date
 
     def __str__(self) -> str:
         return self.name
