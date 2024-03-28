@@ -3,7 +3,7 @@ from typing import Any
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import FormView, ListView
 
 from coda.apps.contracts.forms import ContractForm
@@ -32,5 +32,5 @@ class ContractCreateView(LoginRequiredMixin, FormView[ContractForm]):
 
 @login_required
 def contract_detail(request: HttpRequest, pk: int) -> HttpResponse:
-    contract = Contract.objects.get(pk=pk)
+    contract = get_object_or_404(Contract, pk=pk)
     return render(request, "contracts/contract_detail.html", {"contract": contract})

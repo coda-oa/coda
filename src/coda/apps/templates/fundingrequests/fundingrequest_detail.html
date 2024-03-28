@@ -52,6 +52,20 @@
                     <td>{{ funding_request.publication.journal.title }}</td>
                 </tr>
                 <tr>
+                    <td>Publisher</td>
+                    <td>{{ funding_request.publication.journal.publisher.name }}</td>
+                </tr>
+                <tr>
+                    <td>Contracts</td>
+                    <td>
+                        {% for contract in funding_request.publication.journal.publisher.contracts.all %}
+                            <p>
+                                <a href="{% url "contracts:detail" pk=contract.pk %}">{{ contract.name }}</a>
+                            </p>
+                        {% endfor %}
+                    </td>
+                </tr>
+                <tr>
                     <td>Estimated Cost</td>
                     <td>{{ funding_request.estimated_cost }} {{ funding_request.estimated_cost_currency }}</td>
                 </tr>
