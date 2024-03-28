@@ -4,8 +4,11 @@
         {% for contract in contracts %}
             <li>
                 <article>
-                    <p>{{ contract.name }}</p>
-                    <p>{{ contract.publisher.name }}</p>
+                    <p class="mb-1_5">
+                        <span class="mr-1">{{ contract.name }}</span>
+                        {% include "contracts/contract_active_status.html" %}
+                    </p>
+                    <p>Publishers: {{ contract.publishers.all|join:", " }}</p>
                 </article>
             </li>
         {% endfor %}
