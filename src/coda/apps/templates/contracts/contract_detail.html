@@ -9,11 +9,19 @@
             {% for pub in contract.publishers.all %}<li>{{ pub.name }}</li>{% endfor %}
         </ul>
     </section>
-    <h2>Status</h2>
-    <p>{% include "contracts/contract_active_status.html" %}</p>
     {% if contract.start_date or contract.end_date %}
         <h2>Contract Period</h2>
         {% if contract.start_date %}<p>Start: {{ contract.start_date }}</p>{% endif %}
         {% if contract.end_date %}<p>End: {{ contract.end_date }}</p>{% endif %}
     {% endif %}
+    <h2>Status</h2>
+    <p>{% include "contracts/contract_active_status.html" %}</p>
+    <form action="{% url "contracts:status" pk=contract.pk %}" method="post">
+        {% csrf_token %}
+        {% if contract.is_active %}
+            <button type="submit" name="status" value="inactive">Make inactive</button>
+        {% else %}
+            <button type="submit" name="status" value="active">Make active</button>
+        {% endif %}
+    </form>
 {% endblock content %}
