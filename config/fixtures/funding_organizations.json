@@ -1,0 +1,16 @@
+[
+    {
+        "model": "fundingrequests.FundingOrganization",
+        "pk": 1,
+        "fields": {
+            "name": "Bundesministerium für Bildung und Forschung"
+        }
+    },
+    {
+        "model": "fundingrequests.FundingOrganization",
+        "pk": 2,
+        "fields": {
+            "name": "Deutsche Forschungsgemeinschaft"
+        }
+    }
+]

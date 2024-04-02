@@ -1,7 +1,7 @@
 import datetime
 import enum
-from typing import Any
 import uuid
+from typing import Any
 
 from django.core.validators import RegexValidator
 from django.db import models
@@ -9,6 +9,19 @@ from django.urls import reverse
 
 from coda.apps.authors.models import Author
 from coda.apps.publications.models import Publication
+
+
+class FundingOrganization(models.Model):
+    name = models.CharField()
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class ExternalFunding(models.Model):
+    organization = models.ForeignKey(FundingOrganization, on_delete=models.CASCADE)
+    project_id = models.CharField()
+    project_name = models.CharField()
 
 
 class Label(models.Model):
@@ -49,6 +62,9 @@ class FundingRequest(models.Model):
         Author, on_delete=models.CASCADE, related_name="funding_requests", null=True, blank=True
     )
     publication = models.ForeignKey(Publication, on_delete=models.CASCADE)
+    external_funding = models.ForeignKey(
+        ExternalFunding, on_delete=models.CASCADE, null=True, blank=True
+    )
     estimated_cost = models.DecimalField(max_digits=10, decimal_places=2)
     estimated_cost_currency = models.CharField(max_length=3)
     processing_status = models.CharField(

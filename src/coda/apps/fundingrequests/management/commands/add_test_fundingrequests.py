@@ -1,4 +1,5 @@
 from datetime import date
+from uuid import uuid4
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -7,8 +8,8 @@ from faker.providers import lorem
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Role
-from coda.apps.fundingrequests.dto import FundingDto
-from coda.apps.fundingrequests.models import ProcessingStatus
+from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
+from coda.apps.fundingrequests.models import FundingOrganization, ProcessingStatus
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
@@ -50,7 +51,12 @@ class Command(BaseCommand):
                 publication_date=str(date.today()),
                 links=[LinkDto(link_type=doi.pk, link_value="10.1234/5678")],
             ),
-            FundingDto(estimated_cost=100, estimated_cost_currency="USD"),
+            ExternalFundingDto(
+                organization=self.funding_organization().pk,
+                project_id=str(uuid4()),
+                project_name=faker.sentence(),
+            ),
+            CostDto(estimated_cost=100, estimated_cost_currency="USD"),
         )
         request.processing_status = processing_status.value
         request.save()
@@ -61,4 +67,9 @@ class Command(BaseCommand):
     def journal(self, publisher: Publisher) -> Journal:
         return Journal.objects.first() or Journal.objects.create(
             title="Test Journal", eissn="1234-5678", publisher=publisher
+        )
+
+    def funding_organization(self) -> FundingOrganization:
+        return FundingOrganization.objects.first() or FundingOrganization.objects.create(
+            name="Test Funder"
         )

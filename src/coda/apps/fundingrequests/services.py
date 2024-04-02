@@ -1,8 +1,8 @@
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.services import author_create
 from coda.apps.fundingrequests import repository as fundinqrequest_repository
-from coda.apps.fundingrequests.dto import FundingDto
-from coda.apps.fundingrequests.models import FundingRequest, Label
+from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
+from coda.apps.fundingrequests.models import ExternalFunding, FundingRequest, Label
 from coda.apps.journals import repository as journal_repository
 from coda.apps.publications import repository as publication_repository
 from coda.apps.publications.dto import PublicationDto
@@ -10,12 +10,26 @@ from coda.color import Color
 
 
 def fundingrequest_create(
-    author: AuthorDto, publication: PublicationDto, funding: FundingDto
+    author: AuthorDto,
+    publication: PublicationDto,
+    external_funding: ExternalFundingDto,
+    cost: CostDto,
 ) -> FundingRequest:
     _author = author_create(author)
     _journal = journal_repository.get_by_pk(publication["journal"])
     _publication = publication_repository.create(publication, _author, _journal)
-    return fundinqrequest_repository.create(_author, _publication, funding)
+    _external_funding = external_funding_create(external_funding)
+    return fundinqrequest_repository.create(_author, _publication, _external_funding, cost)
+
+
+def external_funding_create(external_funding: ExternalFundingDto) -> ExternalFunding:
+    return ExternalFunding.objects.create(
+        organization=fundinqrequest_repository.get_funding_organization(
+            external_funding["organization"]
+        ),
+        project_id=external_funding["project_id"],
+        project_name=external_funding["project_name"],
+    )
 
 
 def label_create(name: str, color: Color) -> Label:

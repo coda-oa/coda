@@ -1,7 +1,7 @@
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Role
-from coda.apps.fundingrequests.dto import FundingDto
-from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
+from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganization, FundingRequest
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
 from coda.apps.journals.models import Journal
@@ -30,12 +30,24 @@ def publication() -> Publication:
     )
 
 
+def funding_organization() -> FundingOrganization:
+    return FundingOrganization.objects.create(name="Test Funder")
+
+
+def external_funding(funder_id: int | None = None) -> ExternalFunding:
+    funder = FundingOrganization.objects.get(pk=funder_id) if funder_id else funding_organization()
+    return ExternalFunding.objects.create(
+        organization=funder, project_id="1234", project_name="Test Project"
+    )
+
+
 def fundingrequest(title: str = "", author_dto: AuthorDto | None = None) -> FundingRequest:
     _journal = journal()
     affiliation = institution().pk
     author_dto = author_dto or valid_author_dto(affiliation)
     pub_dto = publication_dto(_journal.pk, title=title)
-    return fundingrequest_create(author_dto, pub_dto, funding_dto())
+    ext_funding_dto = external_funding_dto(funding_organization().pk)
+    return fundingrequest_create(author_dto, pub_dto, ext_funding_dto, cost_dto())
 
 
 def valid_author_dto(affiliation_pk: int | None = None) -> AuthorDto:
@@ -60,5 +72,11 @@ def publication_dto(
     )
 
 
-def funding_dto() -> FundingDto:
-    return FundingDto(estimated_cost=100, estimated_cost_currency="USD")
+def external_funding_dto(organization: int) -> ExternalFundingDto:
+    return ExternalFundingDto(
+        organization=organization, project_id="1234", project_name="Test Project"
+    )
+
+
+def cost_dto() -> CostDto:
+    return CostDto(estimated_cost=100, estimated_cost_currency="USD")

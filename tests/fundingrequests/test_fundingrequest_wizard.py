@@ -7,7 +7,7 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.fundingrequests.dto import FundingDto
+from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.forms import PublicationFormData
 from coda.apps.publications.models import LinkType
@@ -23,7 +23,7 @@ def login(client: Client) -> None:
 
 
 @pytest.mark.django_db
-def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_details__2(
+def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
     author_dto = factory.valid_author_dto(factory.institution().pk)
@@ -33,28 +33,18 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
     links = create_link_dtos()
     publication_dto = factory.publication_dto(journal_pk, links=links)
     publication_post_data = create_publication_post_data(links, publication_dto)
-    funding_dto = factory.funding_dto()
+    funder = factory.funding_organization()
+    external_funding = factory.external_funding_dto(funder.pk)
+    cost_dto = factory.cost_dto()
 
-    response = submit_wizard_new(
-        client, author_dto, journal_post_data, publication_post_data, funding_dto
+    response = submit_wizard(
+        client, author_dto, journal_post_data, publication_post_data, external_funding, cost_dto
     )
 
-    funding_request = assert_correct_funding_request(author_dto, publication_dto, funding_dto)
+    funding_request = assert_correct_funding_request(
+        author_dto, publication_dto, external_funding, cost_dto
+    )
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
-
-
-def submit_wizard_new(
-    client: Client,
-    author: AuthorDto,
-    journal: dict[str, int],
-    publication_post_data: dict[str, Any],
-    funding: FundingDto,
-) -> HttpResponse:
-    next = {"action": "next"}
-    client.post(reverse("fundingrequests:create_wizard"), next | author)
-    client.post(reverse("fundingrequests:create_wizard"), next | journal)
-    client.post(reverse("fundingrequests:create_wizard"), next | publication_post_data)
-    return cast(HttpResponse, client.post(reverse("fundingrequests:create_wizard"), next | funding))
 
 
 def submit_wizard(
@@ -62,12 +52,17 @@ def submit_wizard(
     author: AuthorDto,
     journal: dict[str, int],
     publication_post_data: dict[str, Any],
-    funding: FundingDto,
+    external_funding: ExternalFundingDto,
+    cost: CostDto,
 ) -> HttpResponse:
-    client.post(reverse("fundingrequests:create_submitter"), author)
-    client.post(reverse("fundingrequests:create_journal"), journal)
-    client.post(reverse("fundingrequests:create_publication"), publication_post_data)
-    return cast(HttpResponse, client.post(reverse("fundingrequests:create_funding"), funding))
+    next = {"action": "next"}
+    client.post(reverse("fundingrequests:create_wizard"), next | author)
+    client.post(reverse("fundingrequests:create_wizard"), next | journal)
+    client.post(reverse("fundingrequests:create_wizard"), next | publication_post_data)
+    return cast(
+        HttpResponse,
+        client.post(reverse("fundingrequests:create_wizard"), next | external_funding | cost),
+    )
 
 
 def create_link_dtos() -> list[LinkDto]:

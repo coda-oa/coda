@@ -15,7 +15,12 @@ from django.views.generic import CreateView, DetailView, ListView
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorForm
 from coda.apps.fundingrequests import repository, services
-from coda.apps.fundingrequests.forms import ChooseLabelForm, FundingForm, LabelForm
+from coda.apps.fundingrequests.forms import (
+    ChooseLabelForm,
+    CostForm,
+    ExternalFundingForm,
+    LabelForm,
+)
 from coda.apps.fundingrequests.models import FundingRequest, Label
 from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
@@ -165,18 +170,24 @@ class FundingStep(Step):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         context = super().get_context_data(request, store)
-        context["form"] = FundingForm()
+        context["cost_form"] = CostForm()
+        context["funding_form"] = ExternalFundingForm()
         return context
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
-        form = FundingForm(request.POST)
-        valid = form.is_valid()
-        return valid
+        cost_form = CostForm(request.POST)
+        funding_form = ExternalFundingForm(request.POST)
+        return cost_form.is_valid() and funding_form.is_valid()
 
     def done(self, request: HttpRequest, store: Store) -> None:
-        form = FundingForm(request.POST)
-        form.full_clean()
-        funding = form.to_dto()
+        cost_form = CostForm(request.POST)
+        cost_form.full_clean()
+        cost = cost_form.to_dto()
+
+        funding_form = ExternalFundingForm(request.POST)
+        funding_form.full_clean()
+        funding = funding_form.to_dto()
+        store["cost"] = cost
         store["funding"] = funding
 
 
@@ -207,9 +218,10 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
             links=link_form_data,
             journal=int(journal),
         )
+        cost = store["cost"]
         funding = store["funding"]
 
-        funding_request = services.fundingrequest_create(author_dto, publication_dto, funding)
+        funding_request = services.fundingrequest_create(author_dto, publication_dto, funding, cost)
         store["funding_request"] = funding_request.pk
 
 

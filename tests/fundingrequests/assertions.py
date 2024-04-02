@@ -1,24 +1,37 @@
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Author
-from coda.apps.fundingrequests.dto import FundingDto
+from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.publications.dto import PublicationDto
 
 
 def assert_correct_funding_request(
-    author_dto: AuthorDto, publication_dto: PublicationDto, funding_dto: FundingDto
+    author_dto: AuthorDto,
+    publication_dto: PublicationDto,
+    external_funding_dto: ExternalFundingDto,
+    cost_dto: CostDto,
 ) -> FundingRequest:
     funding_request = FundingRequest.objects.first()
     assert funding_request is not None
 
     assert_author_equal(author_dto, funding_request.submitter)
     assert_publication_equal(publication_dto, author_dto, funding_request)
-    assert_funding_details_equal(funding_dto, funding_request)
+    assert_external_funding_equal(external_funding_dto, funding_request)
+    assert_cost_equal(cost_dto, funding_request)
     assert funding_request.processing_status == "in_progress"
     return funding_request
 
 
-def assert_funding_details_equal(funding: FundingDto, funding_request: FundingRequest) -> None:
+def assert_external_funding_equal(
+    external_funding: ExternalFundingDto, funding_request: FundingRequest
+) -> None:
+    assert funding_request.external_funding is not None
+    assert funding_request.external_funding.organization.pk == external_funding["organization"]
+    assert funding_request.external_funding.project_id == external_funding["project_id"]
+    assert funding_request.external_funding.project_name == external_funding["project_name"]
+
+
+def assert_cost_equal(funding: CostDto, funding_request: FundingRequest) -> None:
     assert funding_request.estimated_cost == funding["estimated_cost"]
     assert funding_request.estimated_cost_currency == funding["estimated_cost_currency"]
 
