@@ -23,7 +23,7 @@
     </div>
     <div>
         <article>
-            <header class="flex justify-between">
+            <header class="flex justify-between align-center">
                 <h2 class="fundingrequest__detail-title">Request Details</h2>
                 <button>Edit</button>
             </header>
@@ -48,7 +48,7 @@
             </table>
         </article>
         <article>
-            <header class="flex justify-between">
+            <header class="flex justify-between align-center">
                 <h2 class="fundingrequest__detail-title">Publication Details</h2>
                 <button>Edit</button>
             </header>
@@ -83,8 +83,8 @@
                 </tbody>
             </table>
         </article>
-        <article>
-            {% if funding_request.publication.links %}
+        {% if funding_request.publication.links %}
+            <article>
                 <header>
                     <h3 class="fundingrequest__detail-title">References</h3>
                 </header>
@@ -106,10 +106,10 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            {% endif %}
-        </article>
+            </article>
+        {% endif %}
         <article>
-            <header class="flex justify-between">
+            <header class="flex justify-between align-center">
                 <h3 class="fundingrequest__detail-title">Costs and Funding</h3>
                 <button>Edit</button>
             </header>
