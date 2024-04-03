@@ -7,13 +7,16 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.authors.dto import AuthorDto
+from coda.apps.authors.models import Role
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
+from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.forms import PublicationFormData
 from coda.apps.publications.models import LinkType
 from coda.apps.users.models import User
+from tests import test_orcid
 from tests.fundingrequests import factory
-from tests.fundingrequests.assertions import assert_correct_funding_request
+from tests.fundingrequests.assertions import assert_author_equal, assert_correct_funding_request
 
 
 @pytest.fixture(autouse=True)
@@ -45,6 +48,35 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
         author_dto, publication_dto, external_funding, cost_dto
     )
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
+
+
+@pytest.mark.django_db
+def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_details(
+    client: Client,
+) -> None:
+    request = factory.fundingrequest()
+    affiliation = Institution.objects.create(name="New Institution")
+
+    new_author = AuthorDto(
+        name="New Author",
+        email="newauthor@mail.com",
+        affiliation=affiliation.pk,
+        orcid=test_orcid.LAUREL_HAAK,
+        roles=[Role.CO_AUTHOR.name],
+    )
+
+    response = client.post(
+        reverse("fundingrequests:update_submitter", kwargs={"pk": request.pk}),
+        next() | new_author,
+    )
+
+    request.refresh_from_db()
+    assert_author_equal(new_author, request.submitter)
+    assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": request.pk}))
+
+
+def next() -> dict[str, str]:
+    return {"action": "next"}
 
 
 def submit_wizard(

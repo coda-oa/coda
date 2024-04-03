@@ -51,3 +51,7 @@ class Author(models.Model):
         if self.roles:
             return set(deserialize_roles(self.roles))
         return set()
+
+    def set_roles(self, roles: Iterable[Role]) -> None:
+        self.roles = serialize_roles(roles)
+        self.save()

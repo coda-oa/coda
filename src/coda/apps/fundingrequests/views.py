@@ -78,7 +78,11 @@ class SubmitterStep(FormStep):
         return super().get_context_data(request, store) | {"form": self.form_class(form_data)}
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
-        return AuthorForm(request.POST).is_valid()
+        form = AuthorForm(request.POST)
+        valid = form.is_valid()
+        print("valid", valid)
+        print(form.errors)
+        return valid
 
     def done(self, request: HttpRequest, store: Store) -> None:
         form = AuthorForm(request.POST)
@@ -205,7 +209,7 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
         store = self.get_store()
         return reverse("fundingrequests:detail", kwargs={"pk": store["funding_request"]})
 
-    def complete(self) -> None:
+    def complete(self, **kwargs: Any) -> None:
         store = self.get_store()
         author_dto: AuthorDto = store["submitter"]
         publication_form_data: PublicationFormData = store["publication"]
@@ -223,6 +227,21 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
 
         funding_request = services.fundingrequest_create(author_dto, publication_dto, funding, cost)
         store["funding_request"] = funding_request.pk
+
+
+class UpdateSubmitterView(LoginRequiredMixin, Wizard):
+    store_name = "update_submitter_wizard"
+    store_factory = SessionStore
+    steps = [SubmitterStep()]
+
+    def get_success_url(self) -> str:
+        return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
+
+    def complete(self, /, **kwargs: Any) -> None:
+        pk = kwargs["pk"]
+        store = self.get_store()
+        author_dto: AuthorDto = store["submitter"]
+        services.fundingrequest_submitter_update(pk, author_dto)
 
 
 class LabelCreateView(LoginRequiredMixin, CreateView[Label, LabelForm]):

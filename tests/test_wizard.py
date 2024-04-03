@@ -85,9 +85,10 @@ class CompletingWizardSpy(WizardTestImpl):
         self.completed_state["success_url"] = store.get("success_url")
         return super().get_success_url()
 
-    def complete(self) -> None:
+    def complete(self, **kwargs: Any) -> None:
         store = cast(DictStore, self.get_store())
         self.completed_state["completed"] = store.get("completed")
+        self.completed_state |= kwargs
 
 
 @pytest.fixture(autouse=True)
@@ -167,6 +168,17 @@ def test__wizard_with_step__post_next__saves_store() -> None:
 
     store = SingletonDictStoreFactory.store
     assert store.was_saved_with(step(1))
+
+
+def test__wizard__post_with_kwargs__passes_kwargs_to_complete() -> None:
+    factory = RequestFactory()
+    completed_state: dict[str, Any] = {}
+    sut = make_sut(CompletingWizardSpy, steps=[SimpleStep()], completed_state=completed_state)
+
+    request = factory.post("/", next())
+    _ = sut(request, some_arg="some_value")
+
+    assert completed_state["some_arg"] == "some_value"
 
 
 def test__wizard__post_next__calls_done_on_current_step() -> None:
@@ -321,15 +333,15 @@ def test__wizard__get_and_post__pass_store_to_step() -> None:
     )
 
 
-def test__wizard__on_completions__calls_complete_on_self_before_clearing_store() -> None:
+def test__wizard__on_completion__calls_complete_on_self_before_clearing_store() -> None:
+    completed_state: dict[str, Any] = {}
     store = SingletonDictStoreFactory.store
     store["completed"] = "completed called"
-    completed_state: dict[str, Any] = {}
 
     sut = make_sut(CompletingWizardSpy, steps=[SimpleStep()], completed_state=completed_state)
     _ = post(sut, next())
 
-    store = SingletonDictStoreFactory.store
+    assert store.was_saved_with({})
     assert completed_state["completed"] == "completed called"
 
 

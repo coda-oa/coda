@@ -140,21 +140,22 @@ class Wizard(View):
 
         return step
 
-    def complete(self) -> None:
+    def complete(self, **kwargs: Any) -> None:
         pass
 
-    def get(self, request: HttpRequest) -> HttpResponse:
+    def get(self, request: HttpRequest, **kwargs: Any) -> HttpResponse:
         self.get_store().clear()
         self.get_store().save()
         return self._render_step(request, self.index())
 
-    def post(self, request: HttpRequest) -> HttpResponse:
+    def post(self, request: HttpRequest, **kwargs: Any) -> HttpResponse:
         next_index = self.determine_next_index(request)
         store = self.get_store()
 
         response: HttpResponse
+        print("next_index", next_index)
         if self.is_last(next_index):
-            self.complete()
+            self.complete(**kwargs)
             response = redirect(self.get_success_url())
             store.clear()
         else:
