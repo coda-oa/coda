@@ -26,6 +26,8 @@
   --coda-validation-text-color: #fff;
   --coda-disabled-text-color: var(--pico-muted-color);
 
+  --coda-card-background-color: var(--pico-card-background-color);
+
   /*
   Pico Variables.
   NOTE: We avoid referencing Pico variables directly in Coda.

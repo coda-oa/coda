@@ -29,8 +29,29 @@ article.fundingrequest {
   text-overflow: ellipsis;
 }
 
-.fundingrequest__detail-table td:first-child {
-  width: min(30%, 20ch);
+.fundingrequest__detail-title {
+  margin-block: 0;
+}
+
+.fundingrequest__detail-table {
+  width: 100%;
+  margin-block-end: 0;
+}
+
+.fundingrequest__detail-table tr,
+.fundingrequest__detail-table th,
+.fundingrequest__detail-table td {
+  background-color: var(--coda-card-background-color);
+}
+
+.fundingrequest__detail-table tbody tr:last-child td,
+.fundingrequest__detail-table tbody tr:last-child th {
+  border-bottom: none;
+}
+
+.fundingrequest__detail-table tbody tr > th,
+.fundingrequest__detail-table tr > td:first-child {
+  width: 30ch;
 }
 
 .fundingrequest__approved {
