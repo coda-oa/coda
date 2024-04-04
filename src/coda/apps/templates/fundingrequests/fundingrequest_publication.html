@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
     <h1>Publication Details</h1>
-    <form action="{% url "fundingrequests:create_wizard" %}" method="post">
+    <form method="post">
         {% csrf_token %}
         {{ publication_form.as_p }}
         <h2>Links</h2>

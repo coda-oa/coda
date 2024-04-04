@@ -1,38 +1,38 @@
 {% extends "forms/wizardform.html" %}
-{% with hide_wizard_nav=True %}
-    {% block wizard_step %}
-        <h1>Find Journal</h1>
-        <fieldset role="group">
-            <input type="search"
-                   name="journal_title"
-                   id="journal_title"
-                   value="{{ request.POST.journal_title }}">
-            <button type="submit" class="inline-search-pill pill-right">Search</button>
-        </fieldset>
-        <input type="hidden" name="action" value="next">
-        {% if journals %}
-            <div class="journal__search-results__scroll-container">
-                <table class="journal__search-results my-2">
-                    <thead>
+{% block wizard_step %}
+    <h1>Find Journal</h1>
+    <fieldset role="group">
+        <input type="search"
+               name="journal_title"
+               id="journal_title"
+               value="{{ journal_title }}">
+        <button type="submit" class="inline-search-pill pill-right">Search</button>
+    </fieldset>
+    {% if journals %}
+        <div class="journal__search-results__scroll-container">
+            <table class="journal__search-results my-2">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Publisher</th>
+                        <th>Select</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for journal in journals %}
                         <tr>
-                            <th>Title</th>
-                            <th>Publisher</th>
-                            <th>Select</th>
+                            <td>{{ journal.title }}</td>
+                            <td>{{ journal.publisher.name }}</td>
+                            <td>
+                                <input type="radio"
+                                       name="journal"
+                                       value="{{ journal.pk }}"
+                                       {% if journal.pk == selected_journal.pk %}checked{% endif %}>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {% for journal in journals %}
-                            <tr>
-                                <td>{{ journal.title }}</td>
-                                <td>{{ journal.publisher.name }}</td>
-                                <td>
-                                    <input type="radio" name="journal" value="{{ journal.pk }}">
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% endif %}
-    {% endblock wizard_step %}
-{% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+{% endblock wizard_step %}

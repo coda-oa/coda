@@ -18,7 +18,10 @@ class SubmitterStep(FormStep):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         form_data = store.get("submitter") or (request.POST if request.method == "POST" else None)
-        return super().get_context_data(request, store) | {"form": self.form_class(form_data)}
+        return super().get_context_data(request, store) | {
+            "form": self.form_class(form_data),
+            "submitter": store.get("submitter"),
+        }
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         form = AuthorForm(request.POST)
@@ -36,12 +39,15 @@ class JournalStep(Step):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         ctx = super().get_context_data(request, store)
-        title = request.POST.get("journal_title")
-        if not title:
-            return ctx
-
-        journals = Journal.objects.filter(title__icontains=title)
-        ctx["journals"] = journals
+        if title := request.POST.get("journal_title"):
+            journals = Journal.objects.filter(title__icontains=title)
+            ctx["journals"] = journals
+            ctx["journal_title"] = title
+        elif journal_id := store.get("selected_journal", None):
+            selected_journal = Journal.objects.get(pk=journal_id)
+            ctx["selected_journal"] = selected_journal
+            ctx["journal_title"] = selected_journal.title
+            ctx["journals"] = [selected_journal]
 
         return ctx
 

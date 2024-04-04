@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView
 
-from coda.apps.authors.dto import AuthorDto
+from coda.apps.authors.dto import AuthorDto, author_dto_from_model
 from coda.apps.fundingrequests import repository, services
 from coda.apps.fundingrequests.forms import ChooseLabelForm, LabelForm
 from coda.apps.fundingrequests.models import FundingRequest, Label
@@ -20,7 +20,7 @@ from coda.apps.fundingrequests.wizardsteps import (
     PublicationStep,
     SubmitterStep,
 )
-from coda.apps.publications.dto import LinkDto, PublicationDto
+from coda.apps.publications.dto import LinkDto, PublicationDto, publication_dto_from_model
 from coda.apps.publications.forms import PublicationFormData
 from coda.apps.wizard import SessionStore, Store, Wizard
 
@@ -99,6 +99,19 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
         author_dto: AuthorDto = store["submitter"]
         services.fundingrequest_submitter_update(pk, author_dto)
 
+    def _render_step(self, request: HttpRequest, index: int) -> HttpResponse:
+        if request.POST.get("action") != "next":
+            self.prepare()
+
+        return super()._render_step(request, index)
+
+    def prepare(self) -> None:
+        store = self.get_store()
+        fr = repository.get_by_pk(self.kwargs["pk"])
+        if fr.submitter:
+            store["submitter"] = author_dto_from_model(fr.submitter)
+            store.save()
+
 
 class UpdatePublicationView(LoginRequiredMixin, Wizard):
     store_name = "update_publication_wizard"
@@ -113,6 +126,21 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         store = self.get_store()
         publication_dto = publication_dto_from_store(store)
         services.fundingrequest_publication_update(pk, publication_dto)
+
+    def _render_step(self, request: HttpRequest, index: int) -> HttpResponse:
+        if request.POST.get("action") != "next":
+            self.prepare()
+
+        return super()._render_step(request, index)
+
+    def prepare(self) -> None:
+        store = self.get_store()
+        fr = repository.get_by_pk(self.kwargs["pk"])
+        dto = publication_dto_from_model(fr.publication)
+        store["publication"] = dto
+        store["selected_journal"] = fr.publication.journal.pk
+        store["links"] = dto["links"]
+        store.save()
 
 
 def publication_dto_from_store(store: Store) -> PublicationDto:

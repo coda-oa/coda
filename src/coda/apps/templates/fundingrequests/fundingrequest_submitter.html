@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
     <h1>New Funding Request</h1>
-    <h2>Applicant</h2>
-    <form action="{% url "fundingrequests:create_wizard" %}" method="post">
+    <h2>Applicant {{ submitter.name }}</h2>
+    <form method="post">
         {% csrf_token %}
         <table>
             {{ form.as_table }}
