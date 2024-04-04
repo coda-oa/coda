@@ -1,50 +1,46 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "forms/wizardform.html" %}
+{% block wizard_step %}
     <h1>Publication Details</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ publication_form.as_p }}
-        <h2>Links</h2>
-        <table>
-            <thead>
-                <td>Link Type</td>
-                <td>Link</td>
-                <td>
-                    <button type="button" onclick="addRow()">Add</button>
-                </td>
-            </thead>
-            <tbody id="linktable">
-                <template>
-                    <tr>
-                        <td>
-                            <select name="link_type">
-                                {% for t in link_types %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}
-                            </select>
-                        </td>
-                        <td>
-                            <input type="text" name="link_value">
-                        </td>
-                    </tr>
-                </template>
-                {% for link in links %}
-                    <tr>
-                        <td>
-                            <select name="link_type">
-                                {% for t in link_types %}
-                                    <option value="{{ t.pk }}" {% if link.link_type == t.pk %}selected{% endif %}>{{ t.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </td>
-                        <td>
-                            <input type="text" name="link_value" value="{{ link.link_value }}">
-                        </td>
-                        <td>
-                            <button type="button" onclick="removeRow(this)">Remove</button>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% include "partials/wizard_nav.html" %}
-    </form>
-{% endblock content %}
+    {{ publication_form.as_p }}
+    <h2>Links</h2>
+    <table>
+        <thead>
+            <td>Link Type</td>
+            <td>Link</td>
+            <td>
+                <button type="button" onclick="addRow()">Add</button>
+            </td>
+        </thead>
+        <tbody id="linktable">
+            <template>
+                <tr>
+                    <td>
+                        <select name="link_type">
+                            {% for t in link_types %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" name="link_value">
+                    </td>
+                </tr>
+            </template>
+            {% for link in links %}
+                <tr>
+                    <td>
+                        <select name="link_type">
+                            {% for t in link_types %}
+                                <option value="{{ t.pk }}" {% if link.link_type == t.pk %}selected{% endif %}>{{ t.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" name="link_value" value="{{ link.link_value }}">
+                    </td>
+                    <td>
+                        <button type="button" onclick="removeRow(this)">Remove</button>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock wizard_step %}

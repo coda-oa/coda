@@ -1,19 +1,15 @@
-{% extends "base.html" %}
-{% block content %}
-    <form action="{% url "fundingrequests:create_wizard" %}" method="post">
-        {% csrf_token %}
-        <div class="my-2">
-            <h2>Estimated Publication Cost</h2>
-            <fieldset role="group">
-                {{ cost_form }}
-            </fieldset>
-        </div>
-        <h2>External Funding</h2>
-        <table>
-            <tbody>
-                {{ funding_form.as_table }}
-            </tbody>
-        </table>
-        {% include "partials/wizard_nav.html" with step="last" %}
-    </form>
-{% endblock content %}
+{% extends "forms/wizardform.html" %}
+{% block wizard_step %}
+    <div class="my-2">
+        <h2>Estimated Publication Cost</h2>
+        <fieldset role="group">
+            {{ cost_form }}
+        </fieldset>
+    </div>
+    <h2>External Funding</h2>
+    <table>
+        <tbody>
+            {{ funding_form.as_table }}
+        </tbody>
+    </table>
+{% endblock wizard_step %}

@@ -25,6 +25,10 @@ class StepWithContext(SimpleStep):
     context: dict[str, str] = {"name": "Steven"}
 
 
+class StepperStep(Step):
+    template_name: str = "stepper_template.html"
+
+
 class StepWithDone(SimpleStep):
     def done(self, request: HttpRequest, store: Store) -> None:
         store["done_called"] = True
@@ -140,6 +144,28 @@ def test__wizard_at_second_step__get_renders_first_step() -> None:
     response = get(sut)
 
     assert_rendered_with_context(response)
+
+
+def test__wizard_at_first_step__adds_stepper_to_context() -> None:
+    steps = [StepperStep(), SimpleStep()]
+    sut = make_sut(steps=steps)
+
+    response = get(sut)
+
+    current = 1
+    total = len(steps)
+    assert_rendered_stepper(response, current, total)
+
+
+def test__wizard_at_second_step__adds_stepper_to_context() -> None:
+    steps = [SimpleStep(), StepperStep()]
+    sut = make_sut(steps=steps)
+
+    response = post(sut, next())
+
+    current = 2
+    total = len(steps)
+    assert_rendered_stepper(response, current, total)
 
 
 def test__wizard__get__clears_store() -> None:
@@ -393,3 +419,7 @@ def step(s: int) -> dict[str, Any]:
 
 def assert_rendered_with_context(response: HttpResponse, expected: str = "Steven") -> None:
     assert response.content.strip() == f"{expected}".encode()
+
+
+def assert_rendered_stepper(response: HttpResponse, current: int, total: int) -> None:
+    assert_rendered_with_context(response, (str(current) + "\n" + str(total)))

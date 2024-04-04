@@ -1,12 +1,8 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "forms/wizardform.html" %}
+{% block wizard_step %}
     <h1>New Funding Request</h1>
-    <h2>Applicant {{ submitter.name }}</h2>
-    <form method="post">
-        {% csrf_token %}
-        <table>
-            {{ form.as_table }}
-        </table>
-        {% include "partials/wizard_nav.html" with step="first" %}
-    </form>
-{% endblock content %}
+    <h2>Request Submitter</h2>
+    <table>
+        {{ form.as_table }}
+    </table>
+{% endblock wizard_step %}

@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Any, Generic, Protocol, TypeVar, cast, overload
+from typing import Any, Generic, NamedTuple, Protocol, TypeVar, cast, overload
 from collections.abc import Callable, Iterable
 
 from django.forms import Form
@@ -82,7 +82,7 @@ class SessionStore(Store):
 
     def clear(self) -> None:
         if self.store_name in self.request.session:
-            del self.request.session[self.store_name]
+            self.request.session[self.store_name] = {}
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.data.get(key, default)
@@ -119,6 +119,11 @@ class FormStep(Step, ABC):
 
 
 StoreFactory = Callable[[str, HttpRequest], Store]
+
+
+class Stepper(NamedTuple):
+    current: int
+    total: int
 
 
 class Wizard(View):
@@ -199,5 +204,5 @@ class Wizard(View):
     def _render_step(self, request: HttpRequest, index: int) -> HttpResponse:
         step = self.steps[index]
         context = step.get_context_data(request, self.get_store())
-        context["step"] = index + 1
+        context["stepper"] = Stepper(index + 1, len(self.steps))
         return render(request, step.template_name, context)

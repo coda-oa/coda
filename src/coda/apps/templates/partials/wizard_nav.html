@@ -1,6 +1,6 @@
 <div class="grid my-2">
-    {% if step != "first" %}<button type="submit" name="action" value="back">Back</button>{% endif %}
-    {% if step == "last" %}
+    {% if stepper.current > 1 %}<button type="submit" name="action" value="back">Back</button>{% endif %}
+    {% if stepper.current == stepper.total %}
         <button type="submit" name="action" value="next">Save</button>
     {% else %}
         <button type="submit" name="action" value="next">Next</button>
