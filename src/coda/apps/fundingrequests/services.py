@@ -49,6 +49,19 @@ def fundingrequest_submitter_update(funding_request_id: int, author: AuthorDto) 
     funding_request.save()
 
 
+@transaction.atomic
+def fundingrequest_publication_update(funding_request_id: int, publication: PublicationDto) -> None:
+    funding_request = fundingrequest_repository.get_by_pk(funding_request_id)
+    _publication = funding_request.publication
+    _publication.title = publication["title"]
+    _publication.journal = journal_repository.get_by_pk(publication["journal"])
+    _publication.publication_state = publication["publication_state"]
+    _publication.publication_date = publication["publication_date"]
+    publication_repository.attach_links(_publication, publication["links"])
+    _publication.save()
+    funding_request.save()
+
+
 def external_funding_create(external_funding: ExternalFundingDto) -> ExternalFunding:
     return ExternalFunding.objects.create(
         organization=fundingrequest_repository.get_funding_organization(

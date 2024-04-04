@@ -15,11 +15,12 @@ def create(publication: PublicationDto, author: Author, journal: Journal) -> Pub
         journal=journal,
     )
 
-    _attach_links(_publication, publication["links"])
+    attach_links(_publication, publication["links"])
     return _publication
 
 
-def _attach_links(publication: Publication, links: list[LinkDto]) -> None:
+def attach_links(publication: Publication, links: list[LinkDto]) -> None:
+    publication.links.all().delete()
     Link.objects.bulk_create(
         [
             Link(

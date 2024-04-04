@@ -11,7 +11,7 @@ from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
 from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
-from coda.apps.publications.models import Publication
+from coda.apps.publications.models import LinkType, Publication
 from coda.apps.publishers.models import Publisher
 
 _faker = faker.Faker()
@@ -103,7 +103,7 @@ def publication_dto(
         publication_state=random_state,
         publication_date=_faker.date(),
         journal=journal,
-        links=links or [],
+        links=links or link_dtos(),
     )
 
 
@@ -117,3 +117,13 @@ def external_funding_dto(organization: int) -> ExternalFundingDto:
 
 def cost_dto() -> CostDto:
     return CostDto(estimated_cost=100, estimated_cost_currency="USD")
+
+
+def link_dtos() -> list[LinkDto]:
+    doi, _ = LinkType.objects.get_or_create(name="DOI")
+    url, _ = LinkType.objects.get_or_create(name="URL")
+
+    random_doi_suffix = random.randint(1000, 9999)
+    doi_link = LinkDto(link_type=int(doi.pk), link_value=f"10.1234/{random_doi_suffix}")
+    url_link = LinkDto(link_type=int(url.pk), link_value=_faker.url())
+    return [doi_link, url_link]

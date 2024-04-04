@@ -11,6 +11,11 @@ urlpatterns = [
     path(
         "update/submitter/<int:pk>/", views.UpdateSubmitterView.as_view(), name="update_submitter"
     ),
+    path(
+        "update/publication/<int:pk>/",
+        views.UpdatePublicationView.as_view(),
+        name="update_publication",
+    ),
     path("approve/", views.approve, name="approve"),
     path("reject/", views.reject, name="reject"),
     path("open/", views.open, name="open"),

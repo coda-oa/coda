@@ -1,11 +1,18 @@
+from typing import cast
 import pytest
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.models import Role
+from coda.apps.authors.models import Author, PersonId, Role
 from coda.apps.fundingrequests import services
+from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.institutions.models import Institution
 from tests import test_orcid
 from tests.fundingrequests import factory
-from tests.fundingrequests.assertions import assert_correct_funding_request, assert_author_equal
+from tests.fundingrequests.assertions import (
+    assert_correct_funding_request,
+    assert_author_equal,
+    assert_publication_equal,
+)
 
 
 @pytest.mark.django_db
@@ -39,3 +46,29 @@ def test__update_fundingrequest_submitter__updates_submitter() -> None:
 
     request.refresh_from_db()
     assert_author_equal(new_author, request.submitter)
+
+
+@pytest.mark.django_db
+def test__update_fundingrequest_publication__updates_publication() -> None:
+    request = factory.fundingrequest()
+    new_journal = factory.journal()
+    links = factory.link_dtos()
+    new_publication = factory.publication_dto(new_journal.pk, links=links)
+
+    services.fundingrequest_publication_update(request.pk, new_publication)
+
+    request.refresh_from_db()
+    assert_publication_equal(new_publication, author_dto_from_request(request), request.publication)
+
+
+def author_dto_from_request(request: FundingRequest) -> AuthorDto:
+    submitter = cast(Author, request.submitter)
+    affiliation = cast(Institution, submitter.affiliation)
+    identifier = cast(PersonId, submitter.identifier)
+    return AuthorDto(
+        name=submitter.name,
+        email=str(submitter.email),
+        affiliation=affiliation.pk,
+        orcid=identifier.orcid,
+        roles=[r.name for r in submitter.get_roles()],
+    )

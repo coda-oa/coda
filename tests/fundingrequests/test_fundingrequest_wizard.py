@@ -10,13 +10,17 @@ from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Role
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.institutions.models import Institution
-from coda.apps.publications.dto import LinkDto, PublicationDto
+from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.forms import PublicationFormData
-from coda.apps.publications.models import LinkType
 from coda.apps.users.models import User
 from tests import test_orcid
 from tests.fundingrequests import factory
-from tests.fundingrequests.assertions import assert_author_equal, assert_correct_funding_request
+from tests.fundingrequests.assertions import (
+    assert_author_equal,
+    assert_correct_funding_request,
+    assert_publication_equal,
+)
+from tests.fundingrequests.test_fundingrequest_services import author_dto_from_request
 
 
 @pytest.fixture(autouse=True)
@@ -33,9 +37,8 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
     journal_pk = factory.journal().pk
     journal_post_data = {"journal": journal_pk}
 
-    links = create_link_dtos()
-    publication_dto = factory.publication_dto(journal_pk, links=links)
-    publication_post_data = create_publication_post_data(links, publication_dto)
+    publication_dto = factory.publication_dto(journal_pk)
+    publication_post_data = create_publication_post_data(publication_dto)
     funder = factory.funding_organization()
     external_funding = factory.external_funding_dto(funder.pk)
     cost_dto = factory.cost_dto()
@@ -75,6 +78,29 @@ def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_d
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": request.pk}))
 
 
+@pytest.mark.django_db
+def test__updateing_fundingrequest_publication__updates_funding_request_and_shows_details(
+    client: Client,
+) -> None:
+    request = factory.fundingrequest()
+    new_journal = factory.journal()
+    new_publication = factory.publication_dto(new_journal.pk)
+    publication_post_data = create_publication_post_data(new_publication)
+
+    _ = client.post(
+        reverse("fundingrequests:update_publication", kwargs={"pk": request.pk}),
+        next() | publication_post_data,
+    )
+    response = client.post(
+        reverse("fundingrequests:update_publication", kwargs={"pk": request.pk}),
+        next() | {"journal": new_journal.pk},
+    )
+
+    request.refresh_from_db()
+    assert_publication_equal(new_publication, author_dto_from_request(request), request.publication)
+    assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": request.pk}))
+
+
 def next() -> dict[str, str]:
     return {"action": "next"}
 
@@ -96,20 +122,9 @@ def submit_wizard(
     )
 
 
-def create_link_dtos() -> list[LinkDto]:
-    doi = LinkType.objects.create(name="DOI")
-    url = LinkType.objects.create(name="URL")
-
-    doi_link = LinkDto(link_type=int(doi.pk), link_value="10.1234/5678")
-    url_link = LinkDto(link_type=int(url.pk), link_value="https://example.com")
-    return [doi_link, url_link]
-
-
-def create_publication_post_data(
-    links: list[LinkDto], publication: PublicationDto
-) -> dict[str, Any]:
+def create_publication_post_data(publication: PublicationDto) -> dict[str, Any]:
     link_form_data: dict[str, list[str]] = {"link_type": [], "link_value": []}
-    for link in links:
+    for link in publication["links"]:
         link_form_data["link_type"].append(str(link["link_type"]))
         link_form_data["link_value"].append(str(link["link_value"]))
 

@@ -153,7 +153,6 @@ class Wizard(View):
         store = self.get_store()
 
         response: HttpResponse
-        print("next_index", next_index)
         if self.is_last(next_index):
             self.complete(**kwargs)
             response = redirect(self.get_success_url())
