@@ -37,7 +37,7 @@ def checksum(orcid: str) -> str:
     """
     orcid = orcid.replace("-", "")
     total = 0
-    for digit in orcid[:-1]:
+    for digit in orcid[:15]:
         total = (total + int(digit)) * 2
     remainder = total % 11
     result = (12 - remainder) % 11

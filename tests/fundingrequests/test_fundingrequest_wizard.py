@@ -87,13 +87,12 @@ def submit_wizard(
     external_funding: ExternalFundingDto,
     cost: CostDto,
 ) -> HttpResponse:
-    next = {"action": "next"}
-    client.post(reverse("fundingrequests:create_wizard"), next | author)
-    client.post(reverse("fundingrequests:create_wizard"), next | journal)
-    client.post(reverse("fundingrequests:create_wizard"), next | publication_post_data)
+    client.post(reverse("fundingrequests:create_wizard"), next() | author)
+    client.post(reverse("fundingrequests:create_wizard"), next() | journal)
+    client.post(reverse("fundingrequests:create_wizard"), next() | publication_post_data)
     return cast(
         HttpResponse,
-        client.post(reverse("fundingrequests:create_wizard"), next | external_funding | cost),
+        client.post(reverse("fundingrequests:create_wizard"), next() | external_funding | cost),
     )
 
 

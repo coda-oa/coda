@@ -1,3 +1,8 @@
+import random
+
+import faker
+
+from coda import issn, orcid
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Role
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
@@ -8,36 +13,43 @@ from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.models import Publication
 from coda.apps.publishers.models import Publisher
-from tests import test_orcid
+
+_faker = faker.Faker()
+
+
+def _issn() -> str:
+    digits = "".join(map(str, random.choices(range(10), k=7)))
+    checksum = issn.checksum(digits)
+    return f"{digits[:4]}-{digits[4:]}{checksum}"
 
 
 def institution() -> Institution:
-    return Institution.objects.create(name="Test Institution")
+    return Institution.objects.create(name=_faker.company())
 
 
 def publisher() -> Publisher:
-    return Publisher.objects.create(name="Test Publisher")
+    return Publisher.objects.create(name=_faker.company())
 
 
 def journal() -> Journal:
-    return Journal.objects.create(title="Test Journal", eissn="1234-5678", publisher=publisher())
+    title = _faker.sentence()
+    return Journal.objects.create(title=title, eissn=_issn(), publisher=publisher())
 
 
 def publication() -> Publication:
-    return Publication.objects.create(
-        title="Test Publication",
-        journal=journal(),
-    )
+    title = _faker.sentence()
+    return Publication.objects.create(title=title, journal=journal())
 
 
 def funding_organization() -> FundingOrganization:
-    return FundingOrganization.objects.create(name="Test Funder")
+    return FundingOrganization.objects.create(name=_faker.company())
 
 
 def external_funding(funder_id: int | None = None) -> ExternalFunding:
+    project_id = random.randint(1000, 9999)
     funder = FundingOrganization.objects.get(pk=funder_id) if funder_id else funding_organization()
     return ExternalFunding.objects.create(
-        organization=funder, project_id="1234", project_name="Test Project"
+        organization=funder, project_id=project_id, project_name=_faker.sentence()
     )
 
 
@@ -51,30 +63,55 @@ def fundingrequest(title: str = "", author_dto: AuthorDto | None = None) -> Fund
 
 
 def valid_author_dto(affiliation_pk: int | None = None) -> AuthorDto:
+    random_roles = random.choices([r.name for r in Role], k=random.randint(1, len(Role)))
+    rand_orcid()
     return AuthorDto(
-        name="Josiah Carberry",
-        email="carberry@example.com",
-        orcid=test_orcid.JOSIAH_CARBERRY,
+        name=_faker.name(),
+        email=_faker.email(),
+        orcid=rand_orcid(),
         affiliation=affiliation_pk,
-        roles=[Role.CORRESPONDING_AUTHOR.name],
+        roles=random_roles,
+    )
+
+
+def rand_orcid() -> str:
+    random_orcid_digits = "".join(map(str, random.choices(range(10), k=15)))
+    orcid_checksum = orcid.checksum(random_orcid_digits)
+    return "-".join(
+        [
+            random_orcid_digits[:4],
+            random_orcid_digits[4:8],
+            random_orcid_digits[8:12],
+            random_orcid_digits[12:] + orcid_checksum,
+        ]
     )
 
 
 def publication_dto(
     journal: int, /, title: str = "", links: list[LinkDto] | None = None
 ) -> PublicationDto:
+    random_state = random.choice(
+        [
+            Publication.State.SUBMITTED,
+            Publication.State.PUBLISHED,
+            Publication.State.REJECTED,
+            Publication.State.ACCEPTED,
+        ]
+    )
     return PublicationDto(
-        title=title or "My Paper",
-        publication_state="submitted",
-        publication_date="2021-01-01",
+        title=title or _faker.sentence(),
+        publication_state=random_state,
+        publication_date=_faker.date(),
         journal=journal,
         links=links or [],
     )
 
 
 def external_funding_dto(organization: int) -> ExternalFundingDto:
+    project_id = str(random.randint(1000, 9999))
+    project_name = _faker.sentence()
     return ExternalFundingDto(
-        organization=organization, project_id="1234", project_name="Test Project"
+        organization=organization, project_id=project_id, project_name=project_name
     )
 
 
