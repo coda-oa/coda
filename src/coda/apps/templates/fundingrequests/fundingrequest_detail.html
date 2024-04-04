@@ -113,7 +113,8 @@
         <article>
             <header class="flex justify-between align-center">
                 <h3 class="fundingrequest__detail-title">Costs and Funding</h3>
-                <button>Edit</button>
+                <a href="{% url "fundingrequests:update_funding" pk=funding_request.pk %}"
+                   role="button">Edit</a>
             </header>
             <table class="fundingrequest__detail-table">
                 <tbody>

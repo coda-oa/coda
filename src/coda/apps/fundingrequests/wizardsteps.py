@@ -121,8 +121,8 @@ class FundingStep(Step):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         context = super().get_context_data(request, store)
-        context["cost_form"] = CostForm()
-        context["funding_form"] = ExternalFundingForm()
+        context["cost_form"] = CostForm(store.get("cost"))
+        context["funding_form"] = ExternalFundingForm(store.get("funding"))
         return context
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:

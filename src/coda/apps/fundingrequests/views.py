@@ -12,6 +12,7 @@ from django.views.generic import CreateView, DetailView, ListView
 
 from coda.apps.authors.dto import AuthorDto, author_dto_from_model
 from coda.apps.fundingrequests import repository, services
+from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.forms import ChooseLabelForm, LabelForm
 from coda.apps.fundingrequests.models import FundingRequest, Label
 from coda.apps.fundingrequests.wizardsteps import (
@@ -141,6 +142,43 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         store["selected_journal"] = fr.publication.journal.pk
         store["links"] = dto["links"]
         store.save()
+
+
+class UpdateFundingView(LoginRequiredMixin, Wizard):
+    steps = [FundingStep()]
+    store_name = "update_funding_wizard"
+    store_factory = SessionStore
+
+    def get_success_url(self) -> str:
+        return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
+
+    def complete(self, /, **kwargs: Any) -> None:
+        pk = kwargs["pk"]
+        store = self.get_store()
+        funding = store["funding"]
+        cost = store["cost"]
+        services.fundingrequest_funding_update(pk, funding, cost)
+
+    def prepare(self) -> None:
+        store = self.get_store()
+        fr = repository.get_by_pk(self.kwargs["pk"])
+        store["cost"] = CostDto(
+            estimated_cost=float(fr.estimated_cost),
+            estimated_cost_currency=fr.estimated_cost_currency,
+        )
+        if fr.external_funding:
+            store["funding"] = ExternalFundingDto(
+                organization=fr.external_funding.organization.pk,
+                project_id=fr.external_funding.project_id,
+                project_name=fr.external_funding.project_name,
+            )
+        store.save()
+
+    def _render_step(self, request: HttpRequest, index: int) -> HttpResponse:
+        if request.POST.get("action") != "next":
+            self.prepare()
+
+        return super()._render_step(request, index)
 
 
 def publication_dto_from_store(store: Store) -> PublicationDto:

@@ -62,6 +62,20 @@ def fundingrequest_publication_update(funding_request_id: int, publication: Publ
     funding_request.save()
 
 
+@transaction.atomic
+def fundingrequest_funding_update(
+    funding_request_id: int, funding: ExternalFundingDto, cost: CostDto
+) -> None:
+    funding_request = fundingrequest_repository.get_by_pk(funding_request_id)
+    if funding_request.external_funding:
+        funding_request.external_funding.delete()
+
+    funding_request.external_funding = external_funding_create(funding)
+    funding_request.estimated_cost = cost["estimated_cost"]
+    funding_request.estimated_cost_currency = cost["estimated_cost_currency"]
+    funding_request.save()
+
+
 def external_funding_create(external_funding: ExternalFundingDto) -> ExternalFunding:
     return ExternalFunding.objects.create(
         organization=fundingrequest_repository.get_funding_organization(

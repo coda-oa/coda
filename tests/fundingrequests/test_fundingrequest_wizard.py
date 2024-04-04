@@ -18,6 +18,8 @@ from tests.fundingrequests import factory
 from tests.fundingrequests.assertions import (
     assert_author_equal,
     assert_correct_funding_request,
+    assert_cost_equal,
+    assert_external_funding_equal,
     assert_publication_equal,
 )
 from tests.fundingrequests.test_fundingrequest_services import author_dto_from_request
@@ -79,7 +81,7 @@ def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_d
 
 
 @pytest.mark.django_db
-def test__updateing_fundingrequest_publication__updates_funding_request_and_shows_details(
+def test__updating_fundingrequest_publication__updates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
     request = factory.fundingrequest()
@@ -98,6 +100,26 @@ def test__updateing_fundingrequest_publication__updates_funding_request_and_show
 
     request.refresh_from_db()
     assert_publication_equal(new_publication, author_dto_from_request(request), request.publication)
+    assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": request.pk}))
+
+
+@pytest.mark.django_db
+def test__updating_fundingrequest_funding__updates_funding_request_and_shows_details(
+    client: Client,
+) -> None:
+    request = factory.fundingrequest()
+    funder = factory.funding_organization()
+    external_funding = factory.external_funding_dto(funder.pk)
+    cost_dto = factory.cost_dto()
+
+    response = client.post(
+        reverse("fundingrequests:update_funding", kwargs={"pk": request.pk}),
+        next() | external_funding | cost_dto,
+    )
+
+    request.refresh_from_db()
+    assert_cost_equal(cost_dto, request)
+    assert_external_funding_equal(external_funding, request)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": request.pk}))
 
 

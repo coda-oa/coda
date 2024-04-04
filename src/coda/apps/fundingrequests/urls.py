@@ -16,6 +16,7 @@ urlpatterns = [
         views.UpdatePublicationView.as_view(),
         name="update_publication",
     ),
+    path("update/funding/<int:pk>/", views.UpdateFundingView.as_view(), name="update_funding"),
     path("approve/", views.approve, name="approve"),
     path("reject/", views.reject, name="reject"),
     path("open/", views.open, name="open"),

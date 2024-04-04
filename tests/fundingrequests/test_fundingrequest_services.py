@@ -4,13 +4,15 @@ import pytest
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Author, PersonId, Role
 from coda.apps.fundingrequests import services
-from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.fundingrequests.models import ExternalFunding, FundingRequest
 from coda.apps.institutions.models import Institution
 from tests import test_orcid
 from tests.fundingrequests import factory
 from tests.fundingrequests.assertions import (
     assert_correct_funding_request,
     assert_author_equal,
+    assert_cost_equal,
+    assert_external_funding_equal,
     assert_publication_equal,
 )
 
@@ -59,6 +61,34 @@ def test__update_fundingrequest_publication__updates_publication() -> None:
 
     request.refresh_from_db()
     assert_publication_equal(new_publication, author_dto_from_request(request), request.publication)
+
+
+@pytest.mark.django_db
+def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_external_funding() -> (
+    None
+):
+    request = factory.fundingrequest()
+    new_cost = factory.cost_dto()
+    new_organization = factory.funding_organization()
+    new_funding = factory.external_funding_dto(new_organization.pk)
+
+    services.fundingrequest_funding_update(request.pk, new_funding, new_cost)
+
+    request.refresh_from_db()
+    assert_cost_equal(new_cost, request)
+    assert_external_funding_equal(new_funding, request)
+
+
+@pytest.mark.django_db
+def test__update_fundingrequest_funding__deletes_old_external_funding() -> None:
+    request = factory.fundingrequest()
+    new_cost = factory.cost_dto()
+    new_organization = factory.funding_organization()
+    new_funding = factory.external_funding_dto(new_organization.pk)
+
+    services.fundingrequest_funding_update(request.pk, new_funding, new_cost)
+
+    assert ExternalFunding.objects.count() == 1
 
 
 def author_dto_from_request(request: FundingRequest) -> AuthorDto:
