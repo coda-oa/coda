@@ -1,21 +1,23 @@
 from django import forms
 
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
-from coda.apps.fundingrequests.models import FundingOrganization, Label
+from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label
 from coda.money import Currency
 
 
 class CostForm(forms.Form):
     use_required_attribute = False
-    estimated_cost = forms.DecimalField(max_digits=10, decimal_places=4, label="")
+    estimated_cost = forms.DecimalField(max_digits=10, decimal_places=2)
     estimated_cost_currency = forms.ChoiceField(
-        choices=[(c.code, c.code) for c in Currency], initial=Currency.EUR.code, label=""
+        choices=[(c.code, c.code) for c in Currency], initial=Currency.EUR.code, label="Currency"
     )
+    payment_method = forms.ChoiceField(choices=FundingRequest.PAYMENT_METHOD_CHOICES)
 
     def to_dto(self) -> CostDto:
         return CostDto(
             estimated_cost=self.cleaned_data["estimated_cost"],
             estimated_cost_currency=self.cleaned_data["estimated_cost_currency"],
+            payment_method=self.cleaned_data["payment_method"],
         )
 
 

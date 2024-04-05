@@ -4,6 +4,7 @@ from typing import TypedDict
 class CostDto(TypedDict):
     estimated_cost: float
     estimated_cost_currency: str
+    payment_method: str
 
 
 class ExternalFundingDto(TypedDict):

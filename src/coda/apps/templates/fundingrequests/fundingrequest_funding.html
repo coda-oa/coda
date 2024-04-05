@@ -2,9 +2,11 @@
 {% block wizard_step %}
     <div class="my-2">
         <h2>Estimated Publication Cost</h2>
-        <fieldset role="group">
-            {{ cost_form }}
-        </fieldset>
+        <table>
+            <tbody>
+                {{ cost_form.as_table }}
+            </tbody>
+        </table>
     </div>
     <h2>External Funding</h2>
     <table>

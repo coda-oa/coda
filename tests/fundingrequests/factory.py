@@ -6,7 +6,12 @@ from coda import issn, orcid
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Role
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
-from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganization, FundingRequest
+from coda.apps.fundingrequests.models import (
+    ExternalFunding,
+    FundingOrganization,
+    FundingRequest,
+    PaymentMethod,
+)
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
 from coda.apps.journals.models import Journal
@@ -116,7 +121,12 @@ def external_funding_dto(organization: int) -> ExternalFundingDto:
 
 
 def cost_dto() -> CostDto:
-    return CostDto(estimated_cost=100, estimated_cost_currency="USD")
+    payment_method = random.choice([PaymentMethod.DIRECT, PaymentMethod.REIMBURSEMENT])
+    return CostDto(
+        estimated_cost=100,
+        estimated_cost_currency="USD",
+        payment_method=payment_method.value,
+    )
 
 
 def link_dtos() -> list[LinkDto]:

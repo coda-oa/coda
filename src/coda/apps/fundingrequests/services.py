@@ -73,6 +73,7 @@ def fundingrequest_funding_update(
     funding_request.external_funding = external_funding_create(funding)
     funding_request.estimated_cost = cost["estimated_cost"]
     funding_request.estimated_cost_currency = cost["estimated_cost_currency"]
+    funding_request.payment_method = cost["payment_method"]
     funding_request.save()
 
 
