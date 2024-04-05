@@ -44,6 +44,15 @@ class ProcessingStatus(enum.Enum):
         return self.value
 
 
+class PaymentMethod(enum.Enum):
+    DIRECT = "direct"
+    REIMBURSEMENT = "reimbursement"
+    UNKNOWN = "unknown"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 class FundingRequest(models.Model):
     @staticmethod
     def create_request_id(id: str | None = None, date: datetime.date | None = None) -> str:
@@ -57,7 +66,24 @@ class FundingRequest(models.Model):
         (ProcessingStatus.REJECTED.value, "Rejected"),
     ]
 
+    PAYMENT_METHOD_CHOICES = [
+        (PaymentMethod.DIRECT.value, "Direct"),
+        (PaymentMethod.REIMBURSEMENT.value, "Reimbursement"),
+        (PaymentMethod.UNKNOWN.value, "Unknown"),
+    ]
+
     request_id = models.CharField(max_length=25, unique=True)
+    estimated_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    estimated_cost_currency = models.CharField(max_length=3)
+    payment_method = models.CharField(
+        choices=PAYMENT_METHOD_CHOICES, default=PaymentMethod.UNKNOWN.value
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    processing_status = models.CharField(
+        max_length=20, choices=PROCESSING_CHOICES, default="in_progress"
+    )
+    labels = models.ManyToManyField(Label, related_name="requests")
     submitter = models.ForeignKey(
         Author, on_delete=models.CASCADE, related_name="funding_requests", null=True, blank=True
     )
@@ -65,15 +91,6 @@ class FundingRequest(models.Model):
     external_funding = models.ForeignKey(
         ExternalFunding, on_delete=models.CASCADE, null=True, blank=True
     )
-    estimated_cost = models.DecimalField(max_digits=10, decimal_places=2)
-    estimated_cost_currency = models.CharField(max_length=3)
-    processing_status = models.CharField(
-        max_length=20, choices=PROCESSING_CHOICES, default="in_progress"
-    )
-    labels = models.ManyToManyField(Label, related_name="requests")
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
