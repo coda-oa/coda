@@ -1,7 +1,15 @@
+import enum
 from django.db import models
 from coda.apps.authors.models import Author
 
 from coda.apps.journals.models import Journal
+
+
+class OpenAccessType(enum.Enum):
+    GOLD = "gold"
+    DIAMOND = "diamond"
+    HYBRID = "hybrid"
+    CLOSED = "closed"
 
 
 class Publication(models.Model):
@@ -18,11 +26,15 @@ class Publication(models.Model):
         (State.REJECTED, "Rejected"),
     )
 
+    OA_TYPES = tuple((t.name, t.value) for t in OpenAccessType)
+
     title = models.CharField(max_length=255)
     journal = models.ForeignKey(Journal, on_delete=models.CASCADE, related_name="publications")
     submitting_author = models.OneToOneField(
         Author, on_delete=models.CASCADE, related_name="submitted_publication", null=True
     )
+
+    open_access_type = models.CharField(choices=OA_TYPES, default=OpenAccessType.CLOSED)
 
     publication_state = models.CharField(max_length=255, choices=STATES, default="submitted")
     publication_date = models.DateField(null=True)
