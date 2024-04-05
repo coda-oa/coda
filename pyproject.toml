@@ -32,10 +32,12 @@ dev = [
     "pytest-clarity>=1.0.1",
     "commitizen>=3.13.0",
     "Faker>=24.2.0",
+    "pytest-cov>=5.0.0",
 ]
 django-commands = ["polars>=0.20.5"]
 
 [tool.pdm.scripts]
+coverage = "pytest --cov"
 unittests = "pytest -m 'not integration'"
 alltests = "pytest -vv"
 
