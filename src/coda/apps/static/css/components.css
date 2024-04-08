@@ -23,7 +23,7 @@ article.fundingrequest {
   text-align: center;
 }
 
-.fundingrequest__title {
+.text-ellipsis {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

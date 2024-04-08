@@ -11,11 +11,14 @@
         {% for fr in funding_requests %}
             <li>
                 <article class="fundingrequest {% if fr.is_open %}  fundingrequest__open  {% elif fr.is_approved %}  fundingrequest__approved  {% elif fr.is_rejected %}  fundingrequest__rejected  {% endif %}">
-                    <p class="fundingrequest__title">
+                    <p class="text-ellipsis mb-0_5">
                         <a href="{{ fr.get_absolute_url }}">{{ fr.publication.title }}</a>
                     </p>
+                    <p class="mb-1_5">
+                        <i><small>last updated at {{ fr.updated_at }}</small></i>
+                    </p>
                     <p>Submitted by: {{ fr.submitter.name }}</p>
-                    <p>
+                    <p class="text-ellipsis">
                         Journal: <a href="{{ fr.publication.journal.get_absolute_url }}">{{ fr.publication.journal.title }}</a>
                     </p>
                     <p class="mt-1_5">
