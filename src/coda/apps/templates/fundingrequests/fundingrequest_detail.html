@@ -45,6 +45,14 @@
                             </p>
                         </td>
                     </tr>
+                    <tr>
+                        <th>Created at</th>
+                        <td>{{ funding_request.created_at }}</td>
+                    </tr>
+                    <tr>
+                        <th>Last updated at</th>
+                        <td>{{ funding_request.updated_at }}</td>
+                    </tr>
                 </tbody>
             </table>
         </article>
@@ -69,6 +77,10 @@
                         <td>{{ funding_request.publication.journal.title }}</td>
                     </tr>
                     <tr>
+                        <th>Open Access Type</th>
+                        <td>{{ funding_request.publication.get_open_access_type_display }}</td>
+                    </tr>
+                    <tr>
                         <th>Publisher</th>
                         <td>{{ funding_request.publication.journal.publisher.name }}</td>
                     </tr>
@@ -84,12 +96,8 @@
                     </tr>
                 </tbody>
             </table>
-        </article>
-        {% if funding_request.publication.links %}
-            <article>
-                <header>
-                    <h3 class="fundingrequest__detail-title">References</h3>
-                </header>
+            {% if funding_request.publication.links %}
+                <h3 class="mt-1">References</h3>
                 <table class="fundingrequest__detail-table">
                     <thead>
                         <tr>
@@ -108,8 +116,8 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            </article>
-        {% endif %}
+            {% endif %}
+        </article>
         <article>
             <header class="flex justify-between align-center">
                 <h3 class="fundingrequest__detail-title">Costs and Funding</h3>

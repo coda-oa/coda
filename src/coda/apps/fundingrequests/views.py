@@ -188,6 +188,7 @@ def publication_dto_from_store(store: Store) -> PublicationDto:
     journal = store["journal"]
     publication_dto = PublicationDto(
         title=publication_form_data["title"],
+        open_access_type=publication_form_data["open_access_type"],
         publication_state=publication_form_data["publication_state"],
         publication_date=publication_form_data["publication_date"],
         links=link_form_data,

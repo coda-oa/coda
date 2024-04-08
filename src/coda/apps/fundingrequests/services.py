@@ -54,6 +54,7 @@ def fundingrequest_publication_update(funding_request_id: int, publication: Publ
     funding_request = fundingrequest_repository.get_by_pk(funding_request_id)
     _publication = funding_request.publication
     _publication.title = publication["title"]
+    _publication.open_access_type = publication["open_access_type"]
     _publication.journal = journal_repository.get_by_pk(publication["journal"])
     _publication.publication_state = publication["publication_state"]
     _publication.publication_date = publication["publication_date"]

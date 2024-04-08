@@ -9,6 +9,7 @@ from coda.apps.publications.models import Link, LinkType, Publication
 def create(publication: PublicationDto, author: Author, journal: Journal) -> Publication:
     _publication = Publication.objects.create(
         title=publication["title"],
+        open_access_type=publication["open_access_type"],
         publication_state=publication["publication_state"],
         publication_date=datetime.date.fromisoformat(publication["publication_date"]),
         submitting_author=author,

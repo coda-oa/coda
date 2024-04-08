@@ -6,10 +6,10 @@ from coda.apps.journals.models import Journal
 
 
 class OpenAccessType(enum.Enum):
-    GOLD = "gold"
-    DIAMOND = "diamond"
-    HYBRID = "hybrid"
-    CLOSED = "closed"
+    GOLD = "Gold"
+    DIAMOND = "Diamond"
+    HYBRID = "Hybrid"
+    CLOSED = "Closed"
 
 
 class Publication(models.Model):
@@ -34,7 +34,7 @@ class Publication(models.Model):
         Author, on_delete=models.CASCADE, related_name="submitted_publication", null=True
     )
 
-    open_access_type = models.CharField(choices=OA_TYPES, default=OpenAccessType.CLOSED)
+    open_access_type = models.CharField(choices=OA_TYPES, default=OpenAccessType.CLOSED.name)
 
     publication_state = models.CharField(max_length=255, choices=STATES, default="submitted")
     publication_date = models.DateField(null=True)

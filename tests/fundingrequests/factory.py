@@ -16,7 +16,7 @@ from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
 from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
-from coda.apps.publications.models import LinkType, Publication
+from coda.apps.publications.models import LinkType, OpenAccessType, Publication
 from coda.apps.publishers.models import Publisher
 
 _faker = faker.Faker()
@@ -105,11 +105,23 @@ def publication_dto(
     )
     return PublicationDto(
         title=title or _faker.sentence(),
+        open_access_type=_random_open_access_type(),
         publication_state=random_state,
         publication_date=_faker.date(),
         journal=journal,
         links=links or link_dtos(),
     )
+
+
+def _random_open_access_type() -> str:
+    return random.choice(
+        [
+            OpenAccessType.GOLD,
+            OpenAccessType.HYBRID,
+            OpenAccessType.DIAMOND,
+            OpenAccessType.CLOSED,
+        ]
+    ).name
 
 
 def external_funding_dto(organization: int) -> ExternalFundingDto:

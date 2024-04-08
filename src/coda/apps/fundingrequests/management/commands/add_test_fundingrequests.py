@@ -9,11 +9,11 @@ from faker.providers import lorem
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Role
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
-from coda.apps.fundingrequests.models import FundingOrganization, ProcessingStatus
+from coda.apps.fundingrequests.models import FundingOrganization, PaymentMethod, ProcessingStatus
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
-from coda.apps.publications.models import LinkType, Publication
+from coda.apps.publications.models import LinkType, OpenAccessType, Publication
 from coda.apps.publishers.models import Publisher
 
 faker = Faker()
@@ -47,6 +47,7 @@ class Command(BaseCommand):
             PublicationDto(
                 title=faker.sentence(),
                 journal=journal.pk,
+                open_access_type=OpenAccessType.GOLD.name,
                 publication_state=Publication.State.PUBLISHED,
                 publication_date=str(date.today()),
                 links=[LinkDto(link_type=doi.pk, link_value="10.1234/5678")],
@@ -56,7 +57,11 @@ class Command(BaseCommand):
                 project_id=str(uuid4()),
                 project_name=faker.sentence(),
             ),
-            CostDto(estimated_cost=100, estimated_cost_currency="USD"),
+            CostDto(
+                estimated_cost=100,
+                estimated_cost_currency="USD",
+                payment_method=PaymentMethod.DIRECT.value,
+            ),
         )
         request.processing_status = processing_status.value
         request.save()
