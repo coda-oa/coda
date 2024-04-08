@@ -12,14 +12,16 @@
             {% endif %}
         </small>
     </h1>
-    <div class="flex wrap justify-between my-2">
-        <div class="flex align-center wrap">
-            <span class="mr-2">Labels:</span>
+    <div class="flex align-center wrap justify-between">
+        <h2>Labels</h2>
+        <div class="flex align-center">{% include "fundingrequests/forms/label_attach.html" %}</div>
+    </div>
+    <div class="flex justify-between mt-1 mb-2">
+        <div class="flex align-center wrap overflow-scroll">
             {% for label in funding_request.labels.all %}
                 {% include "fundingrequests/forms/label.html" %}
             {% endfor %}
         </div>
-        <div class="flex">{% include "fundingrequests/forms/label_attach.html" %}</div>
     </div>
     <div>
         <article>
@@ -120,7 +122,7 @@
         </article>
         <article>
             <header class="flex justify-between align-center">
-                <h3 class="fundingrequest__detail-title">Costs and Funding</h3>
+                <h2 class="fundingrequest__detail-title">Costs and Funding</h2>
                 <a href="{% url "fundingrequests:update_funding" pk=funding_request.pk %}"
                    role="button">Edit</a>
             </header>
@@ -130,20 +132,27 @@
                         <th>Estimated Cost</th>
                         <td>{{ funding_request.estimated_cost }} {{ funding_request.estimated_cost_currency }}</td>
                     </tr>
-                    <tr>
-                        <th>Third party funding</th>
-                        <td>
-                            {% if funding_request.external_funding %}
-                                <p>{{ funding_request.external_funding.organization.name }}</p>
-                                <p>{{ funding_request.external_funding.project_id }}</p>
-                                <p>{{ funding_request.external_funding.project_name }}</p>
-                            {% else %}
-                                <p>No third party funding</p>
-                            {% endif %}
-                        </td>
-                    </tr>
                 </tbody>
             </table>
+            {% if funding_request.external_funding %}
+                <h3 class="mt-1_5">Third party funding</h3>
+                <table class="fundingrequest__detail-table">
+                    <tbody>
+                        <tr>
+                            <th>Organization</th>
+                            <td>{{ funding_request.external_funding.organization.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Project ID</th>
+                            <td>{{ funding_request.external_funding.project_id }}</td>
+                        </tr>
+                        <tr>
+                            <th>Project Name</th>
+                            <td>{{ funding_request.external_funding.project_name }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            {% endif %}
         </article>
     </div>
     <div class="flex justify-end my-2">

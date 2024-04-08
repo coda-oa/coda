@@ -21,6 +21,7 @@ article.fundingrequest {
   padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
   border-radius: var(--coda-pill-border-radius);
   text-align: center;
+  white-space: nowrap;
 }
 
 .text-ellipsis {
