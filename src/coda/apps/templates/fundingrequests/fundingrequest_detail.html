@@ -79,6 +79,10 @@
                         <td>{{ funding_request.publication.journal.title }}</td>
                     </tr>
                     <tr>
+                        <th>License</th>
+                        <td>{{ funding_request.publication.get_license_display }}</td>
+                    </tr>
+                    <tr>
                         <th>Open Access Type</th>
                         <td>{{ funding_request.publication.get_open_access_type_display }}</td>
                     </tr>

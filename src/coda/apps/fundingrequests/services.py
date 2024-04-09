@@ -20,7 +20,7 @@ def fundingrequest_create(
 ) -> FundingRequest:
     _author = author_create(author)
     _journal = journal_services.get_by_pk(publication["journal"])
-    _publication = publication_services.create(publication, _author, _journal)
+    _publication = publication_services.publication_create(publication, _author, _journal)
     _external_funding = external_funding_create(external_funding)
     return FundingRequest.objects.create(
         submitter=_author, publication=_publication, external_funding=_external_funding, **cost

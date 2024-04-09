@@ -11,6 +11,7 @@ class LinkDto(TypedDict):
 class PublicationDto(TypedDict):
     title: str
     open_access_type: str
+    license: str
     publication_state: str
     publication_date: str
     links: list[LinkDto]
@@ -20,6 +21,7 @@ class PublicationDto(TypedDict):
 def publication_dto_from_model(publication: Publication) -> PublicationDto:
     return PublicationDto(
         title=publication.title,
+        license=publication.license,
         open_access_type=publication.open_access_type,
         publication_state=publication.publication_state,
         publication_date=publication.publication_date.isoformat()

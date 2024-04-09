@@ -43,6 +43,7 @@ def assert_publication_equal(
 ) -> None:
     assert publication.title == publication_dto["title"]
     assert publication.open_access_type == publication_dto["open_access_type"]
+    assert publication.license == publication_dto["license"]
     assert publication.journal.pk == publication_dto["journal"]
     assert len(publication.links.all()) == len(publication_dto["links"])
     assert all(

@@ -13,7 +13,7 @@ from coda.apps.fundingrequests.models import FundingOrganization, PaymentMethod,
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
-from coda.apps.publications.models import LinkType, OpenAccessType, Publication
+from coda.apps.publications.models import License, LinkType, OpenAccessType, Publication
 from coda.apps.publishers.models import Publisher
 
 faker = Faker()
@@ -47,6 +47,7 @@ class Command(BaseCommand):
             PublicationDto(
                 title=faker.sentence(),
                 journal=journal.pk,
+                license=License.CC0.name,
                 open_access_type=OpenAccessType.GOLD.name,
                 publication_state=Publication.State.PUBLISHED,
                 publication_date=str(date.today()),

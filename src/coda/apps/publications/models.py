@@ -12,6 +12,19 @@ class OpenAccessType(enum.Enum):
     CLOSED = "Closed"
 
 
+class License(enum.Enum):
+    CC_BY = "CC-BY"
+    CC_BY_SA = "CC-BY-SA"
+    CC_BY_NC = "CC-BY-NC"
+    CC_BY_NC_SA = "CC-BY-NC-SA"
+    CC_BY_NC_ND = "CC-BY-NC-ND"
+    CC_BY_ND = "CC-BY-ND"
+    CC0 = "CC0"
+    PROPRIETARY = "Proprietary"
+    NONE = "None"
+    UNKNOWN = "Unknown"
+
+
 class Publication(models.Model):
     class State:
         PUBLISHED = "published"
@@ -28,6 +41,8 @@ class Publication(models.Model):
 
     OA_TYPES = tuple((t.name, t.value) for t in OpenAccessType)
 
+    LICENSE_CHOICES = tuple((_l.name, _l.value) for _l in License)
+
     title = models.CharField(max_length=255)
     journal = models.ForeignKey(Journal, on_delete=models.CASCADE, related_name="publications")
     submitting_author = models.OneToOneField(
@@ -35,6 +50,7 @@ class Publication(models.Model):
     )
 
     open_access_type = models.CharField(choices=OA_TYPES, default=OpenAccessType.CLOSED.name)
+    license = models.CharField(choices=LICENSE_CHOICES, default=License.UNKNOWN.name)
 
     publication_state = models.CharField(max_length=255, choices=STATES, default="submitted")
     publication_date = models.DateField(null=True)
