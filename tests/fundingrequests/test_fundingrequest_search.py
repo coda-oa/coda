@@ -9,7 +9,7 @@ from coda.apps.authors.models import Author
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.apps.fundingrequests.views import FundingRequestListView
 from coda.color import Color
-from tests.fundingrequests import factory
+from tests import factory
 
 
 @pytest.mark.django_db
@@ -71,9 +71,9 @@ def test__searching_for_funding_requests_by_label__shows_only_matching_funding_r
 ) -> None:
     matching_request = factory.fundingrequest()
     first = label_create("The Label", Color())
-    label_attach(matching_request.pk, first.pk)
+    label_attach(matching_request, first)
     second = label_create("Another Label", Color())
-    label_attach(matching_request.pk, second.pk)
+    label_attach(matching_request, second)
 
     _ = factory.fundingrequest("No match")
 

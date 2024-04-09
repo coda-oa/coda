@@ -2,7 +2,7 @@ import datetime
 
 import pytest
 
-from tests.fundingrequests import factory
+from tests import factory
 
 
 @pytest.mark.django_db

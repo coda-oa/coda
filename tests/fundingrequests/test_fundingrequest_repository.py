@@ -6,7 +6,7 @@ from coda.apps.authors.models import Author
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.color import Color
-from tests.fundingrequests import factory
+from tests import factory
 
 
 @pytest.mark.django_db
@@ -40,8 +40,8 @@ def test__searching_for_funding_requests_with_label__returns_matching_funding_re
     matching_request = factory.fundingrequest("Match")
     first = label_create("The Label", Color())
     second = label_create("Another Label", Color())
-    label_attach(matching_request.pk, first.pk)
-    label_attach(matching_request.pk, second.pk)
+    label_attach(matching_request, first)
+    label_attach(matching_request, second)
 
     _ = factory.fundingrequest("No match")
 

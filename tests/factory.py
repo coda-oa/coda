@@ -4,7 +4,8 @@ import faker
 
 from coda import issn, orcid
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.models import Role
+from coda.apps.authors.models import Author, Role
+from coda.apps.authors.services import author_create
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.models import (
     ExternalFunding,
@@ -43,7 +44,7 @@ def journal() -> Journal:
 
 def publication() -> Publication:
     title = _faker.sentence()
-    return Publication.objects.create(title=title, journal=journal())
+    return Publication.objects.create(title=title, journal=journal(), submitting_author=author())
 
 
 def funding_organization() -> FundingOrganization:
@@ -69,17 +70,21 @@ def fundingrequest(title: str = "", author_dto: AuthorDto | None = None) -> Fund
 
 def valid_author_dto(affiliation_pk: int | None = None) -> AuthorDto:
     random_roles = random.choices([r.name for r in Role], k=random.randint(1, len(Role)))
-    rand_orcid()
+    random_orcid()
     return AuthorDto(
         name=_faker.name(),
         email=_faker.email(),
-        orcid=rand_orcid(),
+        orcid=random_orcid(),
         affiliation=affiliation_pk,
         roles=random_roles,
     )
 
 
-def rand_orcid() -> str:
+def author() -> Author:
+    return author_create(valid_author_dto())
+
+
+def random_orcid() -> str:
     random_orcid_digits = "".join(map(str, random.choices(range(10), k=15)))
     orcid_checksum = orcid.checksum(random_orcid_digits)
     return "-".join(

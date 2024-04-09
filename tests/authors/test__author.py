@@ -6,9 +6,10 @@ from django.test import Client
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Author, PersonId, Role
-from coda.apps.authors.services import author_create
+from coda.apps.authors.services import author_create, author_update
 from coda.apps.institutions.models import Institution
-from tests import test_orcid
+from tests import factory, test_orcid
+from tests.assertions import assert_author_equal
 
 JOSIAHS_DATA: AuthorDto = {
     "name": "Josiah Carberry",
@@ -76,6 +77,60 @@ def test__adding_roles_to_author__saves_roles_to_db() -> None:
     author = author_create(josiah)
 
     assert author.get_roles() == {Role.SUBMITTER, Role.CO_AUTHOR}
+
+
+@pytest.mark.django_db
+def test__updating_author__saves_updated_author_to_db() -> None:
+    author = factory.author()
+
+    affiliation = factory.institution()
+    new_author_data = factory.valid_author_dto(affiliation.pk)
+
+    author_update(author, new_author_data)
+
+    author.refresh_from_db()
+    assert_author_equal(new_author_data, author)
+
+
+@pytest.mark.django_db
+def test__updating_author__with_empty_name__raises_error() -> None:
+    author = factory.author()
+    original_name = author.name
+
+    new_author_data = factory.valid_author_dto()
+    new_author_data["name"] = ""
+
+    with pytest.raises(ValidationError):
+        author_update(author, new_author_data)
+
+    author.refresh_from_db()
+    assert author.name == original_name
+
+
+@pytest.mark.django_db
+def test__updating_author__with_invalid_orcid__raises_error() -> None:
+    author = factory.author()
+    original_orcid = cast(PersonId, author.identifier).orcid
+
+    new_author_data = factory.valid_author_dto()
+    new_author_data["orcid"] = "invalid"
+
+    with pytest.raises(ValidationError):
+        author_update(author, new_author_data)
+
+    author.refresh_from_db()
+    assert cast(PersonId, author.identifier).orcid == original_orcid
+
+
+@pytest.mark.django_db
+def test__updating_author__with_invalid_roles__raises_error() -> None:
+    author = factory.author()
+
+    new_author_data = factory.valid_author_dto()
+    new_author_data["roles"] = ["invalid"]
+
+    with pytest.raises(ValidationError):
+        author_update(author, new_author_data)
 
 
 @pytest.mark.django_db

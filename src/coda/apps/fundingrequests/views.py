@@ -5,12 +5,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView
 
 from coda.apps.authors.dto import AuthorDto, author_dto_from_model
+from coda.apps.authors.models import Author
+from coda.apps.authors.services import author_update
 from coda.apps.fundingrequests import repository, services
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.forms import ChooseLabelForm, LabelForm
@@ -23,6 +25,7 @@ from coda.apps.fundingrequests.wizardsteps import (
 )
 from coda.apps.publications.dto import LinkDto, PublicationDto, publication_dto_from_model
 from coda.apps.publications.forms import PublicationFormData
+from coda.apps.publications.services import publication_update
 from coda.apps.wizard import SessionStore, Store, Wizard
 
 
@@ -98,7 +101,8 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
         pk = kwargs["pk"]
         store = self.get_store()
         author_dto: AuthorDto = store["submitter"]
-        services.fundingrequest_submitter_update(pk, author_dto)
+        funding_request = get_object_or_404(FundingRequest, pk=pk)
+        author_update(cast(Author, funding_request.submitter), author_dto)
 
     def _render_step(self, request: HttpRequest, index: int) -> HttpResponse:
         if request.POST.get("action") != "next":
@@ -108,7 +112,7 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
 
     def prepare(self) -> None:
         store = self.get_store()
-        fr = repository.get_by_pk(self.kwargs["pk"])
+        fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
         if fr.submitter:
             store["submitter"] = author_dto_from_model(fr.submitter)
             store.save()
@@ -126,7 +130,8 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         pk = kwargs["pk"]
         store = self.get_store()
         publication_dto = publication_dto_from_store(store)
-        services.fundingrequest_publication_update(pk, publication_dto)
+        funding_request = get_object_or_404(FundingRequest, pk=pk)
+        publication_update(funding_request.publication, publication_dto)
 
     def _render_step(self, request: HttpRequest, index: int) -> HttpResponse:
         if request.POST.get("action") != "next":
@@ -136,7 +141,7 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
 
     def prepare(self) -> None:
         store = self.get_store()
-        fr = repository.get_by_pk(self.kwargs["pk"])
+        fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
         dto = publication_dto_from_model(fr.publication)
         store["publication"] = dto
         store["selected_journal"] = fr.publication.journal.pk
@@ -153,15 +158,15 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
     def complete(self, /, **kwargs: Any) -> None:
-        pk = kwargs["pk"]
         store = self.get_store()
         funding = store["funding"]
         cost = store["cost"]
-        services.fundingrequest_funding_update(pk, funding, cost)
+        fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
+        services.fundingrequest_funding_update(fr, funding, cost)
 
     def prepare(self) -> None:
         store = self.get_store()
-        fr = repository.get_by_pk(self.kwargs["pk"])
+        fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
         store["cost"] = CostDto(
             estimated_cost=float(fr.estimated_cost),
             estimated_cost_currency=fr.estimated_cost_currency,
@@ -215,19 +220,19 @@ class LabelCreateView(LoginRequiredMixin, CreateView[Label, LabelForm]):
 @login_required
 @require_POST
 def attach_label(request: HttpRequest) -> HttpResponse:
-    funding_request_id = request.POST["fundingrequest"]
-    label_id = request.POST["label"]
-    services.label_attach(int(funding_request_id), int(label_id))
-    return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request_id}))
+    funding_request = get_object_or_404(FundingRequest, pk=request.POST["fundingrequest"])
+    label = get_object_or_404(Label, pk=request.POST["label"])
+    services.label_attach(funding_request, label)
+    return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
 
 
 @login_required
 @require_POST
 def detach_label(request: HttpRequest) -> HttpResponse:
-    funding_request_id = request.POST["fundingrequest"]
-    label_id = request.POST["label"]
-    services.label_detach(int(funding_request_id), int(label_id))
-    return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request_id}))
+    funding_request = get_object_or_404(FundingRequest, pk=request.POST["fundingrequest"])
+    label = get_object_or_404(Label, pk=request.POST["label"])
+    services.label_detach(funding_request, label)
+    return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
 
 
 def fundingrequest_action(
@@ -237,10 +242,9 @@ def fundingrequest_action(
     @require_POST
     def post(request: HttpRequest) -> HttpResponse:
         try:
-            funding_request_id = request.POST["fundingrequest"]
-            funding_request = repository.get_by_pk(int(funding_request_id))
+            funding_request = get_object_or_404(FundingRequest, pk=request.POST["fundingrequest"])
             action(funding_request)
-            return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request_id}))
+            return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
         except FundingRequest.DoesNotExist:
             return HttpResponse(status=404)
 

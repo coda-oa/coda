@@ -7,22 +7,21 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.models import Role
+from coda.apps.authors.models import Author, PersonId, Role
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
+from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.forms import PublicationFormData
 from coda.apps.users.models import User
-from tests import test_orcid
-from tests.fundingrequests import factory
-from tests.fundingrequests.assertions import (
+from tests import factory, test_orcid
+from tests.assertions import (
     assert_author_equal,
     assert_correct_funding_request,
     assert_cost_equal,
     assert_external_funding_equal,
     assert_publication_equal,
 )
-from tests.fundingrequests.test_fundingrequest_services import author_dto_from_request
 
 
 @pytest.fixture(autouse=True)
@@ -158,3 +157,16 @@ def create_publication_post_data(publication: PublicationDto) -> dict[str, Any]:
     )
 
     return {**publication_form_data, **link_form_data}
+
+
+def author_dto_from_request(request: FundingRequest) -> AuthorDto:
+    submitter = cast(Author, request.submitter)
+    affiliation = cast(Institution, submitter.affiliation)
+    identifier = cast(PersonId, submitter.identifier)
+    return AuthorDto(
+        name=submitter.name,
+        email=str(submitter.email),
+        affiliation=affiliation.pk,
+        orcid=identifier.orcid,
+        roles=[r.name for r in submitter.get_roles()],
+    )

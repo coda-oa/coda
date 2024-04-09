@@ -3,7 +3,7 @@ from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
-from tests.fundingrequests import factory
+from tests import factory
 
 
 @pytest.mark.django_db

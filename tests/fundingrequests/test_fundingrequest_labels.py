@@ -6,7 +6,7 @@ from pytest_django.asserts import assertRedirects
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.services import label_attach, label_create, label_detach
 from coda.color import Color
-from tests.fundingrequests import factory
+from tests import factory
 
 
 @pytest.mark.django_db
@@ -23,9 +23,8 @@ def test__creating_a_label__stores_it_in_the_database() -> None:
 def test__attach_label__stores_label_in_funding_request() -> None:
     funding_request = factory.fundingrequest()
     label = label_create("My label", Color.from_rgb(255, 0, 0))
-    label_id = label.pk
 
-    label_attach(funding_request.pk, label_id)
+    label_attach(funding_request, label)
 
     assert funding_request.labels.first() == label
 
@@ -34,10 +33,9 @@ def test__attach_label__stores_label_in_funding_request() -> None:
 def test__detaching_label__removes_label_from_funding_request() -> None:
     funding_request = factory.fundingrequest()
     label = label_create("My label", Color.from_rgb(255, 0, 0))
-    label_id = label.pk
-    label_attach(funding_request.pk, label_id)
+    label_attach(funding_request, label)
 
-    label_detach(funding_request.pk, label_id)
+    label_detach(funding_request, label)
 
     assert funding_request.labels.first() is None
 
@@ -65,7 +63,7 @@ def test__fundingrequest_detach_label_view__can_detach_label_from_funding_reques
 ) -> None:
     funding_request = factory.fundingrequest()
     label = label_create("My label", Color.from_rgb(255, 0, 0))
-    label_attach(funding_request.pk, label.pk)
+    label_attach(funding_request, label)
 
     post_data = {"fundingrequest": funding_request.pk, "label": label.pk}
     response = client.post(reverse("fundingrequests:label_detach"), post_data)
