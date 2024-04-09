@@ -4,14 +4,14 @@ from django.contrib import admin
 from django.contrib.auth.views import LoginView
 from django.urls import include, path
 from django.views import defaults as default_views
-from django.views.generic import TemplateView
 
+from coda.apps import home
 
 urlpatterns = [
     # Django Admin, use {% url 'admin:index' %}
     path(settings.ADMIN_URL, admin.site.urls),
     # User management
-    path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
+    path("", home.view, name="home"),
     path("login/", view=LoginView.as_view(template_name="pages/login.html"), name="login"),
     path("users/", include("coda.apps.users.urls", namespace="users")),
     path("contracts/", include("coda.apps.contracts.urls", namespace="contracts")),

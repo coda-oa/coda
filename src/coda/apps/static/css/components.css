@@ -1,3 +1,15 @@
+.home__dashboard h2 {
+  text-align: center;
+}
+
+.home__dashboard article {
+  padding: 2rem;
+}
+
+.home__dashboard a {
+  text-decoration: none;
+}
+
 ul.no-decoration {
   padding: 0;
   margin: 0;

@@ -1,5 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1>Home</h1>
-    <p>Welcome to CODA!</p>
+    <section class="home__dashboard">
+        <h1>Dashboard</h1>
+        <article>
+            <h2 class="mb-2">
+                <a href="{% url "fundingrequests:list" %}">Funding Requests</a>
+            </h2>
+            <p class="flex wrap justify-between">
+                <i><big>Total: {{ num_requests }}</big></i>
+                <i><big>Open: {{ num_open_requests }}</big></i>
+                <i><big>Approved: {{ num_approved_requests }}</big></i>
+                <i><big>Rejected: {{ num_rejected_requests }}</big></i>
+            </p>
+        </article>
+        <ul class="no-decoration grid">
+            <li>
+                <article>
+                    <h2>
+                        <a href="{% url "journals:list" %}">Journals</a>
+                    </h2>
+                </article>
+            </li>
+            <li>
+                <article>
+                    <h2>
+                        <a href="{% url "publishers:list" %}">Publishers</a>
+                    </h2>
+                </article>
+            </li>
+            <li>
+                <article>
+                    <h2>
+                        <a href="{% url "contracts:list" %}">Contracts</a>
+                    </h2>
+                </article>
+            </li>
+        </ul>
+    </section>
 {% endblock content %}
