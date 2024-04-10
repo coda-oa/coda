@@ -22,6 +22,9 @@ services:
       - ./.envs/.production/django.env
       - ./.envs/.production/postgres.env
 
+    volumes:
+      - ${PWD}/staticfiles:/app/staticfiles
+
     command: /start
 
   postgres:
