@@ -19,8 +19,8 @@ services:
       - "8000:8000"
 
     env_file:
-      - .envs/.production/django.env
-      - .envs/.production/postgres.env
+      - ./.envs/.production/django.env
+      - ./.envs/.production/postgres.env
 
     command: /start
 
@@ -35,5 +35,9 @@ services:
       - production_postgres_data:/var/lib/postgresql/data
       - production_postgres_data_backups:/backups
 
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+
     env_file:
-      - .envs/.production/postgres.env
+      - ./.envs/.production/postgres.env
