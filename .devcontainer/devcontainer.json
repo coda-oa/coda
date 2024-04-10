@@ -8,7 +8,9 @@
     "service": "django",
     "remoteUser": "dev-user",
     "workspaceFolder": "/app",
-    "forwardPorts": [8000],
+    "forwardPorts": [
+        8000
+    ],
     "customizations": {
         "vscode": {
             "extensions": [
