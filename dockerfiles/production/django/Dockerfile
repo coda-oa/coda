@@ -33,6 +33,8 @@ RUN chmod +x /start
 
 # make django owner of the WORKDIR directory as well.
 RUN chown -R django:django ${APP_HOME}
+# create staticfiles directory with django owner, so we have permission to write to it, even when mounted as a volume
+RUN mkdir ${APP_HOME}/staticfiles && chown django:django ${APP_HOME}/staticfiles
 
 ENV PATH="/home/django/.local/bin:${PATH}"
 
