@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+eval $(pdm venv activate prod)
+
+pdm run /app/manage.py migrate
+pdm run /app/manage.py loaddata config/fixtures/*
+
+# TODO: this is a temporary solution to add some test data to the database
+pdm run manage.py add_test_journals
+pdm run manage.py add_test_institutions
+
+pdm run /app/manage.py collectstatic --noinput
+
+exec pdm run gunicorn config.wsgi --bind 0.0.0.0:8000 --chdir=/app

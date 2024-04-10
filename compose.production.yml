@@ -1,0 +1,39 @@
+version: '3'
+
+volumes:
+  production_postgres_data: {}
+  production_postgres_data_backups: {}
+
+services:
+  django:
+    restart: always
+    depends_on:
+      - postgres
+
+    image: coda_production_django
+    build:
+      context: .
+      dockerfile: ./dockerfiles/production/django/Dockerfile
+
+    ports:
+      - "8000:8000"
+
+    env_file:
+      - .envs/.production/django.env
+      - .envs/.production/postgres.env
+
+    command: /start
+
+  postgres:
+    restart: always
+    image: coda_production_postgres
+    build:
+      context: .
+      dockerfile: ./dockerfiles/production/postgres/Dockerfile
+
+    volumes:
+      - production_postgres_data:/var/lib/postgresql/data
+      - production_postgres_data_backups:/backups
+
+    env_file:
+      - .envs/.production/postgres.env
