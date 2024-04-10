@@ -7,14 +7,14 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.models import Author, PersonId, Role
+from coda.apps.authors.models import Author, PersonId
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.forms import PublicationFormData
 from coda.apps.users.models import User
-from tests import factory, test_orcid
+from tests import factory
 from tests.assertions import (
     assert_author_equal,
     assert_correct_funding_request,
@@ -61,13 +61,7 @@ def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_d
     request = factory.fundingrequest()
     affiliation = Institution.objects.create(name="New Institution")
 
-    new_author = AuthorDto(
-        name="New Author",
-        email="newauthor@mail.com",
-        affiliation=affiliation.pk,
-        orcid=test_orcid.LAUREL_HAAK,
-        roles=[Role.CO_AUTHOR.name],
-    )
+    new_author = factory.valid_author_dto(affiliation.pk)
 
     response = client.post(
         reverse("fundingrequests:update_submitter", kwargs={"pk": request.pk}),
