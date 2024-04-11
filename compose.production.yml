@@ -3,6 +3,7 @@ version: '3'
 volumes:
   production_postgres_data: {}
   production_postgres_data_backups: {}
+  static_volume: {}
 
 services:
   django:
@@ -15,12 +16,15 @@ services:
       context: .
       dockerfile: ./dockerfiles/production/django/Dockerfile
 
-    ports:
-      - "8000:8000"
+    expose:
+      - 8000
 
     env_file:
       - ./.envs/.production/django.env
       - ./.envs/.production/postgres.env
+
+    volumes:
+      - static_volume:/app/staticfiles:rw
 
     command: /start
 
@@ -41,3 +45,20 @@ services:
 
     env_file:
       - ./.envs/.production/postgres.env
+
+
+  nginx:
+    restart: always
+    image: coda_production_nginx
+    build:
+      context: .
+      dockerfile: ./dockerfiles/production/nginx/Dockerfile
+
+    ports:
+      - 8000:80
+
+    depends_on:
+      - django
+
+    volumes:
+      - static_volume:/usr/share/nginx/static/

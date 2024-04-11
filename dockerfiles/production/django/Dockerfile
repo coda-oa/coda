@@ -33,6 +33,7 @@ RUN chmod +x /start
 
 # make django owner of the WORKDIR directory as well.
 RUN chown -R django:django ${APP_HOME}
+RUN mkdir ${APP_HOME}/staticfiles && chown -R django:django ${APP_HOME}/staticfiles
 
 ENV PATH="/home/django/.local/bin:${PATH}"
 
