@@ -13,6 +13,8 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 # ------------------------------------------------------------------------------
 USE_X_FORWARDED_HOST = env.bool("DJANGO_USE_X_FORWARDED_HOST", default=False)
 FORCE_SCRIPT_NAME = env.str("DJANGO_FORCE_SCRIPT_NAME", default=None)
+if FORCE_SCRIPT_NAME:
+    STATIC_URL = FORCE_SCRIPT_NAME + STATIC_URL  # noqa: F405
 
 
 # DATABASES
