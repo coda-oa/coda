@@ -5,7 +5,7 @@ import pytest
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.test import RequestFactory
 
-from coda.apps.wizard import Step, Store, StoreFactory, Wizard
+from coda.apps.wizard import Step, Store, StoreFactory, SupportsKeysAndGetItem, Wizard
 
 
 class SimpleStep(Step):
@@ -34,13 +34,24 @@ class StepWithDone(SimpleStep):
         store["done_called"] = True
 
 
-class DictStore(dict[str, Any]):
+class DictStore(dict[str, Any], Store):
     def __init__(self) -> None:
         super().__init__()
         self.save_state: dict[str, Any] = {}
 
     def save(self) -> None:
         self.save_state = self.copy()
+
+    def get(self, key: str, __default: Any = None) -> Any:
+        return super().get(key, __default)
+
+    def update(
+        self,
+        __m: SupportsKeysAndGetItem[str, Any] | Iterable[tuple[str, Any]] = (),
+        /,
+        **kwargs: Any,
+    ) -> None:
+        super().update(__m, **kwargs)
 
     def was_saved_with(self, expected: dict[str, Any]) -> bool:
         return all(

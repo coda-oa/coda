@@ -1,7 +1,8 @@
 from typing import Any
 
-from django.forms import BaseFormSet, formset_factory
+from django.forms import BaseFormSet, Form, formset_factory
 from django.http import HttpRequest
+from django.shortcuts import get_object_or_404
 
 from coda.apps.authors.forms import AuthorForm
 from coda.apps.fundingrequests.forms import CostForm, ExternalFundingForm
@@ -12,14 +13,28 @@ from coda.apps.publications.models import LinkType
 from coda.apps.wizard import FormStep, Step, Store
 
 
+def form_with_post_or_store_data(
+    form_type: type[Form], request: HttpRequest, store_data: dict[str, Any] | None
+) -> Form:
+    """
+    Create a form instance with POST data if matching keys are present, otherwise use stored data.
+    If no stored data is present, create an empty form instance.
+    """
+    if request.POST.keys() & form_type.base_fields.keys():
+        return form_type(request.POST)
+    elif store_data:
+        return form_type(store_data)
+    else:
+        return form_type()
+
+
 class SubmitterStep(FormStep):
     template_name: str = "fundingrequests/fundingrequest_submitter.html"
     form_class = AuthorForm
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
-        form_data = store.get("submitter") or (request.POST if request.method == "POST" else None)
         return super().get_context_data(request, store) | {
-            "form": self.form_class(form_data),
+            "form": form_with_post_or_store_data(self.form_class, request, store.get("submitter")),
             "submitter": store.get("submitter"),
         }
 
@@ -39,12 +54,14 @@ class JournalStep(Step):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         ctx = super().get_context_data(request, store)
-        if title := request.POST.get("journal_title"):
+        title = request.POST.get("journal_title", None)
+        journal_id = store.get("journal", None)
+        if title:
             journals = Journal.objects.filter(title__icontains=title)
             ctx["journals"] = journals
             ctx["journal_title"] = title
-        elif journal_id := store.get("selected_journal", None):
-            selected_journal = Journal.objects.get(pk=journal_id)
+        elif journal_id:
+            selected_journal = get_object_or_404(Journal, pk=journal_id)
             ctx["selected_journal"] = selected_journal
             ctx["journal_title"] = selected_journal.title
             ctx["journals"] = [selected_journal]
@@ -63,7 +80,10 @@ class PublicationStep(Step):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         context = super().get_context_data(request, store)
-        context["publication_form"] = PublicationForm(store.get("publication"))
+        context["publication_form"] = form_with_post_or_store_data(
+            PublicationForm, request, store.get("publication")
+        )
+
         context["link_types"] = LinkType.objects.all()
 
         if store.get("links"):
@@ -121,8 +141,10 @@ class FundingStep(Step):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         context = super().get_context_data(request, store)
-        context["cost_form"] = CostForm(store.get("cost"))
-        context["funding_form"] = ExternalFundingForm(store.get("funding"))
+        context["cost_form"] = form_with_post_or_store_data(CostForm, request, store.get("cost"))
+        context["funding_form"] = form_with_post_or_store_data(
+            ExternalFundingForm, request, store.get("funding")
+        )
         return context
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
