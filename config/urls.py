@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.contrib.auth.views import LoginView
+from django.contrib.auth.views import LoginView, LogoutView
 from django.urls import include, path
 from django.views import defaults as default_views
 
@@ -13,6 +13,7 @@ urlpatterns = [
     # User management
     path("", home.view, name="home"),
     path("login/", view=LoginView.as_view(template_name="pages/login.html"), name="login"),
+    path("logout/", view=LogoutView.as_view(), name="logout"),
     path("users/", include("coda.apps.users.urls", namespace="users")),
     path("contracts/", include("coda.apps.contracts.urls", namespace="contracts")),
     path("journals/", include("coda.apps.journals.urls", namespace="journals")),
