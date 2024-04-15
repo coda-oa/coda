@@ -1,6 +1,7 @@
 :root {
   /* CODA Variables */
   --coda-line-height: 1;
+  --coda-font-size: 110%;
 
   --coda-primary-background: var(--pico-primary-background);
   --coda-primary-border: var(--pico-primary-border);
@@ -34,4 +35,5 @@
   Instead we define Coda variables that reference Pico variables to minimize the dependency on Pico.
   */
   --pico-line-height: var(--coda-line-height);
+  --pico-font-size: var(--coda-font-size);
 }
