@@ -116,6 +116,24 @@ def test__updating_fundingrequest_funding__updates_funding_request_and_shows_det
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": request.pk}))
 
 
+@pytest.mark.django_db
+def test__updating_fundingrequest_funding__without_external_funding__updates_funding_request_and_shows_details(
+    client: Client,
+) -> None:
+    request = factory.fundingrequest()
+    cost_dto = factory.cost_dto()
+
+    response = client.post(
+        reverse("fundingrequests:update_funding", kwargs={"pk": request.pk}),
+        next() | {"organization": "", "project_id": "", "project_name": ""} | cost_dto,
+    )
+
+    request.refresh_from_db()
+    assert_cost_equal(cost_dto, request)
+    assert request.external_funding is None
+    assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": request.pk}))
+
+
 def next() -> dict[str, str]:
     return {"action": "next"}
 

@@ -159,7 +159,7 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
 
     def complete(self, /, **kwargs: Any) -> None:
         store = self.get_store()
-        funding = store["funding"]
+        funding = store.get("funding")
         cost = store["cost"]
         fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
         services.fundingrequest_funding_update(fr, funding, cost)

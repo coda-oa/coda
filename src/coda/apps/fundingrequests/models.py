@@ -89,7 +89,7 @@ class FundingRequest(models.Model):
     )
     publication = models.ForeignKey(Publication, on_delete=models.CASCADE)
     external_funding = models.ForeignKey(
-        ExternalFunding, on_delete=models.CASCADE, null=True, blank=True
+        ExternalFunding, on_delete=models.SET_NULL, null=True, blank=True
     )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

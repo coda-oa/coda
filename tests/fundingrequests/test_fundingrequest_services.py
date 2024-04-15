@@ -50,3 +50,18 @@ def test__update_fundingrequest_funding__deletes_old_external_funding() -> None:
     services.fundingrequest_funding_update(request, new_funding, new_cost)
 
     assert ExternalFunding.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test__update_fundingrequest_funding__without_external_funding__deletes_old_external_funding() -> (
+    None
+):
+    request = factory.fundingrequest()
+    new_cost = factory.cost_dto()
+    new_funding = None
+
+    services.fundingrequest_funding_update(request, new_funding, new_cost)
+
+    request.refresh_from_db()
+    assert request.external_funding is None
+    assert ExternalFunding.objects.count() == 0
