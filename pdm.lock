@@ -2,10 +2,10 @@
 # It is not intended for manual editing.
 
 [metadata]
-groups = ["default", "dev", "django-commands"]
+groups = ["default", "dev"]
 strategy = ["cross_platform"]
 lock_version = "4.4.1"
-content_hash = "sha256:d0c4ec65fc493125091e1c40bc99309ec64f9652ffe65c13e0647c3437aaedc5"
+content_hash = "sha256:7fd3eca5eebb110c48e14473b66a19e0bb1f76bc99b03316fbd7dff749891f33"
 
 [[package]]
 name = "aiohttp"
