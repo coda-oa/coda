@@ -31,12 +31,14 @@ class Publication(models.Model):
         ACCEPTED = "accepted"
         SUBMITTED = "submitted"
         REJECTED = "rejected"
+        UNKNOWN = "unknown"
 
     STATES = (
         (State.PUBLISHED, "Published"),
         (State.ACCEPTED, "Accepted"),
         (State.SUBMITTED, "Submitted"),
         (State.REJECTED, "Rejected"),
+        (State.UNKNOWN, "Unknown"),
     )
 
     OA_TYPES = tuple((t.name, t.value) for t in OpenAccessType)
@@ -52,7 +54,7 @@ class Publication(models.Model):
     open_access_type = models.CharField(choices=OA_TYPES, default=OpenAccessType.CLOSED.name)
     license = models.CharField(choices=LICENSE_CHOICES, default=License.UNKNOWN.name)
 
-    publication_state = models.CharField(max_length=255, choices=STATES, default="submitted")
+    publication_state = models.CharField(max_length=255, choices=STATES, default=State.UNKNOWN)
     publication_date = models.DateField(null=True)
 
 
