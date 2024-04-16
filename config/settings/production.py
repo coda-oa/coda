@@ -16,6 +16,8 @@ FORCE_SCRIPT_NAME = env.str("DJANGO_FORCE_SCRIPT_NAME", default=None)
 if FORCE_SCRIPT_NAME:
     STATIC_URL = FORCE_SCRIPT_NAME + STATIC_URL  # noqa: F405
 
+SESSION_COOKIE_NAME = "coda_sessionid"
+
 
 # DATABASES
 # ------------------------------------------------------------------------------
