@@ -7,7 +7,7 @@
            role="button">New</a>
     </div>
     <div class="my-2">{% include "fundingrequests/forms/fundingrequest_filter.html" %}</div>
-    <ul class="no-decoration grid-container">
+    <ul class="no-decoration">
         {% for fr in funding_requests %}
             <li>
                 <article class="fundingrequest {% if fr.is_open %}  fundingrequest__open  {% elif fr.is_approved %}  fundingrequest__approved  {% elif fr.is_rejected %}  fundingrequest__rejected  {% endif %}">
