@@ -1,6 +1,6 @@
 :root {
   /* CODA Variables */
-  --coda-line-height: 1;
+  --coda-line-height: 1.15;
   --coda-font-size: 110%;
 
   --coda-primary-background: var(--pico-primary-background);
