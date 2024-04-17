@@ -85,7 +85,7 @@ class PublicationStep(Step):
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         return {
             "publication_form": self.get_publication_form(request, store),
-            "authors": AuthorList.from_str(request.POST.get("authors", "")),
+            "authors": self.get_authors(request, store),
             "link_types": LinkType.objects.all(),
             "links": self.get_links_context(request, store),
         }
@@ -101,14 +101,24 @@ class PublicationStep(Step):
     def requested_author_preview(self, request: HttpRequest) -> bool:
         return request.POST.get("action") == "parse_authors"
 
+    def get_authors(self, request: HttpRequest, store: Store) -> AuthorList:
+        if request.POST.get("authors"):
+            return AuthorList.from_str(request.POST.get("authors", ""))
+        elif store.get("authors"):
+            return AuthorList(store["authors"])
+        else:
+            return AuthorList()
+
     def get_links_context(self, request: HttpRequest, store: Store) -> list[LinkDto]:
         if store.get("links"):
             return list(store["links"])
-
-        if self.has_links(request):
+        elif self.has_links(request):
             return self.assemble_link_dtos(request)
 
         return []
+
+    def has_links(self, request: HttpRequest) -> bool:
+        return bool(request.POST.get("link_type") and request.POST.get("link_value"))
 
     def assemble_link_dtos(self, request: HttpRequest) -> list[LinkDto]:
         return [
@@ -117,9 +127,6 @@ class PublicationStep(Step):
                 request.POST.getlist("link_type"), request.POST.getlist("link_value")
             )
         ]
-
-    def has_links(self, request: HttpRequest) -> bool:
-        return bool(request.POST.get("link_type") and request.POST.get("link_value"))
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         publication_form = PublicationForm(request.POST)

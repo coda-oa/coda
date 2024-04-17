@@ -145,6 +145,7 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
         dto = publication_dto_from_model(fr.publication)
         store["publication"] = dto
+        store["authors"] = dto["authors"]
         store["journal"] = fr.publication.journal.pk
         store["links"] = dto["links"]
         store.save()

@@ -23,6 +23,14 @@ valid_publication_data = {
     "publication_date": "2021-01-01",
 }
 
+expected_authors = ["John Doe", "Jane Doe", "John Smith", "Anna Smith"]
+author_str = """John Doe, Jane Doe, John Smith,
+     and Anna Smith"""
+
+
+def assert_expected_authors(ctx: dict[str, list[str]]) -> None:
+    assert ctx["authors"] == ["John Doe", "Jane Doe", "John Smith", "Anna Smith"]
+
 
 def parse_authors_request(
     author_str: str, publication_data: dict[str, str] | None = None
@@ -36,19 +44,15 @@ def parse_authors_request(
 
 def test__publication_step__action__parse_authors__adds_author_list_to_context() -> None:
     sut = PublicationStep()
-    author_str = """John Doe, Jane Doe, John Smith,
-     and Anna Smith"""
 
     ctx = sut.get_context_data(parse_authors_request(author_str), DictStore())
 
-    assert ctx["authors"] == ["John Doe", "Jane Doe", "John Smith", "Anna Smith"]
+    assert_expected_authors(ctx)
 
 
 def test__publication_step__action__parse_authors__does_not_progress() -> None:
     sut = PublicationStep()
     store = DictStore()
-    author_str = """John Doe, Jane Doe, John Smith,
-     and Anna Smith"""
 
     request = parse_authors_request(author_str)
     ctx = sut.get_context_data(request, store)
@@ -62,8 +66,6 @@ def test__publication_step__action__parse_authors__retains_posted_data_but_does_
 ):
     sut = PublicationStep()
     store = DictStore()
-    author_str = """John Doe, Jane Doe, John Smith,
-     and Anna Smith"""
 
     incomplete_publication_data = dict(valid_publication_data, license="")
     request = parse_authors_request(author_str, incomplete_publication_data)
@@ -77,10 +79,31 @@ def test__publication_step__action__parse_authors__retains_posted_data_but_does_
 def test__publication_step__done__saves_authors_to_store() -> None:
     sut = PublicationStep()
     store = DictStore()
-    author_str = """John Doe, Jane Doe, John Smith,
-     and Anna Smith"""
 
     request = parse_authors_request(author_str, valid_publication_data)
     sut.done(request, store)
 
-    assert store["authors"] == ["John Doe", "Jane Doe", "John Smith", "Anna Smith"]
+    assert store["authors"] == expected_authors
+
+
+def test__publication_step__authors_in_store__get_context_data__contains_authors() -> None:
+    sut = PublicationStep()
+    store = DictStore()
+    store["authors"] = expected_authors
+
+    ctx = sut.get_context_data(request_factory.get("/"), store)
+
+    assert ctx["authors"] == expected_authors
+
+
+def test__publication_step__authors_in_post_and_store__get_context_data__prefers_post_data() -> (
+    None
+):
+    sut = PublicationStep()
+    store = DictStore()
+    store["authors"] = ["other authors"]
+
+    request = request_factory.post("/", {"authors": author_str} | valid_publication_data)
+    ctx = sut.get_context_data(request, store)
+
+    assert ctx["authors"] == expected_authors
