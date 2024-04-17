@@ -15,16 +15,24 @@ from coda.color import Color
 def fundingrequest_create(
     author: AuthorDto,
     publication: PublicationDto,
-    external_funding: ExternalFundingDto,
+    external_funding: ExternalFundingDto | None,
     cost: CostDto,
 ) -> FundingRequest:
     _author = author_create(author)
     _journal = journal_services.get_by_pk(publication["journal"])
     _publication = publication_services.publication_create(publication, _author, _journal)
-    _external_funding = external_funding_create(external_funding)
+    _external_funding = external_funding_or_none(external_funding)
     return FundingRequest.objects.create(
         submitter=_author, publication=_publication, external_funding=_external_funding, **cost
     )
+
+
+def external_funding_or_none(external_funding: ExternalFundingDto | None) -> ExternalFunding | None:
+    if external_funding:
+        _external_funding = external_funding_create(external_funding)
+    else:
+        _external_funding = None
+    return _external_funding
 
 
 @transaction.atomic

@@ -25,6 +25,18 @@ def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data() 
 
 
 @pytest.mark.django_db
+def test__create_fundingrequest__without_external_funding__creates_fundingrequest() -> None:
+    author = factory.valid_author_dto(factory.institution().pk)
+    journal = factory.journal().pk
+    publication = factory.publication_dto(journal)
+    cost = factory.cost_dto()
+
+    request = services.fundingrequest_create(author, publication, None, cost)
+
+    assert request.external_funding is None
+
+
+@pytest.mark.django_db
 def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_external_funding() -> (
     None
 ):
