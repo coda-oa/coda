@@ -1,7 +1,22 @@
 {% extends "forms/wizardform.html" %}
 {% block wizard_step %}
     <h1>Publication Details</h1>
-    {{ publication_form.as_p }}
+    <table>
+        <tbody>
+            {{ publication_form.as_table }}
+        </tbody>
+    </table>
+    <h2>Authors</h2>
+    {% comment %}
+NOTE: do not change the formatting of the authors textarea, as it will lead to unwanted whitespace in the rendered result.
+    {% endcomment %}
+    {% spaceless %}
+        <textarea name="authors" rows="5">
+{% for author in authors %}{{ author }}
+{% endfor %}
+    </textarea>
+    {% endspaceless %}
+    <button type="submit" class="secondary" name="action" value="parse_authors">Preview parsed authors</button>
     <h2>Links</h2>
     <table>
         <thead>

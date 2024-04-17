@@ -90,7 +90,7 @@ class SessionStore(Store):
 
 class Step(ABC):
     template_name: str
-    context: dict[str, str] = {}
+    context: dict[str, str]
 
     def __init__(self) -> None:
         if not hasattr(self, "template_name"):
@@ -100,7 +100,9 @@ class Step(ABC):
         return True
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
-        return self.context
+        if hasattr(self, "context"):
+            return self.context
+        return {}
 
     def done(self, request: HttpRequest, store: Store) -> None:
         pass

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, TypeVar
 
 from django.forms import BaseFormSet, Form, formset_factory
 from django.http import HttpRequest
@@ -11,11 +11,15 @@ from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.forms import LinkForm, PublicationForm
 from coda.apps.publications.models import LinkType
 from coda.apps.wizard import FormStep, Step, Store
+from coda.authorlist import AuthorList
+
+
+_TForm = TypeVar("_TForm", bound=Form)
 
 
 def form_with_post_or_store_data(
-    form_type: type[Form], request: HttpRequest, store_data: dict[str, Any] | None
-) -> Form:
+    form_type: type[_TForm], request: HttpRequest, store_data: dict[str, Any] | None
+) -> _TForm:
     """
     Create a form instance with POST data if matching keys are present, otherwise use stored data.
     If no stored data is present, create an empty form instance.
@@ -79,20 +83,30 @@ class PublicationStep(Step):
     template_name: str = "fundingrequests/fundingrequest_publication.html"
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
-        context = super().get_context_data(request, store)
-        context["publication_form"] = form_with_post_or_store_data(
-            PublicationForm, request, store.get("publication")
-        )
+        return {
+            "publication_form": self.get_publication_form(request, store),
+            "authors": AuthorList.from_str(request.POST.get("authors", "")),
+            "link_types": LinkType.objects.all(),
+            "links": self.get_links_context(request, store),
+        }
 
-        context["link_types"] = LinkType.objects.all()
+    def get_publication_form(self, request: HttpRequest, store: Store) -> PublicationForm:
+        if self.requested_author_preview(request):
+            return PublicationForm()
 
+        return form_with_post_or_store_data(PublicationForm, request, store.get("publication"))
+
+    def requested_author_preview(self, request: HttpRequest) -> bool:
+        return request.POST.get("action") == "parse_authors"
+
+    def get_links_context(self, request: HttpRequest, store: Store) -> list[LinkDto]:
         if store.get("links"):
-            context["links"] = list(store["links"])
+            return list(store["links"])
 
         if self.has_links(request):
-            context["links"] = self.assemble_link_dtos(request)
+            return self.assemble_link_dtos(request)
 
-        return context
+        return []
 
     def assemble_link_dtos(self, request: HttpRequest) -> list[LinkDto]:
         return [
@@ -119,6 +133,7 @@ class PublicationStep(Step):
 
         store["links"] = [linkform.get_form_data() for linkform in link_formset.forms]
         store["publication"] = publication_form.get_form_data()
+        store["authors"] = AuthorList.from_str(request.POST.get("authors", ""))
 
     def link_formset(self, request: HttpRequest) -> BaseFormSet[LinkForm]:
         types, values = request.POST.getlist("link_type"), request.POST.getlist("link_value")

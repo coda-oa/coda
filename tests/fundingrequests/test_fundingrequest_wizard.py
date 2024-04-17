@@ -169,7 +169,7 @@ def create_publication_post_data(publication: PublicationDto) -> dict[str, Any]:
         publication_date=publication["publication_date"],
     )
 
-    return {**publication_form_data, **link_form_data}
+    return publication_form_data | link_form_data | {"authors": str(publication["authors"])}
 
 
 def author_dto_from_request(request: FundingRequest) -> AuthorDto:

@@ -15,6 +15,7 @@ from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.models import License, LinkType, OpenAccessType, Publication
 from coda.apps.publishers.models import Publisher
+from coda.authorlist import AuthorList
 
 faker = Faker()
 faker.add_provider(lorem)
@@ -46,6 +47,7 @@ class Command(BaseCommand):
             ),
             PublicationDto(
                 title=faker.sentence(),
+                authors=AuthorList(),
                 journal=journal.pk,
                 license=License.CC0.name,
                 open_access_type=OpenAccessType.GOLD.name,

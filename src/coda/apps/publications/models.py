@@ -3,6 +3,7 @@ from django.db import models
 from coda.apps.authors.models import Author
 
 from coda.apps.journals.models import Journal
+from coda.authorlist import AuthorList
 
 
 class OpenAccessType(enum.Enum):
@@ -56,6 +57,11 @@ class Publication(models.Model):
 
     publication_state = models.CharField(max_length=255, choices=STATES, default=State.UNKNOWN)
     publication_date = models.DateField(null=True)
+    author_list = models.CharField(max_length=255, null=True, blank=True)
+
+    @property
+    def authors(self) -> AuthorList:
+        return AuthorList.from_str(self.author_list or "")
 
 
 class LinkType(models.Model):

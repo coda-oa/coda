@@ -19,6 +19,7 @@ from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.models import License, LinkType, OpenAccessType, Publication
 from coda.apps.publishers.models import Publisher
+from coda.authorlist import AuthorList
 
 _faker = faker.Faker()
 
@@ -108,9 +109,12 @@ def publication_dto(
             Publication.State.ACCEPTED,
         ]
     )
+
+    authors = random_author_names()
     license = _random_license()
     return PublicationDto(
         title=title or _faker.sentence(),
+        authors=authors,
         license=license,
         open_access_type=_random_open_access_type(),
         publication_state=random_state,
@@ -118,6 +122,10 @@ def publication_dto(
         journal=journal,
         links=links or link_dtos(),
     )
+
+
+def random_author_names() -> AuthorList:
+    return AuthorList(_faker.name() for _ in range(random.randint(1, 5)))
 
 
 def _random_license() -> str:

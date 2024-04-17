@@ -11,7 +11,7 @@ class PublicationFormData(TypedDict):
     license: str
     open_access_type: str
     publication_state: str
-    publication_date: str
+    publication_date: str | None
 
 
 class PublicationForm(forms.Form):
@@ -37,7 +37,7 @@ class PublicationForm(forms.Form):
             license=self.cleaned_data["license"],
             open_access_type=self.cleaned_data["open_access_type"],
             publication_state=self.cleaned_data["publication_state"],
-            publication_date=str(self.cleaned_data["publication_date"]),
+            publication_date=self.cleaned_data["publication_date"],
         )
 
 

@@ -75,8 +75,12 @@
                         <td>{{ funding_request.publication.get_publication_state_display }}</td>
                     </tr>
                     <tr>
-                        <td>Journal</td>
+                        <th>Journal</th>
                         <td>{{ funding_request.publication.journal.title }}</td>
+                    </tr>
+                    <tr>
+                        <th>Authors</th>
+                        <td>{{ funding_request.publication.authors }}</td>
                     </tr>
                     <tr>
                         <th>License</th>

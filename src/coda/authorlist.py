@@ -36,3 +36,6 @@ class AuthorList(list[str]):
     @staticmethod
     def _replace_broken_umlaute(author: str) -> str:
         return author.replace(" ̈u", "ü").replace(" ̈o", "ö").replace(" ̈a", "ä")
+
+    def __str__(self) -> str:
+        return ", ".join(self)

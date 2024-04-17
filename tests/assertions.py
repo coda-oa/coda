@@ -42,6 +42,7 @@ def assert_publication_equal(
     publication_dto: PublicationDto, author_dto: AuthorDto, publication: Publication
 ) -> None:
     assert publication.title == publication_dto["title"]
+    assert publication.authors == publication_dto["authors"]
     assert publication.open_access_type == publication_dto["open_access_type"]
     assert publication.license == publication_dto["license"]
     assert publication.journal.pk == publication_dto["journal"]
