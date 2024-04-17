@@ -1,4 +1,5 @@
-from typing import TypedDict
+import datetime
+from typing import TypedDict, cast
 
 from django import forms
 
@@ -37,8 +38,14 @@ class PublicationForm(forms.Form):
             license=self.cleaned_data["license"],
             open_access_type=self.cleaned_data["open_access_type"],
             publication_state=self.cleaned_data["publication_state"],
-            publication_date=self.cleaned_data["publication_date"],
+            publication_date=self._parse_date(),
         )
+
+    def _parse_date(self) -> str | None:
+        if not self.cleaned_data.get("publication_date"):
+            return None
+
+        return cast(datetime.date, self.cleaned_data["publication_date"]).isoformat()
 
 
 class LinkForm(forms.Form):
