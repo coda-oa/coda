@@ -22,6 +22,8 @@ csv_name_list_with_line_breaks = """
     Alice Doe
 """
 csv_name_list_missing_space_in_name = "John Doe, Jane Doe, AliceDoe"
+csv_name_list_last_author_sep_with_and_on_newline = "John Doe, Jane Doe,\nand Alice Doe"
+csv_name_list_last_author_sep_with_and_before_newline = "John Doe, Jane Doe, and\nAlice Doe"
 
 
 class DataPair(NamedTuple):
@@ -93,6 +95,8 @@ Stephen J. Wright""",
         semicolon_sep_reversed_name_list,
         newline_sep_name_list,
         csv_name_list_missing_space_in_name,
+        csv_name_list_last_author_sep_with_and_on_newline,
+        csv_name_list_last_author_sep_with_and_before_newline,
     ],
 )
 def test__author_list__from_str__creates_author_list_param(authors: str) -> None:
