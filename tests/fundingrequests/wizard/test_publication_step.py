@@ -44,9 +44,7 @@ def test__publication_step__action__parse_authors__adds_author_list_to_context()
     assert ctx["authors"] == ["John Doe", "Jane Doe", "John Smith", "Anna Smith"]
 
 
-def test__publication_step__action__parse_authors__does_not_progress_and_does_not_show_errors() -> (
-    None
-):
+def test__publication_step__action__parse_authors__does_not_progress() -> None:
     sut = PublicationStep()
     store = DictStore()
     author_str = """John Doe, Jane Doe, John Smith,
@@ -57,6 +55,23 @@ def test__publication_step__action__parse_authors__does_not_progress_and_does_no
 
     assert not sut.is_valid(request, store)
     assert ctx["publication_form"].errors == {}
+
+
+def test__publication_step__action__parse_authors__retains_posted_data_but_does_not_show_errors() -> (
+    None
+):
+    sut = PublicationStep()
+    store = DictStore()
+    author_str = """John Doe, Jane Doe, John Smith,
+     and Anna Smith"""
+
+    incomplete_publication_data = dict(valid_publication_data, license="")
+    request = parse_authors_request(author_str, incomplete_publication_data)
+    ctx = sut.get_context_data(request, store)
+
+    form = ctx["publication_form"]
+    assert form.data != {}
+    assert form.errors == {}
 
 
 def test__publication_step__done__saves_authors_to_store() -> None:

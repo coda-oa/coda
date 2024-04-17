@@ -92,7 +92,9 @@ class PublicationStep(Step):
 
     def get_publication_form(self, request: HttpRequest, store: Store) -> PublicationForm:
         if self.requested_author_preview(request):
-            return PublicationForm()
+            form = PublicationForm(request.POST)
+            form.errors.clear()
+            return form
 
         return form_with_post_or_store_data(PublicationForm, request, store.get("publication"))
 
