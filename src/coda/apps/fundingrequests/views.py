@@ -1,5 +1,5 @@
-from collections.abc import Callable
 import datetime
+from collections.abc import Callable
 from typing import Any, cast
 
 from django.contrib.auth.decorators import login_required
@@ -106,13 +106,7 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
         funding_request = get_object_or_404(FundingRequest, pk=pk)
         author_update(cast(Author, funding_request.submitter), author_dto)
 
-    def _render_step(self, request: HttpRequest, index: int) -> HttpResponse:
-        if request.POST.get("action") != "next":
-            self.prepare()
-
-        return super()._render_step(request, index)
-
-    def prepare(self) -> None:
+    def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
         fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
         if fr.submitter:
@@ -135,13 +129,7 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         funding_request = get_object_or_404(FundingRequest, pk=pk)
         publication_update(funding_request.publication, publication_dto)
 
-    def _render_step(self, request: HttpRequest, index: int) -> HttpResponse:
-        if request.POST.get("action") != "next":
-            self.prepare()
-
-        return super()._render_step(request, index)
-
-    def prepare(self) -> None:
+    def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
         fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
         dto = publication_dto_from_model(fr.publication)
@@ -167,7 +155,7 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
         fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
         services.fundingrequest_funding_update(fr, funding, cost)
 
-    def prepare(self) -> None:
+    def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
         fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
         store["cost"] = CostDto(
@@ -182,12 +170,6 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
                 project_name=fr.external_funding.project_name,
             )
         store.save()
-
-    def _render_step(self, request: HttpRequest, index: int) -> HttpResponse:
-        if request.POST.get("action") != "next":
-            self.prepare()
-
-        return super()._render_step(request, index)
 
 
 def publication_dto_from_store(store: Store) -> PublicationDto:

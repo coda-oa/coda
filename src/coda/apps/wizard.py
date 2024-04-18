@@ -1,12 +1,11 @@
 from abc import ABC
-from typing import Any, Generic, NamedTuple, Protocol, TypeVar, cast, overload
 from collections.abc import Callable, Iterable
+from typing import Any, Generic, NamedTuple, Protocol, TypeVar, cast, overload
 
 from django.forms import Form
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views import View
-
 
 KT = TypeVar("KT")
 VT = TypeVar("VT", covariant=True)
@@ -150,9 +149,13 @@ class Wizard(View):
     def complete(self, **kwargs: Any) -> None:
         pass
 
+    def prepare(self, request: HttpRequest) -> None:
+        pass
+
     def get(self, request: HttpRequest, **kwargs: Any) -> HttpResponse:
         self.get_store().clear()
         self.get_store().save()
+        self.prepare(request)
         return self._render_step(request, self.index())
 
     def post(self, request: HttpRequest, **kwargs: Any) -> HttpResponse:

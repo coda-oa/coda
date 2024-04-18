@@ -168,6 +168,22 @@ def test__wizard_at_first_step__adds_stepper_to_context() -> None:
     assert_rendered_stepper(response, current, total)
 
 
+def test__wizard__get__calls_prepare_before_rendering() -> None:
+    class StoreReadingStep(StepWithContext):
+        def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
+            return {"name": store.get("prepared")}
+
+    class PreparingWizard(WizardTestImpl):
+        def prepare(self, request: HttpRequest) -> None:
+            self.get_store()["prepared"] = "prepared called"
+
+    sut = make_sut(PreparingWizard, steps=[StoreReadingStep()])
+
+    response = get(sut)
+
+    assert_rendered_with_context(response, "prepared called")
+
+
 def test__wizard_at_second_step__adds_stepper_to_context() -> None:
     steps = [SimpleStep(), StepperStep()]
     sut = make_sut(steps=steps)
