@@ -61,7 +61,7 @@ class JournalStep(Step):
         title = request.POST.get("journal_title", None)
         journal_id = store.get("journal", None)
         if title:
-            journals = Journal.objects.filter(title__icontains=title)
+            journals = Journal.objects.filter(title__icontains=title).order_by("title")
             ctx["journals"] = journals
             ctx["journal_title"] = title
         elif journal_id:
