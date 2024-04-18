@@ -52,7 +52,7 @@ class Command(BaseCommand):
                 license=License.CC0.name,
                 open_access_type=OpenAccessType.GOLD.name,
                 publication_state=Publication.State.PUBLISHED,
-                publication_date=str(date.today()),
+                publication_date=date.fromisoformat(faker.date()),
                 links=[LinkDto(link_type=doi.pk, link_value="10.1234/5678")],
             ),
             ExternalFundingDto(

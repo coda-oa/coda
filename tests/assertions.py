@@ -46,6 +46,10 @@ def assert_publication_equal(
     assert publication.open_access_type == publication_dto["open_access_type"]
     assert publication.license == publication_dto["license"]
     assert publication.journal.pk == publication_dto["journal"]
+    assert (
+        publication.publication_date == publication_dto["publication_date"]
+    ), f"{type(publication.publication_date)} != {type(publication_dto['publication_date'])}"
+    assert publication.publication_state == publication_dto["publication_state"]
     assert len(publication.links.all()) == len(publication_dto["links"])
     assert all(
         publication.links.filter(type=link["link_type"], value=link["link_value"]).exists()

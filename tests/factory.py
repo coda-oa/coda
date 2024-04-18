@@ -1,3 +1,4 @@
+import datetime
 import random
 
 import faker
@@ -118,7 +119,7 @@ def publication_dto(
         license=license,
         open_access_type=_random_open_access_type(),
         publication_state=random_state,
-        publication_date=_faker.date(),
+        publication_date=datetime.date.fromisoformat(_faker.date()),
         journal=journal,
         links=links or link_dtos(),
     )

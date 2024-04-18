@@ -1,5 +1,3 @@
-import datetime
-
 from coda.apps.authors.models import Author
 from coda.apps.journals import services as journal_services
 from coda.apps.journals.models import Journal
@@ -15,7 +13,7 @@ def publication_create(
         license=publication["license"],
         open_access_type=publication["open_access_type"],
         publication_state=publication["publication_state"],
-        publication_date=_parse_publication_date(publication),
+        publication_date=publication["publication_date"],
         submitting_author=author,
         author_list=str(publication["authors"]),
         journal=journal,
@@ -32,16 +30,9 @@ def publication_update(publication: Publication, publication_dto: PublicationDto
     publication.open_access_type = publication_dto["open_access_type"]
     publication.journal = journal_services.get_by_pk(publication_dto["journal"])
     publication.publication_state = publication_dto["publication_state"]
-    publication.publication_date = _parse_publication_date(publication_dto)
+    publication.publication_date = publication_dto["publication_date"]
     _attach_links(publication, publication_dto["links"])
     publication.save()
-
-
-def _parse_publication_date(publication: PublicationDto) -> datetime.date | None:
-    if publication["publication_date"] is None:
-        return None
-    else:
-        return datetime.date.fromisoformat(publication["publication_date"])
 
 
 def _attach_links(publication: Publication, links: list[LinkDto]) -> None:

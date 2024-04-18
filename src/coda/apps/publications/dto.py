@@ -1,3 +1,4 @@
+import datetime
 from typing import TypedDict
 
 from coda.apps.publications.models import Publication
@@ -14,7 +15,7 @@ class PublicationDto(TypedDict):
     open_access_type: str
     license: str
     publication_state: str
-    publication_date: str | None
+    publication_date: datetime.date | None
     links: list[LinkDto]
     journal: int
     authors: AuthorList
@@ -27,9 +28,7 @@ def publication_dto_from_model(publication: Publication) -> PublicationDto:
         license=publication.license,
         open_access_type=publication.open_access_type,
         publication_state=publication.publication_state,
-        publication_date=(
-            publication.publication_date.isoformat() if publication.publication_date else ""
-        ),
+        publication_date=publication.publication_date,
         links=[
             LinkDto(link_type=link.type.pk, link_value=link.value)
             for link in publication.links.all()
