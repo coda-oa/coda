@@ -10,7 +10,7 @@ from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
 from coda.validation import as_validator
 
-orcid_validator = as_validator(orcid.parse)
+orcid_validator = as_validator(orcid.Orcid)
 
 
 def author_create(dto: AuthorDto) -> Author:

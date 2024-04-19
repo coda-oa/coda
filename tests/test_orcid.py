@@ -14,7 +14,7 @@ VALID_ORCIDS = [JOSIAH_CARBERRY, LAUREL_HAAK, THOMAS_HICKEY]
 
 @pytest.mark.parametrize("valid_orcid", VALID_ORCIDS)
 def test__a_valid_orcid__is_returned_unchanged(valid_orcid: str) -> None:
-    assert orcid.parse(valid_orcid) == valid_orcid
+    assert orcid.Orcid(valid_orcid) == valid_orcid
 
 
 @pytest.mark.parametrize("valid_orcid", VALID_ORCIDS)
@@ -24,7 +24,7 @@ def test__orcid_checksum__matches_last_char(valid_orcid: str) -> None:
 
 def test__none_is_not_a_valid_orcid() -> None:
     with pytest.raises(ValueError):
-        orcid.parse(None)
+        orcid.Orcid(None)
 
 
 @pytest.mark.parametrize(
@@ -40,7 +40,7 @@ def test__none_is_not_a_valid_orcid() -> None:
 )
 def test__orcids_without_four_blocks_of_four_digits__are_invalid(invalid_orcid: str) -> None:
     with pytest.raises(ValueError):
-        orcid.parse(invalid_orcid)
+        orcid.Orcid(invalid_orcid)
 
 
 @pytest.mark.parametrize(
@@ -54,16 +54,16 @@ def test__orcids_without_four_blocks_of_four_digits__are_invalid(invalid_orcid: 
 def test__an_orcids_last_position_must_be_a_digit_or_X(invalid_digit: str) -> None:
     last = JOSIAH_CARBERRY[-1]
     with pytest.raises(ValueError):
-        orcid.parse(JOSIAH_CARBERRY.replace(last, invalid_digit))
+        orcid.Orcid(JOSIAH_CARBERRY.replace(last, invalid_digit))
 
 
 def test__orcids_with_an_invalid_checksum__are_invalid() -> None:
     with pytest.raises(ValueError):
-        orcid.parse(JOSIAH_CARBERRY.replace(JOSIAH_CARBERRY[-1], "0"))
+        orcid.Orcid(JOSIAH_CARBERRY.replace(JOSIAH_CARBERRY[-1], "0"))
 
 
 def test__orcids_with_leading_or_trailing_whitespace__get_trimmed() -> None:
-    assert orcid.parse(f" {JOSIAH_CARBERRY} ") == JOSIAH_CARBERRY
+    assert orcid.Orcid(f" {JOSIAH_CARBERRY} ") == JOSIAH_CARBERRY
 
 
 @pytest.mark.parametrize(
@@ -81,4 +81,4 @@ def test__orcids_with_leading_or_trailing_whitespace__get_trimmed() -> None:
     ],
 )
 def test__orcids_with_orcid_address__get_stripped(orcid_address: str) -> None:
-    assert orcid.parse(orcid_address) == JOSIAH_CARBERRY
+    assert orcid.Orcid(orcid_address) == JOSIAH_CARBERRY

@@ -1,0 +1,39 @@
+import re
+
+from coda.string import NonEmptyStr
+
+
+class Doi:
+    def __init__(self, doi: str) -> None:
+        self._doi = NonEmptyStr(doi).strip()
+        if not self._valid():
+            raise ValueError("Invalid DOI format")
+
+    def _valid(self) -> bool:
+        """
+        These regex patterns are from the Crossref documentation:
+        https://www.crossref.org/blog/dois-and-matching-regular-expressions/
+        """
+        return any(
+            (
+                re.match(r"^10.\d{4,9}/[-._;()/:A-Z0-9]+$", self._doi, re.IGNORECASE),
+                re.match(
+                    r"^10.\d{4}/\d+-\d+X?(\d+)\d+<[\d\w]+:[\d\w]*>\d+.\d+.\w+;\d$",
+                    self._doi,
+                    re.IGNORECASE,
+                ),
+                re.match(r"^10.1021/\w\w\d++$", self._doi, re.IGNORECASE),
+                re.match(r"^10.1207/[\w\d]+\&\d+_\d+$", self._doi, re.IGNORECASE),
+            )
+        )
+
+    @property
+    def prefix(self) -> str:
+        return self._doi.split("/")[0]
+
+    @property
+    def suffix(self) -> str:
+        return self._doi.split("/")[1]
+
+    def __str__(self) -> str:
+        return self._doi

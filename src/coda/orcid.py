@@ -1,21 +1,26 @@
-def parse(orcid: str | None) -> str:
-    """
-    Returns the ORCID identifier if it is valid, otherwise raises a ValueError.
-    """
-    if not orcid:
-        raise ValueError("ORCID is required")
+from typing import Self, cast
 
-    orcid = orcid.strip()
-    orcid = strip_url_components(orcid)
 
-    split = orcid.split("-")
-    if len(split) != 4 or not all(len(block) == 4 for block in split):
-        raise ValueError("ORCID must consist of four blocks separated by hyphens")
+class Orcid(str):
+    def __new__(cls, orcid: str | None) -> Self:
+        """
+        Returns the ORCID identifier if it is valid, otherwise raises a ValueError.
+        """
+        instance = super().__new__(cls, orcid or "")
+        if not instance:
+            raise ValueError("ORCID is required")
 
-    if orcid[-1] != checksum(orcid):
-        raise ValueError("ORCID has an invalid checksum")
+        instance = cast(Self, instance.strip())
+        instance = cast(Self, strip_url_components(instance))
 
-    return orcid
+        split = instance.split("-")
+        if len(split) != 4 or not all(len(block) == 4 for block in split):
+            raise ValueError("ORCID must consist of four blocks separated by hyphens")
+
+        if instance[-1] != checksum(instance):
+            raise ValueError("ORCID has an invalid checksum")
+
+        return instance
 
 
 def strip_url_components(orcid: str) -> str:
