@@ -2,7 +2,7 @@ import datetime
 from typing import TypedDict
 
 from coda.apps.publications.models import Publication
-from coda.authorlist import AuthorList
+from coda.author import AuthorList
 
 
 class LinkDto(TypedDict):

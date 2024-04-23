@@ -2,7 +2,7 @@ from typing import NamedTuple
 
 import pytest
 
-from coda.authorlist import AuthorList
+from coda.author import AuthorList
 
 csv_name_list_no_spaces = "John Doe,Jane Doe,Alice Doe"
 csv_name_list_with_spaces = "John Doe, Jane Doe, Alice Doe"

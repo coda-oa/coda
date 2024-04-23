@@ -1,7 +1,7 @@
 import faker
 import pytest
 
-from coda.authorlist import AuthorList
+from coda.author import AuthorList
 from coda.doi import Doi
 from coda.publication import JournalId, Publication, PublicationId, Unpublished, UserLink
 

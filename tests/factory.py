@@ -20,7 +20,7 @@ from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.models import License, LinkType, OpenAccessType, Publication
 from coda.apps.publishers.models import Publisher
-from coda.authorlist import AuthorList
+from coda.author import AuthorList
 
 _faker = faker.Faker()
 

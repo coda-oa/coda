@@ -3,7 +3,7 @@ from django.db import models
 from coda.apps.authors.models import Author
 
 from coda.apps.journals.models import Journal
-from coda.authorlist import AuthorList
+from coda.author import AuthorList
 
 
 class OpenAccessType(enum.Enum):

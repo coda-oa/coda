@@ -2,10 +2,9 @@ import datetime
 import enum
 from typing import NamedTuple, NewType, TypeAlias
 
-from coda.authorlist import AuthorList
+from coda.author import AuthorList
 from coda.doi import Doi
 from coda.string import NonEmptyStr
-
 
 JournalId = NewType("JournalId", int)
 PublicationId = NewType("PublicationId", int)

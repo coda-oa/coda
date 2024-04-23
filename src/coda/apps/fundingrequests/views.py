@@ -28,7 +28,7 @@ from coda.apps.publications.dto import LinkDto, PublicationDto, publication_dto_
 from coda.apps.publications.forms import PublicationFormData
 from coda.apps.publications.services import publication_update
 from coda.apps.wizard import SessionStore, Store, Wizard
-from coda.authorlist import AuthorList
+from coda.author import AuthorList
 
 
 class FundingRequestDetailView(LoginRequiredMixin, DetailView[FundingRequest]):

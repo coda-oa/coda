@@ -1,4 +1,30 @@
 import re
+from typing import NewType
+
+from coda.orcid import Orcid
+from coda.string import NonEmptyStr
+
+AuthorId = NewType("AuthorId", int)
+
+
+class Author:
+    def __init__(
+        self,
+        id: AuthorId,
+        name: NonEmptyStr,
+        email: str = "",
+        orcid: Orcid | None = None,
+    ) -> None:
+        self.id = id
+        self.name = name
+        self.email = email
+        self.orcid: Orcid | None = orcid
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Author):
+            return False
+
+        return self.id == other.id
 
 
 def _parse_line(line: str, /, reverse_names: bool) -> list[str]:

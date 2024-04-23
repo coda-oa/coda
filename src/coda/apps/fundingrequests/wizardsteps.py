@@ -11,7 +11,7 @@ from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.forms import LinkForm, PublicationForm
 from coda.apps.publications.models import LinkType
 from coda.apps.wizard import FormStep, Step, Store
-from coda.authorlist import AuthorList
+from coda.author import AuthorList
 
 
 _TForm = TypeVar("_TForm", bound=Form)
