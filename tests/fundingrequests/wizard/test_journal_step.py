@@ -17,7 +17,7 @@ def store() -> DictStore:
 
 @pytest.fixture
 def journals() -> list[Journal]:
-    return [factory.journal() for _ in range(3)]
+    return [factory.db_journal() for _ in range(3)]
 
 
 @pytest.mark.django_db

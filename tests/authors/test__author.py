@@ -61,9 +61,9 @@ def test__adding_roles_to_author__saves_roles_to_db() -> None:
 
 @pytest.mark.django_db
 def test__updating_author__saves_updated_author_to_db() -> None:
-    author = factory.author()
+    author = factory.db_author()
 
-    affiliation = factory.institution()
+    affiliation = factory.db_institution()
     new_author_data = factory.valid_author_dto(affiliation.pk)
     new_author = parse_author(new_author_data, id=AuthorId(author.pk))
 
@@ -75,7 +75,7 @@ def test__updating_author__saves_updated_author_to_db() -> None:
 
 @pytest.mark.django_db
 def test__updating_author__without_id__raises_error() -> None:
-    _ = factory.author()
+    _ = factory.db_author()
 
     new_author_data = factory.valid_author_dto()
     new_author = parse_author(new_author_data, id=None)

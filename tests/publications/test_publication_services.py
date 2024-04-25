@@ -10,8 +10,8 @@ from tests.assertions import assert_publication_equal
 
 @pytest.mark.django_db
 def test__create_publication__creates_a_publication_based_on_given_data() -> None:
-    author = factory.author()
-    journal = factory.journal()
+    author = factory.db_author()
+    journal = factory.db_journal()
     links = factory.link_dtos()
     publication_dto = factory.publication_dto(journal.pk, links=links)
 
@@ -23,8 +23,8 @@ def test__create_publication__creates_a_publication_based_on_given_data() -> Non
 
 @pytest.mark.django_db
 def test__create_publication__without_publication_date__sets_date_to_none() -> None:
-    author = factory.author()
-    journal = factory.journal()
+    author = factory.db_author()
+    journal = factory.db_journal()
     links = factory.link_dtos()
     publication_dto = factory.publication_dto(journal.pk, links=links)
     publication_dto["publication_date"] = None
@@ -37,8 +37,8 @@ def test__create_publication__without_publication_date__sets_date_to_none() -> N
 
 @pytest.mark.django_db
 def test__update_publication__updates_publication_based_on_given_data() -> None:
-    publication = factory.publication()
-    new_journal = factory.journal()
+    publication = factory.db_publication()
+    new_journal = factory.db_journal()
     links = factory.link_dtos()
     new_publication_data = factory.publication_dto(new_journal.pk, links=links)
 
@@ -51,7 +51,7 @@ def test__update_publication__updates_publication_based_on_given_data() -> None:
 
 @pytest.mark.django_db
 def test__update_publication__without_publication_date__sets_date_to_none() -> None:
-    publication = factory.publication()
+    publication = factory.db_publication()
     links = factory.link_dtos()
     new_publication_data = factory.publication_dto(publication.journal.pk, links=links)
     new_publication_data["publication_date"] = None

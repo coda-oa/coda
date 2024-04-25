@@ -16,7 +16,7 @@ cost_data = {
 
 @pytest.mark.django_db
 def test__funding_step__valid_data__is_valid() -> None:
-    funding_org = factory.funding_organization()
+    funding_org = factory.db_funding_organization()
     store = DictStore()
     funding_step = FundingStep()
 
@@ -63,7 +63,7 @@ def test__funding_step__empty_external_funding__is_valid() -> None:
 
 @pytest.mark.django_db
 def test__funding_step__only_organization_without_project_id__is_invalid() -> None:
-    funding_org = factory.funding_organization()
+    funding_org = factory.db_funding_organization()
     store = DictStore()
     funding_step = FundingStep()
 
@@ -114,7 +114,7 @@ def test__funding_step__with_previous_funding__subnmitting_without_external_fund
     None
 ):
     store = DictStore()
-    funding_org = factory.funding_organization()
+    funding_org = factory.db_funding_organization()
     store["funding"] = {
         "organization": funding_org.pk,
         "project_id": "123",

@@ -31,42 +31,52 @@ def _issn() -> str:
     return f"{digits[:4]}-{digits[4:]}{checksum}"
 
 
-def institution() -> Institution:
+def db_institution() -> Institution:
     return Institution.objects.create(name=_faker.company())
 
 
-def publisher() -> Publisher:
+def db_publisher() -> Publisher:
     return Publisher.objects.create(name=_faker.company())
 
 
-def journal() -> Journal:
+def db_journal() -> Journal:
     title = _faker.sentence()
-    return Journal.objects.create(title=title, eissn=_issn(), publisher=publisher())
+    return Journal.objects.create(title=title, eissn=_issn(), publisher=db_publisher())
 
 
-def publication() -> Publication:
+def db_author() -> AuthorModel:
+    dto = valid_author_dto()
+    author = parse_author(dto)
+    return author_create(author)
+
+
+def db_publication() -> Publication:
     title = _faker.sentence()
-    return Publication.objects.create(title=title, journal=journal(), submitting_author=author())
+    return Publication.objects.create(
+        title=title, journal=db_journal(), submitting_author=db_author()
+    )
 
 
-def funding_organization() -> FundingOrganization:
+def db_funding_organization() -> FundingOrganization:
     return FundingOrganization.objects.create(name=_faker.company())
 
 
 def external_funding(funder_id: int | None = None) -> ExternalFunding:
     project_id = random.randint(1000, 9999)
-    funder = FundingOrganization.objects.get(pk=funder_id) if funder_id else funding_organization()
+    funder = (
+        FundingOrganization.objects.get(pk=funder_id) if funder_id else db_funding_organization()
+    )
     return ExternalFunding.objects.create(
         organization=funder, project_id=project_id, project_name=_faker.sentence()
     )
 
 
 def fundingrequest(title: str = "", author_dto: AuthorDto | None = None) -> FundingRequest:
-    _journal = journal()
-    affiliation = institution().pk
+    _journal = db_journal()
+    affiliation = db_institution().pk
     author_dto = author_dto or valid_author_dto(affiliation)
     pub_dto = publication_dto(_journal.pk, title=title)
-    ext_funding_dto = external_funding_dto(funding_organization().pk)
+    ext_funding_dto = external_funding_dto(db_funding_organization().pk)
     return fundingrequest_create(parse_author(author_dto), pub_dto, ext_funding_dto, cost_dto())
 
 
@@ -79,12 +89,6 @@ def valid_author_dto(affiliation_pk: int | None = None) -> AuthorDto:
         affiliation=affiliation_pk,
         roles=random_roles,
     )
-
-
-def author() -> AuthorModel:
-    dto = valid_author_dto()
-    author = parse_author(dto)
-    return author_create(author)
 
 
 def random_orcid() -> str:

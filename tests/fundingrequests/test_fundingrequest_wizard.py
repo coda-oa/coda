@@ -35,13 +35,13 @@ def login(client: Client) -> None:
 def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
-    author_dto = factory.valid_author_dto(factory.institution().pk)
-    journal_pk = factory.journal().pk
+    author_dto = factory.valid_author_dto(factory.db_institution().pk)
+    journal_pk = factory.db_journal().pk
     journal_post_data = {"journal": journal_pk}
 
     publication_dto = factory.publication_dto(journal_pk)
     publication_post_data = create_publication_post_data(publication_dto)
-    funder = factory.funding_organization()
+    funder = factory.db_funding_organization()
     external_funding = factory.external_funding_dto(funder.pk)
     cost_dto = factory.cost_dto()
 
@@ -79,7 +79,7 @@ def test__updating_fundingrequest_publication__updates_funding_request_and_shows
     client: Client,
 ) -> None:
     request = factory.fundingrequest()
-    new_journal = factory.journal()
+    new_journal = factory.db_journal()
     new_publication = factory.publication_dto(new_journal.pk)
     publication_post_data = create_publication_post_data(new_publication)
 
@@ -102,7 +102,7 @@ def test__updating_fundingrequest_funding__updates_funding_request_and_shows_det
     client: Client,
 ) -> None:
     request = factory.fundingrequest()
-    funder = factory.funding_organization()
+    funder = factory.db_funding_organization()
     external_funding = factory.external_funding_dto(funder.pk)
     cost_dto = factory.cost_dto()
 
