@@ -29,7 +29,7 @@ author_str = """John Doe, Jane Doe, John Smith,
 
 
 def assert_expected_authors(ctx: dict[str, list[str]]) -> None:
-    assert ctx["authors"] == ["John Doe", "Jane Doe", "John Smith", "Anna Smith"]
+    assert list(ctx["authors"]) == ["John Doe", "Jane Doe", "John Smith", "Anna Smith"]
 
 
 def parse_authors_request(
@@ -83,7 +83,7 @@ def test__publication_step__done__saves_authors_to_store() -> None:
     request = parse_authors_request(author_str, valid_publication_data)
     sut.done(request, store)
 
-    assert store["authors"] == expected_authors
+    assert list(store["authors"]) == expected_authors
 
 
 def test__publication_step__authors_in_store__get_context_data__contains_authors() -> None:
@@ -93,7 +93,7 @@ def test__publication_step__authors_in_store__get_context_data__contains_authors
 
     ctx = sut.get_context_data(request_factory.get("/"), store)
 
-    assert ctx["authors"] == expected_authors
+    assert list(ctx["authors"]) == expected_authors
 
 
 def test__publication_step__authors_in_post_and_store__get_context_data__prefers_post_data() -> (
@@ -106,4 +106,4 @@ def test__publication_step__authors_in_post_and_store__get_context_data__prefers
     request = request_factory.post("/", {"authors": author_str} | valid_publication_data)
     ctx = sut.get_context_data(request, store)
 
-    assert ctx["authors"] == expected_authors
+    assert list(ctx["authors"]) == expected_authors

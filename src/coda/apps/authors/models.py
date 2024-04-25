@@ -1,20 +1,15 @@
-from enum import Enum
 from collections.abc import Iterable
+
 from django.db import models
 
 from coda.apps.institutions.models import Institution
+from coda.author import Role
 
 
 class PersonId(models.Model):
     orcid = models.CharField(max_length=255, null=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-
-class Role(Enum):
-    SUBMITTER = "Submitter"
-    CO_AUTHOR = "Co-author"
-    CORRESPONDING_AUTHOR = "Corresponding author"
 
 
 ROLE_SERIALIZE_SEPARATOR = "||"

@@ -1,58 +1,32 @@
-from typing import Any, cast
+from typing import cast
 
 import pytest
 from django.core.exceptions import ValidationError
 from django.test import Client
 
-from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.models import Author, PersonId, Role
+from coda.apps.authors.dto import parse_author
+from coda.apps.authors.models import Author as AuthorModel
+from coda.apps.authors.models import PersonId
 from coda.apps.authors.services import author_create, author_update
 from coda.apps.institutions.models import Institution
+from coda.author import Author, AuthorId, Role
+from coda.orcid import Orcid
+from coda.string import NonEmptyStr
 from tests import factory, test_orcid
 from tests.assertions import assert_author_equal
 
-JOSIAHS_DATA: AuthorDto = {
-    "name": "Josiah Carberry",
-    "email": "j.carberry@example.com",
-    "orcid": test_orcid.JOSIAH_CARBERRY,
-    "affiliation": None,
-    "roles": [],
-}
-
-
-@pytest.mark.django_db
-def test__cannot_create_author_with_empty_name() -> None:
-    with pytest.raises(ValidationError):
-        no_name = JOSIAHS_DATA.copy()
-        no_name["name"] = ""
-        author_create(no_name)
+JOSIAHS_DATA = Author(
+    id=None,
+    name=NonEmptyStr("Josiah Carberry"),
+    email="j.carberry@example.com",
+    orcid=Orcid(test_orcid.JOSIAH_CARBERRY),
+)
 
 
 @pytest.mark.django_db
 def test__can_create_author_with_empty_orcid() -> None:
-    no_orcid = JOSIAHS_DATA.copy()
-    no_orcid["orcid"] = ""
+    no_orcid = Author(None, JOSIAHS_DATA.name, JOSIAHS_DATA.email, orcid=None)
     author_create(no_orcid)
-
-
-@pytest.mark.django_db
-def test__cannot_create_author_with_invalid_orcid() -> None:
-    with pytest.raises(ValidationError):
-        dto = JOSIAHS_DATA.copy()
-        dto["orcid"] = "invalid"
-        author_create(dto)
-
-
-@pytest.mark.django_db
-def test__author_with_orcid_url__is_saved_with_pure_orcid() -> None:
-    josiah = JOSIAHS_DATA.copy()
-    josiah["orcid"] = f"https://orcid.org/{josiah['orcid']}"
-
-    author_create(josiah)
-
-    author = cast(Author, Author.objects.first())
-    assert author.identifier is not None
-    assert author.identifier.orcid == josiah["orcid"]
 
 
 @pytest.mark.django_db
@@ -71,12 +45,18 @@ def test__orcids_must_be_unique() -> None:
 
 @pytest.mark.django_db
 def test__adding_roles_to_author__saves_roles_to_db() -> None:
-    josiah = JOSIAHS_DATA.copy()
-    josiah["roles"] = [Role.SUBMITTER.name, Role.CO_AUTHOR.name]
+    josiah = Author(
+        None,
+        JOSIAHS_DATA.name,
+        JOSIAHS_DATA.email,
+        roles=frozenset({Role.SUBMITTER, Role.CO_AUTHOR}),
+    )
 
-    author = author_create(josiah)
+    author_create(josiah)
 
-    assert author.get_roles() == {Role.SUBMITTER, Role.CO_AUTHOR}
+    author = cast(AuthorModel, AuthorModel.objects.first())
+    assert Role.SUBMITTER.name in cast(str, author.roles)
+    assert Role.CO_AUTHOR.name in cast(str, author.roles)
 
 
 @pytest.mark.django_db
@@ -85,77 +65,31 @@ def test__updating_author__saves_updated_author_to_db() -> None:
 
     affiliation = factory.institution()
     new_author_data = factory.valid_author_dto(affiliation.pk)
+    new_author = parse_author(new_author_data, id=AuthorId(author.pk))
 
-    author_update(author, new_author_data)
+    author_update(new_author)
 
     author.refresh_from_db()
     assert_author_equal(new_author_data, author)
 
 
 @pytest.mark.django_db
-def test__updating_author__with_empty_name__raises_error() -> None:
-    author = factory.author()
-    original_name = author.name
+def test__updating_author__without_id__raises_error() -> None:
+    _ = factory.author()
 
     new_author_data = factory.valid_author_dto()
-    new_author_data["name"] = ""
+    new_author = parse_author(new_author_data, id=None)
 
     with pytest.raises(ValidationError):
-        author_update(author, new_author_data)
-
-    author.refresh_from_db()
-    assert author.name == original_name
-
-
-@pytest.mark.django_db
-def test__updating_author__with_invalid_orcid__raises_error() -> None:
-    author = factory.author()
-    original_orcid = cast(PersonId, author.identifier).orcid
-
-    new_author_data = factory.valid_author_dto()
-    new_author_data["orcid"] = "invalid"
-
-    with pytest.raises(ValidationError):
-        author_update(author, new_author_data)
-
-    author.refresh_from_db()
-    assert cast(PersonId, author.identifier).orcid == original_orcid
-
-
-@pytest.mark.django_db
-def test__updating_author__with_invalid_roles__raises_error() -> None:
-    author = factory.author()
-
-    new_author_data = factory.valid_author_dto()
-    new_author_data["roles"] = ["invalid"]
-
-    with pytest.raises(ValidationError):
-        author_update(author, new_author_data)
-
-
-@pytest.mark.django_db
-def test__author_with_invalid_orcid__will_not_be_saved_to_db(client: Client) -> None:
-    institution = Institution.objects.create(name="The Institution")
-
-    client.post(
-        "/authors/create/",
-        {
-            "name": "John Doe",
-            "email": "j.doe@example.com",
-            "orcid": "invalid",
-            "affiliation": institution.pk,
-        },
-    )
-
-    assert PersonId.objects.count() == 0
-    assert Author.objects.count() == 0
+        author_update(new_author)
 
 
 @pytest.mark.django_db
 def test__details_already_exist__reuses_existing_person(client: Client) -> None:
     author_create(JOSIAHS_DATA)
 
-    form_data = cast(dict[str, Any], JOSIAHS_DATA.copy())
+    form_data = JOSIAHS_DATA._asdict()
+    form_data.pop("id")
     form_data["affiliation"] = ""
     client.post("/authors/create/", form_data)
 
@@ -170,10 +104,11 @@ def test__given_institution_exits__when_author_is_affiliated__author_is_saved_wi
     institution.save()
 
     affiliation = institution.pk
-    josiah = JOSIAHS_DATA.copy()
+    josiah = JOSIAHS_DATA._asdict()
     josiah["affiliation"] = affiliation
+    josiah.pop("id")
 
     client.post("/authors/create/", josiah)
 
-    author = cast(Author, Author.objects.first())
+    author = cast(AuthorModel, AuthorModel.objects.first())
     assert author.affiliation == institution

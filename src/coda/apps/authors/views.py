@@ -27,7 +27,7 @@ class AuthorCreateView(TemplateView):
     def post(self, request: HttpRequest) -> HttpResponse:
         person_form = AuthorForm(request.POST)
         if person_form.is_valid():
-            author = author_create(person_form.to_dto())
+            author = author_create(person_form.to_author())
             return redirect("authors:detail", pk=author.pk)
         else:
             self.add_error_messages(request, person_form)

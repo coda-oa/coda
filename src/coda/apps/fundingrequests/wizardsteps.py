@@ -142,7 +142,7 @@ class PublicationStep(Step):
 
         store["links"] = [linkform.get_form_data() for linkform in link_formset.forms]
         store["publication"] = publication_form.get_form_data()
-        store["authors"] = AuthorList.from_str(request.POST.get("authors", ""))
+        store["authors"] = list(AuthorList.from_str(request.POST.get("authors", "")))
 
     def link_formset(self, request: HttpRequest) -> BaseFormSet[LinkForm]:
         types, values = request.POST.getlist("link_type"), request.POST.getlist("link_value")

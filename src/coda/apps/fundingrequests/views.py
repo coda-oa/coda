@@ -11,8 +11,8 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView
 
-from coda.apps.authors.dto import AuthorDto, author_dto_from_model
-from coda.apps.authors.models import Author
+from coda.apps.authors.dto import author_dto_from_model, parse_author
+from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.services import author_update
 from coda.apps.fundingrequests import repository, services
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
@@ -28,7 +28,7 @@ from coda.apps.publications.dto import LinkDto, PublicationDto, publication_dto_
 from coda.apps.publications.forms import PublicationFormData
 from coda.apps.publications.services import publication_update
 from coda.apps.wizard import SessionStore, Store, Wizard
-from coda.author import AuthorList
+from coda.author import AuthorId, AuthorList
 
 
 class FundingRequestDetailView(LoginRequiredMixin, DetailView[FundingRequest]):
@@ -82,12 +82,12 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
 
     def complete(self, **kwargs: Any) -> None:
         store = self.get_store()
-        author_dto: AuthorDto = store["submitter"]
+        author = parse_author(store["submitter"])
         publication_dto = publication_dto_from_store(store)
         cost = store["cost"]
         funding = store["funding"]
 
-        funding_request = services.fundingrequest_create(author_dto, publication_dto, funding, cost)
+        funding_request = services.fundingrequest_create(author, publication_dto, funding, cost)
         store["funding_request"] = funding_request.pk
 
 
@@ -100,17 +100,17 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
     def complete(self, /, **kwargs: Any) -> None:
-        pk = kwargs["pk"]
         store = self.get_store()
-        author_dto: AuthorDto = store["submitter"]
-        funding_request = get_object_or_404(FundingRequest, pk=pk)
-        author_update(cast(Author, funding_request.submitter), author_dto)
+        fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
+        submitter_id = AuthorId(cast(AuthorModel, fr.submitter).pk)
+        author = parse_author(store["submitter"], submitter_id)
+        author_update(author)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
         fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
         if fr.submitter:
-            store["submitter"] = author_dto_from_model(fr.submitter)
+            store["submitter"] = author_dto_from_model(fr.submitter) | {"id": fr.submitter.pk}
             store.save()
 
 
@@ -134,7 +134,7 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         fr = get_object_or_404(FundingRequest, pk=self.kwargs["pk"])
         dto = publication_dto_from_model(fr.publication)
         store["publication"] = dto
-        store["authors"] = dto["authors"]
+        store["authors"] = list(dto["authors"])
         store["journal"] = fr.publication.journal.pk
         store["links"] = dto["links"]
         store.save()

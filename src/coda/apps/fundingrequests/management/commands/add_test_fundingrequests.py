@@ -6,8 +6,6 @@ from django.db import transaction
 from faker import Faker
 from faker.providers import lorem
 
-from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.models import Role
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.models import FundingOrganization, PaymentMethod, ProcessingStatus
 from coda.apps.fundingrequests.services import fundingrequest_create
@@ -15,7 +13,8 @@ from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.models import License, LinkType, OpenAccessType, Publication
 from coda.apps.publishers.models import Publisher
-from coda.author import AuthorList
+from coda.author import Author, AuthorList, Role
+from coda.string import NonEmptyStr
 
 faker = Faker()
 faker.add_provider(lorem)
@@ -38,12 +37,12 @@ class Command(BaseCommand):
         doi = LinkType.objects.get(name="DOI")
 
         request = fundingrequest_create(
-            AuthorDto(
-                name=faker.name(),
+            Author.new(
+                name=NonEmptyStr(faker.name()),
                 email=faker.email(),
                 orcid=None,
                 affiliation=None,
-                roles=[Role.SUBMITTER.name],
+                roles=[Role.SUBMITTER],
             ),
             PublicationDto(
                 title=faker.sentence(),

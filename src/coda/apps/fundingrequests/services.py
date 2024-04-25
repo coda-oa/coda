@@ -1,6 +1,5 @@
 from django.db import transaction
 
-from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.services import author_create
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
@@ -8,12 +7,13 @@ from coda.apps.fundingrequests.models import ExternalFunding, FundingRequest, La
 from coda.apps.journals import services as journal_services
 from coda.apps.publications import services as publication_services
 from coda.apps.publications.dto import PublicationDto
+from coda.author import Author
 from coda.color import Color
 
 
 @transaction.atomic
 def fundingrequest_create(
-    author: AuthorDto,
+    author: Author,
     publication: PublicationDto,
     external_funding: ExternalFundingDto | None,
     cost: CostDto,

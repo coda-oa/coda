@@ -42,7 +42,7 @@ def assert_publication_equal(
     publication_dto: PublicationDto, author_dto: AuthorDto, publication: Publication
 ) -> None:
     assert publication.title == publication_dto["title"]
-    assert publication.authors == publication_dto["authors"], author_error_msg(
+    assert list(publication.authors) == list(publication_dto["authors"]), author_error_msg(
         publication_dto, publication
     )
     assert publication.open_access_type == publication_dto["open_access_type"]
@@ -61,8 +61,8 @@ def assert_publication_equal(
 
 
 def author_error_msg(publication_dto: PublicationDto, publication: Publication) -> str:
-    dto_authors = repr(publication_dto["authors"])
-    publication_authors = repr(publication.authors)
+    dto_authors = repr(list(publication_dto["authors"]))
+    publication_authors = repr(list(publication.authors))
     return f"Expected: {dto_authors}, Got: {publication_authors}"
 
 

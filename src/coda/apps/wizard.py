@@ -57,13 +57,14 @@ class SessionStore(Store):
     def __init__(self, store_name: str, request: HttpRequest) -> None:
         self.request = request
         self.store_name = store_name
+        self.session = request.session
 
     def save(self) -> None:
-        self.request.session.save()
+        self.session.save()
 
     @property
     def data(self) -> dict[str, Any]:
-        return cast(dict[str, Any], self.request.session.setdefault(self.store_name, {}))
+        return cast(dict[str, Any], self.session.setdefault(self.store_name, {}))
 
     def __getitem__(self, key: str) -> Any:
         return self.data[key]
@@ -80,8 +81,8 @@ class SessionStore(Store):
         self.data.update(other, **kwargs)
 
     def clear(self) -> None:
-        if self.store_name in self.request.session:
-            self.request.session[self.store_name] = {}
+        if self.store_name in self.session:
+            self.session[self.store_name] = {}
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.data.get(key, default)

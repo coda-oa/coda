@@ -4,8 +4,8 @@ import random
 import faker
 
 from coda import issn, orcid
-from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.models import Author, Role
+from coda.apps.authors.dto import AuthorDto, parse_author
+from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.services import author_create
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.models import (
@@ -20,7 +20,7 @@ from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.models import License, LinkType, OpenAccessType, Publication
 from coda.apps.publishers.models import Publisher
-from coda.author import AuthorList
+from coda.author import AuthorList, Role
 
 _faker = faker.Faker()
 
@@ -67,12 +67,11 @@ def fundingrequest(title: str = "", author_dto: AuthorDto | None = None) -> Fund
     author_dto = author_dto or valid_author_dto(affiliation)
     pub_dto = publication_dto(_journal.pk, title=title)
     ext_funding_dto = external_funding_dto(funding_organization().pk)
-    return fundingrequest_create(author_dto, pub_dto, ext_funding_dto, cost_dto())
+    return fundingrequest_create(parse_author(author_dto), pub_dto, ext_funding_dto, cost_dto())
 
 
 def valid_author_dto(affiliation_pk: int | None = None) -> AuthorDto:
     random_roles = random.choices([r.name for r in Role], k=random.randint(1, len(Role)))
-    random_orcid()
     return AuthorDto(
         name=_faker.name(),
         email=_faker.email(),
@@ -82,8 +81,10 @@ def valid_author_dto(affiliation_pk: int | None = None) -> AuthorDto:
     )
 
 
-def author() -> Author:
-    return author_create(valid_author_dto())
+def author() -> AuthorModel:
+    dto = valid_author_dto()
+    author = parse_author(dto)
+    return author_create(author)
 
 
 def random_orcid() -> str:

@@ -1,20 +1,22 @@
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 from django import forms
 
-from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.models import Role
-from coda.apps.authors.services import orcid_validator
+from coda.apps.authors.dto import AuthorDto, parse_author
 from coda.apps.institutions.models import Institution
+from coda.author import Author, InstitutionId, Role
+from coda.orcid import Orcid
+from coda.validation import as_validator
 
 
 class OrcidField(forms.CharField):
+    @as_validator
     def clean(self, value: Any) -> Any:
         if not value and not self.required:
             return super().clean(value)
 
-        return orcid_validator(value)
+        return Orcid(value)
 
 
 class AuthorForm(forms.Form):
@@ -31,24 +33,22 @@ class AuthorForm(forms.Form):
     )
 
     def to_dto(self) -> AuthorDto:
-        data = self.cleaned_data
-        return AuthorDto(
-            name=data["name"],
-            email=data["email"],
-            orcid=data.get("orcid"),
-            affiliation=self.affiliation_pk(data),
-            roles=data["roles"],
-        )
+        data = dict(self.cleaned_data)
+        data["affiliation"] = self.affiliation_pk(data)
+        return cast(AuthorDto, data)
 
-    def affiliation_pk(self, data: Mapping[str, Any]) -> int | None:
+    def to_author(self) -> Author:
+        return parse_author(self.to_dto(), id=None)
+
+    def affiliation_pk(self, data: Mapping[str, Any]) -> InstitutionId | None:
         if not data.get("affiliation"):
             return None
 
         affiliation = data["affiliation"]
         match affiliation:
             case int() | str():
-                return int(affiliation)
+                return InstitutionId(int(affiliation))
             case Institution():
-                return affiliation.pk
+                return InstitutionId(affiliation.pk)
             case _:
                 return None
