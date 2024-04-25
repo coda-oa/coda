@@ -101,10 +101,10 @@ Stephen J. Wright""",
 )
 def test__author_list__from_str__creates_author_list_param(authors: str) -> None:
     sut = AuthorList.from_str(authors)
-    assert sut == ["John Doe", "Jane Doe", "Alice Doe"]
+    assert list(sut) == ["John Doe", "Jane Doe", "Alice Doe"]
 
 
 @pytest.mark.parametrize("data_pair", real_world_examples)
 def test__author_list__from_str__creates_author_list_param_real_world(data_pair: DataPair) -> None:
     sut = AuthorList.from_str(data_pair.actual)
-    assert sut == data_pair.expected
+    assert list(sut) == data_pair.expected

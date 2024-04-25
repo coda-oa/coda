@@ -17,6 +17,17 @@ class State(enum.Enum):
     REJECTED = enum.auto()
 
 
+class License(enum.Enum):
+    CC_BY = enum.auto()
+    CC_BY_SA = enum.auto()
+    CC_BY_NC = enum.auto()
+    CC_BY_NC_SA = enum.auto()
+    CC_BY_ND = enum.auto()
+    CC_BY_NC_ND = enum.auto()
+    CC0 = enum.auto()
+    Unknown = enum.auto()
+
+
 class Unpublished(NamedTuple):
     state: State = State.UNKNOWN
 
@@ -39,24 +50,11 @@ class UserLink(NamedTuple):
 Link: TypeAlias = str | UserLink | Doi
 
 
-class Publication:
-    def __init__(
-        self,
-        id: PublicationId,
-        title: str,
-        journal: JournalId,
-        authors: AuthorList | None = None,
-    ) -> None:
-        self.id = id
-        self.title = NonEmptyStr(title)
-        self.journal = journal
-        self.authors = authors or AuthorList()
-        self.publication_state: PublicationState = Unpublished()
-        self._links: set[Link] = set()
-
-    def add_link(self, link: Link) -> None:
-        self._links.add(link)
-
-    @property
-    def links(self) -> list[Link]:
-        return list(self._links)
+class Publication(NamedTuple):
+    id: PublicationId
+    title: NonEmptyStr
+    journal: JournalId
+    authors: AuthorList = AuthorList()
+    license: License = License.Unknown
+    publication_state: PublicationState = Unpublished()
+    links: set[Link] = set()

@@ -1,24 +1,46 @@
+import enum
 import re
-from typing import NewType
+from typing import NamedTuple, NewType
+from collections.abc import Iterable, Iterator
 
 from coda.orcid import Orcid
 from coda.string import NonEmptyStr
 
 AuthorId = NewType("AuthorId", int)
+InstitutionId = NewType("InstitutionId", int)
 
 
-class Author:
-    def __init__(
-        self,
-        id: AuthorId,
+class Role(enum.Enum):
+    SUBMITTER = "Submitter"
+    CO_AUTHOR = "Co-author"
+    CORRESPONDING_AUTHOR = "Corresponding author"
+
+
+class Author(NamedTuple):
+    id: AuthorId | None
+    name: NonEmptyStr
+    email: str = ""
+    orcid: Orcid | None = None
+    affiliation: InstitutionId | None = None
+    roles: frozenset[Role] = frozenset()
+
+    @classmethod
+    def new(
+        cls,
         name: NonEmptyStr,
-        email: str = "",
+        email: str,
         orcid: Orcid | None = None,
-    ) -> None:
-        self.id = id
-        self.name = name
-        self.email = email
-        self.orcid: Orcid | None = orcid
+        affiliation: InstitutionId | None = None,
+        roles: Iterable[Role] = (),
+    ) -> "Author":
+        return cls(
+            id=None,
+            name=name,
+            email=email,
+            orcid=orcid,
+            affiliation=affiliation,
+            roles=frozenset(roles),
+        )
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Author):
@@ -50,7 +72,10 @@ def _replace_broken_umlaute(author: str) -> str:
     return author.replace(" ̈u", "ü").replace(" ̈o", "ö").replace(" ̈a", "ä")
 
 
-class AuthorList(list[str]):
+class AuthorList(Iterable[str]):
+    def __init__(self, authors: Iterable[str] = ()) -> None:
+        self._authors = tuple(authors)
+
     @classmethod
     def from_str(cls, authors: str) -> "AuthorList":
         authors = _insert_missing_space(authors)
@@ -64,5 +89,11 @@ class AuthorList(list[str]):
             if author
         )
 
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._authors)
+
     def __str__(self) -> str:
-        return ", ".join(self)
+        return ", ".join(self._authors)
+
+    def __repr__(self) -> str:
+        return "AuthorList([{}])".format(", ".join(repr(x) for x in self._authors))
