@@ -64,7 +64,7 @@ def test__updating_author__saves_updated_author_to_db() -> None:
     author = factory.db_author()
 
     affiliation = factory.db_institution()
-    new_author_data = factory.valid_author_dto(affiliation.pk)
+    new_author_data = factory.author_dto(affiliation.pk)
     new_author = parse_author(new_author_data, id=AuthorId(author.pk))
 
     author_update(new_author)
@@ -77,7 +77,7 @@ def test__updating_author__saves_updated_author_to_db() -> None:
 def test__updating_author__without_id__raises_error() -> None:
     _ = factory.db_author()
 
-    new_author_data = factory.valid_author_dto()
+    new_author_data = factory.author_dto()
     new_author = parse_author(new_author_data, id=None)
 
     with pytest.raises(ValidationError):

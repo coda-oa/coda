@@ -45,7 +45,7 @@ def test__searching_funding_request_by_submitter__shows_only_matching_funding_re
     matching_request = factory.fundingrequest()
     submitter = cast(Author, matching_request.submitter)
 
-    non_matching_submitter = factory.valid_author_dto()
+    non_matching_submitter = factory.author_dto()
     non_matching_submitter["name"] = "Not the submitter"
     _ = factory.fundingrequest("No match", non_matching_submitter)
 

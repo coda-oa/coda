@@ -13,7 +13,7 @@ from tests.assertions import (
 
 @pytest.mark.django_db
 def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data() -> None:
-    author_dto = factory.valid_author_dto(factory.db_institution().pk)
+    author_dto = factory.author_dto(factory.db_institution().pk)
     author = parse_author(author_dto)
 
     journal = factory.db_journal().pk
@@ -29,7 +29,7 @@ def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data() 
 
 @pytest.mark.django_db
 def test__create_fundingrequest__without_external_funding__creates_fundingrequest() -> None:
-    author_dto = factory.valid_author_dto(factory.db_institution().pk)
+    author_dto = factory.author_dto(factory.db_institution().pk)
     author = parse_author(author_dto)
     journal = factory.db_journal().pk
     publication = factory.publication_dto(journal)

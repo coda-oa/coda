@@ -35,7 +35,7 @@ def login(client: Client) -> None:
 def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
-    author_dto = factory.valid_author_dto(factory.db_institution().pk)
+    author_dto = factory.author_dto(factory.db_institution().pk)
     journal_pk = factory.db_journal().pk
     journal_post_data = {"journal": journal_pk}
 
@@ -62,7 +62,7 @@ def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_d
     request = factory.fundingrequest()
     affiliation = Institution.objects.create(name="New Institution")
 
-    new_author = factory.valid_author_dto(affiliation.pk)
+    new_author = factory.author_dto(affiliation.pk)
 
     response = client.post(
         reverse("fundingrequests:update_submitter", kwargs={"pk": request.pk}),

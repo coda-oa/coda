@@ -45,7 +45,7 @@ def db_journal() -> Journal:
 
 
 def db_author() -> AuthorModel:
-    dto = valid_author_dto()
+    dto = author_dto()
     author = parse_author(dto)
     return author_create(author)
 
@@ -71,16 +71,16 @@ def external_funding(funder_id: int | None = None) -> ExternalFunding:
     )
 
 
-def fundingrequest(title: str = "", author_dto: AuthorDto | None = None) -> FundingRequest:
+def fundingrequest(title: str = "", _author_dto: AuthorDto | None = None) -> FundingRequest:
     _journal = db_journal()
     affiliation = db_institution().pk
-    author_dto = author_dto or valid_author_dto(affiliation)
+    _author_dto = _author_dto or author_dto(affiliation)
     pub_dto = publication_dto(_journal.pk, title=title)
     ext_funding_dto = external_funding_dto(db_funding_organization().pk)
-    return fundingrequest_create(parse_author(author_dto), pub_dto, ext_funding_dto, cost_dto())
+    return fundingrequest_create(parse_author(_author_dto), pub_dto, ext_funding_dto, cost_dto())
 
 
-def valid_author_dto(affiliation_pk: int | None = None) -> AuthorDto:
+def author_dto(affiliation_pk: int | None = None) -> AuthorDto:
     random_roles = random.choices([r.name for r in Role], k=random.randint(1, len(Role)))
     return AuthorDto(
         name=_faker.name(),
