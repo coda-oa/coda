@@ -1,49 +1,14 @@
-import enum
 from django.db import models
 from coda.apps.authors.models import Author
 
 from coda.apps.journals.models import Journal
 from coda.author import AuthorList
-
-
-class OpenAccessType(enum.Enum):
-    GOLD = "Gold"
-    DIAMOND = "Diamond"
-    HYBRID = "Hybrid"
-    CLOSED = "Closed"
-
-
-class License(enum.Enum):
-    CC_BY = "CC-BY"
-    CC_BY_SA = "CC-BY-SA"
-    CC_BY_NC = "CC-BY-NC"
-    CC_BY_NC_SA = "CC-BY-NC-SA"
-    CC_BY_NC_ND = "CC-BY-NC-ND"
-    CC_BY_ND = "CC-BY-ND"
-    CC0 = "CC0"
-    PROPRIETARY = "Proprietary"
-    NONE = "None"
-    UNKNOWN = "Unknown"
+from coda.publication import License, OpenAccessType, UnpublishedState
 
 
 class Publication(models.Model):
-    class State:
-        PUBLISHED = "published"
-        ACCEPTED = "accepted"
-        SUBMITTED = "submitted"
-        REJECTED = "rejected"
-        UNKNOWN = "unknown"
-
-    STATES = (
-        (State.PUBLISHED, "Published"),
-        (State.ACCEPTED, "Accepted"),
-        (State.SUBMITTED, "Submitted"),
-        (State.REJECTED, "Rejected"),
-        (State.UNKNOWN, "Unknown"),
-    )
-
+    STATES = (("Published", "Published"), *((s.name, s.value) for s in UnpublishedState))
     OA_TYPES = tuple((t.name, t.value) for t in OpenAccessType)
-
     LICENSE_CHOICES = tuple((_l.name, _l.value) for _l in License)
 
     title = models.CharField(max_length=255)
@@ -52,10 +17,12 @@ class Publication(models.Model):
         Author, on_delete=models.CASCADE, related_name="submitted_publication", null=True
     )
 
-    open_access_type = models.CharField(choices=OA_TYPES, default=OpenAccessType.CLOSED.name)
-    license = models.CharField(choices=LICENSE_CHOICES, default=License.UNKNOWN.name)
+    open_access_type = models.CharField(choices=OA_TYPES, default=OpenAccessType.Closed.name)
+    license = models.CharField(choices=LICENSE_CHOICES, default=License.Unknown.name)
 
-    publication_state = models.CharField(max_length=255, choices=STATES, default=State.UNKNOWN)
+    publication_state = models.CharField(
+        max_length=255, choices=STATES, default=UnpublishedState.Unknown.name
+    )
     publication_date = models.DateField(null=True)
     author_list = models.CharField(max_length=255, null=True, blank=True)
 

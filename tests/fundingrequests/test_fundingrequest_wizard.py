@@ -1,4 +1,3 @@
-import datetime
 from typing import Any, cast
 
 import pytest
@@ -162,7 +161,9 @@ def create_publication_post_data(publication: PublicationDto) -> dict[str, Any]:
         link_form_data["link_type"].append(str(link["link_type"]))
         link_form_data["link_value"].append(str(link["link_value"]))
 
-    pub_date = cast(datetime.date, publication["publication_date"]).isoformat()
+    pub_date = (
+        publication["publication_date"].isoformat() if publication["publication_date"] else ""
+    )
     publication_form_data = PublicationFormData(
         title=publication["title"],
         license=publication["license"],

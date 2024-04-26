@@ -41,7 +41,9 @@ def assert_cost_equal(funding: CostDto, funding_request: FundingRequest) -> None
 def assert_publication_equal(
     publication_dto: PublicationDto, author_dto: AuthorDto, publication: Publication
 ) -> None:
-    assert publication.title == publication_dto["title"]
+    assert (
+        publication.title == publication_dto["title"]
+    ), f"{publication.title} != {publication_dto['title']}"
     assert list(publication.authors) == list(publication_dto["authors"]), author_error_msg(
         publication_dto, publication
     )
@@ -54,7 +56,7 @@ def assert_publication_equal(
     assert publication.publication_state == publication_dto["publication_state"]
     assert len(publication.links.all()) == len(publication_dto["links"])
     assert all(
-        publication.links.filter(type=link["link_type"], value=link["link_value"]).exists()
+        publication.links.filter(type__name=link["link_type"], value=link["link_value"]).exists()
         for link in publication_dto["links"]
     )
     assert_author_equal(author_dto, publication.submitting_author)

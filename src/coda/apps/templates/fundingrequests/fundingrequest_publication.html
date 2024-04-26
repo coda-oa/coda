@@ -31,7 +31,7 @@ NOTE: do not change the formatting of the authors textarea, as it will lead to u
                 <tr>
                     <td>
                         <select name="link_type">
-                            {% for t in link_types %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}
+                            {% for t in link_types %}<option value="{{ t.name }}">{{ t.name }}</option>{% endfor %}
                         </select>
                     </td>
                     <td>
@@ -44,7 +44,8 @@ NOTE: do not change the formatting of the authors textarea, as it will lead to u
                     <td>
                         <select name="link_type">
                             {% for t in link_types %}
-                                <option value="{{ t.pk }}" {% if link.link_type == t.pk %}selected{% endif %}>{{ t.name }}</option>
+                                <option value="{{ t.name }}"
+                                        {% if link.link_type == t.name %}selected{% endif %}>{{ t.name }}</option>
                             {% endfor %}
                         </select>
                     </td>

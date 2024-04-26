@@ -4,7 +4,8 @@ from typing import TypedDict, cast
 from django import forms
 
 from coda.apps.publications.dto import LinkDto
-from coda.apps.publications.models import License, LinkType, OpenAccessType, Publication
+from coda.apps.publications.models import LinkType, Publication
+from coda.publication import License, OpenAccessType, UnpublishedState
 
 
 class PublicationFormData(TypedDict):
@@ -20,13 +21,15 @@ class PublicationForm(forms.Form):
 
     title = forms.CharField(required=True)
     license = forms.ChoiceField(
-        choices=Publication.LICENSE_CHOICES, required=True, initial=License.UNKNOWN.name
+        choices=((lic.name, lic.value) for lic in License),
+        required=True,
+        initial=License.Unknown.name,
     )
     open_access_type = forms.ChoiceField(
-        choices=Publication.OA_TYPES, required=True, initial=OpenAccessType.CLOSED.name
+        choices=Publication.OA_TYPES, required=True, initial=OpenAccessType.Closed.name
     )
     publication_state = forms.ChoiceField(
-        choices=Publication.STATES, required=True, initial=Publication.State.UNKNOWN
+        choices=Publication.STATES, required=True, initial=UnpublishedState.Unknown.name
     )
     publication_date = forms.DateField(
         widget=forms.DateInput(attrs={"type": "date"}), required=False
@@ -50,11 +53,11 @@ class PublicationForm(forms.Form):
 
 class LinkForm(forms.Form):
     use_required_attribute = False
-    link_type = forms.ModelChoiceField(queryset=LinkType.objects.all())
+    link_type = forms.ChoiceField(choices=lambda: LinkType.objects.values_list("name", "name"))
     link_value = forms.CharField()
 
     def get_form_data(self) -> LinkDto:
         return LinkDto(
-            link_type=self.cleaned_data["link_type"].pk,
+            link_type=self.cleaned_data["link_type"],
             link_value=self.cleaned_data["link_value"],
         )

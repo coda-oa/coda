@@ -86,7 +86,7 @@ class PublicationStep(Step):
         return {
             "publication_form": self.get_publication_form(request, store),
             "authors": self.get_authors(request, store),
-            "link_types": LinkType.objects.all(),
+            "link_types": LinkType.objects.values("name"),
             "links": self.get_links_context(request, store),
         }
 
@@ -122,7 +122,7 @@ class PublicationStep(Step):
 
     def assemble_link_dtos(self, request: HttpRequest) -> list[LinkDto]:
         return [
-            LinkDto(link_type=int(link_type), link_value=link_value)
+            LinkDto(link_type=link_type, link_value=link_value)
             for link_type, link_value in zip(
                 request.POST.getlist("link_type"), request.POST.getlist("link_value")
             )
@@ -131,7 +131,9 @@ class PublicationStep(Step):
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         publication_form = PublicationForm(request.POST)
         link_formset = self.link_formset(request)
-        return publication_form.is_valid() and link_formset.is_valid()
+        valid = publication_form.is_valid() and link_formset.is_valid()
+        print(publication_form.errors, link_formset.errors)
+        return valid
 
     def done(self, request: HttpRequest, store: Store) -> None:
         publication_form = PublicationForm(request.POST)

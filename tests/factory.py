@@ -1,5 +1,6 @@
 import datetime
 import random
+from typing import Any, cast
 
 import faker
 
@@ -18,9 +19,10 @@ from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
 from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
-from coda.apps.publications.models import License, LinkType, OpenAccessType, Publication
+from coda.apps.publications.models import LinkType, Publication
 from coda.apps.publishers.models import Publisher
 from coda.author import AuthorList, Role
+from coda.publication import License, OpenAccessType, Published, UnpublishedState
 
 _faker = faker.Faker()
 
@@ -107,27 +109,35 @@ def random_orcid() -> str:
 def publication_dto(
     journal: int, /, title: str = "", links: list[LinkDto] | None = None
 ) -> PublicationDto:
-    random_state = random.choice(
-        [
-            Publication.State.SUBMITTED,
-            Publication.State.PUBLISHED,
-            Publication.State.REJECTED,
-            Publication.State.ACCEPTED,
-        ]
-    )
-
+    random_state = random.choice([_unpublished_data(), _published_data()])
     authors = random_author_names()
     license = _random_license()
-    return PublicationDto(
-        title=title or _faker.sentence(),
-        authors=authors,
-        license=license,
-        open_access_type=_random_open_access_type(),
-        publication_state=random_state,
-        publication_date=datetime.date.fromisoformat(_faker.date()),
-        journal=journal,
-        links=links or link_dtos(),
+    return cast(
+        PublicationDto,
+        {
+            "title": title or _faker.sentence(),
+            "authors": authors,
+            "license": license,
+            "open_access_type": _random_open_access_type(),
+            "journal": journal,
+            "links": links or link_dtos(),
+            **random_state,
+        },
     )
+
+
+def _unpublished_data() -> dict[str, Any]:
+    return {
+        "publication_state": random.choice([s.name for s in UnpublishedState]),
+        "publication_date": None,
+    }
+
+
+def _published_data() -> dict[str, Any]:
+    return {
+        "publication_state": Published.name(),
+        "publication_date": datetime.date.fromisoformat(_faker.date()),
+    }
 
 
 def random_author_names() -> AuthorList:
@@ -140,9 +150,9 @@ def _random_license() -> str:
             License.CC_BY_NC_ND,
             License.CC_BY_ND,
             License.CC0,
-            License.PROPRIETARY,
-            License.NONE,
-            License.UNKNOWN,
+            License.Proprietary,
+            License.None_,
+            License.Unknown,
         ]
     ).name
 
@@ -150,10 +160,10 @@ def _random_license() -> str:
 def _random_open_access_type() -> str:
     return random.choice(
         [
-            OpenAccessType.GOLD,
-            OpenAccessType.HYBRID,
-            OpenAccessType.DIAMOND,
-            OpenAccessType.CLOSED,
+            OpenAccessType.Gold,
+            OpenAccessType.Hybrid,
+            OpenAccessType.Diamond,
+            OpenAccessType.Closed,
         ]
     ).name
 
@@ -180,6 +190,6 @@ def link_dtos() -> list[LinkDto]:
     url, _ = LinkType.objects.get_or_create(name="URL")
 
     random_doi_suffix = random.randint(1000, 9999)
-    doi_link = LinkDto(link_type=int(doi.pk), link_value=f"10.1234/{random_doi_suffix}")
-    url_link = LinkDto(link_type=int(url.pk), link_value=_faker.url())
+    doi_link = LinkDto(link_type=doi.name, link_value=f"10.1234/{random_doi_suffix}")
+    url_link = LinkDto(link_type=url.name, link_value=_faker.url())
     return [doi_link, url_link]

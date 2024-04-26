@@ -1,5 +1,6 @@
 from django.http import HttpRequest
 from django.test import RequestFactory
+import pytest
 
 from coda.apps.fundingrequests.wizardsteps import PublicationStep
 from tests.test_wizard import DictStore
@@ -17,9 +18,9 @@ empty_publication_data = {
 
 valid_publication_data = {
     "title": "Test Title",
-    "open_access_type": "GOLD",
+    "open_access_type": "Gold",
     "license": "CC_BY",
-    "publication_state": "published",
+    "publication_state": "Submitted",
     "publication_date": "2021-01-01",
 }
 
@@ -42,6 +43,7 @@ def parse_authors_request(
     )
 
 
+@pytest.mark.django_db
 def test__publication_step__action__parse_authors__adds_author_list_to_context() -> None:
     sut = PublicationStep()
 
@@ -50,6 +52,7 @@ def test__publication_step__action__parse_authors__adds_author_list_to_context()
     assert_expected_authors(ctx)
 
 
+@pytest.mark.django_db
 def test__publication_step__action__parse_authors__does_not_progress() -> None:
     sut = PublicationStep()
     store = DictStore()
@@ -61,6 +64,7 @@ def test__publication_step__action__parse_authors__does_not_progress() -> None:
     assert ctx["publication_form"].errors == {}
 
 
+@pytest.mark.django_db
 def test__publication_step__action__parse_authors__retains_posted_data_but_does_not_show_errors() -> (
     None
 ):
@@ -76,6 +80,7 @@ def test__publication_step__action__parse_authors__retains_posted_data_but_does_
     assert form.errors == {}
 
 
+@pytest.mark.django_db
 def test__publication_step__done__saves_authors_to_store() -> None:
     sut = PublicationStep()
     store = DictStore()
@@ -86,6 +91,7 @@ def test__publication_step__done__saves_authors_to_store() -> None:
     assert list(store["authors"]) == expected_authors
 
 
+@pytest.mark.django_db
 def test__publication_step__authors_in_store__get_context_data__contains_authors() -> None:
     sut = PublicationStep()
     store = DictStore()
@@ -96,6 +102,7 @@ def test__publication_step__authors_in_store__get_context_data__contains_authors
     assert list(ctx["authors"]) == expected_authors
 
 
+@pytest.mark.django_db
 def test__publication_step__authors_in_post_and_store__get_context_data__prefers_post_data() -> (
     None
 ):

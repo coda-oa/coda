@@ -10,32 +10,11 @@ FundingRequestId = NewType("FundingRequestId", int)
 FundingOrganizationId = NewType("FundingOrganizationId", int)
 
 
-class OpenAccessType(enum.Enum):
-    Gold = enum.auto()
-    Diamond = enum.auto()
-    Hybrid = enum.auto()
-    Unknown = enum.auto()
-    Closed = enum.auto()
-
-
-class ProcessingStatus(enum.Enum):
+class Review(enum.Enum):
     Open = enum.auto()
     Approved = enum.auto()
     Rejected = enum.auto()
     Withdrawn = enum.auto()
-
-
-class Review(NamedTuple):
-    open_access_type: OpenAccessType = OpenAccessType.Unknown
-    status: ProcessingStatus = ProcessingStatus.Open
-
-    @classmethod
-    def approve(cls, open_access_type: OpenAccessType = OpenAccessType.Unknown) -> "Review":
-        return cls(open_access_type=open_access_type, status=ProcessingStatus.Approved)
-
-    @classmethod
-    def reject(cls, open_access_type: OpenAccessType = OpenAccessType.Unknown) -> "Review":
-        return cls(open_access_type=open_access_type, status=ProcessingStatus.Rejected)
 
 
 class ExternalFunding(NamedTuple):
@@ -62,19 +41,19 @@ class FundingRequest:
         self._submitter = submitter
         self.estimated_cost = estimated_cost
         self.external_funding = external_funding
-        self._review: Review = Review()
+        self._review = Review.Open
 
     def add_review(self, review: Review) -> None:
-        if self._review.status != ProcessingStatus.Open:
+        if self._review != Review.Open:
             raise FundingRequestLocked("Cannot change review of a closed request")
 
         self._review = review
 
     def open(self) -> None:
-        self._review = Review(self._review.open_access_type, ProcessingStatus.Open)
+        self._review = Review.Open
 
     def is_open(self) -> bool:
-        return self._review.status == ProcessingStatus.Open
+        return self._review == Review.Open
 
     @property
     def submitter(self) -> Author:
