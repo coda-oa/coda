@@ -11,9 +11,10 @@ from coda.apps.fundingrequests.models import FundingOrganization, PaymentMethod,
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto, PublicationDto
-from coda.apps.publications.models import License, LinkType, OpenAccessType, Publication
+from coda.apps.publications.models import LinkType
 from coda.apps.publishers.models import Publisher
 from coda.author import Author, AuthorList, Role
+from coda.publication import License, OpenAccessType, UnpublishedState
 from coda.string import NonEmptyStr
 
 faker = Faker()
@@ -49,10 +50,10 @@ class Command(BaseCommand):
                 authors=AuthorList(),
                 journal=journal.pk,
                 license=License.CC0.name,
-                open_access_type=OpenAccessType.GOLD.name,
-                publication_state=Publication.State.PUBLISHED,
+                open_access_type=OpenAccessType.Gold.name,
+                publication_state=UnpublishedState.Submitted.name,
                 publication_date=date.fromisoformat(faker.date()),
-                links=[LinkDto(link_type=doi.pk, link_value="10.1234/5678")],
+                links=[LinkDto(link_type=doi.name, link_value="10.1234/5678")],
             ),
             ExternalFundingDto(
                 organization=self.funding_organization().pk,
