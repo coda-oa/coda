@@ -24,11 +24,17 @@ from coda.apps.fundingrequests.wizardsteps import (
     PublicationStep,
     SubmitterStep,
 )
-from coda.apps.publications.dto import LinkDto, PublicationDto, publication_dto_from_model
+from coda.apps.publications.dto import (
+    LinkDto,
+    PublicationDto,
+    parse_publication,
+    publication_dto_from_model,
+)
 from coda.apps.publications.forms import PublicationFormData
 from coda.apps.publications.services import publication_update
 from coda.apps.wizard import SessionStore, Store, Wizard
 from coda.author import AuthorId, AuthorList
+from coda.publication import PublicationId
 
 
 class FundingRequestDetailView(LoginRequiredMixin, DetailView[FundingRequest]):
@@ -83,11 +89,11 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
     def complete(self, **kwargs: Any) -> None:
         store = self.get_store()
         author = parse_author(store["submitter"])
-        publication_dto = publication_dto_from_store(store)
+        publication = parse_publication(publication_dto_from_store(store))
         cost = store["cost"]
         funding = store["funding"]
 
-        funding_request = services.fundingrequest_create(author, publication_dto, funding, cost)
+        funding_request = services.fundingrequest_create(author, publication, funding, cost)
         store["funding_request"] = funding_request.pk
 
 
@@ -127,7 +133,10 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         store = self.get_store()
         publication_dto = publication_dto_from_store(store)
         funding_request = get_object_or_404(FundingRequest, pk=pk)
-        publication_update(funding_request.publication, publication_dto)
+        publication = parse_publication(
+            publication_dto, id=PublicationId(funding_request.publication.pk)
+        )
+        publication_update(publication)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()

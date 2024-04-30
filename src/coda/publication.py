@@ -1,7 +1,7 @@
 import datetime
 import enum
-from dataclasses import dataclass
-from typing import NamedTuple, NewType, TypeAlias
+from dataclasses import dataclass, field
+from typing import NamedTuple, NewType, Self, TypeAlias
 
 from coda.author import AuthorList
 from coda.doi import Doi
@@ -70,10 +70,11 @@ class UserLink(NamedTuple):
         return self.value
 
 
-Link: TypeAlias = str | UserLink | Doi
+Link: TypeAlias = UserLink | Doi
 
 
-class Publication(NamedTuple):
+@dataclass(frozen=True)
+class Publication:
     id: PublicationId | None
     title: NonEmptyStr
     journal: JournalId
@@ -81,4 +82,26 @@ class Publication(NamedTuple):
     license: License = License.Unknown
     open_access_type: OpenAccessType = OpenAccessType.Unknown
     publication_state: PublicationState = Unpublished()
-    links: set[Link] = set()
+    links: set[Link] = field(default_factory=set)
+
+    @classmethod
+    def new(
+        cls,
+        title: NonEmptyStr,
+        journal: JournalId,
+        authors: AuthorList = AuthorList(),
+        license: License = License.Unknown,
+        open_access_type: OpenAccessType = OpenAccessType.Unknown,
+        publication_state: PublicationState = Unpublished(),
+        links: set[Link] = set(),
+    ) -> Self:
+        return cls(
+            id=None,
+            title=title,
+            journal=journal,
+            authors=authors,
+            license=license,
+            open_access_type=open_access_type,
+            publication_state=publication_state,
+            links=links,
+        )

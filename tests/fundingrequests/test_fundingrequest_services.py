@@ -3,6 +3,7 @@ import pytest
 from coda.apps.authors.dto import parse_author
 from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.models import ExternalFunding
+from coda.apps.publications.dto import parse_publication
 from tests import factory
 from tests.assertions import (
     assert_correct_funding_request,
@@ -17,14 +18,16 @@ def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data() 
     author = parse_author(author_dto)
 
     journal = factory.db_journal().pk
-    publication = factory.publication_dto(journal)
     organization = factory.db_funding_organization()
-    external_funding = factory.external_funding_dto(organization.pk)
-    cost = factory.cost_dto()
 
-    services.fundingrequest_create(author, publication, external_funding, cost)
+    publication_dto = factory.publication_dto(journal)
+    publication = parse_publication(publication_dto)
+    external_funding_dto = factory.external_funding_dto(organization.pk)
+    cost_dto = factory.cost_dto()
 
-    assert_correct_funding_request(author_dto, publication, external_funding, cost)
+    services.fundingrequest_create(author, publication, external_funding_dto, cost_dto)
+
+    assert_correct_funding_request(author_dto, publication_dto, external_funding_dto, cost_dto)
 
 
 @pytest.mark.django_db
@@ -32,10 +35,11 @@ def test__create_fundingrequest__without_external_funding__creates_fundingreques
     author_dto = factory.author_dto(factory.db_institution().pk)
     author = parse_author(author_dto)
     journal = factory.db_journal().pk
-    publication = factory.publication_dto(journal)
-    cost = factory.cost_dto()
+    publication_dto = factory.publication_dto(journal)
+    publication = parse_publication(publication_dto)
+    cost_dto = factory.cost_dto()
 
-    request = services.fundingrequest_create(author, publication, None, cost)
+    request = services.fundingrequest_create(author, publication, None, cost_dto)
 
     assert request.external_funding is None
 

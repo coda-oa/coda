@@ -8,6 +8,7 @@ from coda.publication import (
     License,
     OpenAccessType,
     Publication,
+    PublicationId,
     PublicationState,
     Published,
     UnpublishedState,
@@ -33,7 +34,7 @@ class PublicationDto(TypedDict):
     authors: AuthorList
 
 
-def parse_publication(publication: PublicationDto) -> Publication:
+def parse_publication(publication: PublicationDto, id: PublicationId | None = None) -> Publication:
     state = publication["publication_state"]
     publication_state: PublicationState
     if state == Published.name():
@@ -43,7 +44,7 @@ def parse_publication(publication: PublicationDto) -> Publication:
         publication_state = Unpublished(state=UnpublishedState[state])
 
     return Publication(
-        id=None,
+        id=id,
         title=NonEmptyStr(publication["title"]),
         authors=publication["authors"],
         license=License[publication["license"]],

@@ -4,26 +4,27 @@ from coda.apps.authors.services import author_create
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.models import ExternalFunding, FundingRequest, Label
-from coda.apps.journals import services as journal_services
 from coda.apps.publications import services as publication_services
-from coda.apps.publications.dto import PublicationDto
 from coda.author import Author
 from coda.color import Color
+from coda.publication import Publication
 
 
 @transaction.atomic
 def fundingrequest_create(
     author: Author,
-    publication: PublicationDto,
+    publication: Publication,
     external_funding: ExternalFundingDto | None,
     cost: CostDto,
 ) -> FundingRequest:
-    _author = author_create(author)
-    _journal = journal_services.get_by_pk(publication["journal"])
-    _publication = publication_services.publication_create(publication, _author, _journal)
+    author_id = author_create(author)
+    publication_id = publication_services.publication_create(publication, author_id)
     _external_funding = external_funding_or_none(external_funding)
     return FundingRequest.objects.create(
-        submitter=_author, publication=_publication, external_funding=_external_funding, **cost
+        submitter_id=author_id,
+        publication_id=publication_id,
+        external_funding=_external_funding,
+        **cost,
     )
 
 

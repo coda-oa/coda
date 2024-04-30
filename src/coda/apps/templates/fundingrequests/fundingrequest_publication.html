@@ -12,7 +12,7 @@ NOTE: do not change the formatting of the authors textarea, as it will lead to u
     {% endcomment %}
     {% spaceless %}
         <textarea name="authors" rows="5">
-{% for author in authors %}{{ author }}
+{% for author in publication.authors %}{{ author }}
 {% endfor %}
     </textarea>
     {% endspaceless %}

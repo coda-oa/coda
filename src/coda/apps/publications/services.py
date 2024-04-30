@@ -1,56 +1,69 @@
-from coda.apps.authors.models import Author
-from coda.apps.journals import services as journal_services
-from coda.apps.journals.models import Journal
-from coda.apps.publications.dto import LinkDto, PublicationDto, parse_publication
-from coda.apps.publications.models import Link, LinkType, Publication
-from coda.publication import Published
+from dataclasses import replace
+from typing import cast
+
+from coda.apps.publications.models import Link, LinkType
+from coda.apps.publications.models import Publication as PublicationModel
+from coda.author import AuthorId
+from coda.doi import Doi
+from coda.publication import Publication, PublicationId, Published
 
 
-def publication_create(
-    publication: PublicationDto, author: Author, journal: Journal
-) -> Publication:
-    p = parse_publication(publication)
+def publication_create(publication: Publication, author_id: AuthorId) -> PublicationId:
     publication_date = None
-    if isinstance(p.publication_state, Published):
-        publication_date = p.publication_state.date
+    if isinstance(publication.publication_state, Published):
+        publication_date = publication.publication_state.date
 
-    journal = Journal.objects.get(pk=p.journal)
-    _publication = Publication.objects.create(
-        title=p.title,
-        license=p.license.name,
-        open_access_type=p.open_access_type.name,
-        publication_state=p.publication_state.name(),
+    pub_model = PublicationModel.objects.create(
+        title=publication.title,
+        license=publication.license.name,
+        open_access_type=publication.open_access_type.name,
+        publication_state=publication.publication_state.name(),
         publication_date=publication_date,
-        submitting_author=author,
-        author_list=str(p.authors),
-        journal=journal,
+        submitting_author_id=author_id,
+        author_list=str(publication.authors),
+        journal_id=publication.journal,
+    )
+    publication = replace(publication, id=PublicationId(pub_model.id))
+    _attach_links(publication)
+    return cast(PublicationId, publication.id)
+
+
+def publication_update(publication: Publication) -> None:
+    if not publication.id:
+        raise ValueError("Publication ID is required for updating")
+
+    if isinstance(publication.publication_state, Published):
+        publication_state = publication.publication_state.name()
+        publication_date = publication.publication_state.date
+    else:
+        publication_state = publication.publication_state.state.name
+        publication_date = None
+
+    PublicationModel.objects.filter(pk=publication.id).update(
+        title=publication.title,
+        license=publication.license.name,
+        open_access_type=publication.open_access_type.name,
+        author_list=str(publication.authors),
+        publication_state=publication_state,
+        publication_date=publication_date,
+        journal_id=publication.journal,
     )
 
-    _attach_links(_publication, publication["links"])
-    return _publication
+    Link.objects.filter(publication_id=publication.id).all().delete()
+    _attach_links(publication)
 
 
-def publication_update(publication: Publication, publication_dto: PublicationDto) -> None:
-    publication.title = publication_dto["title"]
-    publication.author_list = str(publication_dto["authors"])
-    publication.license = publication_dto["license"]
-    publication.open_access_type = publication_dto["open_access_type"]
-    publication.journal = journal_services.get_by_pk(publication_dto["journal"])
-    publication.publication_state = publication_dto["publication_state"]
-    publication.publication_date = publication_dto["publication_date"]
-    _attach_links(publication, publication_dto["links"])
-    publication.save()
+def _attach_links(publication: Publication) -> None:
+    for link in publication.links:
+        if isinstance(link, Doi):
+            link_type = "DOI"
+            link_value = str(link)
+        else:
+            link_type = link.type
+            link_value = link.value
 
-
-def _attach_links(publication: Publication, links: list[LinkDto]) -> None:
-    publication.links.all().delete()
-    Link.objects.bulk_create(
-        [
-            Link(
-                value=link["link_value"],
-                type=LinkType.objects.get(name=link["link_type"]),
-                publication=publication,
-            )
-            for link in links
-        ]
-    )
+        Link.objects.create(
+            value=link_value,
+            type=LinkType.objects.get(name=link_type),
+            publication_id=cast(int, publication.id),
+        )

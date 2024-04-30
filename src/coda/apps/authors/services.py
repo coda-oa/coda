@@ -6,16 +6,17 @@ from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.models import PersonId, serialize_roles
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
-from coda.author import Author
+from coda.author import Author, AuthorId
 
 
-def author_create(author: Author) -> AuthorModel:
+def author_create(author: Author) -> AuthorId:
     affiliation = _find_affiliation(author.affiliation)
     _id, _ = PersonId.objects.get_or_create(orcid=author.orcid)
     roles = serialize_roles(author.roles)
-    return AuthorModel.objects.create(
+    _author = AuthorModel.objects.create(
         name=author.name, email=author.email, identifier=_id, affiliation=affiliation, roles=roles
     )
+    return AuthorId(_author.id)
 
 
 def author_update(author: Author) -> Author:

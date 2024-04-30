@@ -18,7 +18,7 @@ from coda.apps.fundingrequests.models import (
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
 from coda.apps.journals.models import Journal
-from coda.apps.publications.dto import LinkDto, PublicationDto
+from coda.apps.publications.dto import LinkDto, PublicationDto, parse_publication
 from coda.apps.publications.models import LinkType, Publication
 from coda.apps.publishers.models import Publisher
 from coda.author import AuthorList, Role
@@ -49,7 +49,8 @@ def db_journal() -> Journal:
 def db_author() -> AuthorModel:
     dto = author_dto()
     author = parse_author(dto)
-    return author_create(author)
+    id = author_create(author)
+    return AuthorModel.objects.get(pk=id)
 
 
 def db_publication() -> Publication:
@@ -79,7 +80,9 @@ def fundingrequest(title: str = "", _author_dto: AuthorDto | None = None) -> Fun
     _author_dto = _author_dto or author_dto(affiliation)
     pub_dto = publication_dto(_journal.pk, title=title)
     ext_funding_dto = external_funding_dto(db_funding_organization().pk)
-    return fundingrequest_create(parse_author(_author_dto), pub_dto, ext_funding_dto, cost_dto())
+    return fundingrequest_create(
+        parse_author(_author_dto), parse_publication(pub_dto), ext_funding_dto, cost_dto()
+    )
 
 
 def author_dto(affiliation_pk: int | None = None) -> AuthorDto:

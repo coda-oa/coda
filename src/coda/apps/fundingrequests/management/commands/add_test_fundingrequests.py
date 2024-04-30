@@ -10,11 +10,17 @@ from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.models import FundingOrganization, PaymentMethod, ProcessingStatus
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.journals.models import Journal
-from coda.apps.publications.dto import LinkDto, PublicationDto
 from coda.apps.publications.models import LinkType
 from coda.apps.publishers.models import Publisher
 from coda.author import Author, AuthorList, Role
-from coda.publication import License, OpenAccessType, UnpublishedState
+from coda.doi import Doi
+from coda.publication import (
+    JournalId,
+    License,
+    OpenAccessType,
+    Publication,
+    Published,
+)
 from coda.string import NonEmptyStr
 
 faker = Faker()
@@ -35,7 +41,7 @@ class Command(BaseCommand):
     ) -> None:
         publisher = self.publisher()
         journal = self.journal(publisher)
-        doi = LinkType.objects.get(name="DOI")
+        _ = LinkType.objects.get_or_create(name="DOI")
 
         request = fundingrequest_create(
             Author.new(
@@ -45,15 +51,14 @@ class Command(BaseCommand):
                 affiliation=None,
                 roles=[Role.SUBMITTER],
             ),
-            PublicationDto(
-                title=faker.sentence(),
+            Publication.new(
+                title=NonEmptyStr(faker.sentence()),
                 authors=AuthorList(),
-                journal=journal.pk,
-                license=License.CC0.name,
-                open_access_type=OpenAccessType.Gold.name,
-                publication_state=UnpublishedState.Submitted.name,
-                publication_date=date.fromisoformat(faker.date()),
-                links=[LinkDto(link_type=doi.name, link_value="10.1234/5678")],
+                journal=JournalId(journal.pk),
+                license=License.CC0,
+                open_access_type=OpenAccessType.Gold,
+                publication_state=Published(date.fromisoformat(faker.date())),
+                links={Doi("10.1234/5678")},
             ),
             ExternalFundingDto(
                 organization=self.funding_organization().pk,
