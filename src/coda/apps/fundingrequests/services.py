@@ -7,6 +7,7 @@ from coda.apps.fundingrequests.models import ExternalFunding, FundingRequest, La
 from coda.apps.publications import services as publication_services
 from coda.author import Author
 from coda.color import Color
+from coda.fundingrequest import FundingRequestId
 from coda.publication import Publication
 
 
@@ -16,16 +17,18 @@ def fundingrequest_create(
     publication: Publication,
     external_funding: ExternalFundingDto | None,
     cost: CostDto,
-) -> FundingRequest:
+) -> FundingRequestId:
     author_id = author_create(author)
     publication_id = publication_services.publication_create(publication, author_id)
     _external_funding = external_funding_or_none(external_funding)
-    return FundingRequest.objects.create(
+    request = FundingRequest.objects.create(
         submitter_id=author_id,
         publication_id=publication_id,
         external_funding=_external_funding,
         **cost,
     )
+
+    return FundingRequestId(request.pk)
 
 
 def external_funding_or_none(external_funding: ExternalFundingDto | None) -> ExternalFunding | None:

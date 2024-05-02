@@ -93,8 +93,8 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
         cost = store["cost"]
         funding = store["funding"]
 
-        funding_request = services.fundingrequest_create(author, publication, funding, cost)
-        store["funding_request"] = funding_request.pk
+        funding_request_id = services.fundingrequest_create(author, publication, funding, cost)
+        store["funding_request"] = funding_request_id
 
 
 class UpdateSubmitterView(LoginRequiredMixin, Wizard):

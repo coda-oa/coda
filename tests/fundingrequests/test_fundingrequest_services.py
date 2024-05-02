@@ -2,7 +2,7 @@ import pytest
 
 from coda.apps.authors.dto import parse_author
 from coda.apps.fundingrequests import services
-from coda.apps.fundingrequests.models import ExternalFunding
+from coda.apps.fundingrequests.models import ExternalFunding, FundingRequest
 from coda.apps.publications.dto import parse_publication
 from tests import factory
 from tests.assertions import (
@@ -39,8 +39,9 @@ def test__create_fundingrequest__without_external_funding__creates_fundingreques
     publication = parse_publication(publication_dto)
     cost_dto = factory.cost_dto()
 
-    request = services.fundingrequest_create(author, publication, None, cost_dto)
+    request_id = services.fundingrequest_create(author, publication, None, cost_dto)
 
+    request = FundingRequest.objects.get(pk=request_id)
     assert request.external_funding is None
 
 

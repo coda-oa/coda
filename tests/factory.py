@@ -80,9 +80,10 @@ def fundingrequest(title: str = "", _author_dto: AuthorDto | None = None) -> Fun
     _author_dto = _author_dto or author_dto(affiliation)
     pub_dto = publication_dto(_journal.pk, title=title)
     ext_funding_dto = external_funding_dto(db_funding_organization().pk)
-    return fundingrequest_create(
+    request_id = fundingrequest_create(
         parse_author(_author_dto), parse_publication(pub_dto), ext_funding_dto, cost_dto()
     )
+    return FundingRequest.objects.get(pk=request_id)
 
 
 def author_dto(affiliation_pk: int | None = None) -> AuthorDto:
