@@ -37,7 +37,7 @@ class Label(models.Model):
 
 class ProcessingStatus(enum.Enum):
     APPROVED = "approved"
-    IN_PROGRESS = "in_progress"
+    IN_PROGRESS = "open"
     REJECTED = "rejected"
 
     def __str__(self) -> str:
@@ -80,9 +80,7 @@ class FundingRequest(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    processing_status = models.CharField(
-        max_length=20, choices=PROCESSING_CHOICES, default="in_progress"
-    )
+    processing_status = models.CharField(max_length=20, choices=PROCESSING_CHOICES, default="open")
     labels = models.ManyToManyField(Label, related_name="requests")
     submitter = models.ForeignKey(
         Author, on_delete=models.CASCADE, related_name="funding_requests", null=True, blank=True

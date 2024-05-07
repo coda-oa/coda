@@ -41,4 +41,4 @@ def test__fundingrequest__open__changes_processing_status() -> None:
 
     request.open()
 
-    assert request.processing_status == "in_progress"
+    assert request.processing_status == "open"

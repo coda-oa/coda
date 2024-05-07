@@ -2,7 +2,7 @@ from django.urls import path
 
 from coda.apps.fundingrequests.views.detailview import FundingRequestDetailView
 from coda.apps.fundingrequests.views.labels import LabelCreateView, attach_label, detach_label
-from coda.apps.fundingrequests.views.listview import FundingRequestListView
+from coda.apps.fundingrequests.views.listview import fundingrequest_list
 from coda.apps.fundingrequests.views import review
 from coda.apps.fundingrequests.views.wizard.create import FundingRequestWizard
 from coda.apps.fundingrequests.views.wizard.update import (
@@ -13,7 +13,7 @@ from coda.apps.fundingrequests.views.wizard.update import (
 
 app_name = "fundingrequests"
 urlpatterns = [
-    path("", FundingRequestListView.as_view(), name="list"),
+    path("", fundingrequest_list, name="list"),
     path("<int:pk>/", FundingRequestDetailView.as_view(), name="detail"),
     path("create/wizard/", FundingRequestWizard.as_view(), name="create_wizard"),
     path("update/submitter/<int:pk>/", UpdateSubmitterView.as_view(), name="update_submitter"),

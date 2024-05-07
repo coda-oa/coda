@@ -4,6 +4,7 @@ from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.models import Publication
+from coda.fundingrequest import Review
 
 
 def assert_correct_funding_request(
@@ -19,7 +20,7 @@ def assert_correct_funding_request(
     assert_publication_equal(publication_dto, author_dto, funding_request.publication)
     assert_external_funding_equal(external_funding_dto, funding_request)
     assert_cost_equal(cost_dto, funding_request)
-    assert funding_request.processing_status == "in_progress"
+    assert funding_request.processing_status == Review.Open.name.lower()
     return funding_request
 
 

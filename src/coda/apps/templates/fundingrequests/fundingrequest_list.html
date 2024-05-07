@@ -12,23 +12,25 @@
             <li>
                 <article class="fundingrequest {% if fr.is_open %}  fundingrequest__open  {% elif fr.is_approved %}  fundingrequest__approved  {% elif fr.is_rejected %}  fundingrequest__rejected  {% endif %}">
                     <p class="text-ellipsis mb-0_5">
-                        <a href="{{ fr.get_absolute_url }}">{{ fr.publication.title }}</a>
+                        <a href="{% url "fundingrequests:detail" pk=fr.id %}">{{ fr.publication_title }}</a>
                     </p>
                     <p class="mb-1_5">
                         <i><small>last updated at {{ fr.updated_at }}</small></i>
                     </p>
-                    <p>Submitted by: {{ fr.submitter.name }}</p>
+                    <p>Submitted by: {{ fr.submitter_name }}</p>
                     <p class="text-ellipsis">
-                        Journal: <a href="{{ fr.publication.journal.get_absolute_url }}">{{ fr.publication.journal.title }}</a>
+                        Journal: <a href="{{ fr.journal_url }}">{{ fr.journal_title }}</a>
                     </p>
                     <p class="mt-1_5">
                         <small>
-                            {% if fr.is_open %}
-                                <span class="pill fundingrequest__status-label">Open</span>
-                            {% elif fr.is_approved %}
-                                <span class="pill fundingrequest__status-label">Approved</span>
-                            {% elif fr.is_rejected %}
-                                <span class="pill fundingrequest__status-label">Rejected</span>
+                            {% if fr.status == "open" %}
+                                <span class="pill fundingrequest__open fundingrequest__status-label">Open</span>
+                            {% elif fr.status == "approved" %}
+                                <span class="pill fundingrequest__approved fundingrequest__status-label">Approved</span>
+                            {% elif fr.status == "rejected" %}
+                                <span class="pill fundingrequest__rejected fundingrequest__status-label">Rejected</span>
+                            {% else %}
+                                <span>{{ fr.status }}</span>
                             {% endif %}
                         </small>
                     </p>

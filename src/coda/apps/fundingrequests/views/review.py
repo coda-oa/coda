@@ -19,12 +19,10 @@ def fundingrequest_action(
     def post(request: HttpRequest) -> HttpResponse:
         try:
             id = FundingRequestId(int(request.POST["fundingrequest"]))
-            funding_request = repository.get_by_id(
-                FundingRequestId(int(request.POST["fundingrequest"]))
-            )
+            funding_request = repository.get_by_id(id)
             action(funding_request)
             FundingRequestModel.objects.filter(pk=id).update(
-                processing_status=funding_request.review().name
+                processing_status=funding_request.review().name.lower()
             )
             return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.id}))
         except FundingRequestModel.DoesNotExist:

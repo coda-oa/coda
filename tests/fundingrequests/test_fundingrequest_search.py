@@ -1,13 +1,14 @@
 from typing import Any, cast
 
 import pytest
+from django.template import RequestContext
 from django.template.response import TemplateResponse
 from django.test import Client
 from django.urls import reverse
 
 from coda.apps.authors.models import Author
+from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.fundingrequests.services import label_attach, label_create
-from coda.apps.fundingrequests.views.listview import FundingRequestListView
 from coda.color import Color
 from tests import factory
 
@@ -19,7 +20,7 @@ def test__searching_for_funding_requests__shows_all_funding_requests(client: Cli
 
     response = search_fundingrequests(client)
 
-    assert set(response.context[FundingRequestListView.context_object_name]) == requests
+    assert_contains(response.context, requests)
 
 
 @pytest.mark.django_db
@@ -34,7 +35,7 @@ def test__searching_for_funding_requests_by_title__shows_only_matching_funding_r
 
     response = search_fundingrequests(client, by_title(title))
 
-    assert list(response.context[FundingRequestListView.context_object_name]) == [matching_request]
+    assert_contains(response.context, {matching_request})
 
 
 @pytest.mark.django_db
@@ -51,7 +52,7 @@ def test__searching_funding_request_by_submitter__shows_only_matching_funding_re
 
     response = search_fundingrequests(client, by_submitter(submitter.name))
 
-    assert list(response.context[FundingRequestListView.context_object_name]) == [matching_request]
+    assert_contains(response.context, {matching_request})
 
 
 @pytest.mark.django_db
@@ -61,7 +62,7 @@ def test__searching_with_invalid_search_type__shows_all_funding_requests(client:
 
     response = search_fundingrequests(client, {"search_type": "invalid"})
 
-    assert set(response.context[FundingRequestListView.context_object_name]) == requests
+    assert_contains(response.context, requests)
 
 
 @pytest.mark.django_db
@@ -79,7 +80,7 @@ def test__searching_for_funding_requests_by_label__shows_only_matching_funding_r
 
     response = search_fundingrequests(client, {"labels": [first.pk, second.pk]})
 
-    assert list(response.context[FundingRequestListView.context_object_name]) == [matching_request]
+    assert_contains(response.context, {matching_request})
 
 
 @pytest.mark.django_db
@@ -98,8 +99,7 @@ def test__searching_for_funding_requests_by_process_state__shows_only_matching_f
     query = {"processing_status": ["approved", "rejected"]}
     response = search_fundingrequests(client, query)
 
-    rendered_requests = response.context[FundingRequestListView.context_object_name]
-    assert set(rendered_requests) == {approved_request, rejected_request}
+    assert_contains(response.context, {approved_request, rejected_request})
 
 
 def search_fundingrequests(client: Client, query: dict[str, Any] | None = None) -> TemplateResponse:
@@ -112,3 +112,9 @@ def by_title(title: str) -> dict[str, str]:
 
 def by_submitter(submitter: str) -> dict[str, str]:
     return {"search_type": "submitter", "search_term": submitter}
+
+
+def assert_contains(context: RequestContext, requests: set[FundingRequest]) -> None:
+    ids = [viewmodel.id for viewmodel in context["funding_requests"]]
+    assert len(ids) == len(requests)
+    assert all(request.id in ids for request in requests)

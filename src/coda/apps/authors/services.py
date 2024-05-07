@@ -13,11 +13,12 @@ from coda.string import NonEmptyStr
 
 def get_by_id(author_id: AuthorId) -> Author:
     model = AuthorModel.objects.get(pk=author_id)
+    person_id = cast(PersonId, model.identifier)
     return Author(
         id=author_id,
         name=NonEmptyStr(model.name),
         email=model.email or "",
-        orcid=Orcid(model.identifier.orcid) if model.identifier else None,
+        orcid=Orcid(person_id.orcid) if person_id.orcid else None,
         affiliation=InstitutionId(model.affiliation.pk) if model.affiliation else None,
         roles=frozenset(deserialize_roles(model.roles or "")),
     )

@@ -24,9 +24,9 @@ from coda.string import NonEmptyStr
 def get_by_id(id: FundingRequestId) -> FundingRequest:
     model = FundingRequestModel.objects.get(pk=id)
 
-    if model.processing_status == "Approved":
+    if model.processing_status == "approved":
         constructor = FundingRequest.approved
-    elif model.processing_status == "Rejected":
+    elif model.processing_status == "rejected":
         constructor = FundingRequest.rejected
     else:
         constructor = FundingRequest
