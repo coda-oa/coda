@@ -23,6 +23,17 @@ class ExternalFunding(NamedTuple):
     project_name: str
 
 
+class PaymentMethod(enum.Enum):
+    DIRECT = "Direct"
+    REIMBURSEMENT = "Reimbursement"
+    UNKNOWN = "Unknown"
+
+
+class Payment(NamedTuple):
+    amount: Money
+    method: PaymentMethod
+
+
 class FundingRequestLocked(RuntimeError):
     pass
 
@@ -30,11 +41,11 @@ class FundingRequestLocked(RuntimeError):
 class FundingRequest:
     def __init__(
         self,
-        id: FundingRequestId,
+        id: FundingRequestId | None,
         publication: Publication,
         submitter: Author,
-        estimated_cost: Money,
-        external_funding: "ExternalFunding",
+        estimated_cost: Payment,
+        external_funding: ExternalFunding | None = None,
     ) -> None:
         self.id = id
         self._publication = publication
@@ -42,6 +53,16 @@ class FundingRequest:
         self.estimated_cost = estimated_cost
         self.external_funding = external_funding
         self._review = Review.Open
+
+    @classmethod
+    def new(
+        cls,
+        publication: Publication,
+        submitter: Author,
+        estimated_cost: Payment,
+        external_funding: ExternalFunding | None = None,
+    ) -> "FundingRequest":
+        return cls(None, publication, submitter, estimated_cost, external_funding)
 
     def add_review(self, review: Review) -> None:
         if self._review != Review.Open:

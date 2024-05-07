@@ -7,6 +7,8 @@ from coda.fundingrequest import (
     FundingRequest,
     FundingRequestId,
     FundingRequestLocked,
+    Payment,
+    PaymentMethod,
     Review,
 )
 from coda.money import Currency, Money
@@ -22,11 +24,11 @@ def make_sut() -> FundingRequest:
             title=NonEmptyStr("Publication Title"),
             journal=JournalId(3),
         ),
-        submitter=Author(
-            AuthorId(1),
-            NonEmptyStr("John Doe"),
+        submitter=Author(AuthorId(1), NonEmptyStr("John Doe")),
+        estimated_cost=Payment(
+            Money(100, Currency.EUR),
+            PaymentMethod.DIRECT,
         ),
-        estimated_cost=Money(100, Currency.EUR),
         external_funding=ExternalFunding(
             organization=FundingOrganizationId(1),
             project_id=NonEmptyStr("123"),

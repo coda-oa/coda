@@ -2,8 +2,15 @@ import pytest
 
 from coda.apps.authors.dto import parse_author
 from coda.apps.fundingrequests import services
-from coda.apps.fundingrequests.models import ExternalFunding, FundingRequest
+from coda.apps.fundingrequests.dto import parse_external_funding, parse_payment
+from coda.apps.fundingrequests.models import (
+    ExternalFunding as ExternalFundingModel,
+)
+from coda.apps.fundingrequests.models import (
+    FundingRequest as FundingRequestModel,
+)
 from coda.apps.publications.dto import parse_publication
+from coda.fundingrequest import FundingRequest, FundingRequestId
 from tests import factory
 from tests.assertions import (
     assert_correct_funding_request,
@@ -14,18 +21,23 @@ from tests.assertions import (
 
 @pytest.mark.django_db
 def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data() -> None:
-    author_dto = factory.author_dto(factory.db_institution().pk)
-    author = parse_author(author_dto)
-
     journal = factory.db_journal().pk
     organization = factory.db_funding_organization()
 
+    author_dto = factory.author_dto(factory.db_institution().pk)
     publication_dto = factory.publication_dto(journal)
-    publication = parse_publication(publication_dto)
     external_funding_dto = factory.external_funding_dto(organization.pk)
     cost_dto = factory.cost_dto()
 
-    services.fundingrequest_create(author, publication, external_funding_dto, cost_dto)
+    services.fundingrequest_create(
+        FundingRequest(
+            id=None,
+            publication=parse_publication(publication_dto),
+            submitter=parse_author(author_dto),
+            estimated_cost=parse_payment(cost_dto),
+            external_funding=parse_external_funding(external_funding_dto),
+        )
+    )
 
     assert_correct_funding_request(author_dto, publication_dto, external_funding_dto, cost_dto)
 
@@ -33,15 +45,21 @@ def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data() 
 @pytest.mark.django_db
 def test__create_fundingrequest__without_external_funding__creates_fundingrequest() -> None:
     author_dto = factory.author_dto(factory.db_institution().pk)
-    author = parse_author(author_dto)
     journal = factory.db_journal().pk
     publication_dto = factory.publication_dto(journal)
-    publication = parse_publication(publication_dto)
     cost_dto = factory.cost_dto()
 
-    request_id = services.fundingrequest_create(author, publication, None, cost_dto)
+    request_id = services.fundingrequest_create(
+        FundingRequest(
+            id=None,
+            publication=parse_publication(publication_dto),
+            submitter=parse_author(author_dto),
+            estimated_cost=parse_payment(cost_dto),
+            external_funding=None,
+        )
+    )
 
-    request = FundingRequest.objects.get(pk=request_id)
+    request = FundingRequestModel.objects.get(pk=request_id)
     assert request.external_funding is None
 
 
@@ -50,27 +68,31 @@ def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_exte
     None
 ):
     request = factory.fundingrequest()
-    new_cost = factory.cost_dto()
     new_organization = factory.db_funding_organization()
-    new_funding = factory.external_funding_dto(new_organization.pk)
+    new_cost_dto = factory.cost_dto()
+    new_funding_dto = factory.external_funding_dto(new_organization.pk)
+    new_cost = parse_payment(new_cost_dto)
+    new_funding = parse_external_funding(new_funding_dto)
 
-    services.fundingrequest_funding_update(request, new_funding, new_cost)
+    services.fundingrequest_funding_update(FundingRequestId(request.pk), new_cost, new_funding)
 
     request.refresh_from_db()
-    assert_cost_equal(new_cost, request)
-    assert_external_funding_equal(new_funding, request)
+    assert_cost_equal(new_cost_dto, request)
+    assert_external_funding_equal(new_funding_dto, request)
 
 
 @pytest.mark.django_db
 def test__update_fundingrequest_funding__deletes_old_external_funding() -> None:
     request = factory.fundingrequest()
-    new_cost = factory.cost_dto()
+    new_cost_dto = factory.cost_dto()
     new_organization = factory.db_funding_organization()
-    new_funding = factory.external_funding_dto(new_organization.pk)
+    new_funding_dto = factory.external_funding_dto(new_organization.pk)
+    new_cost = parse_payment(new_cost_dto)
+    new_funding = parse_external_funding(new_funding_dto)
 
-    services.fundingrequest_funding_update(request, new_funding, new_cost)
+    services.fundingrequest_funding_update(FundingRequestId(request.pk), new_cost, new_funding)
 
-    assert ExternalFunding.objects.count() == 1
+    assert ExternalFundingModel.objects.count() == 1
 
 
 @pytest.mark.django_db
@@ -78,11 +100,11 @@ def test__update_fundingrequest_funding__without_external_funding__deletes_old_e
     None
 ):
     request = factory.fundingrequest()
-    new_cost = factory.cost_dto()
+    new_cost = parse_payment(factory.cost_dto())
     new_funding = None
 
-    services.fundingrequest_funding_update(request, new_funding, new_cost)
+    services.fundingrequest_funding_update(FundingRequestId(request.pk), new_cost, new_funding)
 
     request.refresh_from_db()
     assert request.external_funding is None
-    assert ExternalFunding.objects.count() == 0
+    assert ExternalFundingModel.objects.count() == 0

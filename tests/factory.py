@@ -8,13 +8,14 @@ from coda import issn, orcid
 from coda.apps.authors.dto import AuthorDto, parse_author
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.services import author_create
-from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
-from coda.apps.fundingrequests.models import (
-    ExternalFunding,
-    FundingOrganization,
-    FundingRequest,
-    PaymentMethod,
+from coda.apps.fundingrequests.dto import (
+    CostDto,
+    ExternalFundingDto,
+    parse_external_funding,
+    parse_payment,
 )
+from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganization, PaymentMethod
+from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
 from coda.apps.journals.models import Journal
@@ -22,6 +23,7 @@ from coda.apps.publications.dto import LinkDto, PublicationDto, parse_publicatio
 from coda.apps.publications.models import LinkType, Publication
 from coda.apps.publishers.models import Publisher
 from coda.author import AuthorList, Role
+from coda.fundingrequest import FundingRequest
 from coda.publication import License, OpenAccessType, Published, UnpublishedState
 
 _faker = faker.Faker()
@@ -74,16 +76,21 @@ def external_funding(funder_id: int | None = None) -> ExternalFunding:
     )
 
 
-def fundingrequest(title: str = "", _author_dto: AuthorDto | None = None) -> FundingRequest:
+def fundingrequest(title: str = "", _author_dto: AuthorDto | None = None) -> FundingRequestModel:
     _journal = db_journal()
     affiliation = db_institution().pk
     _author_dto = _author_dto or author_dto(affiliation)
     pub_dto = publication_dto(_journal.pk, title=title)
     ext_funding_dto = external_funding_dto(db_funding_organization().pk)
     request_id = fundingrequest_create(
-        parse_author(_author_dto), parse_publication(pub_dto), ext_funding_dto, cost_dto()
+        FundingRequest.new(
+            parse_publication(pub_dto),
+            parse_author(_author_dto),
+            parse_payment(cost_dto()),
+            parse_external_funding(ext_funding_dto),
+        )
     )
-    return FundingRequest.objects.get(pk=request_id)
+    return FundingRequestModel.objects.get(pk=request_id)
 
 
 def author_dto(affiliation_pk: int | None = None) -> AuthorDto:

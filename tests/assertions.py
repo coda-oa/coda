@@ -33,7 +33,9 @@ def assert_external_funding_equal(
 
 
 def assert_cost_equal(funding: CostDto, funding_request: FundingRequest) -> None:
-    assert funding_request.payment_method == funding["payment_method"]
+    assert (
+        funding_request.payment_method == funding["payment_method"]
+    ), f"{funding_request.payment_method} != {funding['payment_method']}"
     assert funding_request.estimated_cost == funding["estimated_cost"]
     assert funding_request.estimated_cost_currency == funding["estimated_cost_currency"]
 
