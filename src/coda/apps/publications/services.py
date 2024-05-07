@@ -1,11 +1,61 @@
+import datetime
+from collections.abc import Iterable
 from dataclasses import replace
 from typing import cast
 
-from coda.apps.publications.models import Link, LinkType
+from coda.apps.publications.models import Link as LinkModel
+from coda.apps.publications.models import LinkType
 from coda.apps.publications.models import Publication as PublicationModel
-from coda.author import AuthorId
+from coda.author import AuthorId, AuthorList
 from coda.doi import Doi
-from coda.publication import Publication, PublicationId, Published
+from coda.publication import (
+    JournalId,
+    License,
+    Link,
+    OpenAccessType,
+    Publication,
+    PublicationId,
+    PublicationState,
+    Published,
+    Unpublished,
+    UnpublishedState,
+    UserLink,
+)
+from coda.string import NonEmptyStr
+
+
+def _deserialize_links(links: Iterable[LinkModel]) -> set[Link]:
+    def __deserialize_link(link: LinkModel) -> Link:
+        if link.type.name == "DOI":
+            return Doi(link.value)
+        return UserLink(type=link.type.name, value=link.value)
+
+    return {__deserialize_link(link) for link in links}
+
+
+def get_by_id(publication_id: PublicationId) -> Publication:
+    model = PublicationModel.objects.get(pk=publication_id)
+    state = _deserialize_publication_state(model)
+
+    return Publication(
+        id=publication_id,
+        title=NonEmptyStr(model.title),
+        license=License[model.license],
+        open_access_type=OpenAccessType[model.open_access_type],
+        authors=AuthorList(model.author_list or ""),
+        publication_state=state,
+        journal=JournalId(model.journal_id),
+        links=_deserialize_links(model.links.all()),
+    )
+
+
+def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
+    state: PublicationState
+    if model.publication_state == "Published":
+        state = Published(date=cast(datetime.date, model.publication_date))
+    else:
+        state = Unpublished(state=UnpublishedState[model.publication_state])
+    return state
 
 
 def publication_create(publication: Publication, author_id: AuthorId) -> PublicationId:
@@ -49,7 +99,7 @@ def publication_update(publication: Publication) -> None:
         journal_id=publication.journal,
     )
 
-    Link.objects.filter(publication_id=publication.id).all().delete()
+    LinkModel.objects.filter(publication_id=publication.id).all().delete()
     _attach_links(publication)
 
 
@@ -62,7 +112,7 @@ def _attach_links(publication: Publication) -> None:
             link_type = link.type
             link_value = link.value
 
-        Link.objects.create(
+        LinkModel.objects.create(
             value=link_value,
             type=LinkType.objects.get(name=link_type),
             publication_id=cast(int, publication.id),

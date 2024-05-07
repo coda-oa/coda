@@ -2,11 +2,25 @@ from typing import cast
 
 from django.core.exceptions import ValidationError
 
-from coda.apps.authors.models import Author as AuthorModel
+from coda.apps.authors.models import Author as AuthorModel, deserialize_roles
 from coda.apps.authors.models import PersonId, serialize_roles
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
-from coda.author import Author, AuthorId
+from coda.author import Author, AuthorId, InstitutionId
+from coda.orcid import Orcid
+from coda.string import NonEmptyStr
+
+
+def get_by_id(author_id: AuthorId) -> Author:
+    model = AuthorModel.objects.get(pk=author_id)
+    return Author(
+        id=author_id,
+        name=NonEmptyStr(model.name),
+        email=model.email or "",
+        orcid=Orcid(model.identifier.orcid) if model.identifier else None,
+        affiliation=InstitutionId(model.affiliation.pk) if model.affiliation else None,
+        roles=frozenset(deserialize_roles(model.roles or "")),
+    )
 
 
 def author_create(author: Author) -> AuthorId:

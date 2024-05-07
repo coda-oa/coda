@@ -3,6 +3,8 @@ from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from coda.apps.fundingrequests import repository
+from coda.fundingrequest import FundingRequestId, Review
 from tests import factory
 
 
@@ -13,8 +15,7 @@ def test__funding_request_approve_view__approves_request(client: Client) -> None
 
     client.post(reverse("fundingrequests:approve"), {"fundingrequest": request.pk})
 
-    request.refresh_from_db()
-    assert request.is_approved()
+    assert_approved(FundingRequestId(request.pk))
 
 
 @pytest.mark.django_db
@@ -24,8 +25,8 @@ def test__funding_request_reject_view__rejects_request(client: Client) -> None:
 
     client.post(reverse("fundingrequests:reject"), {"fundingrequest": request.pk})
 
-    request.refresh_from_db()
-    assert request.is_rejected()
+    id = FundingRequestId(request.pk)
+    assert_rejected(id)
 
 
 @pytest.mark.django_db
@@ -35,8 +36,8 @@ def test__funding_request_open_view__rejects_request(client: Client) -> None:
 
     client.post(reverse("fundingrequests:open"), {"fundingrequest": request.pk})
 
-    request.refresh_from_db()
-    assert request.is_open()
+    id = FundingRequestId(request.pk)
+    assert_open(id)
 
 
 @pytest.mark.django_db
@@ -61,3 +62,15 @@ def test__approving_or_requesting_non_existent_request__raises_404(
 ) -> None:
     response = client.post(reverse(f"fundingrequests:{view_name}"), {"fundingrequest": 1})
     assert response.status_code == 404
+
+
+def assert_approved(id: FundingRequestId) -> None:
+    assert repository.get_by_id(id).review() == Review.Approved
+
+
+def assert_rejected(id: FundingRequestId) -> None:
+    assert repository.get_by_id(id).review() == Review.Rejected
+
+
+def assert_open(id: FundingRequestId) -> None:
+    assert repository.get_by_id(id).review() == Review.Open

@@ -39,7 +39,7 @@ from coda.apps.publications.forms import PublicationFormData
 from coda.apps.publications.services import publication_update
 from coda.apps.wizard import SessionStore, Store, Wizard
 from coda.author import AuthorId, AuthorList
-from coda.fundingrequest import FundingRequest
+from coda.fundingrequest import FundingRequest, FundingRequestId, Review
 from coda.publication import PublicationId
 
 
@@ -245,23 +245,27 @@ def detach_label(request: HttpRequest) -> HttpResponse:
 
 
 def fundingrequest_action(
-    action: Callable[[FundingRequestModel], None],
+    action: Callable[[FundingRequest], None],
 ) -> Callable[[HttpRequest], HttpResponse]:
     @login_required
     @require_POST
     def post(request: HttpRequest) -> HttpResponse:
         try:
-            funding_request = get_object_or_404(
-                FundingRequestModel, pk=request.POST["fundingrequest"]
+            id = FundingRequestId(int(request.POST["fundingrequest"]))
+            funding_request = repository.get_by_id(
+                FundingRequestId(int(request.POST["fundingrequest"]))
             )
             action(funding_request)
-            return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
+            FundingRequestModel.objects.filter(pk=id).update(
+                processing_status=funding_request.review().name
+            )
+            return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.id}))
         except FundingRequestModel.DoesNotExist:
             return HttpResponse(status=404)
 
     return post
 
 
-approve = fundingrequest_action(FundingRequestModel.approve)
-reject = fundingrequest_action(FundingRequestModel.reject)
-open = fundingrequest_action(FundingRequestModel.open)
+approve = fundingrequest_action(lambda fr: fr.add_review(Review.Approved))
+reject = fundingrequest_action(lambda fr: fr.add_review(Review.Rejected))
+open = fundingrequest_action(FundingRequest.open)

@@ -64,6 +64,32 @@ class FundingRequest:
     ) -> "FundingRequest":
         return cls(None, publication, submitter, estimated_cost, external_funding)
 
+    @classmethod
+    def approved(
+        cls,
+        id: FundingRequestId,
+        publication: Publication,
+        submitter: Author,
+        estimated_cost: Payment,
+        external_funding: ExternalFunding | None = None,
+    ) -> "FundingRequest":
+        request = cls(id, publication, submitter, estimated_cost, external_funding)
+        request._review = Review.Approved
+        return request
+
+    @classmethod
+    def rejected(
+        cls,
+        id: FundingRequestId,
+        publication: Publication,
+        submitter: Author,
+        estimated_cost: Payment,
+        external_funding: ExternalFunding | None = None,
+    ) -> "FundingRequest":
+        request = cls(id, publication, submitter, estimated_cost, external_funding)
+        request._review = Review.Rejected
+        return request
+
     def add_review(self, review: Review) -> None:
         if self._review != Review.Open:
             raise FundingRequestLocked("Cannot change review of a closed request")
@@ -98,5 +124,5 @@ class FundingRequest:
 
         self._publication = publication
 
-    def review(self) -> Review | None:
+    def review(self) -> Review:
         return self._review
