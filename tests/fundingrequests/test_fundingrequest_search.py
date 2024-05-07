@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from coda.apps.authors.models import Author
 from coda.apps.fundingrequests.services import label_attach, label_create
-from coda.apps.fundingrequests.views import FundingRequestListView
+from coda.apps.fundingrequests.views.listview import FundingRequestListView
 from coda.color import Color
 from tests import factory
 

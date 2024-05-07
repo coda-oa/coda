@@ -102,6 +102,12 @@ class FundingRequest:
     def is_open(self) -> bool:
         return self._review == Review.Open
 
+    def is_approved(self) -> bool:
+        return self._review == Review.Approved
+
+    def is_rejected(self) -> bool:
+        return self._review == Review.Rejected
+
     @property
     def submitter(self) -> Author:
         return self._submitter
