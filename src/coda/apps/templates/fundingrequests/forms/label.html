@@ -2,7 +2,7 @@
       method="post"
       class="flex align-center">
     {% csrf_token %}
-    <input type="hidden" name="fundingrequest" value="{{ funding_request.pk }}">
+    <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
     <input type="hidden" name="label" value="{{ label.pk }}">
     <span style="--label-bg-color: {{ label.hexcolor }};
                  --label-border-color: {{ label.hexcolor }}"

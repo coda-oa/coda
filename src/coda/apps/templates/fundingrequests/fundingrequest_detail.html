@@ -18,7 +18,7 @@
     </div>
     <div class="flex justify-between mt-1 mb-2">
         <div class="flex align-center wrap overflow-scroll">
-            {% for label in funding_request.labels.all %}
+            {% for label in funding_request.labels %}
                 {% include "fundingrequests/forms/label.html" %}
             {% endfor %}
         </div>
@@ -27,7 +27,7 @@
         <article>
             <header class="flex justify-between align-center">
                 <h2 class="fundingrequest__detail-title">Request Details</h2>
-                <a href="{% url "fundingrequests:update_submitter" pk=funding_request.pk %}"
+                <a href="{% url "fundingrequests:update_submitter" pk=funding_request.id %}"
                    role="button">Edit</a>
             </header>
             <table class="fundingrequest__detail-table">
@@ -40,10 +40,10 @@
                     <tr>
                         <th>Request Submitter</th>
                         <td>
-                            <p>{{ funding_request.submitter.name }}</p>
-                            <p>{{ funding_request.submitter.affiliation.name }}</p>
+                            <p>{{ submitter.name }}</p>
+                            <p>{{ submitter.affiliation }}</p>
                             <p>
-                                {% for role in funding_request.submitter.get_roles %}<span>{{ role.value }}</span>{% endfor %}
+                                {% for role in submitter.roles %}<span>{{ role }}</span>{% endfor %}
                             </p>
                         </td>
                     </tr>
@@ -61,43 +61,43 @@
         <article>
             <header class="flex justify-between align-center">
                 <h2 class="fundingrequest__detail-title">Publication Details</h2>
-                <a href="{% url "fundingrequests:update_publication" pk=funding_request.pk %}"
+                <a href="{% url "fundingrequests:update_publication" pk=funding_request.id %}"
                    role="button">Edit</a>
             </header>
             <table class="fundingrequest__detail-table">
                 <tbody>
                     <tr>
                         <th>Title</th>
-                        <td>{{ funding_request.publication.title }}</td>
+                        <td>{{ publication.title }}</td>
                     </tr>
                     <tr>
                         <th>Publication State</th>
-                        <td>{{ funding_request.publication.get_publication_state_display }}</td>
+                        <td>{{ publication.publication_state }}</td>
                     </tr>
                     <tr>
                         <th>Journal</th>
-                        <td>{{ funding_request.publication.journal.title }}</td>
+                        <td>{{ publication.journal_title }}</td>
                     </tr>
                     <tr>
                         <th>Authors</th>
-                        <td>{{ funding_request.publication.authors }}</td>
+                        <td>{{ publication.authors|join:", " }}</td>
                     </tr>
                     <tr>
                         <th>License</th>
-                        <td>{{ funding_request.publication.get_license_display }}</td>
+                        <td>{{ publication.license }}</td>
                     </tr>
                     <tr>
                         <th>Open Access Type</th>
-                        <td>{{ funding_request.publication.get_open_access_type_display }}</td>
+                        <td>{{ publication.oa_type }}</td>
                     </tr>
                     <tr>
                         <th>Publisher</th>
-                        <td>{{ funding_request.publication.journal.publisher.name }}</td>
+                        <td>{{ publication.publisher_name }}</td>
                     </tr>
                     <tr>
                         <th>Contracts</th>
                         <td>
-                            {% for contract in funding_request.publication.journal.publisher.contracts.all %}
+                            {% for contract in publication.contracts %}
                                 <p>
                                     <a href="{% url "contracts:detail" pk=contract.pk %}">{{ contract.name }}</a>
                                 </p>
@@ -106,7 +106,7 @@
                     </tr>
                 </tbody>
             </table>
-            {% if funding_request.publication.links %}
+            {% if publication.links %}
                 <h3 class="mt-1">References</h3>
                 <table class="fundingrequest__detail-table">
                     <thead>
@@ -116,7 +116,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for link in funding_request.publication.links.all %}
+                        {% for link in publication.links %}
                             <tr>
                                 <td>{{ link.type }}</td>
                                 <td>
@@ -131,32 +131,32 @@
         <article>
             <header class="flex justify-between align-center">
                 <h2 class="fundingrequest__detail-title">Costs and Funding</h2>
-                <a href="{% url "fundingrequests:update_funding" pk=funding_request.pk %}"
+                <a href="{% url "fundingrequests:update_funding" pk=funding_request.id %}"
                    role="button">Edit</a>
             </header>
             <table class="fundingrequest__detail-table">
                 <tbody>
                     <tr>
                         <th>Estimated Cost</th>
-                        <td>{{ funding_request.estimated_cost }} {{ funding_request.estimated_cost_currency }}</td>
+                        <td>{{ funding_request.estimated_cost.amount }} {{ funding_request.estimated_cost.currency.code }}</td>
                     </tr>
                 </tbody>
             </table>
-            {% if funding_request.external_funding %}
+            {% if external_funding %}
                 <h3 class="mt-1_5">Third party funding</h3>
                 <table class="fundingrequest__detail-table">
                     <tbody>
                         <tr>
                             <th>Organization</th>
-                            <td>{{ funding_request.external_funding.organization.name }}</td>
+                            <td>{{ external_funding.organization }}</td>
                         </tr>
                         <tr>
                             <th>Project ID</th>
-                            <td>{{ funding_request.external_funding.project_id }}</td>
+                            <td>{{ external_funding.project_id }}</td>
                         </tr>
                         <tr>
                             <th>Project Name</th>
-                            <td>{{ funding_request.external_funding.project_name }}</td>
+                            <td>{{ external_funding.project_name }}</td>
                         </tr>
                     </tbody>
                 </table>
