@@ -10,7 +10,7 @@ from coda.apps.fundingrequests.dto import (
 )
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
-from coda.apps.fundingrequests.wizardsteps import (
+from coda.apps.fundingrequests.views.wizard.wizardsteps import (
     FundingStep,
     JournalStep,
     PublicationStep,

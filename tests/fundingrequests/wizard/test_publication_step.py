@@ -2,7 +2,7 @@ from django.http import HttpRequest
 from django.test import RequestFactory
 import pytest
 
-from coda.apps.fundingrequests.wizardsteps import PublicationStep
+from coda.apps.fundingrequests.views.wizard.wizardsteps import PublicationStep
 from tests.test_wizard import DictStore
 
 request_factory = RequestFactory()

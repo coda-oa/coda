@@ -1,7 +1,7 @@
 import pytest
 from django.test.client import RequestFactory
 
-from coda.apps.fundingrequests.wizardsteps import FundingStep
+from coda.apps.fundingrequests.views.wizard.wizardsteps import FundingStep
 from tests import factory
 from tests.test_wizard import DictStore
 

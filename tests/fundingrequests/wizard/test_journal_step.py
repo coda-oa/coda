@@ -4,7 +4,7 @@ import pytest
 from django.http import HttpRequest
 from django.test import RequestFactory
 
-from coda.apps.fundingrequests.wizardsteps import JournalStep
+from coda.apps.fundingrequests.views.wizard.wizardsteps import JournalStep
 from coda.apps.journals.models import Journal
 from tests import factory
 from tests.test_wizard import DictStore

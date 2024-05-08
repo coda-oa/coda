@@ -7,7 +7,7 @@ from coda.apps.authors.dto import parse_author
 from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.dto import parse_external_funding, parse_payment
 from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
-from coda.apps.fundingrequests.wizardsteps import (
+from coda.apps.fundingrequests.views.wizard.wizardsteps import (
     FundingStep,
     JournalStep,
     PublicationStep,
