@@ -31,7 +31,7 @@ class PublicationDto(TypedDict):
     publication_date: datetime.date | None
     links: list[LinkDto]
     journal: int
-    authors: AuthorList
+    authors: list[str]
 
 
 def parse_publication(publication: PublicationDto, id: PublicationId | None = None) -> Publication:
@@ -46,7 +46,7 @@ def parse_publication(publication: PublicationDto, id: PublicationId | None = No
     return Publication(
         id=id,
         title=NonEmptyStr(publication["title"]),
-        authors=publication["authors"],
+        authors=AuthorList(publication["authors"]),
         license=License[publication["license"]],
         open_access_type=OpenAccessType[publication["open_access_type"]],
         publication_state=publication_state,
@@ -58,7 +58,7 @@ def parse_publication(publication: PublicationDto, id: PublicationId | None = No
 def publication_dto_from_model(publication: PublicationModel) -> PublicationDto:
     return PublicationDto(
         title=publication.title,
-        authors=publication.authors,
+        authors=list(publication.authors),
         license=publication.license,
         open_access_type=publication.open_access_type,
         publication_state=publication.publication_state,

@@ -85,7 +85,7 @@ class PublicationStep(Step):
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         return {
             "publication_form": self.get_publication_form(request, store),
-            "authors": self.get_authors(request, store),
+            "authors": list(self.get_authors(request, store)),
             "link_types": LinkType.objects.values("name"),
             "links": self.get_links_context(request, store),
         }
@@ -132,7 +132,6 @@ class PublicationStep(Step):
         publication_form = PublicationForm(request.POST)
         link_formset = self.link_formset(request)
         valid = publication_form.is_valid() and link_formset.is_valid()
-        print(publication_form.errors, link_formset.errors)
         return valid
 
     def done(self, request: HttpRequest, store: Store) -> None:
