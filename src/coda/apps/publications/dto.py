@@ -28,7 +28,7 @@ class PublicationDto(TypedDict):
     open_access_type: str
     license: str
     publication_state: str
-    publication_date: datetime.date | None
+    publication_date: str | None
     links: list[LinkDto]
     journal: int
     authors: list[str]
@@ -62,7 +62,9 @@ def publication_dto_from_model(publication: PublicationModel) -> PublicationDto:
         license=publication.license,
         open_access_type=publication.open_access_type,
         publication_state=publication.publication_state,
-        publication_date=publication.publication_date,
+        publication_date=(
+            publication.publication_date.isoformat() if publication.publication_date else None
+        ),
         links=[
             LinkDto(link_type=link.type.name, link_value=link.value)
             for link in publication.links.all()
