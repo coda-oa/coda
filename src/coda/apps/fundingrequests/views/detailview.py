@@ -12,6 +12,7 @@ from coda.apps.fundingrequests.forms import ChooseLabelForm
 from coda.apps.fundingrequests.models import ExternalFunding, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.publications.models import Link, Publication
+from coda.fundingrequest import Review
 from coda.money import Currency, Money
 
 template_name = "fundingrequests/fundingrequest_detail.html"
@@ -24,6 +25,16 @@ class RequestViewModel(NamedTuple):
     created_at: datetime.date
     updated_at: datetime.date
     estimated_cost: Money
+    review_status: str
+
+    def is_open(self) -> bool:
+        return self.review_status == Review.Open.value
+
+    def is_approved(self) -> bool:
+        return self.review_status == Review.Approved.value
+
+    def is_rejected(self) -> bool:
+        return self.review_status == Review.Rejected.value
 
 
 class SubmitterViewModel(NamedTuple):
@@ -60,6 +71,7 @@ def request_viewmodel(fr: FundingRequestModel) -> RequestViewModel:
         created_at=fr.created_at,
         updated_at=fr.updated_at,
         estimated_cost=Money(fr.estimated_cost, Currency[fr.estimated_cost_currency]),
+        review_status=Review(fr.processing_status).value,
     )
 
 

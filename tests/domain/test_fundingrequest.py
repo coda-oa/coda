@@ -27,7 +27,7 @@ def make_sut() -> FundingRequest:
         submitter=Author(AuthorId(1), NonEmptyStr("John Doe")),
         estimated_cost=Payment(
             Money(100, Currency.EUR),
-            PaymentMethod.DIRECT,
+            PaymentMethod.Direct,
         ),
         external_funding=ExternalFunding(
             organization=FundingOrganizationId(1),

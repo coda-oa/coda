@@ -15,6 +15,7 @@ from coda.fundingrequest import (
     FundingRequestId,
     Payment,
     PaymentMethod,
+    Review,
 )
 from coda.money import Currency, Money
 from coda.publication import PublicationId
@@ -24,9 +25,9 @@ from coda.string import NonEmptyStr
 def get_by_id(id: FundingRequestId) -> FundingRequest:
     model = FundingRequestModel.objects.get(pk=id)
 
-    if model.processing_status == "approved":
+    if model.processing_status == Review.Approved.value:
         constructor = FundingRequest.approved
-    elif model.processing_status == "rejected":
+    elif model.processing_status == Review.Rejected.value:
         constructor = FundingRequest.rejected
     else:
         constructor = FundingRequest
@@ -37,7 +38,7 @@ def get_by_id(id: FundingRequestId) -> FundingRequest:
         submitter=author_services.get_by_id(AuthorId(cast(int, model.submitter_id))),
         estimated_cost=Payment(
             amount=Money(model.estimated_cost, Currency[model.estimated_cost_currency]),
-            method=PaymentMethod[model.payment_method.upper()],
+            method=PaymentMethod(model.payment_method),
         ),
         external_funding=(
             ExternalFunding(

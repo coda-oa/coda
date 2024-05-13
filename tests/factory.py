@@ -14,7 +14,7 @@ from coda.apps.fundingrequests.dto import (
     parse_external_funding,
     parse_payment,
 )
-from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganization, PaymentMethod
+from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganization
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
@@ -23,7 +23,7 @@ from coda.apps.publications.dto import LinkDto, PublicationDto, parse_publicatio
 from coda.apps.publications.models import LinkType, Publication
 from coda.apps.publishers.models import Publisher
 from coda.author import AuthorList, Role
-from coda.fundingrequest import FundingRequest
+from coda.fundingrequest import FundingRequest, PaymentMethod
 from coda.publication import License, OpenAccessType, Published, UnpublishedState
 
 _faker = faker.Faker()
@@ -188,7 +188,7 @@ def external_funding_dto(organization: int) -> ExternalFundingDto:
 
 
 def cost_dto() -> CostDto:
-    payment_method = random.choice([PaymentMethod.DIRECT, PaymentMethod.REIMBURSEMENT])
+    payment_method = random.choice([PaymentMethod.Direct, PaymentMethod.Reimbursement])
     return CostDto(
         estimated_cost=100,
         estimated_cost_currency="USD",

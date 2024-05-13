@@ -28,5 +28,5 @@ def parse_external_funding(external_funding: ExternalFundingDto) -> ExternalFund
 def parse_payment(cost: CostDto) -> Payment:
     return Payment(
         amount=Money(str(cost["estimated_cost"]), Currency[cost["estimated_cost_currency"]]),
-        method=PaymentMethod[cost["payment_method"].upper()],
+        method=PaymentMethod(cost["payment_method"].lower()),
     )

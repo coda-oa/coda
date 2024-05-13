@@ -1,5 +1,4 @@
 import datetime
-import enum
 import uuid
 from typing import Any
 
@@ -9,6 +8,7 @@ from django.urls import reverse
 
 from coda.apps.authors.models import Author
 from coda.apps.publications.models import Publication
+from coda.fundingrequest import PaymentMethod, Review
 
 
 class FundingOrganization(models.Model):
@@ -35,24 +35,6 @@ class Label(models.Model):
         return self.name
 
 
-class ProcessingStatus(enum.Enum):
-    APPROVED = "approved"
-    IN_PROGRESS = "open"
-    REJECTED = "rejected"
-
-    def __str__(self) -> str:
-        return self.value
-
-
-class PaymentMethod(enum.Enum):
-    DIRECT = "direct"
-    REIMBURSEMENT = "reimbursement"
-    UNKNOWN = "unknown"
-
-    def __str__(self) -> str:
-        return self.value
-
-
 class FundingRequest(models.Model):
     @staticmethod
     def create_request_id(id: str | None = None, date: datetime.date | None = None) -> str:
@@ -61,22 +43,22 @@ class FundingRequest(models.Model):
         return f"coda-{id}-{d.strftime('%Y-%m-%d')}"
 
     PROCESSING_CHOICES = [
-        (ProcessingStatus.APPROVED.value, "Approved"),
-        (ProcessingStatus.IN_PROGRESS.value, "In Progress"),
-        (ProcessingStatus.REJECTED.value, "Rejected"),
+        (Review.Approved.value, "Approved"),
+        (Review.Open.value, "In Progress"),
+        (Review.Rejected.value, "Rejected"),
     ]
 
     PAYMENT_METHOD_CHOICES = [
-        (PaymentMethod.DIRECT.value, "Direct"),
-        (PaymentMethod.REIMBURSEMENT.value, "Reimbursement"),
-        (PaymentMethod.UNKNOWN.value, "Unknown"),
+        (PaymentMethod.Direct.value, "Direct"),
+        (PaymentMethod.Reimbursement.value, "Reimbursement"),
+        (PaymentMethod.Unknown.value, "Unknown"),
     ]
 
     request_id = models.CharField(max_length=25, unique=True)
     estimated_cost = models.DecimalField(max_digits=10, decimal_places=2)
     estimated_cost_currency = models.CharField(max_length=3)
     payment_method = models.CharField(
-        choices=PAYMENT_METHOD_CHOICES, default=PaymentMethod.UNKNOWN.value
+        choices=PAYMENT_METHOD_CHOICES, default=PaymentMethod.Unknown.value
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -99,22 +81,13 @@ class FundingRequest(models.Model):
         return reverse("fundingrequests:detail", kwargs={"pk": self.pk})
 
     def approve(self) -> None:
-        self.processing_status = ProcessingStatus.APPROVED.value
+        self.processing_status = Review.Approved.value
         self.save()
 
     def reject(self) -> None:
-        self.processing_status = ProcessingStatus.REJECTED.value
+        self.processing_status = Review.Rejected.value
         self.save()
 
     def open(self) -> None:
-        self.processing_status = ProcessingStatus.IN_PROGRESS.value
+        self.processing_status = Review.Open.value
         self.save()
-
-    def is_approved(self) -> bool:
-        return self.processing_status == ProcessingStatus.APPROVED.value
-
-    def is_rejected(self) -> bool:
-        return self.processing_status == ProcessingStatus.REJECTED.value
-
-    def is_open(self) -> bool:
-        return self.processing_status == ProcessingStatus.IN_PROGRESS.value

@@ -63,7 +63,7 @@ def publication_dto_from_model(publication: PublicationModel) -> PublicationDto:
         open_access_type=publication.open_access_type,
         publication_state=publication.publication_state,
         publication_date=(
-            publication.publication_date.isoformat() if publication.publication_date else None
+            publication.publication_date.isoformat() if publication.publication_date else ""
         ),
         links=[
             LinkDto(link_type=link.type.name, link_value=link.value)

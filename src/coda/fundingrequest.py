@@ -11,10 +11,10 @@ FundingOrganizationId = NewType("FundingOrganizationId", int)
 
 
 class Review(enum.Enum):
-    Open = enum.auto()
-    Approved = enum.auto()
-    Rejected = enum.auto()
-    Withdrawn = enum.auto()
+    Open = "open"
+    Approved = "approved"
+    Rejected = "rejected"
+    Withdrawn = "withdrawn"
 
 
 class ExternalFunding(NamedTuple):
@@ -24,9 +24,9 @@ class ExternalFunding(NamedTuple):
 
 
 class PaymentMethod(enum.Enum):
-    DIRECT = "Direct"
-    REIMBURSEMENT = "Reimbursement"
-    UNKNOWN = "Unknown"
+    Direct = "direct"
+    Reimbursement = "reimbursement"
+    Unknown = "unknown"
 
 
 class Payment(NamedTuple):

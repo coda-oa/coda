@@ -22,7 +22,7 @@ def fundingrequest_action(
             funding_request = repository.get_by_id(id)
             action(funding_request)
             FundingRequestModel.objects.filter(pk=id).update(
-                processing_status=funding_request.review().name.lower()
+                processing_status=funding_request.review().value.lower()
             )
             return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.id}))
         except FundingRequestModel.DoesNotExist:

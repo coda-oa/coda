@@ -5,13 +5,14 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.models import FundingRequest, ProcessingStatus
+from coda.apps.fundingrequests.models import FundingRequest
+from coda.fundingrequest import Review
 
 
 def view(request: HttpRequest) -> HttpResponse:
-    open_requests = repository.search(processing_states=[ProcessingStatus.IN_PROGRESS.value])
-    rejected_requests = repository.search(processing_states=[ProcessingStatus.REJECTED.value])
-    approved_requests = repository.search(processing_states=[ProcessingStatus.APPROVED.value])
+    open_requests = repository.search(processing_states=[Review.Open.value])
+    rejected_requests = repository.search(processing_states=[Review.Rejected.value])
+    approved_requests = repository.search(processing_states=[Review.Approved.value])
     return render(
         request,
         "pages/home.html",

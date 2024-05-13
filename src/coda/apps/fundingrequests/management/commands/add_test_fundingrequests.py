@@ -6,7 +6,7 @@ from django.db import transaction
 from faker import Faker
 from faker.providers import lorem
 
-from coda.apps.fundingrequests.models import FundingOrganization, ProcessingStatus
+from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.journals.models import Journal
 from coda.apps.publications.models import LinkType
@@ -19,6 +19,7 @@ from coda.fundingrequest import (
     FundingRequest,
     Payment,
     PaymentMethod,
+    Review,
 )
 from coda.money import Money, Currency
 from coda.publication import (
@@ -37,14 +38,14 @@ faker.add_provider(lorem)
 class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args: str, **options: str) -> None:
-        self.funding_request(processing_status=ProcessingStatus.IN_PROGRESS)
-        self.funding_request(processing_status=ProcessingStatus.REJECTED)
-        self.funding_request(processing_status=ProcessingStatus.APPROVED)
+        self.funding_request(review_status=Review.Open)
+        self.funding_request(review_status=Review.Rejected)
+        self.funding_request(review_status=Review.Approved)
 
     def funding_request(
         self,
         /,
-        processing_status: ProcessingStatus = ProcessingStatus.IN_PROGRESS,
+        review_status: Review = Review.Open,
     ) -> None:
         publisher = self.publisher()
         journal = self.journal(publisher)
@@ -68,7 +69,7 @@ class Command(BaseCommand):
                     affiliation=None,
                     roles=[Role.SUBMITTER],
                 ),
-                Payment(amount=Money(100, Currency.USD), method=PaymentMethod.DIRECT),
+                Payment(amount=Money(100, Currency.USD), method=PaymentMethod.Direct),
                 ExternalFunding(
                     organization=FundingOrganizationId(self.funding_organization().pk),
                     project_id=NonEmptyStr(str(uuid4())),

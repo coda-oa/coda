@@ -6,6 +6,7 @@ from coda.apps.authors.models import Author
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.color import Color
+from coda.fundingrequest import Review
 from tests import factory
 
 
@@ -62,7 +63,7 @@ def test__searching_for_funding_requests_by_process_state__returns_matching_fund
 
     in_progress_request = factory.fundingrequest()  # noqa: F841
 
-    results = repository.search(processing_states=["approved", "rejected"])
+    results = repository.search(processing_states=[Review.Approved.value, Review.Rejected.value])
 
     assert_contains_all(list(results), [approved_request, rejected_request])
 
