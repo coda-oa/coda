@@ -13,7 +13,7 @@ class PublicationFormData(TypedDict):
     license: str
     open_access_type: str
     publication_state: str
-    publication_date: str | None
+    publication_date: str
 
 
 class PublicationForm(forms.Form):
@@ -44,9 +44,9 @@ class PublicationForm(forms.Form):
             publication_date=self._parse_date(),
         )
 
-    def _parse_date(self) -> str | None:
+    def _parse_date(self) -> str:
         if not self.cleaned_data.get("publication_date"):
-            return None
+            return ""
 
         return cast(datetime.date, self.cleaned_data["publication_date"]).isoformat()
 

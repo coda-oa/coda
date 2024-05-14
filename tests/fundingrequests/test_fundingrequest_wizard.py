@@ -166,7 +166,9 @@ def create_publication_post_data(publication: PublicationDto) -> dict[str, Any]:
         license=publication["license"],
         open_access_type=publication["open_access_type"],
         publication_state=publication["publication_state"],
-        publication_date=publication.get("publication_date", ""),
+        publication_date=(
+            publication["publication_date"] if publication["publication_date"] else ""
+        ),
     )
 
     return publication_form_data | link_form_data | {"authors": str(publication["authors"])}

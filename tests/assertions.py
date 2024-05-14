@@ -1,3 +1,4 @@
+import datetime
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Author
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
@@ -53,9 +54,11 @@ def assert_publication_equal(
     assert publication.open_access_type == publication_dto["open_access_type"]
     assert publication.license == publication_dto["license"]
     assert publication.journal.pk == publication_dto["journal"]
-    assert (
-        publication.publication_date == publication_dto["publication_date"]
-    ), f"{type(publication.publication_date)} != {type(publication_dto['publication_date'])}"
+    assert publication.publication_date == (
+        datetime.date.fromisoformat(publication_dto["publication_date"])
+        if publication_dto["publication_date"]
+        else None
+    ), f"{repr(publication.publication_date)} != {repr(publication_dto['publication_date'])}"
     assert publication.publication_state == publication_dto["publication_state"]
     assert len(publication.links.all()) == len(publication_dto["links"])
     assert all(

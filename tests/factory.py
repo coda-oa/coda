@@ -1,4 +1,3 @@
-import datetime
 import random
 from typing import Any, cast
 
@@ -147,7 +146,7 @@ def _unpublished_data() -> dict[str, Any]:
 def _published_data() -> dict[str, Any]:
     return {
         "publication_state": Published.name(),
-        "publication_date": datetime.date.fromisoformat(_faker.date()),
+        "publication_date": _faker.date(),
     }
 
 
