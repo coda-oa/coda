@@ -1,6 +1,7 @@
 import datetime
-from typing import TypedDict, cast
+from typing import TypedDict
 
+from coda.apps.publications import services
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.author import AuthorList
 from coda.publication import (
@@ -11,9 +12,8 @@ from coda.publication import (
     PublicationId,
     PublicationState,
     Published,
-    UnpublishedState,
     Unpublished,
-    UserLink,
+    UnpublishedState,
 )
 from coda.string import NonEmptyStr
 
@@ -38,8 +38,8 @@ def parse_publication(publication: PublicationDto, id: PublicationId | None = No
     state = publication["publication_state"]
     publication_state: PublicationState
     if state == Published.name():
-        # NOTE: We are casting here because the Published constructor will take care of validating the date
-        publication_state = Published(date=cast(datetime.date, publication["publication_date"]))
+        date = datetime.date.fromisoformat(publication["publication_date"] or "")
+        publication_state = Published(date)
     else:
         publication_state = Unpublished(state=UnpublishedState[state])
 
@@ -50,7 +50,10 @@ def parse_publication(publication: PublicationDto, id: PublicationId | None = No
         license=License[publication["license"]],
         open_access_type=OpenAccessType[publication["open_access_type"]],
         publication_state=publication_state,
-        links={UserLink(link["link_type"], link["link_value"]) for link in publication["links"]},
+        links={
+            services.get_link(link["link_type"], link["link_value"])
+            for link in publication["links"]
+        },
         journal=JournalId(publication["journal"]),
     )
 

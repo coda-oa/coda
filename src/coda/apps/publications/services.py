@@ -25,12 +25,14 @@ from coda.string import NonEmptyStr
 
 
 def _deserialize_links(links: Iterable[LinkModel]) -> set[Link]:
-    def __deserialize_link(link: LinkModel) -> Link:
-        if link.type.name == "DOI":
-            return Doi(link.value)
-        return UserLink(type=link.type.name, value=link.value)
+    return {get_link(link.type.name, link.value) for link in links}
 
-    return {__deserialize_link(link) for link in links}
+
+def get_link(link_type: str, value: str) -> Link:
+    if link_type == "DOI":
+        return Doi(value)
+    else:
+        return UserLink(type=link_type, value=value)
 
 
 def get_by_id(publication_id: PublicationId) -> Publication:
@@ -42,7 +44,7 @@ def get_by_id(publication_id: PublicationId) -> Publication:
         title=NonEmptyStr(model.title),
         license=License[model.license],
         open_access_type=OpenAccessType[model.open_access_type],
-        authors=AuthorList(model.author_list or ""),
+        authors=AuthorList.from_str(model.author_list or ""),
         publication_state=state,
         journal=JournalId(model.journal_id),
         links=_deserialize_links(model.links.all()),

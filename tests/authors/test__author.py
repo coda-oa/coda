@@ -4,19 +4,17 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.test import Client
 
-from coda.apps.authors.dto import parse_author
+from coda.apps.authors.dto import as_dto
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.models import PersonId
-from coda.apps.authors.services import author_create, author_update
+from coda.apps.authors.services import as_domain_object, author_create, author_update, get_by_id
 from coda.apps.institutions.models import Institution
-from coda.author import Author, AuthorId, Role
+from coda.author import Author, InstitutionId
 from coda.orcid import Orcid
 from coda.string import NonEmptyStr
-from tests import factory, test_orcid
-from tests.assertions import assert_author_equal
+from tests import domainfactory, modelfactory, test_orcid
 
-JOSIAHS_DATA = Author(
-    id=None,
+JOSIAHS_DATA = Author.new(
     name=NonEmptyStr("Josiah Carberry"),
     email="j.carberry@example.com",
     orcid=Orcid(test_orcid.JOSIAH_CARBERRY),
@@ -25,8 +23,11 @@ JOSIAHS_DATA = Author(
 
 @pytest.mark.django_db
 def test__can_create_author_with_empty_orcid() -> None:
-    no_orcid = Author(None, JOSIAHS_DATA.name, JOSIAHS_DATA.email, orcid=None)
-    author_create(no_orcid)
+    no_orcid = Author.new(JOSIAHS_DATA.name, JOSIAHS_DATA.email, orcid=None)
+    new_id = author_create(no_orcid)
+
+    actual = get_by_id(new_id)
+    assert_author_eq(actual, no_orcid)
 
 
 @pytest.mark.django_db
@@ -44,42 +45,24 @@ def test__orcids_must_be_unique() -> None:
 
 
 @pytest.mark.django_db
-def test__adding_roles_to_author__saves_roles_to_db() -> None:
-    josiah = Author(
-        None,
-        JOSIAHS_DATA.name,
-        JOSIAHS_DATA.email,
-        roles=frozenset({Role.SUBMITTER, Role.CO_AUTHOR}),
-    )
-
-    author_create(josiah)
-
-    author = cast(AuthorModel, AuthorModel.objects.first())
-    assert Role.SUBMITTER.name in cast(str, author.roles)
-    assert Role.CO_AUTHOR.name in cast(str, author.roles)
-
-
-@pytest.mark.django_db
 def test__updating_author__saves_updated_author_to_db() -> None:
-    author = factory.db_author()
+    new_id = author_create(domainfactory.author())
 
-    affiliation = factory.db_institution()
-    new_author_data = factory.author_dto(affiliation.pk)
-    new_author = parse_author(new_author_data, id=AuthorId(author.pk))
+    affiliation = modelfactory.institution()
+    new_author = domainfactory.author(InstitutionId(affiliation.pk), id=new_id)
 
     author_update(new_author)
 
-    author.refresh_from_db()
-    assert_author_equal(new_author_data, author)
+    actual = get_by_id(new_id)
+    assert_author_eq(actual, new_author)
 
 
 @pytest.mark.django_db
 def test__updating_author__without_id__raises_error() -> None:
-    _ = factory.db_author()
+    author = domainfactory.author()
+    author_create(author)
 
-    new_author_data = factory.author_dto()
-    new_author = parse_author(new_author_data, id=None)
-
+    new_author = domainfactory.author(id=None)
     with pytest.raises(ValidationError):
         author_update(new_author)
 
@@ -104,11 +87,17 @@ def test__given_institution_exits__when_author_is_affiliated__author_is_saved_wi
     institution.save()
 
     affiliation = institution.pk
-    josiah = JOSIAHS_DATA._asdict()
+    josiah = as_dto(JOSIAHS_DATA)
     josiah["affiliation"] = affiliation
-    josiah.pop("id")
 
     client.post("/authors/create/", josiah)
 
-    author = cast(AuthorModel, AuthorModel.objects.first())
-    assert author.affiliation == institution
+    author = as_domain_object(cast(AuthorModel, AuthorModel.objects.first()))
+    assert author.affiliation == affiliation
+
+
+def assert_author_eq(actual: Author, expected: Author) -> None:
+    assert actual.name == expected.name
+    assert actual.email == expected.email
+    assert actual.affiliation == expected.affiliation
+    assert actual.orcid == expected.orcid

@@ -22,9 +22,20 @@ from coda.publication import PublicationId
 from coda.string import NonEmptyStr
 
 
+def first() -> FundingRequest | None:
+    model = FundingRequestModel.objects.first()
+    if model:
+        return as_domain_object(model)
+    else:
+        return None
+
+
 def get_by_id(id: FundingRequestId) -> FundingRequest:
     model = FundingRequestModel.objects.get(pk=id)
+    return as_domain_object(model)
 
+
+def as_domain_object(model: FundingRequestModel) -> FundingRequest:
     if model.processing_status == Review.Approved.value:
         constructor = FundingRequest.approved
     elif model.processing_status == Review.Rejected.value:
@@ -33,7 +44,7 @@ def get_by_id(id: FundingRequestId) -> FundingRequest:
         constructor = FundingRequest
 
     return constructor(
-        id=id,
+        id=FundingRequestId(model.id),
         publication=publication_services.get_by_id(PublicationId(model.publication_id)),
         submitter=author_services.get_by_id(AuthorId(cast(int, model.submitter_id))),
         estimated_cost=Payment(

@@ -1,6 +1,6 @@
 import enum
 import re
-from typing import NamedTuple, NewType
+from typing import Any, NamedTuple, NewType
 from collections.abc import Iterable, Iterator
 
 from coda.orcid import Orcid
@@ -97,3 +97,6 @@ class AuthorList(Iterable[str]):
 
     def __repr__(self) -> str:
         return "AuthorList([{}])".format(", ".join(repr(x) for x in self._authors))
+
+    def __eq__(self, other: Any) -> bool:
+        return all(my_author == other_author for my_author, other_author in zip(self, other))

@@ -55,7 +55,7 @@ class FundingRequest(models.Model):
     ]
 
     request_id = models.CharField(max_length=25, unique=True)
-    estimated_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    estimated_cost = models.DecimalField(max_digits=10, decimal_places=4)
     estimated_cost_currency = models.CharField(max_length=3)
     payment_method = models.CharField(
         choices=PAYMENT_METHOD_CHOICES, default=PaymentMethod.Unknown.value

@@ -7,15 +7,15 @@ from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.color import Color
 from coda.fundingrequest import Review
-from tests import factory
+from tests import dtofactory, modelfactory
 
 
 @pytest.mark.django_db
 def test__searching_for_funding_requests_by_title__returns_matching_funding_requests() -> None:
     title = "The Search Term"
-    matching_request = factory.fundingrequest(title)
+    matching_request = modelfactory.fundingrequest(title)
 
-    _ = factory.fundingrequest("No match")
+    _ = modelfactory.fundingrequest("No match")
 
     results = repository.search(title=title)
 
@@ -24,12 +24,12 @@ def test__searching_for_funding_requests_by_title__returns_matching_funding_requ
 
 @pytest.mark.django_db
 def test__searching_for_funding_requests_by_submitter__returns_matching_funding_requests() -> None:
-    matching_request = factory.fundingrequest()
+    matching_request = modelfactory.fundingrequest()
     submitter = cast(Author, matching_request.submitter)
 
-    non_matching_submitter = factory.author_dto()
+    non_matching_submitter = dtofactory.author_dto()
     non_matching_submitter["name"] = "Not the submitter"
-    _ = factory.fundingrequest("No match", non_matching_submitter)
+    _ = modelfactory.fundingrequest("No match", non_matching_submitter)
 
     results = repository.search(submitter=submitter.name)
 
@@ -38,13 +38,13 @@ def test__searching_for_funding_requests_by_submitter__returns_matching_funding_
 
 @pytest.mark.django_db
 def test__searching_for_funding_requests_with_label__returns_matching_funding_requests() -> None:
-    matching_request = factory.fundingrequest("Match")
+    matching_request = modelfactory.fundingrequest("Match")
     first = label_create("The Label", Color())
     second = label_create("Another Label", Color())
     label_attach(matching_request, first)
     label_attach(matching_request, second)
 
-    _ = factory.fundingrequest("No match")
+    _ = modelfactory.fundingrequest("No match")
 
     results = repository.search(labels=[first.pk, second.pk])
 
@@ -55,13 +55,13 @@ def test__searching_for_funding_requests_with_label__returns_matching_funding_re
 def test__searching_for_funding_requests_by_process_state__returns_matching_funding_requests() -> (
     None
 ):
-    approved_request = factory.fundingrequest()
+    approved_request = modelfactory.fundingrequest()
     approved_request.approve()
 
-    rejected_request = factory.fundingrequest()
+    rejected_request = modelfactory.fundingrequest()
     rejected_request.reject()
 
-    in_progress_request = factory.fundingrequest()  # noqa: F841
+    in_progress_request = modelfactory.fundingrequest()  # noqa: F841
 
     results = repository.search(processing_states=[Review.Approved.value, Review.Rejected.value])
 

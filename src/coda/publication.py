@@ -78,7 +78,7 @@ class Publication:
     id: PublicationId | None
     title: NonEmptyStr
     journal: JournalId
-    authors: AuthorList = AuthorList()
+    authors: AuthorList = field(default_factory=AuthorList)
     license: License = License.Unknown
     open_access_type: OpenAccessType = OpenAccessType.Unknown
     publication_state: PublicationState = Unpublished()

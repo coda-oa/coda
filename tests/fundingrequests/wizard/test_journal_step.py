@@ -6,7 +6,7 @@ from django.test import RequestFactory
 
 from coda.apps.fundingrequests.views.wizard.wizardsteps import JournalStep
 from coda.apps.journals.models import Journal
-from tests import factory
+from tests import modelfactory
 from tests.test_wizard import DictStore
 
 
@@ -17,7 +17,7 @@ def store() -> DictStore:
 
 @pytest.fixture
 def journals() -> list[Journal]:
-    return [factory.db_journal() for _ in range(3)]
+    return [modelfactory.journal() for _ in range(3)]
 
 
 @pytest.mark.django_db

@@ -1,4 +1,5 @@
 import re
+from typing import Any
 
 from coda.string import NonEmptyStr
 
@@ -37,3 +38,11 @@ class Doi:
 
     def __str__(self) -> str:
         return self._doi
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Doi):
+            return False
+        return self._doi == other._doi
+
+    def __hash__(self) -> int:
+        return hash((self._doi,))

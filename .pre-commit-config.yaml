@@ -51,6 +51,7 @@ repos:
             'django-environ',
             'psycopg',
             'pytest',
+            'pytest-django',
             'polars',
           ]
 

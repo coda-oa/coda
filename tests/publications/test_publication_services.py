@@ -1,64 +1,60 @@
-from typing import cast
-
 import pytest
 
-from coda.apps.authors.dto import author_dto_from_model
 from coda.apps.authors.models import Author
 from coda.apps.journals.models import Journal
-from coda.apps.publications.dto import parse_publication
-from coda.apps.publications.models import Publication as PublicationModel
-from coda.apps.publications.services import publication_create, publication_update
+from coda.apps.publications.services import get_by_id, publication_create, publication_update
 from coda.author import AuthorId
-from coda.publication import PublicationId
-from tests import factory
-from tests.assertions import assert_publication_equal
+from coda.publication import JournalId, Publication, PublicationId
+from tests import domainfactory, dtofactory, modelfactory
 
 
 @pytest.fixture
 def author() -> Author:
-    return factory.db_author()
+    return modelfactory.author()
 
 
 @pytest.fixture
 def journal() -> Journal:
-    return factory.db_journal()
+    return modelfactory.journal()
+
+
+@pytest.fixture(autouse=True)
+def linktypes() -> None:
+    dtofactory.link_dtos()
 
 
 @pytest.mark.django_db
 def test__create_publication__creates_a_publication_based_on_given_data(
     author: Author, journal: Journal
 ) -> None:
-    publication_dto = factory.publication_dto(journal.pk)
-    publication = parse_publication(publication_dto)
+    publication = domainfactory.publication(JournalId(journal.pk))
     new_id = publication_create(publication, AuthorId(author.pk))
 
-    author_dto = author_dto_from_model(author)
-    publication_in_db = PublicationModel.objects.get(pk=new_id)
-    assert_publication_equal(publication_dto, author_dto, publication_in_db)
+    actual = get_by_id(new_id)
+    assert_publication_eq(actual, publication)
 
 
 @pytest.mark.django_db
-def test__create_publication__without_publication_date__sets_date_to_none(
+def test__update_publication__updates_publication_based_on_given_data(
     author: Author, journal: Journal
 ) -> None:
-    publication_dto = factory.publication_dto(journal.pk)
-    publication = parse_publication(publication_dto)
+    publication = domainfactory.publication(JournalId(journal.pk))
     new_id = publication_create(publication, AuthorId(author.pk))
 
-    author_dto = author_dto_from_model(author)
-    publication_in_db = PublicationModel.objects.get(pk=new_id)
-    assert_publication_equal(publication_dto, author_dto, publication_in_db)
-
-
-@pytest.mark.django_db
-def test__update_publication__updates_publication_based_on_given_data() -> None:
-    publication = factory.db_publication()
-    new_journal = factory.db_journal()
-    new_publication_data = factory.publication_dto(new_journal.pk)
-    new_publication = parse_publication(new_publication_data, id=PublicationId(publication.pk))
+    new_journal = modelfactory.journal()
+    new_publication = domainfactory.publication(JournalId(new_journal.pk), id=PublicationId(new_id))
 
     publication_update(new_publication)
 
-    publication.refresh_from_db()
-    author = author_dto_from_model(cast(Author, publication.submitting_author))
-    assert_publication_equal(new_publication_data, author, publication)
+    actual = get_by_id(new_id)
+    assert_publication_eq(actual, new_publication)
+
+
+def assert_publication_eq(actual: Publication, expected: Publication) -> None:
+    assert actual.title == expected.title
+    assert actual.authors == expected.authors
+    assert actual.journal == expected.journal
+    assert actual.license == expected.license
+    assert actual.open_access_type == expected.open_access_type
+    assert actual.publication_state == expected.publication_state
+    assert actual.links == expected.links

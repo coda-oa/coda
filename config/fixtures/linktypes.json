@@ -10,7 +10,7 @@
         "model": "publications.LinkType",
         "pk": 2,
         "fields": {
-            "name": "Publication URL"
+            "name": "URL"
         }
     }
 ]

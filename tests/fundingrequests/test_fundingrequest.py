@@ -2,12 +2,12 @@ import datetime
 
 import pytest
 
-from tests import factory
+from tests import modelfactory
 
 
 @pytest.mark.django_db
 def test__fundingrequest__has_valid_id_pattern() -> None:
-    request = factory.fundingrequest()
+    request = modelfactory.fundingrequest()
 
     split_id = request.request_id.split("-")
     uuid_component = len(split_id[1])

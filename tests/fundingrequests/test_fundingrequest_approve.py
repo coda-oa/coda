@@ -5,13 +5,13 @@ from pytest_django.asserts import assertRedirects
 
 from coda.apps.fundingrequests import repository
 from coda.fundingrequest import FundingRequestId, Review
-from tests import factory
+from tests import modelfactory
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__funding_request_approve_view__approves_request(client: Client) -> None:
-    request = factory.fundingrequest()
+    request = modelfactory.fundingrequest()
 
     client.post(reverse("fundingrequests:approve"), {"fundingrequest": request.pk})
 
@@ -21,7 +21,7 @@ def test__funding_request_approve_view__approves_request(client: Client) -> None
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__funding_request_reject_view__rejects_request(client: Client) -> None:
-    request = factory.fundingrequest()
+    request = modelfactory.fundingrequest()
 
     client.post(reverse("fundingrequests:reject"), {"fundingrequest": request.pk})
 
@@ -32,7 +32,7 @@ def test__funding_request_reject_view__rejects_request(client: Client) -> None:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__funding_request_open_view__rejects_request(client: Client) -> None:
-    request = factory.fundingrequest()
+    request = modelfactory.fundingrequest()
 
     client.post(reverse("fundingrequests:open"), {"fundingrequest": request.pk})
 
@@ -46,7 +46,7 @@ def test__funding_request_open_view__rejects_request(client: Client) -> None:
 def test__approving_or_requesting_request__redirects_to_funding_request_detail(
     client: Client, view_name: str
 ) -> None:
-    request = factory.fundingrequest()
+    request = modelfactory.fundingrequest()
 
     response = client.post(reverse(f"fundingrequests:{view_name}"), {"fundingrequest": request.pk})
 

@@ -11,13 +11,13 @@ from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.color import Color
 from coda.fundingrequest import Review
-from tests import factory
+from tests import dtofactory, modelfactory
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__searching_for_funding_requests__shows_all_funding_requests(client: Client) -> None:
-    requests = {factory.fundingrequest(), factory.fundingrequest()}
+    requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
 
     response = search_fundingrequests(client)
 
@@ -30,9 +30,9 @@ def test__searching_for_funding_requests_by_title__shows_only_matching_funding_r
     client: Client,
 ) -> None:
     title = "The Search Term"
-    matching_request = factory.fundingrequest(title)
+    matching_request = modelfactory.fundingrequest(title)
 
-    _ = factory.fundingrequest("No match")
+    _ = modelfactory.fundingrequest("No match")
 
     response = search_fundingrequests(client, by_title(title))
 
@@ -44,12 +44,12 @@ def test__searching_for_funding_requests_by_title__shows_only_matching_funding_r
 def test__searching_funding_request_by_submitter__shows_only_matching_funding_requests(
     client: Client,
 ) -> None:
-    matching_request = factory.fundingrequest()
+    matching_request = modelfactory.fundingrequest()
     submitter = cast(Author, matching_request.submitter)
 
-    non_matching_submitter = factory.author_dto()
+    non_matching_submitter = dtofactory.author_dto()
     non_matching_submitter["name"] = "Not the submitter"
-    _ = factory.fundingrequest("No match", non_matching_submitter)
+    _ = modelfactory.fundingrequest("No match", non_matching_submitter)
 
     response = search_fundingrequests(client, by_submitter(submitter.name))
 
@@ -59,7 +59,7 @@ def test__searching_funding_request_by_submitter__shows_only_matching_funding_re
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__searching_with_invalid_search_type__shows_all_funding_requests(client: Client) -> None:
-    requests = {factory.fundingrequest(), factory.fundingrequest()}
+    requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
 
     response = search_fundingrequests(client, {"search_type": "invalid"})
 
@@ -71,13 +71,13 @@ def test__searching_with_invalid_search_type__shows_all_funding_requests(client:
 def test__searching_for_funding_requests_by_label__shows_only_matching_funding_requests(
     client: Client,
 ) -> None:
-    matching_request = factory.fundingrequest()
+    matching_request = modelfactory.fundingrequest()
     first = label_create("The Label", Color())
     label_attach(matching_request, first)
     second = label_create("Another Label", Color())
     label_attach(matching_request, second)
 
-    _ = factory.fundingrequest("No match")
+    _ = modelfactory.fundingrequest("No match")
 
     response = search_fundingrequests(client, {"labels": [first.pk, second.pk]})
 
@@ -89,13 +89,13 @@ def test__searching_for_funding_requests_by_label__shows_only_matching_funding_r
 def test__searching_for_funding_requests_by_process_state__shows_only_matching_funding_requests(
     client: Client,
 ) -> None:
-    approved_request = factory.fundingrequest()
+    approved_request = modelfactory.fundingrequest()
     approved_request.approve()
 
-    rejected_request = factory.fundingrequest()
+    rejected_request = modelfactory.fundingrequest()
     rejected_request.reject()
 
-    in_progress_request = factory.fundingrequest()  # noqa: F841
+    in_progress_request = modelfactory.fundingrequest()  # noqa: F841
 
     query = {"processing_status": [Review.Approved.value, Review.Rejected.value]}
     response = search_fundingrequests(client, query)
