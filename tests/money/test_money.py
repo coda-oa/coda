@@ -94,3 +94,7 @@ def test__less_or_same_money_is_less_or_equal() -> None:
 def test__more_or_same_money_is_more_or_equal() -> None:
     assert Money(100, Currency.EUR) >= Money(99, Currency.EUR)
     assert Money(100, Currency.EUR) >= Money(100, Currency.EUR)
+
+
+def test__money_plus_money__returns_sum() -> None:
+    assert Money(100, Currency.EUR) + Money(100, Currency.EUR) == Money(200, Currency.EUR)

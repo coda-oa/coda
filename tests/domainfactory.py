@@ -43,7 +43,7 @@ def author(affiliation: InstitutionId | None = None, id: AuthorId | None = None)
 
 
 def publication(
-    journal: JournalId, title: str = "", id: PublicationId | None = None
+    journal: JournalId | None = None, title: str = "", id: PublicationId | None = None
 ) -> Publication:
     state = cast(
         PublicationState,
@@ -53,7 +53,7 @@ def publication(
     return Publication(
         id=id,
         title=NonEmptyStr(title or _faker.sentence()),
-        journal=journal,
+        journal=journal or JournalId(random.randint(1, 1000)),
         authors=random_authorlist(),
         license=random_license(),
         open_access_type=random_open_access_type(),

@@ -39,6 +39,9 @@ class Money:
     def __le__(self, v: object) -> bool | NotImplementedType:
         return self.amount <= self._comparable_money(v).amount
 
+    def __add__(self, v: object) -> "Money":
+        return Money(self.amount + self._comparable_money(v).amount, self.currency)
+
     def _comparable_money(self, v: object) -> "Money":
         if not isinstance(v, Money):
             raise TypeError("Cannot compare money to non-money")
