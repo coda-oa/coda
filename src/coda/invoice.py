@@ -1,21 +1,22 @@
-from dataclasses import dataclass
 import functools
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import NamedTuple, NewType, Self
 
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
-
 PositionId = NewType("PositionId", int)
 InvoiceId = NewType("InvoiceId", int)
 RecipientId = NewType("RecipientId", int)
+FundingSourceId = NewType("FundingSourceId", int)
 
 
 class Position(NamedTuple):
     publication: PublicationId
     cost: Money
     description: str = ""
+    funding_source: FundingSourceId | None = None
 
 
 @dataclass(frozen=True, slots=True)
