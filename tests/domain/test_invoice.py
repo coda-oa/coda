@@ -2,13 +2,13 @@ from collections.abc import Iterable
 
 import pytest
 
-from coda.invoice import Invoice, Position, RecipientId
+from coda.invoice import Invoice, Position, PublisherId
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
 
 def make_sut(positions: Iterable[Position]) -> Invoice:
-    return Invoice.new(RecipientId(1), positions)
+    return Invoice.new(PublisherId(1), positions)
 
 
 def test__invoice__total__returns_sum_of_positions() -> None:

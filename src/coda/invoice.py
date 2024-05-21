@@ -6,9 +6,8 @@ from typing import NamedTuple, NewType, Self
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
-PositionId = NewType("PositionId", int)
 InvoiceId = NewType("InvoiceId", int)
-RecipientId = NewType("RecipientId", int)
+PublisherId = NewType("PublisherId", int)
 FundingSourceId = NewType("FundingSourceId", int)
 
 
@@ -22,11 +21,11 @@ class Position(NamedTuple):
 @dataclass(frozen=True, slots=True)
 class Invoice:
     id: InvoiceId | None
-    recipient: RecipientId
+    recipient: PublisherId
     positions: Iterable[Position]
 
     @classmethod
-    def new(cls, recipient: RecipientId, positions: Iterable[Position]) -> Self:
+    def new(cls, recipient: PublisherId, positions: Iterable[Position]) -> Self:
         return cls(None, recipient, positions)
 
     def __post_init__(self) -> None:
