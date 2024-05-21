@@ -12,8 +12,8 @@ def make_sut(positions: Iterable[Position]) -> Invoice:
 
 
 def test__invoice__total__returns_sum_of_positions() -> None:
-    first = Position.new(PublicationId(1), Money(100, Currency.EUR))
-    second = Position.new(PublicationId(2), Money(200, Currency.EUR))
+    first = Position(PublicationId(1), Money(100, Currency.EUR))
+    second = Position(PublicationId(2), Money(200, Currency.EUR))
     sut = make_sut([first, second])
 
     assert sut.total() == Money(300, Currency.EUR)
@@ -26,8 +26,8 @@ def test__invoice__total__returns_zero_when_no_positions() -> None:
 
 
 def test__invoice__positions_cannot_refer_to_publication_twice() -> None:
-    first = Position.new(PublicationId(1), Money(100, Currency.EUR))
-    second = Position.new(PublicationId(1), Money(200, Currency.EUR))
+    first = Position(PublicationId(1), Money(100, Currency.EUR))
+    second = Position(PublicationId(1), Money(200, Currency.EUR))
 
     with pytest.raises(ValueError):
         make_sut([first, second])
