@@ -1,5 +1,11 @@
 ENV:=production
 
+up:
+	docker compose -f compose.${ENV}.yml up -d
+
+down:
+	docker compose -f compose.${ENV}.yml down
+
 superuser:
 	docker compose -f compose.${ENV}.yml exec django pdm run manage.py createsuperuser
 
