@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 import random
 from datetime import date
 from typing import cast
@@ -15,6 +16,7 @@ from coda.fundingrequest import (
     Payment,
     PaymentMethod,
 )
+from coda.invoice import FundingSourceId, Invoice, InvoiceId, Position, PositionNumber, PublisherId
 from coda.money import Currency, Money
 from coda.publication import (
     JournalId,
@@ -42,6 +44,33 @@ def author(affiliation: InstitutionId | None = None, id: AuthorId | None = None)
     )
 
 
+def invoice(
+    id: InvoiceId | None = None,
+    recipient: PublisherId | None = None,
+    positions: Iterable[Position] = (),
+) -> Invoice:
+    return Invoice(
+        id=id,
+        number=NonEmptyStr(_faker.uuid4()),
+        recipient=recipient or PublisherId(random.randint(1, 1000)),
+        positions=positions or [position(PositionNumber(n)) for n in range(random.randint(1, 5))],
+    )
+
+
+def position(
+    number: PositionNumber | None = None,
+    publication: PublicationId | None = None,
+    funding_source: FundingSourceId | None = None,
+) -> Position:
+    return Position(
+        number=number or PositionNumber(random.randint(1, 1000)),
+        publication=publication or PublicationId(random.randint(1, 1000)),
+        cost=random_money(),
+        description=_faker.sentence(),
+        funding_source=funding_source,
+    )
+
+
 def publication(
     journal: JournalId | None = None, title: str = "", id: PublicationId | None = None
 ) -> Publication:
@@ -63,10 +92,16 @@ def publication(
 
 
 def payment() -> Payment:
+    money = random_money()
+    method = random.choice([m for m in PaymentMethod])
+    return Payment(amount=money, method=method)
+
+
+def random_money() -> Money:
     amount = random.random() * random.randint(1, 1000)
     currency = random.choice([c for c in Currency])
-    method = random.choice([m for m in PaymentMethod])
-    return Payment(amount=Money(str(amount), currency), method=method)
+    money = Money(str(amount), currency)
+    return money
 
 
 def external_funding(organization_id: FundingOrganizationId | None = None) -> ExternalFunding:

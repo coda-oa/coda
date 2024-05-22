@@ -35,9 +35,11 @@ def publisher() -> Publisher:
     return Publisher.objects.create(name=_faker.company())
 
 
-def journal() -> Journal:
+def journal(publisher_id: int | None = None) -> Journal:
     title = _faker.sentence()
-    return Journal.objects.create(title=title, eissn=_issn(), publisher=publisher())
+    return Journal.objects.create(
+        title=title, eissn=_issn(), publisher_id=publisher_id or publisher().id
+    )
 
 
 def author() -> AuthorModel:

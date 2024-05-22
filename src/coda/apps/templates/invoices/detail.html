@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Invoice: {{ invoice.number }}</h1>
+    <h2>Details</h2>
+    <table>
+        <tbody>
+            <tr>
+                <th>Invoice Number</th>
+                <td>{{ invoice.number }}</td>
+            </tr>
+            <tr>
+                <th>Invoice Date</th>
+                <td>{{ invoice.date }}</td>
+            </tr>
+            <tr>
+                <th>Recipient</th>
+                <td>{{ invoice.recipient_name }}</td>
+            </tr>
+            <tr>
+                <th>Total</th>
+                <td>{{ invoice.total.amount }} {{ inoice.total.currency.code }}</td>
+            </tr>
+        </tbody>
+    </table>
+    <h2>Positions</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Position</th>
+                <th>Publication Name</th>
+                <th>Publication Submitter</th>
+                <th>Related Funding Request</th>
+                <th>Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for position in invoice.positions %}
+                <tr>
+                    <td>{{ position.number }}</td>
+                    <td>{{ position.publication_name }}</td>
+                    <td>{{ position.publication_submitter }}</td>
+                    <td>
+                        {% if position.related_funding_request %}
+                            <a href="{{ position.related_funding_request.url }}">{{ position.related_funding_request.request_id }}</a>
+                        {% endif %}
+                    </td>
+                    <td>{{ position.cost.amount }} {{ position.cost.currency.code }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock content %}

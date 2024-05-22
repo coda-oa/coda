@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Invoices</h1>
+    <section>
+        {% for invoice in invoices %}
+            <article>
+                <h2>Invoice: {{ invoice.number }}</h2>
+                <p>Invoice Date: {{ invoice.date }}</p>
+                <p>Recipient: {{ invoice.recipient_name }}</p>
+                <p>Total: {{ invoice.total.amount }} {{ invoice.total.currency.code }}</p>
+                <a href="{{ invoice.url }}">Details</a>
+            </article>
+        {% endfor %}
+    </section>
+{% endblock content %}
