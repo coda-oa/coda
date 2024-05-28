@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Create Invoice</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form }}
+        <h2>Invoice Items</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Number</th>
+                    <th>Position</th>
+                    <th>Amount</th>
+                    <th>Related Funding Request</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for position in positions %}
+                    <tr>
+                        <td>{{ position.number }}</td>
+                        <td>{{ position.name }}</td>
+                        <td>
+                            <input type="number" name="position_cost">
+                        </td>
+                        <td>
+                            <a href="{{ position.funding_request.url }}">{{ position.funding_request.request_id }}</a>
+                        </td>
+                        <td>
+                            <button type="submit" name="remove_position" value="{{ position.id }}">Remove</button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <input type="search" name="search" placeholder="Search publications">
+        <button type="submit" name="action" value="search">Search</button>
+        {% if publications %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Related Funding Request</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for publication in publications %}
+                        <tr>
+                            <td>{{ publication.name }}</td>
+                            <td>
+                                <a href="{{ publication.funding_request.url }}">{{ publication.funding_request.request_id }}</a>
+                            </td>
+                            <td>
+                                <button type="submit" name="add_position" value="{{ publication.id }}">Add</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+        <button type="submit" name="action" value="create">Create</button>
+    </form>
+{% endblock content %}
