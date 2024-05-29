@@ -67,7 +67,7 @@ class FundingRequest(models.Model):
     submitter = models.ForeignKey(
         Author, on_delete=models.CASCADE, related_name="funding_requests", null=True, blank=True
     )
-    publication = models.ForeignKey(Publication, on_delete=models.CASCADE)
+    publication = models.OneToOneField(Publication, on_delete=models.CASCADE)
     external_funding = models.ForeignKey(
         ExternalFunding, on_delete=models.SET_NULL, null=True, blank=True
     )
