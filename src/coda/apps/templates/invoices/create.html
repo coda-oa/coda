@@ -4,61 +4,106 @@
     <form method="post">
         {% csrf_token %}
         {{ form }}
-        <h2>Invoice Items</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Number</th>
-                    <th>Position</th>
-                    <th>Amount</th>
-                    <th>Related Funding Request</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for position in positions %}
-                    <tr>
-                        <td>{{ position.number }}</td>
-                        <td>{{ position.name }}</td>
-                        <td>
-                            <input type="number" name="position_cost">
-                        </td>
-                        <td>
-                            <a href="{{ position.funding_request.url }}">{{ position.funding_request.request_id }}</a>
-                        </td>
-                        <td>
-                            <button type="submit" name="remove_position" value="{{ position.id }}">Remove</button>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <input type="search" name="search" placeholder="Search publications">
-        <button type="submit" name="action" value="search">Search</button>
-        {% if publications %}
-            <table>
+        <article>
+            <h2>Invoice Items</h2>
+            {% if positions %}
+                <input type="hidden"
+                       name="number-of-positions"
+                       value="{{ positions|length }}">
+            {% endif %}
+            <table class="article__table">
                 <thead>
                     <tr>
-                        <th>Name</th>
+                        <th>#</th>
+                        <th>Position</th>
+                        <th>Amount</th>
                         <th>Related Funding Request</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for publication in publications %}
+                    {% for position in positions %}
                         <tr>
-                            <td>{{ publication.name }}</td>
                             <td>
-                                <a href="{{ publication.funding_request.url }}">{{ publication.funding_request.request_id }}</a>
+                                {{ position.number }}
+                                <input type="hidden"
+                                       name="position-{{ forloop.counter }}-number"
+                                       value="{{ position.number }}">
                             </td>
                             <td>
-                                <button type="submit" name="add_position" value="{{ publication.id }}">Add</button>
+                                {{ position.title }}
+                                <input type="hidden"
+                                       name="position-{{ forloop.counter }}-id"
+                                       value="{{ position.id }}">
+                                <input type="hidden"
+                                       name="position-{{ forloop.counter }}-title"
+                                       value="{{ position.title }}">
+                            </td>
+                            <td>
+                                <fieldset role="group">
+                                    <input type="number"
+                                           name="position-{{ forloop.counter }}-cost"
+                                           value="{{ position.cost_amount }}">
+                                    <select name="position-{{ forloop.counter }}-currency">
+                                        {% for currency in currencies %}
+                                            <option value="{{ currency.code }}"
+                                                    {% if currency.code == position.cost_currency %}selected{% endif %}>
+                                                {{ currency.code }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </fieldset>
+                            </td>
+                            <td>
+                                <a href="{{ position.funding_request.url }}">{{ position.funding_request.request_id }}</a>
+                                <input type="hidden" name="position-{{ forloop.counter }}-fundingrequest-id" value={{ position.funding_request.request_id }}>
+                                <input type="hidden" name="position-{{ forloop.counter }}-fundingrequest-url" value={{ position.funding_request.url }}>
+                            </td>
+                            <td>
+                                <button type="submit"
+                                        name="remove-position"
+                                        value="position-{{ forloop.counter }}">Remove</button>
                             </td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
-        {% endif %}
+        </article>
+        <article>
+            <h3>Search Publications</h3>
+            <div role="group">
+                <input type="search"
+                       name="q"
+                       placeholder="Search publications"
+                       value="{{ request.POST.q }}"
+                       class="flex-6">
+                <button type="submit" name="action" value="search" class="flex-1 pill">Search</button>
+            </div>
+            {% if publications %}
+                <table class="article__table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Related Funding Request</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for publication in publications %}
+                            <tr>
+                                <td>{{ publication.title }}</td>
+                                <td>
+                                    <a href="{{ publication.funding_request.url }}">{{ publication.funding_request.request_id }}</a>
+                                </td>
+                                <td>
+                                    <button type="submit" name="add_position" value="{{ publication.id }}">Add</button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </article>
         <button type="submit" name="action" value="create">Create</button>
     </form>
 {% endblock content %}

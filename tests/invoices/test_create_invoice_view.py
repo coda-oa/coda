@@ -1,19 +1,143 @@
-import pytest
-from django.test import Client
+from typing import Any, cast
 
-from coda.apps.invoices.models import Invoice
+import faker
+import pytest
+from django.template.response import TemplateResponse
+from django.test import Client
+from django.urls import reverse
+
+from coda.apps.publications.models import Publication
 from tests import modelfactory
+
+_faker = faker.Faker()
 
 
 @pytest.mark.django_db
-def test__completed_invoice_create_view__saves_invoice_to_db(client: Client) -> None:
+@pytest.mark.usefixtures("logged_in")
+def test__searching_for_publication__returns_matches_in_response(client: Client) -> None:
     fr = modelfactory.fundingrequest()
-    publisher_id = fr.publication.journal.publisher.id
-    publication_id = fr.publication.id
+    response = search(client, fr.publication.title)
 
-    invoice_data = {"number": "123", "recipient": publisher_id}
-    position = {"add_position": publication_id}
+    expected_context = expect_context(fr.publication)
+    assert expected_context in response.context["publications"]
 
-    client.post("/invoices/create/", invoice_data | position)
 
-    assert Invoice.objects.count() == 1
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__add_publication_as_position__returns_position_in_response(client: Client) -> None:
+    fr = modelfactory.fundingrequest()
+    publication = fr.publication
+
+    response = add_position(client, publication.id)
+
+    expected = expect_new_position_data(publication)
+    assert expected in response.context["positions"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__changing_position_data__updates_position_in_response(client: Client) -> None:
+    publication = modelfactory.publication()
+    position_data = number_of_positions(1) | create_position_input(publication)
+    response = client.post(reverse("invoices:create"), position_data)
+
+    expected = expect_existing_position_data(position_data)
+    assert expected in response.context["positions"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__given_position_added__adding_another_position__second_position_has_number_2(
+    client: Client,
+) -> None:
+    first = modelfactory.publication()
+    second = modelfactory.publication()
+
+    first_position_data = create_position_input(first)
+    response = add_position(
+        client,
+        second.id,
+        other_post_data=(number_of_positions(1) | first_position_data),
+    )
+
+    first_expected = expect_existing_position_data(first_position_data, 1)
+    second_expected = expect_new_position_data(second, 2)
+    assert response.context["positions"] == [first_expected, second_expected]
+
+
+def expect_existing_position_data(position_data: dict[str, str], i: int = 1) -> dict[str, Any]:
+    return {
+        "number": position_data[f"position-{i}-number"],
+        "id": int(position_data[f"position-{i}-id"]),
+        "title": position_data[f"position-{i}-title"],
+        "funding_request": {
+            "request_id": position_data[f"position-{i}-fundingrequest-id"],
+            "url": position_data[f"position-{i}-fundingrequest-url"],
+        },
+        "cost_amount": float(position_data[f"position-{i}-cost"]),
+        "cost_currency": position_data[f"position-{i}-currency"],
+        "description": "",
+    }
+
+
+def search(client: Client, title: str) -> TemplateResponse:
+    return cast(TemplateResponse, client.post(reverse("invoices:create"), {"q": title}))
+
+
+def add_position(
+    client: Client, id: int, /, other_post_data: dict[str, Any] | None = None
+) -> TemplateResponse:
+    return cast(
+        TemplateResponse,
+        client.post(reverse("invoices:create"), {"add_position": id} | (other_post_data or {})),
+    )
+
+
+def number_of_positions(num: int) -> dict[str, str]:
+    return {"number-of-positions": str(num)}
+
+
+def create_position_input(publication: Publication, index: int = 1) -> dict[str, str]:
+    if hasattr(publication, "fundingrequest"):
+        request_id = publication.fundingrequest.request_id
+        url = publication.fundingrequest.get_absolute_url()
+    else:
+        request_id = ""
+        url = ""
+    return {
+        f"position-{index}-number": str(index),
+        f"position-{index}-id": str(publication.id),
+        f"position-{index}-title": publication.title,
+        f"position-{index}-cost": str(_faker.pyfloat(right_digits=2, positive=True)),
+        f"position-{index}-currency": "EUR",
+        f"position-{index}-fundingrequest-id": request_id,
+        f"position-{index}-fundingrequest-url": url,
+    }
+
+
+def expect_new_position_data(publication: Publication, number: int = 1) -> dict[str, Any]:
+    return {
+        "number": str(number),
+        "id": publication.id,
+        "title": publication.title,
+        "funding_request": (
+            {
+                "request_id": publication.fundingrequest.request_id,
+                "url": publication.fundingrequest.get_absolute_url(),
+            }
+            if hasattr(publication, "fundingrequest")
+            else {"request_id": "", "url": ""}
+        ),
+        "cost_amount": 0.00,
+        "cost_currency": "EUR",
+        "description": "",
+    }
+
+
+def expect_context(publication: Publication) -> dict[str, Any]:
+    fr = publication.fundingrequest
+    return {
+        "id": publication.id,
+        "title": publication.title,
+        "funding_request": {"request_id": fr.request_id, "url": fr.get_absolute_url()},
+    }

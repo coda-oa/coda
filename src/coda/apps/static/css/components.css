@@ -55,24 +55,24 @@ article.fundingrequest {
   margin-block: 0;
 }
 
-.fundingrequest__detail-table {
+.article__table {
   width: 100%;
   margin-block-end: 0;
 }
 
-.fundingrequest__detail-table tr,
-.fundingrequest__detail-table th,
-.fundingrequest__detail-table td {
+.article__table tr,
+.article__table th,
+.article__table td {
   background-color: var(--coda-card-background-color);
 }
 
-.fundingrequest__detail-table tbody tr:last-child td,
-.fundingrequest__detail-table tbody tr:last-child th {
+.article__table tbody tr:last-child td,
+.article__table tbody tr:last-child th {
   border-bottom: none;
 }
 
-.fundingrequest__detail-table tbody tr > th,
-.fundingrequest__detail-table tr > td:first-child {
+.article__table tbody tr > th,
+.article__table tr > td:first-child {
   width: 30ch;
 }
 

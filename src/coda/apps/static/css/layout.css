@@ -24,6 +24,14 @@
   flex: 4 !important;
 }
 
+.flex-5 {
+  flex: 5 !important;
+}
+
+.flex-6 {
+  flex: 6 !important;
+}
+
 .justify-around {
   justify-content: space-around;
 }
