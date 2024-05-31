@@ -6,8 +6,15 @@ from django.template.response import TemplateResponse
 from django.test import Client
 from django.urls import reverse
 
+from pytest_django.asserts import assertRedirects
+
+from coda.apps.invoices.services import get_by_id
 from coda.apps.publications.models import Publication
+from coda.invoice import Invoice, InvoiceId, Position, PositionNumber, PublisherId
+from coda.money import Currency, Money
+from coda.publication import PublicationId
 from tests import modelfactory
+from tests.invoices.test_invoice_services import assert_invoice_eq
 
 _faker = faker.Faker()
 
@@ -65,6 +72,59 @@ def test__given_position_added__adding_another_position__second_position_has_num
     assert response.context["positions"] == [first_expected, second_expected]
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__given_positions_added__create__saves_new_invoice(client: Client) -> None:
+    first = modelfactory.publication()
+    second = modelfactory.publication()
+
+    first_position_data = create_position_input(first, 1)
+    second_position_data = create_position_input(second, 2)
+
+    post_data = (
+        {
+            "action": "create",
+            "number": _faker.pystr(),
+            "creditor": first.journal.publisher.id,
+        }
+        | number_of_positions(2)
+        | first_position_data
+        | second_position_data
+    )
+
+    response = client.post(reverse("invoices:create"), post_data)
+
+    actual = get_by_id(InvoiceId(1))
+    expected = expected_invoice(post_data)
+    assert_invoice_eq(expected, actual)
+    assertRedirects(response, reverse("invoices:detail", kwargs={"pk": 1}))
+
+
+def expected_invoice(post_data: dict[str, str]) -> Invoice:
+    return Invoice.new(
+        post_data["number"],
+        PublisherId(int(post_data["creditor"])),
+        [
+            Position(
+                PositionNumber(1),
+                PublicationId(int(post_data["position-1-id"])),
+                Money(
+                    post_data["position-1-cost"],
+                    Currency[post_data["position-1-currency"]],
+                ),
+            ),
+            Position(
+                PositionNumber(2),
+                PublicationId(int(post_data["position-2-id"])),
+                Money(
+                    post_data["position-2-cost"],
+                    Currency[post_data["position-2-currency"]],
+                ),
+            ),
+        ],
+    )
+
+
 def expect_existing_position_data(position_data: dict[str, str], i: int = 1) -> dict[str, Any]:
     return {
         "number": position_data[f"position-{i}-number"],
@@ -108,7 +168,9 @@ def create_position_input(publication: Publication, index: int = 1) -> dict[str,
         f"position-{index}-number": str(index),
         f"position-{index}-id": str(publication.id),
         f"position-{index}-title": publication.title,
-        f"position-{index}-cost": str(_faker.pyfloat(right_digits=2, positive=True)),
+        f"position-{index}-cost": str(
+            _faker.pyfloat(max_value=100_000, right_digits=2, positive=True)
+        ),
         f"position-{index}-currency": "EUR",
         f"position-{index}-fundingrequest-id": request_id,
         f"position-{index}-fundingrequest-url": url,

@@ -3,17 +3,18 @@ from typing import Any, NamedTuple, cast
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 
 from coda.apps.authors.models import Author
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.models import Invoice as InvoiceModel
-from coda.apps.invoices.services import as_domain_object
+from coda.apps.invoices.services import as_domain_object, invoice_create
 from coda.apps.publications.models import Publication
 from coda.fundingrequest import FundingRequestId
-from coda.invoice import FundingSourceId, Position
+from coda.invoice import FundingSourceId, Invoice, Position, PositionNumber, PublisherId
 from coda.money import Currency, Money
+from coda.publication import PublicationId
 
 
 @login_required
@@ -30,6 +31,14 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 def create_invoice(request: HttpRequest) -> HttpResponse:
+    if request.POST.get("action") == "create":
+        form = InvoiceForm(request.POST)
+        if form.is_valid():
+            number_of_positions = int(request.POST.get("number-of-positions", 0))
+            positions = [parse_position_data(request, i) for i in range(1, number_of_positions + 1)]
+            new_id = invoice_create(parse_invoice(form, positions))
+            return redirect("invoices:detail", pk=new_id)
+
     publications = search_publications(request)
     return render(
         request,
@@ -40,6 +49,21 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
             "publications": [context_for(pub) for pub in publications],
             "positions": assemble_positions(request),
         },
+    )
+
+
+def parse_invoice(form: InvoiceForm, positions: list[dict[str, Any]]) -> Invoice:
+    return Invoice.new(
+        number=form.cleaned_data["number"],
+        recipient=PublisherId(form.cleaned_data["creditor"].id),
+        positions=[
+            Position(
+                number=PositionNumber(position["number"]),
+                publication=PublicationId(position["id"]),
+                cost=Money(position["cost_amount"], Currency[position["cost_currency"]]),
+            )
+            for position in positions
+        ],
     )
 
 
