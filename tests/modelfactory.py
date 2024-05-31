@@ -47,8 +47,8 @@ def author() -> AuthorModel:
     return AuthorModel.objects.get(pk=id)
 
 
-def publication() -> Publication:
-    title = _faker.sentence()
+def publication(title: str = "") -> Publication:
+    title = title or _faker.sentence()
     return Publication.objects.create(title=title, journal=journal(), submitting_author=author())
 
 

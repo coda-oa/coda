@@ -25,8 +25,25 @@ def test__searching_for_publication__returns_matches_in_response(client: Client)
     fr = modelfactory.fundingrequest()
     response = search(client, fr.publication.title)
 
-    expected_context = expect_context(fr.publication)
+    expected_context = expect_search_result(fr.publication)
     assert expected_context in response.context["publications"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__creditor_selected__searching_for_publication__returns_only_publications_from_creditor(
+    client: Client,
+) -> None:
+    match = modelfactory.publication()
+    pub_from_other_publisher = modelfactory.publication(title=match.title)
+
+    creditor = match.journal.publisher.id
+    response = search(client, match.title, {"creditor": str(creditor)})
+
+    expected_search_result = expect_search_result(match)
+    excluded_search_result = expect_search_result(pub_from_other_publisher)
+    assert expected_search_result in response.context["publications"]
+    assert excluded_search_result not in response.context["publications"]
 
 
 @pytest.mark.django_db
@@ -140,8 +157,13 @@ def expect_existing_position_data(position_data: dict[str, str], i: int = 1) -> 
     }
 
 
-def search(client: Client, title: str) -> TemplateResponse:
-    return cast(TemplateResponse, client.post(reverse("invoices:create"), {"q": title}))
+def search(
+    client: Client, title: str, other_post_data: dict[str, str] | None = None
+) -> TemplateResponse:
+    return cast(
+        TemplateResponse,
+        client.post(reverse("invoices:create"), {"q": title} | (other_post_data or {})),
+    )
 
 
 def add_position(
@@ -196,10 +218,14 @@ def expect_new_position_data(publication: Publication, number: int = 1) -> dict[
     }
 
 
-def expect_context(publication: Publication) -> dict[str, Any]:
-    fr = publication.fundingrequest
+def expect_search_result(publication: Publication) -> dict[str, Any]:
+    fr = publication.fundingrequest if hasattr(publication, "fundingrequest") else None
     return {
         "id": publication.id,
         "title": publication.title,
-        "funding_request": {"request_id": fr.request_id, "url": fr.get_absolute_url()},
+        "funding_request": (
+            {"request_id": fr.request_id, "url": fr.get_absolute_url()}
+            if fr
+            else {"request_id": "", "url": ""}
+        ),
     }
