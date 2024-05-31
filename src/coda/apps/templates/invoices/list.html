@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1>Invoices</h1>
+    <div class="flex justify-between align-center my-2">
+        <h1>Invoices</h1>
+        <a href="{% url "invoices:create" %}"
+           class="secondary align-center"
+           role="button">New</a>
+    </div>
     <section>
         {% for invoice in invoices %}
             <article>

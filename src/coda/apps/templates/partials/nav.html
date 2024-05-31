@@ -11,6 +11,9 @@
         <li>
             <a href="{% url "journals:list" %}" class="contrast">Journals</a>
         </li>
+        <li>
+            <a href="{% url "invoices:list" %}" class="contrast">Invoices</a>
+        </li>
         {% if user.is_authenticated %}
             <li>
                 <form action="{% url "logout" %}" method="post">
