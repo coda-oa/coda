@@ -13,7 +13,7 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
     return Invoice(
         id=InvoiceId(model.id),
         number=model.number,
-        recipient=PublisherId(model.recipient_id),
+        creditor=PublisherId(model.creditor_id),
         positions=[
             Position(
                 number=PositionNumber(i),
@@ -34,7 +34,7 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
 def invoice_create(invoice: Invoice) -> InvoiceId:
     m = InvoiceModel.objects.create(
         number=invoice.number,
-        recipient_id=invoice.recipient,
+        creditor_id=invoice.creditor,
     )
 
     PositionModel.objects.bulk_create(

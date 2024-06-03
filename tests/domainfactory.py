@@ -46,13 +46,13 @@ def author(affiliation: InstitutionId | None = None, id: AuthorId | None = None)
 
 def invoice(
     id: InvoiceId | None = None,
-    recipient: PublisherId | None = None,
+    creditor: PublisherId | None = None,
     positions: Iterable[Position] = (),
 ) -> Invoice:
     return Invoice(
         id=id,
         number=NonEmptyStr(_faker.uuid4()),
-        recipient=recipient or PublisherId(random.randint(1, 1000)),
+        creditor=creditor or PublisherId(random.randint(1, 1000)),
         positions=positions or [position(PositionNumber(n)) for n in range(random.randint(1, 5))],
     )
 

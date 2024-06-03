@@ -33,12 +33,12 @@ def _ensure_unique(
 class Invoice:
     id: InvoiceId | None
     number: str
-    recipient: PublisherId
+    creditor: PublisherId
     positions: Iterable[Position]
 
     @classmethod
-    def new(cls, number: str, recipient: PublisherId, positions: Iterable[Position]) -> Self:
-        return cls(None, number, recipient, positions)
+    def new(cls, number: str, creditor: PublisherId, positions: Iterable[Position]) -> Self:
+        return cls(None, number, creditor, positions)
 
     def __post_init__(self) -> None:
         _positions = tuple(self.positions)

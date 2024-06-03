@@ -15,7 +15,7 @@ class Command(BaseCommand):
         publisher_id = modelfactory.publisher().id
         publications = [random_publication(publisher_id) for _ in range(3)]
         invoice = domainfactory.invoice(
-            recipient=PublisherId(publisher_id),
+            creditor=PublisherId(publisher_id),
             positions=[
                 domainfactory.position(number=PositionNumber(i), publication=publication)
                 for i, publication in enumerate(publications, start=1)

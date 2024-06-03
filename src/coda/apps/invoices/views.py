@@ -62,7 +62,7 @@ def save_invoice(request: HttpRequest) -> InvoiceId | None:
 def parse_invoice(form: InvoiceForm, positions: list[dict[str, Any]]) -> Invoice:
     return Invoice.new(
         number=form.cleaned_data["number"],
-        recipient=PublisherId(form.cleaned_data["creditor"].id),
+        creditor=PublisherId(form.cleaned_data["creditor"].id),
         positions=[
             Position(
                 number=PositionNumber(position["number"]),
@@ -148,13 +148,13 @@ def maybe_request_context(publication: Publication) -> dict[str, Any]:
 
 
 def invoice_viewmodel(invoice_model: InvoiceModel) -> "InvoiceViewModel":
-    recipient_name = invoice_model.recipient.name
+    creditor_name = invoice_model.creditor.name
     invoice = as_domain_object(invoice_model)
     return InvoiceViewModel(
         url=invoice_model.get_absolute_url(),
         number=invoice.number,
-        recipient=invoice.recipient,
-        recipient_name=recipient_name,
+        creditor=invoice.creditor,
+        creditor_name=creditor_name,
         positions=[position_viewmodel(position) for position in invoice.positions],
         total=invoice.total(),
     )
@@ -200,7 +200,7 @@ class PositionViewModel(NamedTuple):
 class InvoiceViewModel(NamedTuple):
     url: str
     number: str
-    recipient: int
-    recipient_name: str
+    creditor: int
+    creditor_name: str
     positions: list[PositionViewModel]
     total: Money

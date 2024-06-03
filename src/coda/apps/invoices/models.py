@@ -10,7 +10,7 @@ class FundingSource(models.Model):
 
 
 class Invoice(models.Model):
-    recipient = models.ForeignKey(Publisher, on_delete=models.CASCADE)
+    creditor = models.ForeignKey(Publisher, on_delete=models.CASCADE)
     number = models.CharField(max_length=255)
 
     def get_absolute_url(self) -> str:
