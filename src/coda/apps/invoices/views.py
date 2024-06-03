@@ -156,6 +156,7 @@ def invoice_viewmodel(invoice_model: InvoiceModel) -> "InvoiceViewModel":
         recipient=invoice.recipient,
         recipient_name=recipient_name,
         positions=[position_viewmodel(position) for position in invoice.positions],
+        total=invoice.total(),
     )
 
 
@@ -202,3 +203,4 @@ class InvoiceViewModel(NamedTuple):
     recipient: int
     recipient_name: str
     positions: list[PositionViewModel]
+    total: Money
