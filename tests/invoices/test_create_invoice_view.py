@@ -1,3 +1,4 @@
+import datetime
 from typing import Any, cast
 
 import faker
@@ -102,6 +103,7 @@ def test__given_positions_added__create__saves_new_invoice(client: Client) -> No
         {
             "action": "create",
             "number": _faker.pystr(),
+            "date": _faker.date(),
             "creditor": first.journal.publisher.id,
         }
         | number_of_positions(2)
@@ -120,6 +122,7 @@ def test__given_positions_added__create__saves_new_invoice(client: Client) -> No
 def expected_invoice(post_data: dict[str, str]) -> Invoice:
     return Invoice.new(
         post_data["number"],
+        datetime.date.fromisoformat(post_data["date"]),
         PublisherId(int(post_data["creditor"])),
         [
             Position(

@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+import datetime
 
 import pytest
 
@@ -8,7 +9,7 @@ from coda.publication import PublicationId
 
 
 def make_sut(positions: Iterable[Position]) -> Invoice:
-    return Invoice.new("invoice-#1234", PublisherId(1), positions)
+    return Invoice.new("invoice-#1234", datetime.date.today(), PublisherId(1), positions)
 
 
 def test__invoice__total__returns_sum_of_positions() -> None:

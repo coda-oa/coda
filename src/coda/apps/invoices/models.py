@@ -11,6 +11,7 @@ class FundingSource(models.Model):
 
 class Invoice(models.Model):
     creditor = models.ForeignKey(Publisher, on_delete=models.CASCADE)
+    date = models.DateField()
     number = models.CharField(max_length=255)
 
     def get_absolute_url(self) -> str:

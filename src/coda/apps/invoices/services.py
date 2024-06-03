@@ -12,6 +12,7 @@ def get_by_id(invoice_id: InvoiceId) -> Invoice:
 def as_domain_object(model: InvoiceModel) -> Invoice:
     return Invoice(
         id=InvoiceId(model.id),
+        date=model.date,
         number=model.number,
         creditor=PublisherId(model.creditor_id),
         positions=[
@@ -34,6 +35,7 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
 def invoice_create(invoice: Invoice) -> InvoiceId:
     m = InvoiceModel.objects.create(
         number=invoice.number,
+        date=invoice.date,
         creditor_id=invoice.creditor,
     )
 

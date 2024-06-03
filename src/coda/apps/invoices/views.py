@@ -62,6 +62,7 @@ def save_invoice(request: HttpRequest) -> InvoiceId | None:
 def parse_invoice(form: InvoiceForm, positions: list[dict[str, Any]]) -> Invoice:
     return Invoice.new(
         number=form.cleaned_data["number"],
+        date=form.cleaned_data["date"],
         creditor=PublisherId(form.cleaned_data["creditor"].id),
         positions=[
             Position(
