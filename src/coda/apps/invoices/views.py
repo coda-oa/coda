@@ -1,3 +1,4 @@
+import datetime
 from collections.abc import Iterable
 from typing import Any, NamedTuple, cast
 
@@ -72,6 +73,7 @@ def parse_invoice(form: InvoiceForm, positions: list[dict[str, Any]]) -> Invoice
             )
             for position in positions
         ],
+        comment=form.cleaned_data["comment"],
     )
 
 
@@ -154,6 +156,7 @@ def invoice_viewmodel(invoice_model: InvoiceModel) -> "InvoiceViewModel":
     return InvoiceViewModel(
         url=invoice_model.get_absolute_url(),
         number=invoice.number,
+        date=invoice.date,
         creditor=invoice.creditor,
         creditor_name=creditor_name,
         positions=[position_viewmodel(position) for position in invoice.positions],
@@ -201,6 +204,7 @@ class PositionViewModel(NamedTuple):
 class InvoiceViewModel(NamedTuple):
     url: str
     number: str
+    date: datetime.date
     creditor: int
     creditor_name: str
     positions: list[PositionViewModel]

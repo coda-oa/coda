@@ -29,6 +29,7 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
             )
             for i, position in enumerate(model.positions.all(), start=1)
         ],
+        comment=model.comment,
     )
 
 
@@ -37,6 +38,7 @@ def invoice_create(invoice: Invoice) -> InvoiceId:
         number=invoice.number,
         date=invoice.date,
         creditor_id=invoice.creditor,
+        comment=invoice.comment,
     )
 
     PositionModel.objects.bulk_create(

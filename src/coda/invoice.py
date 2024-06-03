@@ -37,12 +37,18 @@ class Invoice:
     date: datetime.date
     creditor: PublisherId
     positions: Iterable[Position]
+    comment: str = ""
 
     @classmethod
     def new(
-        cls, number: str, date: datetime.date, creditor: PublisherId, positions: Iterable[Position]
+        cls,
+        number: str,
+        date: datetime.date,
+        creditor: PublisherId,
+        positions: Iterable[Position],
+        comment: str = "",
     ) -> Self:
-        return cls(None, number, date, creditor, positions)
+        return cls(None, number, date, creditor, positions, comment)
 
     def __post_init__(self) -> None:
         _positions = tuple(self.positions)

@@ -13,6 +13,7 @@ class Invoice(models.Model):
     creditor = models.ForeignKey(Publisher, on_delete=models.CASCADE)
     date = models.DateField()
     number = models.CharField(max_length=255)
+    comment = models.TextField(blank=True)
 
     def get_absolute_url(self) -> str:
         return reverse("invoices:detail", kwargs={"pk": self.pk})
