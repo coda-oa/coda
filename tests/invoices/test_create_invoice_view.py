@@ -92,6 +92,22 @@ def test__given_position_added__adding_another_position__second_position_has_num
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__given_position_added__removing_position__position_removed_from_response(
+    client: Client,
+) -> None:
+    first = modelfactory.publication()
+    second = modelfactory.publication()
+    position_data = (
+        number_of_positions(2) | create_position_input(first, 1) | create_position_input(second, 2)
+    )
+
+    response = client.post(reverse("invoices:create"), position_data | {"remove-position": "1"})
+
+    assert response.context["positions"] == [expect_existing_position_data(position_data, 2)]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__given_positions_added__create__saves_new_invoice(client: Client) -> None:
     first = modelfactory.publication()
     second = modelfactory.publication()

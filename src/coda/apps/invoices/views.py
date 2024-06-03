@@ -38,6 +38,8 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
             return redirect("invoices:detail", pk=new_id)
 
     publications = search_publications(request)
+    positions = assemble_positions(request)
+
     return render(
         request,
         "invoices/create.html",
@@ -45,7 +47,7 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
             "form": InvoiceForm(request.POST if request.POST else None),
             "currencies": list(Currency),
             "publications": [search_result_for(pub) for pub in publications],
-            "positions": assemble_positions(request),
+            "positions": positions,
         },
     )
 
@@ -96,6 +98,8 @@ def assemble_positions(request: HttpRequest) -> list[dict[str, Any]]:
     new_position = added_position(request, len(positions) + 1)
     if new_position:
         positions.append(new_position)
+    elif remove_position := request.POST.get("remove-position"):
+        positions.pop(int(remove_position) - 1)
 
     return positions
 
