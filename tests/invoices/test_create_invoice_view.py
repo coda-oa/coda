@@ -6,12 +6,12 @@ import pytest
 from django.template.response import TemplateResponse
 from django.test import Client
 from django.urls import reverse
-
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.invoices.services import get_by_id
+from coda.apps.invoices.views import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.apps.publications.models import Publication
-from coda.invoice import Invoice, InvoiceId, Position, CreditorId
+from coda.invoice import CreditorId, Invoice, InvoiceId, Position, TaxRate
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 from tests import modelfactory
@@ -147,6 +147,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                     post_data["position-1-cost"],
                     Currency[post_data["position-1-currency"]],
                 ),
+                TaxRate(int(post_data["position-1-taxrate"]) / 100),
             ),
             Position(
                 PublicationId(int(post_data["position-2-id"])),
@@ -154,6 +155,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                     post_data["position-2-cost"],
                     Currency[post_data["position-2-currency"]],
                 ),
+                TaxRate(int(post_data["position-2-taxrate"]) / 100),
             ),
         ],
     )
@@ -170,6 +172,7 @@ def expect_existing_position_data(position_data: dict[str, str], i: int = 1) -> 
         },
         "cost_amount": float(position_data[f"position-{i}-cost"]),
         "cost_currency": position_data[f"position-{i}-currency"],
+        "tax_rate": position_data[f"position-{i}-taxrate"],
         "description": "",
     }
 
@@ -211,6 +214,7 @@ def create_position_input(publication: Publication, index: int = 1) -> dict[str,
             _faker.pyfloat(max_value=100_000, right_digits=2, positive=True)
         ),
         f"position-{index}-currency": "EUR",
+        f"position-{index}-taxrate": str(_faker.pyint(min_value=0, max_value=100)),
         f"position-{index}-fundingrequest-id": request_id,
         f"position-{index}-fundingrequest-url": url,
     }
@@ -231,6 +235,7 @@ def expect_new_position_data(publication: Publication, number: int = 1) -> dict[
         ),
         "cost_amount": 0.00,
         "cost_currency": "EUR",
+        "tax_rate": DEFAULT_TAX_RATE_PERCENTAGE,
         "description": "",
     }
 

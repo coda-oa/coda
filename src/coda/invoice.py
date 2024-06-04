@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 import enum
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -30,10 +31,19 @@ class CostType(enum.Enum):
     Other = "other"
 
 
+class TaxRate(Decimal):
+    def __new__(cls, value: Decimal | float | str) -> Self:
+        v = Decimal(value)
+        if v < 0:
+            raise ValueError("Tax rate must be positive")
+
+        return super().__new__(cls, v.quantize(Decimal("0.0000")))
+
+
 class Position(NamedTuple):
     publication: PublicationId
     cost: Money
-    tax_rate: float = 0.0
+    tax_rate: TaxRate = TaxRate(0)
     description: str = ""
     funding_source: FundingSourceId | None = None
 

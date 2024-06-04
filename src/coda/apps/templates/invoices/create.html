@@ -17,7 +17,7 @@
                         <th>#</th>
                         <th>Position</th>
                         <th>Amount</th>
-                        <th>Apply VAT</th>
+                        <th>Tax Rate %</th>
                         <th>Related Funding Request</th>
                         <th></th>
                     </tr>
@@ -56,9 +56,9 @@
                                 </fieldset>
                             </td>
                             <td>
-                                <input type="checkbox"
-                                       name="position-{{ forloop.counter }}-apply-vat"
-                                       value="{{ position.apply_vat }}">
+                                <input type="decimal"
+                                       name="position-{{ forloop.counter }}-taxrate"
+                                       value="{{ position.tax_rate }}">
                             </td>
                             <td>
                                 <a href="{{ position.funding_request.url }}">{{ position.funding_request.request_id }}</a>

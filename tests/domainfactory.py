@@ -1,5 +1,5 @@
-from collections.abc import Iterable
 import random
+from collections.abc import Iterable
 from datetime import date
 from typing import cast
 
@@ -16,7 +16,7 @@ from coda.fundingrequest import (
     Payment,
     PaymentMethod,
 )
-from coda.invoice import FundingSourceId, Invoice, InvoiceId, Position, CreditorId
+from coda.invoice import CreditorId, FundingSourceId, Invoice, InvoiceId, Position, TaxRate
 from coda.money import Currency, Money
 from coda.publication import (
     JournalId,
@@ -65,6 +65,7 @@ def position(
     return Position(
         publication=publication or PublicationId(random.randint(1, 1000)),
         cost=random_money(),
+        tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         description=_faker.sentence(),
         funding_source=funding_source,
     )

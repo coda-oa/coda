@@ -13,9 +13,12 @@ from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.services import as_domain_object, invoice_create
 from coda.apps.publications.models import Publication
-from coda.invoice import FundingSourceId, Invoice, InvoiceId, Position, CreditorId
+from coda.invoice import CreditorId, FundingSourceId, Invoice, InvoiceId, Position, TaxRate
 from coda.money import Currency, Money
 from coda.publication import PublicationId
+
+
+DEFAULT_TAX_RATE_PERCENTAGE = 19
 
 
 @login_required
@@ -71,6 +74,7 @@ def parse_invoice(form: InvoiceForm, positions: list[dict[str, Any]]) -> Invoice
             Position(
                 publication=PublicationId(position["id"]),
                 cost=Money(position["cost_amount"], Currency[position["cost_currency"]]),
+                tax_rate=TaxRate(int(position["tax_rate"]) / 100),
             )
             for position in positions
         ],
@@ -114,6 +118,7 @@ def parse_position_data(request: HttpRequest, index: int) -> dict[str, Any]:
         },
         "cost_amount": float(request.POST.get(f"position-{index}-cost", 0.00)),
         "cost_currency": request.POST.get(f"position-{index}-currency", "EUR"),
+        "tax_rate": request.POST.get(f"position-{index}-taxrate", "0"),
         "description": "",
     }
 
@@ -131,6 +136,7 @@ def added_position(request: HttpRequest, number: int) -> dict[str, Any] | None:
         "funding_request": maybe_request_context(publication),
         "cost_amount": 0.00,
         "cost_currency": "EUR",
+        "tax_rate": DEFAULT_TAX_RATE_PERCENTAGE,
         "description": "",
     }
 
@@ -162,7 +168,9 @@ def invoice_viewmodel(invoice_model: InvoiceModel) -> "InvoiceViewModel":
         date=invoice.date,
         creditor=invoice.creditor,
         creditor_name=creditor_name,
-        positions=[position_viewmodel(position, i) for i, position in enumerate(invoice.positions)],
+        positions=[
+            position_viewmodel(position, i) for i, position in enumerate(invoice.positions, start=1)
+        ],
         total=invoice.total(),
     )
 
