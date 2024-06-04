@@ -1,4 +1,5 @@
 import datetime
+import random
 from typing import Any, cast
 
 import faker
@@ -11,7 +12,7 @@ from pytest_django.asserts import assertRedirects
 from coda.apps.invoices.services import get_by_id
 from coda.apps.invoices.views import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.apps.publications.models import Publication
-from coda.invoice import CreditorId, Invoice, InvoiceId, Position, TaxRate
+from coda.invoice import CostType, CreditorId, Invoice, InvoiceId, Position, TaxRate
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 from tests import modelfactory
@@ -147,6 +148,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                     post_data["position-1-cost"],
                     Currency[post_data["position-1-currency"]],
                 ),
+                CostType(post_data["position-1-cost-type"]),
                 TaxRate(int(post_data["position-1-taxrate"]) / 100),
             ),
             Position(
@@ -155,6 +157,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                     post_data["position-2-cost"],
                     Currency[post_data["position-2-currency"]],
                 ),
+                CostType(post_data["position-2-cost-type"]),
                 TaxRate(int(post_data["position-2-taxrate"]) / 100),
             ),
         ],
@@ -163,7 +166,6 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
 
 def expect_existing_position_data(position_data: dict[str, str], i: int = 1) -> dict[str, Any]:
     return {
-        "number": position_data[f"position-{i}-number"],
         "id": int(position_data[f"position-{i}-id"]),
         "title": position_data[f"position-{i}-title"],
         "funding_request": {
@@ -172,6 +174,7 @@ def expect_existing_position_data(position_data: dict[str, str], i: int = 1) -> 
         },
         "cost_amount": float(position_data[f"position-{i}-cost"]),
         "cost_currency": position_data[f"position-{i}-currency"],
+        "cost_type": position_data[f"position-{i}-cost-type"],
         "tax_rate": position_data[f"position-{i}-taxrate"],
         "description": "",
     }
@@ -207,7 +210,6 @@ def create_position_input(publication: Publication, index: int = 1) -> dict[str,
         request_id = ""
         url = ""
     return {
-        f"position-{index}-number": str(index),
         f"position-{index}-id": str(publication.id),
         f"position-{index}-title": publication.title,
         f"position-{index}-cost": str(
@@ -215,6 +217,7 @@ def create_position_input(publication: Publication, index: int = 1) -> dict[str,
         ),
         f"position-{index}-currency": "EUR",
         f"position-{index}-taxrate": str(_faker.pyint(min_value=0, max_value=100)),
+        f"position-{index}-cost-type": random.choice([ct.value for ct in CostType]),
         f"position-{index}-fundingrequest-id": request_id,
         f"position-{index}-fundingrequest-url": url,
     }
@@ -222,7 +225,6 @@ def create_position_input(publication: Publication, index: int = 1) -> dict[str,
 
 def expect_new_position_data(publication: Publication, number: int = 1) -> dict[str, Any]:
     return {
-        "number": str(number),
         "id": publication.id,
         "title": publication.title,
         "funding_request": (
@@ -235,6 +237,7 @@ def expect_new_position_data(publication: Publication, number: int = 1) -> dict[
         ),
         "cost_amount": 0.00,
         "cost_currency": "EUR",
+        "cost_type": CostType.Publication_Charge.value,
         "tax_rate": DEFAULT_TAX_RATE_PERCENTAGE,
         "description": "",
     }

@@ -16,7 +16,15 @@ from coda.fundingrequest import (
     Payment,
     PaymentMethod,
 )
-from coda.invoice import CreditorId, FundingSourceId, Invoice, InvoiceId, Position, TaxRate
+from coda.invoice import (
+    CostType,
+    CreditorId,
+    FundingSourceId,
+    Invoice,
+    InvoiceId,
+    Position,
+    TaxRate,
+)
 from coda.money import Currency, Money
 from coda.publication import (
     JournalId,
@@ -65,6 +73,7 @@ def position(
     return Position(
         publication=publication or PublicationId(random.randint(1, 1000)),
         cost=random_money(),
+        cost_type=random.choice(list(CostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         description=_faker.sentence(),
         funding_source=funding_source,

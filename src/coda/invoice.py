@@ -43,6 +43,7 @@ class TaxRate(Decimal):
 class Position(NamedTuple):
     publication: PublicationId
     cost: Money
+    cost_type: CostType
     tax_rate: TaxRate = TaxRate(0)
     description: str = ""
     funding_source: FundingSourceId | None = None

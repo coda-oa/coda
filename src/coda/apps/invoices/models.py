@@ -23,6 +23,7 @@ class Position(models.Model):
     publication = models.ForeignKey(Publication, on_delete=models.CASCADE)
     cost_amount = models.DecimalField(max_digits=10, decimal_places=4)
     cost_currency = models.CharField(max_length=3)
+    cost_type = models.CharField(max_length=255, default="other")
     tax_rate = models.DecimalField(max_digits=10, decimal_places=4, default=0)
     description = models.TextField()
     funding_source = models.ForeignKey(FundingSource, on_delete=models.CASCADE, null=True)

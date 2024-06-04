@@ -16,6 +16,7 @@
                     <tr>
                         <th>#</th>
                         <th>Position</th>
+                        <th>Type</th>
                         <th>Amount</th>
                         <th>Tax Rate %</th>
                         <th>Related Funding Request</th>
@@ -25,12 +26,7 @@
                 <tbody>
                     {% for position in positions %}
                         <tr>
-                            <td>
-                                {{ position.number }}
-                                <input type="hidden"
-                                       name="position-{{ forloop.counter }}-number"
-                                       value="{{ position.number }}">
-                            </td>
+                            <td>{{ forloop.counter }}</td>
                             <td>
                                 {{ position.title }}
                                 <input type="hidden"
@@ -39,6 +35,16 @@
                                 <input type="hidden"
                                        name="position-{{ forloop.counter }}-title"
                                        value="{{ position.title }}">
+                            </td>
+                            <td>
+                                <select name="position-{{ forloop.counter }}-cost-type">
+                                    {% for type in cost_types %}
+                                        <option value="{{ type }}"
+                                                {% if type == position.cost_type %}selected{% endif %}>
+                                            {{ type }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
                             </td>
                             <td>
                                 <fieldset role="group">

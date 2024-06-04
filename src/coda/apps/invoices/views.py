@@ -13,10 +13,17 @@ from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.services import as_domain_object, invoice_create
 from coda.apps.publications.models import Publication
-from coda.invoice import CreditorId, FundingSourceId, Invoice, InvoiceId, Position, TaxRate
+from coda.invoice import (
+    CostType,
+    CreditorId,
+    FundingSourceId,
+    Invoice,
+    InvoiceId,
+    Position,
+    TaxRate,
+)
 from coda.money import Currency, Money
 from coda.publication import PublicationId
-
 
 DEFAULT_TAX_RATE_PERCENTAGE = 19
 
@@ -49,6 +56,7 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
         {
             "form": InvoiceForm(request.POST if request.POST else None),
             "currencies": list(Currency),
+            "cost_types": [ct.value for ct in CostType],
             "publications": [search_result_for(pub) for pub in publications],
             "positions": positions,
         },
@@ -74,6 +82,7 @@ def parse_invoice(form: InvoiceForm, positions: list[dict[str, Any]]) -> Invoice
             Position(
                 publication=PublicationId(position["id"]),
                 cost=Money(position["cost_amount"], Currency[position["cost_currency"]]),
+                cost_type=CostType(position["cost_type"]),
                 tax_rate=TaxRate(int(position["tax_rate"]) / 100),
             )
             for position in positions
@@ -109,7 +118,6 @@ def assemble_positions(request: HttpRequest) -> list[dict[str, Any]]:
 
 def parse_position_data(request: HttpRequest, index: int) -> dict[str, Any]:
     return {
-        "number": request.POST.get(f"position-{index}-number", "0"),
         "id": int(request.POST.get(f"position-{index}-id", 0)),
         "title": request.POST.get(f"position-{index}-title", ""),
         "funding_request": {
@@ -118,6 +126,7 @@ def parse_position_data(request: HttpRequest, index: int) -> dict[str, Any]:
         },
         "cost_amount": float(request.POST.get(f"position-{index}-cost", 0.00)),
         "cost_currency": request.POST.get(f"position-{index}-currency", "EUR"),
+        "cost_type": request.POST.get(f"position-{index}-cost-type", CostType.Other.value),
         "tax_rate": request.POST.get(f"position-{index}-taxrate", "0"),
         "description": "",
     }
@@ -131,11 +140,11 @@ def added_position(request: HttpRequest, number: int) -> dict[str, Any] | None:
     publication = Publication.objects.get(pk=publication_id)
     return {
         "id": publication.id,
-        "number": str(number),
         "title": publication.title,
         "funding_request": maybe_request_context(publication),
         "cost_amount": 0.00,
         "cost_currency": "EUR",
+        "cost_type": CostType.Publication_Charge.value,
         "tax_rate": DEFAULT_TAX_RATE_PERCENTAGE,
         "description": "",
     }
