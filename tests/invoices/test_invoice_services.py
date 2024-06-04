@@ -3,7 +3,7 @@ import pytest
 from coda.apps.authors.services import author_create
 from coda.apps.invoices import services
 from coda.apps.publications.services import publication_create
-from coda.invoice import Invoice, PositionNumber, PublisherId
+from coda.invoice import Invoice, CreditorId
 from coda.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
 
@@ -13,9 +13,9 @@ def test__create_invoice__saves_invoice_to_database() -> None:
     publisher_id = modelfactory.publisher().id
     publications = [random_publication(publisher_id) for _ in range(3)]
     invoice = domainfactory.invoice(
-        creditor=PublisherId(publisher_id),
+        creditor=CreditorId(publisher_id),
         positions=[
-            domainfactory.position(number=PositionNumber(i), publication=publication)
+            domainfactory.position(publication=publication)
             for i, publication in enumerate(publications, start=1)
         ],
     )

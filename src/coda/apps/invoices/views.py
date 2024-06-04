@@ -13,7 +13,7 @@ from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.services import as_domain_object, invoice_create
 from coda.apps.publications.models import Publication
-from coda.invoice import FundingSourceId, Invoice, InvoiceId, Position, PositionNumber, PublisherId
+from coda.invoice import FundingSourceId, Invoice, InvoiceId, Position, CreditorId
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
@@ -66,10 +66,9 @@ def parse_invoice(form: InvoiceForm, positions: list[dict[str, Any]]) -> Invoice
     return Invoice.new(
         number=form.cleaned_data["number"],
         date=form.cleaned_data["date"],
-        creditor=PublisherId(form.cleaned_data["creditor"].id),
+        creditor=CreditorId(form.cleaned_data["creditor"].id),
         positions=[
             Position(
-                number=PositionNumber(position["number"]),
                 publication=PublicationId(position["id"]),
                 cost=Money(position["cost_amount"], Currency[position["cost_currency"]]),
             )
@@ -163,12 +162,12 @@ def invoice_viewmodel(invoice_model: InvoiceModel) -> "InvoiceViewModel":
         date=invoice.date,
         creditor=invoice.creditor,
         creditor_name=creditor_name,
-        positions=[position_viewmodel(position) for position in invoice.positions],
+        positions=[position_viewmodel(position, i) for i, position in enumerate(invoice.positions)],
         total=invoice.total(),
     )
 
 
-def position_viewmodel(position: Position) -> "PositionViewModel":
+def position_viewmodel(position: Position, number: int) -> "PositionViewModel":
     publication = get_object_or_404(Publication, pk=position.publication)
     related_request = FundingRequest.objects.filter(publication_id=position.publication).first()
     if related_request:
@@ -180,7 +179,7 @@ def position_viewmodel(position: Position) -> "PositionViewModel":
         related_funding_request = None
 
     return PositionViewModel(
-        number=str(position.number),
+        number=str(number),
         publication_name=publication.title,
         publication_submitter=cast(Author, publication.submitting_author).name,
         cost=position.cost,

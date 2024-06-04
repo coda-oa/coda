@@ -11,7 +11,7 @@ from pytest_django.asserts import assertRedirects
 
 from coda.apps.invoices.services import get_by_id
 from coda.apps.publications.models import Publication
-from coda.invoice import Invoice, InvoiceId, Position, PositionNumber, PublisherId
+from coda.invoice import Invoice, InvoiceId, Position, CreditorId
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 from tests import modelfactory
@@ -139,10 +139,9 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
     return Invoice.new(
         post_data["number"],
         datetime.date.fromisoformat(post_data["date"]),
-        PublisherId(int(post_data["creditor"])),
+        CreditorId(int(post_data["creditor"])),
         [
             Position(
-                PositionNumber(1),
                 PublicationId(int(post_data["position-1-id"])),
                 Money(
                     post_data["position-1-cost"],
@@ -150,7 +149,6 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                 ),
             ),
             Position(
-                PositionNumber(2),
                 PublicationId(int(post_data["position-2-id"])),
                 Money(
                     post_data["position-2-cost"],

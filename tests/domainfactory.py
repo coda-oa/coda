@@ -16,7 +16,7 @@ from coda.fundingrequest import (
     Payment,
     PaymentMethod,
 )
-from coda.invoice import FundingSourceId, Invoice, InvoiceId, Position, PositionNumber, PublisherId
+from coda.invoice import FundingSourceId, Invoice, InvoiceId, Position, CreditorId
 from coda.money import Currency, Money
 from coda.publication import (
     JournalId,
@@ -46,25 +46,23 @@ def author(affiliation: InstitutionId | None = None, id: AuthorId | None = None)
 
 def invoice(
     id: InvoiceId | None = None,
-    creditor: PublisherId | None = None,
+    creditor: CreditorId | None = None,
     positions: Iterable[Position] = (),
 ) -> Invoice:
     return Invoice(
         id=id,
         date=date.fromisoformat(_faker.date()),
         number=NonEmptyStr(_faker.uuid4()),
-        creditor=creditor or PublisherId(random.randint(1, 1000)),
-        positions=positions or [position(PositionNumber(n)) for n in range(random.randint(1, 5))],
+        creditor=creditor or CreditorId(random.randint(1, 1000)),
+        positions=positions or [position() for n in range(random.randint(1, 5))],
     )
 
 
 def position(
-    number: PositionNumber | None = None,
     publication: PublicationId | None = None,
     funding_source: FundingSourceId | None = None,
 ) -> Position:
     return Position(
-        number=number or PositionNumber(random.randint(1, 1000)),
         publication=publication or PublicationId(random.randint(1, 1000)),
         cost=random_money(),
         description=_faker.sentence(),

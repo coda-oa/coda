@@ -1,6 +1,6 @@
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
-from coda.invoice import FundingSourceId, Invoice, InvoiceId, Position, PositionNumber, PublisherId
+from coda.invoice import FundingSourceId, Invoice, InvoiceId, Position, CreditorId
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
@@ -14,10 +14,9 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
         id=InvoiceId(model.id),
         date=model.date,
         number=model.number,
-        creditor=PublisherId(model.creditor_id),
+        creditor=CreditorId(model.creditor_id),
         positions=[
             Position(
-                number=PositionNumber(i),
                 publication=PublicationId(position.publication_id),
                 cost=Money(position.cost_amount, Currency[position.cost_currency]),
                 description=position.description,

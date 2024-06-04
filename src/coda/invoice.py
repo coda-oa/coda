@@ -1,4 +1,5 @@
 import datetime
+import enum
 import functools
 from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass
@@ -8,14 +9,29 @@ from coda.money import Currency, Money
 from coda.publication import PublicationId
 
 InvoiceId = NewType("InvoiceId", int)
-PublisherId = NewType("PublisherId", int)
+CreditorId = NewType("CreditorId", int)
 FundingSourceId = NewType("FundingSourceId", int)
 
-PositionNumber = NewType("PositionNumber", int)
+
+class CostType(enum.Enum):
+    """
+    Enum representing the cost type based on the OpenCost schema.
+    """
+
+    Gold_OA = "gold-oa"
+    Hybrid_OA = "hybrid-oa"
+    Vat = "vat"
+    Colour_Charge = "colour charge"
+    Page_Charge = "page charge"
+    Permission = "permission"
+    Publication_Charge = "publication charge"
+    Reprint = "reprint"
+    Submission_Fee = "submission fee"
+    Payment_Fee = "payment fee"
+    Other = "other"
 
 
 class Position(NamedTuple):
-    number: PositionNumber
     publication: PublicationId
     cost: Money
     description: str = ""
@@ -35,7 +51,7 @@ class Invoice:
     id: InvoiceId | None
     number: str
     date: datetime.date
-    creditor: PublisherId
+    creditor: CreditorId
     positions: Iterable[Position]
     comment: str = ""
 
@@ -44,25 +60,11 @@ class Invoice:
         cls,
         number: str,
         date: datetime.date,
-        creditor: PublisherId,
+        creditor: CreditorId,
         positions: Iterable[Position],
         comment: str = "",
     ) -> Self:
         return cls(None, number, date, creditor, positions, comment)
-
-    def __post_init__(self) -> None:
-        _positions = tuple(self.positions)
-        _ensure_unique(
-            _positions,
-            lambda p: p.number,
-            "Cannot have multiple positions with the same number",
-        )
-
-        _ensure_unique(
-            _positions,
-            lambda p: p.publication,
-            "Cannot have multiple positions for the same publication",
-        )
 
     def total(self) -> Money:
         return functools.reduce(
