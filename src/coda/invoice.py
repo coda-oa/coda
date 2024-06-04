@@ -1,9 +1,8 @@
 import datetime
 import enum
-import functools
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, NamedTuple, NewType, Self
+from typing import NamedTuple, NewType, Self
 
 from coda.money import Currency, Money
 from coda.publication import PublicationId
@@ -34,16 +33,9 @@ class CostType(enum.Enum):
 class Position(NamedTuple):
     publication: PublicationId
     cost: Money
+    tax_rate: float = 0.0
     description: str = ""
     funding_source: FundingSourceId | None = None
-
-
-def _ensure_unique(
-    positions: Collection[Position], key: Callable[[Position], Any], message: str
-) -> None:
-    keys = {key(p) for p in positions}
-    if len(keys) != len(positions):
-        raise ValueError(message)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,7 +58,11 @@ class Invoice:
     ) -> Self:
         return cls(None, number, date, creditor, positions, comment)
 
+    def tax(self) -> Money:
+        return sum((pos.cost * pos.tax_rate for pos in self.positions), Money(0, Currency.EUR))
+
+    def net(self) -> Money:
+        return sum((pos.cost for pos in self.positions), Money(0, Currency.EUR))
+
     def total(self) -> Money:
-        return functools.reduce(
-            lambda acc, pos: acc + pos.cost, self.positions, Money(0, Currency.EUR)
-        )
+        return self.net() + self.tax()

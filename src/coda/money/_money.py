@@ -42,6 +42,12 @@ class Money:
     def __add__(self, v: object) -> "Money":
         return Money(self.amount + self._comparable_money(v).amount, self.currency)
 
+    def __mul__(self, v: object) -> "Money":
+        if not isinstance(v, (int, float)):
+            raise TypeError("Cannot multiply money by non-number")
+
+        return Money(self.amount * Decimal(v), self.currency)
+
     def _comparable_money(self, v: object) -> "Money":
         if not isinstance(v, Money):
             raise TypeError("Cannot compare money to non-money")
