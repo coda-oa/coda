@@ -1,10 +1,11 @@
 from django.core.management import BaseCommand
-from coda.apps.invoices import services
 from tests import domainfactory, modelfactory
 
 from coda.apps.authors.services import author_create
+from coda.apps.invoices import services
 from coda.apps.publications.services import publication_create
 from coda.invoice import CreditorId
+from coda.money import Currency
 from coda.publication import JournalId, PublicationId
 
 
@@ -17,7 +18,7 @@ class Command(BaseCommand):
         invoice = domainfactory.invoice(
             creditor=CreditorId(publisher_id),
             positions=[
-                domainfactory.position(publication=publication)
+                domainfactory.position(publication=publication, currency=Currency.EUR)
                 for i, publication in enumerate(publications, start=1)
             ],
         )

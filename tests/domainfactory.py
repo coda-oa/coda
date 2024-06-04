@@ -68,11 +68,12 @@ def invoice(
 
 def position(
     publication: PublicationId | None = None,
+    currency: Currency | None = None,
     funding_source: FundingSourceId | None = None,
 ) -> Position:
     return Position(
         publication=publication or PublicationId(random.randint(1, 1000)),
-        cost=random_money(),
+        cost=random_money(currency),
         cost_type=random.choice(list(CostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         description=_faker.sentence(),
@@ -106,9 +107,9 @@ def payment() -> Payment:
     return Payment(amount=money, method=method)
 
 
-def random_money() -> Money:
+def random_money(currency: Currency | None = None) -> Money:
     amount = random.random() * random.randint(1, 1000)
-    currency = random.choice([c for c in Currency])
+    currency = currency or random.choice([c for c in Currency])
     money = Money(str(amount), currency)
     return money
 
