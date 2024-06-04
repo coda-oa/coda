@@ -26,7 +26,7 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
                     else None
                 ),
             )
-            for i, position in enumerate(model.positions.all(), start=1)
+            for position in model.positions.all()
         ],
         comment=model.comment,
     )
