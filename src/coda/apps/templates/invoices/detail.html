@@ -31,6 +31,7 @@
                 <th>Publication Submitter</th>
                 <th>Related Funding Request</th>
                 <th>Cost</th>
+                <th>Cost Type</th>
             </tr>
         </thead>
         <tbody>
@@ -45,6 +46,7 @@
                         {% endif %}
                     </td>
                     <td>{{ position.cost.amount }} {{ position.cost.currency.code }}</td>
+                    <td>{{ position.cost_type }}</td>
                 </tr>
             {% endfor %}
         </tbody>

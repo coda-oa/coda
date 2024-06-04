@@ -71,8 +71,8 @@ article.fundingrequest {
   border-bottom: none;
 }
 
-.article__table tbody tr > th,
-.article__table tr > td:first-child {
+.fundingrequest-table tbody tr > th,
+.fundingrequest-table tr > td:first-child {
   width: 30ch;
 }
 
@@ -104,6 +104,27 @@ article.fundingrequest {
 .journal__search-results__scroll-container thead th {
   position: sticky;
   top: 0;
+}
+
+.invoice-position-tax-column {
+  width: 12ch;
+}
+
+.invoice-position-cost-column {
+  width: 28ch;
+}
+
+.invoice-position-request-link-column {
+  width: 10ch;
+}
+
+.invoice-position-request-link {
+  font-size: 1.5rem;
+}
+
+.invoice-position-request-link a {
+  display: inline-block;
+  margin-bottom: var(--coda-spacing);
 }
 
 .label {

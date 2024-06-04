@@ -200,6 +200,7 @@ def position_viewmodel(position: Position, number: int) -> "PositionViewModel":
         publication_name=publication.title,
         publication_submitter=cast(Author, publication.submitting_author).name,
         cost=position.cost,
+        cost_type=position.cost_type.value,
         description=position.description,
         related_funding_request=related_funding_request,
         funding_source_id=position.funding_source,
@@ -216,6 +217,7 @@ class PositionViewModel(NamedTuple):
     publication_name: str
     publication_submitter: str
     cost: Money
+    cost_type: str
     description: str
     related_funding_request: FundingRequestViewModel | None
     funding_source_id: FundingSourceId | None

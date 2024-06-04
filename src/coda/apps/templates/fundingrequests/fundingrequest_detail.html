@@ -30,7 +30,7 @@
                 <a href="{% url "fundingrequests:update_submitter" pk=funding_request.id %}"
                    role="button">Edit</a>
             </header>
-            <table class="article__table">
+            <table class="article__table fundingrequest-table">
                 <tbody>
                     <tr>
                         <th>Request ID</th>
@@ -64,7 +64,7 @@
                 <a href="{% url "fundingrequests:update_publication" pk=funding_request.id %}"
                    role="button">Edit</a>
             </header>
-            <table class="article__table">
+            <table class="article__table fundingrequest-table">
                 <tbody>
                     <tr>
                         <th>Title</th>
@@ -134,7 +134,7 @@
                 <a href="{% url "fundingrequests:update_funding" pk=funding_request.id %}"
                    role="button">Edit</a>
             </header>
-            <table class="article__table">
+            <table class="article__table fundingrequest-table">
                 <tbody>
                     <tr>
                         <th>Estimated Cost</th>
@@ -144,7 +144,7 @@
             </table>
             {% if external_funding %}
                 <h3 class="mt-1_5">Third party funding</h3>
-                <table class="article__table">
+                <table class="article__table fundingrequest-table">
                     <tbody>
                         <tr>
                             <th>Organization</th>

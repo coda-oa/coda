@@ -17,9 +17,9 @@
                         <th>#</th>
                         <th>Position</th>
                         <th>Type</th>
-                        <th>Amount</th>
-                        <th>Tax Rate %</th>
-                        <th>Related Funding Request</th>
+                        <th class="invoice-position-cost-column">Amount</th>
+                        <th class="invoice-position-tax-column">Tax Rate %</th>
+                        <th class="invoice-position-request-link-column">Funding Request</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -66,13 +66,19 @@
                                        name="position-{{ forloop.counter }}-taxrate"
                                        value="{{ position.tax_rate }}">
                             </td>
-                            <td>
-                                <a href="{{ position.funding_request.url }}">{{ position.funding_request.request_id }}</a>
+                            <td class="invoice-position-request-link">
+                                <a href="{{ position.funding_request.url }}"
+                                   role="button"
+                                   target="_blank"
+                                   class="outline secondary">↗</a>
                                 <input type="hidden" name="position-{{ forloop.counter }}-fundingrequest-id" value={{ position.funding_request.request_id }}>
                                 <input type="hidden" name="position-{{ forloop.counter }}-fundingrequest-url" value={{ position.funding_request.url }}>
                             </td>
                             <td>
-                                <button type="submit" name="remove-position" value="{{ forloop.counter }}">Remove</button>
+                                <button type="submit"
+                                        name="remove-position"
+                                        class="outline secondary"
+                                        value="{{ forloop.counter }}">Remove</button>
                             </td>
                         </tr>
                     {% endfor %}
@@ -106,7 +112,10 @@
                                     <a href="{{ publication.funding_request.url }}">{{ publication.funding_request.request_id }}</a>
                                 </td>
                                 <td>
-                                    <button type="submit" name="add_position" value="{{ publication.id }}">Add</button>
+                                    <button type="submit"
+                                            class="outline secondary"
+                                            name="add_position"
+                                            value="{{ publication.id }}">Add</button>
                                 </td>
                             </tr>
                         {% endfor %}

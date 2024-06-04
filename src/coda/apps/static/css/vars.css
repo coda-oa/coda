@@ -29,6 +29,8 @@
 
   --coda-card-background-color: var(--pico-card-background-color);
 
+  --coda-spacing: var(--pico-spacing);
+
   /*
   Pico Variables.
   NOTE: We avoid referencing Pico variables directly in Coda.
