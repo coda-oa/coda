@@ -106,8 +106,20 @@ article.fundingrequest {
   top: 0;
 }
 
+.invoice-position-number-column {
+  width: 3ch;
+}
+
+.invoice-position-name-column {
+  width: 28ch;
+}
+
 .invoice-position-tax-column {
   width: 12ch;
+}
+
+.invoice-position-cost-type-column {
+  width: 25ch;
 }
 
 .invoice-position-cost-column {
@@ -125,6 +137,14 @@ article.fundingrequest {
 .invoice-position-request-link a {
   display: inline-block;
   margin-bottom: var(--coda-spacing);
+}
+
+.invoice-position-add-button {
+  width: 100%;
+}
+
+.invoice-add-position-name-column {
+  width: calc(31ch + var(--coda-spacing) / 2);
 }
 
 .label {

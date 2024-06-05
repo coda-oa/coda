@@ -6,6 +6,7 @@ from coda.invoice import (
     FundingSourceId,
     Invoice,
     InvoiceId,
+    ItemType,
     Position,
     TaxRate,
 )
@@ -25,11 +26,14 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
         creditor=CreditorId(model.creditor_id),
         positions=[
             Position(
-                publication=PublicationId(position.publication_id),
+                item=(
+                    PublicationId(position.publication_id)
+                    if position.publication_id
+                    else position.description
+                ),
                 cost=Money(position.cost_amount, Currency[position.cost_currency]),
                 cost_type=CostType(position.cost_type),
                 tax_rate=TaxRate(position.tax_rate),
-                description=position.description,
                 funding_source=(
                     FundingSourceId(position.funding_source_id)
                     if position.funding_source_id
@@ -50,20 +54,35 @@ def invoice_create(invoice: Invoice) -> InvoiceId:
         comment=invoice.comment,
     )
 
+    def _create_position(pos: Position[ItemType]) -> PositionModel:
+        match pos.item:
+            case int(pub_id):
+                print("We got an id")
+                return PositionModel(
+                    publication_id=pub_id,
+                    cost_amount=pos.cost.amount,
+                    cost_currency=pos.cost.currency.code,
+                    cost_type=pos.cost_type.value,
+                    tax_rate=pos.tax_rate,
+                    funding_source_id=pos.funding_source,
+                    invoice_id=m.id,
+                )
+            case str(description):
+                print("We got a description")
+                return PositionModel(
+                    description=description,
+                    cost_amount=pos.cost.amount,
+                    cost_currency=pos.cost.currency.code,
+                    cost_type=pos.cost_type.value,
+                    tax_rate=pos.tax_rate,
+                    funding_source_id=pos.funding_source,
+                    invoice_id=m.id,
+                )
+            case _:
+                raise ValueError("Invalid position item")
+
     PositionModel.objects.bulk_create(
-        [
-            PositionModel(
-                publication_id=position.publication,
-                cost_amount=position.cost.amount,
-                cost_currency=position.cost.currency.code,
-                cost_type=position.cost_type.value,
-                tax_rate=position.tax_rate,
-                description=position.description,
-                funding_source_id=position.funding_source,
-                invoice_id=m.id,
-            )
-            for position in invoice.positions
-        ]
+        [_create_position(position) for position in invoice.positions]
     )
 
     return InvoiceId(m.id)

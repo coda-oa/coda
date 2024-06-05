@@ -3,7 +3,14 @@
     <h1>Create Invoice</h1>
     <form method="post">
         {% csrf_token %}
-        {{ form }}
+        <article>
+            <h2>Invoice Head</h2>
+            <table class="article__table">
+                <tbody>
+                    {{ form.as_table }}
+                </tbody>
+            </table>
+        </article>
         <article>
             <h2>Invoice Items</h2>
             {% if positions %}
@@ -14,9 +21,9 @@
             <table class="article__table">
                 <thead>
                     <tr>
-                        <th>#</th>
-                        <th>Position</th>
-                        <th>Type</th>
+                        <th class="invoice-position-number-column">#</th>
+                        <th class="invoice-position-name-column">Position</th>
+                        <th class="invoice-position-cost-type-column">Cost Type</th>
                         <th class="invoice-position-cost-column">Amount</th>
                         <th class="invoice-position-tax-column">Tax Rate %</th>
                         <th class="invoice-position-request-link-column">Funding Request</th>
@@ -26,15 +33,24 @@
                 <tbody>
                     {% for position in positions %}
                         <tr>
+                            <input type="hidden"
+                                   name="position-{{ forloop.counter }}-type"
+                                   value="{{ position.type }}">
                             <td>{{ forloop.counter }}</td>
                             <td>
-                                {{ position.title }}
-                                <input type="hidden"
-                                       name="position-{{ forloop.counter }}-id"
-                                       value="{{ position.id }}">
-                                <input type="hidden"
-                                       name="position-{{ forloop.counter }}-title"
-                                       value="{{ position.title }}">
+                                {% if position.type == "publication" %}
+                                    {{ position.title }}
+                                    <input type="hidden"
+                                           name="position-{{ forloop.counter }}-id"
+                                           value="{{ position.id }}">
+                                    <input type="hidden"
+                                           name="position-{{ forloop.counter }}-title"
+                                           value="{{ position.title }}">
+                                {% else %}
+                                    <input type="text"
+                                           name="position-{{ forloop.counter }}-description"
+                                           value="{{ position.description }}">
+                                {% endif %}
                             </td>
                             <td>
                                 <select name="position-{{ forloop.counter }}-cost-type">
@@ -47,32 +63,29 @@
                                 </select>
                             </td>
                             <td>
-                                <fieldset role="group">
-                                    <input type="decimal"
-                                           name="position-{{ forloop.counter }}-cost"
-                                           value="{{ position.cost_amount }}">
-                                    <select name="position-{{ forloop.counter }}-currency">
-                                        {% for currency in currencies %}
-                                            <option value="{{ currency.code }}"
-                                                    {% if currency.code == position.cost_currency %}selected{% endif %}>
-                                                {{ currency.code }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                </fieldset>
+                                <input type="number"
+                                       name="position-{{ forloop.counter }}-cost"
+                                       min="0"
+                                       step="0.0001"
+                                       value="{{ position.cost_amount }}">
                             </td>
                             <td>
-                                <input type="decimal"
+                                <input type="number"
                                        name="position-{{ forloop.counter }}-taxrate"
+                                       min="0"
+                                       max="100"
+                                       step="1"
                                        value="{{ position.tax_rate }}">
                             </td>
                             <td class="invoice-position-request-link">
-                                <a href="{{ position.funding_request.url }}"
-                                   role="button"
-                                   target="_blank"
-                                   class="outline secondary">↗</a>
-                                <input type="hidden" name="position-{{ forloop.counter }}-fundingrequest-id" value={{ position.funding_request.request_id }}>
-                                <input type="hidden" name="position-{{ forloop.counter }}-fundingrequest-url" value={{ position.funding_request.url }}>
+                                {% if position.funding_request.url %}
+                                    <a href="{{ position.funding_request.url }}"
+                                       role="button"
+                                       target="_blank"
+                                       class="outline secondary">↗</a>
+                                    <input type="hidden" name="position-{{ forloop.counter }}-fundingrequest-id" value={{ position.funding_request.request_id }}>
+                                    <input type="hidden" name="position-{{ forloop.counter }}-fundingrequest-url" value={{ position.funding_request.url }}>
+                                {% endif %}
                             </td>
                             <td>
                                 <button type="submit"
@@ -82,10 +95,80 @@
                             </td>
                         </tr>
                     {% endfor %}
+                    {% if positions %}
+                        <tr>
+                            <td></td>
+                            <td>Tax</td>
+                            <td>
+                                <input type="text" value="vat" readonly>
+                            </td>
+                            <td>
+                                <input type="number" value="{{ tax }}" readonly>
+                            </td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td>Total</td>
+                            <td></td>
+                            <td>
+                                <input type="number" value="{{ total }}" readonly>
+                            </td>
+                            <td></td>
+                            <td></td>
+                            <td>
+                                <button type="submit" class="contrast" value="update-vat">Calculate</button>
+                            </td>
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
         </article>
         <article>
+            <h2>Add Positions</h2>
+            <table class="article__table">
+                <thead>
+                    <tr>
+                        <th class="invoice-add-position-name-column">Position</th>
+                        <th class="invoice-position-cost-type-column">Cost Type</th>
+                        <th class="invoice-position-cost-column">Amount</th>
+                        <th class="invoice-position-tax-column">Tax Rate %</th>
+                        <th class="invoice-position-request-link-column"></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <input type="text" name="free-position-description">
+                        </td>
+                        <td>
+                            <select name="free-position-cost-type">
+                                {% for type in cost_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="number" name="free-position-cost" value="0" step="0.0001">
+                        </td>
+                        <td>
+                            <input type="number"
+                                   name="free-position-taxrate"
+                                   value="0"
+                                   min="0"
+                                   max="100">
+                        </td>
+                        <td></td>
+                        <td>
+                            <button type="submit"
+                                    class="outline secondary invoice-position-add-button"
+                                    name="action"
+                                    value="add-free-position">Add</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
             <h3>Search Publications</h3>
             <div role="group">
                 <input type="search"
@@ -114,7 +197,7 @@
                                 <td>
                                     <button type="submit"
                                             class="outline secondary"
-                                            name="add_position"
+                                            name="add-publication-position"
                                             value="{{ publication.id }}">Add</button>
                                 </td>
                             </tr>

@@ -54,41 +54,41 @@ def test__add_publication_as_position__returns_position_in_response(client: Clie
     fr = modelfactory.fundingrequest()
     publication = fr.publication
 
-    response = add_position(client, publication.id)
+    response = add_publication_position(client, publication.id)
 
-    expected = expect_new_position_data(publication)
+    expected = expect_new_publication_position(publication)
     assert expected in response.context["positions"]
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__changing_position_data__updates_position_in_response(client: Client) -> None:
-    publication = modelfactory.publication()
-    position_data = number_of_positions(1) | create_position_input(publication)
+def test__add_free_position__returns_position_in_response(client: Client) -> None:
+    position_data = new_free_position_data()
     response = client.post(reverse("invoices:create"), position_data)
 
-    expected = expect_existing_position_data(position_data)
+    expected = expect_new_free_position(position_data)
     assert expected in response.context["positions"]
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__given_position_added__adding_another_position__second_position_has_number_2(
-    client: Client,
-) -> None:
-    first = modelfactory.publication()
-    second = modelfactory.publication()
+def test__changing_publication_position_data__updates_position_in_response(client: Client) -> None:
+    publication = modelfactory.publication()
+    position_data = number_of_positions(1) | create_publication_position_input(publication)
+    response = client.post(reverse("invoices:create"), position_data)
 
-    first_position_data = create_position_input(first)
-    response = add_position(
-        client,
-        second.id,
-        other_post_data=(number_of_positions(1) | first_position_data),
-    )
+    expected = expect_existing_publication_position(position_data)
+    assert expected in response.context["positions"]
 
-    first_expected = expect_existing_position_data(first_position_data, 1)
-    second_expected = expect_new_position_data(second, 2)
-    assert response.context["positions"] == [first_expected, second_expected]
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__changing_free_position_data__updates_position_in_response(client: Client) -> None:
+    position_data = number_of_positions(1) | create_free_position_input()
+    response = client.post(reverse("invoices:create"), position_data)
+
+    expected = expect_existing_free_position(position_data)
+    assert [expected] == response.context["positions"]
 
 
 @pytest.mark.django_db
@@ -99,22 +99,23 @@ def test__given_position_added__removing_position__position_removed_from_respons
     first = modelfactory.publication()
     second = modelfactory.publication()
     position_data = (
-        number_of_positions(2) | create_position_input(first, 1) | create_position_input(second, 2)
+        number_of_positions(2)
+        | create_publication_position_input(first, 1)
+        | create_publication_position_input(second, 2)
     )
 
     response = client.post(reverse("invoices:create"), position_data | {"remove-position": "1"})
 
-    assert response.context["positions"] == [expect_existing_position_data(position_data, 2)]
+    assert response.context["positions"] == [expect_existing_publication_position(position_data, 2)]
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__given_positions_added__create__saves_new_invoice(client: Client) -> None:
     first = modelfactory.publication()
-    second = modelfactory.publication()
 
-    first_position_data = create_position_input(first, 1)
-    second_position_data = create_position_input(second, 2)
+    first_position_data = create_publication_position_input(first, 1)
+    second_position_data = create_free_position_input(2)
 
     post_data = (
         {
@@ -122,6 +123,7 @@ def test__given_positions_added__create__saves_new_invoice(client: Client) -> No
             "number": _faker.pystr(),
             "date": _faker.date(),
             "creditor": first.journal.publisher.id,
+            "currency": Currency.EUR.code,
         }
         | number_of_positions(2)
         | first_position_data
@@ -146,38 +148,22 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                 PublicationId(int(post_data["position-1-id"])),
                 Money(
                     post_data["position-1-cost"],
-                    Currency[post_data["position-1-currency"]],
+                    Currency[post_data["currency"]],
                 ),
                 CostType(post_data["position-1-cost-type"]),
                 TaxRate(int(post_data["position-1-taxrate"]) / 100),
             ),
             Position(
-                PublicationId(int(post_data["position-2-id"])),
+                post_data["position-2-description"],
                 Money(
                     post_data["position-2-cost"],
-                    Currency[post_data["position-2-currency"]],
+                    Currency[post_data["currency"]],
                 ),
                 CostType(post_data["position-2-cost-type"]),
                 TaxRate(int(post_data["position-2-taxrate"]) / 100),
             ),
         ],
     )
-
-
-def expect_existing_position_data(position_data: dict[str, str], i: int = 1) -> dict[str, Any]:
-    return {
-        "id": int(position_data[f"position-{i}-id"]),
-        "title": position_data[f"position-{i}-title"],
-        "funding_request": {
-            "request_id": position_data[f"position-{i}-fundingrequest-id"],
-            "url": position_data[f"position-{i}-fundingrequest-url"],
-        },
-        "cost_amount": float(position_data[f"position-{i}-cost"]),
-        "cost_currency": position_data[f"position-{i}-currency"],
-        "cost_type": position_data[f"position-{i}-cost-type"],
-        "tax_rate": position_data[f"position-{i}-taxrate"],
-        "description": "",
-    }
 
 
 def search(
@@ -189,12 +175,14 @@ def search(
     )
 
 
-def add_position(
+def add_publication_position(
     client: Client, id: int, /, other_post_data: dict[str, Any] | None = None
 ) -> TemplateResponse:
     return cast(
         TemplateResponse,
-        client.post(reverse("invoices:create"), {"add_position": id} | (other_post_data or {})),
+        client.post(
+            reverse("invoices:create"), {"add-publication-position": id} | (other_post_data or {})
+        ),
     )
 
 
@@ -202,20 +190,33 @@ def number_of_positions(num: int) -> dict[str, str]:
     return {"number-of-positions": str(num)}
 
 
-def create_position_input(publication: Publication, index: int = 1) -> dict[str, str]:
+def create_free_position_input(index: int = 1) -> dict[str, str]:
+    return {
+        f"position-{index}-type": "free",
+        f"position-{index}-description": _faker.sentence(),
+        f"position-{index}-cost": str(
+            _faker.pyfloat(max_value=100_000, right_digits=2, positive=True)
+        ),
+        f"position-{index}-taxrate": str(_faker.pyint(min_value=0, max_value=100)),
+        f"position-{index}-cost-type": random.choice([ct.value for ct in CostType]),
+    }
+
+
+def create_publication_position_input(publication: Publication, index: int = 1) -> dict[str, str]:
     if hasattr(publication, "fundingrequest"):
         request_id = publication.fundingrequest.request_id
         url = publication.fundingrequest.get_absolute_url()
     else:
         request_id = ""
         url = ""
+
     return {
+        f"position-{index}-type": "publication",
         f"position-{index}-id": str(publication.id),
         f"position-{index}-title": publication.title,
         f"position-{index}-cost": str(
             _faker.pyfloat(max_value=100_000, right_digits=2, positive=True)
         ),
-        f"position-{index}-currency": "EUR",
         f"position-{index}-taxrate": str(_faker.pyint(min_value=0, max_value=100)),
         f"position-{index}-cost-type": random.choice([ct.value for ct in CostType]),
         f"position-{index}-fundingrequest-id": request_id,
@@ -223,9 +224,40 @@ def create_position_input(publication: Publication, index: int = 1) -> dict[str,
     }
 
 
-def expect_new_position_data(publication: Publication, number: int = 1) -> dict[str, Any]:
+def new_free_position_data() -> dict[str, str]:
     return {
-        "id": publication.id,
+        "action": "add-free-position",
+        "free-position-description": _faker.sentence(),
+        "free-position-cost": str(_faker.pyfloat(max_value=100_000, right_digits=2, positive=True)),
+        "free-position-taxrate": str(_faker.pyint(min_value=0, max_value=100)),
+        "free-position-cost-type": random.choice([ct.value for ct in CostType]),
+    }
+
+
+def expect_new_free_position(free_position_data: dict[str, str]) -> dict[str, Any]:
+    return {
+        "type": "free",
+        "description": free_position_data["free-position-description"],
+        "cost_amount": free_position_data["free-position-cost"],
+        "cost_type": free_position_data["free-position-cost-type"],
+        "tax_rate": free_position_data["free-position-taxrate"],
+    }
+
+
+def expect_existing_free_position(position_data: dict[str, str], index: int = 1) -> dict[str, Any]:
+    return {
+        "type": "free",
+        "description": position_data[f"position-{index}-description"],
+        "cost_amount": position_data[f"position-{index}-cost"],
+        "cost_type": position_data[f"position-{index}-cost-type"],
+        "tax_rate": position_data[f"position-{index}-taxrate"],
+    }
+
+
+def expect_new_publication_position(publication: Publication) -> dict[str, Any]:
+    return {
+        "type": "publication",
+        "id": str(publication.id),
         "title": publication.title,
         "funding_request": (
             {
@@ -235,10 +267,27 @@ def expect_new_position_data(publication: Publication, number: int = 1) -> dict[
             if hasattr(publication, "fundingrequest")
             else {"request_id": "", "url": ""}
         ),
-        "cost_amount": 0.00,
-        "cost_currency": "EUR",
+        "cost_amount": str(0.00),
         "cost_type": CostType.Publication_Charge.value,
-        "tax_rate": DEFAULT_TAX_RATE_PERCENTAGE,
+        "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),
+        "description": "",
+    }
+
+
+def expect_existing_publication_position(
+    position_data: dict[str, str], i: int = 1
+) -> dict[str, Any]:
+    return {
+        "type": "publication",
+        "id": position_data[f"position-{i}-id"],
+        "title": position_data[f"position-{i}-title"],
+        "funding_request": {
+            "request_id": position_data[f"position-{i}-fundingrequest-id"],
+            "url": position_data[f"position-{i}-fundingrequest-url"],
+        },
+        "cost_amount": position_data[f"position-{i}-cost"],
+        "cost_type": position_data[f"position-{i}-cost-type"],
+        "tax_rate": position_data[f"position-{i}-taxrate"],
         "description": "",
     }
 

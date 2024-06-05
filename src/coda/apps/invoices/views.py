@@ -19,7 +19,9 @@ from coda.invoice import (
     FundingSourceId,
     Invoice,
     InvoiceId,
+    ItemType,
     Position,
+    Positions,
     TaxRate,
 )
 from coda.money import Currency, Money
@@ -50,6 +52,8 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
     publications = search_publications(request)
     positions = assemble_positions(request)
 
+    currency = Currency.from_code(request.POST.get("currency", "EUR"))
+    _tmp_invoice = temp_invoice(positions, currency)
     return render(
         request,
         "invoices/create.html",
@@ -59,6 +63,8 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
             "cost_types": [ct.value for ct in CostType],
             "publications": [search_result_for(pub) for pub in publications],
             "positions": positions,
+            "tax": _tmp_invoice.tax().amount,
+            "total": _tmp_invoice.total().amount,
         },
     )
 
@@ -78,17 +84,35 @@ def parse_invoice(form: InvoiceForm, positions: list[dict[str, Any]]) -> Invoice
         number=form.cleaned_data["number"],
         date=form.cleaned_data["date"],
         creditor=CreditorId(form.cleaned_data["creditor"].id),
-        positions=[
-            Position(
-                publication=PublicationId(position["id"]),
-                cost=Money(position["cost_amount"], Currency[position["cost_currency"]]),
-                cost_type=CostType(position["cost_type"]),
-                tax_rate=TaxRate(int(position["tax_rate"]) / 100),
-            )
-            for position in positions
-        ],
+        positions=parse_into_position_list(
+            positions, Currency.from_code(form.cleaned_data["currency"])
+        ),
         comment=form.cleaned_data["comment"],
     )
+
+
+def temp_invoice(positions: list[dict[str, Any]], currency: Currency) -> Invoice:
+    return Invoice.new(
+        number="",
+        date=datetime.date.today(),
+        creditor=CreditorId(1),
+        positions=parse_into_position_list(positions, currency),
+        comment="",
+    )
+
+
+def parse_into_position_list(positions: list[dict[str, Any]], currency: Currency) -> Positions:
+    return [
+        Position(
+            item=(
+                PublicationId(int(position["id"])) if "id" in position else position["description"]
+            ),
+            cost=Money(position["cost_amount"], currency),
+            cost_type=CostType(position["cost_type"]),
+            tax_rate=TaxRate(int(position["tax_rate"]) / 100),
+        )
+        for position in positions
+    ]
 
 
 def search_publications(request: HttpRequest) -> Iterable[Publication]:
@@ -107,46 +131,79 @@ def search_publications(request: HttpRequest) -> Iterable[Publication]:
 def assemble_positions(request: HttpRequest) -> list[dict[str, Any]]:
     number_of_positions = int(request.POST.get("number-of-positions", 0))
     positions = [parse_position_data(request, i) for i in range(1, number_of_positions + 1)]
-    new_position = added_position(request, len(positions) + 1)
-    if new_position:
-        positions.append(new_position)
-    elif remove_position := request.POST.get("remove-position"):
+    if free_position := parse_added_free_position(request):
+        positions.append(free_position)
+
+    if new_publication_position := parse_added_publication_position(request):
+        positions.append(new_publication_position)
+
+    if remove_position := request.POST.get("remove-position"):
         positions.pop(int(remove_position) - 1)
 
     return positions
 
 
 def parse_position_data(request: HttpRequest, index: int) -> dict[str, Any]:
+    if request.POST.get(f"position-{index}-type") == "free":
+        return parse_free_position(request, index)
+    else:
+        return parse_publication_position(request, index)
+
+
+def parse_free_position(request: HttpRequest, index: int) -> dict[str, Any]:
     return {
-        "id": int(request.POST.get(f"position-{index}-id", 0)),
+        "type": "free",
+        "description": request.POST.get(f"position-{index}-description", ""),
+        "cost_amount": request.POST.get(f"position-{index}-cost", "0.00"),
+        "cost_type": request.POST.get(f"position-{index}-cost-type", CostType.Other.value),
+        "tax_rate": request.POST.get(f"position-{index}-taxrate", "0"),
+    }
+
+
+def parse_publication_position(request: HttpRequest, index: int) -> dict[str, Any]:
+    return {
+        "type": "publication",
+        "id": request.POST.get(f"position-{index}-id", "0"),
         "title": request.POST.get(f"position-{index}-title", ""),
         "funding_request": {
             "request_id": request.POST.get(f"position-{index}-fundingrequest-id", ""),
             "url": request.POST.get(f"position-{index}-fundingrequest-url", ""),
         },
-        "cost_amount": float(request.POST.get(f"position-{index}-cost", 0.00)),
-        "cost_currency": request.POST.get(f"position-{index}-currency", "EUR"),
+        "cost_amount": request.POST.get(f"position-{index}-cost", "0.00"),
         "cost_type": request.POST.get(f"position-{index}-cost-type", CostType.Other.value),
         "tax_rate": request.POST.get(f"position-{index}-taxrate", "0"),
         "description": "",
     }
 
 
-def added_position(request: HttpRequest, number: int) -> dict[str, Any] | None:
-    publication_id = request.POST.get("add_position")
+def parse_added_publication_position(request: HttpRequest) -> dict[str, Any] | None:
+    publication_id = request.POST.get("add-publication-position")
     if publication_id is None:
         return None
 
     publication = Publication.objects.get(pk=publication_id)
     return {
-        "id": publication.id,
+        "type": "publication",
+        "id": str(publication.id),
         "title": publication.title,
         "funding_request": maybe_request_context(publication),
-        "cost_amount": 0.00,
-        "cost_currency": "EUR",
+        "cost_amount": str(0.00),
         "cost_type": CostType.Publication_Charge.value,
-        "tax_rate": DEFAULT_TAX_RATE_PERCENTAGE,
+        "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),
         "description": "",
+    }
+
+
+def parse_added_free_position(request: HttpRequest) -> dict[str, Any] | None:
+    if request.POST.get("action") != "add-free-position":
+        return None
+
+    return {
+        "type": "free",
+        "description": request.POST.get("free-position-description", ""),
+        "cost_amount": request.POST.get("free-position-cost", "0.00"),
+        "cost_type": request.POST.get("free-position-cost-type", CostType.Other.value),
+        "tax_rate": request.POST.get("free-position-taxrate", "0"),
     }
 
 
@@ -184,24 +241,30 @@ def invoice_viewmodel(invoice_model: InvoiceModel) -> "InvoiceViewModel":
     )
 
 
-def position_viewmodel(position: Position, number: int) -> "PositionViewModel":
-    publication = get_object_or_404(Publication, pk=position.publication)
-    related_request = FundingRequest.objects.filter(publication_id=position.publication).first()
-    if related_request:
-        related_funding_request = FundingRequestViewModel(
-            url=related_request.get_absolute_url(),
-            request_id=related_request.request_id,
-        )
-    else:
-        related_funding_request = None
+def position_viewmodel(position: Position[ItemType], number: int) -> "PositionViewModel":
+    match position.item:
+        case int(pub_id):
+            publication = get_object_or_404(Publication, pk=pub_id)
+            publication_title = publication.title
+            submitter = cast(Author, publication.submitting_author).name
+            related_request = FundingRequest.objects.filter(publication_id=position.item).first()
+            related_funding_request = None
+            if related_request:
+                related_funding_request = FundingRequestViewModel(
+                    url=related_request.get_absolute_url(),
+                    request_id=related_request.request_id,
+                )
+        case str(description):
+            publication_title = description
+            submitter = ""
+            related_funding_request = None
 
     return PositionViewModel(
         number=str(number),
-        publication_name=publication.title,
-        publication_submitter=cast(Author, publication.submitting_author).name,
+        publication_name=publication_title,
+        publication_submitter=submitter,
         cost=position.cost,
         cost_type=position.cost_type.value,
-        description=position.description,
         related_funding_request=related_funding_request,
         funding_source_id=position.funding_source,
     )
@@ -218,7 +281,6 @@ class PositionViewModel(NamedTuple):
     publication_submitter: str
     cost: Money
     cost_type: str
-    description: str
     related_funding_request: FundingRequestViewModel | None
     funding_source_id: FundingSourceId | None
 

@@ -3,7 +3,7 @@ from decimal import Decimal
 import enum
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import NamedTuple, NewType, Self
+from typing import Generic, NamedTuple, NewType, Self, TypeVar
 
 from coda.money import Currency, Money
 from coda.publication import PublicationId
@@ -40,12 +40,16 @@ class TaxRate(Decimal):
         return super().__new__(cls, v.quantize(Decimal("0.0000")))
 
 
-class Position(NamedTuple):
-    publication: PublicationId
+ItemType = PublicationId | str
+T = TypeVar("T", bound=ItemType, covariant=True)
+Positions = Iterable["Position[ItemType]"]
+
+
+class Position(NamedTuple, Generic[T]):
+    item: T
     cost: Money
     cost_type: CostType
     tax_rate: TaxRate = TaxRate(0)
-    description: str = ""
     funding_source: FundingSourceId | None = None
 
 
@@ -55,7 +59,7 @@ class Invoice:
     number: str
     date: datetime.date
     creditor: CreditorId
-    positions: Iterable[Position]
+    positions: Positions
     comment: str = ""
 
     @classmethod
@@ -64,7 +68,7 @@ class Invoice:
         number: str,
         date: datetime.date,
         creditor: CreditorId,
-        positions: Iterable[Position],
+        positions: Positions,
         comment: str = "",
     ) -> Self:
         return cls(None, number, date, creditor, positions, comment)

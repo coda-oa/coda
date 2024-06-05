@@ -1,5 +1,4 @@
 import random
-from collections.abc import Iterable
 from datetime import date
 from typing import cast
 
@@ -23,6 +22,7 @@ from coda.invoice import (
     Invoice,
     InvoiceId,
     Position,
+    Positions,
     TaxRate,
 )
 from coda.money import Currency, Money
@@ -55,29 +55,37 @@ def author(affiliation: InstitutionId | None = None, id: AuthorId | None = None)
 def invoice(
     id: InvoiceId | None = None,
     creditor: CreditorId | None = None,
-    positions: Iterable[Position] = (),
+    positions: Positions = (),
 ) -> Invoice:
     return Invoice(
         id=id,
         date=date.fromisoformat(_faker.date()),
         number=NonEmptyStr(_faker.uuid4()),
         creditor=creditor or CreditorId(random.randint(1, 1000)),
-        positions=positions or [position() for n in range(random.randint(1, 5))],
+        positions=positions or [publication_position() for n in range(random.randint(1, 5))],
     )
 
 
-def position(
+def publication_position(
     publication: PublicationId | None = None,
     currency: Currency | None = None,
     funding_source: FundingSourceId | None = None,
-) -> Position:
+) -> Position[PublicationId]:
     return Position(
-        publication=publication or PublicationId(random.randint(1, 1000)),
+        item=publication or PublicationId(random.randint(1, 1000)),
         cost=random_money(currency),
         cost_type=random.choice(list(CostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
-        description=_faker.sentence(),
         funding_source=funding_source,
+    )
+
+
+def free_position() -> Position[str]:
+    return Position(
+        item=_faker.sentence(),
+        cost=random_money(),
+        cost_type=random.choice(list(CostType)),
+        tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
     )
 
 

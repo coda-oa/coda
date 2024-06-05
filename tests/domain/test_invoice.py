@@ -1,18 +1,17 @@
 import datetime
-from collections.abc import Iterable
 
 import pytest
 
-from coda.invoice import CostType, CreditorId, Invoice, Position, TaxRate
+from coda.invoice import CostType, CreditorId, Invoice, Position, Positions, TaxRate
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
 
-def make_sut(positions: Iterable[Position]) -> Invoice:
+def make_sut(positions: Positions) -> Invoice:
     return Invoice.new("invoice-#1234", datetime.date.today(), CreditorId(1), positions)
 
 
-def position(cost: Money, tax_rate: TaxRate = TaxRate(0)) -> Position:
+def position(cost: Money, tax_rate: TaxRate = TaxRate(0)) -> Position[PublicationId]:
     return Position(PublicationId(1), cost, CostType.Gold_OA, tax_rate=tax_rate)
 
 

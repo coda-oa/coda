@@ -18,7 +18,7 @@ class Command(BaseCommand):
         invoice = domainfactory.invoice(
             creditor=CreditorId(publisher_id),
             positions=[
-                domainfactory.position(publication=publication, currency=Currency.EUR)
+                domainfactory.publication_position(publication=publication, currency=Currency.EUR)
                 for i, publication in enumerate(publications, start=1)
             ],
         )

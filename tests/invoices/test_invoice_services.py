@@ -15,8 +15,11 @@ def test__create_invoice__saves_invoice_to_database() -> None:
     invoice = domainfactory.invoice(
         creditor=CreditorId(publisher_id),
         positions=[
-            domainfactory.position(publication=publication)
-            for i, publication in enumerate(publications, start=1)
+            *[
+                domainfactory.publication_position(publication=publication)
+                for publication in publications
+            ],
+            *[domainfactory.free_position() for _ in range(3)],
         ],
     )
 
