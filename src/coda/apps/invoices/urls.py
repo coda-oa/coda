@@ -1,5 +1,7 @@
 from django.urls import path
-from .views import invoice_list, invoice_detail, create_invoice
+
+from coda.apps.invoices.views.create import create_invoice
+from coda.apps.invoices.views.inspect import invoice_detail, invoice_list
 
 app_name = "invoices"
 

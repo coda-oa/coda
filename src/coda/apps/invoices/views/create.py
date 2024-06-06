@@ -1,45 +1,20 @@
-import datetime
 from collections.abc import Iterable
-from typing import Any, NamedTuple, cast
+import datetime
+from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 
-from coda.apps.authors.models import Author
-from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.models import Invoice as InvoiceModel
-from coda.apps.invoices.services import as_domain_object, invoice_create
+from coda.apps.invoices.services import invoice_create
 from coda.apps.publications.models import Publication
-from coda.invoice import (
-    CostType,
-    CreditorId,
-    FundingSourceId,
-    Invoice,
-    InvoiceId,
-    ItemType,
-    Position,
-    Positions,
-    TaxRate,
-)
+from coda.invoice import CostType, CreditorId, Invoice, InvoiceId, Position, Positions, TaxRate
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
 DEFAULT_TAX_RATE_PERCENTAGE = 19
-
-
-@login_required
-def invoice_list(request: HttpRequest) -> HttpResponse:
-    invoices = map(invoice_viewmodel, InvoiceModel.objects.all())
-    return render(request, "invoices/list.html", {"invoices": invoices})
-
-
-@login_required
-def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
-    invoice_model = get_object_or_404(InvoiceModel, pk=pk)
-    return render(request, "invoices/detail.html", {"invoice": invoice_viewmodel(invoice_model)})
 
 
 @login_required
@@ -151,17 +126,14 @@ def parse_position_data(request: HttpRequest, index: int) -> dict[str, Any]:
 
 
 def parse_free_position(request: HttpRequest, index: int) -> dict[str, Any]:
-    return {
+    return parse_common_position_data(request, index) | {
         "type": "free",
         "description": request.POST.get(f"position-{index}-description", ""),
-        "cost_amount": request.POST.get(f"position-{index}-cost", "0.00"),
-        "cost_type": request.POST.get(f"position-{index}-cost-type", CostType.Other.value),
-        "tax_rate": request.POST.get(f"position-{index}-taxrate", "0"),
     }
 
 
 def parse_publication_position(request: HttpRequest, index: int) -> dict[str, Any]:
-    return {
+    return parse_common_position_data(request, index) | {
         "type": "publication",
         "id": request.POST.get(f"position-{index}-id", "0"),
         "title": request.POST.get(f"position-{index}-title", ""),
@@ -169,10 +141,14 @@ def parse_publication_position(request: HttpRequest, index: int) -> dict[str, An
             "request_id": request.POST.get(f"position-{index}-fundingrequest-id", ""),
             "url": request.POST.get(f"position-{index}-fundingrequest-url", ""),
         },
+    }
+
+
+def parse_common_position_data(request: HttpRequest, index: int) -> dict[str, Any]:
+    return {
         "cost_amount": request.POST.get(f"position-{index}-cost", "0.00"),
         "cost_type": request.POST.get(f"position-{index}-cost-type", CostType.Other.value),
         "tax_rate": request.POST.get(f"position-{index}-taxrate", "0"),
-        "description": "",
     }
 
 
@@ -190,7 +166,6 @@ def parse_added_publication_position(request: HttpRequest) -> dict[str, Any] | N
         "cost_amount": str(0.00),
         "cost_type": CostType.Publication_Charge.value,
         "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),
-        "description": "",
     }
 
 
@@ -223,73 +198,3 @@ def maybe_request_context(publication: Publication) -> dict[str, Any]:
         }
     else:
         return {"request_id": "", "url": ""}
-
-
-def invoice_viewmodel(invoice_model: InvoiceModel) -> "InvoiceViewModel":
-    creditor_name = invoice_model.creditor.name
-    invoice = as_domain_object(invoice_model)
-    return InvoiceViewModel(
-        url=invoice_model.get_absolute_url(),
-        number=invoice.number,
-        date=invoice.date,
-        creditor=invoice.creditor,
-        creditor_name=creditor_name,
-        positions=[
-            position_viewmodel(position, i) for i, position in enumerate(invoice.positions, start=1)
-        ],
-        total=invoice.total(),
-    )
-
-
-def position_viewmodel(position: Position[ItemType], number: int) -> "PositionViewModel":
-    match position.item:
-        case int(pub_id):
-            publication = get_object_or_404(Publication, pk=pub_id)
-            publication_title = publication.title
-            submitter = cast(Author, publication.submitting_author).name
-            related_request = FundingRequest.objects.filter(publication_id=position.item).first()
-            related_funding_request = None
-            if related_request:
-                related_funding_request = FundingRequestViewModel(
-                    url=related_request.get_absolute_url(),
-                    request_id=related_request.request_id,
-                )
-        case str(description):
-            publication_title = description
-            submitter = ""
-            related_funding_request = None
-
-    return PositionViewModel(
-        number=str(number),
-        publication_name=publication_title,
-        publication_submitter=submitter,
-        cost=position.cost,
-        cost_type=position.cost_type.value,
-        related_funding_request=related_funding_request,
-        funding_source_id=position.funding_source,
-    )
-
-
-class FundingRequestViewModel(NamedTuple):
-    url: str
-    request_id: str
-
-
-class PositionViewModel(NamedTuple):
-    number: str
-    publication_name: str
-    publication_submitter: str
-    cost: Money
-    cost_type: str
-    related_funding_request: FundingRequestViewModel | None
-    funding_source_id: FundingSourceId | None
-
-
-class InvoiceViewModel(NamedTuple):
-    url: str
-    number: str
-    date: datetime.date
-    creditor: int
-    creditor_name: str
-    positions: list[PositionViewModel]
-    total: Money

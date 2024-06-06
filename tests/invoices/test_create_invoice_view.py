@@ -10,7 +10,7 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.invoices.services import get_by_id
-from coda.apps.invoices.views import DEFAULT_TAX_RATE_PERCENTAGE
+from coda.apps.invoices.views.create import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.apps.publications.models import Publication
 from coda.invoice import CostType, CreditorId, Invoice, InvoiceId, Position, TaxRate
 from coda.money import Currency, Money
@@ -194,11 +194,9 @@ def create_free_position_input(index: int = 1) -> dict[str, str]:
     return {
         f"position-{index}-type": "free",
         f"position-{index}-description": _faker.sentence(),
-        f"position-{index}-cost": str(
-            _faker.pyfloat(max_value=100_000, right_digits=2, positive=True)
-        ),
-        f"position-{index}-taxrate": str(_faker.pyint(min_value=0, max_value=100)),
-        f"position-{index}-cost-type": random.choice([ct.value for ct in CostType]),
+        f"position-{index}-cost": _random_cost(),
+        f"position-{index}-taxrate": _random_tax_rate(),
+        f"position-{index}-cost-type": _random_cost_type(),
     }
 
 
@@ -214,11 +212,9 @@ def create_publication_position_input(publication: Publication, index: int = 1) 
         f"position-{index}-type": "publication",
         f"position-{index}-id": str(publication.id),
         f"position-{index}-title": publication.title,
-        f"position-{index}-cost": str(
-            _faker.pyfloat(max_value=100_000, right_digits=2, positive=True)
-        ),
-        f"position-{index}-taxrate": str(_faker.pyint(min_value=0, max_value=100)),
-        f"position-{index}-cost-type": random.choice([ct.value for ct in CostType]),
+        f"position-{index}-cost": _random_cost(),
+        f"position-{index}-taxrate": _random_tax_rate(),
+        f"position-{index}-cost-type": _random_cost_type(),
         f"position-{index}-fundingrequest-id": request_id,
         f"position-{index}-fundingrequest-url": url,
     }
@@ -228,10 +224,22 @@ def new_free_position_data() -> dict[str, str]:
     return {
         "action": "add-free-position",
         "free-position-description": _faker.sentence(),
-        "free-position-cost": str(_faker.pyfloat(max_value=100_000, right_digits=2, positive=True)),
-        "free-position-taxrate": str(_faker.pyint(min_value=0, max_value=100)),
-        "free-position-cost-type": random.choice([ct.value for ct in CostType]),
+        "free-position-cost": _random_cost(),
+        "free-position-taxrate": _random_tax_rate(),
+        "free-position-cost-type": _random_cost_type(),
     }
+
+
+def _random_cost_type() -> str:
+    return random.choice([ct.value for ct in CostType])
+
+
+def _random_tax_rate() -> str:
+    return str(_faker.pyint(min_value=0, max_value=100))
+
+
+def _random_cost() -> str:
+    return str(_faker.pyfloat(max_value=100_000, right_digits=2, positive=True))
 
 
 def expect_new_free_position(free_position_data: dict[str, str]) -> dict[str, Any]:
@@ -270,7 +278,6 @@ def expect_new_publication_position(publication: Publication) -> dict[str, Any]:
         "cost_amount": str(0.00),
         "cost_type": CostType.Publication_Charge.value,
         "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),
-        "description": "",
     }
 
 
@@ -288,7 +295,6 @@ def expect_existing_publication_position(
         "cost_amount": position_data[f"position-{i}-cost"],
         "cost_type": position_data[f"position-{i}-cost-type"],
         "tax_rate": position_data[f"position-{i}-taxrate"],
-        "description": "",
     }
 
 
