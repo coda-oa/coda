@@ -11,6 +11,12 @@ class FundingSource(models.Model):
 class Creditor(models.Model):
     name = models.CharField(max_length=255)
 
+    def get_absolute_url(self) -> str:
+        return reverse("invoices:creditor_detail", kwargs={"pk": self.pk})
+
+    def __str__(self) -> str:
+        return self.name
+
 
 class Invoice(models.Model):
     creditor = models.ForeignKey(Creditor, on_delete=models.CASCADE)

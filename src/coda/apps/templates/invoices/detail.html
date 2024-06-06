@@ -16,10 +16,6 @@
                 <th>Creditor</th>
                 <td>{{ invoice.creditor_name }}</td>
             </tr>
-            <tr>
-                <th>Total</th>
-                <td>{{ invoice.total.amount }} {{ invoice.total.currency.code }}</td>
-            </tr>
         </tbody>
     </table>
     <h2>Positions</h2>
@@ -49,6 +45,22 @@
                     <td>{{ position.cost_type }}</td>
                 </tr>
             {% endfor %}
+            <tr>
+                <td>Tax</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>{{ invoice.tax.amount }} {{ invoice.tax.currency.code }}</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Total</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>{{ invoice.total.amount }} {{ invoice.total.currency.code }}</td>
+                <td></td>
+            </tr>
         </tbody>
     </table>
 {% endblock content %}

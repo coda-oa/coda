@@ -33,23 +33,6 @@ def test__searching_for_publication__returns_matches_in_response(client: Client)
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__creditor_selected__searching_for_publication__returns_only_publications_from_creditor(
-    client: Client,
-) -> None:
-    match = modelfactory.publication()
-    pub_from_other_publisher = modelfactory.publication(title=match.title)
-
-    creditor = match.journal.publisher.id
-    response = search(client, match.title, {"creditor": str(creditor)})
-
-    expected_search_result = expect_search_result(match)
-    excluded_search_result = expect_search_result(pub_from_other_publisher)
-    assert expected_search_result in response.context["publications"]
-    assert excluded_search_result not in response.context["publications"]
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
 def test__add_publication_as_position__returns_position_in_response(client: Client) -> None:
     fr = modelfactory.fundingrequest()
     publication = fr.publication
@@ -112,6 +95,7 @@ def test__given_position_added__removing_position__position_removed_from_respons
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__given_positions_added__create__saves_new_invoice(client: Client) -> None:
+    creditor = modelfactory.creditor()
     first = modelfactory.publication()
 
     first_position_data = create_publication_position_input(first, 1)
@@ -122,7 +106,7 @@ def test__given_positions_added__create__saves_new_invoice(client: Client) -> No
             "action": "create",
             "number": _faker.pystr(),
             "date": _faker.date(),
-            "creditor": first.journal.publisher.id,
+            "creditor": creditor.id,
             "currency": Currency.EUR.code,
         }
         | number_of_positions(2)

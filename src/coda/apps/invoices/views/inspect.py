@@ -38,6 +38,7 @@ def invoice_viewmodel(invoice_model: InvoiceModel) -> "InvoiceViewModel":
         positions=[
             position_viewmodel(position, i) for i, position in enumerate(invoice.positions, start=1)
         ],
+        tax=invoice.tax(),
         total=invoice.total(),
     )
 
@@ -93,4 +94,5 @@ class InvoiceViewModel(NamedTuple):
     creditor: int
     creditor_name: str
     positions: list[PositionViewModel]
+    tax: Money
     total: Money

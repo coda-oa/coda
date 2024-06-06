@@ -3,7 +3,6 @@ import datetime
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 
@@ -92,13 +91,8 @@ def parse_into_position_list(positions: list[dict[str, Any]], currency: Currency
 
 def search_publications(request: HttpRequest) -> Iterable[Publication]:
     query = request.POST.get("q", "")
-    creditor = request.POST.get("creditor", "")
     if query:
-        complete_query = Q(title__icontains=query)
-        if creditor:
-            complete_query &= Q(journal__publisher_id=creditor)
-
-        return Publication.objects.filter(complete_query)
+        return Publication.objects.filter(title__icontains=query)
     else:
         return Publication.objects.none()
 

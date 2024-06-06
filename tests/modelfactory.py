@@ -10,6 +10,7 @@ from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganizatio
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
+from coda.apps.invoices.models import Creditor
 from coda.apps.journals.models import Journal
 from coda.apps.publications.models import Publication
 from coda.apps.publishers.models import Publisher
@@ -74,3 +75,7 @@ def fundingrequest(title: str = "", _author_dto: AuthorDto | None = None) -> Fun
         )
     )
     return FundingRequestModel.objects.get(pk=request_id)
+
+
+def creditor() -> Creditor:
+    return Creditor.objects.create(name=_faker.company())

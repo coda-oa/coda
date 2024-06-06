@@ -7,7 +7,21 @@
             <h2>Invoice Head</h2>
             <table class="article__table">
                 <tbody>
-                    {{ form.as_table }}
+                    {% for field in form %}
+                        <tr>
+                            <td>{{ field.label_tag }}</td>
+                            <td>
+                                <div class="flex align-start">
+                                    {{ field }}
+                                    {% if field.name == "creditor" %}
+                                        <a href="{% url "invoices:creditor_create" %}"
+                                           class="secondary"
+                                           role="button">New</a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </article>

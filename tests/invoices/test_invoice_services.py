@@ -10,10 +10,11 @@ from tests import domainfactory, modelfactory
 
 @pytest.mark.django_db
 def test__create_invoice__saves_invoice_to_database() -> None:
+    creditor_id = modelfactory.creditor().id
     publisher_id = modelfactory.publisher().id
     publications = [random_publication(publisher_id) for _ in range(3)]
     invoice = domainfactory.invoice(
-        creditor=CreditorId(publisher_id),
+        creditor=CreditorId(creditor_id),
         positions=[
             *[
                 domainfactory.publication_position(publication=publication)
