@@ -2,15 +2,18 @@ from django.db import models
 from django.urls import reverse
 
 from coda.apps.publications.models import Publication
-from coda.apps.publishers.models import Publisher
 
 
 class FundingSource(models.Model):
     name = models.CharField(max_length=255)
 
 
+class Creditor(models.Model):
+    name = models.CharField(max_length=255)
+
+
 class Invoice(models.Model):
-    creditor = models.ForeignKey(Publisher, on_delete=models.CASCADE)
+    creditor = models.ForeignKey(Creditor, on_delete=models.CASCADE)
     date = models.DateField()
     number = models.CharField(max_length=255)
     comment = models.TextField(blank=True)
