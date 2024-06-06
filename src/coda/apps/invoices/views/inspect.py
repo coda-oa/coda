@@ -63,7 +63,7 @@ def position_viewmodel(position: Position[ItemType], number: int) -> "PositionVi
 
     return PositionViewModel(
         number=str(number),
-        publication_name=publication_title,
+        name=publication_title,
         publication_submitter=submitter,
         cost=position.cost,
         cost_type=position.cost_type.value,
@@ -79,7 +79,7 @@ class FundingRequestViewModel(NamedTuple):
 
 class PositionViewModel(NamedTuple):
     number: str
-    publication_name: str
+    name: str
     publication_submitter: str
     cost: Money
     cost_type: str

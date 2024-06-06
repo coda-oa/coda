@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
     <h1>Invoice: {{ invoice.number }}</h1>
-    <h2>Details</h2>
+    <h2>Head</h2>
     <table>
         <tbody>
             <tr>
@@ -22,8 +22,8 @@
     <table>
         <thead>
             <tr>
+                <th>#</th>
                 <th>Position</th>
-                <th>Publication Name</th>
                 <th>Publication Submitter</th>
                 <th>Related Funding Request</th>
                 <th>Cost</th>
@@ -34,7 +34,7 @@
             {% for position in invoice.positions %}
                 <tr>
                     <td>{{ position.number }}</td>
-                    <td>{{ position.publication_name }}</td>
+                    <td>{{ position.name }}</td>
                     <td>{{ position.publication_submitter }}</td>
                     <td>
                         {% if position.related_funding_request %}
@@ -46,16 +46,16 @@
                 </tr>
             {% endfor %}
             <tr>
+                <td></td>
                 <td>Tax</td>
                 <td></td>
                 <td></td>
-                <td></td>
                 <td>{{ invoice.tax.amount }} {{ invoice.tax.currency.code }}</td>
-                <td></td>
+                <td>vat</td>
             </tr>
             <tr>
-                <td>Total</td>
                 <td></td>
+                <td>Total</td>
                 <td></td>
                 <td></td>
                 <td>{{ invoice.total.amount }} {{ invoice.total.currency.code }}</td>
