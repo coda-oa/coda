@@ -73,11 +73,18 @@ class Invoice:
     ) -> Self:
         return cls(None, number, date, creditor, positions, comment)
 
+    def _get_currency(self) -> Currency:
+        if not self.positions:
+            return Currency.EUR
+        return next(iter(self.positions)).cost.currency
+
     def tax(self) -> Money:
-        return sum((pos.cost * pos.tax_rate for pos in self.positions), Money(0, Currency.EUR))
+        return sum(
+            (pos.cost * pos.tax_rate for pos in self.positions), Money(0, self._get_currency())
+        )
 
     def net(self) -> Money:
-        return sum((pos.cost for pos in self.positions), Money(0, Currency.EUR))
+        return sum((pos.cost for pos in self.positions), Money(0, self._get_currency()))
 
     def total(self) -> Money:
         return self.net() + self.tax()

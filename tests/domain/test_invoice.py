@@ -30,13 +30,13 @@ def test__invoice__total__returns_zero_when_no_positions() -> None:
 
 
 def test__invoice_positions_with_tax__total__returns_sum_of_positions_with_tax() -> None:
-    first = position(Money(100, Currency.EUR), tax_rate=TaxRate(0.07))
-    second = position(Money(200, Currency.EUR), tax_rate=TaxRate(0.19))
+    first = position(Money(100, Currency.USD), tax_rate=TaxRate(0.07))
+    second = position(Money(200, Currency.USD), tax_rate=TaxRate(0.19))
     sut = make_sut([first, second])
 
-    assert sut.total() == Money(345, Currency.EUR)
-    assert sut.tax() == Money(45, Currency.EUR)
-    assert sut.net() == Money(300, Currency.EUR)
+    assert sut.total() == Money(345, Currency.USD)
+    assert sut.tax() == Money(45, Currency.USD)
+    assert sut.net() == Money(300, Currency.USD)
 
 
 def test__tax_rate__limits_to_four_decimal_places() -> None:
