@@ -32,7 +32,8 @@ def author_dto(affiliation_id: int | None = None) -> AuthorDto:
 def publication_dto(
     journal: int, /, title: str = "", links: list[LinkDto] | None = None
 ) -> PublicationDto:
-    random_state = random.choice([_unpublished_data(), _published_data()])
+    online_state = random.choice([_unpublished_data("online"), _published_data("online")])
+    print_state = random.choice([_unpublished_data("print"), _published_data("print")])
     return cast(
         PublicationDto,
         {
@@ -42,22 +43,23 @@ def publication_dto(
             "open_access_type": random_open_access_type().name,
             "journal": journal,
             "links": links or link_dtos(),
-            **random_state,
+            **online_state,
+            **print_state,
         },
     )
 
 
-def _unpublished_data() -> dict[str, Any]:
+def _unpublished_data(media: str) -> dict[str, Any]:
     return {
-        "publication_state": random.choice([s.name for s in UnpublishedState]),
-        "publication_date": None,
+        f"{media}_publication_state": random.choice([s.name for s in UnpublishedState]),
+        f"{media}_publication_date": None,
     }
 
 
-def _published_data() -> dict[str, Any]:
+def _published_data(media: str) -> dict[str, Any]:
     return {
-        "publication_state": Published.name(),
-        "publication_date": _faker.date(),
+        f"{media}_publication_state": Published.name(),
+        f"{media}_publication_date": _faker.date(),
     }
 
 

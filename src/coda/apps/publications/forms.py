@@ -12,8 +12,10 @@ class PublicationFormData(TypedDict):
     title: str
     license: str
     open_access_type: str
-    publication_state: str
-    publication_date: str
+    online_publication_state: str
+    online_publication_date: str
+    print_publication_state: str
+    print_publication_date: str
 
 
 class PublicationForm(forms.Form):
@@ -28,10 +30,16 @@ class PublicationForm(forms.Form):
     open_access_type = forms.ChoiceField(
         choices=Publication.OA_TYPES, required=True, initial=OpenAccessType.Closed.name
     )
-    publication_state = forms.ChoiceField(
+    online_publication_state = forms.ChoiceField(
         choices=Publication.STATES, required=True, initial=UnpublishedState.Unknown.name
     )
-    publication_date = forms.DateField(
+    online_publication_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}), required=False
+    )
+    print_publication_state = forms.ChoiceField(
+        choices=Publication.STATES, required=True, initial=UnpublishedState.Unknown.name
+    )
+    print_publication_date = forms.DateField(
         widget=forms.DateInput(attrs={"type": "date"}), required=False
     )
 
@@ -40,15 +48,18 @@ class PublicationForm(forms.Form):
             title=self.cleaned_data["title"],
             license=self.cleaned_data["license"],
             open_access_type=self.cleaned_data["open_access_type"],
-            publication_state=self.cleaned_data["publication_state"],
-            publication_date=self._parse_date(),
+            online_publication_state=self.cleaned_data["online_publication_state"],
+            online_publication_date=self._parse_date("online"),
+            print_publication_state=self.cleaned_data["print_publication_state"],
+            print_publication_date=self._parse_date("print"),
         )
 
-    def _parse_date(self) -> str:
-        if not self.cleaned_data.get("publication_date"):
+    def _parse_date(self, media: str) -> str:
+        key = f"{media}_publication_date"
+        if not self.cleaned_data.get(key):
             return ""
 
-        return cast(datetime.date, self.cleaned_data["publication_date"]).isoformat()
+        return cast(datetime.date, self.cleaned_data[key]).isoformat()
 
 
 class LinkForm(forms.Form):

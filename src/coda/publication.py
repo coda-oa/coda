@@ -62,6 +62,11 @@ class Published:
 PublicationState: TypeAlias = Unpublished | Published
 
 
+class MediaPublicationStates(NamedTuple):
+    online: PublicationState = Unpublished()
+    print: PublicationState = Unpublished()
+
+
 class UserLink(NamedTuple):
     type: str
     value: str
@@ -81,7 +86,7 @@ class Publication:
     authors: AuthorList = field(default_factory=AuthorList)
     license: License = License.Unknown
     open_access_type: OpenAccessType = OpenAccessType.Unknown
-    publication_state: PublicationState = Unpublished()
+    publication_state: MediaPublicationStates = MediaPublicationStates()
     links: set[Link] = field(default_factory=set)
 
     @classmethod
@@ -92,7 +97,7 @@ class Publication:
         authors: AuthorList = AuthorList(),
         license: License = License.Unknown,
         open_access_type: OpenAccessType = OpenAccessType.Unknown,
-        publication_state: PublicationState = Unpublished(),
+        publication_state: MediaPublicationStates = MediaPublicationStates(),
         links: set[Link] = set(),
     ) -> Self:
         return cls(

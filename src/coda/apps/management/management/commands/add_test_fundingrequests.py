@@ -25,6 +25,7 @@ from coda.money import Money, Currency
 from coda.publication import (
     JournalId,
     License,
+    MediaPublicationStates,
     OpenAccessType,
     Publication,
     Published,
@@ -59,7 +60,10 @@ class Command(BaseCommand):
                     journal=JournalId(journal.pk),
                     license=License.CC0,
                     open_access_type=OpenAccessType.Gold,
-                    publication_state=Published(date.fromisoformat(faker.date())),
+                    publication_state=MediaPublicationStates(
+                        Published(date.fromisoformat(faker.date())),
+                        Published(date.fromisoformat(faker.date())),
+                    ),
                     links={Doi("10.1234/5678")},
                 ),
                 Author.new(

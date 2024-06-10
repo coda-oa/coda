@@ -20,10 +20,14 @@ class Publication(models.Model):
     open_access_type = models.CharField(choices=OA_TYPES, default=OpenAccessType.Closed.name)
     license = models.CharField(choices=LICENSE_CHOICES, default=License.Unknown.name)
 
-    publication_state = models.CharField(
+    online_publication_state = models.CharField(
         max_length=255, choices=STATES, default=UnpublishedState.Unknown.name
     )
-    publication_date = models.DateField(null=True)
+    online_publication_date = models.DateField(null=True)
+    print_publication_state = models.CharField(
+        max_length=255, choices=STATES, default=UnpublishedState.Unknown.name
+    )
+    print_publication_date = models.DateField(null=True)
     author_list = models.CharField(max_length=255, null=True, blank=True)
 
     @property
