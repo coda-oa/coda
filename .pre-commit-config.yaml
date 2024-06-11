@@ -49,6 +49,7 @@ repos:
           [
             'django-stubs[compatible-mypy]',
             'django-environ',
+            'httpx',
             'psycopg',
             'pytest',
             'pytest-django',
