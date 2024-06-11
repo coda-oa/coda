@@ -11,6 +11,7 @@ def publication_dto_from(store: Store) -> PublicationDto:
         title=publication_form_data["title"],
         authors=store["authors"],
         license=publication_form_data["license"],
+        publication_type=publication_form_data["publication_type"],
         open_access_type=publication_form_data["open_access_type"],
         online_publication_state=publication_form_data["online_publication_state"],
         online_publication_date=publication_form_data["online_publication_date"],

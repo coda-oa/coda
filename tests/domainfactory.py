@@ -34,7 +34,9 @@ from coda.publication import (
     Publication,
     PublicationId,
     PublicationState,
+    PublicationType,
     Published,
+    UnknownPublicationType,
     Unpublished,
 )
 from coda.string import NonEmptyStr
@@ -91,7 +93,11 @@ def free_position() -> Position[str]:
 
 
 def publication(
-    journal: JournalId | None = None, title: str = "", id: PublicationId | None = None
+    journal: JournalId | None = None,
+    title: str = "",
+    publication_type: PublicationType | None = None,
+    *,
+    id: PublicationId | None = None,
 ) -> Publication:
     print_state = cast(
         PublicationState,
@@ -109,6 +115,7 @@ def publication(
         journal=journal or JournalId(random.randint(1, 1000)),
         authors=random_authorlist(),
         license=random_license(),
+        publication_type=publication_type or UnknownPublicationType,
         open_access_type=random_open_access_type(),
         publication_state=MediaPublicationStates(
             online=online_state,

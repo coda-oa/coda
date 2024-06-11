@@ -12,7 +12,7 @@ from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
 from coda.apps.invoices.models import Creditor
 from coda.apps.journals.models import Journal
-from coda.apps.publications.models import Publication
+from coda.apps.publications.models import Concept, Publication, Vocabulary
 from coda.apps.publishers.models import Publisher
 from coda.author import InstitutionId
 from coda.fundingrequest import FundingOrganizationId, FundingRequest
@@ -51,6 +51,21 @@ def author() -> AuthorModel:
 def publication(title: str = "") -> Publication:
     title = title or _faker.sentence()
     return Publication.objects.create(title=title, journal=journal(), submitting_author=author())
+
+
+def vocabulary() -> Vocabulary:
+    voc = Vocabulary.objects.create(name=_faker.word(), version="1.0")
+    concept(voc)
+    return voc
+
+
+def concept(voc: Vocabulary | None = None) -> Concept:
+    return Concept.objects.create(
+        vocabulary=voc or Vocabulary.objects.create(name="test", version="1.0"),
+        concept_id=f"{_faker.word()}_{random.randint(1,1000)}",
+        name=_faker.word(),
+        hint=_faker.sentence(),
+    )
 
 
 def funding_organization() -> FundingOrganization:

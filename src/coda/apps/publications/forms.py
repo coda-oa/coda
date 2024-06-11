@@ -4,13 +4,14 @@ from typing import TypedDict, cast
 from django import forms
 
 from coda.apps.publications.dto import LinkDto
-from coda.apps.publications.models import LinkType, Publication
+from coda.apps.publications.models import Concept, LinkType, Publication
 from coda.publication import License, OpenAccessType, UnpublishedState
 
 
 class PublicationFormData(TypedDict):
     title: str
     license: str
+    publication_type: str
     open_access_type: str
     online_publication_state: str
     online_publication_date: str
@@ -26,6 +27,10 @@ class PublicationForm(forms.Form):
         choices=((lic.name, lic.value) for lic in License),
         required=True,
         initial=License.Unknown.name,
+    )
+    publication_type = forms.ChoiceField(
+        choices=lambda: [(v, n) for v, n in Concept.objects.values_list("concept_id", "name")],
+        required=False,
     )
     open_access_type = forms.ChoiceField(
         choices=Publication.OA_TYPES, required=True, initial=OpenAccessType.Closed.name
@@ -47,6 +52,7 @@ class PublicationForm(forms.Form):
         return PublicationFormData(
             title=self.cleaned_data["title"],
             license=self.cleaned_data["license"],
+            publication_type=self.cleaned_data["publication_type"],
             open_access_type=self.cleaned_data["open_access_type"],
             online_publication_state=self.cleaned_data["online_publication_state"],
             online_publication_date=self._parse_date("online"),

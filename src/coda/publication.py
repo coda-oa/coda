@@ -78,6 +78,10 @@ class UserLink(NamedTuple):
 Link: TypeAlias = UserLink | Doi
 
 
+PublicationType = NewType("PublicationType", str)
+UnknownPublicationType = PublicationType("unknown")
+
+
 @dataclass(frozen=True)
 class Publication:
     id: PublicationId | None
@@ -85,6 +89,7 @@ class Publication:
     journal: JournalId
     authors: AuthorList = field(default_factory=AuthorList)
     license: License = License.Unknown
+    publication_type: PublicationType = UnknownPublicationType
     open_access_type: OpenAccessType = OpenAccessType.Unknown
     publication_state: MediaPublicationStates = MediaPublicationStates()
     links: set[Link] = field(default_factory=set)

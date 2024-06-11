@@ -12,7 +12,9 @@ from coda.publication import (
     Publication,
     PublicationId,
     PublicationState,
+    PublicationType,
     Published,
+    UnknownPublicationType,
     Unpublished,
     UnpublishedState,
 )
@@ -26,6 +28,7 @@ class LinkDto(TypedDict):
 
 class PublicationDto(TypedDict):
     title: str
+    publication_type: str
     open_access_type: str
     license: str
     online_publication_state: str
@@ -46,6 +49,7 @@ def parse_publication(publication: PublicationDto, id: PublicationId | None = No
         title=NonEmptyStr(publication["title"]),
         authors=AuthorList(publication["authors"]),
         license=License[publication["license"]],
+        publication_type=PublicationType(publication["publication_type"]),
         open_access_type=OpenAccessType[publication["open_access_type"]],
         publication_state=MediaPublicationStates(online=online_state, print=print_state),
         links={
@@ -84,6 +88,11 @@ def publication_dto_from_model(publication: PublicationModel) -> PublicationDto:
         title=publication.title,
         authors=list(publication.authors),
         license=publication.license,
+        publication_type=(
+            publication.publication_type.concept_id
+            if publication.publication_type
+            else UnknownPublicationType
+        ),
         open_access_type=publication.open_access_type,
         online_publication_state=publication.online_publication_state,
         online_publication_date=(

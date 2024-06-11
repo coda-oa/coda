@@ -48,13 +48,14 @@ def save_new_fundingrequest(journal_id: int | None = None) -> FundingRequestId:
 def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
+    concept = modelfactory.concept()
     journal_id = modelfactory.journal().pk
     funder = modelfactory.funding_organization()
 
     author_dto = dtofactory.author_dto(modelfactory.institution().pk)
     journal_post_data = {"journal": journal_id}
 
-    publication_dto = dtofactory.publication_dto(journal_id)
+    publication_dto = dtofactory.publication_dto(journal_id, concept_id=concept.concept_id)
     publication_post_data = create_publication_post_data(publication_dto)
     external_funding = dtofactory.external_funding_dto(funder.pk)
     cost_dto = dtofactory.cost_dto()
@@ -98,11 +99,12 @@ def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_d
 def test__updating_fundingrequest_publication__updates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
+    concept = modelfactory.concept()
     journal_id = modelfactory.journal().pk
     new_journal_id = modelfactory.journal().pk
     fr_id = save_new_fundingrequest(journal_id)
 
-    publication_data = dtofactory.publication_dto(new_journal_id)
+    publication_data = dtofactory.publication_dto(new_journal_id, concept_id=concept.concept_id)
     publication_post_data = create_publication_post_data(publication_data)
 
     client.post(
@@ -190,6 +192,7 @@ def create_publication_post_data(publication: PublicationDto) -> dict[str, Any]:
     publication_form_data = PublicationFormData(
         title=publication["title"],
         license=publication["license"],
+        publication_type=publication["publication_type"],
         open_access_type=publication["open_access_type"],
         online_publication_state=publication["online_publication_state"],
         online_publication_date=(

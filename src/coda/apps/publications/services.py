@@ -3,8 +3,8 @@ from collections.abc import Iterable
 from dataclasses import replace
 from typing import cast
 
+from coda.apps.publications.models import Concept, LinkType
 from coda.apps.publications.models import Link as LinkModel
-from coda.apps.publications.models import LinkType
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.author import AuthorId, AuthorList
 from coda.doi import Doi
@@ -17,7 +17,9 @@ from coda.publication import (
     Publication,
     PublicationId,
     PublicationState,
+    PublicationType,
     Published,
+    UnknownPublicationType,
     Unpublished,
     UnpublishedState,
     UserLink,
@@ -46,11 +48,21 @@ def get_by_id(publication_id: PublicationId) -> Publication:
         title=NonEmptyStr(model.title),
         license=License[model.license],
         open_access_type=OpenAccessType[model.open_access_type],
+        publication_type=_deserialize_publication_type(model),
         authors=AuthorList.from_str(model.author_list or ""),
         publication_state=MediaPublicationStates(online=online_state, print=print_state),
         journal=JournalId(model.journal_id),
         links=_deserialize_links(model.links.all()),
     )
+
+
+def _deserialize_publication_type(model: PublicationModel) -> PublicationType:
+    if model.publication_type is None:
+        publication_type = UnknownPublicationType
+    else:
+        publication_type = PublicationType(model.publication_type.concept_id)
+
+    return publication_type
 
 
 def _deserialize_publication_state(model: PublicationModel, media: str) -> PublicationState:
@@ -71,6 +83,8 @@ def publication_create(publication: Publication, author_id: AuthorId) -> Publica
     if isinstance(publication.publication_state.print, Published):
         print_publication_date = publication.publication_state.print.date
 
+    concept = Concept.objects.filter(concept_id=publication.publication_type).first()
+
     pub_model = PublicationModel.objects.create(
         title=publication.title,
         license=publication.license.name,
@@ -82,6 +96,7 @@ def publication_create(publication: Publication, author_id: AuthorId) -> Publica
         submitting_author_id=author_id,
         author_list=str(publication.authors),
         journal_id=publication.journal,
+        publication_type=concept,
     )
     publication = replace(publication, id=PublicationId(pub_model.id))
     _attach_links(publication)
@@ -99,6 +114,7 @@ def publication_update(publication: Publication) -> None:
         publication.publication_state.print
     )
 
+    concept = Concept.objects.filter(concept_id=publication.publication_type).first()
     PublicationModel.objects.filter(pk=publication.id).update(
         title=publication.title,
         license=publication.license.name,
@@ -109,6 +125,7 @@ def publication_update(publication: Publication) -> None:
         print_publication_state=print_publication_state,
         print_publication_date=print_publication_date,
         journal_id=publication.journal,
+        publication_type=concept,
     )
 
     LinkModel.objects.filter(publication_id=publication.id).all().delete()

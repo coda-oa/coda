@@ -52,6 +52,7 @@ class PublicationViewModel(NamedTuple):
     publication_status: str
     publication_date: datetime.date | None
     license: str
+    publication_type: str
     oa_type: str
     references: Iterable[Link]
     contracts: Iterable[Contract]
@@ -93,6 +94,7 @@ def publication_viewmodel(publication: Publication) -> PublicationViewModel:
         publication_status=publication.online_publication_state,
         publication_date=publication.online_publication_date,
         license=publication.license,
+        publication_type=publication.publication_type.name if publication.publication_type else "",
         oa_type=publication.open_access_type,
         references=publication.links.all(),
         contracts=publication.journal.publisher.contracts.all(),

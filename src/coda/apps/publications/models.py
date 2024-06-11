@@ -6,6 +6,24 @@ from coda.author import AuthorList
 from coda.publication import License, OpenAccessType, UnpublishedState
 
 
+class Vocabulary(models.Model):
+    name = models.CharField(max_length=255)
+    version = models.CharField(max_length=10, blank=True, default="")
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Concept(models.Model):
+    concept_id = models.CharField(max_length=255)
+    name = models.CharField(max_length=255)
+    hint = models.TextField()
+    vocabulary = models.ForeignKey(Vocabulary, on_delete=models.CASCADE, related_name="concepts")
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class Publication(models.Model):
     STATES = (("Published", "Published"), *((s.name, s.value) for s in UnpublishedState))
     OA_TYPES = tuple((t.name, t.value) for t in OpenAccessType)
@@ -17,6 +35,9 @@ class Publication(models.Model):
         Author, on_delete=models.CASCADE, related_name="submitted_publication", null=True
     )
 
+    publication_type = models.ForeignKey(
+        Concept, on_delete=models.SET_NULL, related_name="publications", null=True
+    )
     open_access_type = models.CharField(choices=OA_TYPES, default=OpenAccessType.Closed.name)
     license = models.CharField(choices=LICENSE_CHOICES, default=License.Unknown.name)
 

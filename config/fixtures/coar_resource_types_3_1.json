@@ -1,0 +1,940 @@
+[
+    {
+        "model": "publications.Vocabulary",
+        "pk": 1,
+        "fields": {
+            "name": "COAR Resource Types",
+            "version": "3.1"
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 1,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_12cc",
+            "name": "cartographic material",
+            "hint": "Any material representing the whole or part of the earth or any celestial body at any scale. Cartographic materials include two- and three-dimensional maps and plans (including maps of imaginary places); aeronautical, navigational, and celestial charts; atlases; globes; block diagrams; sections; aerial photographs with a cartographic purpose; bird's-eye views (map views), etc. [Source: http://www.loc.gov/marc/cfmap.html]\n      "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 2,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_12cd",
+            "name": "map",
+            "hint": "Defined as a representation normally to scale and on a flat medium, of a selection of material or abstract features on, or in relation to, the surface of the earth or of another celestial body. [Source: https://www.loc.gov/marc/bibliographic/bd007a.html]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 3,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_ddb1",
+            "name": "dataset",
+            "hint": "A collection of related facts and data encoded in a defined structure. [Source: Adapted from http://purl.org/spar/fabio/Dataset]\n      "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 4,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "ACF7-8YT9",
+            "name": "aggregated data",
+            "hint": "Statistics that relate to broad classes, groups, or categories. The data are averaged, totaled, or otherwise derived from individual-level data, and it is no longer possible to distinguish the characteristics of individuals within those classes, groups, or categories. For example, the number and age group of the unemployed in specific geographic regions, or national level statistics on the occurrence of specific offences, originally derived from the statistics of individual police districts. [Source: https://ddialliance.org/Specification/DDI-CV/ModeOfCollection_3.0.html]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 5,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_cb28",
+            "name": "clinical trial data",
+            "hint": "Data resulting from a research study in which one or more human subjects are prospectively assigned to one or more interventions (which may include placebo or other control) to evaluate the effects of those interventions on health-related biomedical or behavioral outcomes. [Source: Adapted from https://grants.nih.gov/policy/clinical-trials/definition.htm]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 6,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "FXF3-D3G7",
+            "name": "compiled data",
+            "hint": "Data collected or assembled from multiple, often heterogeneous sources that have one or more reference points in common, and at least one of the sources was originally produced for other purposes. The data are incorporated in a new entity. For example, providing data on the number of universities in the last 150 years using a variety of available sources (e.g. finance documents, official statistics, university registers), combining survey data with information about geographical areas from official statistics (e.g. population density, doctors per capita, etc.), or using RSS to collect blog posts or tweets, etc. [Source: Adapted from https://ddialliance.org/Specification/DDI-CV/ModeOfCollection_3.0.html]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 7,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "AM6W-6QAW",
+            "name": "encoded data",
+            "hint": "Qualitative data (textual, video, audio or still-image) originally produced for other purposes into quantitative data (expressed in unit-by-variable matrices) by using coding techniques in accordance with pre-defined categorization schemes. For example, coded party manifesto data like the \"European Parliament Election Study 2009, Manifesto Study\" (doi:10.4232/1.10204)\". [Source: Adapted from https://ddialliance.org/Specification/DDI-CV/ModeOfCollection_3.0.html]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 8,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "63NG-B465",
+            "name": "experimental data",
+            "hint": "Data resulting from the experimental research method involving the manipulation of some or all of the independent variables included in the hypotheses. [Source: Adapted from https://ddialliance.org/Specification/DDI-CV/ModeOfCollection_3.0.html]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 9,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "A8F1-NPV9",
+            "name": "genomic data",
+            "hint": "Genomic data refers to the genome and DNA data of an organism. They are used in bioinformatics for collecting, storing and processing the genomes of living things. Genomic data is a more extensive term than sequencing data. However genomic data mostly come from sequencing techniques. It may include non-sequencing data such as data from microarrays, data from real-time PCR panels and data from pharmacogenomics studies. [Source: Adapted from https://www.techopedia.com/definition/31247/genomic-data]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 10,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "2H0M-X761",
+            "name": "geospatial data",
+            "hint": "Geospatial data are any type of data with spatial coordinates that allow them to be mapped to the Earth's surface. They can represent physical objects, discrete areas or continuous surfaces. Discrete geospatial data are usually represented using vector data consisting of points, lines and polygons, while continuous geospatial data are usually represented by raster data, consisting of a grid of cells that each has its own value. Any number of applications in a wide range of areas produce geospatial data, such as GIS, Remote Sensing equipment, GPS units, archaeological total stations, manual mapping and computer-aided design (CAD), in a number of formats, including images, vector, text, and tabular data. Vector-based geospatial data include tables listing archaeological sites along with their coordinates, text-based files (e.g., XML) containing coordinates and topology for historic road networks, voting figures for political parties by administrative area. Raster-based geospatial data include satellite images, aerial photographs, scanned maps, and digital maps of elevations, vegetation, land-use, sea surface temperatures, air pollution, soil-types, etc. [Source: https://ddialliance.org/Specification/DDI-CV/GeneralDataFormat_2.0.html]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 11,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "H41Y-FW7B",
+            "name": "laboratory notebook",
+            "hint": "A laboratory notebook (colloq. lab notebook or lab book) is a primary record of research. Researchers use a lab notebook to document their hypotheses, experiments and initial analysis or interpretation of these experiments. This label is used both for traditional and electronic laboratory notebook. [Source: Adapted from https://en.wikipedia.org/wiki/Lab_notebook]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 12,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "DD58-GFSX",
+            "name": "measurement and test data",
+            "hint": "Data resulting from assessing specific properties (or characteristics) of beings, things, phenomena, (and/ or processes) by applying pre-established standards and/or specialized instruments or techniques. [Source: Adapted from  https://ddialliance.org/Specification/DDI-CV/ModeOfCollection_3.0.html]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 13,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "FF4C-28RK",
+            "name": "observational data",
+            "hint": "Data resulting from observational research, which involves collecting observations as they occur (for example, observing behaviors, events, development of condition or disease, etc.), without attempting to manipulate any of the independent variables. [Source:  Adapted from https://ddialliance.org/Specification/DDI-CV/ModeOfCollection_3.0.html]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 14,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "CQMR-7K63",
+            "name": "recorded data",
+            "hint": "Data registered by mechanical or electronic means, in a form that allows the information to be retrieved and/or reproduced. For example, images or sounds on disc or magnetic tape. [Source: Adapted from https://ddialliance.org/Specification/DDI-CV/ModeOfCollection_3.0.html]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 15,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "W2XT-7017",
+            "name": "simulation data",
+            "hint": "Data resulting from modeling or imitative representation of real-world processes, events, or systems, often using computer programs. For example, a program modeling household consumption responses to indirect tax changes; or a dataset on hypothetical patients and their drug exposure, background conditions, and known adverse events. [Source: Adapted from https://ddialliance.org/Specification/DDI-CV/ModeOfCollection_3.0.html]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 16,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "NHD0-W6SY",
+            "name": "survey data",
+            "hint": "Data resulting from a survey, which is defined as an investigation about the characteristics of a given population by means of collecting data from a sample of that population and estimating their characteristics through the systematic use of statistical methodology. Included are censuses, sample surveys, the collection of data from administrative records and derived statistical activities as well as questionnaires. [Source: Adapted from https://stats.oecd.org/glossary/detail.asp?ID=2620]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 17,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "542X-3S04",
+            "name": "design",
+            "hint": "Plans, drawing or set of drawings showing how something e.g. building, product is to be made and how it will work and look. [Source: Adapted from https://dictionary.cambridge.org/dictionary/english/design]\n      "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 18,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "JBNF-DYAD",
+            "name": "industrial design",
+            "hint": "Industrial designs are applied to a wide variety of industrial products and handicrafts. They refer to the ornamental or aesthetic aspects of a useful article,including compositions of lines or colors or any three-dimensional forms that give a special appearance to a product or handicraft. [Source: https://www.wipo.int/edocs/pubdocs/en/wipo_pub_943_2018.pdf]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 19,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "BW7T-YM2G",
+            "name": "layout design",
+            "hint": "Layout-design (topography) means the three-dimensional disposition, however expressed, of \nthe elements of an integrated circuit (at least one of which is an active element) and of some or all of the interconnections of an integrated circuit, or such a three-dimensional disposition prepared for \nan integrated circuit intended for manufacture [Source: https://www.wipo.int/edocs/lexdocs/laws/en/hk/hk028en.pdf]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 20,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_c513",
+            "name": "image",
+            "hint": "A visual representation other than text, including all types of moving image and still image. [Source: Adapted from  http://purl.org/dc/dcmitype/Image]\n      "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 21,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_8a7e",
+            "name": "moving image",
+            "hint": "A moving display, either generated dynamically by a computer program or formed from a series of pre-recorded still images imparting an impression of motion when shown in succession. [Source: http://purl.org/spar/fabio/MovingImage]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 22,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_12ce",
+            "name": "video",
+            "hint": "A recording of visual images, usually in motion and with sound accompaniment. [Source: http://www.ifla.org/files/assets/cataloguing/isbd/isbd-cons_20110321.pdf ]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 23,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_ecc8",
+            "name": "still image",
+            "hint": "A recorded static visual representation. This class of image includes diagrams, drawings, graphs, graphic designs, plans, photographs and prints. [Source: Adapted from  http://purl.org/spar/fabio/StillImage]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 24,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_e9a0",
+            "name": "interactive resource",
+            "hint": "A resource requiring interaction from the user to be understood, executed, or experienced. Examples include forms on Web pages, applets, multimedia learning objects, chat services, or virtual reality environments.\nSource: http://purl.org/dc/dcmitype/InteractiveResource\n      "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 25,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_7ad9",
+            "name": "website",
+            "hint": "A collection of related web pages containing text, images, videos and/or other digital assets that are addressed relative to a common Uniform Resource Locator (URL). A web site is hosted on at least one web server, accessible via a network such as the Internet or a private local area network.\n[Source: http://purl.org/spar/fabio/WebSite]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 26,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_e059",
+            "name": "learning object",
+            "hint": "A digital resource that can be reused to enhance teaching and learning. [Source: https://icas-ca.org/archive/projects/coerc/oer-glossary]\n      "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 27,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_1843",
+            "name": "other",
+            "hint": "A resource type that is not included in existing terms. [COAR definition]\n      "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 28,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_15cd",
+            "name": "patent",
+            "hint": "A patent or patent application.\n      "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 29,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "SB3Y-W4EH",
+            "name": "PCT application",
+            "hint": "A patent application filed through the WIPO-administered Patent Cooperation Treaty (PCT), also known as an international application. [Source: Adapted from https://www.wipo.int/edocs/pubdocs/en/wipo_pub_943_2018.pdf]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 30,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "C53B-JCY5",
+            "name": "design patent",
+            "hint": "A patent granted to any person who has invented any new and non-obvious ornamental design for an article of manufacture. The design patent protects only the appearance of an article, but not its structural or functional features. [Source: Adapted from https://www.uspto.gov/patents/basics/types-patent-applications/design-patent-application-guide#def]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 31,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "Z907-YMBB",
+            "name": "plant patent",
+            "hint": "A patent granted to anyone who has invented or discovered and asexually reproduced any distinct and new variety of plant, including cultivated sports, mutants, hybrids, and newly found seedlings, other than a tuber-propagated plant or a plant found in an uncultivated state. [Source: Adapted from https://www.uspto.gov/patents/basics/types-patent-applications/general-information-about-35-usc-161#heading-1]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 32,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "GPQ7-G5VE",
+            "name": "plant variety protection",
+            "hint": "Plant variety protection, also called a \"plant breeder's right\" (PBR), is a form of intellectual property right granted to the breeder of a new plant variety . According to this right, certain acts concerning the exploitation of the protected variety require the prior authorization of the breeder. Plant variety protection is an independent sui generis form of protection, tailored to protect new plant varieties and has certain features in common with other intellectual property rights. [Source: https://www.wipo.int/edocs/pubdocs/en/wipo_pub_943_2018.pdf]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 33,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "MW8G-3CR8",
+            "name": "software patent",
+            "hint": "In order to obtain a patent, a software invention must not fall under other non-patentable subject matter (for example, abstract ideas or mathematical theories) and has to fulfill the other substantive patentability criteria (for example, novelty, inventive step [non-obviousness] and industrial applicability [usefulness]). [Source: https://www.wipo.int/patents/en/faq_patents.html]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 34,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "9DKX-KSAF",
+            "name": "utility model",
+            "hint": "A special form of patent right granted by a state or jurisdiction to an inventor or the inventor\u2019s assignee for a fixed period of time. The terms and conditions for granting a utility model are slightly different from those for normal patents (including a shorter term of protection and less stringent patentability requirements). The term can also describe what are known in certain countries as \u201cpetty patents,\u201d \u201cshort-term patents\u201d or \u201cinnovation patents.\u201d [Source: https://www.wipo.int/edocs/pubdocs/en/wipo_pub_943_2018.pdf]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 35,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_5ce6",
+            "name": "software",
+            "hint": "A computer program in source code (text) or compiled form. [Source: http://purl.org/dc/dcmitype/Software]\n      "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 36,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_c950",
+            "name": "research software",
+            "hint": "Software that is used to generate, process or analyse results that you intend to appear in a publication (either in a journal, conference paper, monograph, book or thesis). Research software can be anything from a few lines of code written by yourself, to a professionally developed software package. [Source: https://datashare.ed.ac.uk/handle/10283/785]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 37,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "QH80-2R4E",
+            "name": "source code",
+            "hint": "Source code is any collection of code, with or without comments, written using a human-readable programming language, usually as plain text. [Source: https://en.wikipedia.org/wiki/Source_code]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 38,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_18cc",
+            "name": "sound",
+            "hint": "A resource primarily intended to be heard. Examples include a music playback file format, an audio compact disc, and recorded speech or sounds. [Source: http://dublincore.org/documents/dcmi-terms/#dcmitype-Sound]\n      "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 39,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_18cd",
+            "name": "musical composition",
+            "hint": "Musical composition can refer to an original piece of music, the structure of a musical piece, or the process of creating a new piece of music. [Source: https://en.wikipedia.org/wiki/Musical_composition ]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 40,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_18cf",
+            "name": "text",
+            "hint": "A resource consisting primarily of words for reading. Examples include books, letters, dissertations, poems, newspapers, articles, archives of mailing lists. Note that facsimiles or images of texts are still of the genre Text. [Source: http://purl.org/dc/dcmitype/Text]\n      "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 41,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_1162",
+            "name": "annotation",
+            "hint": "An annotation in the sense of a legal note is a legally explanatory comment on a decision handed down by a court or arbitral tribunal. [Source: DRIVER info:eu-repo definition]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 42,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_86bc",
+            "name": "bibliography",
+            "hint": "A list of the books and articles that have been used by someone when writing a particular book or article [Source: https://dictionary.cambridge.org/dictionary/english/bibliography]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 43,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_6947",
+            "name": "blog post",
+            "hint": "A piece of writing or other item of content published on a blog. [Source: https://www.lexico.com/definition/blog_post]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 44,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_2f33",
+            "name": "book",
+            "hint": "A non-serial publication that is complete in one volume or a designated finite number of volumes. [Source: Adapted from http://purl.org/eprint/type/Book]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 45,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_3248",
+            "name": "book part",
+            "hint": "A defined chapter or section of a book, usually with a separate title or number. [Source: http://purl.org/spar/fabio/BookChapter]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 46,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_c94f",
+            "name": "conference output",
+            "hint": "All kind of digital resources contributed to a conference, like conference presentation (slides), conference report, conference lecture, abstracts, demonstrations. For conference papers, posters or proceedings the specific sub-concepts should be used. [COAR definition]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 47,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_18cp",
+            "name": "conference paper not in proceedings",
+            "hint": "A paper, typically the realization of a research paper reporting original research findings. Use this label when the paper is not published in a proceeding. [Source: Adapted from http://purl.org/spar/fabio/ConferencePaper]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 48,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_18co",
+            "name": "conference poster not in proceedings",
+            "hint": "A display poster, typically containing text with illustrative figures and/or tables, usually reporting research results or proposing hypotheses, submitted for acceptance to and/or presented at a conference, seminar, symposium, workshop or similar event. Use this label when the poster is not published in a proceeding. [Source: http://purl.org/spar/fabio/ConferencePoster]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 49,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "R60J-J5BD",
+            "name": "conference presentation",
+            "hint": "A set of slides containing text, tables or figures, designed to communicate ideas or research results, for projection and viewing by an audience at a conference, symposium, seminar, lecture, workshop or other gatherings. [Source: Adapted from http://purl.org/spar/fabio/Presentation]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 50,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_f744",
+            "name": "conference proceedings",
+            "hint": "Conference proceedings is the official record of a conference meeting. It is a collection of documents which corresponds to the presentations given at the conference. It may include additional content. [Source: http://www.ieee.org/documents/confprocdefined.pdf ]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 51,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_5794",
+            "name": "conference paper",
+            "hint": "A paper, published within a conference proceeding, typically the realization of a research paper reporting original research findings. [Source: Adapted from http://purl.org/spar/fabio/ConferencePaper]\n                  "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 52,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_6670",
+            "name": "conference poster",
+            "hint": "A display poster, published within a conference proceeding, typically containing text with illustrative figures and/or tables, usually reporting research results or proposing hypotheses, submitted for acceptance to and/or presented at a conference, seminar, symposium, workshop or similar event. [Source: Adapted http://purl.org/spar/fabio/ConferencePoster]\n                  "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 53,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_0640",
+            "name": "journal",
+            "hint": "A journal is a serial publication devoted to disseminating original research and current developments on a subject. (Adapted from ODLIS) [Source: http://dspacecris.eurocris.org/cris/classcerif/classcerif00422]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 54,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_b239",
+            "name": "editorial",
+            "hint": "A brief essay expressing the opinion or position of the chief editor(s) of a (academic) journal with respect to a current political, social, cultural, or professional issue. [Source: Adapted from ODLIS [Source: http://www.abc-clio.com/ODLIS/odlis_e.aspx ]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 55,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_6501",
+            "name": "journal article",
+            "hint": "An article, typically the realization of a research paper reporting original research findings, published in a journal issue. [Source: http://purl.org/spar/fabio/JournalArticle]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 56,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_7acd",
+            "name": "corrigendum",
+            "hint": "A formal correction to an error introduced by the author into a previously published document. (adapted from https://sparontologies.github.io/fabio/current/fabio.html#d4e2712)\n                  "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 57,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_beb9",
+            "name": "data paper",
+            "hint": "A data paper is a scholarly publication describing a particular dataset or group of dataset, published in the form of a peer-reviewed article in a scholarly journal. The main purpose of a data paper is to describe data, the circumstances of their collection, and information related to data features, access and potential reuse. Adapted from https://en.wikipedia.org/wiki/Data_paper and http://www.gbif.org/publishing-data/data-papers\n                  "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 58,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_2df8fbb1",
+            "name": "research article",
+            "hint": "A research article is a primary source, that is, it reports the methods and results of an original study performed by the authors. (adapted from http://apus.libanswers.com/faq/2324)\n                  "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 59,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_dcae04bc",
+            "name": "review article",
+            "hint": "A review article is a secondary source, that is, it is written about other articles, and does not report original research of its own. [Source: Adapted from http://apus.libanswers.com/faq/2324]\n                  "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 60,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_7bab",
+            "name": "software paper",
+            "hint": "A software paper should include the rationale for the development of the tool and details of the code used for its construction. [Source: Adapted from https://f1000research.com/for-authors/article-guidelines/software-tool-articles ]\n                  "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 61,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_545b",
+            "name": "letter to the editor",
+            "hint": "A letter addressed to the editor and comments on or discussed an item previously published by that periodical, or of interest to its readership. [Source: Adapted from http://purl.org/spar/fabio/Letter]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 62,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_8544",
+            "name": "lecture",
+            "hint": "Transcription of an oral presentation/talk intended to present information or teach people about a particular subject, for example by a university or college teacher. [Source: Adopted from https://en.wikipedia.org/wiki/Lecture]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 63,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_0857",
+            "name": "letter",
+            "hint": "A brief description of important new research, also known as \u201ccommunication\u201d. [Source: https://cerif.eurocris.org/vocab/html/OutputTypes.html#Letter]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 64,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_2cd9",
+            "name": "magazine",
+            "hint": "A popular interest periodical usually containing articles on a variety of topics, written by various authors in a nonscholarly style or a trade publication, unlike a consumer publication, covers a specific topic for people who work in that particular field or industry. [Source: Adapted from https://www.thebalance.com/what-is-a-trade-publication-exactly-2316039 and http://www.abc-clio.com/ODLIS/odlis_m.aspx]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 65,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_0040",
+            "name": "manuscript",
+            "hint": "A manuscript is a work of any kind (text, inscription, music score, map, etc.) written entirely by hand. [Source: https://products.abc-clio.com/ODLIS/odlis_m.aspx]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 66,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_18cw",
+            "name": "musical notation",
+            "hint": "Symbols used to write music, as in a music score, and to express mathematical concepts.\n[Source: Adapted from https://products.abc-clio.com/ODLIS/odlis_n.aspx]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 67,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_2fe3",
+            "name": "newspaper",
+            "hint": "A non-peer reviewed periodical, usually published daily or weekly, consisting primarily of editorials and news items concerning current or recent events and matters of public interest. [Source: http://purl.org/spar/fabio/Newspaper]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 68,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_998f",
+            "name": "newspaper article",
+            "hint": "Work consisting of a news item appearing in a general-interest newspaper or other general news periodical, containing information of current and timely interest in a field. (Adapted from http://www.reference.md/files/D018/mD018431.html )\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 69,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "QX5C-AR31",
+            "name": "other periodical",
+            "hint": "A resource type that is not included in existing terms under the top concept \"Text\". [COAR definition]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 70,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_816b",
+            "name": "preprint",
+            "hint": "A preprint is a scientific manuscript without peer-review and has not yet been accepted by a journal, typicaly submitted to a public server/ repository by the author. [Source: Adapted from https://asapbio.org/preprint-info/preprint-faq#qaef-637]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 71,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_93fc",
+            "name": "report",
+            "hint": "A report is a separately published record of research findings, research still in progress, policy developments and events, or other technical findings, usually bearing a report number and sometimes a grant number assigned by the funding agency. Also, an official record of the activities of a committee or corporate entity, the proceedings of a government body, or an investigation by an agency, whether published or private, usually archived or submitted to a higher authority, voluntarily or under mandate. In a more general sense, any formal account of facts or information related to a specific event or phenomenon, sometimes given at regular intervals. [Source: http://lu.com/odlis/odlis_R.cfm#report ]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 72,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_7877",
+            "name": "clinical study",
+            "hint": "A work that reports on the results of a research study to evaluate interventions or exposures on biomedical or health-related outcomes. The two main types of clinical studies are interventional studies (clinical trials) and observational studies. While most clinical studies concern humans, this publication type may be used for clinical veterinary articles meeting the requisites for humans. [Source: https://www.ncbi.nlm.nih.gov/mesh/2009830]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 73,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_ab20",
+            "name": "data management plan",
+            "hint": "A formal statement describing how research data will be managed and documented throughout a research project and the terms regarding the subsequent deposit of the data with a data repository for long-term management and preservation. [Source: https://casrai.org/rdm-glossary]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 74,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_18wz",
+            "name": "memorandum",
+            "hint": "A formal note distributed internally to one or more persons in a company, agency, organization, or institution, with a header indicating the date it was sent and stating to whom it is addressed (To:), from whom it is sent (From:), and the subject of the text (Re:). Unlike a letter, a memo does not require a full salutation or signature at the end of the text--the sender may simply initial his or her name in the header. [Source: https://products.abc-clio.com/ODLIS/odlis_m.aspx#memorandum]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 75,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_186u",
+            "name": "policy report",
+            "hint": "A policy report presents what is known about a particular issue or problem. It assembles facts and evidence to help readers understand complex issues and form a response. It might aim to be neutral, or it might aim to persuade readers in a particular direction. [Source: https://www.uow.edu.au/student/learning-co-op/assessments/policy-report/#]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 76,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_18op",
+            "name": "project deliverable",
+            "hint": "A document containing a project report, intended to be delivered to a customer or funding agency describing the results achieved within a specific project. [Source: http://purl.org/spar/fabio/ProjectReportDocument]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 77,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "YZ1N-ZFT9",
+            "name": "research protocol",
+            "hint": "The protocol is a detailed plan of the research study including a project summary, project description covering the rationale, objectives, methodology, data management and analysis, ethical considerations, gender issues and references. [Source: Adapted from https://www.who.int/publications/i/item/a-practical-guide-for-health-researchers]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 78,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_18ws",
+            "name": "research report",
+            "hint": "It is publication that reports on the findings of a research project or alternatively scientific observations on or about a subject. [Source: Adapted from https://en.wikipedia.org/wiki/Research_report]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 79,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_18gh",
+            "name": "technical report",
+            "hint": "A document that describes the process, progress, or results of technical or scientific research or the state of a technical or scientific research problem. It might also include recommendations and conclusions of the research. [Source: http://guides.library.cornell.edu/ecommons/types]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 80,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_baaf",
+            "name": "research proposal",
+            "hint": "A research proposal is a document proposing a research project, generally in the sciences or academia, and generally constitutes a request for sponsorship of that research. [Source: https://en.wikipedia.org/wiki/Research_proposal]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 81,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_efa0",
+            "name": "review",
+            "hint": "A review of others' published work. [Source: Adapted from http://purl.org/spar/fabio/Review]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 82,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_ba08",
+            "name": "book review",
+            "hint": "A written review and critical analysis of the content, scope and quality of a book or other monographic work. [Source: http://purl.org/spar/fabio/BookReview]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 83,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "D97F-VB57",
+            "name": "commentary",
+            "hint": "A commentary is a more in-depth analysis written to draw attention to a work already published. Commentaries are somewhat like \u201creviews\u201d in that the author presents his or her analysis of a work and why it  would be of interest to a specific audience. [Source: https://www.enago.com/academy/perspective-opinion-and-commentary-pieces]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 84,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "H9BQ-739P",
+            "name": "peer review",
+            "hint": "An evaluation of scientific, academic, or professional work by others working in the same field. [Source: Adopted from https://schema.datacite.org/meta/kernel-4.4/doc/DataCite-MetadataKernel_v4.4.pdf]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 85,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_71bd",
+            "name": "technical documentation",
+            "hint": "Technical documentation refers to any type of documentation that describes handling, functionality and architecture of a technical product or a product under development or use. [Source: https://en.wikipedia.org/wiki/Technical_documentation]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 86,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_46ec",
+            "name": "thesis",
+            "hint": "A book authored by a student containing a formal presentations of research outputs submitted for examination in completion of a course of study at an institution of higher education, to fulfil the requirements for an academic degree. Also know as a dissertation. [Source: http://purl.org/spar/fabio/Thesis]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 87,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_7a1f",
+            "name": "bachelor thesis",
+            "hint": "A thesis reporting a research project undertaken as part of an undergraduate course of education leading to a bachelor's degree. [Source: http://purl.org/spar/fabio/BachelorsThesis]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 88,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_db06",
+            "name": "doctoral thesis",
+            "hint": "A thesis reporting the research undertaken during a period of graduate study leading to a doctoral degree. [Source: http://purl.org/spar/fabio/DoctoralThesis]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 89,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_bdcc",
+            "name": "master thesis",
+            "hint": "A thesis reporting a research project undertaken as part of a graduate course of education leading to a master's degree. [Source: http://purl.org/spar/fabio/MastersThesis]\n              "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 90,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "6NC7-GK9S",
+            "name": "transcription",
+            "hint": "A written record of words spoken in court proceedings or in a speech, interview, broadcast, or sound recording. [Source: Adapted from https://products.abc-clio.com/ODLIS/odlis_t.aspx]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 91,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_8042",
+            "name": "working paper",
+            "hint": "A working or discussion paper circulated publicly or among a group of peers. Certain disciplines, for example economics, issue working papers in series. [Source: http://www.ukoln.ac.uk/repositories/digirep/index/Eprints_Type_Vocabulary_Encoding_Scheme#:~:text=http%3A//purl.org/eprint/type/WorkingPaper]\n          "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 92,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "H6QP-SC1X",
+            "name": "trademark",
+            "hint": "A sign used to distinguish the goods or services of one undertaking from those\nof others. A trademark may consist of words and combinations of words (for\ninstance, names or slogans), logos, figures and images, letters, numbers,\nsounds, or, in rare instances, smells or moving images, or a combination thereof. [Source: https://www.wipo.int/trademarks/en]\n      "
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 93,
+        "fields": {
+            "vocabulary_id": 1,
+            "concept_id": "c_393c",
+            "name": "workflow",
+            "hint": "A recorded sequence of connected steps, which may be automated, specifying a reliably repeatable sequence of operations to be undertaken when conducting a particular job, for example an in silico investigation that extracts and processes information from a number of bioinformatics databases. [Source: Adapted from http://purl.org/spar/fabio/Workflow]\n      "
+        }
+    }
+]
