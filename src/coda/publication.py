@@ -48,11 +48,12 @@ class Unpublished(NamedTuple):
 
 @dataclass(slots=True, frozen=True)
 class Published:
-    date: datetime.date
+    online: datetime.date | None = None
+    print: datetime.date | None = None
 
     def __post_init__(self) -> None:
-        if self.date is None:
-            raise ValueError("Published state requires a date")
+        if (self.online, self.print) == (None, None):
+            raise ValueError("Published state requires at least one date")
 
     @staticmethod
     def name() -> str:
@@ -60,11 +61,6 @@ class Published:
 
 
 PublicationState: TypeAlias = Unpublished | Published
-
-
-class MediaPublicationStates(NamedTuple):
-    online: PublicationState = Unpublished()
-    print: PublicationState = Unpublished()
 
 
 class UserLink(NamedTuple):
@@ -91,7 +87,7 @@ class Publication:
     license: License = License.Unknown
     publication_type: PublicationType = UnknownPublicationType
     open_access_type: OpenAccessType = OpenAccessType.Unknown
-    publication_state: MediaPublicationStates = MediaPublicationStates()
+    publication_state: PublicationState = Unpublished()
     links: set[Link] = field(default_factory=set)
 
     @classmethod
@@ -102,7 +98,7 @@ class Publication:
         authors: AuthorList = AuthorList(),
         license: License = License.Unknown,
         open_access_type: OpenAccessType = OpenAccessType.Unknown,
-        publication_state: MediaPublicationStates = MediaPublicationStates(),
+        publication_state: PublicationState = Unpublished(),
         links: set[Link] = set(),
     ) -> Self:
         return cls(

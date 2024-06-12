@@ -21,15 +21,8 @@ from coda.fundingrequest import (
     PaymentMethod,
     Review,
 )
-from coda.money import Money, Currency
-from coda.publication import (
-    JournalId,
-    License,
-    MediaPublicationStates,
-    OpenAccessType,
-    Publication,
-    Published,
-)
+from coda.money import Currency, Money
+from coda.publication import JournalId, License, OpenAccessType, Publication, Published
 from coda.string import NonEmptyStr
 
 faker = Faker()
@@ -60,9 +53,9 @@ class Command(BaseCommand):
                     journal=JournalId(journal.pk),
                     license=License.CC0,
                     open_access_type=OpenAccessType.Gold,
-                    publication_state=MediaPublicationStates(
-                        Published(date.fromisoformat(faker.date())),
-                        Published(date.fromisoformat(faker.date())),
+                    publication_state=Published(
+                        date.fromisoformat(faker.date()),
+                        date.fromisoformat(faker.date()),
                     ),
                     links={Doi("10.1234/5678")},
                 ),

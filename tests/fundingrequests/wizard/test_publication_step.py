@@ -12,9 +12,8 @@ empty_publication_data = {
     "authors": "",
     "open_access_type": "",
     "license": "",
-    "online_publication_state": "",
+    "publication_state": "",
     "online_publication_date": "",
-    "print_publication_state": "",
     "print_publication_date": "",
 }
 
@@ -22,9 +21,8 @@ valid_publication_data = {
     "title": "Test Title",
     "open_access_type": "Gold",
     "license": "CC_BY",
-    "online_publication_state": "Submitted",
+    "publication_state": "Submitted",
     "online_publication_date": "2021-01-01",
-    "print_publication_state": "Accepted",
     "print_publication_date": "2021-12-02",
 }
 

@@ -12,7 +12,6 @@ from coda.publication import (
     JournalId,
     License,
     Link,
-    MediaPublicationStates,
     OpenAccessType,
     Publication,
     PublicationId,
@@ -40,8 +39,7 @@ def get_link(link_type: str, value: str) -> Link:
 
 def get_by_id(publication_id: PublicationId) -> Publication:
     model = PublicationModel.objects.get(pk=publication_id)
-    online_state = _deserialize_publication_state(model, "online")
-    print_state = _deserialize_publication_state(model, "print")
+    state = _deserialize_publication_state(model)
 
     return Publication(
         id=publication_id,
@@ -50,7 +48,7 @@ def get_by_id(publication_id: PublicationId) -> Publication:
         open_access_type=OpenAccessType[model.open_access_type],
         publication_type=_deserialize_publication_type(model),
         authors=AuthorList.from_str(model.author_list or ""),
-        publication_state=MediaPublicationStates(online=online_state, print=print_state),
+        publication_state=state,
         journal=JournalId(model.journal_id),
         links=_deserialize_links(model.links.all()),
     )
@@ -65,23 +63,23 @@ def _deserialize_publication_type(model: PublicationModel) -> PublicationType:
     return publication_type
 
 
-def _deserialize_publication_state(model: PublicationModel, media: str) -> PublicationState:
+def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
     state: PublicationState
-    if getattr(model, f"{media}_publication_state") == "Published":
-        state = Published(date=cast(datetime.date, getattr(model, f"{media}_publication_date")))
+    if getattr(model, "publication_state") == Published.name():
+        state = Published(online=model.online_publication_date, print=model.print_publication_date)
     else:
-        state = Unpublished(state=UnpublishedState[getattr(model, f"{media}_publication_state")])
+        state = Unpublished(state=UnpublishedState[model.publication_state])
     return state
 
 
 def publication_create(publication: Publication, author_id: AuthorId) -> PublicationId:
     online_publication_date = None
-    if isinstance(publication.publication_state.online, Published):
-        online_publication_date = publication.publication_state.online.date
-
-    print_publication_date = None
-    if isinstance(publication.publication_state.print, Published):
-        print_publication_date = publication.publication_state.print.date
+    if isinstance(publication.publication_state, Published):
+        online_publication_date = publication.publication_state.online
+        print_publication_date = publication.publication_state.print
+    else:
+        online_publication_date = None
+        print_publication_date = None
 
     concept = Concept.objects.filter(concept_id=publication.publication_type).first()
 
@@ -89,9 +87,8 @@ def publication_create(publication: Publication, author_id: AuthorId) -> Publica
         title=publication.title,
         license=publication.license.name,
         open_access_type=publication.open_access_type.name,
-        online_publication_state=publication.publication_state.online.name(),
+        publication_state=publication.publication_state.name(),
         online_publication_date=online_publication_date,
-        print_publication_state=publication.publication_state.print.name(),
         print_publication_date=print_publication_date,
         submitting_author_id=author_id,
         author_list=str(publication.authors),
@@ -107,12 +104,13 @@ def publication_update(publication: Publication) -> None:
     if not publication.id:
         raise ValueError("Publication ID is required for updating")
 
-    online_publication_state, online_publication_date = _serializable_publication_state(
-        publication.publication_state.online
-    )
-    print_publication_state, print_publication_date = _serializable_publication_state(
-        publication.publication_state.print
-    )
+    publication_state = publication.publication_state.name()
+    if isinstance(publication.publication_state, Published):
+        online_publication_date = publication.publication_state.online
+        print_publication_date = publication.publication_state.print
+    else:
+        online_publication_date = None
+        print_publication_date = None
 
     concept = Concept.objects.filter(concept_id=publication.publication_type).first()
     PublicationModel.objects.filter(pk=publication.id).update(
@@ -120,9 +118,8 @@ def publication_update(publication: Publication) -> None:
         license=publication.license.name,
         open_access_type=publication.open_access_type.name,
         author_list=str(publication.authors),
-        online_publication_state=online_publication_state,
+        publication_state=publication_state,
         online_publication_date=online_publication_date,
-        print_publication_state=print_publication_state,
         print_publication_date=print_publication_date,
         journal_id=publication.journal,
         publication_type=concept,
@@ -135,7 +132,7 @@ def publication_update(publication: Publication) -> None:
 def _serializable_publication_state(state: PublicationState) -> tuple[str, datetime.date | None]:
     if isinstance(state, Published):
         publication_state = state.name()
-        publication_date = state.date
+        publication_date = state.online
     else:
         publication_state = state.state.name
         publication_date = None

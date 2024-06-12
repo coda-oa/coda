@@ -7,7 +7,6 @@ from coda.author import AuthorList
 from coda.publication import (
     JournalId,
     License,
-    MediaPublicationStates,
     OpenAccessType,
     Publication,
     PublicationId,
@@ -31,9 +30,8 @@ class PublicationDto(TypedDict):
     publication_type: str
     open_access_type: str
     license: str
-    online_publication_state: str
+    publication_state: str
     online_publication_date: str | None
-    print_publication_state: str
     print_publication_date: str | None
     links: list[LinkDto]
     journal: int
@@ -41,9 +39,6 @@ class PublicationDto(TypedDict):
 
 
 def parse_publication(publication: PublicationDto, id: PublicationId | None = None) -> Publication:
-    online_state = _parse_state(publication, "online")
-    print_state = _parse_state(publication, "online")
-
     return Publication(
         id=id,
         title=NonEmptyStr(publication["title"]),
@@ -51,7 +46,7 @@ def parse_publication(publication: PublicationDto, id: PublicationId | None = No
         license=License[publication["license"]],
         publication_type=PublicationType(publication["publication_type"]),
         open_access_type=OpenAccessType[publication["open_access_type"]],
-        publication_state=MediaPublicationStates(online=online_state, print=print_state),
+        publication_state=_parse_state(publication),
         links={
             services.get_link(link["link_type"], link["link_value"])
             for link in publication["links"]
@@ -60,24 +55,29 @@ def parse_publication(publication: PublicationDto, id: PublicationId | None = No
     )
 
 
-StateLiteral = Literal["online_publication_state", "print_publication_state"]
 DateLiteral = Literal["online_publication_date", "print_publication_date"]
-
-
-def _statekey(media: str) -> StateLiteral:
-    return cast(StateLiteral, f"{media}_publication_state")
 
 
 def _datekey(media: str) -> DateLiteral:
     return cast(DateLiteral, f"{media}_publication_date")
 
 
-def _parse_state(publication: PublicationDto, media: str) -> PublicationState:
-    state = publication[_statekey(media)]
+def _parse_state(publication: PublicationDto) -> PublicationState:
+    state = publication["publication_state"]
     publication_state: PublicationState
     if state == Published.name():
-        date = datetime.date.fromisoformat(publication[_datekey(media)] or "")
-        publication_state = Published(date)
+        online_date = (
+            datetime.date.fromisoformat(publication["online_publication_date"])
+            if publication["online_publication_date"]
+            else None
+        )
+        print_date = (
+            datetime.date.fromisoformat(publication["print_publication_date"])
+            if publication["print_publication_date"]
+            else None
+        )
+
+        publication_state = Published(online_date, print_date)
     else:
         publication_state = Unpublished(state=UnpublishedState[state])
     return publication_state
@@ -94,13 +94,12 @@ def publication_dto_from_model(publication: PublicationModel) -> PublicationDto:
             else UnknownPublicationType
         ),
         open_access_type=publication.open_access_type,
-        online_publication_state=publication.online_publication_state,
+        publication_state=publication.publication_state,
         online_publication_date=(
             publication.online_publication_date.isoformat()
             if publication.online_publication_date
             else ""
         ),
-        print_publication_state=publication.print_publication_state,
         print_publication_date=(
             publication.print_publication_date.isoformat()
             if publication.print_publication_date

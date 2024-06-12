@@ -194,11 +194,10 @@ def create_publication_post_data(publication: PublicationDto) -> dict[str, Any]:
         license=publication["license"],
         publication_type=publication["publication_type"],
         open_access_type=publication["open_access_type"],
-        online_publication_state=publication["online_publication_state"],
+        publication_state=publication["publication_state"],
         online_publication_date=(
             publication["online_publication_date"] if publication["online_publication_date"] else ""
         ),
-        print_publication_state=publication["print_publication_state"],
         print_publication_date=(
             publication["print_publication_date"] if publication["print_publication_date"] else ""
         ),

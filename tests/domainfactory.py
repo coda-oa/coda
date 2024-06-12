@@ -29,7 +29,6 @@ from coda.money import Currency, Money
 from coda.publication import (
     JournalId,
     License,
-    MediaPublicationStates,
     OpenAccessType,
     Publication,
     PublicationId,
@@ -99,16 +98,9 @@ def publication(
     *,
     id: PublicationId | None = None,
 ) -> Publication:
-    print_state = cast(
-        PublicationState,
-        random.choice([Unpublished(), Published(date.fromisoformat(_faker.date()))]),
+    state = cast(
+        PublicationState, random.choice([Unpublished(), Published(_random_date(), _random_date())])
     )
-
-    online_state = cast(
-        PublicationState,
-        random.choice([Unpublished(), Published(date.fromisoformat(_faker.date()))]),
-    )
-
     return Publication(
         id=id,
         title=NonEmptyStr(title or _faker.sentence()),
@@ -117,12 +109,13 @@ def publication(
         license=random_license(),
         publication_type=publication_type or UnknownPublicationType,
         open_access_type=random_open_access_type(),
-        publication_state=MediaPublicationStates(
-            online=online_state,
-            print=print_state,
-        ),
+        publication_state=state,
         links={Doi("10.1234/5678")},
     )
+
+
+def _random_date() -> date:
+    return date.fromisoformat(_faker.date())
 
 
 def payment() -> Payment:

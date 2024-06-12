@@ -91,7 +91,7 @@ def publication_viewmodel(publication: Publication) -> PublicationViewModel:
         authors=list(publication.authors),
         journal_title=publication.journal.title,
         publisher_name=publication.journal.publisher.name,
-        publication_status=publication.online_publication_state,
+        publication_status=publication.publication_state,
         publication_date=publication.online_publication_date,
         license=publication.license,
         publication_type=publication.publication_type.name if publication.publication_type else "",
