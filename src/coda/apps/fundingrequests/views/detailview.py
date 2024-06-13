@@ -14,6 +14,7 @@ from coda.apps.fundingrequests.models import FundingRequest as FundingRequestMod
 from coda.apps.publications.models import Link, Publication
 from coda.fundingrequest import Review
 from coda.money import Currency, Money
+from coda.publication import License
 
 template_name = "fundingrequests/fundingrequest_detail.html"
 
@@ -93,7 +94,7 @@ def publication_viewmodel(publication: Publication) -> PublicationViewModel:
         publisher_name=publication.journal.publisher.name,
         publication_state=publication.publication_state,
         publication_date=publication.online_publication_date,
-        license=publication.license,
+        license=License[publication.license].value,
         publication_type=publication.publication_type.name if publication.publication_type else "",
         oa_type=publication.open_access_type,
         references=publication.links.all(),
