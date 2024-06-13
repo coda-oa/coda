@@ -7,7 +7,6 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.authors.dto import AuthorDto, parse_author
-from coda.apps.authors.models import Author, PersonId
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import (
     CostDto,
@@ -16,9 +15,7 @@ from coda.apps.fundingrequests.dto import (
     parse_payment,
 )
 from coda.apps.fundingrequests.services import fundingrequest_create
-from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import PublicationDto, parse_publication
-from coda.apps.publications.forms import PublicationFormData
 from coda.apps.users.models import User
 from coda.fundingrequest import FundingOrganizationId, FundingRequest, FundingRequestId
 from coda.publication import JournalId
@@ -56,12 +53,12 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
     journal_post_data = {"journal": journal_id}
 
     publication_dto = dtofactory.publication_dto(journal_id, concept_id=concept.concept_id)
-    publication_post_data = create_publication_post_data(publication_dto)
+    pub_post_data = publication_post_data(publication_dto)
     external_funding = dtofactory.external_funding_dto(funder.pk)
     cost_dto = dtofactory.cost_dto()
 
     response = submit_wizard(
-        client, author_dto, journal_post_data, publication_post_data, external_funding, cost_dto
+        client, author_dto, journal_post_data, pub_post_data, external_funding, cost_dto
     )
 
     expected = FundingRequest.new(
@@ -105,15 +102,16 @@ def test__updating_fundingrequest_publication__updates_funding_request_and_shows
     fr_id = save_new_fundingrequest(journal_id)
 
     publication_data = dtofactory.publication_dto(new_journal_id, concept_id=concept.concept_id)
-    publication_post_data = create_publication_post_data(publication_data)
+    pub_post_data = publication_post_data(publication_data)
+    journal_post_data = {"journal": new_journal_id}
 
     client.post(
         reverse("fundingrequests:update_publication", kwargs={"pk": fr_id}),
-        next() | publication_post_data,
+        next() | pub_post_data,
     )
     response = client.post(
         reverse("fundingrequests:update_publication", kwargs={"pk": fr_id}),
-        next() | {"journal": new_journal_id},
+        next() | journal_post_data,
     )
 
     expected = parse_publication(publication_data)
@@ -183,39 +181,23 @@ def submit_wizard(
     )
 
 
-def create_publication_post_data(publication: PublicationDto) -> dict[str, Any]:
+def publication_post_data(publication: PublicationDto) -> dict[str, Any]:
     link_form_data: dict[str, list[str]] = {"link_type": [], "link_value": []}
     for link in publication["links"]:
         link_form_data["link_type"].append(str(link["link_type"]))
         link_form_data["link_value"].append(str(link["link_value"]))
 
-    publication_form_data = PublicationFormData(
-        title=publication["title"],
-        license=publication["license"],
-        publication_type=publication["publication_type"],
-        open_access_type=publication["open_access_type"],
-        publication_state=publication["publication_state"],
-        online_publication_date=(
-            publication["online_publication_date"] if publication["online_publication_date"] else ""
-        ),
-        print_publication_date=(
-            publication["print_publication_date"] if publication["print_publication_date"] else ""
-        ),
+    publication_form_data = dict(publication)
+    publication_form_data.pop("links")
+    publication_form_data.pop("authors")
+    publication_form_data.pop("journal")
+    publication_form_data.update(
+        online_publication_date=publication["online_publication_date"] or "",
+        print_publication_date=publication["print_publication_date"] or "",
     )
 
     # NOTE: authors are submitted as a single string from a textarea
     authors = ",".join(publication["authors"])
-    return publication_form_data | link_form_data | {"authors": authors}
+    authors_form_data = {"authors": authors}
 
-
-def author_dto_from_request(request: FundingRequest) -> AuthorDto:
-    submitter = cast(Author, request.submitter)
-    affiliation = cast(Institution, submitter.affiliation)
-    identifier = cast(PersonId, submitter.identifier)
-    return AuthorDto(
-        name=submitter.name,
-        email=str(submitter.email),
-        affiliation=affiliation.pk,
-        orcid=identifier.orcid,
-        roles=[r.name for r in submitter.get_roles()],
-    )
+    return publication_form_data | link_form_data | authors_form_data
