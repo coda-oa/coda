@@ -1,21 +1,22 @@
 import datetime
-from typing import Literal, TypedDict, cast
+from typing import TypedDict
 
 from coda.apps.publications import services
-from coda.apps.publications.models import Publication as PublicationModel
 from coda.author import AuthorList
+from coda.doi import Doi
 from coda.publication import (
     JournalId,
     License,
+    Link,
     OpenAccessType,
     Publication,
     PublicationId,
     PublicationState,
     PublicationType,
     Published,
-    UnknownPublicationType,
     Unpublished,
     UnpublishedState,
+    UserLink,
 )
 from coda.string import NonEmptyStr
 
@@ -55,13 +56,6 @@ def parse_publication(publication: PublicationDto, id: PublicationId | None = No
     )
 
 
-DateLiteral = Literal["online_publication_date", "print_publication_date"]
-
-
-def _datekey(media: str) -> DateLiteral:
-    return cast(DateLiteral, f"{media}_publication_date")
-
-
 def _parse_state(publication: PublicationDto) -> PublicationState:
     state = publication["publication_state"]
     publication_state: PublicationState
@@ -83,31 +77,36 @@ def _parse_state(publication: PublicationDto) -> PublicationState:
     return publication_state
 
 
-def publication_dto_from_model(publication: PublicationModel) -> PublicationDto:
+def _dates_from_publication_state(publication_state: PublicationState) -> tuple[str, str]:
+    match publication_state:
+        case Published(online, print_date):
+            return (
+                online.isoformat() if online else "",
+                print_date.isoformat() if print_date else "",
+            )
+        case Unpublished(_):
+            return "", ""
+
+
+def to_link_dto(link: Link) -> LinkDto:
+    match link:
+        case UserLink(type, value):
+            return LinkDto(link_type=type, link_value=value)
+        case Doi(value):
+            return LinkDto(link_type="DOI", link_value=value)
+
+
+def to_publication_dto(publication: Publication) -> PublicationDto:
+    online_pub_date, print_pub_date = _dates_from_publication_state(publication.publication_state)
     return PublicationDto(
         title=publication.title,
         authors=list(publication.authors),
-        license=publication.license,
-        publication_type=(
-            publication.publication_type.concept_id
-            if publication.publication_type
-            else UnknownPublicationType
-        ),
-        open_access_type=publication.open_access_type,
-        publication_state=publication.publication_state,
-        online_publication_date=(
-            publication.online_publication_date.isoformat()
-            if publication.online_publication_date
-            else ""
-        ),
-        print_publication_date=(
-            publication.print_publication_date.isoformat()
-            if publication.print_publication_date
-            else ""
-        ),
-        links=[
-            LinkDto(link_type=link.type.name, link_value=link.value)
-            for link in publication.links.all()
-        ],
-        journal=publication.journal.pk,
+        license=publication.license.name,
+        publication_type=publication.publication_type,
+        open_access_type=publication.open_access_type.name,
+        publication_state=publication.publication_state.name(),
+        online_publication_date=online_pub_date,
+        print_publication_date=print_pub_date,
+        links=[to_link_dto(link) for link in publication.links],
+        journal=publication.journal,
     )

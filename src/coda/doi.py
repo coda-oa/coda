@@ -5,6 +5,8 @@ from coda.string import NonEmptyStr
 
 
 class Doi:
+    __match_args__ = ("_doi",)
+
     def __init__(self, doi: str) -> None:
         self._doi = NonEmptyStr(doi).strip()
         if not self._valid():

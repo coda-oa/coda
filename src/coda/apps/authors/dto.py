@@ -1,6 +1,5 @@
 from typing import TypedDict
 
-from coda.apps.authors.models import Author as AuthorModel
 from coda.author import Author, AuthorId, InstitutionId, Role
 from coda.orcid import Orcid
 from coda.string import NonEmptyStr
@@ -14,17 +13,7 @@ class AuthorDto(TypedDict):
     roles: list[str] | None
 
 
-def author_dto_from_model(author: AuthorModel) -> AuthorDto:
-    return AuthorDto(
-        name=author.name,
-        email=author.email or "",
-        orcid=author.identifier.orcid if author.identifier else None,
-        affiliation=author.affiliation.pk if author.affiliation else None,
-        roles=[role.name for role in author.get_roles()],
-    )
-
-
-def as_dto(author: Author) -> AuthorDto:
+def to_author_dto(author: Author) -> AuthorDto:
     return AuthorDto(
         name=author.name,
         email=author.email,

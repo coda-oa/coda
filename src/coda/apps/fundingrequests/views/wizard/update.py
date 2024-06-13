@@ -1,6 +1,12 @@
-from coda.apps.authors.dto import author_dto_from_model, parse_author
-from coda.apps.authors.models import Author as AuthorModel
+from typing import Any
+
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpRequest
+from django.urls import reverse
+
+from coda.apps.authors.dto import parse_author, to_author_dto
 from coda.apps.authors.services import author_update
+from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.dto import (
     CostDto,
@@ -8,7 +14,6 @@ from coda.apps.fundingrequests.dto import (
     parse_external_funding,
     parse_payment,
 )
-from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
 from coda.apps.fundingrequests.views.wizard.wizardsteps import (
     FundingStep,
@@ -16,21 +21,9 @@ from coda.apps.fundingrequests.views.wizard.wizardsteps import (
     PublicationStep,
     SubmitterStep,
 )
-from coda.apps.publications.dto import parse_publication, publication_dto_from_model
+from coda.apps.publications.dto import parse_publication, to_publication_dto
 from coda.apps.publications.services import publication_update
 from coda.apps.wizard import SessionStore, Wizard
-from coda.author import AuthorId
-
-
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpRequest
-from django.shortcuts import get_object_or_404
-from django.urls import reverse
-
-
-from typing import Any, cast
-
-from coda.publication import PublicationId
 
 
 class UpdateSubmitterView(LoginRequiredMixin, Wizard):
@@ -43,17 +36,15 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
 
     def complete(self, /, **kwargs: Any) -> None:
         store = self.get_store()
-        fr = get_object_or_404(FundingRequestModel, pk=self.kwargs["pk"])
-        submitter_id = AuthorId(cast(AuthorModel, fr.submitter).pk)
-        author = parse_author(store["submitter"], submitter_id)
+        fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
+        author = parse_author(store["submitter"], fr.submitter.id)
         author_update(author)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
-        fr = get_object_or_404(FundingRequestModel, pk=self.kwargs["pk"])
-        if fr.submitter:
-            store["submitter"] = author_dto_from_model(fr.submitter) | {"id": fr.submitter.pk}
-            store.save()
+        fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
+        store["submitter"] = to_author_dto(fr.submitter) | {"id": fr.submitter}
+        store.save()
 
 
 class UpdatePublicationView(LoginRequiredMixin, Wizard):
@@ -66,21 +57,18 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
 
     def complete(self, /, **kwargs: Any) -> None:
         pk = kwargs["pk"]
-        funding_request = get_object_or_404(FundingRequestModel, pk=pk)
+        fr = fundingrequest_repository.get_by_id(pk)
         publication_update(
-            parse_publication(
-                publication_dto_from(self.get_store()),
-                PublicationId(funding_request.publication.pk),
-            )
+            parse_publication(publication_dto_from(self.get_store()), fr.publication.id)
         )
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
-        fr = get_object_or_404(FundingRequestModel, pk=self.kwargs["pk"])
-        dto = publication_dto_from_model(fr.publication)
+        fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
+        dto = to_publication_dto(fr.publication)
         store["publication"] = dto
         store["authors"] = list(dto["authors"])
-        store["journal"] = fr.publication.journal.pk
+        store["journal"] = fr.publication.journal
         store["links"] = dto["links"]
         store.save()
 
@@ -101,15 +89,15 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
-        fr = get_object_or_404(FundingRequestModel, pk=self.kwargs["pk"])
+        fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
         store["cost"] = CostDto(
-            estimated_cost=float(fr.estimated_cost),
-            estimated_cost_currency=fr.estimated_cost_currency,
-            payment_method=fr.payment_method,
+            estimated_cost=float(fr.estimated_cost.amount.amount),
+            estimated_cost_currency=fr.estimated_cost.amount.currency.code,
+            payment_method=fr.estimated_cost.method.name,
         )
         if fr.external_funding:
             store["funding"] = ExternalFundingDto(
-                organization=fr.external_funding.organization.pk,
+                organization=fr.external_funding.organization,
                 project_id=fr.external_funding.project_id,
                 project_name=fr.external_funding.project_name,
             )
