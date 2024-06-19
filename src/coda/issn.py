@@ -1,3 +1,15 @@
+class Issn(str):
+    def __new__(cls, value: str) -> "Issn":
+        value = value.strip()
+        if len(value) != 9:
+            raise ValueError(f"ISSN must have length 9, got {len(value)}")
+
+        if checksum(value) != value[-1]:
+            raise ValueError(f"ISSN has invalid checksum: {value}")
+
+        return super().__new__(cls, value)
+
+
 def checksum(issn: str) -> str:
     """
     Calculate the checksum for an ISSN.
