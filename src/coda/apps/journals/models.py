@@ -5,11 +5,10 @@ from coda.apps.publishers.models import Publisher
 
 
 class Journal(models.Model):
-    title = models.CharField(max_length=255)
+    title = models.TextField()
     eissn = models.CharField(max_length=9)
     licenses = models.CharField(max_length=255, null=True)
     publisher = models.ForeignKey(Publisher, on_delete=models.CASCADE, related_name="journals")
-    open_access_type = models.CharField(max_length=255, null=True)
     predecessor = models.OneToOneField(
         "self", on_delete=models.CASCADE, null=True, related_name="successor"
     )

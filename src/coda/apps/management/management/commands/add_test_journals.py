@@ -42,13 +42,13 @@ class Command(BaseCommand):
 
     def add_journals(self, df: pl.DataFrame) -> None:
         self.stdout.write("Add journals from GitHub")
+        df = df.drop_nulls("e_issn")
         Journal.objects.bulk_create(
             [
                 Journal(
                     title=row["journal_title"],
                     publisher=Publisher.objects.get(name=row["publisher"]),
                     eissn=row["e_issn"].strip(),
-                    open_access_type=row["journal_type"],
                     licenses=row["license"],
                     predecessor=None,
                 )
