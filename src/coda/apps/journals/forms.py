@@ -3,6 +3,7 @@ from typing import Any
 from django import forms
 
 from coda.apps.journals.models import Journal
+from coda.apps.publishers.models import Publisher
 from coda.issn import Issn
 
 
@@ -15,6 +16,7 @@ def issn_validator(value: Any) -> None:
 
 class JournalForm(forms.ModelForm[Journal]):
     eissn = forms.CharField(max_length=9, label="E-ISSN", validators=[issn_validator])
+    publisher = forms.ModelChoiceField(queryset=Publisher.objects.all().order_by("name"))
 
     class Meta:
         model = Journal
