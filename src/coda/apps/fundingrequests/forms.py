@@ -28,24 +28,46 @@ class ExternalFundingForm(forms.Form):
     project_id = forms.CharField()
     project_name = forms.CharField(required=False)
 
-    def clean(self) -> dict[str, Any] | None:
-        cleaned_data = super().clean()
+    def is_valid(self) -> bool:
+        is_valid = super().is_valid()
         organization = self.cleaned_data.get("organization")
-        self.cleaned_data.get("project_id")
-        self.cleaned_data.get("project_name")
+
+        if organization:
+            return is_valid
+
+        if not self.is_empty():
+            self._add_missing_organization_error()
+
+        return False
+
+    def is_empty(self) -> bool:
+        return not any(self.cleaned_data.values())
+
+    def clean(self) -> dict[str, Any] | None:
+        cleaned = super().clean()
+        organization = self.cleaned_data.get("organization")
 
         if organization is None:
             self.errors.pop("organization", None)
             self.errors.pop("project_id", None)
             self.errors.pop("project_name", None)
 
-        return cleaned_data
+        return cleaned
 
-    def to_dto(self) -> ExternalFundingDto:
+    def to_dto(self) -> ExternalFundingDto | None:
+        if self.is_empty():
+            return None
+
         return ExternalFundingDto(
             organization=self.cleaned_data["organization"].pk,
             project_id=self.cleaned_data["project_id"],
             project_name=self.cleaned_data["project_name"],
+        )
+
+    def _add_missing_organization_error(self) -> None:
+        self.add_error(
+            "organization",
+            "Please select a funding organization to provide project information",
         )
 
 

@@ -175,10 +175,7 @@ class FundingStep(Step):
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         cost_form = CostForm(request.POST)
         funding_form = ExternalFundingForm(request.POST)
-        funding_valid = funding_form.is_valid()
-        if not funding_valid:
-            funding_valid = not (request.POST.get("organization") or request.POST.get("project_id"))
-
+        funding_valid = funding_form.is_valid() or funding_form.is_empty()
         return cost_form.is_valid() and funding_valid
 
     def done(self, request: HttpRequest, store: Store) -> None:
@@ -188,8 +185,6 @@ class FundingStep(Step):
         store["cost"] = cost
 
         funding_form = ExternalFundingForm(request.POST)
-        if funding_form.is_valid():
-            funding = funding_form.to_dto()
-            store["funding"] = funding
-        else:
-            store["funding"] = None
+        funding_form.full_clean()
+        funding = funding_form.to_dto()
+        store["funding"] = funding
