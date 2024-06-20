@@ -1,3 +1,4 @@
+from typing import Any
 from django import forms
 
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
@@ -26,6 +27,19 @@ class ExternalFundingForm(forms.Form):
     organization = forms.ModelChoiceField(FundingOrganization.objects.all())
     project_id = forms.CharField()
     project_name = forms.CharField(required=False)
+
+    def clean(self) -> dict[str, Any] | None:
+        cleaned_data = super().clean()
+        organization = self.cleaned_data.get("organization")
+        self.cleaned_data.get("project_id")
+        self.cleaned_data.get("project_name")
+
+        if organization is None:
+            self.errors.pop("organization", None)
+            self.errors.pop("project_id", None)
+            self.errors.pop("project_name", None)
+
+        return cleaned_data
 
     def to_dto(self) -> ExternalFundingDto:
         return ExternalFundingDto(
