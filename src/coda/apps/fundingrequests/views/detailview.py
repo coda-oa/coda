@@ -98,7 +98,7 @@ def publication_viewmodel(publication: Publication) -> PublicationViewModel:
         publication_type=publication.publication_type.name if publication.publication_type else "",
         oa_type=publication.open_access_type,
         references=publication.links.all(),
-        contracts=publication.journal.publisher.contracts.all(),
+        contracts=publication.journal.contracts.all(),
     )
 
 
