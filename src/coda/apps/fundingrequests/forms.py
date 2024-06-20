@@ -7,7 +7,7 @@ from coda.money import Currency
 
 class CostForm(forms.Form):
     use_required_attribute = False
-    estimated_cost = forms.DecimalField(max_digits=10, decimal_places=2)
+    estimated_cost = forms.DecimalField(max_digits=10, decimal_places=2, initial=0)
     estimated_cost_currency = forms.ChoiceField(
         choices=[(c.code, c.code) for c in Currency], initial=Currency.EUR.code, label="Currency"
     )
