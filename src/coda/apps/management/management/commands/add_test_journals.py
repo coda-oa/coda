@@ -21,11 +21,11 @@ class Command(BaseCommand):
         self.stdout.write(f"Added {self.num_created(publishers)} publishers")
 
         self.stdout.write("Parsing journals")
-        journals, df = self.add_journals(df)
+        journals = self.add_journals(df)
         self.stdout.write(f"Added {len(journals)} journals")
 
         self.stdout.write("Parsing contracts")
-        contracts = self.add_contracts(df, journals)
+        contracts = self.add_contracts(df)
         self.stdout.write(f"Added {len(contracts)} contracts")
 
     def download_test_data(self) -> pl.DataFrame:
@@ -41,7 +41,7 @@ class Command(BaseCommand):
     def num_created(self, publisher_objects: list[tuple[Publisher, bool]]) -> int:
         return sum([int(created) for _, created in publisher_objects])
 
-    def add_journals(self, df: pl.DataFrame) -> tuple[list[Journal], pl.DataFrame]:
+    def add_journals(self, df: pl.DataFrame) -> list[Journal]:
         df = self.clean_eissn(df)
         existing = self.find_existing(df)
         df = self.exclude_existing_issns(df, existing)
@@ -59,7 +59,7 @@ class Command(BaseCommand):
             ]
         )
 
-        return journals, df
+        return journals
 
     def clean_eissn(self, df: pl.DataFrame) -> pl.DataFrame:
         return df.drop_nulls("e_issn").with_columns(pl.col("e_issn").str.strip())
@@ -76,10 +76,10 @@ class Command(BaseCommand):
     def exclude_existing_issns(self, df: pl.DataFrame, existing: set[str]) -> pl.DataFrame:
         return df.filter(pl.col("e_issn").is_in(existing).not_())
 
-    def add_contracts(self, df: pl.DataFrame, journals: list[Journal]) -> list[Contract]:
+    def add_contracts(self, df: pl.DataFrame) -> list[Contract]:
         journals_with_contract = df.filter(pl.col("contract").is_not_null()).sort("e_issn")
         e_issns = set(journals_with_contract["e_issn"].unique().to_list())
-        journals = sorted([j for j in journals if j.eissn in e_issns], key=lambda j: j.eissn)
+        journals = Journal.objects.filter(eissn__in=e_issns).order_by("eissn")
 
         created_contracts: list[Contract] = []
         for row, journal in zip(journals_with_contract.rows(named=True), journals):
