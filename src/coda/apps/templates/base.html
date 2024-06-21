@@ -6,6 +6,9 @@
         <title>{{ title }}</title>
         <link rel="stylesheet"
               href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+        <script src="https://unpkg.com/htmx.org@2.0.0"
+                integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw"
+                crossorigin="anonymous"></script>
         {% load static %}
         <link rel="stylesheet" type="text/css" href="{% static 'css/vars.css' %}" />
         <link rel="stylesheet"
@@ -15,7 +18,6 @@
         <link rel="stylesheet"
               type="text/css"
               href="{% static 'css/spacing.css' %}" />
-        <script src="{% static 'js/linkrow.js' %}"></script>
     </head>
     <body class="container">
         {% include "partials/nav.html" %}
