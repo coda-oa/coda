@@ -79,7 +79,7 @@ class Command(BaseCommand):
     def add_contracts(self, df: pl.DataFrame, journals: list[Journal]) -> list[Contract]:
         journals_with_contract = df.filter(pl.col("contract").is_not_null()).sort("e_issn")
         e_issns = set(journals_with_contract["e_issn"].unique().to_list())
-        journals = [j for j in journals if j.eissn in e_issns]
+        journals = sorted([j for j in journals if j.eissn in e_issns], key=lambda j: j.eissn)
 
         created_contracts: list[Contract] = []
         for row, journal in zip(journals_with_contract.rows(named=True), journals):
