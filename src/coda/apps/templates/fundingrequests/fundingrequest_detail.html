@@ -110,7 +110,7 @@
                     </tr>
                 </tbody>
             </table>
-            {% if publication.links %}
+            {% if publication.references %}
                 <h3 class="mt-1">References</h3>
                 <table class="article__table">
                     <thead>
@@ -120,7 +120,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for link in publication.links %}
+                        {% for link in publication.references %}
                             <tr>
                                 <td>{{ link.type }}</td>
                                 <td>
