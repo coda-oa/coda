@@ -3,9 +3,11 @@ from typing import TypedDict, cast
 
 from django import forms
 
+from coda.apps.formbase import CodaFormBase
 from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import Concept, LinkType, Publication
-from coda.publication import License, OpenAccessType, UnpublishedState
+from coda.doi import Doi
+from coda.publication import License, OpenAccessType, Published, UnpublishedState
 
 
 class PublicationFormData(TypedDict):
@@ -18,7 +20,7 @@ class PublicationFormData(TypedDict):
     print_publication_date: str
 
 
-class PublicationForm(forms.Form):
+class PublicationForm(CodaFormBase):
     use_required_attribute = False
 
     title = forms.CharField(required=True)
@@ -44,6 +46,22 @@ class PublicationForm(forms.Form):
         widget=forms.DateInput(attrs={"type": "date"}), required=False
     )
 
+    def full_clean(self) -> None:
+        super().full_clean()
+        if not hasattr(self, "cleaned_data"):
+            return
+
+        if self.cleaned_data.get("publication_state") != Published.name():
+            return
+
+        try:
+            online_date = self.cleaned_data.get("online_publication_date")
+            print_date = self.cleaned_data.get("print_publication_date")
+            Published(online=online_date, print=print_date)
+        except ValueError as err:
+            self.add_error("online_publication_date", str(err))
+            self.add_error("print_publication_date", str(err))
+
     def get_form_data(self) -> PublicationFormData:
         return PublicationFormData(
             title=self.cleaned_data["title"],
@@ -68,8 +86,16 @@ class LinkForm(forms.Form):
     link_type = forms.ChoiceField(choices=lambda: LinkType.objects.values_list("name", "name"))
     link_value = forms.CharField()
 
+    def full_clean(self) -> None:
+        super().full_clean()
+        if self.cleaned_data["link_type"] == "DOI":
+            try:
+                Doi(self.cleaned_data["link_value"])
+            except ValueError as err:
+                self.add_error("link_value", str(err))
+
     def get_form_data(self) -> LinkDto:
         return LinkDto(
             link_type=self.cleaned_data["link_type"],
-            link_value=self.cleaned_data["link_value"],
+            link_value=self.cleaned_data.get("link_value", self.data.get("link_value", "")),
         )

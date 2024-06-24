@@ -1,18 +1,17 @@
+from collections.abc import Iterable
 from typing import Any, TypeVar
 
-from django.forms import BaseFormSet, Form, formset_factory
+from django.forms import Form
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 
 from coda.apps.authors.forms import AuthorForm
 from coda.apps.fundingrequests.forms import CostForm, ExternalFundingForm
 from coda.apps.journals.models import Journal
-from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.forms import LinkForm, PublicationForm
 from coda.apps.publications.models import LinkType
 from coda.apps.wizard import FormStep, Step, Store
 from coda.author import AuthorList
-
 
 _TForm = TypeVar("_TForm", bound=Form)
 
@@ -109,56 +108,52 @@ class PublicationStep(Step):
         else:
             return AuthorList()
 
-    def get_links_context(self, request: HttpRequest, store: Store) -> list[LinkDto]:
-        if store.get("links"):
-            return list(store["links"])
-        elif self.has_links(request):
+    def get_links_context(self, request: HttpRequest, store: Store) -> list[dict[str, Any]]:
+        if self.has_links(request):
             return self.assemble_link_dtos(request)
+        elif store.get("links"):
+            return [{"link": link, "errors": {}} for link in list(store["links"])]
 
         return []
 
     def has_links(self, request: HttpRequest) -> bool:
         return bool(request.POST.get("link_type") and request.POST.get("link_value"))
 
-    def assemble_link_dtos(self, request: HttpRequest) -> list[LinkDto]:
-        return [
-            LinkDto(link_type=link_type, link_value=link_value)
-            for link_type, link_value in zip(
-                request.POST.getlist("link_type"), request.POST.getlist("link_value")
-            )
-        ]
+    def assemble_link_dtos(self, request: HttpRequest) -> list[dict[str, Any]]:
+        forms = self.link_forms(request)
+        for form in forms:
+            form.full_clean()
+
+        return [{"link": form.get_form_data(), "errors": form.errors} for form in forms]
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         publication_form = PublicationForm(request.POST)
-        link_formset = self.link_formset(request)
-        valid = publication_form.is_valid() and link_formset.is_valid()
+        link_formset = self.link_forms(request)
+        valid = self.all_valid((publication_form, *link_formset))
         return valid
 
     def done(self, request: HttpRequest, store: Store) -> None:
         publication_form = PublicationForm(request.POST)
-        publication_form.full_clean()
+        link_forms = self.link_forms(request)
+        self.clean_all((publication_form, *link_forms))
 
-        link_formset = self.link_formset(request)
-        link_formset.full_clean()
-
-        store["links"] = [linkform.get_form_data() for linkform in link_formset.forms]
+        store["links"] = [linkform.get_form_data() for linkform in link_forms]
         store["publication"] = publication_form.get_form_data()
         store["authors"] = list(AuthorList.from_str(request.POST.get("authors", "")))
 
-    def link_formset(self, request: HttpRequest) -> BaseFormSet[LinkForm]:
+    def all_valid(self, forms: Iterable[Form]) -> bool:
+        return all(form.is_valid() for form in forms)
+
+    def clean_all(self, forms: Iterable[Form]) -> None:
+        for form in forms:
+            form.full_clean()
+
+    def link_forms(self, request: HttpRequest) -> Iterable[LinkForm]:
         types, values = request.POST.getlist("link_type"), request.POST.getlist("link_value")
-        links: dict[str, Any] = {
-            "form-TOTAL_FORMS": len(types),
-            "form-INITIAL_FORMS": 0,
-        }
-
-        for i, link in enumerate(zip(types, values)):
-            linktype, linkvalue = link
-            links[f"form-{i}-link_type"] = linktype
-            links[f"form-{i}-link_value"] = linkvalue
-
-        LinkFormSet: type[BaseFormSet[LinkForm]] = formset_factory(LinkForm)
-        return LinkFormSet(links)
+        return [
+            LinkForm({"link_type": link_type, "link_value": link_value})
+            for link_type, link_value in zip(types, values)
+        ]
 
 
 class FundingStep(Step):

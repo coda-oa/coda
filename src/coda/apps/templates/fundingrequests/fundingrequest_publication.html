@@ -30,8 +30,8 @@ NOTE: do not change the formatting of the authors textarea, as it will lead to u
             </td>
         </thead>
         <tbody id="linktable">
-            {% for link in links %}
-                {% include "fundingrequests/partials/linkrow.html" with link=link %}
+            {% for link_data in links %}
+                {% include "fundingrequests/partials/linkrow.html" with link=link_data.link errors=link_data.errors %}
             {% endfor %}
         </tbody>
     </table>

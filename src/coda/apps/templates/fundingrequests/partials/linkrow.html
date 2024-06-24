@@ -8,7 +8,16 @@
         </select>
     </td>
     <td>
-        <input type="text" name="link_value" value="{{ link.link_value }}">
+        {% if errors.link_value %}
+            <span data-tooltip="{{ errors.link_value.as_text }}">
+                <input type="text"
+                       name="link_value"
+                       value="{{ link.link_value }}"
+                       aria-invalid="true">
+            </span>
+        {% else %}
+            <input type="text" name="link_value" value="{{ link.link_value }}">
+        {% endif %}
     </td>
     <td>
         <button type="button" onclick="this.closest('tr').remove()">Remove</button>
