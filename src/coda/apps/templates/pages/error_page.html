@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+    <style>
+        section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            flex-direction: column;
+        }
+    </style>
+    <section>
+        <h1>Something went wrong!</h1>
+        <h2>{{ exception }}</h2>
+    </section>
+{% endblock content %}

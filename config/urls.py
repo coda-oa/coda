@@ -1,3 +1,4 @@
+import functools
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -31,18 +32,23 @@ if settings.DEBUG:
     urlpatterns += [
         path(
             "400/",
-            default_views.bad_request,
+            functools.partial(default_views.bad_request, template_name="pages/error_page.html"),
             kwargs={"exception": Exception("Bad Request!")},
         ),
         path(
             "403/",
-            default_views.permission_denied,
+            functools.partial(
+                default_views.permission_denied, template_name="pages/error_page.html"
+            ),
             kwargs={"exception": Exception("Permission Denied")},
         ),
         path(
             "404/",
-            default_views.page_not_found,
+            functools.partial(default_views.page_not_found, template_name="pages/error_page.html"),
             kwargs={"exception": Exception("Page not Found")},
         ),
-        path("500/", default_views.server_error),
+        path(
+            "500/",
+            functools.partial(default_views.server_error, template_name="pages/error_page.html"),
+        ),
     ]
