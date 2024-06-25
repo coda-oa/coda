@@ -34,15 +34,20 @@ def get_context_data(page: Page[FundingRequestModel]) -> dict[str, Any]:
 
 def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     search_type = request.GET.get("search_type")
-    if search_type in ["title", "submitter"]:
+    if search_type in ["title", "submitter", "publisher"]:
         search_args = {search_type: request.GET.get("search_term")}
     else:
         search_args = {}
+
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+    date_range = repository.DateRange.try_fromisoformat(start=start_date, end=end_date)
 
     return cast(
         QuerySet[FundingRequestModel],
         repository.search(
             **search_args,
+            date_range=date_range,
             labels=list(map(int, request.GET.getlist("labels"))),
             processing_states=request.GET.getlist("processing_status"),
         ),

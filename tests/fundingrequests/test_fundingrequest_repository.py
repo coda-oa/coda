@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any, cast
 
 import pytest
@@ -66,6 +67,71 @@ def test__searching_for_funding_requests_by_process_state__returns_matching_fund
     results = repository.search(processing_states=[Review.Approved.value, Review.Rejected.value])
 
     assert_contains_all(list(results), [approved_request, rejected_request])
+
+
+@pytest.mark.django_db
+def test__searching_for_funding_requests_by_publisher__returns_matching_funding_requests() -> None:
+    matching_request = modelfactory.fundingrequest()
+    matching_publisher = matching_request.publication.journal.publisher
+
+    _ = modelfactory.fundingrequest("No match")
+
+    results = repository.search(publisher=matching_publisher.name)
+
+    assert list(results) == [matching_request]
+
+
+@pytest.mark.django_db
+def test__searching_with_start_and_end_date__returns_matching_funding_requests() -> None:
+    matching_request = modelfactory.fundingrequest()
+    matching_request.created_at = date(2021, 3, 1)
+    matching_request.save()
+
+    no_match = modelfactory.fundingrequest("No match")
+    no_match.created_at = date(2021, 6, 1)
+    no_match.save()
+
+    start_date = date(2021, 1, 1)
+    end_date = date(2021, 5, 1)
+    date_range = repository.DateRange(start_date, end_date)
+
+    results = repository.search(date_range=date_range)
+
+    assert list(results) == [matching_request]
+
+
+@pytest.mark.django_db
+def test__searching_with_no_start_date__returns_matching_funding_requests() -> None:
+    matching_request = modelfactory.fundingrequest()
+    matching_request.created_at = date(2021, 3, 1)
+    matching_request.save()
+
+    no_match = modelfactory.fundingrequest("No match")
+    no_match.created_at = date(2021, 6, 1)
+    no_match.save()
+
+    date_range = repository.DateRange.create(end=date(2021, 5, 1))
+
+    results = repository.search(date_range=date_range)
+
+    assert list(results) == [matching_request]
+
+
+@pytest.mark.django_db
+def test__searching_with_no_end_date__returns_matching_funding_requests() -> None:
+    matching_request = modelfactory.fundingrequest()
+    matching_request.created_at = date(2021, 3, 1)
+    matching_request.save()
+
+    no_match = modelfactory.fundingrequest("No match")
+    no_match.created_at = date(2020, 12, 31)
+    no_match.save()
+
+    date_range = repository.DateRange.create(start=date(2021, 1, 1))
+
+    results = repository.search(date_range=date_range)
+
+    assert list(results) == [matching_request]
 
 
 def assert_contains_all(expected: list[Any], actual: list[Any]) -> None:

@@ -1,5 +1,5 @@
 <form method="get">
-    <div role="group">
+    <div class="mb-2" role="group">
         <select name="search_type" id="id_search-type" class="flex-1">
             <option value="submitter"
                     {% if not request.GET.search_type or "submitter" == request.GET.search_type %}selected{% endif %}>
@@ -7,6 +7,7 @@
             </option>
             <option value="title"
                     {% if "title" == request.GET.search_type %}selected{% endif %}>Publication Title</option>
+            <option value="publisher">Publisher</option>
         </select>
         <input type="search"
                name="search_term"
@@ -16,21 +17,17 @@
         <button type="submit" class="flex-0">Search</button>
     </div>
     <div class="grid">
-        <details class="dropdown">
-            <summary>Processing Status</summary>
-            <ul class="no-decoration">
-                {% for status in processing_states %}
-                    <li>
-                        <input type="checkbox"
-                               id="status-{{ status.0 }}"
-                               name="processing_status"
-                               value="{{ status.0 }}"
-                               {% if status.0 in request.GET.processing_status %}checked{% endif %}>
-                        <label for="status-{{ status.0 }}">{{ status.1 }}</label>
-                    </li>
-                {% endfor %}
-            </ul>
-        </details>
+        <div>
+            <label for="id_start_date">Start Date</label>
+            <input type="date" name="start_date" value="{{ request.GET.start_date }}">
+        </div>
+        <div>
+            <label for="id_end_date">End Date</label>
+            <input type="date" name="end_date" value="{{ request.GET.end_date }}">
+        </div>
+    </div>
+    <div class="grid">
+        {% include "fundingrequests/forms/status_dropdown.html" %}
         {% include "fundingrequests/forms/label_dropdown.html" %}
     </div>
 </form>

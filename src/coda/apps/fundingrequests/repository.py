@@ -1,5 +1,7 @@
+import datetime
 from collections.abc import Iterable
-from typing import cast
+from dataclasses import dataclass
+from typing import Self, cast
 
 from django.db.models import Q
 
@@ -63,11 +65,33 @@ def as_domain_object(model: FundingRequestModel) -> FundingRequest:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class DateRange:
+    start: datetime.date
+    end: datetime.date
+
+    @classmethod
+    def try_fromisoformat(cls, *, start: str | None = None, end: str | None = None) -> Self:
+        start_date = datetime.date.fromisoformat(start) if start else datetime.date.min
+        end_date = datetime.date.fromisoformat(end) if end else datetime.date.max
+        return cls(start_date, end_date)
+
+    @classmethod
+    def create(
+        cls, *, start: datetime.date | None = None, end: datetime.date | None = None
+    ) -> Self:
+        start_date = start or datetime.date.min
+        end_date = end or datetime.date.max
+        return cls(start_date, end_date)
+
+
 def search(
     *,
     title: str | None = None,
     submitter: str | None = None,
+    publisher: str | None = None,
     processing_states: list[str] | None = None,
+    date_range: DateRange | None = None,
     labels: Iterable[int] | None = None,
 ) -> Iterable[FundingRequestModel]:
     query = Q()
@@ -77,11 +101,17 @@ def search(
     if submitter:
         query = query & Q(submitter__name__icontains=submitter)
 
+    if publisher:
+        query = query & Q(publication__journal__publisher__name__icontains=publisher)
+
     if processing_states:
         query = query & Q(processing_status__in=processing_states)
 
     if labels:
         query = query & Q(labels__in=labels)
+
+    if date_range:
+        query = query & Q(created_at__gte=date_range.start, created_at__lte=date_range.end)
 
     return FundingRequestModel.objects.filter(query).distinct().order_by("-created_at")
 
