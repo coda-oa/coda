@@ -1,0 +1,2330 @@
+[
+    {
+        "model": "publications.Vocabulary",
+        "pk": 2,
+        "fields": {
+            "name": "DFG Subject Classification",
+            "version": "2024-2028"
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 94,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1",
+            "name": "Humanities and Social Sciences",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 95,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "11",
+            "name": "Humanities",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 96,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.11-01",
+            "name": "Prehistory and World Archaeology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 97,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.11-02",
+            "name": "Greek and Latin Philology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 98,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.11-03",
+            "name": "Ancient History",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 99,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.11-04",
+            "name": "Classical, Roman, Christian and Islamic Archaeology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 100,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.11-05",
+            "name": "Egyptology and Ancient Near Eastern Studies",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 101,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.12-01",
+            "name": "Medieval History",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 102,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.12-02",
+            "name": "Early Modern History",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 103,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.12-03",
+            "name": "Modern and Contemporary History",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 104,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.12-04",
+            "name": "History of Science",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 105,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.13-01",
+            "name": "Art History",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 106,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.13-02",
+            "name": "Musicology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 107,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.13-03",
+            "name": "Theatre and Media Studies",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 108,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.14-01",
+            "name": "General and Comparative Linguistics, Experimental Linguistics, Typology, Non-European Languages",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 109,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.14-02",
+            "name": "Individual Linguistics, Historical Linguistics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 110,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.14-03",
+            "name": "Applied Linguistics, Computational Linguistics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 111,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.15-01",
+            "name": "German Medieval Studies (Medieval German Literature)",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 112,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.15-02",
+            "name": "German Literary and Cultural Studies (Modern German Literature)",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 113,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.15-03",
+            "name": "European and American Literary and Cultural Studies",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 114,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.15-04",
+            "name": "General and Comparative Literary Studies; Cultural Studies",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 115,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.16-01",
+            "name": "Social and Cultural Anthropology and Ethnology ",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 116,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.16-02",
+            "name": "Asian Studies",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 117,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.16-03",
+            "name": "African, American and Oceania Studies ",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 118,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.16-04",
+            "name": "Islamic Studies, Arabian Studies, Semitic Studies",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 119,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.16-05",
+            "name": "Religious Studies and Jewish Studies",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 120,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.17-01",
+            "name": "Protestant Theology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 121,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.17-02",
+            "name": "Roman Catholic Theology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 122,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.18-01",
+            "name": "History of Philosophy",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 123,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.18-02",
+            "name": "Theoretical Philosophy",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 124,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.18-03",
+            "name": "Practical Philosophy",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 125,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "12",
+            "name": "Social and Behavioural Sciences",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 126,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.21-01",
+            "name": "General Education and History of Education",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 127,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.21-02",
+            "name": "General and Domain-Specific Teaching and Learning",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 128,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.21-03",
+            "name": "Education Systems and Educational Institutions",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 129,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.21-04",
+            "name": "Educational Research on Socialisation, Welfare and Professionalism",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 130,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.22-01",
+            "name": "General, Cognitive and Mathematical Psychology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 131,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.22-02",
+            "name": "Biological Psychology and Cognitive Neuroscience",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 132,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.22-03",
+            "name": "Developmental and Educational Psychology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 133,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.22-04",
+            "name": "Social Psychology, Industrial and Organisational Psychology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 134,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.22-05",
+            "name": "Personality Psychology, Clinical and Medical Psychology, Methodology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 135,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.23-01",
+            "name": "Sociological Theory",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 136,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.23-02",
+            "name": "Empirical Social Research",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 137,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.23-03",
+            "name": "Communication Sciences",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 138,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.23-04",
+            "name": "Political Science",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 139,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.24-01",
+            "name": "Economic Theory",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 140,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.24-02",
+            "name": "Economic Policy, Applied Economics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 141,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.24-03",
+            "name": "Accounting und Finance",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 142,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.24-04",
+            "name": "Management and Marketing",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 143,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.24-05",
+            "name": "Operations Management and Computer Science for Business Administration",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 144,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.24-06",
+            "name": "Statistics and Econometrics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 145,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.24-07",
+            "name": "Economic and Social History",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 146,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.25-01",
+            "name": "Principles of Law and Jurisprudence",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 147,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.25-02",
+            "name": "Private Law",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 148,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.25-03",
+            "name": "Public Law",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 149,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.25-04",
+            "name": "Criminal Law",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 150,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "1.25-05",
+            "name": "Criminology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 151,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2",
+            "name": "Life Sciences",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 152,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "21",
+            "name": "Biology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 153,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.11-01",
+            "name": "Biochemistry",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 154,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.11-02",
+            "name": "Biophysics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 155,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.11-03",
+            "name": "Cell Biology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 156,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.11-04",
+            "name": "Structural Biology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 157,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.11-05",
+            "name": "General Genetics and Functional Genome Biology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 158,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.11-06",
+            "name": "Developmental Biology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 159,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.11-07",
+            "name": "Bioinformatics and Theoretical Biology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 160,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.12-01",
+            "name": "Evolution and Systematics of Plants and Fungi",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 161,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.12-02",
+            "name": "Ecology and Biodiversity of Plants and Ecosystems",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 162,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.12-03",
+            "name": "Organismic Interactions, Chemical Ecology and Microbiomes of Plant Systems",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 163,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.12-04",
+            "name": "Plant Physiology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 164,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.12-05",
+            "name": "Plant Biochemistry and Biophysics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 165,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.12-06",
+            "name": "Plant Cell and Developmental Biology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 166,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.12-07",
+            "name": "Plant Genetics and Genomics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 167,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.13-01",
+            "name": "Systematics and Morphology (Zoology)",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 168,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.13-02",
+            "name": "Evolution, Anthropology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 169,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.13-03",
+            "name": "Ecology and Biodiversity of Animals and Ecosystems, Organismic Interactions",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 170,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.13-04",
+            "name": "Sensory and Behavioural Biology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 171,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.13-05",
+            "name": "Animal Physiology and Biochemistry ",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 172,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.13-06",
+            "name": "Evolutionary Cell and Developmental Biology (Zoology)",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 173,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "22",
+            "name": "Medicine",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 174,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.21-01",
+            "name": "Metabolism, Biochemistry and Genetics of Microorganisms",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 175,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.21-02",
+            "name": "Microbial Ecology and Applied Microbiology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 176,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.21-03",
+            "name": "Medical Microbiology and Mycology, Hygiene, Molecular Infection Biology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 177,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.21-04",
+            "name": "Virology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 178,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.21-05",
+            "name": "Immunology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 179,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.21-06",
+            "name": "Parasitology and Biology of Tropical Infectious Disease Pathogens",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 180,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-01",
+            "name": "Epidemiology and Medical Biometry/Statistics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 181,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-02",
+            "name": "Public Heatlh, Healthcare Research, Social and Occupational Medicine",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 182,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-03",
+            "name": "Human Genetics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 183,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-04",
+            "name": "Anatomy and Physiology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 184,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-05",
+            "name": "Nutritional Sciences",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 185,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-06",
+            "name": "Pathology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 186,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-07",
+            "name": "Medical Informatics and Medical Bioinformatics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 187,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-08",
+            "name": "Pharmacy",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 188,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-09",
+            "name": "Pharmacology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 189,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-10",
+            "name": "Toxicology, Laboratory Medicine",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 190,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-11",
+            "name": "Anaesthesiology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 191,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-12",
+            "name": "Cardiology, Angiology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 192,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-13",
+            "name": "Pneumology, Thoracic Surgery",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 193,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-14",
+            "name": "Hematology, Oncology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 194,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-15",
+            "name": "Gastroenterology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 195,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-16",
+            "name": "Nephrology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 196,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-17",
+            "name": "Endocrinology, Diabetology, Metabolism",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 197,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-18",
+            "name": "Rheumatology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 198,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-19",
+            "name": "Dermatology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 199,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-20",
+            "name": "Pediatric and Adolescent Medicine",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 200,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-21",
+            "name": "Gynaecology and Obstetrics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 201,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-22",
+            "name": "Clinical Immunology and Allergology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 202,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-23",
+            "name": "Reproductive Medicine, Urology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 203,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-24",
+            "name": "Biogerontology and Geriatric Medicine",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 204,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-25",
+            "name": "General and Visceral Surgery",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 205,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-26",
+            "name": "Cardiac and Vascular Surgery",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 206,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-27",
+            "name": "Orthopaedics, Traumatology, Reconstructive Surgery",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 207,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-28",
+            "name": "Dentistry, Oral Surgery",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 208,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-29",
+            "name": "Otolaryngology, Phoniatrics and Audiology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 209,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-30",
+            "name": "Radiology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 210,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-31",
+            "name": "Clinical Infectiology and Tropical Medicine",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 211,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-32",
+            "name": "Medical Physics, Biomedical Technology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 212,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.22-33",
+            "name": "Nuclear Medicine, Radiotherapy, Radiobiology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 213,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.23-01",
+            "name": "Developmental Neurobiology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 214,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.23-02",
+            "name": "Molecular Biology and Physiology of Neurons and Glial Cells",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 215,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.23-03",
+            "name": "Experimental and Theoretical Network Neuroscience",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 216,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.23-04",
+            "name": "Cognitive, Systems and Behavioural Neurobiology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 217,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.23-05",
+            "name": "Experimental Models for the Understanding of Nervous System Diseases",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 218,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.23-06",
+            "name": "Molecular and Cellular Neurology and Neuropathology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 219,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.23-07",
+            "name": "Clinical Neurology; Neurosurgery and Neuroradiology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 220,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.23-08",
+            "name": "Human Cognitive and Systems Neuroscience",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 221,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.23-09",
+            "name": "Biological Psychiatry",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 222,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.23-10",
+            "name": "Clinical Psychiatry, Psychotherapy, \nChild and Adolescent Psychiatry",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 223,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.23-11",
+            "name": "Ophthalmology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 224,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "23",
+            "name": "Agriculture, Forestry and Veterinary Medicine",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 225,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.31-01",
+            "name": "Soil Sciences",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 226,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.31-02",
+            "name": "Plant Breeding and Plant Pathology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 227,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.31-03",
+            "name": "Plant Cultivation, Plant Nutrition, Agricultural Technology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 228,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.31-04",
+            "name": "Ecology of Land Use",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 229,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.31-05",
+            "name": "Agricultural Economics, Agricultural Policy, Agricultural Sociology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 230,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.31-06",
+            "name": "Forestry",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 231,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.31-07",
+            "name": "Animal Breeding, Animal Nutrition, Animal Husbandry",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 232,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "2.31-08",
+            "name": "Veterinary Medical Science",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 233,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3",
+            "name": "Natural Sciences",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 234,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "31",
+            "name": "Chemistry",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 235,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.11-01",
+            "name": "Inorganic Molecular Chemistry - Synthesis and Characterisation",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 236,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.11-02",
+            "name": "Organic Molecular Chemistry - Synthesis and Characterisation",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 237,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.12-01",
+            "name": "Solid State and Surface Chemistry, Material Synthesis",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 238,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.12-02",
+            "name": "Physical Chemistry of Solids and Surfaces, Material Characterisation",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 239,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.13-01",
+            "name": "Physical Chemistry of Molecules, Liquids and Interfaces, Biophysical Chemistry",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 240,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.14-01",
+            "name": "Analytical Chemistry",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 241,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.15-01",
+            "name": "Biological and Biomimetic Chemistry",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 242,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.15-02",
+            "name": "Food Chemistry",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 243,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.16-01",
+            "name": "Preparatory and Physical Chemistry of Polymers",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 244,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.16-02",
+            "name": "Experimental and Theoretical Physics of Polymers",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 245,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.16-03",
+            "name": "Polymer Materials",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 246,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.17-01",
+            "name": "Theoretical Chemistry: Electron Structure, Dynamics, Simulation",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 247,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.17-02",
+            "name": "Theoretical Chemistry: Molecules, Materials, Surfaces",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 248,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "32",
+            "name": "Physics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 249,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.21-01",
+            "name": "Experimental Condensed Matter Physics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 250,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.21-02",
+            "name": "Theoretical Condensed Matter Physics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 251,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.22-01",
+            "name": "Statistical Physics, Nonlinear Dynamics, Complex Systems, Soft and Fluid Matter,  Biological Physics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 252,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.23-01",
+            "name": "Optics, Quantum Optics and Physics of Atoms, Molecules and Plasmas",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 253,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.24-01",
+            "name": "Nuclear and Elementary Particle Physics, Quantum Mechanics, Relativity, Fields",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 254,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.25-01",
+            "name": "Astrophysics and Astronomy",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 255,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "33",
+            "name": "Mathematics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 256,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.31-01",
+            "name": "Mathematics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 257,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "34",
+            "name": "Geosciences",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 258,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.41-01",
+            "name": "Atmospheric Science",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 259,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.41-02",
+            "name": "Oceanography",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 260,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.42-01",
+            "name": "Geology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 261,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.42-02",
+            "name": "Palaeontology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 262,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.43-01",
+            "name": "Geophysics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 263,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.43-02",
+            "name": "Geodesy, Photogrammetry, Remote Sensing, Geoinformatics, Cartography",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 264,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.44-01",
+            "name": "Mineralogy, Petrology and Geochemistry",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 265,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.45-01",
+            "name": "Physical Geography",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 266,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.45-02",
+            "name": "Human Geography",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 267,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "3.46-01",
+            "name": "Hydrogeology, Hydrology, Limnology, Urban Water Management, Water Chemistry, Integrated Water Resources Management ",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 268,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4",
+            "name": "Engineering Sciences",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 269,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "41",
+            "name": "Mechanical and Industrial Engineering",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 270,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.11-01",
+            "name": "Metal-Cutting and Abrasive Manufacturing Engineering",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 271,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.11-02",
+            "name": "Primary Shaping and Reshaping Technology, Additive Manufacturing",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 272,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.11-03",
+            "name": "Joining and Separation Technology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 273,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.11-04",
+            "name": "Plastics Engineering",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 274,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.11-05",
+            "name": "Production Systems, Operations Management, Quality Management and Factory Planning",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 275,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.11-06",
+            "name": "Production Automation and Assembly Technology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 276,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.12-01",
+            "name": "Engineering Design, Machine Elements, Product Development",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 277,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.12-02",
+            "name": "Mechanics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 278,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.12-03",
+            "name": "Lightweight Construction, Textile Technology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 279,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.12-04",
+            "name": "Acoustics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 280,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "42",
+            "name": "Thermal Engineering/ Process Engineering",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 281,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.21-01",
+            "name": "Chemical and Thermal Process Engineering",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 282,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.21-02",
+            "name": "Technical Chemistry",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 283,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.21-03",
+            "name": "Mechanical Process Engineering",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 284,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.21-04",
+            "name": "Biological Process Engineering",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 285,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.21-05",
+            "name": "Systems Process Engineering",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 286,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.22-01",
+            "name": "Energy Process Engineering",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 287,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.22-02",
+            "name": "Technical Thermodynamics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 288,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.22-03",
+            "name": "Fluid Mechanics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 289,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.22-04",
+            "name": "Hydraulic and Turbo Engines and Piston Engines",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 290,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "43",
+            "name": "Materials Science and Engineering",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 291,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.31-01",
+            "name": "Metallurgical, Thermal and Thermomechanical Treatment of Materials",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 292,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.31-02",
+            "name": "Materials in Sintering Processes and Generative Manufacturing Processes",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 293,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.31-03",
+            "name": "Coating and Surface Technology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 294,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.31-04",
+            "name": "Mechanical Properties of Metallic Materials and their Microstructural Origins",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 295,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.31-05",
+            "name": "Glass, Ceramics and Derived Composites",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 296,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.31-06",
+            "name": "Polymeric and Biogenic Materials and Derived Composites ",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 297,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.32-01",
+            "name": "Synthesis and Properties of Functional  Materials",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 298,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.32-02",
+            "name": "Biomaterials",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 299,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.32-03",
+            "name": "Thermodynamics and Kinetics as well as Properties of Phases and Microstructure of Materials",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 300,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.32-04",
+            "name": "Computer-Aided Design of Materials and Simulation of Materials Behaviour from Atomic to Microscopic Scale",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 301,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "44",
+            "name": "Computer Science, Systems and  Electrical Engineering",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 302,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.41-01",
+            "name": "Automation, Mechatronics, Control Systems, Intelligent Technical Systems, Robotics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 303,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.41-02",
+            "name": "Measurement Systems",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 304,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.41-03",
+            "name": "Microsystems",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 305,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.41-04",
+            "name": "Traffic and Transport Systems, Intelligent and Automated Traffic",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 306,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.41-05",
+            "name": "Human Factors, Ergonomics, Human-Machine Systems",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 307,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.41-06",
+            "name": "Biomedical Systems Technology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 308,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.42-01",
+            "name": "Electronic Semiconductors, Components and Circuits, Integrated Systems, Sensor Technology, Theoretical Electrical Engineering",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 309,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.42-02",
+            "name": "Communication Technology and Networks, High-Frequency Technology and Photonic Systems, Signal Processing and Machine Learning for Information Technology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 310,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.42-03",
+            "name": "Electrical Energy Systems, Power Management, Power Electronics, Electrical Machines and Drives",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 311,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.42-04",
+            "name": "Hardware Systems and Architectures for Information Technology and Artificial Intelligence, Quantum Engineering Systems",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 312,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.43-01",
+            "name": "Theoretical Computer Science",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 313,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.43-02",
+            "name": "Software Engineering and Programming Languages",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 314,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.43-03",
+            "name": "Security and Dependability, Operating, Communication and Distributed Systems",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 315,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.43-04",
+            "name": "Artificial Intelligence and Machine Learning Methods",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 316,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.43-05",
+            "name": "Image and Language Processing,  Computer Graphics and Visualisation, Human Computer Interaction, Ubiquitous and Wearable Computing",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 317,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.43-06",
+            "name": "Data Management, Data-Intensive Systems, Computer Science Methods in Business Informatics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 318,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.43-07",
+            "name": "Computer Architecture, Embedded and Massively Parallel Systems",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 319,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "45",
+            "name": "Construction Engineering and Architecture",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 320,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.51-01",
+            "name": "Architecture, Building and Construction History, Construction Research, Sustainable Building Technology",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 321,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.51-02",
+            "name": "Urbanism, Spatial Planning, Transportation and Infrastructure Planning, Landscape Planning",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 322,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.51-03",
+            "name": "Construction Material Sciences, Chemistry, Building Physics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 323,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.51-04",
+            "name": "Structural Engineering, Building Informatics and Construction Operation",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 324,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.51-05",
+            "name": "Applied Mechanics, Statics and Dynamics",
+            "hint": ""
+        }
+    },
+    {
+        "model": "publications.Concept",
+        "pk": 325,
+        "fields": {
+            "vocabulary_id": 2,
+            "concept_id": "4.51-06",
+            "name": "Geotechnics, Hydraulic Engineering",
+            "hint": ""
+        }
+    }
+]
