@@ -1,23 +1,13 @@
 import datetime
-from typing import TypedDict, cast
+from typing import cast
 
 from django import forms
 
 from coda.apps.formbase import CodaFormBase
-from coda.apps.publications.dto import LinkDto
+from coda.apps.publications.dto import LinkDto, PublicationMetaDto
 from coda.apps.publications.models import Concept, LinkType, Publication
 from coda.doi import Doi
 from coda.publication import License, OpenAccessType, Published, UnpublishedState
-
-
-class PublicationFormData(TypedDict):
-    title: str
-    license: str
-    publication_type: str
-    open_access_type: str
-    publication_state: str
-    online_publication_date: str
-    print_publication_date: str
 
 
 class PublicationForm(CodaFormBase):
@@ -62,8 +52,8 @@ class PublicationForm(CodaFormBase):
             self.add_error("online_publication_date", str(err))
             self.add_error("print_publication_date", str(err))
 
-    def get_form_data(self) -> PublicationFormData:
-        return PublicationFormData(
+    def get_form_data(self) -> PublicationMetaDto:
+        return PublicationMetaDto(
             title=self.cleaned_data["title"],
             license=self.cleaned_data["license"],
             publication_type=self.cleaned_data["publication_type"],

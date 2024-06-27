@@ -50,16 +50,11 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
     funder = modelfactory.funding_organization()
 
     author_dto = dtofactory.author_dto(modelfactory.institution().pk)
-    journal_post_data = {"journal": journal_id}
-
     publication_dto = dtofactory.publication_dto(journal_id, concept_id=concept.concept_id)
-    pub_post_data = publication_post_data(publication_dto)
     external_funding = dtofactory.external_funding_dto(funder.pk)
     cost_dto = dtofactory.cost_dto()
 
-    response = submit_wizard(
-        client, author_dto, journal_post_data, pub_post_data, external_funding, cost_dto
-    )
+    response = submit_wizard(client, author_dto, publication_dto, external_funding, cost_dto)
 
     expected = FundingRequest.new(
         parse_publication(publication_dto),
@@ -101,20 +96,19 @@ def test__updating_fundingrequest_publication__updates_funding_request_and_shows
     new_journal_id = modelfactory.journal().pk
     fr_id = save_new_fundingrequest(journal_id)
 
-    publication_data = dtofactory.publication_dto(new_journal_id, concept_id=concept.concept_id)
-    pub_post_data = publication_post_data(publication_data)
+    publication_dto = dtofactory.publication_dto(new_journal_id, concept_id=concept.concept_id)
     journal_post_data = {"journal": new_journal_id}
 
     client.post(
         reverse("fundingrequests:update_publication", kwargs={"pk": fr_id}),
-        next() | pub_post_data,
+        next() | as_form_data(publication_dto),
     )
     response = client.post(
         reverse("fundingrequests:update_publication", kwargs={"pk": fr_id}),
         next() | journal_post_data,
     )
 
-    expected = parse_publication(publication_data)
+    expected = parse_publication(publication_dto)
     actual = repository.get_by_id(fr_id).publication
     assert_publication_eq(actual, expected)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
@@ -167,37 +161,33 @@ def next() -> dict[str, str]:
 def submit_wizard(
     client: Client,
     author: AuthorDto,
-    journal: dict[str, int],
-    publication_post_data: dict[str, Any],
+    publication: PublicationDto,
     external_funding: ExternalFundingDto,
     cost: CostDto,
 ) -> HttpResponse:
     client.post(reverse("fundingrequests:create_wizard"), next() | author)
-    client.post(reverse("fundingrequests:create_wizard"), next() | journal)
-    client.post(reverse("fundingrequests:create_wizard"), next() | publication_post_data)
+    client.post(
+        reverse("fundingrequests:create_wizard"),
+        next() | {"journal": publication["journal"]["journal_id"]},
+    )
+    client.post(reverse("fundingrequests:create_wizard"), next() | as_form_data(publication))
     return cast(
         HttpResponse,
         client.post(reverse("fundingrequests:create_wizard"), next() | external_funding | cost),
     )
 
 
-def publication_post_data(publication: PublicationDto) -> dict[str, Any]:
+def as_form_data(publication: PublicationDto) -> dict[str, Any]:
+    meta = publication["meta"]
+    meta["online_publication_date"] = meta["online_publication_date"] or ""
+    meta["print_publication_date"] = meta["print_publication_date"] or ""
+
+    # NOTE: authors are submitted as a single string from a textarea
+    authors = ",".join(publication["authors"])
+
     link_form_data: dict[str, list[str]] = {"link_type": [], "link_value": []}
     for link in publication["links"]:
         link_form_data["link_type"].append(str(link["link_type"]))
         link_form_data["link_value"].append(str(link["link_value"]))
 
-    publication_form_data = dict(publication)
-    publication_form_data.pop("links")
-    publication_form_data.pop("authors")
-    publication_form_data.pop("journal")
-    publication_form_data.update(
-        online_publication_date=publication["online_publication_date"] or "",
-        print_publication_date=publication["print_publication_date"] or "",
-    )
-
-    # NOTE: authors are submitted as a single string from a textarea
-    authors = ",".join(publication["authors"])
-    authors_form_data = {"authors": authors}
-
-    return publication_form_data | link_form_data | authors_form_data
+    return meta | {"authors": authors} | link_form_data

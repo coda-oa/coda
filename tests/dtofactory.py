@@ -1,11 +1,11 @@
 import random
-from typing import Any, cast
+from typing import TypedDict
 
 import faker
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
-from coda.apps.publications.dto import LinkDto, PublicationDto
+from coda.apps.publications.dto import JournalDto, LinkDto, PublicationDto, PublicationMetaDto
 from coda.fundingrequest import PaymentMethod
 from coda.publication import Published, UnpublishedState
 from tests.domainfactory import (
@@ -32,36 +32,51 @@ def author_dto(affiliation_id: int | None = None) -> AuthorDto:
 def publication_dto(
     journal: int, /, title: str = "", concept_id: str = "", links: list[LinkDto] | None = None
 ) -> PublicationDto:
-    state = random.choice([_unpublished_data(), _published_data()])
-    return cast(
-        PublicationDto,
-        {
-            "title": title or _faker.sentence(),
-            "authors": list(random_authorlist()),
-            "license": random_license().name,
-            "publication_type": concept_id,
-            "open_access_type": random_open_access_type().name,
-            "journal": journal,
-            "links": links or link_dtos(),
-            **state,
-        },
+    return PublicationDto(
+        meta=publication_meta_dto(title, concept_id),
+        authors=list(random_authorlist()),
+        journal=JournalDto({"journal_id": journal}),
+        links=links or link_dtos(),
     )
 
 
-def _unpublished_data() -> dict[str, Any]:
-    return {
-        "publication_state": random.choice([s.name for s in UnpublishedState]),
-        "online_publication_date": None,
-        "print_publication_date": None,
-    }
+def publication_meta_dto(title: str = "", concept_id: str = "") -> PublicationMetaDto:
+    state = random.choice([_unpublished_data(), _published_data()])
+    return PublicationMetaDto(
+        {
+            "title": title or _faker.sentence(),
+            "license": random_license().name,
+            "publication_type": concept_id,
+            "open_access_type": random_open_access_type().name,
+            **state,
+        }
+    )
 
 
-def _published_data() -> dict[str, Any]:
-    return {
-        "publication_state": Published.name(),
-        "online_publication_date": _faker.date(),
-        "print_publication_date": _faker.date(),
-    }
+class State(TypedDict):
+    publication_state: str
+    online_publication_date: str | None
+    print_publication_date: str | None
+
+
+def _unpublished_data() -> State:
+    return State(
+        {
+            "publication_state": random.choice([s.name for s in UnpublishedState]),
+            "online_publication_date": None,
+            "print_publication_date": None,
+        }
+    )
+
+
+def _published_data() -> State:
+    return State(
+        {
+            "publication_state": Published.name(),
+            "online_publication_date": _faker.date(),
+            "print_publication_date": _faker.date(),
+        }
+    )
 
 
 def external_funding_dto(organization: int) -> ExternalFundingDto:

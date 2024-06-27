@@ -26,7 +26,7 @@ class LinkDto(TypedDict):
     link_value: str
 
 
-class PublicationDto(TypedDict):
+class PublicationMetaDto(TypedDict):
     title: str
     publication_type: str
     open_access_type: str
@@ -34,29 +34,40 @@ class PublicationDto(TypedDict):
     publication_state: str
     online_publication_date: str | None
     print_publication_date: str | None
+
+
+class JournalDto(TypedDict):
+    journal_id: int
+
+
+class PublicationDto(TypedDict):
+    meta: PublicationMetaDto
+    journal: JournalDto
     links: list[LinkDto]
-    journal: int
     authors: list[str]
 
 
-def parse_publication(publication: PublicationDto, id: PublicationId | None = None) -> Publication:
+def parse_publication(
+    publication_dto: PublicationDto, id: PublicationId | None = None
+) -> Publication:
+    publication = publication_dto["meta"]
     return Publication(
         id=id,
         title=NonEmptyStr(publication["title"]),
-        authors=AuthorList(publication["authors"]),
         license=License[publication["license"]],
         publication_type=PublicationType(publication["publication_type"]),
         open_access_type=OpenAccessType[publication["open_access_type"]],
         publication_state=_parse_state(publication),
+        authors=AuthorList(publication_dto["authors"]),
         links={
             services.get_link(link["link_type"], link["link_value"])
-            for link in publication["links"]
+            for link in publication_dto["links"]
         },
-        journal=JournalId(publication["journal"]),
+        journal=JournalId(publication_dto["journal"]["journal_id"]),
     )
 
 
-def _parse_state(publication: PublicationDto) -> PublicationState:
+def _parse_state(publication: PublicationMetaDto) -> PublicationState:
     state = publication["publication_state"]
     publication_state: PublicationState
     if state == Published.name():
@@ -99,14 +110,16 @@ def to_link_dto(link: Link) -> LinkDto:
 def to_publication_dto(publication: Publication) -> PublicationDto:
     online_pub_date, print_pub_date = _dates_from_publication_state(publication.publication_state)
     return PublicationDto(
-        title=publication.title,
-        authors=list(publication.authors),
-        license=publication.license.name,
-        publication_type=publication.publication_type,
-        open_access_type=publication.open_access_type.name,
-        publication_state=publication.publication_state.name(),
-        online_publication_date=online_pub_date,
-        print_publication_date=print_pub_date,
+        meta=PublicationMetaDto(
+            title=publication.title,
+            license=publication.license.name,
+            publication_type=publication.publication_type,
+            open_access_type=publication.open_access_type.name,
+            publication_state=publication.publication_state.name(),
+            online_publication_date=online_pub_date,
+            print_publication_date=print_pub_date,
+        ),
+        journal=JournalDto(journal_id=publication.journal),
         links=[to_link_dto(link) for link in publication.links],
-        journal=publication.journal,
+        authors=list(publication.authors),
     )
