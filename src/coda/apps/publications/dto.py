@@ -1,5 +1,5 @@
 import datetime
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 from coda.apps.publications import services
 from coda.author import AuthorList
@@ -50,6 +50,9 @@ class PublicationDto(TypedDict):
 def parse_publication(
     publication_dto: PublicationDto, id: PublicationId | None = None
 ) -> Publication:
+    """
+    Tries to parse a Publication from a PublicationDto.
+    """
     publication = publication_dto["meta"]
     return Publication(
         id=id,
@@ -67,28 +70,45 @@ def parse_publication(
     )
 
 
+DateKey = Literal["online_publication_date", "print_publication_date"]
+
+
 def _parse_state(publication: PublicationMetaDto) -> PublicationState:
     state = publication["publication_state"]
     publication_state: PublicationState
-    if state == Published.name():
-        online_date = (
-            datetime.date.fromisoformat(publication["online_publication_date"])
-            if publication["online_publication_date"]
-            else None
-        )
-        print_date = (
-            datetime.date.fromisoformat(publication["print_publication_date"])
-            if publication["print_publication_date"]
-            else None
-        )
 
+    def __parse_date(key: DateKey) -> datetime.date | None:
+        date_str = publication[key]
+        return datetime.date.fromisoformat(date_str) if date_str else None
+
+    if state == Published.name():
+        online_date = __parse_date("online_publication_date")
+        print_date = __parse_date("print_publication_date")
         publication_state = Published(online_date, print_date)
     else:
         publication_state = Unpublished(state=UnpublishedState[state])
     return publication_state
 
 
-def _dates_from_publication_state(publication_state: PublicationState) -> tuple[str, str]:
+def to_publication_dto(publication: Publication) -> PublicationDto:
+    online_pub_date, print_pub_date = _publication_dates_as_str(publication.publication_state)
+    return PublicationDto(
+        meta=PublicationMetaDto(
+            title=publication.title,
+            license=publication.license.name,
+            publication_type=publication.publication_type,
+            open_access_type=publication.open_access_type.name,
+            publication_state=publication.publication_state.name(),
+            online_publication_date=online_pub_date,
+            print_publication_date=print_pub_date,
+        ),
+        journal=JournalDto(journal_id=publication.journal),
+        links=[to_link_dto(link) for link in publication.links],
+        authors=list(publication.authors),
+    )
+
+
+def _publication_dates_as_str(publication_state: PublicationState) -> tuple[str, str]:
     match publication_state:
         case Published(online, print_date):
             return (
@@ -105,21 +125,3 @@ def to_link_dto(link: Link) -> LinkDto:
             return LinkDto(link_type=type, link_value=value)
         case Doi(value):
             return LinkDto(link_type="DOI", link_value=value)
-
-
-def to_publication_dto(publication: Publication) -> PublicationDto:
-    online_pub_date, print_pub_date = _dates_from_publication_state(publication.publication_state)
-    return PublicationDto(
-        meta=PublicationMetaDto(
-            title=publication.title,
-            license=publication.license.name,
-            publication_type=publication.publication_type,
-            open_access_type=publication.open_access_type.name,
-            publication_state=publication.publication_state.name(),
-            online_publication_date=online_pub_date,
-            print_publication_date=print_pub_date,
-        ),
-        journal=JournalDto(journal_id=publication.journal),
-        links=[to_link_dto(link) for link in publication.links],
-        authors=list(publication.authors),
-    )
