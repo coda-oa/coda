@@ -40,3 +40,4 @@ def assert_invoice_eq(expected: Invoice, actual: Invoice) -> None:
     assert expected.number == actual.number
     assert expected.creditor == actual.creditor
     assert expected.positions == actual.positions
+    assert expected.status == actual.status

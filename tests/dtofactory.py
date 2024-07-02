@@ -55,16 +55,16 @@ def publication_meta_dto(title: str = "", concept_id: str = "") -> PublicationMe
 
 class State(TypedDict):
     publication_state: str
-    online_publication_date: str | None
-    print_publication_date: str | None
+    online_publication_date: str
+    print_publication_date: str
 
 
 def _unpublished_data() -> State:
     return State(
         {
             "publication_state": random.choice([s.name for s in UnpublishedState]),
-            "online_publication_date": None,
-            "print_publication_date": None,
+            "online_publication_date": "",
+            "print_publication_date": "",
         }
     )
 

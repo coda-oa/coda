@@ -32,8 +32,8 @@ class PublicationMetaDto(TypedDict):
     open_access_type: str
     license: str
     publication_state: str
-    online_publication_date: str | None
-    print_publication_date: str | None
+    online_publication_date: str
+    print_publication_date: str
 
 
 class JournalDto(TypedDict):

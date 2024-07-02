@@ -45,6 +45,12 @@ T = TypeVar("T", bound=ItemType, covariant=True)
 Positions = Iterable["Position[ItemType]"]
 
 
+class PaymentStatus(enum.Enum):
+    Paid = "paid"
+    Unpaid = "unpaid"
+    Rejected = "rejected"
+
+
 class Position(NamedTuple, Generic[T]):
     item: T
     cost: Money
@@ -60,6 +66,7 @@ class Invoice:
     date: datetime.date
     creditor: CreditorId
     positions: Positions
+    status: PaymentStatus = PaymentStatus.Unpaid
     comment: str = ""
 
     @classmethod
@@ -69,9 +76,10 @@ class Invoice:
         date: datetime.date,
         creditor: CreditorId,
         positions: Positions,
+        status: PaymentStatus = PaymentStatus.Unpaid,
         comment: str = "",
     ) -> Self:
-        return cls(None, number, date, creditor, positions, comment)
+        return cls(None, number, date, creditor, positions, status, comment)
 
     def _get_currency(self) -> Currency:
         if not self.positions:
