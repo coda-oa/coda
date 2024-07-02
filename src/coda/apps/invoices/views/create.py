@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 import datetime
 from typing import Any
 
@@ -19,15 +18,9 @@ DEFAULT_TAX_RATE_PERCENTAGE = 19
 @login_required
 def create_invoice(request: HttpRequest) -> HttpResponse:
     if request.POST.get("action") == "create":
-        new_id = save_invoice(request)
-        if new_id:
+        if new_id := save_invoice(request):
             return redirect("invoices:detail", pk=new_id)
 
-    publications = search_publications(request)
-    positions = assemble_positions(request)
-
-    currency = Currency.from_code(request.POST.get("currency", "EUR"))
-    _tmp_invoice = temp_invoice(positions, currency)
     return render(
         request,
         "invoices/create.html",
@@ -35,10 +28,7 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
             "form": InvoiceForm(request.POST if request.POST else None),
             "currencies": list(Currency),
             "cost_types": [ct.value for ct in CostType],
-            "publications": [search_result_for(pub) for pub in publications],
-            "positions": positions,
-            "tax": _tmp_invoice.tax().amount,
-            "total": _tmp_invoice.total().amount,
+            "positions": existing_positions(request),
         },
     )
 
@@ -89,26 +79,80 @@ def parse_into_position_list(positions: list[dict[str, Any]], currency: Currency
     ]
 
 
-def search_publications(request: HttpRequest) -> Iterable[Publication]:
+@login_required
+def search_publications(request: HttpRequest) -> HttpResponse:
     query = request.POST.get("q", "")
     if query:
-        return Publication.objects.filter(title__icontains=query)
+        publications = Publication.objects.filter(title__icontains=query)
     else:
-        return Publication.objects.none()
+        publications = Publication.objects.none()
+
+    search_results = [search_result_for(pub) for pub in publications]
+    return render(request, "invoices/search_publications.html", {"publications": search_results})
+
+
+@login_required
+def add_position(request: HttpRequest) -> HttpResponse:
+    positions = assemble_positions(request)
+
+    return render(
+        request,
+        "invoices/invoice_positions.html",
+        {"positions": positions, "cost_types": [ct.value for ct in CostType]}
+        | invoice_total_context(positions, request.POST.get("currency", "EUR")),
+    )
+
+
+@login_required
+def remove_position(request: HttpRequest) -> HttpResponse:
+    positions = existing_positions(request)
+    if remove_position := request.POST.get("remove-position"):
+        positions.pop(int(remove_position) - 1)
+
+    return render(
+        request,
+        "invoices/invoice_positions.html",
+        {"positions": positions, "cost_types": [ct.value for ct in CostType]}
+        | invoice_total_context(positions, request.POST.get("currency", "EUR")),
+    )
+
+
+@login_required
+def get_total(request: HttpRequest) -> HttpResponse:
+    return render(
+        request,
+        "invoices/invoice_positions.html",
+        {
+            "positions": existing_positions(request),
+            "cost_types": [ct.value for ct in CostType],
+        }
+        | invoice_total_context(assemble_positions(request), request.POST.get("currency", "EUR")),
+    )
+
+
+def invoice_total_context(positions: list[dict[str, Any]], currency: str) -> dict[str, Any]:
+    _currency = Currency.from_code(currency)
+    _tmp_invoice = temp_invoice(positions, _currency)
+    return {
+        "tax": _tmp_invoice.tax().amount,
+        "total": _tmp_invoice.total().amount,
+    }
 
 
 def assemble_positions(request: HttpRequest) -> list[dict[str, Any]]:
-    number_of_positions = int(request.POST.get("number-of-positions", 0))
-    positions = [parse_position_data(request, i) for i in range(1, number_of_positions + 1)]
+    positions = existing_positions(request)
     if free_position := parse_added_free_position(request):
         positions.append(free_position)
 
     if new_publication_position := parse_added_publication_position(request):
         positions.append(new_publication_position)
 
-    if remove_position := request.POST.get("remove-position"):
-        positions.pop(int(remove_position) - 1)
+    return positions
 
+
+def existing_positions(request: HttpRequest) -> list[dict[str, Any]]:
+    number_of_positions = int(request.POST.get("number-of-positions", 0))
+    positions = [parse_position_data(request, i) for i in range(1, number_of_positions + 1)]
     return positions
 
 

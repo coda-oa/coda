@@ -12,7 +12,7 @@ from pytest_django.asserts import assertRedirects
 from coda.apps.invoices.services import get_by_id
 from coda.apps.invoices.views.create import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.apps.publications.models import Publication
-from coda.invoice import CostType, CreditorId, Invoice, InvoiceId, Position, TaxRate
+from coda.invoice import CostType, CreditorId, Invoice, InvoiceId, PaymentStatus, Position, TaxRate
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 from tests import modelfactory
@@ -28,7 +28,7 @@ def test__searching_for_publication__returns_matches_in_response(client: Client)
     response = search(client, fr.publication.title)
 
     expected_context = expect_search_result(fr.publication)
-    assert expected_context in response.context["publications"]
+    assert [expected_context] == response.context["publications"]
 
 
 @pytest.mark.django_db
@@ -40,14 +40,14 @@ def test__add_publication_as_position__returns_position_in_response(client: Clie
     response = add_publication_position(client, publication.id)
 
     expected = expect_new_publication_position(publication)
-    assert expected in response.context["positions"]
+    assert [expected] == response.context["positions"]
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__add_free_position__returns_position_in_response(client: Client) -> None:
     position_data = new_free_position_data()
-    response = client.post(reverse("invoices:create"), position_data)
+    response = client.post(reverse("invoices:add_position"), position_data)
 
     expected = expect_new_free_position(position_data)
     assert expected in response.context["positions"]
@@ -87,7 +87,9 @@ def test__given_position_added__removing_position__position_removed_from_respons
         | create_publication_position_input(second, 2)
     )
 
-    response = client.post(reverse("invoices:create"), position_data | {"remove-position": "1"})
+    response = client.post(
+        reverse("invoices:remove_position"), position_data | {"remove-position": "1"}
+    )
 
     assert response.context["positions"] == [expect_existing_publication_position(position_data, 2)]
 
@@ -107,6 +109,7 @@ def test__given_positions_added__create__saves_new_invoice(client: Client) -> No
             "number": _faker.pystr(),
             "date": _faker.date(),
             "creditor": creditor.id,
+            "status": PaymentStatus.Unpaid.value,
             "currency": Currency.EUR.code,
         }
         | number_of_positions(2)
@@ -155,7 +158,7 @@ def search(
 ) -> TemplateResponse:
     return cast(
         TemplateResponse,
-        client.post(reverse("invoices:create"), {"q": title} | (other_post_data or {})),
+        client.post(reverse("invoices:pub_search"), {"q": title} | (other_post_data or {})),
     )
 
 
@@ -165,7 +168,8 @@ def add_publication_position(
     return cast(
         TemplateResponse,
         client.post(
-            reverse("invoices:create"), {"add-publication-position": id} | (other_post_data or {})
+            reverse("invoices:add_position"),
+            {"add-publication-position": id} | (other_post_data or {}),
         ),
     )
 

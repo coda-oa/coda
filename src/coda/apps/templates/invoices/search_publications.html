@@ -1,0 +1,47 @@
+<div id="publication-search">
+    <h3>Search Publications</h3>
+    <div role="group">
+        <input type="search"
+               name="q"
+               placeholder="Search publications"
+               value="{{ request.POST.q }}"
+               class="flex-6">
+        <button type="button"
+                name="action"
+                value="search"
+                class="flex-1 pill"
+                hx-post="{% url 'invoices:pub_search' %}"
+                hx-target="#publication-search"
+                hx-swap="outerHTML">Search</button>
+    </div>
+    {% if publications %}
+        <table class="article__table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Related Funding Request</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for publication in publications %}
+                    <tr>
+                        <td>{{ publication.title }}</td>
+                        <td>
+                            <a href="{{ publication.funding_request.url }}">{{ publication.funding_request.request_id }}</a>
+                        </td>
+                        <td>
+                            <button type="button"
+                                    class="outline secondary"
+                                    name="add-publication-position"
+                                    value="{{ publication.id }}"
+                                    hx-post="{% url 'invoices:add_position' %}"
+                                    hx-target="#positions"
+                                    hx-swap="outerHTML">Add</button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</div>

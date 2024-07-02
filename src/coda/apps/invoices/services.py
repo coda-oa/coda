@@ -7,6 +7,7 @@ from coda.invoice import (
     Invoice,
     InvoiceId,
     ItemType,
+    PaymentStatus,
     Position,
     TaxRate,
 )
@@ -24,6 +25,7 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
         date=model.date,
         number=model.number,
         creditor=CreditorId(model.creditor_id),
+        status=PaymentStatus(model.status),
         positions=[
             Position(
                 item=(
@@ -52,6 +54,7 @@ def invoice_create(invoice: Invoice) -> InvoiceId:
         date=invoice.date,
         creditor_id=invoice.creditor,
         comment=invoice.comment,
+        status=invoice.status.value,
     )
 
     def _create_position(pos: Position[ItemType]) -> PositionModel:
@@ -68,7 +71,6 @@ def invoice_create(invoice: Invoice) -> InvoiceId:
                     invoice_id=m.id,
                 )
             case str(description):
-                print("We got a description")
                 return PositionModel(
                     description=description,
                     cost_amount=pos.cost.amount,

@@ -1,0 +1,48 @@
+<article>
+    <h2>Add Positions</h2>
+    <table class="article__table">
+        <thead>
+            <tr>
+                <th class="invoice-add-position-name-column">Position</th>
+                <th class="invoice-position-cost-type-column">Cost Type</th>
+                <th class="invoice-position-cost-column">Amount</th>
+                <th class="invoice-position-tax-column">Tax Rate %</th>
+                <th class="invoice-position-request-link-column"></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <input type="text" name="free-position-description">
+                </td>
+                <td>
+                    <select name="free-position-cost-type">
+                        {% for type in cost_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <input type="number" name="free-position-cost" value="0" step="0.0001">
+                </td>
+                <td>
+                    <input type="number"
+                           name="free-position-taxrate"
+                           value="0"
+                           min="0"
+                           max="100">
+                </td>
+                <td></td>
+                <td>
+                    <button type="submit"
+                            class="outline secondary invoice-position-add-button"
+                            name="action"
+                            value="add-free-position"
+                            hx-post="{% url 'invoices:add_position' %}"
+                            hx-target="#positions"
+                            hx-swap="outerHTML">Add</button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    {% include "invoices/search_publications.html" %}
+</article>

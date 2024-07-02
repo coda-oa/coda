@@ -22,6 +22,7 @@ class Invoice(models.Model):
     creditor = models.ForeignKey(Creditor, on_delete=models.CASCADE)
     date = models.DateField()
     number = models.CharField(max_length=255)
+    status = models.CharField(max_length=255, default="unpaid")
     comment = models.TextField(blank=True)
 
     def get_absolute_url(self) -> str:
