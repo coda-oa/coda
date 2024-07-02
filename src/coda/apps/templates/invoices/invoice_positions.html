@@ -112,6 +112,7 @@
                                 value="update-vat"
                                 hx-post="{% url 'invoices:get_total' %}"
                                 hx-target="#positions"
+                                hx-trigger="change from:#positions__list input[type=number]"
                                 hx-swap="outerHTML">Calculate</button>
                     </td>
                 </tr>
