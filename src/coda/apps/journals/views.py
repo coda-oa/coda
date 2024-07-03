@@ -1,10 +1,12 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models.query import QuerySet
 from django.forms.utils import ErrorList
 from django.http import HttpResponse
 from django.views.generic import CreateView, DetailView, ListView
 
 from coda.apps.journals.forms import JournalForm
 from coda.apps.journals.models import Journal
+from coda.apps.journals.services import find_by_title
 
 
 class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
@@ -19,6 +21,13 @@ journal_detail_view = JournalDetailView.as_view()
 class JournalListView(LoginRequiredMixin, ListView[Journal]):
     model = Journal
     paginate_by = 20
+
+    def get_queryset(self) -> QuerySet[Journal]:
+        search_term = self.request.GET.get("search_term", "")
+        if search_term:
+            return find_by_title(search_term)
+
+        return Journal.objects.all()
 
 
 journal_list_view = JournalListView.as_view()

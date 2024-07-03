@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404
 from coda.apps.authors.forms import AuthorForm
 from coda.apps.fundingrequests.forms import CostForm, ExternalFundingForm
 from coda.apps.journals.models import Journal
+from coda.apps.journals.services import find_by_title
 from coda.apps.publications.forms import LinkForm, PublicationForm
 from coda.apps.publications.models import LinkType
 from coda.apps.wizard import FormStep, Step, Store
@@ -60,7 +61,7 @@ class JournalStep(Step):
         title = request.POST.get("journal_title", None)
         journal_id = store.get("journal", None)
         if title:
-            journals = Journal.objects.filter(title__icontains=title).order_by("title")
+            journals = find_by_title(title)
             ctx["journals"] = journals
             ctx["journal_title"] = title
         elif journal_id:

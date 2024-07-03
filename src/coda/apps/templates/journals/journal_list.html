@@ -7,6 +7,15 @@
         <h1>Journals</h1>
         <a href="{% url "journals:create" %}" role="button" class="secondary">New</a>
     </div>
+    <form method="get">
+        <div role="group">
+            <input type="search"
+                   name="search_term"
+                   placeholder="Search journals..."
+                   value="{{ request.GET.search_term }}">
+            <button type="submit" class="inline-search-pill">Search</button>
+        </div>
+    </form>
     {% include "partials/pagination_nav.html" %}
     <ul class="no-decoration grid-container">
         {% for journal in page_obj %}
