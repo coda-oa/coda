@@ -1,3 +1,4 @@
+{% load param_replace %}
 <div class="my-2">
     {% if page_obj.number > 1 %}
         <a class="mr-1" href="?page=1">«</a>
@@ -5,18 +6,23 @@
         <a class="mr-1 pagination__disabled" disabled>«</a>
     {% endif %}
     {% if page_obj.has_previous %}
-        <a class="mr-1" href="?page={{ page_obj.previous_page_number }}">‹</a>
+        {% comment %} <a class="mr-1" href="?page={{ page_obj.previous_page_number }}">‹</a> {% endcomment %}
+        <a class="mr-1"
+           href="?{% param_replace page=page_obj.previous_page_number %}">‹</a>
     {% else %}
         <a class="mr-1 pagination__disabled" disabled>‹</a>
     {% endif %}
     <span class="mr-1 pagination__current">{{ page_obj.number }}</span>
     {% if page_obj.has_next %}
-        <a class="mr-1" href="?page={{ page_obj.next_page_number }}">›</a>
+        {% comment %} <a class="mr-1" href="?page={{ page_obj.next_page_number }}">›</a> {% endcomment %}
+        <a class="mr-1"
+           href="?{% param_replace page=page_obj.next_page_number %}">›</a>
     {% else %}
         <a class="mr-1 pagination__disabled" disabled>›</a>
     {% endif %}
     {% if page_obj.number < page_obj.paginator.num_pages %}
-        <a href="?page={{ page_obj.paginator.num_pages }}">»</a>
+        {% comment %} <a href="?page={{ page_obj.paginator.num_pages }}">»</a> {% endcomment %}
+        <a href="?{% param_replace page=page_obj.paginator.num_pages %}">»</a>
     {% else %}
         <a class="pagination__disabled" disabled>»</a>
     {% endif %}

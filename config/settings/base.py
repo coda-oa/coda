@@ -186,6 +186,7 @@ TEMPLATES = [
             ],
             "libraries": {
                 "getlist": "coda.apps.templatetags.getlist",
+                "param_replace": "coda.apps.templatetags.param_replace",
             },
         },
     }
