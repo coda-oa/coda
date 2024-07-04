@@ -62,7 +62,7 @@ class Command(BaseCommand):
         return journals
 
     def clean_eissn(self, df: pl.DataFrame) -> pl.DataFrame:
-        return df.drop_nulls("e_issn").with_columns(pl.col("e_issn").str.strip())
+        return df.drop_nulls("e_issn").with_columns(pl.col("e_issn").str.strip_chars())
 
     def find_existing(self, df: pl.DataFrame) -> set[str]:
         eissn_series = df["e_issn"].unique()
