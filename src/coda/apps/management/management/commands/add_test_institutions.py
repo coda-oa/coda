@@ -19,7 +19,7 @@ class Command(BaseCommand):
         Institution.objects.all().delete()
 
         df = pl.read_csv(INSTITUTIONS_LINK, separator=";")
-        df = df.with_columns(pl.col("Alias").str.strip())
+        df = df.with_columns(pl.col("Alias").str.strip_chars())
 
         alias_to_institution = {}
 
