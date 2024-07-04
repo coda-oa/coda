@@ -9,7 +9,7 @@
                        name="labels"
                        value="{{ label.pk }}"
                        {% if label.pk|stringformat:"i" in request.GET|getlist:"labels" %}checked{% endif %}>
-                <label class="label pill"
+                <label class="label"
                        for="label-{{ label.pk }}"
                        style="--label-bg-color: {{ label.hexcolor }};
                               --label-border-color: {{ label.hexcolor }};

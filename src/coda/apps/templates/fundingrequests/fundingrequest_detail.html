@@ -12,181 +12,179 @@
             {% endif %}
         </small>
     </h1>
-    <div class="flex align-center wrap justify-between">
-        <h2>Labels</h2>
-        <div class="flex align-center">{% include "fundingrequests/forms/label_attach.html" %}</div>
-    </div>
-    <div class="flex justify-between mt-1 mb-2">
-        <div class="flex align-center wrap overflow-scroll">
-            {% for label in funding_request.labels %}
-                {% include "fundingrequests/forms/label.html" %}
-            {% endfor %}
-        </div>
-    </div>
-    <div>
-        <article>
-            <header class="flex justify-between align-center">
-                <h2 class="fundingrequest__detail-title">Request Details</h2>
-                <a href="{% url "fundingrequests:update_submitter" pk=funding_request.id %}"
-                   role="button">Edit</a>
-            </header>
-            <table class="article__table fundingrequest-table">
-                <tbody>
-                    <tr>
-                        <th>Request ID</th>
-                        <td>{{ funding_request.request_id }}</td>
-                        <td></td>
-                    </tr>
-                    <tr>
-                        <th>Request Submitter</th>
-                        <td>
-                            <p>{{ submitter.name }}</p>
-                            <p>{{ submitter.affiliation }}</p>
-                            <p>
-                                {% for role in submitter.roles %}<span>{{ role }}</span>{% endfor %}
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Created at</th>
-                        <td>{{ funding_request.created_at }}</td>
-                    </tr>
-                    <tr>
-                        <th>Last updated at</th>
-                        <td>{{ funding_request.updated_at }}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </article>
-        <article>
-            <header class="flex justify-between align-center">
-                <h2 class="fundingrequest__detail-title">Publication Details</h2>
-                <a href="{% url "fundingrequests:update_publication" pk=funding_request.id %}"
-                   role="button">Edit</a>
-            </header>
-            <table class="article__table fundingrequest-table">
-                <tbody>
-                    <tr>
-                        <th>Title</th>
-                        <td>{{ publication.title }}</td>
-                    </tr>
-                    <tr>
-                        <th>Publication State</th>
-                        <td>{{ publication.publication_state }}</td>
-                    </tr>
-                    <tr>
-                        <th>Journal</th>
-                        <td>{{ publication.journal_title }}</td>
-                    </tr>
-                    <tr>
-                        <th>Authors</th>
-                        <td>{{ publication.authors|join:", " }}</td>
-                    </tr>
-                    <tr>
-                        <th>License</th>
-                        <td>{{ publication.license }}</td>
-                    </tr>
-                    <tr>
-                        <th>Publication Type</th>
-                        <td>{{ publication.publication_type }}</td>
-                    </tr>
-                    <tr>
-                        <th>Open Access Type</th>
-                        <td>{{ publication.oa_type }}</td>
-                    </tr>
-                    <tr>
-                        <th>Publisher</th>
-                        <td>{{ publication.publisher_name }}</td>
-                    </tr>
-                    <tr>
-                        <th>Contracts</th>
-                        <td>
-                            {% for contract in publication.contracts %}
-                                <p>
-                                    <a href="{% url "contracts:detail" pk=contract.pk %}">{{ contract.name }}</a>
-                                </p>
-                            {% endfor %}
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            {% if publication.references %}
-                <h3 class="mt-1">References</h3>
-                <table class="article__table">
-                    <thead>
-                        <tr>
-                            <th>Link Type</th>
-                            <th>Link</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for link in publication.references %}
-                            <tr>
-                                <td>{{ link.type }}</td>
-                                <td>
-                                    <a href="{{ link.value }}">{{ link.value }}</a>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% endif %}
-        </article>
-        <article>
-            <header class="flex justify-between align-center">
-                <h2 class="fundingrequest__detail-title">Costs and Funding</h2>
-                <a href="{% url "fundingrequests:update_funding" pk=funding_request.id %}"
-                   role="button">Edit</a>
-            </header>
-            <table class="article__table fundingrequest-table">
-                <tbody>
-                    <tr>
-                        <th>Estimated Cost</th>
-                        <td>{{ funding_request.estimated_cost.amount }} {{ funding_request.estimated_cost.currency.code }}</td>
-                    </tr>
-                </tbody>
-            </table>
-            {% if external_funding %}
-                <h3 class="mt-1_5">Third party funding</h3>
+    <div class="grid col-2">
+        <div>
+            <article>
+                <header class="flex justify-between align-center">
+                    <h2 class="fundingrequest__detail-title">Request Details</h2>
+                    <a href="{% url "fundingrequests:update_submitter" pk=funding_request.id %}"
+                       role="button">Edit</a>
+                </header>
                 <table class="article__table fundingrequest-table">
                     <tbody>
                         <tr>
-                            <th>Organization</th>
-                            <td>{{ external_funding.organization }}</td>
+                            <th>Request ID</th>
+                            <td>{{ funding_request.request_id }}</td>
+                            <td></td>
                         </tr>
                         <tr>
-                            <th>Project ID</th>
-                            <td>{{ external_funding.project_id }}</td>
+                            <th>Request Submitter</th>
+                            <td>
+                                <p>{{ submitter.name }}</p>
+                                <p>{{ submitter.affiliation }}</p>
+                                <p>
+                                    {% for role in submitter.roles %}<span>{{ role }}</span>{% endfor %}
+                                </p>
+                            </td>
                         </tr>
                         <tr>
-                            <th>Project Name</th>
-                            <td>{{ external_funding.project_name }}</td>
+                            <th>Created at</th>
+                            <td>{{ funding_request.created_at }}</td>
+                        </tr>
+                        <tr>
+                            <th>Last updated at</th>
+                            <td>{{ funding_request.updated_at }}</td>
                         </tr>
                     </tbody>
                 </table>
-            {% endif %}
-        </article>
-    </div>
-    <div class="flex justify-end my-2">
-        {% if funding_request.is_open %}
-            <form method="post" action="{% url "fundingrequests:approve" %}">
-                {% csrf_token %}
-                <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                <button type="submit"
-                        class="fundingrequest__status-label fundingrequest__approved">Approve</button>
-            </form>
-            <form method="post" action="{% url "fundingrequests:reject" %}">
-                {% csrf_token %}
-                <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                <button type="submit"
-                        class="fundingrequest__status-label fundingrequest__rejected">Reject</button>
-            </form>
-        {% else %}
-            <form method="post" action="{% url "fundingrequests:open" %}">
-                {% csrf_token %}
-                <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                <button type="submit">Re-open</button>
-            </form>
-        {% endif %}
+            </article>
+            <article>
+                <header class="flex justify-between align-center">
+                    <h2 class="fundingrequest__detail-title">Publication Details</h2>
+                    <a href="{% url "fundingrequests:update_publication" pk=funding_request.id %}"
+                       role="button">Edit</a>
+                </header>
+                <table class="article__table fundingrequest-table">
+                    <tbody>
+                        <tr>
+                            <th>Title</th>
+                            <td>{{ publication.title }}</td>
+                        </tr>
+                        <tr>
+                            <th>Publication State</th>
+                            <td>{{ publication.publication_state }}</td>
+                        </tr>
+                        <tr>
+                            <th>Journal</th>
+                            <td>{{ publication.journal_title }}</td>
+                        </tr>
+                        <tr>
+                            <th>Authors</th>
+                            <td>{{ publication.authors|join:", " }}</td>
+                        </tr>
+                        <tr>
+                            <th>License</th>
+                            <td>{{ publication.license }}</td>
+                        </tr>
+                        <tr>
+                            <th>Publication Type</th>
+                            <td>{{ publication.publication_type }}</td>
+                        </tr>
+                        <tr>
+                            <th>Open Access Type</th>
+                            <td>{{ publication.oa_type }}</td>
+                        </tr>
+                        <tr>
+                            <th>Publisher</th>
+                            <td>{{ publication.publisher_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Contracts</th>
+                            <td>
+                                {% for contract in publication.contracts %}
+                                    <p>
+                                        <a href="{% url "contracts:detail" pk=contract.pk %}">{{ contract.name }}</a>
+                                    </p>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                {% if publication.references %}
+                    <h3 class="mt-1">References</h3>
+                    <table class="article__table fundingrequest-table">
+                        <tbody>
+                            {% for link in publication.references %}
+                                <tr>
+                                    <th>{{ link.type }}</th>
+                                    <td>
+                                        <a href="{{ link.value }}">{{ link.value }}</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% endif %}
+            </article>
+            <article>
+                <header class="flex justify-between align-center">
+                    <h2 class="fundingrequest__detail-title">Costs and Funding</h2>
+                    <a href="{% url "fundingrequests:update_funding" pk=funding_request.id %}"
+                       role="button">Edit</a>
+                </header>
+                <table class="article__table fundingrequest-table">
+                    <tbody>
+                        <tr>
+                            <th>Estimated Cost</th>
+                            <td>{{ funding_request.estimated_cost.amount }} {{ funding_request.estimated_cost.currency.code }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                {% if external_funding %}
+                    <h3 class="mt-1_5">Third party funding</h3>
+                    <table class="article__table fundingrequest-table">
+                        <tbody>
+                            <tr>
+                                <th>Organization</th>
+                                <td>{{ external_funding.organization }}</td>
+                            </tr>
+                            <tr>
+                                <th>Project ID</th>
+                                <td>{{ external_funding.project_id }}</td>
+                            </tr>
+                            <tr>
+                                <th>Project Name</th>
+                                <td>{{ external_funding.project_name }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                {% endif %}
+            </article>
+        </div>
+        <aside class="vh-100 sticky">
+            <h2 class="my-1">Review</h2>
+            <hr>
+            <div class="flex">
+                {% if funding_request.is_open %}
+                    <form method="post" action="{% url "fundingrequests:approve" %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
+                        <button type="submit"
+                                class="fundingrequest__status-label fundingrequest__approved">Approve</button>
+                    </form>
+                    <form method="post" action="{% url "fundingrequests:reject" %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
+                        <button type="submit"
+                                class="fundingrequest__status-label fundingrequest__rejected">Reject</button>
+                    </form>
+                {% else %}
+                    <form method="post" action="{% url "fundingrequests:open" %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
+                        <button type="submit">Re-open</button>
+                    </form>
+                {% endif %}
+            </div>
+            <h2 class="my-1">Labels</h2>
+            <hr>
+            {% include "fundingrequests/forms/label_attach.html" %}
+            <hr>
+            <div class="flex wrap">
+                {% for label in funding_request.labels %}
+                    {% include "fundingrequests/forms/label.html" %}
+                {% endfor %}
+            </div>
+        </aside>
     </div>
 {% endblock content %}

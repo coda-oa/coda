@@ -1,11 +1,11 @@
 <form action="{% url "fundingrequests:label_attach" %}" method="post">
     {% csrf_token %}
     <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-    <div class="m-0" role="group">
+    <div role="group">
         {{ label_form }}
         <button type="submit">Attach</button>
     </div>
 </form>
 <a href="{% url "fundingrequests:label_create" next=funding_request.id %}"
-   class="secondary"
+   class="secondary text-nowrap w-100"
    role="button">Create new</a>

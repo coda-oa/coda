@@ -1,7 +1,16 @@
 .flex {
+  --coda-gap: 1rem;
   display: flex;
   flex-direction: row;
-  gap: 1rem;
+  gap: var(--coda-gap);
+}
+
+.gap-0 {
+  --coda-gap: 0;
+}
+
+.flex-col {
+  flex-direction: column;
 }
 
 .flex-0 {
@@ -52,8 +61,22 @@
   align-items: flex-start;
 }
 
+.align-end {
+  align-items: flex-end;
+}
+
 .wrap {
   flex-wrap: wrap;
+}
+
+.sticky {
+  position: sticky;
+  top: 0;
+}
+
+.col-2 {
+  grid-template-columns: auto 35ch;
+  gap: var(--coda-gap);
 }
 
 .grid-container {
@@ -71,4 +94,9 @@
 
 .overflow-scroll {
   overflow: auto;
+}
+
+.text-nowrap {
+  white-space: nowrap;
+  text-wrap: nowrap;
 }

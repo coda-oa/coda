@@ -149,9 +149,13 @@ article.fundingrequest {
 
 .label {
   --label-text-color: color-mix(in srgb, var(--label-border-color) 85%, white);
-  flex: auto;
-  background: color-mix(in hsl, var(--label-bg-color) 30%, transparent 70%);
+  padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
+  width: fit-content;
+  text-wrap: nowrap;
+
+  background: color-mix(in hsl, var(--label-bg-color) 25%, transparent 75%);
   border: 1px solid var(--label-border-color);
+  border-radius: var(--coda-border-radius);
   color: var(--label-text-color);
 }
 

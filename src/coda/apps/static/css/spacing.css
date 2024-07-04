@@ -46,10 +46,22 @@
   margin-block: 0;
 }
 
+.my-1 {
+  margin-block: 1rem;
+}
+
 .my-1_25 {
   margin-block: 1.25rem;
 }
 
 .my-2 {
   margin-block: 2rem;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+.vh-100 {
+  height: 100vh;
 }
