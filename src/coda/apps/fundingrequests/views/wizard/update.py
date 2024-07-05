@@ -93,7 +93,7 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
         store["cost"] = CostDto(
             estimated_cost=float(fr.estimated_cost.amount.amount),
             estimated_cost_currency=fr.estimated_cost.amount.currency.code,
-            payment_method=fr.estimated_cost.method.name,
+            payment_method=fr.estimated_cost.method.value,
         )
         if fr.external_funding:
             store["funding"] = ExternalFundingDto(
