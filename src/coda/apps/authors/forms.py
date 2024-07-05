@@ -4,6 +4,7 @@ from typing import Any, cast
 from django import forms
 
 from coda.apps.authors.dto import AuthorDto, parse_author
+from coda.apps.formbase import CodaFormBase
 from coda.apps.institutions.models import Institution
 from coda.author import Author, InstitutionId, Role
 from coda.orcid import Orcid
@@ -19,7 +20,7 @@ class OrcidField(forms.CharField):
         return Orcid(value)
 
 
-class AuthorForm(forms.Form):
+class AuthorForm(CodaFormBase):
     use_required_attribute = False
 
     name = forms.CharField()
