@@ -43,7 +43,7 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
         fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
-        store["submitter"] = to_author_dto(fr.submitter) | {"id": fr.submitter}
+        store["submitter"] = to_author_dto(fr.submitter) | {"id": fr.submitter.id}
         store.save()
 
 
@@ -66,7 +66,7 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         store = self.get_store()
         fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
         dto = to_publication_dto(fr.publication)
-        store["publication"] = dto
+        store["publication"] = dto["meta"]
         store["authors"] = list(dto["authors"])
         store["journal"] = fr.publication.journal
         store["links"] = dto["links"]
