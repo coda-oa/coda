@@ -4,14 +4,15 @@ from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 
 from coda.apps.users.forms import UserAdminChangeForm, UserAdminCreationForm
+from coda.apps.users.models import User
 
 UserModel = get_user_model()
 
 
 @admin.register(UserModel)
-class UserAdmin(auth_admin.UserAdmin):
+class UserAdmin(auth_admin.UserAdmin[User]):
     # NOTE: we are not sure why mypy is complaining about the following line
-    form = UserAdminChangeForm  # type: ignore
+    form = UserAdminChangeForm
     add_form = UserAdminCreationForm
     fieldsets = (
         (None, {"fields": ("username", "password")}),

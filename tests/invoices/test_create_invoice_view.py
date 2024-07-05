@@ -108,7 +108,7 @@ def test__given_positions_added__create__saves_new_invoice(client: Client) -> No
             "action": "create",
             "number": _faker.pystr(),
             "date": _faker.date(),
-            "creditor": creditor.id,
+            "creditor": str(creditor.id),
             "status": PaymentStatus.Unpaid.value,
             "currency": Currency.EUR.code,
         }

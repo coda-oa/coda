@@ -10,7 +10,7 @@ UserModel = get_user_model()
 
 
 class UserAdminChangeForm(admin_forms.UserChangeForm["User"]):
-    class Meta(admin_forms.UserChangeForm.Meta):
+    class Meta(admin_forms.UserChangeForm.Meta):  # type: ignore[name-defined, misc]
         model = UserModel
 
 
@@ -20,7 +20,7 @@ class UserAdminCreationForm(admin_forms.UserCreationForm["User"]):
     To change user signup, see UserSignupForm and UserSocialSignupForm.
     """
 
-    class Meta(admin_forms.UserCreationForm.Meta):
+    class Meta(admin_forms.UserCreationForm.Meta):  # type: ignore[name-defined, misc]
         model = UserModel
         error_messages = {
             "username": {"unique": _("This username has already been taken.")},

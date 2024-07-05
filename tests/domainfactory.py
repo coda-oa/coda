@@ -64,7 +64,7 @@ def invoice(
     return Invoice(
         id=id,
         date=date.fromisoformat(_faker.date()),
-        number=NonEmptyStr(_faker.uuid4()),
+        number=NonEmptyStr(str(_faker.uuid4())),
         creditor=creditor or CreditorId(random.randint(1, 1000)),
         positions=positions or [publication_position() for n in range(random.randint(1, 5))],
         status=status,
