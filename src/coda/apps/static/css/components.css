@@ -25,7 +25,7 @@ ul.no-decoration {
   list-style-type: none;
 }
 
-ul.no-decoration > li {
+ul.no-decoration>li {
   list-style-type: none;
 }
 
@@ -71,8 +71,8 @@ article.fundingrequest {
   border-bottom: none;
 }
 
-.fundingrequest-table tbody tr > th,
-.fundingrequest-table tr > td:first-child {
+.fundingrequest-table tbody tr>th,
+.fundingrequest-table tr>td:first-child {
   width: 30ch;
 }
 
@@ -159,6 +159,10 @@ article.fundingrequest {
   color: var(--label-text-color);
 }
 
+a:has(.label) {
+  text-decoration: none;
+}
+
 .label__button-remove {
   flex: 0;
   display: inline-block;
@@ -170,11 +174,11 @@ article.fundingrequest {
   padding: 0;
 }
 
-details.dropdown > ul:has(.label) {
+details.dropdown>ul:has(.label) {
   padding-block: 0.5rem;
 }
 
-details.dropdown > ul:has(.label) > li {
+details.dropdown>ul:has(.label)>li {
   padding-block: 0.75rem;
 }
 

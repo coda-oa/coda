@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load param_replace %}
 {% block content %}
     <div class="flex justify-between align-center my-2">
         <h1>Funding Requests</h1>
@@ -21,7 +22,7 @@
                     <p class="text-ellipsis">
                         Journal: <a href="{{ fr.journal_url }}">{{ fr.journal_title }}</a>
                     </p>
-                    <p class="mt-1_5">
+                    <p class="flex justify-between mt-1_5">
                         <small>
                             {% if fr.status == "open" %}
                                 <span class="pill fundingrequest__open fundingrequest__status-label">Open</span>
@@ -33,6 +34,15 @@
                                 <span>{{ fr.status }}</span>
                             {% endif %}
                         </small>
+                        <span>
+                            {% url "fundingrequests:list" as list_url %}
+                            {% for label in fr.labels %}
+                                <a href="{{ list_url }}?{% param_replace labels=label.id %}">
+                                    <small class="label pill"
+                                           style="--label-bg-color: {{ label.hexcolor }};
+                                                  --label-border-color: {{ label.hexcolor }}">{{ label.name }}</small></a>
+                            {% endfor %}
+                        </span>
                     </p>
                 </article>
             </li>
