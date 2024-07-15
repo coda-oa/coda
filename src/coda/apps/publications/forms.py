@@ -1,4 +1,6 @@
+from collections.abc import Callable
 import datetime
+import json
 from typing import cast
 
 from django import forms
@@ -8,6 +10,20 @@ from coda.apps.publications.dto import LinkDto, PublicationMetaDto
 from coda.apps.publications.models import Concept, LinkType, Publication
 from coda.doi import Doi
 from coda.publication import License, OpenAccessType, Published, UnpublishedState
+
+
+def concept_json_value(concept: Concept) -> str:
+    return json.dumps({"concept": concept.concept_id, "vocabulary": concept.vocabulary_id})
+
+
+def concept_options_by_vocabulary(vocabulary_name: str) -> Callable[[], list[tuple[str, str]]]:
+    def _concept_options_by_vocabulary() -> list[tuple[str, str]]:
+        return [
+            (concept_json_value(c), c.name)
+            for c in Concept.objects.filter(vocabulary__name=vocabulary_name)
+        ]
+
+    return _concept_options_by_vocabulary
 
 
 class PublicationForm(CodaFormBase):
@@ -20,8 +36,10 @@ class PublicationForm(CodaFormBase):
         initial=License.Unknown.name,
     )
     publication_type = forms.ChoiceField(
-        choices=lambda: [(v, n) for v, n in Concept.objects.values_list("concept_id", "name")],
-        required=False,
+        choices=concept_options_by_vocabulary("COAR Resource Types"), required=False
+    )
+    subject_area = forms.ChoiceField(
+        choices=concept_options_by_vocabulary("DFG Subject Classification"), required=False
     )
     open_access_type = forms.ChoiceField(
         choices=Publication.OA_TYPES, required=True, initial=OpenAccessType.Closed.name
@@ -41,6 +59,16 @@ class PublicationForm(CodaFormBase):
         if not hasattr(self, "cleaned_data"):
             return
 
+        try:
+            subject_area = json.loads(self.data["subject_area"])
+            publication_type = json.loads(self.data["publication_type"])
+            self.cleaned_data["subject_area"] = subject_area["concept"]
+            self.cleaned_data["subject_area_vocabulary"] = subject_area["vocabulary"]
+            self.cleaned_data["publication_type"] = publication_type["concept"]
+            self.cleaned_data["publication_type_vocabulary"] = publication_type["vocabulary"]
+        except json.decoder.JSONDecodeError:
+            pass
+
         if self.cleaned_data.get("publication_state") != Published.name():
             return
 
@@ -56,7 +84,10 @@ class PublicationForm(CodaFormBase):
         return PublicationMetaDto(
             title=self.cleaned_data["title"],
             license=self.cleaned_data["license"],
+            subject_area=self.cleaned_data["subject_area"],
+            subject_area_vocabulary=self.cleaned_data["subject_area_vocabulary"],
             publication_type=self.cleaned_data["publication_type"],
+            publication_type_vocabulary=self.cleaned_data["publication_type_vocabulary"],
             open_access_type=self.cleaned_data["open_access_type"],
             publication_state=self.cleaned_data["publication_state"],
             online_publication_date=self._parse_date("online"),

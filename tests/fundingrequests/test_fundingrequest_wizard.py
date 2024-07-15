@@ -1,3 +1,4 @@
+import json
 from typing import Any, cast
 
 import pytest
@@ -15,18 +16,18 @@ from coda.apps.fundingrequests.dto import (
     parse_payment,
 )
 from coda.apps.fundingrequests.services import fundingrequest_create
-from coda.apps.publications.dto import PublicationDto, parse_publication
+from coda.apps.publications.dto import PublicationDto, PublicationMetaDto, parse_publication
+from coda.apps.publications.models import Concept
 from coda.apps.users.models import User
 from coda.fundingrequest import FundingOrganizationId, FundingRequest, FundingRequestId
-from coda.publication import JournalId
+from coda.publication import JournalId, VocabularyConcept
 from tests import domainfactory, dtofactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
-from tests.publications.test_publication_services import assert_publication_eq
+from tests.publications.test_publication_services import as_domain_concept, assert_publication_eq
 
 
 @pytest.fixture(autouse=True)
-@pytest.mark.django_db
 def login(client: Client) -> None:
     client.force_login(User.objects.create_user(username="testuser"))
 
@@ -45,12 +46,13 @@ def save_new_fundingrequest(journal_id: int | None = None) -> FundingRequestId:
 def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
-    concept = modelfactory.concept()
     journal_id = modelfactory.journal().pk
     funder = modelfactory.funding_organization()
 
     author_dto = dtofactory.author_dto(modelfactory.institution().pk)
-    publication_dto = dtofactory.publication_dto(journal_id, concept_id=concept.concept_id)
+    publication_dto = dtofactory.publication_dto(
+        journal_id, publication_type=publication_type(), subject_area=subject_area()
+    )
     external_funding = dtofactory.external_funding_dto(funder.pk)
     cost_dto = dtofactory.cost_dto()
 
@@ -91,12 +93,13 @@ def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_d
 def test__updating_fundingrequest_publication__updates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
-    concept = modelfactory.concept()
     journal_id = modelfactory.journal().pk
     new_journal_id = modelfactory.journal().pk
     fr_id = save_new_fundingrequest(journal_id)
 
-    publication_dto = dtofactory.publication_dto(new_journal_id, concept_id=concept.concept_id)
+    publication_dto = dtofactory.publication_dto(
+        new_journal_id, publication_type=publication_type(), subject_area=subject_area()
+    )
     journal_post_data = {"journal": new_journal_id}
 
     client.post(
@@ -177,6 +180,18 @@ def submit_wizard(
     )
 
 
+def subject_area() -> VocabularyConcept:
+    concept_model = Concept.objects.filter(vocabulary__name="DFG Subject Classification").first()
+    assert concept_model is not None
+    return as_domain_concept(concept_model)
+
+
+def publication_type() -> VocabularyConcept:
+    concept_model = Concept.objects.filter(vocabulary__name="COAR Resource Types").first()
+    assert concept_model is not None
+    return as_domain_concept(concept_model)
+
+
 def as_form_data(publication: PublicationDto) -> dict[str, Any]:
     meta = publication["meta"]
     meta["online_publication_date"] = meta["online_publication_date"] or ""
@@ -185,9 +200,34 @@ def as_form_data(publication: PublicationDto) -> dict[str, Any]:
     # NOTE: authors are submitted as a single string from a textarea
     authors = ",".join(publication["authors"])
 
+    concepts = _concepts_to_json(meta)
+
+    meta_reduced = dict(meta)
+    meta_reduced.pop("subject_area")
+    meta_reduced.pop("publication_type")
+    meta_reduced.pop("subject_area_vocabulary")
+    meta_reduced.pop("publication_type_vocabulary")
+
     link_form_data: dict[str, list[str]] = {"link_type": [], "link_value": []}
     for link in publication["links"]:
         link_form_data["link_type"].append(str(link["link_type"]))
         link_form_data["link_value"].append(str(link["link_value"]))
 
-    return meta | {"authors": authors} | link_form_data
+    return meta_reduced | {"authors": authors} | concepts | link_form_data
+
+
+def _concepts_to_json(meta: PublicationMetaDto) -> dict[str, str]:
+    return {
+        "subject_area": json.dumps(
+            {
+                "concept": meta["subject_area"],
+                "vocabulary": meta["subject_area_vocabulary"],
+            }
+        ),
+        "publication_type": json.dumps(
+            {
+                "concept": meta["publication_type"],
+                "vocabulary": meta["publication_type_vocabulary"],
+            }
+        ),
+    }

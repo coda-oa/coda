@@ -61,7 +61,7 @@ def vocabulary() -> Vocabulary:
 
 def concept(voc: Vocabulary | None = None) -> Concept:
     return Concept.objects.create(
-        vocabulary=voc or Vocabulary.objects.create(name="test", version="1.0"),
+        vocabulary=voc or Vocabulary.objects.create(name=_faker.word(), version="1.0"),
         concept_id=f"{_faker.word()}_{random.randint(1,1000)}",
         name=_faker.word(),
         hint=_faker.sentence(),

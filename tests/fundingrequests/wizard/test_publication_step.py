@@ -1,3 +1,4 @@
+import json
 from django.http import HttpRequest
 from django.test import RequestFactory
 import pytest
@@ -7,6 +8,9 @@ from tests.test_wizard import DictStore
 
 request_factory = RequestFactory()
 
+publication_type = {"concept": "2", "vocabulary": "4"}
+subject_area = {"concept": "12", "vocabulary": "9"}
+
 empty_publication_data = {
     "title": "",
     "authors": "",
@@ -15,6 +19,8 @@ empty_publication_data = {
     "publication_state": "",
     "online_publication_date": "",
     "print_publication_date": "",
+    "subject_area": "",
+    "publication_type": "",
 }
 
 valid_publication_data = {
@@ -24,6 +30,8 @@ valid_publication_data = {
     "publication_state": "Submitted",
     "online_publication_date": "2021-01-01",
     "print_publication_date": "2021-12-02",
+    "subject_area": json.dumps(subject_area),
+    "publication_type": json.dumps(publication_type),
 }
 
 expected_authors = ["John Doe", "Jane Doe", "John Smith", "Anna Smith"]

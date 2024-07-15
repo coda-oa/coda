@@ -5,6 +5,7 @@ from coda.apps.publications import services
 from coda.author import AuthorList
 from coda.doi import Doi
 from coda.publication import (
+    ConceptId,
     JournalId,
     License,
     Link,
@@ -12,11 +13,12 @@ from coda.publication import (
     Publication,
     PublicationId,
     PublicationState,
-    PublicationType,
     Published,
     Unpublished,
     UnpublishedState,
     UserLink,
+    VocabularyConcept,
+    VocabularyId,
 )
 from coda.string import NonEmptyStr
 
@@ -29,6 +31,9 @@ class LinkDto(TypedDict):
 class PublicationMetaDto(TypedDict):
     title: str
     publication_type: str
+    publication_type_vocabulary: int
+    subject_area: str
+    subject_area_vocabulary: int
     open_access_type: str
     license: str
     publication_state: str
@@ -58,7 +63,14 @@ def parse_publication(
         id=id,
         title=NonEmptyStr(publication["title"]),
         license=License[publication["license"]],
-        publication_type=PublicationType(publication["publication_type"]),
+        publication_type=VocabularyConcept(
+            ConceptId(publication["publication_type"]),
+            VocabularyId(publication["publication_type_vocabulary"]),
+        ),
+        subject_area=VocabularyConcept(
+            ConceptId(publication["subject_area"]),
+            VocabularyId(publication["subject_area_vocabulary"]),
+        ),
         open_access_type=OpenAccessType[publication["open_access_type"]],
         publication_state=_parse_state(publication),
         authors=AuthorList(publication_dto["authors"]),
@@ -96,11 +108,14 @@ def to_publication_dto(publication: Publication) -> PublicationDto:
         meta=PublicationMetaDto(
             title=publication.title,
             license=publication.license.name,
-            publication_type=publication.publication_type,
+            publication_type=publication.publication_type.id,
+            publication_type_vocabulary=publication.publication_type.vocabulary,
             open_access_type=publication.open_access_type.name,
             publication_state=publication.publication_state.name(),
             online_publication_date=online_pub_date,
             print_publication_date=print_pub_date,
+            subject_area=publication.subject_area.id,
+            subject_area_vocabulary=publication.subject_area.vocabulary,
         ),
         journal=JournalDto(journal_id=publication.journal),
         links=[to_link_dto(link) for link in publication.links],

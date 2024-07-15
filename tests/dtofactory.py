@@ -7,7 +7,7 @@ from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.publications.dto import JournalDto, LinkDto, PublicationDto, PublicationMetaDto
 from coda.fundingrequest import PaymentMethod
-from coda.publication import Published, UnpublishedState
+from coda.publication import Published, UnknownConcept, UnpublishedState, VocabularyConcept
 from tests.domainfactory import (
     random_authorlist,
     random_license,
@@ -30,23 +30,35 @@ def author_dto(affiliation_id: int | None = None) -> AuthorDto:
 
 
 def publication_dto(
-    journal: int, /, title: str = "", concept_id: str = "", links: list[LinkDto] | None = None
+    journal: int,
+    /,
+    title: str = "",
+    publication_type: VocabularyConcept = UnknownConcept,
+    subject_area: VocabularyConcept = UnknownConcept,
+    links: list[LinkDto] | None = None,
 ) -> PublicationDto:
     return PublicationDto(
-        meta=publication_meta_dto(title, concept_id),
+        meta=publication_meta_dto(title, publication_type, subject_area),
         authors=list(random_authorlist()),
         journal=JournalDto({"journal_id": journal}),
         links=links or link_dtos(),
     )
 
 
-def publication_meta_dto(title: str = "", concept_id: str = "") -> PublicationMetaDto:
+def publication_meta_dto(
+    title: str = "",
+    publication_type: VocabularyConcept = UnknownConcept,
+    subject_area: VocabularyConcept = UnknownConcept,
+) -> PublicationMetaDto:
     state = random.choice([_unpublished_data(), _published_data()])
     return PublicationMetaDto(
         {
             "title": title or _faker.sentence(),
             "license": random_license().name,
-            "publication_type": concept_id,
+            "publication_type": publication_type.id,
+            "publication_type_vocabulary": publication_type.vocabulary,
+            "subject_area": subject_area.id,
+            "subject_area_vocabulary": subject_area.vocabulary,
             "open_access_type": random_open_access_type().name,
             **state,
         }

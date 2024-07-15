@@ -9,6 +9,7 @@ from coda.apps.publications.models import Publication as PublicationModel
 from coda.author import AuthorId, AuthorList
 from coda.doi import Doi
 from coda.publication import (
+    ConceptId,
     JournalId,
     License,
     Link,
@@ -16,12 +17,13 @@ from coda.publication import (
     Publication,
     PublicationId,
     PublicationState,
-    PublicationType,
     Published,
-    UnknownPublicationType,
+    UnknownConcept,
     Unpublished,
     UnpublishedState,
     UserLink,
+    VocabularyConcept,
+    VocabularyId,
 )
 from coda.string import NonEmptyStr
 
@@ -46,7 +48,8 @@ def get_by_id(publication_id: PublicationId) -> Publication:
         title=NonEmptyStr(model.title),
         license=License[model.license],
         open_access_type=OpenAccessType[model.open_access_type],
-        publication_type=_deserialize_publication_type(model),
+        publication_type=_deserialize_concept(model.publication_type),
+        subject_area=_deserialize_concept(model.subject_area),
         authors=AuthorList.from_str(model.author_list or ""),
         publication_state=state,
         journal=JournalId(model.journal_id),
@@ -54,13 +57,15 @@ def get_by_id(publication_id: PublicationId) -> Publication:
     )
 
 
-def _deserialize_publication_type(model: PublicationModel) -> PublicationType:
-    if model.publication_type is None:
-        publication_type = UnknownPublicationType
+def _deserialize_concept(model_concept: Concept | None) -> VocabularyConcept:
+    if model_concept is None:
+        domain_concept = UnknownConcept
     else:
-        publication_type = PublicationType(model.publication_type.concept_id)
+        domain_concept = VocabularyConcept(
+            ConceptId(model_concept.concept_id), VocabularyId(model_concept.vocabulary_id)
+        )
 
-    return publication_type
+    return domain_concept
 
 
 def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
@@ -73,7 +78,6 @@ def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
 
 
 def publication_create(publication: Publication, author_id: AuthorId) -> PublicationId:
-    online_publication_date = None
     if isinstance(publication.publication_state, Published):
         online_publication_date = publication.publication_state.online
         print_publication_date = publication.publication_state.print
@@ -81,7 +85,8 @@ def publication_create(publication: Publication, author_id: AuthorId) -> Publica
         online_publication_date = None
         print_publication_date = None
 
-    concept = Concept.objects.filter(concept_id=publication.publication_type).first()
+    publication_type = _first_by_vocabulary_concept(publication.publication_type)
+    subject_area = _first_by_vocabulary_concept(publication.subject_area)
 
     pub_model = PublicationModel.objects.create(
         title=publication.title,
@@ -93,11 +98,19 @@ def publication_create(publication: Publication, author_id: AuthorId) -> Publica
         submitting_author_id=author_id,
         author_list=str(publication.authors),
         journal_id=publication.journal,
-        publication_type=concept,
+        publication_type=publication_type,
+        subject_area=subject_area,
     )
     publication = replace(publication, id=PublicationId(pub_model.id))
     _attach_links(publication)
     return cast(PublicationId, publication.id)
+
+
+def _first_by_vocabulary_concept(vocabulary_concept: VocabularyConcept) -> Concept | None:
+    return Concept.objects.filter(
+        concept_id=vocabulary_concept.id,
+        vocabulary_id=vocabulary_concept.vocabulary,
+    ).first()
 
 
 def publication_update(publication: Publication) -> None:
@@ -112,7 +125,9 @@ def publication_update(publication: Publication) -> None:
         online_publication_date = None
         print_publication_date = None
 
-    concept = Concept.objects.filter(concept_id=publication.publication_type).first()
+    publication_type = _first_by_vocabulary_concept(publication.publication_type)
+    subject_area = _first_by_vocabulary_concept(publication.subject_area)
+
     PublicationModel.objects.filter(pk=publication.id).update(
         title=publication.title,
         license=publication.license.name,
@@ -122,7 +137,8 @@ def publication_update(publication: Publication) -> None:
         online_publication_date=online_publication_date,
         print_publication_date=print_publication_date,
         journal_id=publication.journal,
-        publication_type=concept,
+        publication_type=publication_type,
+        subject_area=subject_area,
     )
 
     LinkModel.objects.filter(publication_id=publication.id).all().delete()

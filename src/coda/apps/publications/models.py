@@ -1,6 +1,6 @@
 from django.db import models
-from coda.apps.authors.models import Author
 
+from coda.apps.authors.models import Author
 from coda.apps.journals.models import Journal
 from coda.author import AuthorList
 from coda.publication import License, OpenAccessType, UnpublishedState
@@ -35,8 +35,11 @@ class Publication(models.Model):
         Author, on_delete=models.CASCADE, related_name="submitted_publication", null=True
     )
 
+    subject_area = models.ForeignKey(
+        Concept, on_delete=models.SET_NULL, related_name="publications_of_subject", null=True
+    )
     publication_type = models.ForeignKey(
-        Concept, on_delete=models.SET_NULL, related_name="publications", null=True
+        Concept, on_delete=models.SET_NULL, related_name="publications_with_type", null=True
     )
     open_access_type = models.CharField(choices=OA_TYPES, default=OpenAccessType.Closed.name)
     license = models.CharField(choices=LICENSE_CHOICES, default=License.Unknown.name)

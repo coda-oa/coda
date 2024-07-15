@@ -34,10 +34,10 @@ from coda.publication import (
     Publication,
     PublicationId,
     PublicationState,
-    PublicationType,
     Published,
-    UnknownPublicationType,
+    UnknownConcept,
     Unpublished,
+    VocabularyConcept,
 )
 from coda.string import NonEmptyStr
 
@@ -97,20 +97,23 @@ def free_position() -> Position[str]:
 def publication(
     journal: JournalId | None = None,
     title: str = "",
-    publication_type: PublicationType | None = None,
+    publication_type: VocabularyConcept | None = None,
+    subject_area: VocabularyConcept | None = None,
     *,
     id: PublicationId | None = None,
 ) -> Publication:
     state = cast(
         PublicationState, random.choice([Unpublished(), Published(_random_date(), _random_date())])
     )
+
     return Publication(
         id=id,
         title=NonEmptyStr(title or _faker.sentence()),
         journal=journal or JournalId(random.randint(1, 1000)),
         authors=random_authorlist(),
         license=random_license(),
-        publication_type=publication_type or UnknownPublicationType,
+        publication_type=publication_type or UnknownConcept,
+        subject_area=subject_area or UnknownConcept,
         open_access_type=random_open_access_type(),
         publication_state=state,
         links={Doi("10.1234/5678")},

@@ -74,8 +74,23 @@ class UserLink(NamedTuple):
 Link: TypeAlias = UserLink | Doi
 
 
-PublicationType = NewType("PublicationType", str)
-UnknownPublicationType = PublicationType("unknown")
+PublicationTypeId = NewType("PublicationTypeId", str)
+UnknownPublicationType = PublicationTypeId("unknown")
+
+SubjectAreaId = NewType("SubjectAreaId", str)
+UnknownSubjectArea = SubjectAreaId("unknown")
+
+
+ConceptId = NewType("ConceptId", str)
+VocabularyId = NewType("VocabularyId", int)
+
+
+class VocabularyConcept(NamedTuple):
+    id: ConceptId
+    vocabulary: VocabularyId
+
+
+UnknownConcept = VocabularyConcept(ConceptId("unknown"), VocabularyId(0))
 
 
 @dataclass(frozen=True)
@@ -85,7 +100,8 @@ class Publication:
     journal: JournalId
     authors: AuthorList = field(default_factory=AuthorList)
     license: License = License.Unknown
-    publication_type: PublicationType = UnknownPublicationType
+    subject_area: VocabularyConcept = UnknownConcept
+    publication_type: VocabularyConcept = UnknownConcept
     open_access_type: OpenAccessType = OpenAccessType.Unknown
     publication_state: PublicationState = Unpublished()
     links: set[Link] = field(default_factory=set)
