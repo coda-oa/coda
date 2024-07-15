@@ -1,3 +1,4 @@
+import json
 from collections.abc import Iterable
 from typing import Any, TypeVar
 
@@ -96,7 +97,26 @@ class PublicationStep(Step):
             form.errors.clear()
             return form
 
-        return form_with_post_or_store_data(PublicationForm, request, store.get("publication"))
+        formdata = self.transform_to_formdata(store)
+        return form_with_post_or_store_data(PublicationForm, request, formdata)
+
+    def transform_to_formdata(self, store: Store) -> dict[str, Any]:
+        formdata: dict[str, Any] = store.get("publication", {})
+        if formdata:
+            formdata["subject_area"] = json.dumps(
+                {
+                    "concept": formdata["subject_area"],
+                    "vocabulary": formdata["subject_area_vocabulary"],
+                }
+            )
+            formdata["publication_type"] = json.dumps(
+                {
+                    "concept": formdata["publication_type"],
+                    "vocabulary": formdata["publication_type_vocabulary"],
+                }
+            )
+
+        return formdata
 
     def requested_author_preview(self, request: HttpRequest) -> bool:
         return request.POST.get("action") == "parse_authors"
