@@ -1,32 +1,29 @@
-<nav>
-    <ul>
-        <li>
-            <a href="{% url "home" %}"><strong>CODA</strong></a>
-        </li>
-    </ul>
-    <ul>
-        <li>
-            <a href="{% url "fundingrequests:list" %}" class="contrast">Funding Requests</a>
-        </li>
-        <li>
-            <a href="{% url "journals:list" %}" class="contrast">Journals</a>
-        </li>
-        <li>
-            <a href="{% url "invoices:list" %}" class="contrast">Invoices</a>
-        </li>
-        {% if user.is_authenticated %}
+<aside>
+    <nav>
+        <ul>
             <li>
-                <form action="{% url "logout" %}" method="post">
-                    {% csrf_token %}
-                    <button type="submit" class="login_logout_button outline">Logout</button>
-                </form>
+                <a href="{% url "home" %}"><strong>CODA</strong></a>
             </li>
-        {% else %}
-            <li>
-                <button type="button" class="login_logout_button outline">
-                    <a href="{% url "login" %}">Login</a>
-                </button>
-            </li>
-        {% endif %}
-    </ul>
-</nav>
+        </ul>
+        <ul>
+            <li>{% include "partials/nav_link.html" with link="fundingrequests:list" text="Funding Requests" %}</li>
+            <li>{% include "partials/nav_link.html" with link="journals:list" text="Journals" %}</li>
+            <li>{% include "partials/nav_link.html" with link="invoices:list" text="Invoices" %}</li>
+            <li>{% include "partials/nav_link.html" with link="preferences:global_preferences" text="CODA Preferences" %}</li>
+            {% if user.is_authenticated %}
+                <li>
+                    <form action="{% url "logout" %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="login_logout_button outline">Logout</button>
+                    </form>
+                </li>
+            {% else %}
+                <li>
+                    <button type="button" class="login_logout_button outline">
+                        <a href="{% url "login" %}">Login</a>
+                    </button>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+</aside>

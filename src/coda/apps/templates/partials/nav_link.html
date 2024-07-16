@@ -1,0 +1,3 @@
+{% url link as url %}
+<a href="{{ url }}"
+   class="contrast {% if request.path == url %}active{% endif %}">{{ text }}</a>

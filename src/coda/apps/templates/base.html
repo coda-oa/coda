@@ -19,14 +19,18 @@
               type="text/css"
               href="{% static 'css/spacing.css' %}" />
     </head>
-    <body class="container">
-        {% include "partials/nav.html" %}
-        {% if messages %}
-            <ul>
-                {% for message in messages %}<li>{{ message }}</li>{% endfor %}
-            </ul>
-        {% endif %}
-        {% block content %}
-        {% endblock content %}
+    <body>
+        <div class="flex">
+            {% include "partials/nav.html" %}
+            <main class="container">
+                {% if messages %}
+                    <ul>
+                        {% for message in messages %}<li>{{ message }}</li>{% endfor %}
+                    </ul>
+                {% endif %}
+                {% block content %}
+                {% endblock content %}
+            </main>
+        </div>
     </body>
 </html>
