@@ -7,6 +7,8 @@ from pytest_django import DjangoDbBlocker
 
 from coda.apps.users.models import User
 
+BASE_DIR = Path(__file__).parent.parent
+
 
 @pytest.fixture
 def logged_in(client: Client) -> None:
@@ -16,5 +18,5 @@ def logged_in(client: Client) -> None:
 @pytest.fixture(autouse=True, scope="module")
 def populate_database(django_db_blocker: DjangoDbBlocker) -> None:
     with django_db_blocker.unblock():
-        fixtures = list(Path("config/fixtures").glob("*.json"))
+        fixtures = list((BASE_DIR / "config/fixtures").glob("*.json"))
         call_command("loaddata", *fixtures)
