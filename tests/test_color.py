@@ -76,3 +76,25 @@ def test__color_cannot_be_compared_to_non_color() -> None:
 
     with pytest.raises(TypeError):
         Color() == "string"
+
+
+color_list = [
+    ((0.0, 1.0, 0.5), (255, 0, 0)),
+    ((120.0, 1.0, 0.5), (0, 255, 0)),
+    ((240.0, 1.0, 0.5), (0, 0, 255)),
+    ((60.0, 1.0, 0.5), (255, 255, 0)),
+    ((180.0, 1.0, 0.5), (0, 255, 255)),
+    ((300.0, 1.0, 0.5), (255, 0, 255)),
+    ((0.0, 0.0, 0.0), (0, 0, 0)),
+    ((0.0, 0.0, 1.0), (255, 255, 255)),
+]
+
+
+@pytest.mark.parametrize("color_in,color_out", color_list)
+def test__hsl_to_rgb(color_in: tuple[float, float, float], color_out: tuple[int, int, int]) -> None:
+    assert Color.from_hsl(*color_in).rgb() == color_out
+
+
+@pytest.mark.parametrize("color_out,color_in", color_list)
+def test__rgb_to_hsl(color_in: tuple[int, int, int], color_out: tuple[float, float, float]) -> None:
+    assert Color.from_rgb(*color_in).hsl() == color_out
