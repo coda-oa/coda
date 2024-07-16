@@ -115,7 +115,7 @@ class Publication:
         license: License = License.Unknown,
         open_access_type: OpenAccessType = OpenAccessType.Unknown,
         publication_state: PublicationState = Unpublished(),
-        links: set[Link] = set(),
+        links: set[Link] | None = None,
     ) -> Self:
         return cls(
             id=None,
@@ -125,5 +125,5 @@ class Publication:
             license=license,
             open_access_type=open_access_type,
             publication_state=publication_state,
-            links=links,
+            links=links or set(),
         )
