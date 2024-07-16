@@ -1,11 +1,15 @@
+body> :first-child {
+  min-height: 100vh;
+}
+
 aside>nav {
-  min-width: 15ch;
-  height: 100vh;
+  width: 25ch;
+  height: 100%;
   padding: var(--coda-spacing);
   padding-inline-end: calc(var(--coda-spacing) * 2);
 
   background-color: var(--coda-card-background-color);
-  border-right: 1px solid var(--coda-primary-border);
+  border-right: 1px solid var(--coda-muted-border-color);
 
   & ul,
   ul:first-of-type {
@@ -15,7 +19,7 @@ aside>nav {
 
   & ul:first-of-type {
     margin-block: calc(var(--coda-spacing) * 2);
-    margin-block-start: calc(var(--coda-spacing) * 1);
+    margin-block-start: var(--coda-spacing);
 
     & li {
       padding-block: 0;
@@ -31,22 +35,39 @@ aside>nav {
   }
 
   & ul:last-of-type> :last-child {
+    padding-inline: 0;
     margin-block-start: calc(var(--coda-spacing) * 2);
   }
 
   & a {
     font-size: 1.15rem;
     padding-inline: var(--coda-spacing);
-
+    text-wrap: nowrap;
   }
 
   & ul:last-of-type a:hover {
-    background-color: var(--pico-secondary-background);
+    background-color: var(--coda-secondary-background);
+    color: var(--coda-secondary-inverse);
     text-decoration: none;
   }
 
+  & ul:last-of-type a:hover img {
+    filter: invert();
+  }
+
   & a.active {
-    border: 1px solid var(--pico-secondary-background);
+    border: 1px solid var(--coda-secondary-background);
+  }
+
+  & .nav-link-icon {
+    margin-inline-end: calc(var(--coda-spacing) / 2);
+  }
+
+}
+
+@media screen and (prefers-color-scheme: dark) {
+  .nav-link-icon {
+    filter: invert();
   }
 }
 
@@ -200,7 +221,7 @@ article.fundingrequest {
 }
 
 .label {
-  --label-text-color: color-mix(in srgb, var(--label-border-color) 85%, white);
+  --label-text-color: color-mix(in srgb, var(--label-border-color) 80%, white);
   padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
   width: fit-content;
   text-wrap: nowrap;

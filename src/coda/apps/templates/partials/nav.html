@@ -6,10 +6,14 @@
             </li>
         </ul>
         <ul>
-            <li>{% include "partials/nav_link.html" with link="fundingrequests:list" text="Funding Requests" %}</li>
-            <li>{% include "partials/nav_link.html" with link="journals:list" text="Journals" %}</li>
-            <li>{% include "partials/nav_link.html" with link="invoices:list" text="Invoices" %}</li>
-            <li>{% include "partials/nav_link.html" with link="preferences:global_preferences" text="CODA Preferences" %}</li>
+            <li>
+                {% include "partials/nav_link.html" with link="fundingrequests:list" image="assets/fundingrequest.svg" text="Funding Requests" %}
+            </li>
+            <li>{% include "partials/nav_link.html" with link="journals:list" image="assets/journal.svg" text="Journals" %}</li>
+            <li>{% include "partials/nav_link.html" with link="invoices:list" image="assets/receipt.svg" text="Invoices" %}</li>
+            <li>
+                {% include "partials/nav_link.html" with link="preferences:global_preferences" image="assets/settings.svg" text="Preferences" %}
+            </li>
             {% if user.is_authenticated %}
                 <li>
                     <form action="{% url "logout" %}" method="post">

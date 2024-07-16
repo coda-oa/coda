@@ -1,3 +1,11 @@
+{% load static %}
 {% url link as url %}
 <a href="{{ url }}"
-   class="contrast {% if request.path == url %}active{% endif %}">{{ text }}</a>
+   class="contrast {% if request.path == url %}active{% endif %}">
+    <img src="{% static image %}"
+         alt="nav link"
+         class="nav-link-icon"
+         width="auto"
+         height="auto">
+    <span>{{ text }}</span>
+</a>

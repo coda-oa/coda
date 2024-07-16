@@ -8,6 +8,11 @@
   --coda-primary-background: var(--pico-primary-background);
   --coda-primary-border: var(--pico-primary-border);
 
+  --coda-secondary-inverse: var(--pico-secondary-inverse);
+  --coda-secondary-background: var(--pico-secondary-background);
+
+  --coda-muted-border-color: var(--pico-muted-border-color);
+
   --coda-form-element-spacing-vertical: var(--pico-form-element-spacing-vertical);
   --coda-form-element-spacing-horizontal: var(--pico-form-element-spacing-horizontal);
 
