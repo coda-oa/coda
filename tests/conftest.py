@@ -13,7 +13,7 @@ def logged_in(client: Client) -> None:
     client.force_login(User.objects.create_user("testuser"))
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope="module")
 def populate_database(django_db_blocker: DjangoDbBlocker) -> None:
     with django_db_blocker.unblock():
         fixtures = list(Path("config/fixtures").glob("*.json"))
