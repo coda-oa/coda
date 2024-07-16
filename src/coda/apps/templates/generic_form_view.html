@@ -3,12 +3,14 @@
     {{ title }}
 {% endblock title %}
 {% block content %}
-    {% if title %}<h1>{{ title }}</h1>{% endif %}
-    <form method="post">
-        {% csrf_token %}
-        <table>
-            {{ form.as_table }}
-        </table>
-        <button type="submit">Save</button>
-    </form>
+    <section class="my-2">
+        {% if title %}<h1>{{ title }}</h1>{% endif %}
+        <form method="post">
+            {% csrf_token %}
+            <table>
+                {{ form.as_table }}
+            </table>
+            <button type="submit">Save</button>
+        </form>
+    </section>
 {% endblock content %}
