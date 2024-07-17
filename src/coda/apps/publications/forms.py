@@ -11,30 +11,17 @@ from django.utils.datastructures import MultiValueDictKeyError
 from coda.apps.formbase import CodaFormBase
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import LinkDto, PublicationMetaDto
-from coda.apps.publications.models import Concept, LinkType, Publication
+from coda.apps.publications.models import Concept, LinkType, Publication, Vocabulary
 from coda.doi import Doi
 from coda.publication import License, OpenAccessType, Published, UnpublishedState
 
 
-def concept_json_value(concept: Concept) -> str:
-    return json.dumps({"concept": concept.concept_id, "vocabulary": concept.vocabulary_id})
-
-
-def concept_form_values(concepts: Iterable[Concept]) -> list[tuple[str, str]]:
-    return [(concept_json_value(c), c.name) for c in concepts]
-
-
-def concept_options_by_vocabulary(vocabulary_type: str) -> Callable[[], list[tuple[str, str]]]:
+def concept_choices_from_global_settings(
+    vocabulary_type: str,
+) -> Callable[[], list[tuple[str, str]]]:
     def _concept_options_by_vocabulary() -> list[tuple[str, str]]:
-        preferences, _ = GlobalPreferences.objects.get_or_create()
-        if vocabulary_type == "publication_type":
-            _concepts = preferences.default_publication_type_vocabulary.concepts
-        elif vocabulary_type == "subject_area":
-            _concepts = preferences.default_subject_classification_vocabulary.concepts
-        else:
-            raise ValueError("unknown vocabulary type")
-        concepts = _concepts.all()
-        return concept_form_values(concepts)
+        vocabulary = vocabulary_from_settings(vocabulary_type)
+        return concept_form_values(vocabulary.concepts.all())
 
     return _concept_options_by_vocabulary
 
@@ -54,10 +41,10 @@ class PublicationForm(CodaFormBase):
         initial=License.Unknown.name,
     )
     publication_type = forms.ChoiceField(
-        choices=concept_options_by_vocabulary("publication_type"), required=False
+        choices=concept_choices_from_global_settings("publication_type"), required=False
     )
     subject_area = forms.ChoiceField(
-        choices=concept_options_by_vocabulary("subject_area"), required=False
+        choices=concept_choices_from_global_settings("subject_area"), required=False
     )
     open_access_type = forms.ChoiceField(
         choices=Publication.OA_TYPES, required=True, initial=OpenAccessType.Closed.name
@@ -185,3 +172,22 @@ class LinkForm(forms.Form):
             link_type=self.cleaned_data["link_type"],
             link_value=self.cleaned_data.get("link_value", self.data.get("link_value", "")),
         )
+
+
+def vocabulary_from_settings(vocabulary_type: str) -> Vocabulary:
+    match vocabulary_type:
+        case "publication_type":
+            vocabulary = GlobalPreferences.get_publication_type_vocabulary()
+        case "subject_area":
+            vocabulary = GlobalPreferences.get_subject_classification_vocabulary()
+        case _:
+            raise ValueError("unknown vocabulary type")
+    return vocabulary
+
+
+def concept_json_value(concept: Concept) -> str:
+    return json.dumps({"concept": concept.concept_id, "vocabulary": concept.vocabulary_id})
+
+
+def concept_form_values(concepts: Iterable[Concept]) -> list[tuple[str, str]]:
+    return [(concept_json_value(c), c.name) for c in concepts]
