@@ -79,13 +79,6 @@ class UserLink(NamedTuple):
 Link: TypeAlias = UserLink | Doi
 
 
-PublicationTypeId = NewType("PublicationTypeId", str)
-UnknownPublicationType = PublicationTypeId("unknown")
-
-SubjectAreaId = NewType("SubjectAreaId", str)
-UnknownSubjectArea = SubjectAreaId("unknown")
-
-
 ConceptId = NewType("ConceptId", str)
 VocabularyId = NewType("VocabularyId", int)
 
