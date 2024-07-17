@@ -1,9 +1,10 @@
-from collections.abc import Callable
 import datetime
 import json
+from collections.abc import Callable
 from typing import cast
 
 from django import forms
+from django.utils.datastructures import MultiValueDictKeyError
 
 from coda.apps.formbase import CodaFormBase
 from coda.apps.preferences.models import GlobalPreferences
@@ -66,13 +67,17 @@ class PublicationForm(CodaFormBase):
 
         try:
             subject_area = json.loads(self.data["subject_area"])
-            publication_type = json.loads(self.data["publication_type"])
             self.cleaned_data["subject_area"] = subject_area["concept"]
             self.cleaned_data["subject_area_vocabulary"] = subject_area["vocabulary"]
+        except (json.decoder.JSONDecodeError, MultiValueDictKeyError):
+            self.add_error("subject_area", "Invalid value for subject area")
+
+        try:
+            publication_type = json.loads(self.data["publication_type"])
             self.cleaned_data["publication_type"] = publication_type["concept"]
             self.cleaned_data["publication_type_vocabulary"] = publication_type["vocabulary"]
-        except json.decoder.JSONDecodeError:
-            pass
+        except (json.decoder.JSONDecodeError, MultiValueDictKeyError):
+            self.add_error("publication_type", "Invalid value for publication type")
 
         if self.cleaned_data.get("publication_state") != Published.name():
             return
