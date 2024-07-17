@@ -12,6 +12,10 @@ class Doi:
         if not self._valid():
             raise ValueError("Invalid DOI format")
 
+    @property
+    def type(self) -> str:
+        return "DOI"
+
     def _valid(self) -> bool:
         """
         These regex patterns are from the Crossref documentation:
@@ -37,6 +41,10 @@ class Doi:
     @property
     def suffix(self) -> str:
         return self._doi.split("/")[1]
+
+    @property
+    def url(self) -> str:
+        return f"https://doi.org/{str(self)}"
 
     def __str__(self) -> str:
         return self._doi

@@ -11,10 +11,11 @@ from coda.apps.contracts.models import Contract
 from coda.apps.fundingrequests.forms import ChooseLabelForm
 from coda.apps.fundingrequests.models import ExternalFunding, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
-from coda.apps.publications.models import Link, Publication
+from coda.apps.publications.models import Publication
+from coda.apps.publications.services import as_domain_link
 from coda.fundingrequest import Review
 from coda.money import Currency, Money
-from coda.publication import License
+from coda.publication import License, Link
 
 template_name = "fundingrequests/fundingrequest_detail.html"
 
@@ -99,7 +100,7 @@ def publication_viewmodel(publication: Publication) -> PublicationViewModel:
         publication_type=publication.publication_type.name if publication.publication_type else "",
         subject_area=publication.subject_area.name if publication.subject_area else "",
         oa_type=publication.open_access_type,
-        references=publication.links.all(),
+        references=[as_domain_link(link.type.name, link.value) for link in publication.links.all()],
         contracts=publication.journal.contracts.all(),
     )
 

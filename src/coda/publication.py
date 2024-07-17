@@ -66,6 +66,11 @@ PublicationState: TypeAlias = Unpublished | Published
 class UserLink(NamedTuple):
     type: str
     value: str
+    url_prefix: str = ""
+
+    @property
+    def url(self) -> str:
+        return self.url_prefix + self.value
 
     def __str__(self) -> str:
         return self.value

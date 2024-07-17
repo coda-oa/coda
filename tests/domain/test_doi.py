@@ -35,3 +35,9 @@ def test__doi_requires_prefix_and_suffix(invalid_doi: str) -> None:
 def test__doi_prefix_must_start_with_10_point(invalid_doi: str) -> None:
     with pytest.raises(ValueError):
         Doi(invalid_doi)
+
+
+def test__doi__url__returns_url() -> None:
+    sut = Doi("10.1234/foobar")
+
+    assert sut.url == f"https://doi.org/{sut}"

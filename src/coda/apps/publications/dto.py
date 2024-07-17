@@ -75,7 +75,7 @@ def parse_publication(
         publication_state=_parse_state(publication),
         authors=AuthorList(publication_dto["authors"]),
         links={
-            services.get_link(link["link_type"], link["link_value"])
+            services.as_domain_link(link["link_type"], link["link_value"])
             for link in publication_dto["links"]
         },
         journal=JournalId(publication_dto["journal"]["journal_id"]),

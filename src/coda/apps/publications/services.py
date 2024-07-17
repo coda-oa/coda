@@ -29,10 +29,10 @@ from coda.string import NonEmptyStr
 
 
 def _deserialize_links(links: Iterable[LinkModel]) -> set[Link]:
-    return {get_link(link.type.name, link.value) for link in links}
+    return {as_domain_link(link.type.name, link.value) for link in links}
 
 
-def get_link(link_type: str, value: str) -> Link:
+def as_domain_link(link_type: str, value: str) -> Link:
     if link_type == "DOI":
         return Doi(value)
     else:
