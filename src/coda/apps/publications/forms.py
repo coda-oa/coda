@@ -6,6 +6,7 @@ from typing import cast
 from django import forms
 
 from coda.apps.formbase import CodaFormBase
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import LinkDto, PublicationMetaDto
 from coda.apps.publications.models import Concept, LinkType, Publication
 from coda.doi import Doi
@@ -16,12 +17,16 @@ def concept_json_value(concept: Concept) -> str:
     return json.dumps({"concept": concept.concept_id, "vocabulary": concept.vocabulary_id})
 
 
-def concept_options_by_vocabulary(vocabulary_name: str) -> Callable[[], list[tuple[str, str]]]:
+def concept_options_by_vocabulary(vocabulary_type: str) -> Callable[[], list[tuple[str, str]]]:
     def _concept_options_by_vocabulary() -> list[tuple[str, str]]:
-        return [
-            (concept_json_value(c), c.name)
-            for c in Concept.objects.filter(vocabulary__name=vocabulary_name)
-        ]
+        preferences, _ = GlobalPreferences.objects.get_or_create()
+        if vocabulary_type == "publication_type":
+            concepts = preferences.default_publication_type_vocabulary.concepts
+        elif vocabulary_type == "subject_area":
+            concepts = preferences.default_subject_classification_vocabulary.concepts
+        else:
+            raise ValueError("unknown vocabulary type")
+        return [(concept_json_value(c), c.name) for c in concepts.all()]
 
     return _concept_options_by_vocabulary
 
@@ -36,10 +41,10 @@ class PublicationForm(CodaFormBase):
         initial=License.Unknown.name,
     )
     publication_type = forms.ChoiceField(
-        choices=concept_options_by_vocabulary("COAR Resource Types"), required=False
+        choices=concept_options_by_vocabulary("publication_type"), required=False
     )
     subject_area = forms.ChoiceField(
-        choices=concept_options_by_vocabulary("DFG Subject Classification"), required=False
+        choices=concept_options_by_vocabulary("subject_area"), required=False
     )
     open_access_type = forms.ChoiceField(
         choices=Publication.OA_TYPES, required=True, initial=OpenAccessType.Closed.name

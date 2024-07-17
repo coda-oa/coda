@@ -16,8 +16,8 @@ from coda.apps.fundingrequests.dto import (
     parse_payment,
 )
 from coda.apps.fundingrequests.services import fundingrequest_create
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import PublicationDto, PublicationMetaDto, parse_publication
-from coda.apps.publications.models import Concept
 from coda.apps.users.models import User
 from coda.fundingrequest import FundingOrganizationId, FundingRequest, FundingRequestId
 from coda.publication import JournalId, VocabularyConcept
@@ -30,6 +30,12 @@ from tests.publications.test_publication_services import as_domain_concept, asse
 @pytest.fixture(autouse=True)
 def login(client: Client) -> None:
     client.force_login(User.objects.create_user(username="testuser"))
+
+
+@pytest.fixture(autouse=True)
+def prepare_global_settings() -> None:
+    GlobalPreferences.set_subject_classification_vocabulary(modelfactory.vocabulary())
+    GlobalPreferences.set_publication_type_vocabulary(modelfactory.vocabulary())
 
 
 def save_new_fundingrequest(journal_id: int | None = None) -> FundingRequestId:
@@ -181,13 +187,13 @@ def submit_wizard(
 
 
 def subject_area() -> VocabularyConcept:
-    concept_model = Concept.objects.filter(vocabulary__name="DFG Subject Classification").first()
+    concept_model = GlobalPreferences.get_subject_classification_vocabulary().concepts.first()
     assert concept_model is not None
     return as_domain_concept(concept_model)
 
 
 def publication_type() -> VocabularyConcept:
-    concept_model = Concept.objects.filter(vocabulary__name="COAR Resource Types").first()
+    concept_model = GlobalPreferences.get_publication_type_vocabulary().concepts.first()
     assert concept_model is not None
     return as_domain_concept(concept_model)
 

@@ -23,3 +23,36 @@ class GlobalPreferences(models.Model):
         default=empty_vocabulary,
         related_name="+",
     )
+
+    @staticmethod
+    def get_subject_classification_vocabulary() -> Vocabulary:
+        prefs, _ = GlobalPreferences.objects.get_or_create()
+        return prefs.default_subject_classification_vocabulary
+
+    @staticmethod
+    def get_publication_type_vocabulary() -> Vocabulary:
+        prefs, _ = GlobalPreferences.objects.get_or_create()
+        return prefs.default_publication_type_vocabulary
+
+    @staticmethod
+    def get_home_currency() -> Currency:
+        prefs, _ = GlobalPreferences.objects.get_or_create()
+        return Currency.from_code(prefs.home_currency)
+
+    @staticmethod
+    def set_subject_classification_vocabulary(vocabulary: Vocabulary) -> None:
+        prefs, _ = GlobalPreferences.objects.get_or_create()
+        prefs.default_subject_classification_vocabulary = vocabulary
+        prefs.save()
+
+    @staticmethod
+    def set_publication_type_vocabulary(vocabulary: Vocabulary) -> None:
+        prefs, _ = GlobalPreferences.objects.get_or_create()
+        prefs.default_publication_type_vocabulary = vocabulary
+        prefs.save()
+
+    @staticmethod
+    def set_home_currency(currency: Currency) -> None:
+        prefs, _ = GlobalPreferences.objects.get_or_create()
+        prefs.home_currency = currency.code
+        prefs.save()
