@@ -3,12 +3,19 @@ from django.db import models
 from coda.apps.authors.models import Author
 from coda.apps.journals.models import Journal
 from coda.author import AuthorList
-from coda.publication import License, OpenAccessType, UnpublishedState
+from coda.publication import License, OpenAccessType, UnknownConcept, UnpublishedState
 
 
 class Vocabulary(models.Model):
     name = models.CharField(max_length=255)
     version = models.CharField(max_length=10, blank=True, default="")
+
+    @staticmethod
+    def empty() -> "Vocabulary":
+        v, created = Vocabulary.objects.get_or_create(name="empty vocabulary")
+        if created or v.concepts.count() == 0:
+            Concept.objects.create(concept_id=UnknownConcept.id, name="unknown", vocabulary=v)
+        return v
 
     def __str__(self) -> str:
         return self.name

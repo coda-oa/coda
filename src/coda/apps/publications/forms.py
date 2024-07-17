@@ -1,9 +1,11 @@
 import datetime
 import json
-from collections.abc import Callable
-from typing import cast
+from collections.abc import Callable, Iterable, Mapping
+from typing import Any, NamedTuple, cast
 
 from django import forms
+from django.forms.renderers import BaseRenderer
+from django.forms.utils import ErrorList
 from django.utils.datastructures import MultiValueDictKeyError
 
 from coda.apps.formbase import CodaFormBase
@@ -18,18 +20,28 @@ def concept_json_value(concept: Concept) -> str:
     return json.dumps({"concept": concept.concept_id, "vocabulary": concept.vocabulary_id})
 
 
+def concept_form_values(concepts: Iterable[Concept]) -> list[tuple[str, str]]:
+    return [(concept_json_value(c), c.name) for c in concepts]
+
+
 def concept_options_by_vocabulary(vocabulary_type: str) -> Callable[[], list[tuple[str, str]]]:
     def _concept_options_by_vocabulary() -> list[tuple[str, str]]:
         preferences, _ = GlobalPreferences.objects.get_or_create()
         if vocabulary_type == "publication_type":
-            concepts = preferences.default_publication_type_vocabulary.concepts
+            _concepts = preferences.default_publication_type_vocabulary.concepts
         elif vocabulary_type == "subject_area":
-            concepts = preferences.default_subject_classification_vocabulary.concepts
+            _concepts = preferences.default_subject_classification_vocabulary.concepts
         else:
             raise ValueError("unknown vocabulary type")
-        return [(concept_json_value(c), c.name) for c in concepts.all()]
+        concepts = _concepts.all()
+        return concept_form_values(concepts)
 
     return _concept_options_by_vocabulary
+
+
+class Vocabularies(NamedTuple):
+    subject_areas: Iterable[Concept] = ()
+    publication_types: Iterable[Concept] = ()
 
 
 class PublicationForm(CodaFormBase):
@@ -59,6 +71,49 @@ class PublicationForm(CodaFormBase):
     print_publication_date = forms.DateField(
         widget=forms.DateInput(attrs={"type": "date"}), required=False
     )
+
+    def __init__(
+        self,
+        data: Mapping[str, Any] | None = None,
+        files: Mapping[str, Any] | None = None,
+        auto_id: bool | str = True,
+        prefix: str | None = None,
+        initial: Mapping[str, Any] | None = None,
+        error_class: type[ErrorList] = ErrorList,
+        label_suffix: str | None = None,
+        empty_permitted: bool = False,
+        field_order: list[str] | None = None,
+        use_required_attribute: bool | None = None,
+        renderer: BaseRenderer | None = None,
+        vocabularies: Vocabularies = Vocabularies(),
+    ) -> None:
+        super().__init__(
+            data,
+            files,
+            auto_id,
+            prefix,
+            initial,
+            error_class,
+            label_suffix,
+            empty_permitted,
+            field_order,
+            use_required_attribute,
+            renderer,
+        )
+
+        self._update_field_choices("subject_area", vocabularies.subject_areas)
+        self._update_field_choices("publication_type", vocabularies.publication_types)
+
+    def _update_field_choices(self, field_name: str, vocabulary: Iterable[Concept]) -> None:
+        if vocabulary:
+            field: forms.Field = self.fields[field_name]
+            self._as_choicefield(field).choices = concept_form_values(vocabulary)
+            if field_name in self.errors:
+                self.errors.pop(field_name)
+                field.widget.attrs.pop("aria-invalid")
+
+    def _as_choicefield(self, field: forms.Field) -> forms.ChoiceField:
+        return cast(forms.ChoiceField, field)
 
     def full_clean(self) -> None:
         super().full_clean()

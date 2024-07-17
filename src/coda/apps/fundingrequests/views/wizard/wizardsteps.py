@@ -10,27 +10,31 @@ from coda.apps.authors.forms import AuthorForm
 from coda.apps.fundingrequests.forms import CostForm, ExternalFundingForm
 from coda.apps.journals.models import Journal
 from coda.apps.journals.services import find_by_title
-from coda.apps.publications.forms import LinkForm, PublicationForm
-from coda.apps.publications.models import LinkType
+from coda.apps.publications.dto import PublicationMetaDto
+from coda.apps.publications.forms import LinkForm, PublicationForm, Vocabularies
+from coda.apps.publications.models import LinkType, Vocabulary
 from coda.apps.wizard import FormStep, Step, Store
 from coda.author import AuthorList
 
-_TForm = TypeVar("_TForm", bound=Form)
+_TForm = TypeVar("_TForm", bound=Form, covariant=True)
 
 
 def form_with_post_or_store_data(
-    form_type: type[_TForm], request: HttpRequest, store_data: dict[str, Any] | None
+    form_type: type[_TForm],
+    request: HttpRequest,
+    store_data: dict[str, Any] | None,
+    **kwargs: Any,
 ) -> _TForm:
     """
     Create a form instance with POST data if matching keys are present, otherwise use stored data.
     If no stored data is present, create an empty form instance.
     """
     if request.POST.keys() & form_type.base_fields.keys():
-        return form_type(request.POST)
+        return form_type(request.POST, **kwargs)
     elif store_data:
-        return form_type(store_data)
+        return form_type(store_data, **kwargs)
     else:
-        return form_type()
+        return form_type(**kwargs)
 
 
 class SubmitterStep(FormStep):
@@ -92,16 +96,36 @@ class PublicationStep(Step):
         }
 
     def get_publication_form(self, request: HttpRequest, store: Store) -> PublicationForm:
+        vocabularies = self.get_form_vocabularies(store)
+
         if self.requested_author_preview(request):
-            form = PublicationForm(request.POST)
+            form = PublicationForm(request.POST, vocabularies=vocabularies)
             form.errors.clear()
             return form
 
         formdata = self.transform_to_formdata(store)
-        return form_with_post_or_store_data(PublicationForm, request, formdata)
+        return form_with_post_or_store_data(
+            PublicationForm, request, formdata, vocabularies=vocabularies
+        )
+
+    def get_form_vocabularies(self, store: Store) -> Vocabularies:
+        publication_meta: PublicationMetaDto | None = store.get("publication")
+        if not publication_meta:
+            return Vocabularies()
+
+        subject_vocabulary_id = publication_meta["subject_area_vocabulary"]
+        subject_vocabulary = Vocabulary.objects.get(pk=subject_vocabulary_id)
+        pub_type_vocabulary_id = publication_meta["publication_type_vocabulary"]
+        pub_type_vocabulary = Vocabulary.objects.get(pk=pub_type_vocabulary_id)
+        vocabularies = Vocabularies(
+            subject_areas=subject_vocabulary.concepts.all(),
+            publication_types=pub_type_vocabulary.concepts.all(),
+        )
+
+        return vocabularies
 
     def transform_to_formdata(self, store: Store) -> dict[str, Any]:
-        formdata: dict[str, Any] = store.get("publication", {})
+        formdata: dict[str, Any] = dict(store.get("publication", {}))
         if formdata:
             formdata["subject_area"] = json.dumps(
                 {

@@ -4,9 +4,10 @@ from coda.apps.publications.models import Vocabulary
 from coda.money import Currency
 
 
+# NOTE: we have to keep this function around for now,
+# because migrations don't work well when a previous default value is missing
 def empty_vocabulary() -> Vocabulary:
-    v, _ = Vocabulary.objects.get_or_create(name="empty vocabulary")
-    return v
+    return Vocabulary.empty()
 
 
 class GlobalPreferences(models.Model):
@@ -14,13 +15,13 @@ class GlobalPreferences(models.Model):
     default_subject_classification_vocabulary = models.ForeignKey(
         Vocabulary,
         on_delete=models.SET_DEFAULT,
-        default=empty_vocabulary,
+        default=Vocabulary.empty,
         related_name="+",
     )
     default_publication_type_vocabulary = models.ForeignKey(
         Vocabulary,
         on_delete=models.SET_DEFAULT,
-        default=empty_vocabulary,
+        default=Vocabulary.empty,
         related_name="+",
     )
 
