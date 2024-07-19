@@ -5,19 +5,40 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{{ title }}</title>
         <link rel="stylesheet"
-              href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+              href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+              crossorigin="anonymous" />
         <script src="https://unpkg.com/htmx.org@2.0.0"
                 integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw"
                 crossorigin="anonymous"></script>
         {% load static %}
-        <link rel="stylesheet" type="text/css" href="{% static 'css/vars.css' %}" />
         <link rel="stylesheet"
               type="text/css"
-              href="{% static 'css/components.css' %}" />
-        <link rel="stylesheet" type="text/css" href="{% static 'css/layout.css' %}" />
+              href="{% static 'css/vars.css' %}"
+              crossorigin="anonymous" />
         <link rel="stylesheet"
               type="text/css"
-              href="{% static 'css/spacing.css' %}" />
+              href="{% static 'css/components.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/layout.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/spacing.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              href="{% static 'css/headings.css' %}"
+              crossorigin="anonymous">
+        <link rel="stylesheet"
+              href="{% static 'css/nav.css' %}"
+              crossorigin="anonymous">
+        <script src="{% static 'js/global-styles.js' %}"
+                type="module"
+                crossorigin="anonymous"></script>
+        <script src="{% static 'js/search-select.js' %}"
+                type="module"
+                crossorigin="anonymous"></script>
     </head>
     <body>
         <div class="flex">

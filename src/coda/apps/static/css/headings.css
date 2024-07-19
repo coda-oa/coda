@@ -1,0 +1,15 @@
+h1, h2, h3, h4, h5 {
+  font-size: var(--coda-font-size);
+}
+
+h1 {
+  --coda-font-size: 1.75rem;
+}
+
+h2 {
+  --coda-font-size: 1.5rem;
+}
+
+h3 {
+  --coda-font-size: 1.25rem;
+}
