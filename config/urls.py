@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth.views import LoginView, LogoutView
+from django.shortcuts import render
 from django.urls import include, path
 from django.views import defaults as default_views
 
@@ -53,4 +54,5 @@ if settings.DEBUG:
             "500/",
             functools.partial(default_views.server_error, template_name="pages/error_page.html"),
         ),
+        path("demo/", lambda req: render(req, "demo.html")),
     ]

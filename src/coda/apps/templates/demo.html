@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Demo Page</h1>
+    <form method="post">
+        {% csrf_token %}
+        <search-select name="search-select">
+        <li>option 1</li>
+        <li>option 2</li>
+        <li>option 3</li>
+        </search-select>
+        <button type="submit">Submit</button>
+    </form>
+{% endblock content %}
