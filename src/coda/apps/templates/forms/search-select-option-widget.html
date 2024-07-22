@@ -1,0 +1,3 @@
+<li value="{{ widget.value|stringformat:'s' }}"
+    {% if selected %}selected{% endif %}
+    {% include "django/forms/widgets/attrs.html" %}>{{ widget.label }}</li>
