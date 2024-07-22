@@ -8,6 +8,7 @@ from django.forms.renderers import BaseRenderer
 from django.forms.utils import ErrorList
 from django.utils.datastructures import MultiValueDictKeyError
 
+from coda.apps import widgets
 from coda.apps.formbase import CodaFormBase
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import LinkDto, PublicationMetaDto
@@ -41,10 +42,14 @@ class PublicationForm(CodaFormBase):
         initial=License.Unknown.name,
     )
     publication_type = forms.ChoiceField(
-        choices=concept_choices_from_global_settings("publication_type"), required=False
+        choices=concept_choices_from_global_settings("publication_type"),
+        required=False,
+        widget=widgets.SearchSelectWidget,
     )
     subject_area = forms.ChoiceField(
-        choices=concept_choices_from_global_settings("subject_area"), required=False
+        choices=concept_choices_from_global_settings("subject_area"),
+        required=False,
+        widget=widgets.SearchSelectWidget,
     )
     open_access_type = forms.ChoiceField(
         choices=Publication.OA_TYPES, required=True, initial=OpenAccessType.Closed.name
