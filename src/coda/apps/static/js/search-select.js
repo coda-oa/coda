@@ -134,7 +134,7 @@ class SearchSelect extends HTMLElement {
                 const direction = e.key === "ArrowDown" ? 1 : -1
                 this.navigateListItems(direction)
             } else if (e.key === "Enter") {
-                this.setValueToActiveElementOrFirstMatch();
+                this.setValueToActiveElementOrFirstMatch()
                 this.searchBox.focus()
                 this.searchResults.classList.remove("visible")
             } else if (e.key === "Escape") {
@@ -164,31 +164,31 @@ class SearchSelect extends HTMLElement {
     }
 
     resetFilter() {
-        this.listItems.forEach(li => li.style.display = "list-item");
-        this.visibleItems = this.listItems;
+        this.listItems.forEach(li => li.style.display = "list-item")
+        this.visibleItems = this.listItems
     }
 
     setValueToActiveElementOrFirstMatch() {
         if (this.activeElement) {
-            this.value = this.activeElement.getAttribute("value");
+            this.value = this.activeElement.getAttribute("value")
         } else {
-            const match = this.firstMatch();
-            this.value = match?.getAttribute("value");
-            this.searchBox.value = match?.innerText;
+            const match = this.firstMatch()
+            this.value = match?.getAttribute("value")
+            this.searchBox.value = match?.innerText
         }
     }
 
     firstMatch() {
-        return this.visibleItems.filter(li => this.isVisible(li) && this.matches(li))[0];
+        return this.visibleItems.filter(li => this.isVisible(li) && this.matches(li))[0]
     }
 
     assignLiClickHandler(li) {
         li.addEventListener("click", () => {
-            this.searchBox.value = li.innerText;
-            this.value = li.getAttribute("value");
-            this.searchBox.focus();
-            this.searchResults.classList.remove("visible");
-        });
+            this.searchBox.value = li.innerText
+            this.value = li.getAttribute("value")
+            this.searchBox.focus()
+            this.searchResults.classList.remove("visible")
+        })
     }
 
     navigateListItems(direction) {
@@ -210,7 +210,7 @@ class SearchSelect extends HTMLElement {
     }
 
     filterListItems() {
-        const arr = Array.from(this.listItems);
+        const arr = Array.from(this.listItems)
         arr.filter((li) => this.isVisible(li) && !this.matches(li))
             .forEach(li => li.style.display = "none")
 
@@ -221,7 +221,7 @@ class SearchSelect extends HTMLElement {
     }
 
     isVisible(li) {
-        return li.style.display !== "none";
+        return li.style.display !== "none"
     }
 
     matches(li) {
@@ -236,21 +236,21 @@ class SearchSelect extends HTMLElement {
     }
 
     updateValidity() {
-        let validity, message;
+        let validity, message
         if (!this.isValidSelection()) {
             validity = {
                 badInput: true
-            };
-            message = `${this.value} is not a valid option`;
+            }
+            message = `${this.value} is not a valid option`
         } else {
-            validity = this.searchBox.validity;
-            message = this.searchBox.validationMessage;
+            validity = this.searchBox.validity
+            message = this.searchBox.validationMessage
         }
         this._internals.setValidity(validity, message, this.searchBox)
     }
 
     isValidSelection() {
-        return this.validOptions?.includes(this.value);
+        return this.validOptions?.includes(this.value)
     }
 
     checkValidity() {
