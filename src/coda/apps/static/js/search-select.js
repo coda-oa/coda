@@ -197,14 +197,10 @@ class SearchSelect extends HTMLElement {
         }
 
         const iter = new DoubleSidedIterator(this.visibleItems, this._currentIndex, direction)
-        const curentElement = iter.current()
-        curentElement?.classList.remove("focus")
-        this.activeElement = iter.next()
-        this.activeElement.classList.add("focus")
+        this.setActiveElement(iter.next(), iter.index())
         this.activeElement.scrollIntoView({
             block: "nearest"
         })
-        this._currentIndex = iter.index()
         this.searchBox.value = this.activeElement.innerText
         this.value = this.activeElement.getAttribute("value")
     }
@@ -218,6 +214,15 @@ class SearchSelect extends HTMLElement {
             .forEach(li => li.style.display = "list-item")
 
         this.visibleItems = arr.filter(li => this.isVisible(li))
+        this.setActiveElement(this.visibleItems[0], 0)
+    }
+
+    setActiveElement(li, index) {
+        this.activeElement?.classList.remove("focus")
+
+        this.activeElement = li
+        this.activeElement.classList.add("focus")
+        this._currentIndex = index
     }
 
     isVisible(li) {
