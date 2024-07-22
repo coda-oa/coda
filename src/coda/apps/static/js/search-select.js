@@ -17,9 +17,39 @@ const htmlTemplate = /*html*/ `
         position: relative;
     }
 
+    #search-box {
+        display: block;
+        position: relative;
+    }
+
+    .search-select::after {
+        display: block;
+        width: 1rem;
+        height: calc(1rem * var(--coda-line-height, 1.5));
+
+        position: absolute;
+
+        right: 1rem;
+        top: calc(50% - .5rem);
+
+        transform: rotate(0) translateX(.2rem);
+        transition: transform 0.15s ease-in-out;
+        background-image: var(--pico-icon-chevron);
+        background-position: right center;
+        background-size: 1rem auto;
+        background-repeat: no-repeat;
+        content: "";
+    }
+
+    .search-select:focus-within::after {
+        transform: rotate(180deg);
+    }
+
     #search-results {
         position: absolute;
         width: 100%;
+        max-height: calc(1rem * var(--coda-line-height, 1.5) * 20);
+        overflow-y: auto;
         z-index: 99;
 
         margin-block: calc(-1 * var(--coda-spacing));
@@ -37,6 +67,7 @@ const htmlTemplate = /*html*/ `
             padding-inline: calc(var(--coda-spacing) / 2);
             padding-block: calc(var(--coda-spacing) / 2);
             border-radius: var(--coda-border-radius);
+            cursor: pointer;
         }
 
         & ::slotted(li:hover),
@@ -85,6 +116,11 @@ class SearchSelect extends HTMLElement {
             this.listItems = this._slot.assignedElements()
             this.validOptions = this.listItems.map(li => li.getAttribute("value"))
             Array.from(this.listItems).forEach(li => this.assignLiClickHandler(li))
+            const selected = this.listItems.find(li => li.hasAttribute("selected"))
+            if (selected !== undefined) {
+                this.searchBox.value = selected.textContent.trim()
+                this.value = selected.getAttribute("value")
+            }
         })
 
         this.searchBox.addEventListener("keyup", (e) => {
@@ -107,11 +143,11 @@ class SearchSelect extends HTMLElement {
         this.searchResults = this.shadowRoot.querySelector("#search-results")
         this.searchBox.addEventListener("focus", () => {
             this.searchResults.classList.add("visible")
-            this.filterListItems()
         })
 
         this.searchBox.addEventListener("blur", () => {
             this.searchResults.classList.remove("visible")
+            this.resetFilter()
         })
 
         this.searchBox.addEventListener("change", () => {
@@ -121,11 +157,16 @@ class SearchSelect extends HTMLElement {
 
     }
 
+    resetFilter() {
+        this.listItems.forEach(li => li.style.display = "list-item");
+        this.visibleItems = this.listItems;
+    }
+
     setValueToActiveElementOrFirstVisible() {
         if (this.activeElement) {
             this.value = this.activeElement.getAttribute("value");
         } else {
-            this.value = this.visibleItems?.[0]?.getAttribute("value");
+            this.value = this.visibleItems.filter(li => li.style.display !== "none" && li.innerText.includes(this.searchBox.value))[0]?.getAttribute("value");
             this.searchBox.value = this.visibleItems?.[0]?.innerText;
         }
     }
