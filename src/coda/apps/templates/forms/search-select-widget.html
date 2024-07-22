@@ -1,7 +1,7 @@
 {% load static %}
 <script src="{% static 'js/global-styles.js' %}" type="module"></script>
 <script src="{% static 'js/search-select.js' %}" type="module"></script>
-<search-select name="{{ widget.name }}">
+<search-select name="{{ widget.name }}" class="w-100">
 {% for group_name, group_choices, group_index in widget.optgroups %}
     {% if group_name %}<optgroup label="{{ group_name }}">{% endif %}
         {% for widget in group_choices %}
