@@ -3,6 +3,7 @@ from typing import Any, cast
 
 from django import forms
 
+from coda.apps import widgets
 from coda.apps.authors.dto import AuthorDto, parse_author
 from coda.apps.formbase import CodaFormBase
 from coda.apps.institutions.models import Institution
@@ -26,7 +27,11 @@ class AuthorForm(CodaFormBase):
     name = forms.CharField()
     email = forms.EmailField()
     orcid = OrcidField(required=False)
-    affiliation = forms.ModelChoiceField(queryset=Institution.objects.all(), required=False)
+    affiliation = forms.ModelChoiceField[Institution](
+        queryset=Institution.objects.all(),
+        required=False,
+        widget=widgets.SearchSelectWidget,
+    )
     roles = forms.MultipleChoiceField(
         choices=((role.name, role.value) for role in Role),
         widget=forms.CheckboxSelectMultiple(),
