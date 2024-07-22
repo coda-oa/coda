@@ -83,6 +83,7 @@ class SearchSelect extends HTMLElement {
         this._slot = this.shadowRoot.querySelector("slot")
         this._slot.addEventListener("slotchange", () => {
             this.listItems = this._slot.assignedElements()
+            this.validOptions = this.listItems.map(li => li.getAttribute("value"))
             Array.from(this.listItems).forEach(li => this.assignLiClickHandler(li))
         })
 
@@ -91,7 +92,7 @@ class SearchSelect extends HTMLElement {
                 const direction = e.key === "ArrowDown" ? 1 : -1;
                 this.navigateListItems(direction)
             } else if (e.key === "Enter") {
-                this.value = this.searchBox.value
+                this.setValueToActiveElementOrFirstVisible();
                 this.searchBox.focus()
                 this.searchResults.classList.remove("visible")
             } else if (e.key === "Escape") {
@@ -120,34 +121,37 @@ class SearchSelect extends HTMLElement {
 
     }
 
+    setValueToActiveElementOrFirstVisible() {
+        if (this.activeElement) {
+            this.value = this.activeElement.getAttribute("value");
+        } else {
+            this.value = this.visibleItems?.[0]?.getAttribute("value");
+            this.searchBox.value = this.visibleItems?.[0]?.innerText;
+        }
+    }
+
     assignLiClickHandler(li) {
         li.addEventListener("click", () => {
             this.searchBox.value = li.innerText;
-            this.value = this.searchBox.value;
+            this.value = li.getAttribute("value");
             this.searchBox.focus();
             this.searchResults.classList.remove("visible");
         });
     }
 
     navigateListItems(direction) {
-        const visibleItems = Array.from(this.listItems).filter(li => li.style.display !== "none")
-
-
-        if (visibleItems.length === 0) {
+        if (this.visibleItems?.length === 0) {
             return
         }
 
-        let nextElement, curentElement, _
-
-        const iter = new DoubleSidedIterator(visibleItems, this._currentIndex, direction)
-
-        curentElement = iter.current()
+        const iter = new DoubleSidedIterator(this.visibleItems, this._currentIndex, direction)
+        const curentElement = iter.current()
         curentElement?.classList.remove("focus")
-        nextElement = iter.next()
-        nextElement.classList.add("focus");
+        this.activeElement = iter.next()
+        this.activeElement.classList.add("focus");
         this._currentIndex = iter.index()
-        this.searchBox.value = nextElement.innerText;
-        this.value = this.searchBox.value;
+        this.searchBox.value = this.activeElement.innerText;
+        this.value = this.activeElement.getAttribute("value");
     }
 
     filterListItems() {
@@ -158,6 +162,8 @@ class SearchSelect extends HTMLElement {
 
         arr.filter(li => li.style.display === "none" && this.matches(searchTerm, li))
             .forEach(li => li.style.display = "list-item")
+
+        this.visibleItems = arr.filter(li => li.style.display !== "none")
     }
 
     matches(searchTerm, li) {
@@ -185,7 +191,7 @@ class SearchSelect extends HTMLElement {
     }
 
     isValidSelection() {
-        return this.listItems?.map(li => li.innerText).includes(this.value?.trim());
+        return this.validOptions?.includes(this.value);
     }
 
     checkValidity() {
