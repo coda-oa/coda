@@ -1,3 +1,8 @@
+search-select:not(:defined) {
+  /* prevents flash of options list before shadow dom styling kicks in */
+  visibility: hidden;
+}
+
 .home__dashboard h2 {
   text-align: center;
 }
