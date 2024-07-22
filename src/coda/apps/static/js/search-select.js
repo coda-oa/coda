@@ -5,7 +5,7 @@ import {
 } from "./global-styles.js"
 
 const htmlTemplate = /*html*/ `
-<div class="search-select">
+<div id="search-results-wrapper">
     <input type="text" id="search-box" autocomplete="off" required>
     <ul id="search-results" class="no-decoration">
         <slot>
@@ -13,16 +13,13 @@ const htmlTemplate = /*html*/ `
 </div>
 
 <style>
-    .search-select {
-        position: relative;
-    }
-
     #search-box {
         display: block;
         position: relative;
+        width: 100%;
     }
 
-    .search-select::after {
+    #search-results-wrapper::after {
         display: block;
         width: 1rem;
         height: calc(1rem * var(--coda-line-height, 1.5));
@@ -42,8 +39,13 @@ const htmlTemplate = /*html*/ `
         content: "";
     }
 
-    .search-select:focus-within::after {
-        transform: rotate(180deg);
+    #search-results-wrapper:focus-within::after {
+        transform: rotate(180deg) translateX(-.2rem);
+    }
+
+    #search-results-wrapper {
+        display: block;
+        position: relative;
     }
 
     #search-results {
@@ -111,7 +113,7 @@ class SearchSelect extends HTMLElement {
 
     connectedCallback() {
         this._currentIndex = -1
-        this.searchBox = this.shadowRoot.querySelector(".search-select > #search-box")
+        this.searchBox = this.shadowRoot.querySelector("#search-box")
         this.value = this.searchBox.value
         this._slot = this.shadowRoot.querySelector("slot")
         this._slot.addEventListener("slotchange", () => {
@@ -169,22 +171,23 @@ class SearchSelect extends HTMLElement {
     }
 
     setValueToActiveElementOrFirstMatch() {
-        if (this.activeElement) {
+        if (this.activeElement !== undefined) {
             this.value = this.activeElement.getAttribute("value")
+            this.searchBox.value = this.activeElement.textContent
         } else {
             const match = this.firstMatch()
             this.value = match?.getAttribute("value")
-            this.searchBox.value = match?.innerText
+            this.searchBox.value = match?.textContent
         }
     }
 
     firstMatch() {
-        return this.visibleItems.filter(li => this.isVisible(li) && this.matches(li))[0]
+        return this.visibleItems.filter(li => this.matches(li))[0]
     }
 
     assignLiClickHandler(li) {
         li.addEventListener("click", () => {
-            this.searchBox.value = li.innerText
+            this.searchBox.value = li.textContent
             this.value = li.getAttribute("value")
             this.searchBox.focus()
             this.searchResults.classList.remove("visible")
@@ -214,7 +217,8 @@ class SearchSelect extends HTMLElement {
             .forEach(li => li.style.display = "list-item")
 
         this.visibleItems = arr.filter(li => this.isVisible(li))
-        this.setActiveElement(this.visibleItems[0], 0)
+        if (this.visibleItems.length > 0)
+            this.setActiveElement(this.visibleItems[0], 0)
     }
 
     setActiveElement(li, index) {
@@ -231,7 +235,7 @@ class SearchSelect extends HTMLElement {
 
     matches(li) {
         const searchTerm = this.searchBox.value
-        return searchTerm.length == 0 || li.innerText.includes(searchTerm)
+        return searchTerm.length == 0 || li.textContent.includes(searchTerm)
     }
 
     set value(value) {
