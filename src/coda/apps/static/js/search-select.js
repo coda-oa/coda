@@ -172,9 +172,14 @@ class SearchSelect extends HTMLElement {
         if (this.activeElement) {
             this.value = this.activeElement.getAttribute("value");
         } else {
-            this.value = this.visibleItems.filter(li => li.style.display !== "none" && li.innerText.includes(this.searchBox.value))[0]?.getAttribute("value");
-            this.searchBox.value = this.visibleItems?.[0]?.innerText;
+            const match = this.firstMatch();
+            this.value = match?.getAttribute("value");
+            this.searchBox.value = match?.innerText;
         }
+    }
+
+    firstMatch() {
+        return this.visibleItems.filter(li => this.isVisible(li) && this.matches(li))[0];
     }
 
     assignLiClickHandler(li) {
@@ -205,19 +210,23 @@ class SearchSelect extends HTMLElement {
     }
 
     filterListItems() {
-        const searchTerm = this.searchBox.value;
         const arr = Array.from(this.listItems);
-        arr.filter((li) => li.style.display !== "none" && !this.matches(searchTerm, li))
+        arr.filter((li) => this.isVisible(li) && !this.matches(li))
             .forEach(li => li.style.display = "none")
 
-        arr.filter(li => li.style.display === "none" && this.matches(searchTerm, li))
+        arr.filter(li => !this.isVisible(li) && this.matches(li))
             .forEach(li => li.style.display = "list-item")
 
-        this.visibleItems = arr.filter(li => li.style.display !== "none")
+        this.visibleItems = arr.filter(li => this.isVisible(li))
     }
 
-    matches(searchTerm, li) {
-        return searchTerm.length == 0 || li.innerText.includes(searchTerm);
+    isVisible(li) {
+        return li.style.display !== "none";
+    }
+
+    matches(li) {
+        const searchTerm = this.searchBox.value
+        return searchTerm.length == 0 || li.innerText.includes(searchTerm)
     }
 
     set value(value) {
