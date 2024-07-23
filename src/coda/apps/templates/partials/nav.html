@@ -1,3 +1,4 @@
+{% load static %}
 <aside class="nav-container">
     <nav class="nav">
         <ul>
@@ -18,14 +19,19 @@
                 <li>
                     <form action="{% url "logout" %}" method="post">
                         {% csrf_token %}
-                        <button type="submit" class="login_logout_button outline">Logout</button>
+                        <button type="submit" class="login_logout_button outline secondary">
+                            <img src="{% static "assets/logout.svg" %}" class="nav-link-icon" alt="logout" width="auto" height="auto">
+                            <span>Logout</span>
+                        </button>
                     </form>
                 </li>
             {% else %}
                 <li>
-                    <button type="button" class="login_logout_button outline">
-                        <a href="{% url "login" %}">Login</a>
-                    </button>
+                    <a role="button"
+                       class="login_logout_button outline secondary"
+                       href="{% url "login" %}">
+                        <img src="{% static "assets/login.svg" %}" class="nav-link-icon" alt="login" width="auto" height="auto">
+                        <span>Login</span></a>
                 </li>
             {% endif %}
         </ul>

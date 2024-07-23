@@ -1,6 +1,7 @@
 .nav-container {
+    --_nav-container-width: 20ch;
     min-height: 100vh;
-    width: 25ch;
+    width: var(--_nav-container-width);
     background-color: var(--coda-card-background-color);
     border-right: 1px solid var(--coda-muted-border-color);
 }
@@ -26,7 +27,7 @@
         }
 
         & a {
-            font-size: 2rem;
+            font-size: 1.75rem;
         }
     }
 
@@ -45,7 +46,7 @@
         text-wrap: nowrap;
     }
 
-    & ul:last-of-type a:hover {
+    & ul:last-of-type a:not([role="button"]):hover {
         background-color: var(--coda-secondary-background);
         color: var(--coda-secondary-inverse);
         text-decoration: none;
@@ -73,8 +74,54 @@
 
     & .nav-link-icon {
         margin-inline-end: calc(var(--coda-spacing) / 2);
+        min-width: 1.5rem;
     }
 
+    & button {
+        padding-inline: var(--coda-spacing);
+        text-align: left;
+        overflow: hidden;
+        text-overflow: hidden;
+        text-wrap: nowrap;
+    }
+
+    & a[role="button"] {
+        margin: 0;
+        padding-inline: var(--coda-spacing);
+
+        width: 100%;
+
+        text-align: left;
+    }
+}
+
+@media screen and (width < 1728px) {
+    .nav-container {
+        --_nav-container-width: 4.5rem;
+        transition: width 0.2s ease-in-out;
+    }
+
+    .nav-container:hover,
+    .nav-container:focus-within {
+        --_nav-container-width: 20rem;
+    }
+
+    .nav-container .nav span {
+        --_opacity-transition-duration: 0.25s;
+        overflow: auto;
+        opacity: 0;
+        transition: opacity 0.25s ease-in-out;
+    }
+
+    .nav-container:hover .nav span {
+        --_opacity-transition-duration: 0.15s;
+        opacity: 1;
+    }
+
+    .nav {
+        padding-inline-start: calc(var(--coda-spacing) / 2);
+        padding-inline-end: calc(var(--coda-spacing));
+    }
 }
 
 @media screen and (prefers-color-scheme: dark) {
