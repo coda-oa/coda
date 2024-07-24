@@ -1,5 +1,5 @@
 .nav-container {
-    --_nav-container-width: 20ch;
+    --_nav-container-width: 25ch;
     min-height: 100vh;
     width: var(--_nav-container-width);
     background-color: var(--coda-card-background-color);
@@ -103,7 +103,7 @@
 
     .nav-container:hover,
     .nav-container:focus-within {
-        --_nav-container-width: 20rem;
+        --_nav-container-width: 25ch;
     }
 
     .nav-container .nav span {
