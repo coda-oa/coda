@@ -81,11 +81,13 @@ const htmlTemplate = /*html*/ `
         }
     }
 
+    /*
     #search-results:hover,
     #search-results.visible:focus-within {
         visibility: visible;
         opacity: 1;
     }
+    */
 
     #search-results.visible {
         visibility: visible;
@@ -114,8 +116,10 @@ class SearchSelect extends HTMLElement {
     connectedCallback() {
         this._currentIndex = -1
         this.searchBox = this.shadowRoot.querySelector("#search-box")
-        this.value = this.searchBox.value
+        this.searchResults = this.shadowRoot.querySelector("#search-results")
         this._slot = this.shadowRoot.querySelector("slot")
+
+        this.value = null
         this._slot.addEventListener("slotchange", () => {
             this.listItems = this._slot.assignedElements()
             this.visibleItems = this.listItems
@@ -144,13 +148,16 @@ class SearchSelect extends HTMLElement {
             } else {
                 this.searchResults.classList.add("visible")
                 this.filterListItems()
-                this.value = this.searchBox.value
             }
         })
 
-        this.searchResults = this.shadowRoot.querySelector("#search-results")
-        this.searchBox.addEventListener("focus", () => {
-            this.searchResults.classList.add("visible")
+        this.searchResults.addEventListener("mousedown", (e) => {
+            if (e.target.tagName === 'LI') {
+                this.searchBox.value = e.target.textContent
+                this.setActiveElement(e.target, this.visibleItems.indexOf(e.target))
+                this.setValueToActiveElementOrFirstMatch()
+                this.searchResults.classList.remove("visible")
+            }
         })
 
         this.searchBox.addEventListener("blur", () => {
@@ -158,9 +165,14 @@ class SearchSelect extends HTMLElement {
             this.resetFilter()
         })
 
+        this.searchBox.addEventListener("focus", () => {
+            this.searchBox.select()
+            this.searchResults.classList.add("visible")
+        })
+
         this.searchBox.addEventListener("change", () => {
             this.filterListItems()
-            this.value = this.searchBox.value
+            this.setValueToActiveElementOrFirstMatch()
         })
 
     }
@@ -186,12 +198,13 @@ class SearchSelect extends HTMLElement {
     }
 
     assignLiClickHandler(li) {
-        li.addEventListener("click", () => {
-            this.searchBox.value = li.textContent
-            this.value = li.getAttribute("value")
-            this.searchBox.focus()
-            this.searchResults.classList.remove("visible")
-        })
+        // li.addEventListener("click", (e) => {
+        // this.setActiveElement(e.target, this.visibleItems.indexOf(e.target))
+        // this.setValueToActiveElementOrFirstMatch()
+        // this.searchBox.focus()
+        // this.searchResults.classList.remove("visible")
+        // console.log(this.value, e.target.textContent)
+        // })
     }
 
     navigateListItems(direction) {
@@ -201,11 +214,10 @@ class SearchSelect extends HTMLElement {
 
         const iter = new DoubleSidedIterator(this.visibleItems, this._currentIndex, direction)
         this.setActiveElement(iter.next(), iter.index())
+        this.setValueToActiveElementOrFirstMatch()
         this.activeElement.scrollIntoView({
             block: "nearest"
         })
-        this.searchBox.value = this.activeElement.innerText
-        this.value = this.activeElement.getAttribute("value")
     }
 
     filterListItems() {
@@ -239,6 +251,7 @@ class SearchSelect extends HTMLElement {
     }
 
     set value(value) {
+        console.log("setting value", value)
         this._internals.setFormValue(value)
         this._value = value
         this.updateValidity()
