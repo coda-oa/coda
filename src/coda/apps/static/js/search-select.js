@@ -124,7 +124,6 @@ class SearchSelect extends HTMLElement {
             this.listItems = this._slot.assignedElements()
             this.visibleItems = this.listItems
             this.validOptions = this.listItems.map(li => li.getAttribute("value"))
-            Array.from(this.listItems).forEach(li => this.assignLiClickHandler(li))
             const selected = this.listItems.find(li => li.hasAttribute("selected"))
             const index = this.listItems.indexOf(selected)
             if (selected !== undefined) {
@@ -195,16 +194,6 @@ class SearchSelect extends HTMLElement {
 
     firstMatch() {
         return this.visibleItems.filter(li => this.matches(li))[0]
-    }
-
-    assignLiClickHandler(li) {
-        // li.addEventListener("click", (e) => {
-        // this.setActiveElement(e.target, this.visibleItems.indexOf(e.target))
-        // this.setValueToActiveElementOrFirstMatch()
-        // this.searchBox.focus()
-        // this.searchResults.classList.remove("visible")
-        // console.log(this.value, e.target.textContent)
-        // })
     }
 
     navigateListItems(direction) {
