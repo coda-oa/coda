@@ -60,7 +60,6 @@ def invoice_create(invoice: Invoice) -> InvoiceId:
     def _create_position(pos: Position[ItemType]) -> PositionModel:
         match pos.item:
             case int(pub_id):
-                print("We got an id")
                 return PositionModel(
                     publication_id=pub_id,
                     cost_amount=pos.cost.amount,
