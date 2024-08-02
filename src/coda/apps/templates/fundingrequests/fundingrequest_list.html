@@ -11,7 +11,7 @@
     <ul class="no-decoration">
         {% for fr in funding_requests %}
             <li>
-                <article class="fundingrequest {% if fr.is_open %}  fundingrequest__open  {% elif fr.is_approved %}  fundingrequest__approved  {% elif fr.is_rejected %}  fundingrequest__rejected  {% endif %}">
+                <article class="fundingrequest">
                     <p class="text-ellipsis mb-0_5">
                         <a href="{% url "fundingrequests:detail" pk=fr.id %}">{{ fr.publication_title }}</a>
                     </p>
