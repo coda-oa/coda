@@ -20,6 +20,7 @@ services:
       - 8000
 
     env_file:
+      - ./.envs/.production/coda.env
       - ./.envs/.production/django.env
       - ./.envs/.production/postgres.env
 
@@ -56,6 +57,9 @@ services:
 
     ports:
       - ${CODA_EXPOSED_PORT:-8000}:80
+
+    env_file:
+      - ./.envs/.production/coda.env
 
     depends_on:
       - django
