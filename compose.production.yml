@@ -55,7 +55,7 @@ services:
       dockerfile: ./dockerfiles/production/nginx/Dockerfile
 
     ports:
-      - 8000:80
+      - ${CODA_EXPOSED_PORT:-8000}:80
 
     depends_on:
       - django
