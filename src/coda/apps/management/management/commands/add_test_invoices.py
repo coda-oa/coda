@@ -14,9 +14,10 @@ class Command(BaseCommand):
 
     def handle(self, *args: str, **options: str) -> None:
         publisher_id = modelfactory.publisher().id
+        creditor_id = CreditorId(modelfactory.creditor().id)
         publications = [random_publication(publisher_id) for _ in range(3)]
         invoice = domainfactory.invoice(
-            creditor=CreditorId(publisher_id),
+            creditor=creditor_id,
             positions=[
                 domainfactory.publication_position(publication=publication, currency=Currency.EUR)
                 for i, publication in enumerate(publications, start=1)
