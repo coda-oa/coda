@@ -45,9 +45,12 @@
             {% include "partials/nav.html" %}
             <main class="container">
                 {% if messages %}
-                    <ul>
-                        {% for message in messages %}<li>{{ message }}</li>{% endfor %}
-                    </ul>
+                    {% regroup messages by tags as messages %}
+                    {% for level in messages %}
+                        <ul class="messages {{ level.grouper }} no-decoration">
+                            {% for message in level.list %}<li>{{ message }}</li>{% endfor %}
+                        </ul>
+                    {% endfor %}
                 {% endif %}
                 {% block content %}
                 {% endblock content %}

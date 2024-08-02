@@ -34,10 +34,6 @@ ul.no-decoration>li {
   list-style-type: none;
 }
 
-article.fundingrequest {
-  border: 1px solid var(--fundingrequest-status-color);
-}
-
 .inline-search-pill {
   border-top-right-radius: var(--coda-pill-border-radius);
   border-bottom-right-radius: var(--coda-pill-border-radius);
@@ -81,6 +77,11 @@ article.fundingrequest {
   width: 30ch;
 }
 
+.fundingrequest__status-label {
+  background-color: var(--fundingrequest-status-color);
+  color: var(--coda-validation-text-color);
+}
+
 .fundingrequest__approved {
   --fundingrequest-status-color: var(--coda-validation-valid-color);
   border-color: var(--fundingrequest-status-color);
@@ -94,11 +95,6 @@ article.fundingrequest {
 .fundingrequest__open {
   --fundingrequest-status-color: var(--coda-primary-border);
   border-color: var(--fundingrequest-status-color);
-}
-
-.fundingrequest__status-label {
-  background-color: var(--fundingrequest-status-color);
-  color: var(--coda-validation-text-color);
 }
 
 .journal__search-results__scroll-container {
@@ -196,4 +192,29 @@ details.dropdown>ul:has(.label)>li {
 .pagination__disabled {
   color: var(--coda-disabled-text-color);
   text-decoration: none;
+}
+
+.messages {
+  --_message-background-color: none;
+  padding: var(--coda-spacing) !important;
+  margin-block: var(--coda-spacing) !important;
+  background-color: var(--_message-background-color);
+  border-radius: var(--coda-border-radius);
+  color: white;
+
+  &.info {
+    --_message-background-color: var(--coda-primary-border);
+  }
+
+  &.success {
+    --_message-background-color: var(--coda-validation-valid-color);
+  }
+
+  &.error {
+    --_message-background-color: var(--coda-validation-invalid-color);
+  }
+
+  &.warning {
+    --_message-background-color: rgb(205, 130, 10);
+  }
 }
