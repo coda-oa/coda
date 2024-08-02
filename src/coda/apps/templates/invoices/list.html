@@ -9,11 +9,23 @@
     <section>
         {% for invoice in invoices %}
             <article>
-                <h2>Invoice: {{ invoice.number }}</h2>
+                <h2>
+                    <a href="{{ invoice.url }}">Invoice: {{ invoice.number }}</a>
+                </h2>
                 <p>Invoice Date: {{ invoice.date }}</p>
                 <p>Creditor: {{ invoice.creditor_name }}</p>
                 <p>Total: {{ invoice.total.amount }} {{ invoice.total.currency.code }}</p>
-                <a href="{{ invoice.url }}">Details</a>
+                <p class="mt-1_5">
+                    <small>
+                        {% if invoice.status == "Unpaid" %}
+                            <span class="pill status-label open">Open</span>
+                        {% elif invoice.status == "Paid" %}
+                            <span class="pill status-label approved">Paid</span>
+                        {% elif invoice.status == "Rejected" %}
+                            <span class="pill status-label rejected">Rejected</span>
+                        {% endif %}
+                    </small>
+                </p>
             </article>
         {% endfor %}
     </section>

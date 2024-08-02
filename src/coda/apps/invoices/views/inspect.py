@@ -31,6 +31,7 @@ def invoice_viewmodel(invoice_model: InvoiceModel) -> "InvoiceViewModel":
     invoice = as_domain_object(invoice_model)
     return InvoiceViewModel(
         url=invoice_model.get_absolute_url(),
+        status=invoice.status.name,
         number=invoice.number,
         date=invoice.date,
         creditor=invoice.creditor,
@@ -89,6 +90,7 @@ class PositionViewModel(NamedTuple):
 
 class InvoiceViewModel(NamedTuple):
     url: str
+    status: str
     number: str
     date: datetime.date
     creditor: int

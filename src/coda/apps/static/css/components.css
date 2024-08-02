@@ -77,24 +77,21 @@ ul.no-decoration>li {
   width: 30ch;
 }
 
-.fundingrequest__status-label {
-  background-color: var(--fundingrequest-status-color);
+.status-label {
+  background-color: var(--_status-color, transparent);
   color: var(--coda-validation-text-color);
-}
 
-.fundingrequest__approved {
-  --fundingrequest-status-color: var(--coda-validation-valid-color);
-  border-color: var(--fundingrequest-status-color);
-}
+  &.approved {
+    --_status-color: var(--coda-validation-valid-color);
+  }
 
-.fundingrequest__rejected {
-  --fundingrequest-status-color: var(--coda-validation-invalid-color);
-  border-color: var(--fundingrequest-status-color);
-}
+  &.rejected {
+    --_status-color: var(--coda-validation-invalid-color);
+  }
 
-.fundingrequest__open {
-  --fundingrequest-status-color: var(--coda-primary-border);
-  border-color: var(--fundingrequest-status-color);
+  &.open {
+    --_status-color: var(--coda-primary-background);
+  }
 }
 
 .journal__search-results__scroll-container {

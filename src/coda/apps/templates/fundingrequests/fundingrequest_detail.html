@@ -4,11 +4,11 @@
         <span class="mr-1">Funding Request</span>
         <small>
             {% if funding_request.is_open %}
-                <span class="pill fundingrequest__status-label fundingrequest__open">Open</span>
+                <span class="pill status-label open">Open</span>
             {% elif funding_request.is_approved %}
-                <span class="pill fundingrequest__status-label fundingrequest__approved">Approved</span>
+                <span class="pill status-label approved">Approved</span>
             {% elif funding_request.is_rejected %}
-                <span class="pill fundingrequest__status-label fundingrequest__rejected">Rejected</span>
+                <span class="pill status-label rejected">Rejected</span>
             {% endif %}
         </small>
     </h1>
@@ -163,14 +163,12 @@
                     <form method="post" action="{% url "fundingrequests:approve" %}">
                         {% csrf_token %}
                         <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                        <button type="submit"
-                                class="fundingrequest__status-label fundingrequest__approved">Approve</button>
+                        <button type="submit" class="status-label approved">Approve</button>
                     </form>
                     <form method="post" action="{% url "fundingrequests:reject" %}">
                         {% csrf_token %}
                         <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                        <button type="submit"
-                                class="fundingrequest__status-label fundingrequest__rejected">Reject</button>
+                        <button type="submit" class="status-label rejected">Reject</button>
                     </form>
                 {% else %}
                     <form method="post" action="{% url "fundingrequests:open" %}">

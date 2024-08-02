@@ -1,66 +1,83 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1>Invoice: {{ invoice.number }}</h1>
-    <h2>Head</h2>
-    <table>
-        <tbody>
-            <tr>
-                <th>Invoice Number</th>
-                <td>{{ invoice.number }}</td>
-            </tr>
-            <tr>
-                <th>Invoice Date</th>
-                <td>{{ invoice.date }}</td>
-            </tr>
-            <tr>
-                <th>Creditor</th>
-                <td>{{ invoice.creditor_name }}</td>
-            </tr>
-        </tbody>
-    </table>
-    <h2>Positions</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Position</th>
-                <th>Publication Submitter</th>
-                <th>Related Funding Request</th>
-                <th>Cost</th>
-                <th>Cost Type</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for position in invoice.positions %}
+    <h1 class="my-2">
+        Invoice
+        {% if invoice.status == "Paid" %}
+            <span class="pill status-label approved">{{ invoice.status }}</span>
+        {% elif invoice.status == "Unpaid" %}
+            <span class="pill status-label open">{{ invoice.status }}</span>
+        {% else %}
+            <span class="pill status-label rejected">{{ invoice.status }}</span>
+        {% endif %}
+    </h1>
+    <article>
+        <h2>Head</h2>
+        <table class="article__table">
+            <tbody>
                 <tr>
-                    <td>{{ position.number }}</td>
-                    <td>{{ position.name }}</td>
-                    <td>{{ position.publication_submitter }}</td>
-                    <td>
-                        {% if position.related_funding_request %}
-                            <a href="{{ position.related_funding_request.url }}">{{ position.related_funding_request.request_id }}</a>
-                        {% endif %}
-                    </td>
-                    <td>{{ position.cost.amount }} {{ position.cost.currency.code }}</td>
-                    <td>{{ position.cost_type }}</td>
+                    <th>Invoice Number</th>
+                    <td>{{ invoice.number }}</td>
                 </tr>
-            {% endfor %}
-            <tr>
-                <td></td>
-                <td>Tax</td>
-                <td></td>
-                <td></td>
-                <td>{{ invoice.tax.amount }} {{ invoice.tax.currency.code }}</td>
-                <td>vat</td>
-            </tr>
-            <tr>
-                <td></td>
-                <td>Total</td>
-                <td></td>
-                <td></td>
-                <td>{{ invoice.total.amount }} {{ invoice.total.currency.code }}</td>
-                <td></td>
-            </tr>
-        </tbody>
-    </table>
+                <tr>
+                    <th>Invoice Date</th>
+                    <td>{{ invoice.date }}</td>
+                </tr>
+                <tr>
+                    <th>Creditor</th>
+                    <td>{{ invoice.creditor_name }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </article>
+    <article>
+        <h2>Positions</h2>
+        <table class="article__table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Position</th>
+                    <th>Publication Submitter</th>
+                    <th>Related Funding Request</th>
+                    <th>Cost</th>
+                    <th>Cost Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for position in invoice.positions %}
+                    <tr>
+                        <td>{{ position.number }}</td>
+                        <td>{{ position.name }}</td>
+                        <td>{{ position.publication_submitter }}</td>
+                        <td>
+                            {% if position.related_funding_request %}
+                                <a href="{{ position.related_funding_request.url }}">{{ position.related_funding_request.request_id }}</a>
+                            {% endif %}
+                        </td>
+                        <td>{{ position.cost.amount }} {{ position.cost.currency.code }}</td>
+                        <td>{{ position.cost_type }}</td>
+                    </tr>
+                {% endfor %}
+                <tr>
+                    <td></td>
+                    <td>Tax</td>
+                    <td></td>
+                    <td></td>
+                    <td>{{ invoice.tax.amount }} {{ invoice.tax.currency.code }}</td>
+                    <td>vat</td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td>
+                        <strong>Total</strong>
+                    </td>
+                    <td></td>
+                    <td></td>
+                    <td>
+                        <strong>{{ invoice.total.amount }} {{ invoice.total.currency.code }}</strong>
+                    </td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+    </article>
 {% endblock content %}

@@ -25,11 +25,11 @@
                     <p class="flex justify-between mt-1_5">
                         <small>
                             {% if fr.status == "open" %}
-                                <span class="pill fundingrequest__open fundingrequest__status-label">Open</span>
+                                <span class="pill open status-label">Open</span>
                             {% elif fr.status == "approved" %}
-                                <span class="pill fundingrequest__approved fundingrequest__status-label">Approved</span>
+                                <span class="pill approved status-label">Approved</span>
                             {% elif fr.status == "rejected" %}
-                                <span class="pill fundingrequest__rejected fundingrequest__status-label">Rejected</span>
+                                <span class="pill rejected status-label">Rejected</span>
                             {% else %}
                                 <span>{{ fr.status }}</span>
                             {% endif %}
