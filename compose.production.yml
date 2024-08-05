@@ -58,9 +58,6 @@ services:
     ports:
       - ${CODA_EXPOSED_PORT:-8000}:80
 
-    env_file:
-      - ./.envs/.production/coda.env
-
     depends_on:
       - django
 
