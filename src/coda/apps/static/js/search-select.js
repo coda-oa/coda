@@ -139,7 +139,6 @@ class SearchSelect extends HTMLElement {
                 const direction = e.key === "ArrowDown" ? 1 : -1
                 this.navigateListItems(direction)
             } else if (e.key === "Enter") {
-                this.setValueToActiveElementOrFirstMatch()
                 this.searchBox.focus()
                 this.searchResults.classList.remove("visible")
             } else if (e.key === "Escape") {
@@ -170,8 +169,8 @@ class SearchSelect extends HTMLElement {
         })
 
         this.searchBox.addEventListener("change", () => {
-            this.filterListItems()
             this.setValueToActiveElementOrFirstMatch()
+            this.filterListItems()
         })
 
     }
@@ -240,7 +239,6 @@ class SearchSelect extends HTMLElement {
     }
 
     set value(value) {
-        console.log("setting value", value)
         this._internals.setFormValue(value)
         this._value = value
         this.updateValidity()
