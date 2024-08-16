@@ -1,5 +1,5 @@
 .nav-container {
-    --_nav-container-width: 25ch;
+    --_nav-container-width: 23ch;
     min-height: 100vh;
     width: var(--_nav-container-width);
     background-color: var(--coda-card-background-color);
@@ -10,7 +10,8 @@
     position: sticky;
     top: 0;
     padding: var(--coda-spacing);
-    padding-inline-end: calc(var(--coda-spacing) * 2);
+    padding-inline-start: calc(var(--coda-spacing) / 2);
+
 
     & ul,
     & ul:first-of-type {
@@ -103,7 +104,7 @@
 
     .nav-container:hover,
     .nav-container:focus-within {
-        --_nav-container-width: 25ch;
+        --_nav-container-width: 23ch;
     }
 
     .nav-container .nav span {
