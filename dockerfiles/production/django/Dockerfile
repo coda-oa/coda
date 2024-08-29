@@ -38,6 +38,7 @@ RUN mkdir ${APP_HOME}/staticfiles && chown -R django:django ${APP_HOME}/staticfi
 ENV PATH="/home/django/.local/bin:${PATH}"
 
 COPY --chown=django:django src src
+COPY --chown=django:django tests tests
 COPY --chown=django:django config config
 COPY --chown=django:django manage.py manage.py
 COPY --chown=django:django pyproject.toml pyproject.toml
