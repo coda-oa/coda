@@ -1,0 +1,167 @@
+:root {
+    /* CODA Variables */
+    --coda-line-height: 1.3;
+    --coda-font-size: 120%;
+
+    --coda-text-color: hsl(0, 0%, 0%);
+
+    --coda-background-color: var(--pico-background-color);
+
+    --coda-primary-background: var(--pico-primary-background);
+    --coda-primary-border: var(--pico-primary-border);
+
+    --coda-secondary-inverse: var(--pico-secondary-inverse);
+    --coda-secondary-background: var(--pico-secondary-background);
+
+    --coda-muted-border-color: var(--pico-muted-border-color);
+
+    --coda-form-element-spacing-vertical: var(--pico-form-element-spacing-vertical);
+    --coda-form-element-spacing-horizontal: var(--pico-form-element-spacing-horizontal);
+
+    --coda-border-radius: var(--pico-border-radius);
+
+    --coda-pill-border-radius: 50px;
+    --coda-pill-padding-vertical: 0.35rem;
+    --coda-pill-padding-horizontal: 0.75rem;
+
+    --coda-validation-valid-color: var(--pico-form-element-valid-active-border-color);
+    --coda-validation-invalid-color: var(--pico-form-element-invalid-active-border-color);
+
+    --coda-validation-text-color: #fff;
+    --coda-disabled-text-color: var(--pico-muted-color);
+
+    --coda-card-background-color: var(--pico-card-background-color);
+
+    --coda-spacing: var(--pico-spacing);
+    --coda-gap: var(--coda-spacing);
+
+    /*
+  Pico Variables.
+  NOTE: We avoid referencing Pico variables directly in Coda.
+  Instead we define Coda variables that reference Pico variables to minimize the dependency on Pico.
+  */
+    --pico-background-color: var(--coda-background-color);
+    --pico-line-height: var(--coda-line-height);
+    --pico-font-size: var(--coda-font-size);
+    --pico-color: var(--coda-text-color);
+}
+
+:root[data-theme="dark"] {
+    --coda-background-color: hsl(214, 16%, 6%);
+    --coda-card-background-color: hsl(214, 14%, 11%);
+    --coda-form-element-background-color: hsl(214, 18%, 15%);
+    --coda-card-header-background-color: hsl(210, 10%, 23%);
+    --coda-text-color: #c2c7d0;
+
+    --pico-background-color: var(--coda-background-color);
+    --pico-form-element-background-color: var(--coda-form-element-background-color);
+    --pico-card-background-color: var(--coda-card-background-color);
+    --pico-card-sectioning-background-color: var(--coda-form-element-background-color);
+}
+
+@media screen and (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+        --coda-background-color: hsl(214, 16%, 6%);
+        --coda-card-background-color: hsl(214, 14%, 11%);
+        --coda-form-element-background-color: hsl(214, 18%, 15%);
+        --coda-card-header-background-color: hsl(210, 10%, 23%);
+        --coda-text-color: #c2c7d0;
+
+        --pico-background-color: var(--coda-background-color);
+        --pico-form-element-background-color: var(--coda-form-element-background-color);
+        --pico-card-background-color: var(--coda-card-background-color);
+        --pico-card-sectioning-background-color: var(--coda-form-element-background-color);
+    }
+
+}
+
+body {
+    min-height: 100vh;
+}
+
+footer {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    margin: auto;
+    margin-block-start: 2rem;
+    margin-block-end: 2rem;
+}
+
+article {
+    border: 1px solid var(--coda-muted-border-color);
+    padding-inline: calc(var(--coda-spacing) * 1.5);
+    transition: transform 0.1s ease-in-out;
+
+    & * {
+        color: var(--coda-text-color);
+        text-decoration: none;
+    }
+
+    &:has(a):hover {
+        transform: translate(0, -0.5rem);
+    }
+
+    &.muted {
+        cursor: not-allowed;
+
+        & * {
+            color: var(--coda-disabled-text-color);
+        }
+    }
+}
+
+
+.coda-banner {
+    --banner-text-color: hsl(40, 100%, 45%);
+    margin: auto;
+    margin-block-end: 4rem;
+    padding-block: 2rem;
+    text-align: center;
+
+    & .coda-banner__title {
+        margin-block-end: 0;
+        font-size: calc(var(--pico-font-size) * 6);
+        color: var(--banner-text-color);
+
+        font-family: "Montserrat", sans-serif;
+        font-optical-sizing: auto;
+        font-weight: 300;
+        font-style: normal;
+    }
+
+    & .coda-banner__subtitle {
+        color: var(--banner-text-color);
+
+        font-family: "Montserrat", sans-serif;
+        font-optical-sizing: auto;
+        font-weight: 300;
+        font-style: normal;
+    }
+}
+
+/* .coda-banner {
+    --banner-background-color: hsl(40, 100%, 45%);
+    background-color: var(--banner-background-color);
+    border-radius: calc(var(--coda-border-radius) * 2);
+
+    & .coda-banner__title,
+    & .coda-banner__subtitle {
+        color: hsl(0, 26%, 8%);
+    }
+} */
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: 40ch 40ch;
+    place-content: center;
+    gap: calc(var(--coda-spacing) * 2);
+
+    & article {
+        margin: 0;
+    }
+}
