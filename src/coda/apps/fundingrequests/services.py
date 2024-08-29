@@ -1,4 +1,5 @@
 from django.db import transaction
+
 from coda.apps.authors.services import author_create
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
@@ -6,7 +7,7 @@ from coda.apps.fundingrequests.models import FundingRequest as FundingRequestMod
 from coda.apps.fundingrequests.models import Label
 from coda.apps.publications import services as publication_services
 from coda.color import Color
-from coda.fundingrequest import ExternalFunding, FundingRequest, FundingRequestId, Payment
+from coda.fundingrequest import ExternalFunding, FundingRequest, FundingRequestId, Payment, Review
 
 
 @transaction.atomic
@@ -42,6 +43,14 @@ def fundingrequest_funding_update(
     funding_request.estimated_cost = payment.amount.amount
     funding_request.estimated_cost_currency = payment.amount.currency.value.code
     funding_request.save()
+
+
+def fundingrequest_perform_review(id: FundingRequestId, review: Review) -> None:
+    funding_request = fundingrequest_repository.get_by_id(id)
+    funding_request.add_review(review)
+    FundingRequestModel.objects.filter(pk=id).update(
+        processing_status=funding_request.review().value.lower()
+    )
 
 
 def external_funding_or_none(external_funding: ExternalFunding | None) -> int | None:
