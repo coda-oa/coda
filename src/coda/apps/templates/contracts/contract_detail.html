@@ -1,30 +1,38 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1>Contract: {{ contract.name }}</h1>
-    <section>
-        <p>Publishers</p>
-        <ul>
-            {% for pub in contract.publishers.all %}<li>{{ pub.name }}</li>{% endfor %}
-        </ul>
-    </section>
-    {% if contract.start_date or contract.end_date %}
-        <h2>Contract Period</h2>
-        {% if contract.start_date %}<p>Start: {{ contract.start_date }}</p>{% endif %}
-        {% if contract.end_date %}<p>End: {{ contract.end_date }}</p>{% endif %}
-    {% endif %}
-    <h2>Status</h2>
-    <form class="grid align-center"
-          action="{% url "contracts:status" pk=contract.pk %}"
-          method="post">
-        {% csrf_token %}
-        <p>{% include "contracts/contract_active_status.html" %}</p>
-        {% if contract.is_active %}
-            <button class="outline max-fit-content"
-                    type="submit"
-                    name="status"
-                    value="inactive">Make inactive</button>
-        {% else %}
-            <button class="outline" type="submit" name="status" value="active">Make active</button>
+    <h1 class="my-2">Contract: {{ contract.name }}</h1>
+    <article>
+        {% if contract.start_date or contract.end_date %}
+            <h2>Contract Period</h2>
+            {% if contract.start_date %}<p>Start: {{ contract.start_date }}</p>{% endif %}
+            {% if contract.end_date %}<p>End: {{ contract.end_date }}</p>{% endif %}
         {% endif %}
-    </form>
+        <h2>Status</h2>
+        <form class="grid align-center"
+              action="{% url "contracts:status" pk=contract.pk %}"
+              method="post">
+            {% csrf_token %}
+            <p>{% include "contracts/contract_active_status.html" %}</p>
+            {% if contract.is_active %}
+                <button class="outline max-fit-content"
+                        type="submit"
+                        name="status"
+                        value="inactive">Make inactive</button>
+            {% else %}
+                <button class="outline" type="submit" name="status" value="active">Make active</button>
+            {% endif %}
+        </form>
+    </article>
+    <section class="my-2">
+        <h2>Publishers</h2>
+        <div class="scroll-container max-h-30">
+            <ul class="no-decoration grid-container">
+                {% for pub in contract.publishers.all %}
+                    <li>
+                        <article>{{ pub.name }}</article>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
 {% endblock content %}
