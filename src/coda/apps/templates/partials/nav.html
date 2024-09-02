@@ -13,6 +13,9 @@
             <li>{% include "partials/nav_link.html" with link="journals:list" image="assets/journal.svg" text="Journals" %}</li>
             <li>{% include "partials/nav_link.html" with link="invoices:list" image="assets/receipt.svg" text="Invoices" %}</li>
             <li>
+                {% include "partials/nav_link.html" with link="contracts:list" image="assets/briefcase.svg" text="Contracts" %}
+            </li>
+            <li>
                 {% include "partials/nav_link.html" with link="preferences:global_preferences" image="assets/settings.svg" text="Preferences" %}
             </li>
             {% if user.is_authenticated %}
