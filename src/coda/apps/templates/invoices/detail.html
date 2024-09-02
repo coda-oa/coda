@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
     <h1 class="my-2">
-        Invoice
+        <span class="mr-1">Invoice</span>
         {% if invoice.status == "Paid" %}
-            <span class="pill status-label approved">{{ invoice.status }}</span>
+            <small class="pill status-label approved">{{ invoice.status }}</small>
         {% elif invoice.status == "Unpaid" %}
-            <span class="pill status-label open">{{ invoice.status }}</span>
+            <small class="pill status-label open">{{ invoice.status }}</small>
         {% else %}
-            <span class="pill status-label rejected">{{ invoice.status }}</span>
+            <small class="pill status-label rejected">{{ invoice.status }}</small>
         {% endif %}
     </h1>
     <article>
