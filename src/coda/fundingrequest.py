@@ -91,9 +91,6 @@ class FundingRequest:
         return request
 
     def add_review(self, review: Review) -> None:
-        if self._review != Review.Open:
-            raise FundingRequestLocked("Cannot change review of a closed request")
-
         self._review = review
 
     def open(self) -> None:

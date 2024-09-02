@@ -69,27 +69,6 @@ def test__open_fundingrequest__reject__changes_status_to_rejected() -> None:
     assert sut.review() == Review.Rejected
 
 
-def test__approved_fundingrequest__add_review__cannot_change_status() -> None:
-    sut = make_sut()
-
-    sut.add_review(Review.Approved)
-
-    with pytest.raises(FundingRequestLocked):
-        sut.add_review(Review.Rejected)
-
-    assert sut.review() == Review.Approved
-
-
-def test__rejected_fundingrequest__approve__cannot_change_status() -> None:
-    sut = make_sut()
-    sut.add_review(Review.Rejected)
-
-    with pytest.raises(FundingRequestLocked):
-        sut.add_review(Review.Approved)
-
-    assert sut.review() == Review.Rejected
-
-
 def test__rejected_fundingrequest__open__changes_status_to_open(
     closed_request: FundingRequest,
 ) -> None:
