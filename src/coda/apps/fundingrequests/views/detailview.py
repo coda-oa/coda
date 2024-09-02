@@ -50,6 +50,7 @@ class PublicationViewModel(NamedTuple):
     title: str
     authors: Iterable[str]
     journal_title: str
+    journal_eissn: str
     publisher_name: str
     publication_state: str
     publication_date: datetime.date | None
@@ -93,6 +94,7 @@ def publication_viewmodel(publication: Publication) -> PublicationViewModel:
         title=publication.title,
         authors=list(publication.authors),
         journal_title=publication.journal.title,
+        journal_eissn=publication.journal.eissn,
         publisher_name=publication.journal.publisher.name,
         publication_state=publication.publication_state,
         publication_date=publication.online_publication_date,
