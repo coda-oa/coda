@@ -1,8 +1,8 @@
 # Home
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 
-fundingrequests
-invoices
+users/index
+dev/index
 ```

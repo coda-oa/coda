@@ -25,6 +25,7 @@ docs = [
     "myst-parser>=4.0.0",
     "pydata-sphinx-theme>=0.15.4",
     "sphinx-autobuild>=2024.4.16",
+    "sphinx-copybutton>=0.5.2",
 ]
 [build-system]
 requires = ["pdm-backend"]

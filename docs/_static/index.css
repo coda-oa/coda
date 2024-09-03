@@ -12,12 +12,11 @@ footer {
     flex-direction: row;
     justify-content: space-around;
 
-    position: absolute;
+    position: relative;
     bottom: 0;
     width: 100%;
     margin: auto;
     margin-block-start: 2rem;
-    margin-block-end: 2rem;
 }
 
 article {
@@ -30,7 +29,7 @@ article {
         text-decoration: none;
     }
 
-    &:has(a):hover {
+    &:not(.muted):hover {
         transform: translate(0, -0.5rem);
     }
 
@@ -83,13 +82,81 @@ article {
     }
 } */
 
+a {
+    color: var(--coda-text-color);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+a.github-link {
+    display: flex;
+    align-items: center;
+}
+
+img.github-logo {
+    height: 1.5rem;
+    aspect-ratio: 1;
+    margin-right: 0.5rem;
+}
+
+.get-in-touch {
+    margin-block-start: 6rem;
+    margin-block-end: 4rem;
+
+    &>p {
+        font-size: 1.1rem;
+    }
+}
+
+.get-in-touch>h2,
+.get-in-touch>p {
+    color: var(--coda-muted-color);
+    text-align: center;
+}
+
+.get-in-touch .matrix-link {
+    font-size: 1.75rem;
+
+    font-family: "Montserrat", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 300;
+    font-style: normal;
+
+    &:hover {
+        text-underline-offset: 0.4em;
+    }
+}
+
+@media screen and (prefers-color-scheme: dark) {
+    a>img.github-logo {
+        filter: invert(1) blur(0.2px);
+    }
+}
+
+
 .feature-grid {
     display: grid;
-    grid-template-columns: 40ch 40ch;
     place-content: center;
     gap: calc(var(--coda-spacing) * 2);
 
+
     & article {
         margin: 0;
+        height: 100%;
     }
+
+    & a {
+        text-decoration: none;
+    }
+}
+
+.feature-sub-grid {
+    display: grid;
+    grid-template-columns: 40ch 40ch;
+    grid-auto-rows: 1fr;
+    align-content: center;
+    gap: calc(var(--coda-spacing) * 2);
 }
