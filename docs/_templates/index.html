@@ -9,8 +9,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-    <link rel="stylesheet" href="_static/custom.css">
+    <link rel="stylesheet" href="_static/pico.min.css">
+    <link rel="stylesheet" href="_static/vars.css">
+    <link rel="stylesheet" href="_static/index.css">
 </head>
 
 <body>
@@ -28,7 +29,7 @@
         </section>
         <div class="feature-grid">
             <article>
-                <a href="">
+                <a href="/fundingrequests.html">
                     <h3>Funding Requests</h3>
                     <p>Manage and review Funding Requests for Open Access publications</p>
                 </a>
@@ -39,19 +40,19 @@
                     <p>Monitor the costs of Open Access Publications</p>
                 </a>
             </article>
-            <article class="muted">
+            <article class="muted" aria-disabled="true">
                 <h3>Publications</h3>
                 <p>Keep track of publications from your institution</p>
                 <p><small>Coming soon...</small></p>
             </article>
-            <article class="muted">
+            <article class="muted" aria-disabled="true">
                 <h3>Reporting</h3>
                 <p>Generate reports for publications and costs</p>
                 <p><small>Coming soon...</small></p>
             </article>
         </div>
     </main>
-    <footer>
+    <footer class="index">
         <div>
             <p>Contact</p>
             <p>Sven Marcus</p>
