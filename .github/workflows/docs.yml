@@ -25,11 +25,12 @@ jobs:
         - name: Install dependencies
           run: |
             python -m pip install --upgrade pip
-            pip install -r requirements.txt
+            pip install pdm
+            python -m pdm install -G docs
 
         - name: Build documentation
           run: |
-            sphinx-build -b html docs/ build/
+            python -m pdm run sphinx-build -b html docs/ build/
 
         - name: Deploy to GitHub Pages
           uses: peaceiris/actions-gh-pages@v4
