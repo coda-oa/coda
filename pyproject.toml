@@ -19,6 +19,14 @@ requires-python = ">=3.11"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 
+[project.optional-dependencies]
+docs = [
+    "sphinx>=8.0.2",
+    "myst-parser>=4.0.0",
+    "pydata-sphinx-theme>=0.15.4",
+    "sphinx-autobuild>=2024.4.16",
+    "sphinx-copybutton>=0.5.2",
+]
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"

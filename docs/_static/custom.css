@@ -1,0 +1,13 @@
+.bd-sidebar-primary {
+    overflow-y: unset;
+    border-right-style: 1px solid var(--coda-muted-border-color);
+}
+
+.bd-content,
+.bd-sidebar-secondary {
+    background-color: var(--coda-card-background-color);
+}
+
+footer.bd-footer {
+    border-top: 1px solid var(--coda-muted-border-color);
+}
