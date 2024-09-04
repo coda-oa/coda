@@ -52,7 +52,7 @@ article {
 
     & .coda-banner__title {
         margin-block-end: 0;
-        font-size: calc(var(--pico-font-size) * 6);
+        font-size: calc(var(--coda-font-size) * 10);
         color: var(--banner-text-color);
 
         font-family: "Montserrat", sans-serif;
@@ -68,6 +68,29 @@ article {
         font-optical-sizing: auto;
         font-weight: 300;
         font-style: normal;
+    }
+
+}
+
+@media screen and (max-width: 1024px) {
+    .coda-banner {
+        & .coda-banner__title {
+            font-size: calc(var(--coda-font-size) * 8);
+        }
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .coda-banner {
+        & .coda-banner__title {
+            font-size: calc(var(--coda-font-size) * 6);
+        }
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .coda-banner .coda-banner__title {
+        font-size: calc(var(--coda-font-size) * 4.5);
     }
 }
 
@@ -138,10 +161,19 @@ img.github-logo {
 
 
 .feature-grid {
+    --_gap: calc(var(--coda-spacing) * 2);
+    --_disired-width: 40ch;
+
     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(var(--_disired-width), 0.8fr));
+    grid-auto-rows: 1fr;
+    grid-auto-columns: 1fr;
     place-content: center;
     gap: calc(var(--coda-spacing) * 2);
 
+    & .doc-link {
+        grid-column: 1 / -1;
+    }
 
     & article {
         margin: 0;
@@ -151,12 +183,4 @@ img.github-logo {
     & a {
         text-decoration: none;
     }
-}
-
-.feature-sub-grid {
-    display: grid;
-    grid-template-columns: 40ch 40ch;
-    grid-auto-rows: 1fr;
-    align-content: center;
-    gap: calc(var(--coda-spacing) * 2);
 }
