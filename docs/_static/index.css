@@ -165,7 +165,7 @@ img.github-logo {
     --_disired-width: 40ch;
 
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(var(--_disired-width), 0.8fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--_disired-width)), 0.8fr));
     grid-auto-rows: 1fr;
     grid-auto-columns: 1fr;
     place-content: center;
