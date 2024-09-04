@@ -12,7 +12,9 @@ class Vocabulary(models.Model):
 
     @staticmethod
     def empty() -> "Vocabulary":
-        v, created = Vocabulary.objects.get_or_create(name="empty vocabulary")
+        v, created = Vocabulary.objects.get_or_create(
+            name="empty vocabulary", pk=UnknownConcept.vocabulary
+        )
         if created or v.concepts.count() == 0:
             Concept.objects.create(concept_id=UnknownConcept.id, name="unknown", vocabulary=v)
         return v

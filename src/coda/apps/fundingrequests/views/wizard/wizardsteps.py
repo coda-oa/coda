@@ -12,7 +12,7 @@ from coda.apps.journals.models import Journal
 from coda.apps.journals.services import find_by_title
 from coda.apps.publications.dto import PublicationMetaDto
 from coda.apps.publications.forms import LinkForm, PublicationForm, Vocabularies
-from coda.apps.publications.models import LinkType, Vocabulary
+from coda.apps.publications.models import Concept, LinkType, Vocabulary
 from coda.apps.wizard import FormStep, Step, Store
 from coda.author import AuthorList
 
@@ -114,15 +114,23 @@ class PublicationStep(Step):
             return Vocabularies()
 
         subject_vocabulary_id = publication_meta["subject_area_vocabulary"]
-        subject_vocabulary = Vocabulary.objects.get(pk=subject_vocabulary_id)
+        subject_vocabulary = Vocabulary.objects.filter(pk=subject_vocabulary_id).first()
+        subject_concepts = self.get_concepts(subject_vocabulary)
+
         pub_type_vocabulary_id = publication_meta["publication_type_vocabulary"]
-        pub_type_vocabulary = Vocabulary.objects.get(pk=pub_type_vocabulary_id)
-        vocabularies = Vocabularies(
-            subject_areas=subject_vocabulary.concepts.all(),
-            publication_types=pub_type_vocabulary.concepts.all(),
+        pub_type_vocabulary = Vocabulary.objects.filter(pk=pub_type_vocabulary_id).first()
+        pub_type_concepts = self.get_concepts(pub_type_vocabulary)
+
+        return Vocabularies(
+            subject_areas=subject_concepts,
+            publication_types=pub_type_concepts,
         )
 
-        return vocabularies
+    def get_concepts(self, vocabulary: Vocabulary | None) -> Iterable[Concept]:
+        if not vocabulary:
+            return []
+
+        return vocabulary.concepts.all()
 
     def transform_to_formdata(self, store: Store) -> dict[str, Any]:
         formdata: dict[str, Any] = dict(store.get("publication", {}))
