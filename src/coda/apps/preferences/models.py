@@ -10,18 +10,34 @@ def empty_vocabulary() -> Vocabulary:
     return Vocabulary.empty()
 
 
+def default_subject_classification_vocabulary() -> Vocabulary:
+    v = Vocabulary.objects.filter(name="DFG Subject Classification").first()
+    if not v:
+        return Vocabulary.empty()
+
+    return v
+
+
+def default_publication_type_vocabulary() -> Vocabulary:
+    v = Vocabulary.objects.filter(name="COAR Resource Types").first()
+    if not v:
+        return Vocabulary.empty()
+
+    return v
+
+
 class GlobalPreferences(models.Model):
     home_currency = models.CharField(max_length=255, default=Currency.EUR.code)
     default_subject_classification_vocabulary = models.ForeignKey(
         Vocabulary,
         on_delete=models.SET_DEFAULT,
-        default=Vocabulary.empty,
+        default=default_subject_classification_vocabulary,
         related_name="+",
     )
     default_publication_type_vocabulary = models.ForeignKey(
         Vocabulary,
         on_delete=models.SET_DEFAULT,
-        default=Vocabulary.empty,
+        default=default_publication_type_vocabulary,
         related_name="+",
     )
 
