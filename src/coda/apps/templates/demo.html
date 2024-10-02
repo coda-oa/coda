@@ -19,4 +19,8 @@
         </search-select>
         <button type="submit">Submit</button>
     </form>
+    <form action="">
+        {% csrf_token %}
+        {{ formset }}
+    </form>
 {% endblock content %}

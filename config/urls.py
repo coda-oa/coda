@@ -9,6 +9,7 @@ from django.urls import include, path
 from django.views import defaults as default_views
 
 from coda.apps import home
+from coda.apps.htmx.forms import DemoFormset
 
 urlpatterns = [
     # Django Admin, use {% url 'admin:index' %}
@@ -32,6 +33,7 @@ urlpatterns = [
 if settings.DEBUG:
     # This allows the error pages to be debugged during development, just visit
     # these url in browser to see how these error pages look like.
+    demo_formset_view = DemoFormset.get_management_view()
     urlpatterns += [
         path(
             "400/",
@@ -54,5 +56,6 @@ if settings.DEBUG:
             "500/",
             functools.partial(default_views.server_error, template_name="pages/error_page.html"),
         ),
-        path("demo/", lambda req: render(req, "demo.html")),
+        path("demo/", lambda req: render(req, "demo.html", {"formset": DemoFormset()})),
+        path("demo/htmx/", demo_formset_view.as_view(), name=demo_formset_view.name),
     ]
