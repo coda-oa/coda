@@ -1,0 +1,10 @@
+{% comment %} djlint:off {% endcomment %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Document</title>
+    </head>
+    <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>{{ formset }}</body>
+</html>

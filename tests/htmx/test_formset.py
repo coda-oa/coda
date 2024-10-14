@@ -1,0 +1,69 @@
+import pytest
+from django.test.client import Client
+from pytest_django.fixtures import SettingsWrapper
+
+from tests.htmx.views import _TestForm, _TestFormset
+
+
+@pytest.fixture(autouse=True)
+def add_form_url_to_django_settings(settings: SettingsWrapper) -> None:
+    settings.ROOT_URLCONF = "tests.htmx.urls"
+
+
+@pytest.mark.django_db
+def test__renders_formset_view(client: Client) -> None:
+    response = client.get("/")
+
+    assert response.status_code == 200
+
+
+@pytest.mark.django_db
+def test__by_default_view_has_one_form_in_formset(client: Client) -> None:
+    response = client.get("/")
+
+    formset: _TestFormset = response.context["formset"]
+    assert len(formset.forms) == 1
+
+
+@pytest.mark.django_db
+def test__add_form__increases_formset_forms(client: Client) -> None:
+    response = client.post("/htmx/", {"total_forms": "1", "form_action_add": "add_form"})
+
+    total_forms = response.context["total_forms"]
+    forms = response.context["formset"]
+    assert total_forms == 2
+    assert len(forms) == 2
+
+
+@pytest.mark.django_db
+def test__two_forms__remove_second_form__only_renders_first_form(client: Client) -> None:
+    form_data = {
+        "total_forms": "2",
+        "form-1-field": "field-1",
+        "form-2-field": "field-2",
+        "form_action_delete": "2",
+    }
+
+    response = client.post("/htmx/", form_data)
+
+    forms = response.context["formset"]
+    first_form: _TestForm = forms[0]
+    assert len(forms) == 1
+    assert first_form.cleaned_data["field"] == "field-1"
+
+
+@pytest.mark.django_db
+def test__two_forms__remove_first_form__only_renders_second_form(client: Client) -> None:
+    form_data = {
+        "total_forms": "2",
+        "form-1-field": "field-1",
+        "form-2-field": "field-2",
+        "form_action_delete": "1",
+    }
+
+    response = client.post("/htmx/", form_data)
+
+    forms = response.context["formset"]
+    first_form: _TestForm = forms[0]
+    assert len(forms) == 1
+    assert first_form.cleaned_data["field"] == "field-2"
