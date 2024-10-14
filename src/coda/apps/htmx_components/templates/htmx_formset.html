@@ -1,0 +1,18 @@
+<div class="htmx-formset-wrapper">
+    <input type="hidden" name="total_forms" value="{{ total_forms }}">
+    {% for form in formset %}
+        {{ form.as_p }}
+        <button type="button"
+                name="form_action_delete"
+                value="{{ forloop.counter }}"
+                hx-post="{% url url_name %}"
+                hx-swap="outerHTML"
+                hx-target="closest div.htmx-formset-wrapper">Remove</button>
+    {% endfor %}
+    <button type="button"
+            name="form_action_add"
+            value="add_form"
+            hx-post="{% url url_name %}"
+            hx-swap="outerHTML"
+            hx-target="closest div.htmx-formset-wrapper">Add</button>
+</div>

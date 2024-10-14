@@ -2,7 +2,7 @@ from django import forms
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
-from coda.apps.htmx.forms import HtmxDynamicFormset
+from coda.apps.htmx_components.forms import HtmxDynamicFormset
 
 
 class _TestForm(forms.Form):

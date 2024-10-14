@@ -9,7 +9,7 @@ from django.urls import include, path
 from django.views import defaults as default_views
 
 from coda.apps import home
-from coda.apps.htmx.forms import DemoFormset
+from coda.apps.htmx_components.forms import DemoFormset
 
 urlpatterns = [
     # Django Admin, use {% url 'admin:index' %}
