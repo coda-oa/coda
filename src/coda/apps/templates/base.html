@@ -40,7 +40,7 @@
                 type="module"
                 crossorigin="anonymous"></script>
     </head>
-    <body>
+    <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
         <div class="flex">
             {% include "partials/nav.html" %}
             <main class="container">
