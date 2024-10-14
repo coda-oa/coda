@@ -1,5 +1,6 @@
 import pytest
 from django.test.client import Client
+from django.utils.datastructures import MultiValueDict
 from pytest_django.fixtures import SettingsWrapper
 
 from tests.htmx.views import _TestForm, _TestFormset
@@ -23,6 +24,55 @@ def test__by_default_view_has_one_form_in_formset(client: Client) -> None:
 
     formset: _TestFormset = response.context["formset"]
     assert len(formset.forms) == 1
+
+
+@pytest.mark.django_db
+def test__three_forms__formset_data_includes_all_data() -> None:
+    form_data = MultiValueDict(
+        {
+            "total_forms": ["3"],
+            "form-1-field": ["field-1"],
+            "form-2-field": ["field-2"],
+            "form-3-field": ["field-3"],
+        }
+    )
+
+    formset = _TestFormset(form_data)
+    assert formset.data == [
+        {"field": "field-1"},
+        {"field": "field-2"},
+        {"field": "field-3"},
+    ]
+
+
+@pytest.mark.django_db
+def test__valid_forms__formset_is_valid() -> None:
+    form_data = MultiValueDict(
+        {
+            "total_forms": ["3"],
+            "form-1-field": ["field-1"],
+            "form-2-field": ["field-2"],
+            "form-3-field": ["field-3"],
+        }
+    )
+
+    formset = _TestFormset(form_data)
+    assert formset.is_valid()
+
+
+@pytest.mark.django_db
+def test__invalid_form_among_forms__formset_is_invalid() -> None:
+    form_data = MultiValueDict(
+        {
+            "total_forms": ["3"],
+            "form-1-field": ["field-1"],
+            "form-2-field": ["field-2"],
+            "form-3-field": [""],
+        }
+    )
+
+    formset = _TestFormset(form_data)
+    assert not formset.is_valid()
 
 
 @pytest.mark.django_db
@@ -67,3 +117,21 @@ def test__two_forms__remove_first_form__only_renders_second_form(client: Client)
     first_form: _TestForm = forms[0]
     assert len(forms) == 1
     assert first_form.cleaned_data["field"] == "field-2"
+
+
+@pytest.mark.django_db
+def test__three_forms__removing_second_form__renders_remaining_two_forms(client: Client) -> None:
+    form_data = {
+        "total_forms": "3",
+        "form-1-field": "field-1",
+        "form-2-field": "field-2",
+        "form-3-field": "field-3",
+        "form_action_delete": "2",
+    }
+
+    response = client.post("/htmx/", form_data)
+
+    forms = response.context["formset"]
+    assert len(forms) == 2
+    assert forms[0].cleaned_data["field"] == "field-1"
+    assert forms[1].cleaned_data["field"] == "field-3"

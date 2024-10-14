@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from functools import cache, cached_property
 from typing import Any, Generic, TypeVar, cast
 
 from django import forms
@@ -43,7 +44,6 @@ class ManagementView(View, Generic[FormType]):
             formset = self._get_reduced_formset(request, form_index)
             context = {"total_forms": len(formset), "formset": formset}
             return TemplateResponse(request, self._get_template(), context)
-
         else:
             return self._get_response(request, self.total_forms())
 
@@ -110,7 +110,7 @@ class HtmxDynamicFormset(Generic[FormType]):
         data: MultiValueDict[str, str] | None = None,
         form_class: type[FormType] | None = None,
     ) -> None:
-        self.data = data or MultiValueDict()
+        self._data = data or MultiValueDict()
         self.form_class = form_class or self.form_class
         if not self.name:
             raise ValueError("name is required")
@@ -118,13 +118,25 @@ class HtmxDynamicFormset(Generic[FormType]):
         if not issubclass(self.form_class, forms.Form):
             raise TypeError("form_class must be a subclass of django.forms.Form")
 
-    @property
+    @cached_property
     def forms(self) -> list[FormType]:
-        total_forms = int(self.data.get("total_forms", 1))
+        total_forms = int(self._data.get("total_forms", 1))
         return [
-            self.form_class(self.data, prefix=f"form-{form_index}")
+            self.form_class(self._data, prefix=f"form-{form_index}")
             for form_index in range(1, total_forms + 1)
         ]
+
+    @cached_property
+    def data(self) -> list[dict[str, Any]]:
+        _forms = self.forms
+        for form in _forms:
+            form.full_clean()
+
+        return [form.cleaned_data for form in _forms]
+
+    @cache
+    def is_valid(self) -> bool:
+        return all(form.is_valid() for form in self.forms)
 
     @classmethod
     def get_management_view(cls) -> type[ManagementView[FormType]]:
