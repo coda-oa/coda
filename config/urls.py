@@ -56,6 +56,13 @@ if settings.DEBUG:
             "500/",
             functools.partial(default_views.server_error, template_name="pages/error_page.html"),
         ),
-        path("demo/", lambda req: render(req, "demo.html", {"formset": DemoFormset()})),
+        path(
+            "demo/",
+            lambda req: render(
+                req,
+                "demo.html",
+                {"formset": DemoFormset(prefix="f1"), "formset2": DemoFormset(prefix="f2")},
+            ),
+        ),
         path("demo/htmx/", demo_formset_view.as_view(), name=demo_formset_view.name),
     ]

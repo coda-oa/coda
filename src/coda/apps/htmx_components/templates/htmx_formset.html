@@ -1,5 +1,5 @@
-<div class="htmx-formset-wrapper">
-    <input type="hidden" name="total_forms" value="{{ total_forms }}">
+<div class="htmx-formset-wrapper"
+     hx-vals='{ "prefix": "{{ prefix }}", "total_forms": "{{ total_forms }}"}'>
     {% for form in formset %}
         {{ form.as_p }}
         <button type="button"

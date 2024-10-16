@@ -16,3 +16,16 @@ class _TestFormset(HtmxDynamicFormset[_TestForm]):
 
 def formset_view(request: HttpRequest) -> HttpResponse:
     return render(request, "htmx_formset_template.html", {"formset": _TestFormset(request.POST)})
+
+
+def multiple_formsets_view(request: HttpRequest) -> HttpResponse:
+    return render(
+        request,
+        "htmx_multiple_formsets_template.html",
+        {
+            "formsets": [
+                _TestFormset(request.POST, prefix="formset-1"),
+                _TestFormset(request.POST, prefix="formset-2"),
+            ],
+        },
+    )

@@ -15,15 +15,23 @@ def _total_forms(query_dict: dict[str, Any], min_forms: int = 1) -> int:
     return int(query_dict.get("total_forms", min_forms) or min_forms)
 
 
-def _forms(data: dict[str, Any], num_forms: int, form_class: type[FormType]) -> list[FormType]:
+def _forms(
+    data: dict[str, Any], num_forms: int, form_class: type[FormType], prefix: str | None = None
+) -> list[FormType]:
+    prefix = prefix or data.get("prefix")
+    if prefix:
+        prefix = f"{prefix}-"
+    else:
+        prefix = ""
+
     return [
-        form_class(data or None, prefix=f"form-{form_index}")
+        form_class(data or None, prefix=prefix + f"form-{form_index}")
         for form_index in range(1, num_forms + 1)
     ]
 
 
-def _context(forms: list[FormType], name: str) -> dict[str, Any]:
-    return {"total_forms": len(forms), "formset": forms, "url_name": name}
+def _context(forms: list[FormType], name: str, prefix: str | None = None) -> dict[str, Any]:
+    return {"total_forms": len(forms), "formset": forms, "url_name": name, "prefix": prefix}
 
 
 class ManagementView(View, Generic[FormType]):
@@ -32,10 +40,6 @@ class ManagementView(View, Generic[FormType]):
     min_forms: int = 1
 
     template_name: str
-
-    def get(self, request: HttpRequest) -> HttpResponse:
-        forms = self._forms(request.POST, _total_forms(request.POST))
-        return self._get_response(request, forms)
 
     def post(self, request: HttpRequest) -> HttpResponse:
         if request.POST.get("form_action_add") is not None:
@@ -64,7 +68,8 @@ class ManagementView(View, Generic[FormType]):
         return forms
 
     def _get_response(self, request: HttpRequest, forms: list[FormType]) -> HttpResponse:
-        return render(request, self.template_name, _context(forms, self.name))
+        prefix = request.POST.get("prefix")
+        return render(request, self.template_name, _context(forms, self.name, prefix))
 
     def _data_with_form_removed(self, request: HttpRequest, form_index: int) -> dict[str, Any]:
         post_data = request.POST.dict()
@@ -112,10 +117,13 @@ class HtmxDynamicFormset(Generic[FormType]):
     def __init__(
         self,
         data: MultiValueDict[str, str] | None = None,
+        *,
         form_class: type[FormType] | None = None,
+        prefix: str | None = None,
     ) -> None:
         self._data = data or MultiValueDict()
         self.form_class = form_class or self.form_class
+        self.prefix = prefix
         if not self.name:
             raise ValueError("name is required")
 
@@ -125,7 +133,7 @@ class HtmxDynamicFormset(Generic[FormType]):
     @cached_property
     def forms(self) -> list[FormType]:
         total_forms = _total_forms(self._data)
-        return _forms(self._data, total_forms, self.form_class)
+        return _forms(self._data, total_forms, self.form_class, self.prefix)
 
     @cached_property
     def data(self) -> list[dict[str, Any]]:
@@ -140,7 +148,7 @@ class HtmxDynamicFormset(Generic[FormType]):
         return all(form.is_valid() for form in self.forms)
 
     def __str__(self) -> str:
-        return render_to_string(self.template_name, _context(self.forms, self.name))
+        return render_to_string(self.template_name, _context(self.forms, self.name, self.prefix))
 
 
 class DemoForm(forms.Form):
