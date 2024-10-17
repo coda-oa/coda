@@ -138,25 +138,25 @@
                         </tr>
                     </tbody>
                 </table>
-                {% if external_funding %}
-                    <h3 class="mt-1_5">Third party funding</h3>
-                    <table class="article__table fundingrequest-table">
-                        <tbody>
+                <h3 class="mt-1_5">Third party funding</h3>
+                <table class="article__table fundingrequest-table">
+                    <thead>
+                        <tr>
+                            <td>Organization</td>
+                            <td>Project ID</td>
+                            <td>Project Name</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for funding in external_funding %}
                             <tr>
-                                <th>Organization</th>
-                                <td>{{ external_funding.organization }}</td>
+                                <td>{{ funding.organization }}</td>
+                                <td>{{ funding.project_id }}</td>
+                                <td>{{ funding.project_name }}</td>
                             </tr>
-                            <tr>
-                                <th>Project ID</th>
-                                <td>{{ external_funding.project_id }}</td>
-                            </tr>
-                            <tr>
-                                <th>Project Name</th>
-                                <td>{{ external_funding.project_name }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
             </article>
         </div>
         <aside class="vh-100 sticky">

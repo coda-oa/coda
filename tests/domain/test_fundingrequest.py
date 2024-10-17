@@ -29,11 +29,13 @@ def make_sut() -> FundingRequest:
             Money(100, Currency.EUR),
             PaymentMethod.Direct,
         ),
-        external_funding=ExternalFunding(
-            organization=FundingOrganizationId(1),
-            project_id=NonEmptyStr("123"),
-            project_name="Project Name",
-        ),
+        external_funding=[
+            ExternalFunding(
+                organization=FundingOrganizationId(1),
+                project_id=NonEmptyStr("123"),
+                project_name="Project Name",
+            )
+        ],
     )
 
     return sut

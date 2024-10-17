@@ -68,7 +68,7 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
         parse_publication(publication_dto),
         parse_author(author_dto),
         parse_payment(cost_dto),
-        parse_external_funding(external_funding),
+        [parse_external_funding(external_funding)],
     )
     actual = repository.first()
     assert actual is not None
@@ -140,7 +140,7 @@ def test__updating_fundingrequest_funding__updates_funding_request_and_shows_det
 
     fr = repository.get_by_id(fr_id)
     expected_payment = parse_payment(cost_dto)
-    expected_funding = parse_external_funding(external_funding)
+    expected_funding = [parse_external_funding(external_funding)]
     assert fr.estimated_cost == expected_payment
     assert fr.external_funding == expected_funding
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
@@ -159,7 +159,7 @@ def test__updating_fundingrequest_funding__without_external_funding__updates_fun
     )
 
     request = repository.get_by_id(fr_id)
-    assert request.external_funding is None
+    assert request.external_funding == []
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
 
 

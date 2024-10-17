@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from django.db import transaction
 
 from coda.apps.authors.services import author_create
@@ -14,30 +15,28 @@ from coda.fundingrequest import ExternalFunding, FundingRequest, FundingRequestI
 def fundingrequest_create(fundingrequest: FundingRequest) -> FundingRequestId:
     author_id = author_create(fundingrequest.submitter)
     publication_id = publication_services.publication_create(fundingrequest.publication, author_id)
-    _external_funding = external_funding_or_none(fundingrequest.external_funding)
     request = FundingRequestModel.objects.create(
         submitter_id=author_id,
         publication_id=publication_id,
-        external_funding_id=_external_funding,
         payment_method=fundingrequest.estimated_cost.method.name.lower(),
         estimated_cost=fundingrequest.estimated_cost.amount.amount,
         estimated_cost_currency=fundingrequest.estimated_cost.amount.currency.value.code,
     )
-
+    external_funding_create(FundingRequestId(request.id), fundingrequest.external_funding)
     return FundingRequestId(request.pk)
 
 
 @transaction.atomic
 def fundingrequest_funding_update(
-    fundingrequest_id: FundingRequestId, payment: Payment, funding: ExternalFunding | None
+    fundingrequest_id: FundingRequestId, payment: Payment, funding: Iterable[ExternalFunding] = ()
 ) -> None:
     funding_request = FundingRequestModel.objects.get(pk=fundingrequest_id)
     if funding_request.external_funding:
-        funding_request.external_funding.delete()
+        funding_request.external_funding.all().delete()
         funding_request.refresh_from_db()
 
-    if funding:
-        funding_request.external_funding_id = external_funding_create(funding)
+    external_funding = external_funding_create(fundingrequest_id, funding)
+    funding_request.external_funding.set(external_funding)
 
     funding_request.payment_method = payment.method.name.lower()
     funding_request.estimated_cost = payment.amount.amount
@@ -53,24 +52,19 @@ def fundingrequest_perform_review(id: FundingRequestId, review: Review) -> None:
     )
 
 
-def external_funding_or_none(external_funding: ExternalFunding | None) -> int | None:
-    if external_funding:
-        _external_funding = external_funding_create(external_funding)
-    else:
-        _external_funding = None
-    return _external_funding
-
-
-def external_funding_create(external_funding: ExternalFunding) -> int:
-    funding = ExternalFundingModel.objects.create(
-        organization=fundingrequest_repository.get_funding_organization(
-            external_funding.organization
-        ),
-        project_id=external_funding.project_id,
-        project_name=external_funding.project_name,
+def external_funding_create(
+    id: FundingRequestId,
+    external_funding: Iterable[ExternalFunding],
+) -> Iterable[ExternalFundingModel]:
+    return ExternalFundingModel.objects.bulk_create(
+        ExternalFundingModel(
+            funding_request_id=id,
+            organization_id=single_funding.organization,
+            project_id=single_funding.project_id,
+            project_name=single_funding.project_name,
+        )
+        for single_funding in external_funding
     )
-
-    return funding.id
 
 
 def label_create(name: str, color: Color) -> Label:

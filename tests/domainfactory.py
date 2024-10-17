@@ -156,7 +156,7 @@ def fundingrequest(
         publication=publication(journal_id or JournalId(random.randint(1, 1000))),
         submitter=author(),
         estimated_cost=payment(),
-        external_funding=external_funding(funding_org_id),
+        external_funding=[external_funding(funding_org_id)],
     )
 
 

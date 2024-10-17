@@ -86,7 +86,7 @@ def fundingrequest(title: str = "", _author_dto: AuthorDto | None = None) -> Fun
             domainfactory.publication(JournalId(journal().pk), title),
             domainfactory.author(InstitutionId(institution().pk)),
             domainfactory.payment(),
-            domainfactory.external_funding(FundingOrganizationId(funding_organization().pk)),
+            [domainfactory.external_funding(FundingOrganizationId(funding_organization().pk))],
         )
     )
     return FundingRequestModel.objects.get(pk=request_id)

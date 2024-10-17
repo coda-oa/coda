@@ -32,7 +32,7 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
         author = parse_author(store["submitter"])
         publication = parse_publication(publication_dto_from(store))
         cost = parse_payment(store["cost"])
-        funding = parse_external_funding(store["funding"]) if store.get("funding") else None
+        funding = [parse_external_funding(store["funding"])] if store.get("funding") else []
 
         funding_request_id = services.fundingrequest_create(
             FundingRequest.new(publication, author, cost, funding)

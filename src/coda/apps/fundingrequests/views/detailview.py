@@ -127,9 +127,7 @@ def context(fr: FundingRequestModel) -> dict[str, Any]:
         "submitter": submitter_viewmodel(cast(Author, fr.submitter)),
         "publication": publication_viewmodel(fr.publication),
         "label_form": ChooseLabelForm(),
+        "external_funding": [funding_viewmodel(ef) for ef in fr.external_funding.all()],
     }
-
-    if fr.external_funding:
-        ctx["external_funding"] = funding_viewmodel(fr.external_funding)
 
     return ctx

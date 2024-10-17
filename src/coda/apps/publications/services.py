@@ -1,4 +1,3 @@
-import datetime
 from collections.abc import Iterable
 from dataclasses import replace
 from typing import cast
@@ -143,17 +142,6 @@ def publication_update(publication: Publication) -> None:
 
     LinkModel.objects.filter(publication_id=publication.id).all().delete()
     _attach_links(publication)
-
-
-def _serializable_publication_state(state: PublicationState) -> tuple[str, datetime.date | None]:
-    if isinstance(state, Published):
-        publication_state = state.name()
-        publication_date = state.online
-    else:
-        publication_state = state.state.name
-        publication_date = None
-
-    return publication_state, publication_date
 
 
 def _attach_links(publication: Publication) -> None:

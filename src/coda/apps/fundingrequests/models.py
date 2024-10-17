@@ -19,6 +19,12 @@ class FundingOrganization(models.Model):
 
 
 class ExternalFunding(models.Model):
+    funding_request = models.ForeignKey(
+        "FundingRequest",
+        on_delete=models.CASCADE,
+        related_name="external_funding",
+        null=True,
+    )
     organization = models.ForeignKey(FundingOrganization, on_delete=models.CASCADE)
     project_id = models.CharField()
     project_name = models.CharField()
@@ -68,9 +74,6 @@ class FundingRequest(models.Model):
         Author, on_delete=models.CASCADE, related_name="funding_requests", null=True, blank=True
     )
     publication = models.OneToOneField(Publication, on_delete=models.CASCADE)
-    external_funding = models.ForeignKey(
-        ExternalFunding, on_delete=models.SET_NULL, null=True, blank=True
-    )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)

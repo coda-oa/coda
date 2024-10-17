@@ -1,4 +1,5 @@
 import enum
+from collections.abc import Iterable
 from typing import NamedTuple, NewType
 
 from coda.author import Author
@@ -45,7 +46,7 @@ class FundingRequest:
         publication: Publication,
         submitter: Author,
         estimated_cost: Payment,
-        external_funding: ExternalFunding | None = None,
+        external_funding: Iterable[ExternalFunding] = (),
     ) -> None:
         self.id = id
         self._publication = publication
@@ -60,7 +61,7 @@ class FundingRequest:
         publication: Publication,
         submitter: Author,
         estimated_cost: Payment,
-        external_funding: ExternalFunding | None = None,
+        external_funding: Iterable[ExternalFunding] = (),
     ) -> "FundingRequest":
         return cls(None, publication, submitter, estimated_cost, external_funding)
 
@@ -71,7 +72,7 @@ class FundingRequest:
         publication: Publication,
         submitter: Author,
         estimated_cost: Payment,
-        external_funding: ExternalFunding | None = None,
+        external_funding: Iterable[ExternalFunding] = (),
     ) -> "FundingRequest":
         request = cls(id, publication, submitter, estimated_cost, external_funding)
         request._review = Review.Approved
@@ -84,7 +85,7 @@ class FundingRequest:
         publication: Publication,
         submitter: Author,
         estimated_cost: Payment,
-        external_funding: ExternalFunding | None = None,
+        external_funding: Iterable[ExternalFunding] = (),
     ) -> "FundingRequest":
         request = cls(id, publication, submitter, estimated_cost, external_funding)
         request._review = Review.Rejected

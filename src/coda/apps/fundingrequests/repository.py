@@ -38,12 +38,13 @@ def get_by_id(id: FundingRequestId) -> FundingRequest:
 
 
 def as_domain_object(model: FundingRequestModel) -> FundingRequest:
-    if model.processing_status == Review.Approved.value:
-        constructor = FundingRequest.approved
-    elif model.processing_status == Review.Rejected.value:
-        constructor = FundingRequest.rejected
-    else:
-        constructor = FundingRequest
+    match model.processing_status:
+        case Review.Approved.value:
+            constructor = FundingRequest.approved
+        case Review.Rejected.value:
+            constructor = FundingRequest.rejected
+        case _:
+            constructor = FundingRequest
 
     return constructor(
         id=FundingRequestId(model.id),
@@ -53,15 +54,14 @@ def as_domain_object(model: FundingRequestModel) -> FundingRequest:
             amount=Money(model.estimated_cost, Currency[model.estimated_cost_currency]),
             method=PaymentMethod(model.payment_method),
         ),
-        external_funding=(
+        external_funding=[
             ExternalFunding(
-                organization=FundingOrganizationId(model.external_funding.organization_id),
-                project_id=NonEmptyStr(model.external_funding.project_id),
-                project_name=model.external_funding.project_name,
+                organization=FundingOrganizationId(ef.organization_id),
+                project_id=NonEmptyStr(ef.project_id),
+                project_name=ef.project_name,
             )
-            if model.external_funding
-            else None
-        ),
+            for ef in model.external_funding.all()
+        ],
     )
 
 

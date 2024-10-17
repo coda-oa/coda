@@ -84,7 +84,7 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
     def complete(self, /, **kwargs: Any) -> None:
         store = self.get_store()
         cost = parse_payment(store["cost"])
-        funding = parse_external_funding(store["funding"]) if store.get("funding") else None
+        funding = [parse_external_funding(store["funding"])] if store.get("funding") else []
         services.fundingrequest_funding_update(self.kwargs["pk"], cost, funding)
 
     def prepare(self, request: HttpRequest) -> None:
@@ -96,9 +96,10 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
             payment_method=fr.estimated_cost.method.value,
         )
         if fr.external_funding:
+            external_funding = next(iter(fr.external_funding))
             store["funding"] = ExternalFundingDto(
-                organization=fr.external_funding.organization,
-                project_id=fr.external_funding.project_id,
-                project_name=fr.external_funding.project_name,
+                organization=external_funding.organization,
+                project_id=external_funding.project_id,
+                project_name=external_funding.project_name,
             )
         store.save()

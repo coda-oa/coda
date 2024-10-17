@@ -96,11 +96,13 @@ class Command(BaseCommand):
                 roles=[Role.SUBMITTER],
             ),
             Payment(amount=Money(100, Currency.USD), method=PaymentMethod.Direct),
-            ExternalFunding(
-                organization=FundingOrganizationId(self.funding_organization().pk),
-                project_id=NonEmptyStr(str(uuid4())),
-                project_name=faker.sentence(),
-            ),
+            [
+                ExternalFunding(
+                    organization=FundingOrganizationId(self.funding_organization().pk),
+                    project_id=NonEmptyStr(str(uuid4())),
+                    project_name=faker.sentence(),
+                )
+            ],
         )
 
         id = fundingrequest_create(request)

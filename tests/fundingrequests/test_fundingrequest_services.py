@@ -4,11 +4,17 @@ from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
 from coda.apps.fundingrequests.repository import get_by_id
 from coda.author import InstitutionId
-from coda.fundingrequest import FundingOrganizationId, FundingRequest
+from coda.fundingrequest import ExternalFunding, FundingOrganizationId, FundingRequest
 from coda.publication import JournalId
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.publications.test_publication_services import assert_publication_eq
+
+
+def create_funding() -> ExternalFunding:
+    return domainfactory.external_funding(
+        FundingOrganizationId(modelfactory.funding_organization().pk)
+    )
 
 
 @pytest.mark.django_db
@@ -17,9 +23,7 @@ def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data() 
         publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
         submitter=domainfactory.author(InstitutionId(modelfactory.institution().pk)),
         estimated_cost=domainfactory.payment(),
-        external_funding=domainfactory.external_funding(
-            FundingOrganizationId(modelfactory.funding_organization().pk)
-        ),
+        external_funding=[create_funding(), create_funding()],
     )
 
     new_id = services.fundingrequest_create(expected)
@@ -35,12 +39,11 @@ def test__create_fundingrequest__without_external_funding__creates_fundingreques
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
             submitter=domainfactory.author(InstitutionId(modelfactory.institution().pk)),
             estimated_cost=domainfactory.payment(),
-            external_funding=None,
         )
     )
 
     actual = get_by_id(new_id)
-    assert actual.external_funding is None
+    assert list(actual.external_funding) == []
 
 
 @pytest.mark.django_db
@@ -52,13 +55,12 @@ def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_exte
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
             submitter=domainfactory.author(InstitutionId(modelfactory.institution().pk)),
             estimated_cost=domainfactory.payment(),
-            external_funding=None,
         )
     )
 
     new_cost = domainfactory.payment()
     new_organization = modelfactory.funding_organization()
-    new_funding = domainfactory.external_funding(FundingOrganizationId(new_organization.pk))
+    new_funding = [domainfactory.external_funding(FundingOrganizationId(new_organization.pk))]
     services.fundingrequest_funding_update(new_id, new_cost, new_funding)
 
     updated = get_by_id(new_id)
@@ -68,22 +70,19 @@ def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_exte
 
 @pytest.mark.django_db
 def test__update_fundingrequest_funding__deletes_old_external_funding() -> None:
+    org_id = FundingOrganizationId(modelfactory.funding_organization().pk)
     new_id = services.fundingrequest_create(
         FundingRequest.new(
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
             submitter=domainfactory.author(InstitutionId(modelfactory.institution().pk)),
             estimated_cost=domainfactory.payment(),
-            external_funding=None,
+            external_funding=[domainfactory.external_funding(org_id)],
         )
     )
 
-    services.fundingrequest_funding_update(
-        new_id,
-        domainfactory.payment(),
-        domainfactory.external_funding(
-            FundingOrganizationId(modelfactory.funding_organization().pk)
-        ),
-    )
+    new_funding = [domainfactory.external_funding(org_id)]
+
+    services.fundingrequest_funding_update(new_id, domainfactory.payment(), new_funding)
 
     assert ExternalFundingModel.objects.count() == 1
 
@@ -97,15 +96,19 @@ def test__update_fundingrequest_funding__without_external_funding__deletes_old_e
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
             submitter=domainfactory.author(InstitutionId(modelfactory.institution().pk)),
             estimated_cost=domainfactory.payment(),
-            external_funding=None,
+            external_funding=[
+                domainfactory.external_funding(
+                    FundingOrganizationId(modelfactory.funding_organization().pk)
+                )
+            ],
         )
     )
 
-    new_funding = None
+    new_funding: list[ExternalFunding] = []
     services.fundingrequest_funding_update(new_id, domainfactory.payment(), new_funding)
 
     updated = get_by_id(new_id)
-    assert updated.external_funding is None
+    assert updated.external_funding == []
     assert ExternalFundingModel.objects.count() == 0
 
 
