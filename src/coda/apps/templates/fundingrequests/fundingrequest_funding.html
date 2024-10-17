@@ -9,9 +9,5 @@
         </table>
     </div>
     <h2>External Funding</h2>
-    <table>
-        <tbody>
-            {{ funding_form.as_table }}
-        </tbody>
-    </table>
+    {{ funding_formset.as_inline }}
 {% endblock wizard_step %}

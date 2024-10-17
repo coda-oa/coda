@@ -5,6 +5,7 @@ from django import forms
 from coda.apps import fields
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label
+from coda.apps.htmx_components.forms import HtmxDynamicFormset
 
 
 class CostForm(forms.Form):
@@ -68,6 +69,18 @@ class ExternalFundingForm(forms.Form):
             "organization",
             "Please select a funding organization to provide project information",
         )
+
+
+class ExternalFundingFormset(HtmxDynamicFormset[ExternalFundingForm]):
+    name: str = "fundingrequests:external_funding_formset"
+    form_class = ExternalFundingForm
+
+    def is_empty(self) -> bool:
+        return all(form.is_empty() for form in self.forms)
+
+    def to_dto(self) -> list[ExternalFundingDto]:
+        _dtos = [form.to_dto() for form in self.forms]
+        return [dto for dto in _dtos if dto is not None]
 
 
 class LabelForm(forms.ModelForm[Label]):

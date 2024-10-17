@@ -65,7 +65,7 @@ def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_exte
 
     updated = get_by_id(new_id)
     assert updated.estimated_cost == new_cost
-    assert updated.external_funding == new_funding
+    assert list(updated.external_funding) == list(new_funding)
 
 
 @pytest.mark.django_db
@@ -108,7 +108,7 @@ def test__update_fundingrequest_funding__without_external_funding__deletes_old_e
     services.fundingrequest_funding_update(new_id, domainfactory.payment(), new_funding)
 
     updated = get_by_id(new_id)
-    assert updated.external_funding == []
+    assert updated.external_funding == ()
     assert ExternalFundingModel.objects.count() == 0
 
 
@@ -116,5 +116,5 @@ def assert_fundingrequest_eq(actual: FundingRequest, expected: FundingRequest) -
     assert_author_eq(actual.submitter, expected.submitter)
     assert_publication_eq(actual.publication, expected.publication)
     assert actual.estimated_cost == expected.estimated_cost
-    assert actual.external_funding == expected.external_funding
+    assert list(actual.external_funding) == list(expected.external_funding)
     assert actual.review() == expected.review()

@@ -52,7 +52,7 @@ class FundingRequest:
         self._publication = publication
         self._submitter = submitter
         self.estimated_cost = estimated_cost
-        self.external_funding = external_funding
+        self.external_funding = tuple(external_funding)
         self._review = Review.Open
 
     @classmethod

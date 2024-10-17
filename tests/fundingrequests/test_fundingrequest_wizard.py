@@ -59,7 +59,10 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
     publication_dto = dtofactory.publication_dto(
         journal_id, publication_type=publication_type(), subject_area=subject_area()
     )
-    external_funding = dtofactory.external_funding_dto(funder.pk)
+    external_funding = [
+        dtofactory.external_funding_dto(funder.pk),
+        dtofactory.external_funding_dto(funder.pk),
+    ]
     cost_dto = dtofactory.cost_dto()
 
     response = submit_wizard(client, author_dto, publication_dto, external_funding, cost_dto)
@@ -68,7 +71,7 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
         parse_publication(publication_dto),
         parse_author(author_dto),
         parse_payment(cost_dto),
-        [parse_external_funding(external_funding)],
+        map(parse_external_funding, external_funding),
     )
     actual = repository.first()
     assert actual is not None
@@ -142,7 +145,7 @@ def test__updating_fundingrequest_funding__updates_funding_request_and_shows_det
     expected_payment = parse_payment(cost_dto)
     expected_funding = [parse_external_funding(external_funding)]
     assert fr.estimated_cost == expected_payment
-    assert fr.external_funding == expected_funding
+    assert list(fr.external_funding) == list(expected_funding)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
 
 
@@ -159,7 +162,7 @@ def test__updating_fundingrequest_funding__without_external_funding__updates_fun
     )
 
     request = repository.get_by_id(fr_id)
-    assert request.external_funding == []
+    assert list(request.external_funding) == []
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
 
 
@@ -171,9 +174,15 @@ def submit_wizard(
     client: Client,
     author: AuthorDto,
     publication: PublicationDto,
-    external_funding: ExternalFundingDto,
+    external_funding: list[ExternalFundingDto],
     cost: CostDto,
 ) -> HttpResponse:
+    fundings: dict[str, Any] = {}
+    for i, f in enumerate(external_funding, start=1):
+        fundings[f"form-{i}-organization"] = f["organization"]
+        fundings[f"form-{i}-project_id"] = f["project_id"]
+        fundings[f"form-{i}-project_name"] = f["project_name"]
+
     client.post(reverse("fundingrequests:create_wizard"), next() | author)
     client.post(
         reverse("fundingrequests:create_wizard"),
@@ -182,7 +191,7 @@ def submit_wizard(
     client.post(reverse("fundingrequests:create_wizard"), next() | as_form_data(publication))
     return cast(
         HttpResponse,
-        client.post(reverse("fundingrequests:create_wizard"), next() | external_funding | cost),
+        client.post(reverse("fundingrequests:create_wizard"), next() | fundings | cost),
     )
 
 

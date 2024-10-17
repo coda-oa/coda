@@ -7,7 +7,7 @@ from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 
 from coda.apps.authors.forms import AuthorForm
-from coda.apps.fundingrequests.forms import CostForm, ExternalFundingForm
+from coda.apps.fundingrequests.forms import CostForm, ExternalFundingFormset
 from coda.apps.journals.models import Journal
 from coda.apps.journals.services import find_by_title
 from coda.apps.publications.dto import PublicationMetaDto
@@ -215,15 +215,13 @@ class FundingStep(Step):
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         context = super().get_context_data(request, store)
         context["cost_form"] = form_with_post_or_store_data(CostForm, request, store.get("cost"))
-        context["funding_form"] = form_with_post_or_store_data(
-            ExternalFundingForm, request, store.get("funding")
-        )
+        context["funding_formset"] = ExternalFundingFormset(request.POST)
         return context
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         cost_form = CostForm(request.POST)
-        funding_form = ExternalFundingForm(request.POST)
-        funding_valid = funding_form.is_valid() or funding_form.is_empty()
+        funding_formset = ExternalFundingFormset(request.POST)
+        funding_valid = funding_formset.is_valid() or funding_formset.is_empty()
         return cost_form.is_valid() and funding_valid
 
     def done(self, request: HttpRequest, store: Store) -> None:
@@ -232,7 +230,7 @@ class FundingStep(Step):
         cost = cost_form.to_dto()
         store["cost"] = cost
 
-        funding_form = ExternalFundingForm(request.POST)
-        funding_form.full_clean()
-        funding = funding_form.to_dto()
-        store["funding"] = funding
+        funding_formset = ExternalFundingFormset(request.POST)
+        funding_formset.is_valid()
+        dto = funding_formset.to_dto()
+        store["funding"] = dto if dto else None

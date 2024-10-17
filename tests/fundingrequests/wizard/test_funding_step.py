@@ -24,9 +24,9 @@ def test__funding_step__valid_data__is_valid() -> None:
         "/",
         cost_data
         | {
-            "organization": funding_org.pk,
-            "project_id": "123",
-            "project_name": "Test Project",
+            "form-1-organization": funding_org.pk,
+            "form-1-project_id": "123",
+            "form-1-project_name": "Test Project",
         },
     )
 
@@ -71,9 +71,9 @@ def test__funding_step__only_organization_without_project_id__is_invalid() -> No
         "/",
         cost_data
         | {
-            "organization": funding_org.pk,
-            "project_id": "",
-            "project_name": "Test Project",
+            "form-1-organization": funding_org.pk,
+            "form-1-project_id": "",
+            "form-1-project_name": "Test Project",
         },
     )
 
@@ -89,9 +89,9 @@ def test__funding_step__only_project_id_without_organization__is_invalid() -> No
         "/",
         cost_data
         | {
-            "organization": "",
-            "project_id": "123",
-            "project_name": "Test Project",
+            "form-1-organization": "",
+            "form-1-project_id": "123",
+            "form-1-project_name": "Test Project",
         },
     )
 
