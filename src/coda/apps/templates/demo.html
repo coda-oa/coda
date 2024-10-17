@@ -22,6 +22,6 @@
     <form action="">
         {% csrf_token %}
         {{ formset }}
-        {{ formset2 }}
+        {{ formset2.as_inline }}
     </form>
 {% endblock content %}

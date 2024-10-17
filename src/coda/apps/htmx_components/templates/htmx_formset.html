@@ -1,18 +1,18 @@
 <div class="htmx-formset-wrapper"
-     hx-vals='{ "prefix": "{{ prefix }}", "total_forms": "{{ total_forms }}"}'>
-    {% for form in formset %}
-        {{ form.as_p }}
-        <button type="button"
-                name="form_action_delete"
-                value="{{ forloop.counter }}"
-                hx-post="{% url url_name %}"
-                hx-swap="outerHTML"
-                hx-target="closest div.htmx-formset-wrapper">Remove</button>
-    {% endfor %}
-    <button type="button"
-            name="form_action_add"
-            value="add_form"
-            hx-post="{% url url_name %}"
-            hx-swap="outerHTML"
-            hx-target="closest div.htmx-formset-wrapper">Add</button>
+     hx-vals='{ "prefix": "{{ prefix }}", "total_forms": "{{ total_forms }}", "mode": "{{ mode }}"}'>
+    {% if mode == "inline" %}
+        {% include "htmx_formset_inline.html" %}
+    {% else %}
+        {% for form in formset %}
+            {% if mode == "paragraph" %}
+                {{ form.as_p }}
+            {% elif mode == "div" %}
+                {{ form.as_div }}
+            {% else %}
+                {{ form }}
+            {% endif %}
+            {% include "htmx_formset_remove_button.html" with counter=forloop.counter %}
+        {% endfor %}
+        {% include "htmx_formset_add_button.html" %}
+    {% endif %}
 </div>
