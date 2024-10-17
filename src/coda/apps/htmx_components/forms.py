@@ -24,10 +24,21 @@ def _forms(
     else:
         prefix = ""
 
+    data.update(_initial_values(data, num_forms, prefix))
+
     return [
         form_class(data or None, prefix=prefix + f"form-{form_index}")
         for form_index in range(1, num_forms + 1)
     ]
+
+
+def _initial_values(data: dict[str, Any], num_forms: int, prefix: str) -> dict[str, Any]:
+    initial_prefix = "initial-"
+    return {
+        prefix + f"form-{num_forms}-{key.removeprefix(initial_prefix)}": value
+        for key, value in data.items()
+        if key.startswith(initial_prefix)
+    }
 
 
 def _context(forms: list[FormType], name: str, prefix: str | None = None) -> dict[str, Any]:
@@ -43,7 +54,7 @@ class ManagementView(View, Generic[FormType]):
 
     def post(self, request: HttpRequest) -> HttpResponse:
         if request.POST.get("form_action_add") is not None:
-            forms = self._forms(request.POST, self._total_forms() + 1)
+            forms = self._forms(request.POST.dict(), self._total_forms() + 1)
             return self._get_response(request, forms)
         elif (_form_index := request.POST.get("form_action_delete")) is not None:
             form_index = int(_form_index)
@@ -152,7 +163,7 @@ class HtmxDynamicFormset(Generic[FormType]):
 
 
 class DemoForm(forms.Form):
-    name = forms.CharField()
+    field = forms.CharField()
 
 
 class DemoFormset(HtmxDynamicFormset[DemoForm]):

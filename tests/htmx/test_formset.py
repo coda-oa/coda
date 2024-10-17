@@ -134,6 +134,25 @@ def test__add_form__increases_formset_forms(client: Client) -> None:
 
 
 @pytest.mark.django_db
+def test__add_form_with_initial_data__new_form_is_added_with_data(client: Client) -> None:
+    form_data = {
+        "total_forms": "1",
+        "form-1-field": "field-1",
+        "form_action_add": "add_form",
+        "initial-field": "initial-field",
+    }
+
+    response = client.post("/htmx/", form_data)
+
+    forms = response.context["formset"]
+    form = forms[1]
+    form.is_valid()
+    print(form.initial)
+    print(form.cleaned_data)
+    assert form.cleaned_data["field"] == "initial-field"
+
+
+@pytest.mark.django_db
 def test__two_forms__remove_second_form__only_renders_first_form(client: Client) -> None:
     form_data = {
         "total_forms": "2",
