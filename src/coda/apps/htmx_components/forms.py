@@ -50,7 +50,7 @@ def _context(
         "total_forms": len(forms),
         "formset": forms,
         "url_name": name,
-        "prefix": prefix,
+        "prefix": prefix or "",
         "mode": mode or _DEFAULT_RENDER_MODE,
     }
 
