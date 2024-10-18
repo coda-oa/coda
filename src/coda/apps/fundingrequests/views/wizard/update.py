@@ -84,7 +84,7 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
     def complete(self, /, **kwargs: Any) -> None:
         store = self.get_store()
         cost = parse_payment(store["cost"])
-        funding = [parse_external_funding(store["funding"])] if store.get("funding") else []
+        funding = map(parse_external_funding, store["funding"]) if store.get("funding") else []
         services.fundingrequest_funding_update(self.kwargs["pk"], cost, funding)
 
     def prepare(self, request: HttpRequest) -> None:

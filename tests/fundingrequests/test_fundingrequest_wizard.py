@@ -133,17 +133,20 @@ def test__updating_fundingrequest_funding__updates_funding_request_and_shows_det
     fr_id = save_new_fundingrequest()
 
     new_funder = modelfactory.funding_organization()
-    external_funding = dtofactory.external_funding_dto(new_funder.pk)
+    external_funding = [
+        dtofactory.external_funding_dto(new_funder.pk),
+        dtofactory.external_funding_dto(new_funder.pk),
+    ]
     cost_dto = dtofactory.cost_dto()
 
     response = client.post(
         reverse("fundingrequests:update_funding", kwargs={"pk": fr_id}),
-        next() | external_funding | cost_dto,
+        next() | to_htmx_formset_data(external_funding) | cost_dto,
     )
 
     fr = repository.get_by_id(fr_id)
     expected_payment = parse_payment(cost_dto)
-    expected_funding = [parse_external_funding(external_funding)]
+    expected_funding = map(parse_external_funding, external_funding)
     assert fr.estimated_cost == expected_payment
     assert list(fr.external_funding) == list(expected_funding)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
@@ -177,12 +180,7 @@ def submit_wizard(
     external_funding: list[ExternalFundingDto],
     cost: CostDto,
 ) -> HttpResponse:
-    fundings: dict[str, Any] = {}
-    for i, f in enumerate(external_funding, start=1):
-        fundings[f"form-{i}-organization"] = f["organization"]
-        fundings[f"form-{i}-project_id"] = f["project_id"]
-        fundings[f"form-{i}-project_name"] = f["project_name"]
-
+    fundings = to_htmx_formset_data(external_funding)
     client.post(reverse("fundingrequests:create_wizard"), next() | author)
     client.post(
         reverse("fundingrequests:create_wizard"),
@@ -193,6 +191,15 @@ def submit_wizard(
         HttpResponse,
         client.post(reverse("fundingrequests:create_wizard"), next() | fundings | cost),
     )
+
+
+def to_htmx_formset_data(external_funding: list[ExternalFundingDto]) -> dict[str, Any]:
+    fundings: dict[str, Any] = {"total_forms": len(external_funding)}
+    for i, f in enumerate(external_funding, start=1):
+        fundings[f"form-{i}-organization"] = f["organization"]
+        fundings[f"form-{i}-project_id"] = f["project_id"]
+        fundings[f"form-{i}-project_name"] = f["project_name"]
+    return fundings
 
 
 def subject_area() -> VocabularyConcept:

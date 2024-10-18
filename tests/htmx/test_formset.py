@@ -147,8 +147,6 @@ def test__add_form_with_initial_data__new_form_is_added_with_data(client: Client
     forms = response.context["formset"]
     form = forms[1]
     form.is_valid()
-    print(form.initial)
-    print(form.cleaned_data)
     assert form.cleaned_data["field"] == "initial-field"
 
 

@@ -231,6 +231,7 @@ class FundingStep(Step):
         store["cost"] = cost
 
         funding_formset = ExternalFundingFormset(request.POST)
+        # FIXME: we need to call is_valid to populate the cleaned_data
         funding_formset.is_valid()
         dto = funding_formset.to_dto()
         store["funding"] = dto if dto else None
