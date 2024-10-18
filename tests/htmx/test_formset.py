@@ -49,7 +49,7 @@ def test__three_forms__formset_data_includes_all_data() -> None:
 def test__formset_with_prefix__formset_parses_data() -> None:
     form_data = MultiValueDict(
         {
-            "total_forms": ["3"],
+            "prefix-total_forms": ["3"],
             "prefix-form-1-field": ["field-1"],
             "prefix-form-2-field": ["field-2"],
             "prefix-form-3-field": ["field-3"],
@@ -68,10 +68,11 @@ def test__formset_with_prefix__formset_parses_data() -> None:
 def test__two_formsets_with_different_prefixes__formsets_parse_data() -> None:
     form_data = MultiValueDict(
         {
-            "total_forms": ["3"],
+            "prefix-total_forms": ["3"],
             "prefix-form-1-field": ["field-1"],
             "prefix-form-2-field": ["field-2"],
             "prefix-form-3-field": ["field-3"],
+            "another-prefix-total_forms": ["3"],
             "another-prefix": ["another-prefix"],
             "another-prefix-form-1-field": ["another-field-1"],
             "another-prefix-form-2-field": ["another-field-2"],

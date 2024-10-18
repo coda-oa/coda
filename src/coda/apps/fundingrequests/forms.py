@@ -1,6 +1,7 @@
 from typing import Any
 
 from django import forms
+from django.utils.datastructures import MultiValueDict
 
 from coda.apps import fields
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
@@ -16,7 +17,7 @@ class CostForm(forms.Form):
 
     def to_dto(self) -> CostDto:
         return CostDto(
-            estimated_cost=self.cleaned_data["estimated_cost"],
+            estimated_cost=float(self.cleaned_data["estimated_cost"]),
             estimated_cost_currency=self.cleaned_data["estimated_cost_currency"],
             payment_method=self.cleaned_data["payment_method"],
         )
@@ -74,6 +75,17 @@ class ExternalFundingForm(forms.Form):
 class ExternalFundingFormset(HtmxDynamicFormset[ExternalFundingForm]):
     name: str = "fundingrequests:external_funding_formset"
     form_class = ExternalFundingForm
+
+    @classmethod
+    def from_data(cls, data: list[dict[str, Any]]) -> "ExternalFundingFormset":
+        total_forms = len(data)
+        form_data: dict[str, Any] = {"total_forms": [total_forms]}
+        for i, d in enumerate(data, start=1):
+            form_data[f"form-{i}-organization"] = [d["organization"]]
+            form_data[f"form-{i}-project_id"] = [d["project_id"]]
+            form_data[f"form-{i}-project_name"] = [d.get("project_name", "")]
+
+        return cls(MultiValueDict(form_data))
 
     def is_empty(self) -> bool:
         return all(form.is_empty() for form in self.forms)

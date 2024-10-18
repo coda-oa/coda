@@ -13,18 +13,15 @@ FormType = TypeVar("FormType", bound=forms.Form)
 _DEFAULT_RENDER_MODE = "paragraph"
 
 
-def _total_forms(data: dict[str, Any], min_forms: int = 1) -> int:
-    return int(data.get("total_forms", min_forms) or min_forms)
+def _total_forms(data: dict[str, Any], prefix: str | None, min_forms: int = 1) -> int:
+    prefix = _prefix(data, prefix)
+    return int(data.get(prefix + "total_forms", min_forms) or min_forms)
 
 
 def _forms(
     data: dict[str, Any], num_forms: int, form_class: type[FormType], prefix: str | None = None
 ) -> list[FormType]:
-    prefix = prefix or data.get("prefix")
-    if prefix:
-        prefix = f"{prefix}-"
-    else:
-        prefix = ""
+    prefix = _prefix(data, prefix)
 
     data.update(_initial_values(data, num_forms, prefix))
 
@@ -32,6 +29,15 @@ def _forms(
         form_class(data or None, prefix=prefix + f"form-{form_index}")
         for form_index in range(1, num_forms + 1)
     ]
+
+
+def _prefix(data: dict[str, Any], prefix: str | None = None) -> str:
+    prefix = prefix or data.get("prefix")
+    if prefix:
+        prefix = f"{prefix}-"
+    else:
+        prefix = ""
+    return prefix
 
 
 def _initial_values(data: dict[str, Any], num_forms: int, prefix: str) -> dict[str, Any]:
@@ -50,7 +56,7 @@ def _context(
         "total_forms": len(forms),
         "formset": forms,
         "url_name": name,
-        "prefix": prefix or "",
+        "prefix": prefix,
         "mode": mode or _DEFAULT_RENDER_MODE,
     }
 
@@ -75,7 +81,7 @@ class HtmxDynamicFormset(Generic[FormType]):
         data: MultiValueDict[str, str] | None = None,
         *,
         form_class: type[FormType] | None = None,
-        prefix: str | None = None,
+        prefix: str = "",
     ) -> None:
         self._data = data or MultiValueDict()
         self.form_class = form_class or self.form_class
@@ -88,16 +94,22 @@ class HtmxDynamicFormset(Generic[FormType]):
 
     @cached_property
     def forms(self) -> list[FormType]:
-        total_forms = _total_forms(self._data)
-        return _forms(self._data, total_forms, self.form_class, self.prefix)
+        total_forms = _total_forms(self._data, self.prefix)
+        forms = _forms(self._data, total_forms, self.form_class, self.prefix)
+        self._full_clean(forms)
+
+        return forms
+
+    def _full_clean(self, forms: list[FormType]) -> None:
+        for form in forms:
+            form.full_clean()
+
+    def full_clean(self) -> None:
+        self._full_clean(self.forms)
 
     @cached_property
     def data(self) -> list[dict[str, Any]]:
-        _forms = self.forms
-        for form in _forms:
-            form.full_clean()
-
-        return [form.cleaned_data for form in _forms]
+        return [form.cleaned_data for form in self.forms]
 
     @cache
     def is_valid(self) -> bool:
@@ -144,7 +156,8 @@ class ManagementView(View, Generic[FormType]):
 
     def _total_forms(self, query_dict: dict[str, Any] | None = None) -> int:
         query_dict = query_dict or self.request.POST
-        return _total_forms(query_dict, self.min_forms)
+        prefix = query_dict.get("prefix")
+        return _total_forms(query_dict, prefix, self.min_forms)
 
     def _forms(self, data: dict[str, Any], num_forms: int) -> list[FormType]:
         forms = _forms(data, num_forms, self.form_class)
@@ -164,7 +177,7 @@ class ManagementView(View, Generic[FormType]):
         total_forms = self._total_forms(post_data)
         post_data = self._remove_form_data(post_data, form_index)
         post_data = self._shift_form_data(post_data, form_index)
-        post_data["total_forms"] = str(total_forms - 1)
+        post_data[_prefix(post_data) + "total_forms"] = str(total_forms - 1)
         return post_data
 
     def _remove_form_data(self, post_data: dict[str, Any], form_index: int) -> dict[str, Any]:

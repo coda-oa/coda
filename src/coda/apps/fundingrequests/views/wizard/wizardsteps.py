@@ -215,8 +215,16 @@ class FundingStep(Step):
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         context = super().get_context_data(request, store)
         context["cost_form"] = form_with_post_or_store_data(CostForm, request, store.get("cost"))
-        context["funding_formset"] = ExternalFundingFormset(request.POST)
+        context["funding_formset"] = self._restore_formset(request, store)
         return context
+
+    def _restore_formset(self, request: HttpRequest, store: Store) -> ExternalFundingFormset:
+        if request.POST.get("total_forms"):
+            return ExternalFundingFormset(request.POST)
+        elif store.get("funding"):
+            return ExternalFundingFormset.from_data(store["funding"])
+        else:
+            return ExternalFundingFormset()
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         cost_form = CostForm(request.POST)
@@ -231,7 +239,6 @@ class FundingStep(Step):
         store["cost"] = cost
 
         funding_formset = ExternalFundingFormset(request.POST)
-        # FIXME: we need to call is_valid to populate the cleaned_data
-        funding_formset.is_valid()
         dto = funding_formset.to_dto()
         store["funding"] = dto if dto else None
+        store.save()

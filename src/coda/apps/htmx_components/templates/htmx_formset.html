@@ -1,5 +1,12 @@
 <div class="htmx-formset-wrapper"
-     hx-vals='{ "prefix": "{{ prefix }}", "total_forms": "{{ total_forms }}", "mode": "{{ mode }}"}'>
+     hx-vals='{ "prefix": "{{ prefix }}", "mode": "{{ mode }}"}'>
+    {% if prefix %}
+        <input type="hidden"
+               name="{{ prefix }}-total_forms"
+               value="{{ total_forms }}">
+    {% else %}
+        <input type="hidden" name="total_forms" value="{{ total_forms }}">
+    {% endif %}
     {% if mode == "inline" %}
         {% include "htmx_formset_inline.html" %}
     {% else %}
