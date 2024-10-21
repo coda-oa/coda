@@ -7,24 +7,78 @@ from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
-from coda.apps.authors.dto import AuthorDto, parse_author
+from coda.apps.authors.dto import AuthorDto, parse_author, to_author_dto
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.dto import (
-    CostDto,
-    ExternalFundingDto,
-    parse_external_funding,
-    parse_payment,
-)
+from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.preferences.models import GlobalPreferences
-from coda.apps.publications.dto import PublicationDto, PublicationMetaDto, parse_publication
+from coda.apps.publications.dto import PublicationDto, PublicationMetaDto, to_publication_dto
 from coda.apps.users.models import User
-from coda.fundingrequest import FundingOrganizationId, FundingRequest, FundingRequestId
+from coda.author import InstitutionId
+from coda.fundingrequest import (
+    ExternalFunding,
+    FundingOrganizationId,
+    FundingRequest,
+    FundingRequestId,
+)
 from coda.publication import JournalId, VocabularyConcept
 from tests import domainfactory, dtofactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
 from tests.publications.test_publication_services import as_domain_concept, assert_publication_eq
+
+
+class FundingRequestDataBuilder:
+    def __init__(self) -> None:
+        self.affiliation = modelfactory.institution()
+        self.journal = modelfactory.journal()
+        self.funder = modelfactory.funding_organization()
+
+        self.submitter = domainfactory.author(affiliation=InstitutionId(self.affiliation.pk))
+        self.publication = domainfactory.publication(
+            journal=JournalId(self.journal.pk),
+            publication_type=publication_type(),
+            subject_area=subject_area(),
+        )
+        self.estimated_cost = domainfactory.payment()
+        self.external_funding = [
+            domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
+            domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
+        ]
+
+        self.funding_request = FundingRequest.new(
+            self.publication,
+            self.submitter,
+            self.estimated_cost,
+            self.external_funding,
+        )
+
+    @property
+    def expected(self) -> FundingRequest:
+        return self.funding_request
+
+    def submitter_dto(self) -> AuthorDto:
+        return to_author_dto(self.submitter)
+
+    def publication_dto(self) -> PublicationDto:
+        return to_publication_dto(self.publication)
+
+    def external_funding_dto(self) -> list[ExternalFundingDto]:
+        return [self._to_external_funding_dto(f) for f in self.external_funding]
+
+    def cost_dto(self) -> CostDto:
+        return CostDto(
+            estimated_cost=float(self.estimated_cost.amount.amount),
+            estimated_cost_currency=self.estimated_cost.amount.currency.code,
+            payment_method=self.estimated_cost.method.value,
+        )
+
+    def _to_external_funding_dto(self, funding: ExternalFunding) -> ExternalFundingDto:
+        return ExternalFundingDto(
+            organization=funding.organization,
+            project_id=funding.project_id,
+            project_name=funding.project_name,
+        )
 
 
 @pytest.fixture(autouse=True)
@@ -38,12 +92,8 @@ def prepare_global_settings() -> None:
     GlobalPreferences.set_publication_type_vocabulary(modelfactory.vocabulary())
 
 
-def save_new_fundingrequest(journal_id: int | None = None) -> FundingRequestId:
-    journal_id = journal_id or modelfactory.journal().pk
-    funding_id = modelfactory.funding_organization().pk
-    fr = domainfactory.fundingrequest(
-        journal_id=JournalId(journal_id), funding_org_id=FundingOrganizationId(funding_id)
-    )
+def save_new_fundingrequest() -> FundingRequestId:
+    fr = FundingRequestDataBuilder().expected
     fr_id = fundingrequest_create(fr)
     return fr_id
 
@@ -52,30 +102,19 @@ def save_new_fundingrequest(journal_id: int | None = None) -> FundingRequestId:
 def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
-    journal_id = modelfactory.journal().pk
-    funder = modelfactory.funding_organization()
+    builder = FundingRequestDataBuilder()
 
-    author_dto = dtofactory.author_dto(modelfactory.institution().pk)
-    publication_dto = dtofactory.publication_dto(
-        journal_id, publication_type=publication_type(), subject_area=subject_area()
+    response = submit_wizard(
+        client,
+        builder.submitter_dto(),
+        builder.publication_dto(),
+        builder.external_funding_dto(),
+        builder.cost_dto(),
     )
-    external_funding = [
-        dtofactory.external_funding_dto(funder.pk),
-        dtofactory.external_funding_dto(funder.pk),
-    ]
-    cost_dto = dtofactory.cost_dto()
 
-    response = submit_wizard(client, author_dto, publication_dto, external_funding, cost_dto)
-
-    expected = FundingRequest.new(
-        parse_publication(publication_dto),
-        parse_author(author_dto),
-        parse_payment(cost_dto),
-        map(parse_external_funding, external_funding),
-    )
     actual = repository.first()
     assert actual is not None
-    assert_fundingrequest_eq(actual, expected)
+    assert_fundingrequest_eq(actual, builder.expected)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": actual.id}))
 
 
@@ -102,28 +141,20 @@ def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_d
 def test__updating_fundingrequest_publication__updates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
-    journal_id = modelfactory.journal().pk
-    new_journal_id = modelfactory.journal().pk
-    fr_id = save_new_fundingrequest(journal_id)
+    existing_request_id = save_new_fundingrequest()
 
-    publication_dto = dtofactory.publication_dto(
-        new_journal_id, publication_type=publication_type(), subject_area=subject_area()
-    )
-    journal_post_data = {"journal": new_journal_id}
-
-    client.post(
-        reverse("fundingrequests:update_publication", kwargs={"pk": fr_id}),
-        next() | as_form_data(publication_dto),
-    )
-    response = client.post(
-        reverse("fundingrequests:update_publication", kwargs={"pk": fr_id}),
-        next() | journal_post_data,
+    builder = FundingRequestDataBuilder()
+    response = submit_update_publication_wizard(
+        client,
+        existing_request_id,
+        JournalId(builder.journal.id),
+        builder.publication_dto(),
     )
 
-    expected = parse_publication(publication_dto)
-    actual = repository.get_by_id(fr_id).publication
+    expected = builder.expected.publication
+    actual = repository.get_by_id(existing_request_id).publication
     assert_publication_eq(actual, expected)
-    assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
+    assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": existing_request_id}))
 
 
 @pytest.mark.django_db
@@ -132,12 +163,9 @@ def test__updating_fundingrequest_funding__updates_funding_request_and_shows_det
 ) -> None:
     fr_id = save_new_fundingrequest()
 
-    new_funder = modelfactory.funding_organization()
-    external_funding = [
-        dtofactory.external_funding_dto(new_funder.pk),
-        dtofactory.external_funding_dto(new_funder.pk),
-    ]
-    cost_dto = dtofactory.cost_dto()
+    builder = FundingRequestDataBuilder()
+    external_funding = builder.external_funding_dto()
+    cost_dto = builder.cost_dto()
 
     response = client.post(
         reverse("fundingrequests:update_funding", kwargs={"pk": fr_id}),
@@ -145,8 +173,8 @@ def test__updating_fundingrequest_funding__updates_funding_request_and_shows_det
     )
 
     fr = repository.get_by_id(fr_id)
-    expected_payment = parse_payment(cost_dto)
-    expected_funding = map(parse_external_funding, external_funding)
+    expected_payment = builder.expected.estimated_cost
+    expected_funding = builder.expected.external_funding
     assert fr.estimated_cost == expected_payment
     assert list(fr.external_funding) == list(expected_funding)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
@@ -158,10 +186,19 @@ def test__updating_fundingrequest_funding__without_external_funding__updates_fun
 ) -> None:
     fr_id = save_new_fundingrequest()
     cost_dto = dtofactory.cost_dto()
+    empty_funding_data = to_htmx_formset_data(
+        [
+            {
+                "organization": "",  # type: ignore
+                "project_id": "",
+                "project_name": "",
+            }
+        ]
+    )
 
     response = client.post(
         reverse("fundingrequests:update_funding", kwargs={"pk": fr_id}),
-        next() | {"organization": "", "project_id": "", "project_name": ""} | cost_dto,
+        next() | empty_funding_data | cost_dto,
     )
 
     request = repository.get_by_id(fr_id)
@@ -180,17 +217,29 @@ def submit_wizard(
     external_funding: list[ExternalFundingDto],
     cost: CostDto,
 ) -> HttpResponse:
+    create_wizard_url = reverse("fundingrequests:create_wizard")
     fundings = to_htmx_formset_data(external_funding)
-    client.post(reverse("fundingrequests:create_wizard"), next() | author)
-    client.post(
-        reverse("fundingrequests:create_wizard"),
-        next() | {"journal": publication["journal"]["journal_id"]},
-    )
-    client.post(reverse("fundingrequests:create_wizard"), next() | as_form_data(publication))
+    client.post(create_wizard_url, next() | author)
+    client.post(create_wizard_url, next() | {"journal": publication["journal"]["journal_id"]})
+    client.post(create_wizard_url, next() | as_form_data(publication))
     return cast(
         HttpResponse,
-        client.post(reverse("fundingrequests:create_wizard"), next() | fundings | cost),
+        client.post(create_wizard_url, next() | fundings | cost),
     )
+
+
+def submit_update_publication_wizard(
+    client: Client, fr_id: FundingRequestId, journal_id: JournalId, publication_dto: PublicationDto
+) -> HttpResponse:
+    wizard_url = reverse("fundingrequests:update_publication", kwargs={"pk": fr_id})
+
+    publication_formdata = as_form_data(publication_dto)
+    client.post(wizard_url, next() | publication_formdata)
+
+    journal_post_data = {"journal": journal_id}
+    response = client.post(wizard_url, next() | journal_post_data)
+
+    return cast(HttpResponse, response)
 
 
 def to_htmx_formset_data(external_funding: list[ExternalFundingDto]) -> dict[str, Any]:
@@ -235,7 +284,8 @@ def as_form_data(publication: PublicationDto) -> dict[str, Any]:
         link_form_data["link_type"].append(str(link["link_type"]))
         link_form_data["link_value"].append(str(link["link_value"]))
 
-    return meta_reduced | {"authors": authors} | concepts | link_form_data
+    formdata = meta_reduced | {"authors": authors} | concepts | link_form_data
+    return formdata
 
 
 def _concepts_to_json(meta: PublicationMetaDto) -> dict[str, str]:
