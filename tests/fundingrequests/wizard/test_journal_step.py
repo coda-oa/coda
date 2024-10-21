@@ -77,6 +77,7 @@ def test__journal_step__journal_in_store__get_context_data__finds_selected_journ
 ) -> None:
     first_journal = journals[0]
     store["journal"] = first_journal.pk
+    store.save()
 
     sut = JournalStep()
 
@@ -95,6 +96,7 @@ def test__journal_step__journal_data_in_post_and_store__get_context_data__prefer
     first_journal = journals[0]
     second_journal = journals[1]
     store["selected_journal"] = first_journal.pk
+    store.save()
 
     sut = JournalStep()
 

@@ -82,6 +82,7 @@ class JournalStep(Step):
 
     def done(self, request: HttpRequest, store: Store) -> None:
         store["journal"] = request.POST["journal"]
+        store.save()
 
 
 class PublicationStep(Step):
@@ -193,6 +194,7 @@ class PublicationStep(Step):
         store["links"] = [linkform.get_form_data() for linkform in link_forms]
         store["publication"] = publication_form.get_form_data()
         store["authors"] = list(AuthorList.from_str(request.POST.get("authors", "")))
+        store.save()
 
     def all_valid(self, forms: Iterable[Form]) -> bool:
         return all(form.is_valid() for form in forms)

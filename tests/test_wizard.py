@@ -34,16 +34,17 @@ class StepWithDone(SimpleStep):
         store["done_called"] = True
 
 
-class DictStore(dict[str, Any], Store):
+class DictStore(Store):
     def __init__(self) -> None:
-        super().__init__()
-        self.save_state: dict[str, Any] = {}
+        self.saved_state: dict[str, Any] = {}
+        self.unsaved_state: dict[str, Any] = {}
 
     def save(self) -> None:
-        self.save_state = self.copy()
+        self.saved_state = self.unsaved_state.copy()
+        self.unsaved_state.clear()
 
     def get(self, key: str, __default: Any = None) -> Any:
-        return super().get(key, __default)
+        return self.saved_state.get(key, __default)
 
     def update(
         self,
@@ -51,19 +52,28 @@ class DictStore(dict[str, Any], Store):
         /,
         **kwargs: Any,
     ) -> None:
-        super().update(__m, **kwargs)
+        self.unsaved_state.update(__m, **kwargs)
+
+    def clear(self) -> None:
+        self.unsaved_state.clear()
+
+    def reset_save_state(self) -> None:
+        self.saved_state.clear()
 
     def was_saved_with(self, expected: dict[str, Any]) -> bool:
         return all(
-            key in self.save_state and self.save_state[key] == value
+            key in self.saved_state and self.saved_state[key] == value
             for key, value in expected.items()
-        ) and len(self.save_state) == len(expected)
+        ) and len(self.saved_state) == len(expected)
 
-    def clear(self) -> None:
-        super().clear()
+    def __getitem__(self, key: str) -> Any:
+        return self.saved_state[key]
 
-    def reset_save_state(self) -> None:
-        self.save_state = {}
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.unsaved_state[key] = value
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.saved_state
 
 
 class SingletonDictStoreFactory:
@@ -175,7 +185,9 @@ def test__wizard__get__calls_prepare_before_rendering() -> None:
 
     class PreparingWizard(WizardTestImpl):
         def prepare(self, request: HttpRequest) -> None:
-            self.get_store()["prepared"] = "prepared called"
+            store = self.get_store()
+            store["prepared"] = "prepared called"
+            store.save()
 
     sut = make_sut(PreparingWizard, steps=[StoreReadingStep()])
 
@@ -240,7 +252,7 @@ def test__wizard__post_next__calls_done_on_current_step() -> None:
     _ = post(sut, next())
 
     store = SingletonDictStoreFactory.store
-    assert "done_called" in store.save_state
+    assert "done_called" in store
 
 
 def test__wizard__post_no_action__does_not_call_done_on_current_step() -> None:
@@ -249,7 +261,7 @@ def test__wizard__post_no_action__does_not_call_done_on_current_step() -> None:
     _ = post(sut)
 
     store = SingletonDictStoreFactory.store
-    assert "done_called" not in store.save_state
+    assert "done_called" not in store
 
 
 def test__wizard_with_step_and_context__get_renders_first_step_with_context() -> None:
@@ -333,7 +345,7 @@ def test__wizard__post_to_invalid_step__does_not_call_done_on_step() -> None:
     _ = post(sut, next())
 
     store = SingletonDictStoreFactory.store
-    assert "done_called" not in store.save_state
+    assert "done_called" not in store
 
 
 def test__wizard__post_to_last_step_invalid__rerenders_last_step() -> None:
@@ -390,6 +402,7 @@ def test__wizard__on_completion__calls_complete_on_self_before_clearing_store() 
     completed_state: dict[str, Any] = {}
     store = SingletonDictStoreFactory.store
     store["completed"] = "completed called"
+    store.save()
 
     sut = make_sut(CompletingWizardSpy, steps=[SimpleStep()], completed_state=completed_state)
     _ = post(sut, next())
@@ -401,6 +414,7 @@ def test__wizard__on_completion__calls_complete_on_self_before_clearing_store() 
 def test__wizard__on_completion__gets_success_url_before_clearing_store() -> None:
     store = SingletonDictStoreFactory.store
     store["success_url"] = "get_success_url called"
+    store.save()
     completed_state: dict[str, Any] = {}
 
     sut = make_sut(CompletingWizardSpy, steps=[SimpleStep()], completed_state=completed_state)

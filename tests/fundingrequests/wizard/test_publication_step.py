@@ -113,6 +113,7 @@ def test__publication_step__authors_in_store__get_context_data__contains_authors
     sut = PublicationStep()
     store = DictStore()
     store["authors"] = expected_authors
+    store.save()
 
     ctx = sut.get_context_data(request_factory.get("/"), store)
 
@@ -148,6 +149,7 @@ def test__publication_step__existing_publication__publication_form_uses_existing
         publication_type=as_domain_concept(pub_type_model),
         subject_area=as_domain_concept(subject_model),
     )
+    store.save()
 
     sut = PublicationStep()
     ctx = sut.get_context_data(request_factory.get("/"), store)

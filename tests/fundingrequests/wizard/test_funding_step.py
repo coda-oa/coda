@@ -183,6 +183,7 @@ def test__funding_step__with_previous_funding__has_funding_in_response_context()
             "project_name": "Test Project",
         }
     ]
+    store.save()
 
     funding_step = FundingStep()
 
