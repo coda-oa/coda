@@ -1,7 +1,5 @@
-import datetime
 from collections.abc import Iterable
-from dataclasses import dataclass
-from typing import Self, cast
+from typing import cast
 
 from django.db.models import Q
 
@@ -10,6 +8,7 @@ from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.publications import services as publication_services
 from coda.author import AuthorId
+from coda.date import DateRange
 from coda.fundingrequest import (
     ExternalFunding,
     FundingOrganizationId,
@@ -63,26 +62,6 @@ def as_domain_object(model: FundingRequestModel) -> FundingRequest:
             for ef in model.external_funding.all()
         ],
     )
-
-
-@dataclass(frozen=True, slots=True)
-class DateRange:
-    start: datetime.date
-    end: datetime.date
-
-    @classmethod
-    def try_fromisoformat(cls, *, start: str | None = None, end: str | None = None) -> Self:
-        start_date = datetime.date.fromisoformat(start) if start else datetime.date.min
-        end_date = datetime.date.fromisoformat(end) if end else datetime.date.max
-        return cls(start_date, end_date)
-
-    @classmethod
-    def create(
-        cls, *, start: datetime.date | None = None, end: datetime.date | None = None
-    ) -> Self:
-        start_date = start or datetime.date.min
-        end_date = end or datetime.date.max
-        return cls(start_date, end_date)
 
 
 def search(

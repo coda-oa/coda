@@ -1,25 +1,35 @@
-from dataclasses import dataclass
-import datetime
-from coda.apps.contracts.models import Contract
-from coda.apps.publishers.models import Publisher
+from coda.apps.contracts.models import Contract as ContractModel
+from coda.contract import Contract, ContractId, PublisherId
+from coda.date import DateRange
+from coda.publication import JournalId
+from coda.string import NonEmptyStr
 
 
-@dataclass
-class DateRange:
-    start_date: datetime.date | None = None
-    end_date: datetime.date | None = None
+def get_by_id(id: ContractId) -> Contract:
+    contract_model = ContractModel.objects.get(pk=id)
+    return as_domain_model(contract_model)
 
 
-def contract_create(
-    name: str,
-    publishers: list[Publisher],
-    date_range: DateRange | None = None,
-    now: datetime.date | None = None,
-) -> Contract:
-    now = now or datetime.date.today()
-    date_range = date_range or DateRange()
-    contract = Contract.objects.create(
-        name=name, start_date=date_range.start_date, end_date=date_range.end_date
+def all() -> list[Contract]:
+    return [as_domain_model(contract_model) for contract_model in ContractModel.objects.all()]
+
+
+def as_domain_model(contract_model: ContractModel) -> Contract:
+    return Contract(
+        id=ContractId(contract_model.pk),
+        name=NonEmptyStr(contract_model.name),
+        publishers=tuple(PublisherId(p.pk) for p in contract_model.publishers.all()),
+        journals=tuple(JournalId(j.pk) for j in contract_model.journals.all()),
+        period=DateRange.create(start=contract_model.start_date, end=contract_model.end_date),
     )
-    contract.publishers.set(publishers)
-    return contract
+
+
+def contract_create(contract: Contract) -> ContractId:
+    contract_model = ContractModel.objects.create(
+        name=contract.name,
+        start_date=contract.period.start,
+        end_date=contract.period.end,
+    )
+    contract_model.publishers.set(contract.publishers)
+    contract_model.journals.set(contract.journals)
+    return ContractId(contract_model.pk)

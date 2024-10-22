@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}
+    {{ title }}
+{% endblock title %}
+{% block content %}
+    <form action="{% url 'contracts:create' %}">
+        <article>
+            <h2>Base information</h2>
+            {{ contract_form }}
+        </article>
+        <article>
+            <h2>Publishers</h2>
+            <fieldset role="group">
+                <input id="search-publisher" type="search" name="search_term_publisher">
+                <button type="button"
+                        hx-get="{% url 'contracts:search_publisher' %}"
+                        hx-target="#publisher-search-results"
+                        hx-swap="outerHTML"
+                        class="inline-search-pill">Search</button>
+            </fieldset>
+            {% include "contracts/contract_search_results.html" with search_kind="publisher" %}
+            {{ publisher_formset.as_inline }}
+        </article>
+        <article>
+            <h2>Journals</h2>
+            <fieldset role="group">
+                <input id="search-journal" type="search" name="search_term_publisher">
+                <button type="button"
+                        hx-get="{% url 'contracts:search_journal' %}"
+                        hx-target="#journal-search-results"
+                        hx-swap="outerHTML"
+                        class="inline-search-pill">Search</button>
+            </fieldset>
+            {% include "contracts/contract_search_results.html" with search_kind="journal" %}
+            {{ journal_formset.as_inline }}
+        </article>
+        <button type="submit">Save</button>
+    </form>
+{% endblock content %}

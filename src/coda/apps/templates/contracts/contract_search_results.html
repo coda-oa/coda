@@ -1,0 +1,23 @@
+{% if search_results %}
+    <table id="{{ search_kind }}-search-results">
+        <thead>
+            <tr colspan="2">
+                <th>Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in search_results %}
+                <tr>
+                    <td>{{ result.name }}</td>
+                    <td>
+                        <button type="button"
+                                hx-post="{% url 'contracts:entity-formset' %}"
+                                hx-vals='{"entity_id": "{{ result.id }}", "name": "{{ result.name }}"}'
+                                hx-target="closest div.htmx-formset-wrapper"
+                                hx-swap="outerHTML">Add</button>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}

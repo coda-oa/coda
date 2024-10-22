@@ -1,11 +1,15 @@
 import datetime
 import enum
 from dataclasses import dataclass, field
-from typing import NamedTuple, NewType, Self, TypeAlias
+from typing import TYPE_CHECKING, NamedTuple, NewType, Self, TypeAlias
 
 from coda.author import AuthorList
 from coda.doi import Doi
 from coda.string import NonEmptyStr
+
+if TYPE_CHECKING:
+    from coda.contract import ContractId
+
 
 JournalId = NewType("JournalId", int)
 PublicationId = NewType("PublicationId", int)
@@ -102,6 +106,7 @@ class Publication:
     publication_type: VocabularyConcept = UnknownConcept
     open_access_type: OpenAccessType = OpenAccessType.Unknown
     publication_state: PublicationState = Unpublished()
+    contracts: set["ContractId"] = field(default_factory=set)
     links: set[Link] = field(default_factory=set)
 
     @classmethod

@@ -11,6 +11,7 @@ from coda.apps.authors.dto import AuthorDto, parse_author, to_author_dto
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.services import fundingrequest_create
+from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import PublicationDto, PublicationMetaDto, to_publication_dto
 from coda.apps.users.models import User
@@ -189,7 +190,7 @@ def test__updating_fundingrequest_funding__without_external_funding__updates_fun
     empty_funding_data = to_htmx_formset_data(
         [
             {
-                "organization": "",  # type: ignore
+                "organization": "",
                 "project_id": "",
                 "project_name": "",
             }
@@ -219,6 +220,7 @@ def submit_wizard(
 ) -> HttpResponse:
     create_wizard_url = reverse("fundingrequests:create_wizard")
     fundings = to_htmx_formset_data(external_funding)
+    print(fundings)
     client.post(create_wizard_url, next() | author)
     client.post(create_wizard_url, next() | {"journal": publication["journal"]["journal_id"]})
     client.post(create_wizard_url, next() | as_form_data(publication))
@@ -240,15 +242,6 @@ def submit_update_publication_wizard(
     response = client.post(wizard_url, next() | journal_post_data)
 
     return cast(HttpResponse, response)
-
-
-def to_htmx_formset_data(external_funding: list[ExternalFundingDto]) -> dict[str, Any]:
-    fundings: dict[str, Any] = {"total_forms": len(external_funding)}
-    for i, f in enumerate(external_funding, start=1):
-        fundings[f"form-{i}-organization"] = f["organization"]
-        fundings[f"form-{i}-project_id"] = f["project_id"]
-        fundings[f"form-{i}-project_name"] = f["project_name"]
-    return fundings
 
 
 def subject_area() -> VocabularyConcept:
