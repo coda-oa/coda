@@ -8,20 +8,7 @@
             {% if contract.end_date %}<p>End: {{ contract.end_date }}</p>{% endif %}
         {% endif %}
         <h2>Status</h2>
-        <form class="grid align-center"
-              action="{% url "contracts:status" pk=contract.pk %}"
-              method="post">
-            {% csrf_token %}
-            <p>{% include "contracts/contract_active_status.html" %}</p>
-            {% if contract.is_active %}
-                <button class="outline max-fit-content"
-                        type="submit"
-                        name="status"
-                        value="inactive">Make inactive</button>
-            {% else %}
-                <button class="outline" type="submit" name="status" value="active">Make active</button>
-            {% endif %}
-        </form>
+        <p>{% include "contracts/contract_active_status.html" %}</p>
     </article>
     <section class="my-4">
         <h2>Publishers</h2>

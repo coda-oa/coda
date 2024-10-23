@@ -1,4 +1,3 @@
-import datetime
 import logging
 from typing import Any
 
@@ -6,7 +5,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
 from django.views.generic import ListView, TemplateView
 
 from coda.apps.contracts.forms import ContractForm, EntityFormset
@@ -95,20 +93,3 @@ class ContractCreateView(LoginRequiredMixin, TemplateView):
 def contract_detail(request: HttpRequest, pk: int) -> HttpResponse:
     contract = get_object_or_404(ContractModel, pk=pk)
     return render(request, "contracts/contract_detail.html", {"contract": contract})
-
-
-@login_required
-@require_POST
-def change_contract_status(request: HttpRequest, pk: int) -> HttpResponse:
-    contract = get_object_or_404(ContractModel, pk=pk)
-    status = request.POST["status"]
-    if status == "active":
-        contract.make_active(until=_until(request))
-    elif status == "inactive":
-        contract.make_inactive()
-
-    return redirect("contracts:detail", contract.pk)
-
-
-def _until(request: HttpRequest) -> datetime.date | None:
-    return datetime.date.fromisoformat(request.POST["until"]) if "until" in request.POST else None
