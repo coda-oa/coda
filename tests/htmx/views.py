@@ -14,8 +14,20 @@ class _TestFormset(HtmxDynamicFormset[_TestForm]):
     form_class = _TestForm
 
 
+class _ZeroFormsFormset(HtmxDynamicFormset[_TestForm]):
+    name = "zero_formset"
+    form_class = _TestForm
+    min_forms = 0
+
+
 def formset_view(request: HttpRequest) -> HttpResponse:
     return render(request, "htmx_formset_template.html", {"formset": _TestFormset(request.POST)})
+
+
+def zero_formset_view(request: HttpRequest) -> HttpResponse:
+    return render(
+        request, "htmx_formset_template.html", {"formset": _ZeroFormsFormset(request.POST)}
+    )
 
 
 def multiple_formsets_view(request: HttpRequest) -> HttpResponse:

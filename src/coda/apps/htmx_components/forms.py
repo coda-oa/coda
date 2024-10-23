@@ -31,6 +31,10 @@ def _forms(
     ]
 
 
+def _form_id(data: dict[str, Any], prefix: str | None = None) -> str:
+    return str(data.get(_prefix(data, prefix) + "form_id", ""))
+
+
 def _prefix(data: dict[str, Any], prefix: str | None = None) -> str:
     prefix = prefix or data.get("prefix")
     if prefix:
@@ -51,8 +55,10 @@ def _initial_values(data: dict[str, Any], num_forms: int, prefix: str) -> dict[s
 
 def _context(
     forms: list[FormType],
+    *,
     name: str,
     mode: str | None,
+    form_id: str | None,
     prefix: str | None,
     add_button: bool = True,
     table_classes: str = "",
@@ -65,12 +71,14 @@ def _context(
         "mode": mode or _DEFAULT_RENDER_MODE,
         "table_classes": table_classes,
         "add_button": add_button,
+        "form_id": form_id,
     }
 
 
 class HtmxDynamicFormset(Generic[FormType]):
     name: str
     form_class: type[FormType]
+    min_forms: int = 1
     add_button = True
 
     template_name = "htmx_formset.html"
@@ -80,6 +88,7 @@ class HtmxDynamicFormset(Generic[FormType]):
         class _ManagementView(ManagementView[FormType]):
             name = cls.name
             form_class: type[FormType] = cls.form_class
+            min_forms = cls.min_forms
             add_button = cls.add_button
             template_name = cls.template_name
 
@@ -90,11 +99,13 @@ class HtmxDynamicFormset(Generic[FormType]):
         data: MultiValueDict[str, str] | None = None,
         *,
         form_class: type[FormType] | None = None,
+        form_id: str = "",
         prefix: str = "",
         table_classes: str = "",
     ) -> None:
         self._data = data or MultiValueDict()
         self.form_class = form_class or self.form_class
+        self.form_id = form_id
         self.prefix = prefix
         self.table_classes = table_classes
 
@@ -106,7 +117,7 @@ class HtmxDynamicFormset(Generic[FormType]):
 
     @cached_property
     def forms(self) -> list[FormType]:
-        total_forms = _total_forms(self._data, self.prefix)
+        total_forms = _total_forms(self._data, self.prefix, self.min_forms)
         forms = _forms(self._data, total_forms, self.form_class, self.prefix)
         self._full_clean(forms)
 
@@ -132,11 +143,12 @@ class HtmxDynamicFormset(Generic[FormType]):
             self.template_name,
             _context(
                 self.forms,
-                self.name,
-                mode,
-                self.prefix,
-                self.add_button,
-                self.table_classes,
+                name=self.name,
+                mode=mode,
+                form_id=self.form_id,
+                prefix=self.prefix,
+                add_button=self.add_button,
+                table_classes=self.table_classes,
             ),
         )
 
@@ -192,10 +204,19 @@ class ManagementView(View, Generic[FormType]):
         mode = request.POST.get("mode")
         prefix = request.POST.get("prefix")
         table_classes = request.POST.get("table_classes", "")
+        form_id = _form_id(request.POST, prefix)
         return render(
             request,
             self.template_name,
-            _context(forms, self.name, mode, prefix, self.add_button, table_classes),
+            _context(
+                forms,
+                name=self.name,
+                mode=mode,
+                form_id=form_id,
+                prefix=prefix,
+                add_button=self.add_button,
+                table_classes=table_classes,
+            ),
         )
 
     def _data_with_form_removed(self, request: HttpRequest, form_index: int) -> dict[str, Any]:

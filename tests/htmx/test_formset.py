@@ -3,7 +3,7 @@ from django.test.client import Client
 from django.utils.datastructures import MultiValueDict
 from pytest_django.fixtures import SettingsWrapper
 
-from tests.htmx.views import _TestForm, _TestFormset
+from tests.htmx.views import _TestForm, _TestFormset, _ZeroFormsFormset
 
 
 @pytest.fixture(autouse=True)
@@ -24,6 +24,14 @@ def test__by_default_view_has_one_form_in_formset(client: Client) -> None:
 
     formset: _TestFormset = response.context["formset"]
     assert len(formset.forms) == 1
+
+
+@pytest.mark.django_db
+def test__formset_with_min_forms_0__has_no_forms_in_formset(client: Client) -> None:
+    response = client.get("/zero/")
+
+    formset: _ZeroFormsFormset = response.context["formset"]
+    assert len(formset.forms) == 0
 
 
 @pytest.mark.django_db

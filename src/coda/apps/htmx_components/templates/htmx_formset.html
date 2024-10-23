@@ -1,5 +1,7 @@
-<div class="htmx-formset-wrapper"
+<div {% if form_id %}id="{{ form_id }}"{% endif %}
+     class="htmx-formset-wrapper"
      hx-vals='{ "prefix": "{{ prefix }}", "mode": "{{ mode }}", "table_classes": "{{ table_classes }}"}'>
+    {% if form_id %}<input type="hidden" name="{{ prefix }}-form_id" value="{{ form_id }}">{% endif %}
     {% if prefix %}
         <input type="hidden"
                name="{{ prefix }}-total_forms"
