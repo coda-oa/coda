@@ -18,7 +18,9 @@ urlpatterns = [
     path("<int:pk>/", contract_detail, name="detail"),
     path("<int:pk>/status/", change_contract_status, name="status"),
     path(
-        "partial/", management_view.as_view(), name=management_view.name.removeprefix("contracts:")
+        "partial/entity-form",
+        management_view.as_view(),
+        name=management_view.name.removeprefix("contracts:"),
     ),
     path(
         "partial/search-publisher",

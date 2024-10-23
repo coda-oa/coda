@@ -14,7 +14,12 @@ def search_publisher(request: HttpRequest) -> HttpResponse:
         publishers = Publisher.objects.none()
 
     return render(
-        request, "contracts/contract_search_publisher.html", {"search_results": publishers}
+        request,
+        "contracts/contract_search_results.html",
+        {
+            "search_results": publishers,
+            "prefix": request.GET.get("prefix", ""),
+        },
     )
 
 
@@ -26,4 +31,11 @@ def search_journal(request: HttpRequest) -> HttpResponse:
             {"name": j.title, "id": j.id} for j in Journal.objects.filter(title__icontains=search)
         ]
 
-    return render(request, "contracts/contract_search_publisher.html", {"search_results": journals})
+    return render(
+        request,
+        "contracts/contract_search_results.html",
+        {
+            "search_results": journals,
+            "prefix": request.GET.get("prefix", ""),
+        },
+    )

@@ -58,6 +58,10 @@
   margin-block: 2rem;
 }
 
+.my-4 {
+  margin-block: 4rem;
+}
+
 .w-100 {
   width: 100%;
 }

@@ -81,6 +81,7 @@ class HtmxDynamicFormset(Generic[FormType]):
     min_forms: int = 1
     add_button = True
 
+    table_classes: str = ""
     template_name = "htmx_formset.html"
 
     @classmethod
@@ -91,6 +92,7 @@ class HtmxDynamicFormset(Generic[FormType]):
             min_forms = cls.min_forms
             add_button = cls.add_button
             template_name = cls.template_name
+            table_classes = cls.table_classes
 
         return _ManagementView
 
@@ -101,13 +103,11 @@ class HtmxDynamicFormset(Generic[FormType]):
         form_class: type[FormType] | None = None,
         form_id: str = "",
         prefix: str = "",
-        table_classes: str = "",
     ) -> None:
         self._data = data or MultiValueDict()
         self.form_class = form_class or self.form_class
         self.form_id = form_id
         self.prefix = prefix
-        self.table_classes = table_classes
 
         if not self.name:
             raise ValueError("name is required")
@@ -171,6 +171,7 @@ class ManagementView(View, Generic[FormType]):
     add_button: bool = True
     min_forms: int = 1
 
+    table_classes: str
     template_name: str
 
     def post(self, request: HttpRequest) -> HttpResponse:
@@ -203,7 +204,6 @@ class ManagementView(View, Generic[FormType]):
     def _get_response(self, request: HttpRequest, forms: list[FormType]) -> HttpResponse:
         mode = request.POST.get("mode")
         prefix = request.POST.get("prefix")
-        table_classes = request.POST.get("table_classes", "")
         form_id = _form_id(request.POST, prefix)
         return render(
             request,
@@ -215,7 +215,7 @@ class ManagementView(View, Generic[FormType]):
                 form_id=form_id,
                 prefix=prefix,
                 add_button=self.add_button,
-                table_classes=table_classes,
+                table_classes=self.table_classes,
             ),
         )
 

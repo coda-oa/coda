@@ -3,35 +3,46 @@
     {{ title }}
 {% endblock title %}
 {% block content %}
-    <form action="{% url 'contracts:create' %}">
+    <form action="{% url 'contracts:create' %}" method="post">
+        {% csrf_token %}
         <article>
             <h2>Base information</h2>
             {{ contract_form }}
         </article>
         <article>
             <h2>Publishers</h2>
-            <fieldset role="group">
-                <input id="search-publisher" type="search" name="search_term_publisher">
-                <button type="button"
-                        hx-get="{% url 'contracts:search_publisher' %}"
-                        hx-target="#publisher-search-results"
-                        hx-swap="outerHTML"
-                        class="inline-search-pill">Search</button>
-            </fieldset>
-            {% include "contracts/contract_search_results.html" with search_kind="publisher" %}
+            <div class="my-2">
+                <h3>Search</h3>
+                <fieldset role="group">
+                    <input id="search-publisher" type="search" name="search-publisher">
+                    <button type="button"
+                            hx-get="{% url 'contracts:search_publisher' %}"
+                            hx-target="#{{ publisher_formset.prefix }}-search-results"
+                            hx-include="#search-publisher"
+                            name="prefix"
+                            value="publishers"
+                            hx-swap="outerHTML"
+                            class="inline-search-pill">Search</button>
+                </fieldset>
+                {% include "contracts/contract_search_results.html" with prefix="publishers" %}
+            </div>
+            <h3>Selected</h3>
             {{ publisher_formset.as_inline }}
         </article>
         <article>
             <h2>Journals</h2>
             <fieldset role="group">
-                <input id="search-journal" type="search" name="search_term_publisher">
+                <input id="search-journal" type="search" name="search-journal">
                 <button type="button"
                         hx-get="{% url 'contracts:search_journal' %}"
-                        hx-target="#journal-search-results"
+                        hx-include="#search-journal"
+                        name="prefix"
+                        value="journals"
+                        hx-target="#{{ journal_formset.prefix }}-search-results"
                         hx-swap="outerHTML"
                         class="inline-search-pill">Search</button>
             </fieldset>
-            {% include "contracts/contract_search_results.html" with search_kind="journal" %}
+            {% include "contracts/contract_search_results.html" with prefix="journals" %}
             {{ journal_formset.as_inline }}
         </article>
         <button type="submit">Save</button>

@@ -23,4 +23,6 @@ class EntityFormset(HtmxDynamicFormset[EntityForm]):
     form_class = EntityForm
     name = "contracts:entity-formset"
     add_button = False
-    min_forms = 1
+    min_forms = 0
+
+    table_classes = "article__table"

@@ -1,4 +1,5 @@
 import datetime
+import logging
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
@@ -25,7 +26,6 @@ class ContractListView(LoginRequiredMixin, ListView[ContractModel]):
 
 
 class ContractCreateView(LoginRequiredMixin, TemplateView):
-    form_class = ContractForm
     template_name = "contracts/contract_create.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
@@ -35,15 +35,15 @@ class ContractCreateView(LoginRequiredMixin, TemplateView):
         if self.request.method == "POST":
             contract_form = ContractForm(self.request.POST)
             publisher_formset = EntityFormset(
-                self.request.POST, prefix="publishers", table_classes="article__table"
+                self.request.POST, form_id="publishers-formset", prefix="publishers"
             )
             journal_formset = EntityFormset(
-                self.request.POST, prefix="journals", table_classes="article__table"
+                self.request.POST, form_id="journals-formset", prefix="journals"
             )
         else:
             contract_form = ContractForm()
-            publisher_formset = EntityFormset(prefix="publishers", table_classes="article__table")
-            journal_formset = EntityFormset(prefix="journals", table_classes="article__table")
+            publisher_formset = EntityFormset(prefix="publishers", form_id="publishers-formset")
+            journal_formset = EntityFormset(prefix="journals", form_id="journals-formset")
 
         return {
             "contract_form": contract_form,
@@ -63,7 +63,17 @@ class ContractCreateView(LoginRequiredMixin, TemplateView):
         if all(form.is_valid() for form in forms):
             return self.form_valid(contract_form, publisher_formset, journal_formset)
 
-        return self.get(request)
+        logging.error("CONTRACT FORM")
+        logging.error(contract_form.errors.as_text())
+
+        logging.error("PUBLISHER FORMSET")
+        for form in publisher_formset.forms:
+            logging.error(form.errors.as_text())
+
+        logging.error("JOURNAL FORMSET")
+        for form in journal_formset.forms:
+            logging.error(form.errors.as_text())
+        return render(request, self.template_name, self.get_context_data())
 
     def form_valid(
         self, form: ContractForm, publisher_formset: EntityFormset, journal_formset: EntityFormset

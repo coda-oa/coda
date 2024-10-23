@@ -94,12 +94,12 @@ ul.no-decoration>li {
   }
 }
 
-.journal__search-results__scroll-container {
+.search-results__scroll-container {
   max-height: 70vh;
   overflow-y: auto;
 }
 
-.journal__search-results__scroll-container thead th {
+.search-results__scroll-container thead th {
   position: sticky;
   top: 0;
 }
