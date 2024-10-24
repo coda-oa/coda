@@ -35,7 +35,7 @@ def publication_dto(
     title: str = "",
     publication_type: VocabularyConcept = UnknownConcept,
     subject_area: VocabularyConcept = UnknownConcept,
-    contracts: list[int] = [],
+    contracts: list[int] | None = None,
     links: list[LinkDto] | None = None,
 ) -> PublicationDto:
     return PublicationDto(
@@ -43,7 +43,7 @@ def publication_dto(
         authors=list(random_authorlist()),
         journal=JournalDto({"journal_id": journal}),
         links=links or link_dtos(),
-        contracts=[],
+        contracts=contracts or [],
     )
 
 
