@@ -103,7 +103,7 @@ def publication_viewmodel(publication: Publication) -> PublicationViewModel:
         subject_area=publication.subject_area.name if publication.subject_area else "",
         oa_type=publication.open_access_type,
         references=[as_domain_link(link.type.name, link.value) for link in publication.links.all()],
-        contracts=publication.journal.contracts.all(),
+        contracts=publication.contracts.all(),
     )
 
 

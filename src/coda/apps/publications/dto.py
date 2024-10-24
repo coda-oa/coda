@@ -3,6 +3,7 @@ from typing import Literal, TypedDict
 
 from coda.apps.publications import services
 from coda.author import AuthorList
+from coda.contract import ContractId
 from coda.doi import Doi
 from coda.publication import (
     ConceptId,
@@ -48,6 +49,7 @@ class JournalDto(TypedDict):
 class PublicationDto(TypedDict):
     meta: PublicationMetaDto
     journal: JournalDto
+    contracts: list[int]
     links: list[LinkDto]
     authors: list[str]
 
@@ -78,6 +80,7 @@ def parse_publication(
             services.as_domain_link(link["link_type"], link["link_value"])
             for link in publication_dto["links"]
         },
+        contracts={ContractId(cid) for cid in publication_dto["contracts"]},
         journal=JournalId(publication_dto["journal"]["journal_id"]),
     )
 
@@ -118,6 +121,7 @@ def to_publication_dto(publication: Publication) -> PublicationDto:
             subject_area_vocabulary=publication.subject_area.vocabulary,
         ),
         journal=JournalDto(journal_id=publication.journal),
+        contracts=list(publication.contracts),
         links=[to_link_dto(link) for link in publication.links],
         authors=list(publication.authors),
     )

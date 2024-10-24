@@ -11,6 +11,7 @@ def publication_dto_from(store: Store) -> PublicationDto:
         links=link_form_data,
         authors=store["authors"],
         journal=journal,
+        contracts=store["contracts"],
     )
 
     return publication_dto

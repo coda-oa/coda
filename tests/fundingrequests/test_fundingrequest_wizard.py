@@ -21,7 +21,9 @@ from coda.fundingrequest import (
     FundingOrganizationId,
     FundingRequest,
     FundingRequestId,
+    Payment,
 )
+from coda.contract import ContractId
 from coda.publication import JournalId, VocabularyConcept
 from tests import domainfactory, dtofactory, modelfactory
 from tests.authors.test__author import assert_author_eq
@@ -34,12 +36,14 @@ class FundingRequestDataBuilder:
         self.affiliation = modelfactory.institution()
         self.journal = modelfactory.journal()
         self.funder = modelfactory.funding_organization()
+        self.contracts = [modelfactory.contract() for _ in range(1, 3)]
 
         self.submitter = domainfactory.author(affiliation=InstitutionId(self.affiliation.pk))
         self.publication = domainfactory.publication(
             journal=JournalId(self.journal.pk),
             publication_type=publication_type(),
             subject_area=subject_area(),
+            contracts=tuple(ContractId(c.pk) for c in self.contracts),
         )
         self.estimated_cost = domainfactory.payment()
         self.external_funding = [
@@ -47,7 +51,12 @@ class FundingRequestDataBuilder:
             domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
         ]
 
-        self.funding_request = FundingRequest.new(
+    def with_payment(self, payment: Payment) -> "FundingRequestDataBuilder":
+        self.estimated_cost = payment
+        return self
+
+    def build(self) -> FundingRequest:
+        return FundingRequest.new(
             self.publication,
             self.submitter,
             self.estimated_cost,
@@ -56,7 +65,7 @@ class FundingRequestDataBuilder:
 
     @property
     def expected(self) -> FundingRequest:
-        return self.funding_request
+        return self.build()
 
     def submitter_dto(self) -> AuthorDto:
         return to_author_dto(self.submitter)
@@ -163,8 +172,9 @@ def test__updating_fundingrequest_funding__updates_funding_request_and_shows_det
     client: Client,
 ) -> None:
     fr_id = save_new_fundingrequest()
+    fr_before_update = repository.get_by_id(fr_id)
 
-    builder = FundingRequestDataBuilder()
+    builder = FundingRequestDataBuilder().with_payment(fr_before_update.estimated_cost)
     external_funding = builder.external_funding_dto()
     cost_dto = builder.cost_dto()
 
@@ -220,9 +230,12 @@ def submit_wizard(
 ) -> HttpResponse:
     create_wizard_url = reverse("fundingrequests:create_wizard")
     fundings = to_htmx_formset_data(external_funding)
-    print(fundings)
+    contracts = to_htmx_formset_data([{"contract": cid} for cid in publication["contracts"]])
     client.post(create_wizard_url, next() | author)
-    client.post(create_wizard_url, next() | {"journal": publication["journal"]["journal_id"]})
+    client.post(
+        create_wizard_url,
+        next() | {"journal": publication["journal"]["journal_id"]} | contracts,
+    )
     client.post(create_wizard_url, next() | as_form_data(publication))
     return cast(
         HttpResponse,
@@ -239,7 +252,8 @@ def submit_update_publication_wizard(
     client.post(wizard_url, next() | publication_formdata)
 
     journal_post_data = {"journal": journal_id}
-    response = client.post(wizard_url, next() | journal_post_data)
+    contracts = to_htmx_formset_data([{"contract": cid} for cid in publication_dto["contracts"]])
+    response = client.post(wizard_url, next() | journal_post_data | contracts)
 
     return cast(HttpResponse, response)
 

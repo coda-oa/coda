@@ -7,7 +7,7 @@ from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 
 from coda.apps.authors.forms import AuthorForm
-from coda.apps.fundingrequests.forms import CostForm, ExternalFundingFormset
+from coda.apps.fundingrequests.forms import ContractFormset, CostForm, ExternalFundingFormset
 from coda.apps.journals.models import Journal
 from coda.apps.journals.services import find_by_title
 from coda.apps.publications.dto import PublicationMetaDto
@@ -75,13 +75,25 @@ class JournalStep(Step):
             ctx["journal_title"] = selected_journal.title
             ctx["journals"] = [selected_journal]
 
+        if request.POST.get("total_forms"):
+            ctx["contract_formset"] = ContractFormset(request.POST)
+        else:
+            contracts = store.get("contracts", [])
+            ctx["contract_formset"] = ContractFormset.from_data(
+                [{"contract": cid} for cid in contracts]
+            )
+
         return ctx
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         return bool(request.POST.get("journal"))
 
     def done(self, request: HttpRequest, store: Store) -> None:
+        contract_formset = ContractFormset(request.POST)
+        contracts = [c["contract"].pk for c in contract_formset.data]
+
         store["journal"] = request.POST["journal"]
+        store["contracts"] = contracts
         store.save()
 
 

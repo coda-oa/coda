@@ -6,6 +6,7 @@ import faker
 
 from coda import orcid
 from coda.author import Author, AuthorId, AuthorList, InstitutionId, Role
+from coda.contract import ContractId
 from coda.doi import Doi
 from coda.fundingrequest import (
     ExternalFunding,
@@ -99,6 +100,7 @@ def publication(
     title: str = "",
     publication_type: VocabularyConcept | None = None,
     subject_area: VocabularyConcept | None = None,
+    contracts: tuple[ContractId, ...] = (),
     *,
     id: PublicationId | None = None,
 ) -> Publication:
@@ -116,6 +118,7 @@ def publication(
         subject_area=subject_area or UnknownConcept,
         open_access_type=random_open_access_type(),
         publication_state=state,
+        contracts=set(contracts),
         links={Doi("10.1234/5678")},
     )
 

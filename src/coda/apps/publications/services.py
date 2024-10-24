@@ -1,11 +1,12 @@
+import datetime
 from collections.abc import Iterable
-from dataclasses import replace
 from typing import cast
 
 from coda.apps.publications.models import Concept, LinkType
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.author import AuthorId, AuthorList
+from coda.contract import ContractId
 from coda.doi import Doi
 from coda.publication import (
     ConceptId,
@@ -52,6 +53,7 @@ def get_by_id(publication_id: PublicationId) -> Publication:
         authors=AuthorList.from_str(model.author_list or ""),
         publication_state=state,
         journal=JournalId(model.journal_id),
+        contracts={ContractId(c.pk) for c in model.contracts.all()},
         links=_deserialize_links(model.links.all()),
     )
 
@@ -77,13 +79,7 @@ def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
 
 
 def publication_create(publication: Publication, author_id: AuthorId) -> PublicationId:
-    if isinstance(publication.publication_state, Published):
-        online_publication_date = publication.publication_state.online
-        print_publication_date = publication.publication_state.print
-    else:
-        online_publication_date = None
-        print_publication_date = None
-
+    online_publication_date, print_publication_date = _publication_dates(publication)
     publication_type = _first_by_vocabulary_concept(publication.publication_type)
     subject_area = _first_by_vocabulary_concept(publication.subject_area)
 
@@ -100,9 +96,23 @@ def publication_create(publication: Publication, author_id: AuthorId) -> Publica
         publication_type=publication_type,
         subject_area=subject_area,
     )
-    publication = replace(publication, id=PublicationId(pub_model.id))
-    _attach_links(publication)
-    return cast(PublicationId, publication.id)
+    pub_model.contracts.set(publication.contracts)
+    id = PublicationId(pub_model.pk)
+    _attach_links(id, publication.links)
+    return id
+
+
+def _publication_dates(
+    publication: Publication,
+) -> tuple[datetime.date | None, datetime.date | None]:
+    if isinstance(publication.publication_state, Published):
+        online_publication_date = publication.publication_state.online
+        print_publication_date = publication.publication_state.print
+    else:
+        online_publication_date = None
+        print_publication_date = None
+
+    return online_publication_date, print_publication_date
 
 
 def _first_by_vocabulary_concept(vocabulary_concept: VocabularyConcept) -> Concept | None:
@@ -117,35 +127,31 @@ def publication_update(publication: Publication) -> None:
         raise ValueError("Publication ID is required for updating")
 
     publication_state = publication.publication_state.name()
-    if isinstance(publication.publication_state, Published):
-        online_publication_date = publication.publication_state.online
-        print_publication_date = publication.publication_state.print
-    else:
-        online_publication_date = None
-        print_publication_date = None
+    online_publication_date, print_publication_date = _publication_dates(publication)
 
     publication_type = _first_by_vocabulary_concept(publication.publication_type)
     subject_area = _first_by_vocabulary_concept(publication.subject_area)
 
-    PublicationModel.objects.filter(pk=publication.id).update(
-        title=publication.title,
-        license=publication.license.name,
-        open_access_type=publication.open_access_type.name,
-        author_list=str(publication.authors),
-        publication_state=publication_state,
-        online_publication_date=online_publication_date,
-        print_publication_date=print_publication_date,
-        journal_id=publication.journal,
-        publication_type=publication_type,
-        subject_area=subject_area,
-    )
+    p = PublicationModel.objects.get(pk=publication.id)
+    p.title = publication.title
+    p.license = publication.license.name
+    p.open_access_type = publication.open_access_type.name
+    p.author_list = str(publication.authors)
+    p.publication_state = publication_state
+    p.online_publication_date = online_publication_date
+    p.print_publication_date = print_publication_date
+    p.journal_id = publication.journal
+    p.publication_type = publication_type
+    p.subject_area = subject_area
+    p.contracts.set(publication.contracts)
 
     LinkModel.objects.filter(publication_id=publication.id).all().delete()
-    _attach_links(publication)
+    _attach_links(publication.id, publication.links)
+    p.save()
 
 
-def _attach_links(publication: Publication) -> None:
-    for link in publication.links:
+def _attach_links(id: PublicationId, links: Iterable[Link]) -> None:
+    for link in links:
         if isinstance(link, Doi):
             link_type = "DOI"
             link_value = str(link)
@@ -156,5 +162,5 @@ def _attach_links(publication: Publication) -> None:
         LinkModel.objects.create(
             value=link_value,
             type=LinkType.objects.get(name=link_type),
-            publication_id=cast(int, publication.id),
+            publication_id=cast(int, id),
         )

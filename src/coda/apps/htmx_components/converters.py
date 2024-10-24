@@ -33,4 +33,6 @@ def _convert_to_dict(form: TData) -> dict[str, Any]:
         _dict = form.__dict__
     elif hasattr(form, "__slots__"):
         _dict = {key: getattr(form, key) for key in form.__slots__}
+    else:
+        raise ValueError(f"Unsupported form type: {type(form)}")
     return _dict

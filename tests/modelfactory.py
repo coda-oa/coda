@@ -6,6 +6,7 @@ from coda import issn
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.services import author_create
+from coda.apps.contracts.models import Contract
 from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganization
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.services import fundingrequest_create
@@ -51,6 +52,10 @@ def author() -> AuthorModel:
 def publication(title: str = "") -> Publication:
     title = title or _faker.sentence()
     return Publication.objects.create(title=title, journal=journal(), submitting_author=author())
+
+
+def contract() -> Contract:
+    return Contract.objects.create(name=_faker.word())
 
 
 def vocabulary() -> Vocabulary:

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from coda.apps.fundingrequests.forms import ExternalFundingFormset
+from coda.apps.fundingrequests.forms import ContractFormset, ExternalFundingFormset
 from coda.apps.fundingrequests.views.detailview import fundingrequest_detail
 from coda.apps.fundingrequests.views.labels import LabelCreateView, attach_label, detach_label
 from coda.apps.fundingrequests.views.listview import fundingrequest_list
@@ -15,6 +15,7 @@ from coda.apps.fundingrequests.views.wizard.update import (
 
 app_name = "fundingrequests"
 
+contract_formset = ContractFormset.get_management_view()
 funding_formset = ExternalFundingFormset.get_management_view()
 
 urlpatterns = [
@@ -35,6 +36,11 @@ urlpatterns = [
     path("attach_label/", attach_label, name="label_attach"),
     path("detach_label/", detach_label, name="label_detach"),
     path("partial/add-linkrow/", add_linkrow, name="partial_add_linkrow"),
+    path(
+        "partial/contract/",
+        contract_formset.as_view(),
+        name=contract_formset.name.removeprefix("fundingrequests:"),
+    ),
     path(
         "partial/external-funding/",
         funding_formset.as_view(),

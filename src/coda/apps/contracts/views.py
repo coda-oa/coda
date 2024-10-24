@@ -1,4 +1,3 @@
-import logging
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
@@ -58,19 +57,10 @@ class ContractCreateView(LoginRequiredMixin, TemplateView):
             publisher_formset,
             journal_formset,
         ]
+
         if all(form.is_valid() for form in forms):
             return self.form_valid(contract_form, publisher_formset, journal_formset)
 
-        logging.error("CONTRACT FORM")
-        logging.error(contract_form.errors.as_text())
-
-        logging.error("PUBLISHER FORMSET")
-        for form in publisher_formset.forms:
-            logging.error(form.errors.as_text())
-
-        logging.error("JOURNAL FORMSET")
-        for form in journal_formset.forms:
-            logging.error(form.errors.as_text())
         return render(request, self.template_name, self.get_context_data())
 
     def form_valid(

@@ -5,6 +5,7 @@ from coda.apps.journals.models import Journal
 from coda.apps.publications.models import Concept
 from coda.apps.publications.services import get_by_id, publication_create, publication_update
 from coda.author import AuthorId
+from coda.contract import ContractId
 from coda.publication import (
     ConceptId,
     JournalId,
@@ -33,11 +34,13 @@ def test__create_publication__creates_a_publication_based_on_given_data(
 ) -> None:
     publication_type_concept = modelfactory.concept()
     subject_area_concept = modelfactory.concept()
+    contracts = (ContractId(modelfactory.contract().pk), ContractId(modelfactory.contract().pk))
 
     publication = domainfactory.publication(
         JournalId(journal.pk),
         publication_type=as_domain_concept(publication_type_concept),
         subject_area=as_domain_concept(subject_area_concept),
+        contracts=contracts,
     )
     new_id = publication_create(publication, AuthorId(author.pk))
 
@@ -115,6 +118,24 @@ def test__can_update_publication_with_unknown_concepts(author: Author, journal: 
     assert_publication_eq(actual, new_publication)
 
 
+@pytest.mark.django_db
+def test__can_update_publication_with_contracts(author: Author, journal: Journal) -> None:
+    contracts = [modelfactory.contract(), modelfactory.contract()]
+    publication = domainfactory.publication(JournalId(journal.pk))
+    new_id = publication_create(publication, AuthorId(author.pk))
+
+    expected = domainfactory.publication(
+        JournalId(journal.pk),
+        contracts=tuple([ContractId(c.pk) for c in contracts]),
+        id=PublicationId(new_id),
+    )
+
+    publication_update(expected)
+
+    actual = get_by_id(new_id)
+    assert_publication_eq(actual, expected)
+
+
 def assert_publication_eq(actual: Publication, expected: Publication) -> None:
     assert actual.title == expected.title
     assert actual.authors == expected.authors
@@ -124,4 +145,5 @@ def assert_publication_eq(actual: Publication, expected: Publication) -> None:
     assert actual.subject_area == expected.subject_area
     assert actual.open_access_type == expected.open_access_type
     assert actual.publication_state == expected.publication_state
+    assert actual.contracts == expected.contracts
     assert actual.links == expected.links

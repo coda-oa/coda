@@ -1,6 +1,7 @@
 from django.db import models
 
 from coda.apps.authors.models import Author
+from coda.apps.contracts.models import Contract
 from coda.apps.journals.models import Journal
 from coda.author import AuthorList
 from coda.publication import License, OpenAccessType, UnknownConcept, UnpublishedState
@@ -56,6 +57,7 @@ class Publication(models.Model):
     publication_state = models.CharField(
         max_length=255, choices=STATES, default=UnpublishedState.Unknown.name
     )
+    contracts = models.ManyToManyField(Contract, related_name="publications")
     online_publication_date = models.DateField(null=True)
     print_publication_date = models.DateField(null=True)
     author_list = models.CharField(max_length=255, null=True, blank=True)

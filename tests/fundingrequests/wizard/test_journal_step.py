@@ -4,6 +4,7 @@ import pytest
 from django.http import HttpRequest
 from django.test import RequestFactory
 
+from coda.apps.contracts.models import Contract
 from coda.apps.fundingrequests.views.wizard.wizardsteps import JournalStep
 from coda.apps.journals.models import Journal
 from tests import modelfactory
@@ -18,6 +19,11 @@ def store() -> DictStore:
 @pytest.fixture
 def journals() -> list[Journal]:
     return [modelfactory.journal() for _ in range(3)]
+
+
+@pytest.fixture
+def contracts() -> list[Contract]:
+    return [modelfactory.contract() for _ in range(3)]
 
 
 @pytest.mark.django_db
@@ -105,6 +111,25 @@ def test__journal_step__journal_data_in_post_and_store__get_context_data__prefer
 
     assert list(ctx["journals"]) == [second_journal]
     assert ctx["journal_title"] == second_journal.title
+
+
+@pytest.mark.django_db
+def test__journal_step__contracts_in_store__get_context_data__formset_contains_contracts(
+    store: DictStore,
+    journals: list[Journal],
+    contracts: list[Contract],
+) -> None:
+    store["selected_journal"] = journals[0].pk
+    store["contracts"] = [c.pk for c in contracts]
+    store.save()
+
+    sut = JournalStep()
+
+    request = post()
+    ctx = sut.get_context_data(request, store)
+
+    contract_formset = ctx["contract_formset"]
+    assert [d["contract"] for d in contract_formset.data] == contracts
 
 
 _request_factory = RequestFactory()

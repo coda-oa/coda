@@ -8,6 +8,8 @@ from django.template.loader import render_to_string
 from django.utils.datastructures import MultiValueDict
 from django.views import View
 
+from coda.apps.htmx_components.converters import to_htmx_formset_data
+
 FormType = TypeVar("FormType", bound=forms.Form)
 
 _DEFAULT_RENDER_MODE = "paragraph"
@@ -95,6 +97,11 @@ class HtmxDynamicFormset(Generic[FormType]):
             table_classes = cls.table_classes
 
         return _ManagementView
+
+    @classmethod
+    def from_data(cls, data: list[dict[str, Any]]) -> "HtmxDynamicFormset[FormType]":
+        form_data = to_htmx_formset_data(data)
+        return cls(MultiValueDict(form_data))
 
     def __init__(
         self,

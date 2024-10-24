@@ -50,7 +50,7 @@ def as_domain_object(model: FundingRequestModel) -> FundingRequest:
         publication=publication_services.get_by_id(PublicationId(model.publication_id)),
         submitter=author_services.get_by_id(AuthorId(cast(int, model.submitter_id))),
         estimated_cost=Payment(
-            amount=Money(model.estimated_cost, Currency[model.estimated_cost_currency]),
+            amount=Money(model.estimated_cost, Currency.from_code(model.estimated_cost_currency)),
             method=PaymentMethod(model.payment_method),
         ),
         external_funding=[

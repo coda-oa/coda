@@ -1,38 +1,45 @@
 {% extends "forms/wizardform.html" %}
 {% block wizard_step %}
-    <h1>Find Journal</h1>
-    <fieldset role="group">
-        <input type="search"
-               name="journal_title"
-               id="journal_title"
-               value="{{ journal_title }}">
-        <button type="submit" class="inline-search-pill pill-right">Search</button>
-    </fieldset>
-    {% if journals %}
-        <div class="search-results__scroll-container">
-            <table class="journal__search-results my-2">
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Publisher</th>
-                        <th>Select</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for journal in journals %}
+    <h1 class="my-2">Journal & Contracts</h1>
+    <article>
+        <h2 class="mb-2">Find Journal</h2>
+        <fieldset role="group">
+            <input type="search"
+                   name="journal_title"
+                   id="journal_title"
+                   value="{{ journal_title }}">
+            <button type="submit" class="inline-search-pill pill-right">Search</button>
+        </fieldset>
+        {% if journals %}
+            <div class="search-results__scroll-container">
+                <table class="journal__search-results article__table my-2">
+                    <thead>
                         <tr>
-                            <td>{{ journal.title }}</td>
-                            <td>{{ journal.publisher.name }}</td>
-                            <td>
-                                <input type="radio"
-                                       name="journal"
-                                       value="{{ journal.pk }}"
-                                       {% if journal.pk == selected_journal.pk %}checked{% endif %}>
-                            </td>
+                            <th>Title</th>
+                            <th>Publisher</th>
+                            <th>Select</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% endif %}
+                    </thead>
+                    <tbody>
+                        {% for journal in journals %}
+                            <tr>
+                                <td>{{ journal.title }}</td>
+                                <td>{{ journal.publisher.name }}</td>
+                                <td>
+                                    <input type="radio"
+                                           name="journal"
+                                           value="{{ journal.pk }}"
+                                           {% if journal.pk == selected_journal.pk %}checked{% endif %}>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </article>
+    <article>
+        <h2>Contracts</h2>
+        {{ contract_formset.as_inline }}
+    </article>
 {% endblock wizard_step %}

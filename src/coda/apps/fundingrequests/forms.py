@@ -4,9 +4,22 @@ from django import forms
 from django.utils.datastructures import MultiValueDict
 
 from coda.apps import fields
+from coda.apps.contracts.models import Contract
 from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
+
+
+class ContractForm(forms.Form):
+    contract = forms.ModelChoiceField[Contract](queryset=Contract.objects.all())
+
+
+class ContractFormset(HtmxDynamicFormset[ContractForm]):
+    name = "fundingrequests:contract_formset"
+    form_class = ContractForm
+    min_forms = 0
+
+    table_classes = "article__table"
 
 
 class CostForm(forms.Form):

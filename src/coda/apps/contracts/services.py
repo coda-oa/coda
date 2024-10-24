@@ -1,4 +1,3 @@
-import logging
 from coda.apps.contracts.models import Contract as ContractModel
 from coda.contract import Contract, ContractId, PublisherId
 from coda.date import DateRange
@@ -41,11 +40,4 @@ def contract_create(contract: Contract) -> ContractId:
     )
     contract_model.publishers.set(contract.publishers)
     contract_model.journals.set(contract.journals)
-    logging.error(contract_model.pk)
-    logging.error(contract_model.name)
-    logging.error(contract_model.start_date)
-    logging.error(contract_model.end_date)
-    logging.error([p.name for p in contract_model.publishers.all()])
-    logging.error([j.title for j in contract_model.journals.all()])
-    logging.error(ContractModel.objects.all().values("id", "name"))
     return ContractId(contract_model.pk)

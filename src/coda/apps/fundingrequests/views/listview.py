@@ -12,6 +12,7 @@ from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
 from coda.author import Author
+from coda.date import DateRange
 
 TEMPLATE_NAME = "fundingrequests/fundingrequest_list.html"
 
@@ -41,7 +42,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
 
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
-    date_range = repository.DateRange.try_fromisoformat(start=start_date, end=end_date)
+    date_range = DateRange.try_fromisoformat(start=start_date, end=end_date)
 
     return cast(
         QuerySet[FundingRequestModel],
