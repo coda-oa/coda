@@ -16,14 +16,6 @@ urlpatterns = [
         management_view.as_view(),
         name=management_view.name.removeprefix("contracts:"),
     ),
-    path(
-        "partial/search-publisher",
-        partials.search_publisher,
-        name="search_publisher",
-    ),
-    path(
-        "partial/search-journal",
-        partials.search_journal,
-        name="search_journal",
-    ),
+    path("partial/search-publisher", partials.search_publisher, name="search_publisher"),
+    path("partial/search-journal", partials.search_journal, name="search_journal"),
 ]

@@ -8,7 +8,7 @@ from coda.apps.publishers.models import Publisher
 
 @login_required
 def search_publisher(request: HttpRequest) -> HttpResponse:
-    if search := request.GET.get("search-publisher"):
+    if search := request.GET.get("search-publishers"):
         publishers = Publisher.objects.filter(name__icontains=search)
     else:
         publishers = Publisher.objects.none()
@@ -26,7 +26,7 @@ def search_publisher(request: HttpRequest) -> HttpResponse:
 @login_required
 def search_journal(request: HttpRequest) -> HttpResponse:
     journals = []
-    if search := request.GET.get("search-journal"):
+    if search := request.GET.get("search-journals"):
         journals = [
             {"name": j.title, "id": j.id} for j in Journal.objects.filter(title__icontains=search)
         ]
