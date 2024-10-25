@@ -2,35 +2,36 @@ import datetime
 from collections.abc import Iterable
 from typing import Any, NamedTuple, cast
 
-from django.contrib.auth.decorators import login_required
-from django.core.paginator import Page, Paginator
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
-from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
+from django.http import HttpRequest
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
+from coda.apps.views import EntityListView
 from coda.author import Author
 from coda.date import DateRange
 
-TEMPLATE_NAME = "fundingrequests/fundingrequest_list.html"
+
+class FundingRequestListView(EntityListView["ListViewModel"], LoginRequiredMixin):
+    entity_name = "Funding Requests"
+    entity_create_url = "fundingrequests:create_wizard"
+    entity_list_item_template = "fundingrequests/fundingrequest_list_item.html"
+    entity_filter_template = "fundingrequests/forms/fundingrequest_filter.html"
+
+    def get_entities(self, request: HttpRequest) -> list["ListViewModel"]:
+        return [as_viewmodel(fr) for fr in query(request)]
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        return ctx | {
+            "labels": Label.objects.all(),
+            "processing_states": FundingRequestModel.PROCESSING_CHOICES,
+        }
 
 
-@login_required
-def fundingrequest_list(request: HttpRequest) -> HttpResponse:
-    paginator = Paginator(query(request), per_page=10)
-    page = paginator.get_page(request.GET.get("page"))
-    return render(request, TEMPLATE_NAME, get_context_data(page))
-
-
-def get_context_data(page: Page[FundingRequestModel]) -> dict[str, Any]:
-    return {
-        "labels": Label.objects.all(),
-        "processing_states": FundingRequestModel.PROCESSING_CHOICES,
-        "funding_requests": list(map(as_viewmodel, page.object_list)),
-        "page_obj": page,
-    }
+fundingrequest_list = FundingRequestListView.as_view()
 
 
 def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:

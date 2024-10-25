@@ -2,6 +2,7 @@ import datetime
 from typing import NamedTuple, cast
 
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 
@@ -10,14 +11,22 @@ from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.services import as_domain_object
 from coda.apps.publications.models import Publication
+from coda.apps.views import EntityListView
 from coda.invoice import FundingSourceId, ItemType, Position
 from coda.money import Money
 
 
-@login_required
-def invoice_list(request: HttpRequest) -> HttpResponse:
-    invoices = map(invoice_viewmodel, InvoiceModel.objects.all())
-    return render(request, "invoices/list.html", {"invoices": invoices})
+class InvoiceListView(EntityListView[InvoiceModel], LoginRequiredMixin):
+    paginate_by = 20
+    entity_name = "Invoices"
+    entity_create_url = "invoices:create"
+    entity_list_item_template = "invoices/invoice_list_item.html"
+
+    def get_entities(self, request: HttpRequest) -> list[InvoiceModel]:
+        return list(InvoiceModel.objects.all())
+
+
+invoice_list = InvoiceListView.as_view()
 
 
 @login_required

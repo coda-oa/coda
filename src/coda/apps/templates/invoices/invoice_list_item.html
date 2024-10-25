@@ -1,0 +1,19 @@
+<article>
+    <h2>
+        <a href="{{ entity.url }}">Invoice: {{ entity.number }}</a>
+    </h2>
+    <p>Invoice Date: {{ entity.date }}</p>
+    <p>Creditor: {{ entity.creditor_name }}</p>
+    <p>Total: {{ entity.total.amount }} {{ entity.total.currency.code }}</p>
+    <p class="mt-1_5">
+        <small>
+            {% if entity.status == "Unpaid" %}
+                <span class="pill status-label open">Open</span>
+            {% elif entity.status == "Paid" %}
+                <span class="pill status-label approved">Paid</span>
+            {% elif entity.status == "Rejected" %}
+                <span class="pill status-label rejected">Rejected</span>
+            {% endif %}
+        </small>
+    </p>
+</article>

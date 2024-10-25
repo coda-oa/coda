@@ -1,0 +1,35 @@
+{% load param_replace %}
+<article class="fundingrequest">
+    <p class="text-ellipsis mb-0_5">
+        <a href="{% url "fundingrequests:detail" pk=entity.id %}">{{ entity.publication_title }}</a>
+    </p>
+    <p class="mb-1_5">
+        <i><small>last updated at {{ entity.updated_at }}</small></i>
+    </p>
+    <p>Submitted by: {{ entity.submitter_name }}</p>
+    <p class="text-ellipsis">
+        Journal: <a href="{{ entity.journal_url }}">{{ entity.journal_title }}</a>
+    </p>
+    <p class="flex justify-between mt-1_5">
+        <small>
+            {% if entity.status == "open" %}
+                <span class="pill open status-label">Open</span>
+            {% elif entity.status == "approved" %}
+                <span class="pill approved status-label">Approved</span>
+            {% elif entity.status == "rejected" %}
+                <span class="pill rejected status-label">Rejected</span>
+            {% else %}
+                <span>{{ entity.status }}</span>
+            {% endif %}
+        </small>
+        <span>
+            {% url "fundingrequests:list" as list_url %}
+            {% for label in entity.labels %}
+                <a href="{{ list_url }}?{% param_replace labels=label.id %}">
+                    <small class="label pill"
+                           style="--label-bg-color: {{ label.hexcolor }};
+                                  --label-border-color: {{ label.hexcolor }}">{{ label.name }}</small></a>
+            {% endfor %}
+        </span>
+    </p>
+</article>

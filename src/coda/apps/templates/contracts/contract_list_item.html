@@ -1,0 +1,6 @@
+<article>
+    <p class="mb-1_5">
+        <a class="mr-1" href="{% url "contracts:detail" pk=entity.id %}">{{ entity.name }}</a>
+        {% include "contracts/contract_active_status.html" %}
+    </p>
+</article>

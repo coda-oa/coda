@@ -116,6 +116,6 @@ def by_submitter(submitter: str) -> dict[str, str]:
 
 
 def assert_contains(context: RequestContext, requests: set[FundingRequest]) -> None:
-    ids = [viewmodel.id for viewmodel in context["funding_requests"]]
+    ids = [viewmodel.id for viewmodel in context["entities"]]
     assert len(ids) == len(requests)
     assert all(request.id in ids for request in requests)

@@ -10,19 +10,19 @@ def first() -> Contract | None:
     if not c:
         return None
 
-    return as_domain_model(c)
+    return as_domain_object(c)
 
 
 def get_by_id(id: ContractId) -> Contract:
     contract_model = ContractModel.objects.get(pk=id)
-    return as_domain_model(contract_model)
+    return as_domain_object(contract_model)
 
 
 def all() -> list[Contract]:
-    return [as_domain_model(contract_model) for contract_model in ContractModel.objects.all()]
+    return [as_domain_object(contract_model) for contract_model in ContractModel.objects.all()]
 
 
-def as_domain_model(contract_model: ContractModel) -> Contract:
+def as_domain_object(contract_model: ContractModel) -> Contract:
     return Contract(
         id=ContractId(contract_model.pk),
         name=NonEmptyStr(contract_model.name),

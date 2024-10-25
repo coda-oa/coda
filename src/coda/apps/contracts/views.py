@@ -4,22 +4,26 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.generic import ListView, TemplateView
+from django.views.generic import TemplateView
 
 from coda.apps.contracts.forms import ContractForm, EntityFormset
 from coda.apps.contracts.models import Contract as ContractModel
-from coda.apps.contracts.services import contract_create
+from coda.apps.contracts.services import as_domain_object, contract_create
+from coda.apps.views import EntityListView
 from coda.contract import Contract, PublisherId
 from coda.date import DateRange
 from coda.publication import JournalId
 from coda.string import NonEmptyStr
 
 
-class ContractListView(LoginRequiredMixin, ListView[ContractModel]):
-    model = ContractModel
-    template_name = "contracts/contract_list.html"
-    queryset = ContractModel.objects.all()
-    context_object_name = "contracts"
+class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
+    entity_name = "Contracts"
+    entity_create_url = "contracts:create"
+    entity_list_item_template = "contracts/contract_list_item.html"
+    entity_list_layout_classes = "grid-container"
+
+    def get_entities(self, request: HttpRequest) -> list[Contract]:
+        return list(as_domain_object(c) for c in ContractModel.objects.all())
 
 
 class ContractCreateView(LoginRequiredMixin, TemplateView):

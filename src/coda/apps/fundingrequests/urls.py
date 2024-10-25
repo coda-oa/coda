@@ -1,10 +1,10 @@
 from django.urls import path
 
 from coda.apps.fundingrequests.forms import ContractFormset, ExternalFundingFormset
+from coda.apps.fundingrequests.views import review
 from coda.apps.fundingrequests.views.detailview import fundingrequest_detail
 from coda.apps.fundingrequests.views.labels import LabelCreateView, attach_label, detach_label
 from coda.apps.fundingrequests.views.listview import fundingrequest_list
-from coda.apps.fundingrequests.views import review
 from coda.apps.fundingrequests.views.wizard.create import FundingRequestWizard
 from coda.apps.fundingrequests.views.wizard.partials import add_linkrow
 from coda.apps.fundingrequests.views.wizard.update import (
