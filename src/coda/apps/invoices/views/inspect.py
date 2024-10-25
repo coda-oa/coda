@@ -16,14 +16,14 @@ from coda.invoice import FundingSourceId, ItemType, Position
 from coda.money import Money
 
 
-class InvoiceListView(EntityListView[InvoiceModel], LoginRequiredMixin):
+class InvoiceListView(EntityListView["InvoiceViewModel"], LoginRequiredMixin):
     paginate_by = 20
     entity_name = "Invoices"
     entity_create_url = "invoices:create"
     entity_list_item_template = "invoices/invoice_list_item.html"
 
-    def get_entities(self, request: HttpRequest) -> list[InvoiceModel]:
-        return list(InvoiceModel.objects.all())
+    def get_entities(self, request: HttpRequest) -> list["InvoiceViewModel"]:
+        return list(invoice_viewmodel(i) for i in InvoiceModel.objects.all())
 
 
 invoice_list = InvoiceListView.as_view()
