@@ -235,7 +235,7 @@ class SearchSelect extends HTMLElement {
 
     matches(li) {
         const searchTerm = this.searchBox.value
-        return searchTerm.length == 0 || li.textContent.includes(searchTerm)
+        return searchTerm.length == 0 || li.textContent.toLowerCase().includes(searchTerm.toLowerCase())
     }
 
     set value(value) {
