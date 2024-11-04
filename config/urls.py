@@ -9,7 +9,9 @@ from django.urls import include, path
 from django.views import defaults as default_views
 
 from coda.apps import home
+from coda.apps.formbase import pydantic_form
 from coda.apps.htmx_components.forms import DemoFormset
+from coda.apps.publications.dto import PublicationMetaDto
 
 urlpatterns = [
     # Django Admin, use {% url 'admin:index' %}
@@ -33,6 +35,18 @@ urlpatterns = [
 if settings.DEBUG:
     # This allows the error pages to be debugged during development, just visit
     # these url in browser to see how these error pages look like.
+    import enum
+
+    class DemoEnum(enum.Enum):
+        A = "A"
+        B = "B"
+        C = "C"
+        D = "D"
+
+    class Demo(PublicationMetaDto):
+        demo: DemoEnum
+
+    model_form = pydantic_form(Demo)
     demo_formset_view = DemoFormset.get_management_view()
     urlpatterns += [
         path(
@@ -61,7 +75,11 @@ if settings.DEBUG:
             lambda req: render(
                 req,
                 "demo.html",
-                {"formset": DemoFormset(prefix="f1"), "formset2": DemoFormset(prefix="f2")},
+                {
+                    "formset": DemoFormset(prefix="f1"),
+                    "formset2": DemoFormset(prefix="f2"),
+                    "model_form": model_form(),
+                },
             ),
         ),
         path("demo/htmx/", demo_formset_view.as_view(), name=demo_formset_view.name),
