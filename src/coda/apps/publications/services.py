@@ -2,6 +2,7 @@ import datetime
 from collections.abc import Iterable
 from typing import cast
 
+from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import Concept, LinkType
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
@@ -21,7 +22,6 @@ from coda.publication import (
     UnknownConcept,
     Unpublished,
     UnpublishedState,
-    UserLink,
     VocabularyConcept,
     VocabularyId,
 )
@@ -29,14 +29,7 @@ from coda.string import NonEmptyStr
 
 
 def _deserialize_links(links: Iterable[LinkModel]) -> set[Link]:
-    return {as_domain_link(link.type.name, link.value) for link in links}
-
-
-def as_domain_link(link_type: str, value: str) -> Link:
-    if link_type == "DOI":
-        return Doi(value)
-    else:
-        return UserLink(type=link_type, value=value)
+    return {LinkDto(link_type=link.type.name, link_value=link.value).to_link() for link in links}
 
 
 def get_by_id(publication_id: PublicationId) -> Publication:

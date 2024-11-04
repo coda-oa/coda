@@ -1,7 +1,9 @@
 import datetime
-from typing import Literal, TypedDict
+from typing import Annotated, Any
 
-from coda.apps.publications import services
+from pydantic import BeforeValidator
+
+from coda.apps.dto import CodaBaseDto
 from coda.author import AuthorList
 from coda.contract import ContractId
 from coda.doi import Doi
@@ -24,12 +26,36 @@ from coda.publication import (
 from coda.string import NonEmptyStr
 
 
-class LinkDto(TypedDict):
+class LinkDto(CodaBaseDto):
     link_type: str
     link_value: str
 
+    @classmethod
+    def from_link(cls, link: Link) -> "LinkDto":
+        match link:
+            case UserLink(type, value):
+                return LinkDto(link_type=type, link_value=value)
+            case Doi(value):
+                return LinkDto(link_type="DOI", link_value=value)
 
-class PublicationMetaDto(TypedDict):
+    def to_link(self) -> Link:
+        if self.link_type == "DOI":
+            return Doi(self.link_value)
+        else:
+            return UserLink(type=self.link_type, value=self.link_value)
+
+
+def _validate_dates(value: Any) -> Any | None:
+    if not value:
+        return None
+
+    return value
+
+
+DateOrNonEmpty = Annotated[datetime.date | None, BeforeValidator(_validate_dates)]
+
+
+class PublicationMetaDto(CodaBaseDto):
     title: str
     publication_type: str
     publication_type_vocabulary: int
@@ -38,104 +64,86 @@ class PublicationMetaDto(TypedDict):
     open_access_type: str
     license: str
     publication_state: str
-    online_publication_date: str
-    print_publication_date: str
+    online_publication_date: DateOrNonEmpty
+    print_publication_date: DateOrNonEmpty
 
 
-class JournalDto(TypedDict):
-    journal_id: int
+class JournalDto(CodaBaseDto):
+    id: JournalId
 
 
-class PublicationDto(TypedDict):
+class PublicationDto(CodaBaseDto):
     meta: PublicationMetaDto
     journal: JournalDto
-    contracts: list[int]
+    contracts: list[ContractId]
     links: list[LinkDto]
     authors: list[str]
 
+    @classmethod
+    def from_publication(cls, publication: Publication) -> "PublicationDto":
+        match publication.publication_state:
+            case Published(online_date, print_date):
+                online_pub_date = online_date
+                print_pub_date = print_date
+            case _:
+                online_pub_date = None
+                print_pub_date = None
 
-def parse_publication(
-    publication_dto: PublicationDto, id: PublicationId | None = None
-) -> Publication:
-    """
-    Tries to parse a Publication from a PublicationDto.
-    """
-    publication = publication_dto["meta"]
-    return Publication(
-        id=id,
-        title=NonEmptyStr(publication["title"]),
-        license=License[publication["license"]],
-        publication_type=VocabularyConcept(
-            ConceptId(publication["publication_type"]),
-            VocabularyId(publication["publication_type_vocabulary"]),
-        ),
-        subject_area=VocabularyConcept(
-            ConceptId(publication["subject_area"]),
-            VocabularyId(publication["subject_area_vocabulary"]),
-        ),
-        open_access_type=OpenAccessType[publication["open_access_type"]],
-        publication_state=_parse_state(publication),
-        authors=AuthorList(publication_dto["authors"]),
-        links={
-            services.as_domain_link(link["link_type"], link["link_value"])
-            for link in publication_dto["links"]
-        },
-        contracts={ContractId(cid) for cid in publication_dto["contracts"]},
-        journal=JournalId(publication_dto["journal"]["journal_id"]),
-    )
+        return cls(
+            meta=PublicationMetaDto(
+                title=publication.title,
+                license=publication.license.name,
+                publication_type=publication.publication_type.id,
+                publication_type_vocabulary=publication.publication_type.vocabulary,
+                open_access_type=publication.open_access_type.name,
+                publication_state=publication.publication_state.name(),
+                online_publication_date=online_pub_date,
+                print_publication_date=print_pub_date,
+                subject_area=publication.subject_area.id,
+                subject_area_vocabulary=publication.subject_area.vocabulary,
+            ),
+            journal=JournalDto(id=publication.journal),
+            contracts=list(publication.contracts),
+            links=[to_link_dto(link) for link in publication.links],
+            authors=list(publication.authors),
+        )
 
-
-DateKey = Literal["online_publication_date", "print_publication_date"]
+    def to_publication(self, id: PublicationId | None = None) -> Publication:
+        """
+        Tries to parse a Publication from a PublicationDto.
+        """
+        publication = self.meta
+        return Publication(
+            id=id,
+            title=NonEmptyStr(publication.title),
+            license=License[publication.license],
+            publication_type=VocabularyConcept(
+                ConceptId(publication.publication_type),
+                VocabularyId(publication.publication_type_vocabulary),
+            ),
+            subject_area=VocabularyConcept(
+                ConceptId(publication.subject_area),
+                VocabularyId(publication.subject_area_vocabulary),
+            ),
+            open_access_type=OpenAccessType[publication.open_access_type],
+            publication_state=_parse_state(publication),
+            authors=AuthorList(self.authors),
+            links={link.to_link() for link in self.links},
+            contracts={ContractId(cid) for cid in self.contracts},
+            journal=self.journal.id,
+        )
 
 
 def _parse_state(publication: PublicationMetaDto) -> PublicationState:
-    state = publication["publication_state"]
-    publication_state: PublicationState
-
-    def __parse_date(key: DateKey) -> datetime.date | None:
-        date_str = publication[key]
-        return datetime.date.fromisoformat(date_str) if date_str else None
+    state = publication.publication_state
 
     if state == Published.name():
-        online_date = __parse_date("online_publication_date")
-        print_date = __parse_date("print_publication_date")
-        publication_state = Published(online_date, print_date)
+        return Published(
+            publication.online_publication_date,
+            publication.print_publication_date,
+        )
     else:
-        publication_state = Unpublished(state=UnpublishedState[state])
-    return publication_state
-
-
-def to_publication_dto(publication: Publication) -> PublicationDto:
-    online_pub_date, print_pub_date = _publication_dates_as_str(publication.publication_state)
-    return PublicationDto(
-        meta=PublicationMetaDto(
-            title=publication.title,
-            license=publication.license.name,
-            publication_type=publication.publication_type.id,
-            publication_type_vocabulary=publication.publication_type.vocabulary,
-            open_access_type=publication.open_access_type.name,
-            publication_state=publication.publication_state.name(),
-            online_publication_date=online_pub_date,
-            print_publication_date=print_pub_date,
-            subject_area=publication.subject_area.id,
-            subject_area_vocabulary=publication.subject_area.vocabulary,
-        ),
-        journal=JournalDto(journal_id=publication.journal),
-        contracts=list(publication.contracts),
-        links=[to_link_dto(link) for link in publication.links],
-        authors=list(publication.authors),
-    )
-
-
-def _publication_dates_as_str(publication_state: PublicationState) -> tuple[str, str]:
-    match publication_state:
-        case Published(online, print_date):
-            return (
-                online.isoformat() if online else "",
-                print_date.isoformat() if print_date else "",
-            )
-        case Unpublished(_):
-            return "", ""
+        return Unpublished(state=UnpublishedState[state])
 
 
 def to_link_dto(link: Link) -> LinkDto:

@@ -7,7 +7,7 @@ from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 
 from coda.apps.authors.forms import AuthorForm
-from coda.apps.fundingrequests.forms import ContractFormset, CostForm, ExternalFundingFormset
+from coda.apps.fundingrequests.forms import ContractFormset, PaymentForm, ExternalFundingFormset
 from coda.apps.journals.models import Journal
 from coda.apps.journals.services import find_by_title
 from coda.apps.publications.dto import PublicationMetaDto
@@ -55,7 +55,7 @@ class SubmitterStep(FormStep):
     def done(self, request: HttpRequest, store: Store) -> None:
         form = AuthorForm(request.POST)
         form.full_clean()
-        store["submitter"] = form.to_dto()
+        store["submitter"] = form.to_dto().to_post_data()
 
 
 class JournalStep(Step):
@@ -122,15 +122,16 @@ class PublicationStep(Step):
         )
 
     def get_form_vocabularies(self, store: Store) -> Vocabularies:
-        publication_meta: PublicationMetaDto | None = store.get("publication")
-        if not publication_meta:
+        publication_meta_ = store.get("publication")
+        if not publication_meta_:
             return Vocabularies()
 
-        subject_vocabulary_id = publication_meta["subject_area_vocabulary"]
+        publication_meta = PublicationMetaDto(**publication_meta_)
+        subject_vocabulary_id = publication_meta.subject_area_vocabulary
         subject_vocabulary = Vocabulary.objects.filter(pk=subject_vocabulary_id).first()
         subject_concepts = self.get_concepts(subject_vocabulary)
 
-        pub_type_vocabulary_id = publication_meta["publication_type_vocabulary"]
+        pub_type_vocabulary_id = publication_meta.publication_type_vocabulary
         pub_type_vocabulary = Vocabulary.objects.filter(pk=pub_type_vocabulary_id).first()
         pub_type_concepts = self.get_concepts(pub_type_vocabulary)
 
@@ -203,8 +204,8 @@ class PublicationStep(Step):
         link_forms = self.link_forms(request)
         self.clean_all((publication_form, *link_forms))
 
-        store["links"] = [linkform.get_form_data() for linkform in link_forms]
-        store["publication"] = publication_form.get_form_data()
+        store["links"] = [linkform.get_form_data().to_post_data() for linkform in link_forms]
+        store["publication"] = publication_form.get_form_data().to_post_data()
         store["authors"] = list(AuthorList.from_str(request.POST.get("authors", "")))
         store.save()
 
@@ -228,7 +229,7 @@ class FundingStep(Step):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         context = super().get_context_data(request, store)
-        context["cost_form"] = form_with_post_or_store_data(CostForm, request, store.get("cost"))
+        context["cost_form"] = form_with_post_or_store_data(PaymentForm, request, store.get("cost"))
         context["funding_formset"] = self._restore_formset(request, store)
         return context
 
@@ -241,18 +242,18 @@ class FundingStep(Step):
             return ExternalFundingFormset()
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
-        cost_form = CostForm(request.POST)
+        cost_form = PaymentForm(request.POST)
         funding_formset = ExternalFundingFormset(request.POST)
         funding_valid = funding_formset.is_valid() or funding_formset.is_empty()
         return cost_form.is_valid() and funding_valid
 
     def done(self, request: HttpRequest, store: Store) -> None:
-        cost_form = CostForm(request.POST)
+        cost_form = PaymentForm(request.POST)
         cost_form.full_clean()
         cost = cost_form.to_dto()
-        store["cost"] = cost
+        store["cost"] = cost.to_post_data()
 
         funding_formset = ExternalFundingFormset(request.POST)
-        dto = funding_formset.to_dto()
-        store["funding"] = dto if dto else None
+        dto = funding_formset.to_dto_list()
+        store["funding"] = list(d.to_post_data() for d in dto) if dto else None
         store.save()

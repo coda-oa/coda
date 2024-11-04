@@ -7,7 +7,9 @@ from coda.apps.authors.models import Author
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.color import Color
+from coda.date import DateRange
 from coda.fundingrequest import Review
+from coda.string import NonEmptyStr
 from tests import dtofactory, modelfactory
 
 
@@ -29,7 +31,7 @@ def test__searching_for_funding_requests_by_submitter__returns_matching_funding_
     submitter = cast(Author, matching_request.submitter)
 
     non_matching_submitter = dtofactory.author_dto()
-    non_matching_submitter["name"] = "Not the submitter"
+    non_matching_submitter.name = NonEmptyStr("Not the submitter")
     _ = modelfactory.fundingrequest("No match", non_matching_submitter)
 
     results = repository.search(submitter=submitter.name)
@@ -93,7 +95,7 @@ def test__searching_with_start_and_end_date__returns_matching_funding_requests()
 
     start_date = date(2021, 1, 1)
     end_date = date(2021, 5, 1)
-    date_range = repository.DateRange(start_date, end_date)
+    date_range = DateRange(start_date, end_date)
 
     results = repository.search(date_range=date_range)
 
@@ -110,7 +112,7 @@ def test__searching_with_no_start_date__returns_matching_funding_requests() -> N
     no_match.created_at = date(2021, 6, 1)
     no_match.save()
 
-    date_range = repository.DateRange.create(end=date(2021, 5, 1))
+    date_range = DateRange.create(end=date(2021, 5, 1))
 
     results = repository.search(date_range=date_range)
 
@@ -127,7 +129,7 @@ def test__searching_with_no_end_date__returns_matching_funding_requests() -> Non
     no_match.created_at = date(2020, 12, 31)
     no_match.save()
 
-    date_range = repository.DateRange.create(start=date(2021, 1, 1))
+    date_range = DateRange.create(start=date(2021, 1, 1))
 
     results = repository.search(date_range=date_range)
 

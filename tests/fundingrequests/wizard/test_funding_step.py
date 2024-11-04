@@ -1,6 +1,7 @@
 import pytest
 from django.test.client import RequestFactory
 
+from coda.apps.fundingrequests.dto import PaymentDto
 from coda.apps.fundingrequests.forms import ExternalFundingFormset
 from coda.apps.fundingrequests.views.wizard.wizardsteps import FundingStep
 from tests import modelfactory
@@ -8,11 +9,7 @@ from tests.test_wizard import DictStore
 
 _request_factory = RequestFactory()
 
-cost_data = {
-    "estimated_cost": 1000,
-    "estimated_cost_currency": "EUR",
-    "payment_method": "direct",
-}
+cost_data = PaymentDto(amount=1000, currency="EUR", method="direct").to_post_data()
 
 
 @pytest.mark.django_db
@@ -192,7 +189,7 @@ def test__funding_step__with_previous_funding__has_funding_in_response_context()
 
     formset: ExternalFundingFormset = ctx["funding_formset"]
     assert formset.is_valid()
-    assert formset.to_dto() == store["funding"]
+    assert [ef.to_post_data() for ef in formset.to_dto_list()] == store["funding"]
 
 
 @pytest.mark.django_db
@@ -229,4 +226,4 @@ def test__funding_step__with_previous_funding__on_post__uses_funding_from_reques
 
     formset: ExternalFundingFormset = ctx["funding_formset"]
     assert formset.is_valid()
-    assert formset.to_dto() == [expected]
+    assert [ef.to_post_data() for ef in formset.to_dto_list()] == [expected]

@@ -134,3 +134,6 @@ class Publication:
             publication_state=publication_state,
             links=links or set(),
         )
+
+    def is_published(self) -> bool:
+        return isinstance(self.publication_state, Published)

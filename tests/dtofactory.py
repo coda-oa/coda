@@ -1,11 +1,13 @@
+import datetime
 import random
 from typing import TypedDict
 
 import faker
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
+from coda.apps.fundingrequests.dto import PaymentDto, ExternalFundingDto
 from coda.apps.publications.dto import JournalDto, LinkDto, PublicationDto, PublicationMetaDto
+from coda.author import InstitutionId
 from coda.fundingrequest import PaymentMethod
 from coda.publication import Published, UnknownConcept, UnpublishedState, VocabularyConcept
 from tests.domainfactory import (
@@ -24,7 +26,7 @@ def author_dto(affiliation_id: int | None = None) -> AuthorDto:
         name=_faker.name(),
         email=_faker.email(),
         orcid=random_orcid(),
-        affiliation=affiliation_id,
+        affiliation=InstitutionId(affiliation_id) if affiliation_id else None,
         roles=[r.name for r in random_roles()],
     )
 
@@ -41,7 +43,7 @@ def publication_dto(
     return PublicationDto(
         meta=publication_meta_dto(title, publication_type, subject_area),
         authors=list(random_authorlist()),
-        journal=JournalDto({"journal_id": journal}),
+        journal=JournalDto(id=journal),
         links=links or link_dtos(),
         contracts=contracts or [],
     )
@@ -54,31 +56,29 @@ def publication_meta_dto(
 ) -> PublicationMetaDto:
     state = random.choice([_unpublished_data(), _published_data()])
     return PublicationMetaDto(
-        {
-            "title": title or _faker.sentence(),
-            "license": random_license().name,
-            "publication_type": publication_type.id,
-            "publication_type_vocabulary": publication_type.vocabulary,
-            "subject_area": subject_area.id,
-            "subject_area_vocabulary": subject_area.vocabulary,
-            "open_access_type": random_open_access_type().name,
-            **state,
-        }
+        title=title or _faker.sentence(),
+        license=random_license().name,
+        publication_type=publication_type.id,
+        publication_type_vocabulary=publication_type.vocabulary,
+        subject_area=subject_area.id,
+        subject_area_vocabulary=subject_area.vocabulary,
+        open_access_type=random_open_access_type().name,
+        **state,
     )
 
 
 class State(TypedDict):
     publication_state: str
-    online_publication_date: str
-    print_publication_date: str
+    online_publication_date: datetime.date | None
+    print_publication_date: datetime.date | None
 
 
 def _unpublished_data() -> State:
     return State(
         {
             "publication_state": random.choice([s.name for s in UnpublishedState]),
-            "online_publication_date": "",
-            "print_publication_date": "",
+            "online_publication_date": None,
+            "print_publication_date": None,
         }
     )
 
@@ -87,8 +87,8 @@ def _published_data() -> State:
     return State(
         {
             "publication_state": Published.name(),
-            "online_publication_date": _faker.date(),
-            "print_publication_date": _faker.date(),
+            "online_publication_date": _faker.date_object(),
+            "print_publication_date": _faker.date_object(),
         }
     )
 
@@ -101,12 +101,12 @@ def external_funding_dto(organization: int) -> ExternalFundingDto:
     )
 
 
-def cost_dto() -> CostDto:
+def cost_dto() -> PaymentDto:
     payment_method = random.choice([PaymentMethod.Direct, PaymentMethod.Reimbursement])
-    return CostDto(
-        estimated_cost=100,
-        estimated_cost_currency="USD",
-        payment_method=payment_method.value,
+    return PaymentDto(
+        amount=100,
+        currency="USD",
+        method=payment_method.value,
     )
 
 

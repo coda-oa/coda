@@ -11,6 +11,7 @@ from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.color import Color
 from coda.fundingrequest import Review
+from coda.string import NonEmptyStr
 from tests import dtofactory, modelfactory
 
 
@@ -48,7 +49,7 @@ def test__searching_funding_request_by_submitter__shows_only_matching_funding_re
     submitter = cast(Author, matching_request.submitter)
 
     non_matching_submitter = dtofactory.author_dto()
-    non_matching_submitter["name"] = "Not the submitter"
+    non_matching_submitter.name = NonEmptyStr("Not the submitter")
     _ = modelfactory.fundingrequest("No match", non_matching_submitter)
 
     response = search_fundingrequests(client, by_submitter(submitter.name))

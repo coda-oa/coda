@@ -148,7 +148,7 @@ def test__publication_step__existing_publication__publication_form_uses_existing
     store["publication"] = dtofactory.publication_meta_dto(
         publication_type=as_domain_concept(pub_type_model),
         subject_area=as_domain_concept(subject_model),
-    )
+    ).to_post_data()
     store.save()
 
     sut = PublicationStep()

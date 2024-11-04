@@ -1,3 +1,4 @@
+import functools
 import json
 from typing import Any, cast
 
@@ -7,15 +8,16 @@ from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
-from coda.apps.authors.dto import AuthorDto, parse_author, to_author_dto
+from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
+from coda.apps.fundingrequests.dto import PaymentDto, ExternalFundingDto
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.preferences.models import GlobalPreferences
-from coda.apps.publications.dto import PublicationDto, PublicationMetaDto, to_publication_dto
+from coda.apps.publications.dto import LinkDto, PublicationDto, PublicationMetaDto
 from coda.apps.users.models import User
 from coda.author import InstitutionId
+from coda.contract import ContractId
 from coda.fundingrequest import (
     ExternalFunding,
     FundingOrganizationId,
@@ -23,7 +25,6 @@ from coda.fundingrequest import (
     FundingRequestId,
     Payment,
 )
-from coda.contract import ContractId
 from coda.publication import JournalId, VocabularyConcept
 from tests import domainfactory, dtofactory, modelfactory
 from tests.authors.test__author import assert_author_eq
@@ -68,27 +69,19 @@ class FundingRequestDataBuilder:
         return self.build()
 
     def submitter_dto(self) -> AuthorDto:
-        return to_author_dto(self.submitter)
+        return AuthorDto.from_author(self.submitter)
 
     def publication_dto(self) -> PublicationDto:
-        return to_publication_dto(self.publication)
+        return PublicationDto.from_publication(self.publication)
 
     def external_funding_dto(self) -> list[ExternalFundingDto]:
         return [self._to_external_funding_dto(f) for f in self.external_funding]
 
-    def cost_dto(self) -> CostDto:
-        return CostDto(
-            estimated_cost=float(self.estimated_cost.amount.amount),
-            estimated_cost_currency=self.estimated_cost.amount.currency.code,
-            payment_method=self.estimated_cost.method.value,
-        )
+    def cost_dto(self) -> PaymentDto:
+        return PaymentDto.from_payment(self.estimated_cost)
 
     def _to_external_funding_dto(self, funding: ExternalFunding) -> ExternalFundingDto:
-        return ExternalFundingDto(
-            organization=funding.organization,
-            project_id=funding.project_id,
-            project_name=funding.project_name,
-        )
+        return ExternalFundingDto.from_external_funding(funding)
 
 
 @pytest.fixture(autouse=True)
@@ -133,15 +126,13 @@ def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_d
     client: Client,
 ) -> None:
     fr_id = save_new_fundingrequest()
+    wizard_url = reverse("fundingrequests:update_submitter", kwargs={"pk": fr_id})
+
     affiliation = modelfactory.institution()
-
     new_author = dtofactory.author_dto(affiliation.pk)
-    response = client.post(
-        reverse("fundingrequests:update_submitter", kwargs={"pk": fr_id}),
-        next() | new_author,
-    )
+    response = submit_step(client, wizard_url, new_author.to_post_data())
 
-    expected = parse_author(new_author)
+    expected = new_author.to_author()
     actual = repository.get_by_id(fr_id).submitter
     assert_author_eq(actual, expected)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
@@ -176,12 +167,11 @@ def test__updating_fundingrequest_funding__updates_funding_request_and_shows_det
 
     builder = FundingRequestDataBuilder().with_payment(fr_before_update.estimated_cost)
     external_funding = builder.external_funding_dto()
+    external_funding_data = [ef.to_post_data() for ef in external_funding]
     cost_dto = builder.cost_dto()
 
-    response = client.post(
-        reverse("fundingrequests:update_funding", kwargs={"pk": fr_id}),
-        next() | to_htmx_formset_data(external_funding) | cost_dto,
-    )
+    data = to_htmx_formset_data(external_funding_data) | cost_dto.to_post_data()
+    response = submit_update_funding_wizard(client, fr_id, data)
 
     fr = repository.get_by_id(fr_id)
     expected_payment = builder.expected.estimated_cost
@@ -207,10 +197,8 @@ def test__updating_fundingrequest_funding__without_external_funding__updates_fun
         ]
     )
 
-    response = client.post(
-        reverse("fundingrequests:update_funding", kwargs={"pk": fr_id}),
-        next() | empty_funding_data | cost_dto,
-    )
+    data = empty_funding_data | cost_dto.to_post_data()
+    response = submit_update_funding_wizard(client, fr_id, data)
 
     request = repository.get_by_id(fr_id)
     assert list(request.external_funding) == []
@@ -226,36 +214,43 @@ def submit_wizard(
     author: AuthorDto,
     publication: PublicationDto,
     external_funding: list[ExternalFundingDto],
-    cost: CostDto,
+    cost: PaymentDto,
 ) -> HttpResponse:
     create_wizard_url = reverse("fundingrequests:create_wizard")
+    submit = functools.partial(submit_step, client, create_wizard_url)
+
     fundings = to_htmx_formset_data(external_funding)
-    contracts = to_htmx_formset_data([{"contract": cid} for cid in publication["contracts"]])
-    client.post(create_wizard_url, next() | author)
-    client.post(
-        create_wizard_url,
-        next() | {"journal": publication["journal"]["journal_id"]} | contracts,
-    )
-    client.post(create_wizard_url, next() | as_form_data(publication))
-    return cast(
-        HttpResponse,
-        client.post(create_wizard_url, next() | fundings | cost),
-    )
+    contracts = to_htmx_formset_data([{"contract": cid} for cid in publication.contracts])
+    journal = {"journal": publication.journal.id}
+    submit(author.to_post_data())
+    submit(journal | contracts)
+    submit(as_form_data(publication))
+    return submit(fundings | cost.to_post_data())
 
 
 def submit_update_publication_wizard(
     client: Client, fr_id: FundingRequestId, journal_id: JournalId, publication_dto: PublicationDto
 ) -> HttpResponse:
     wizard_url = reverse("fundingrequests:update_publication", kwargs={"pk": fr_id})
+    submit = functools.partial(submit_step, client, wizard_url)
 
     publication_formdata = as_form_data(publication_dto)
-    client.post(wizard_url, next() | publication_formdata)
+    submit(publication_formdata)
 
     journal_post_data = {"journal": journal_id}
-    contracts = to_htmx_formset_data([{"contract": cid} for cid in publication_dto["contracts"]])
-    response = client.post(wizard_url, next() | journal_post_data | contracts)
+    contracts = to_htmx_formset_data([{"contract": cid} for cid in publication_dto.contracts])
+    return submit(journal_post_data | contracts)
 
-    return cast(HttpResponse, response)
+
+def submit_update_funding_wizard(
+    client: Client, fr_id: FundingRequestId, data: dict[str, Any]
+) -> HttpResponse:
+    wizard_url = reverse("fundingrequests:update_funding", kwargs={"pk": fr_id})
+    return submit_step(client, wizard_url, data)
+
+
+def submit_step(client: Client, url: str, form_data: dict[str, Any]) -> HttpResponse:
+    return cast(HttpResponse, client.post(url, next() | form_data))
 
 
 def subject_area() -> VocabularyConcept:
@@ -271,42 +266,51 @@ def publication_type() -> VocabularyConcept:
 
 
 def as_form_data(publication: PublicationDto) -> dict[str, Any]:
-    meta = publication["meta"]
-    meta["online_publication_date"] = meta["online_publication_date"] or ""
-    meta["print_publication_date"] = meta["print_publication_date"] or ""
-
-    # NOTE: authors are submitted as a single string from a textarea
-    authors = ",".join(publication["authors"])
-
+    meta = publication.meta
+    authors = _serialize_authors(publication.authors)
     concepts = _concepts_to_json(meta)
-
-    meta_reduced = dict(meta)
-    meta_reduced.pop("subject_area")
-    meta_reduced.pop("publication_type")
-    meta_reduced.pop("subject_area_vocabulary")
-    meta_reduced.pop("publication_type_vocabulary")
-
-    link_form_data: dict[str, list[str]] = {"link_type": [], "link_value": []}
-    for link in publication["links"]:
-        link_form_data["link_type"].append(str(link["link_type"]))
-        link_form_data["link_value"].append(str(link["link_value"]))
+    meta_reduced = _reduce_meta(meta)
+    link_form_data = _serialize_links(publication.links)
 
     formdata = meta_reduced | {"authors": authors} | concepts | link_form_data
     return formdata
+
+
+def _serialize_authors(authors: list[str]) -> str:
+    return ",".join(authors)
+
+
+def _reduce_meta(meta: PublicationMetaDto) -> dict[str, Any]:
+    return meta.to_post_data(
+        {
+            "subject_area",
+            "publication_type",
+            "subject_area_vocabulary",
+            "publication_type_vocabulary",
+        }
+    )
+
+
+def _serialize_links(links: list[LinkDto]) -> dict[str, list[str]]:
+    link_form_data: dict[str, list[str]] = {"link_type": [], "link_value": []}
+    for link in links:
+        link_form_data["link_type"].append(link.link_type)
+        link_form_data["link_value"].append(link.link_value)
+    return link_form_data
 
 
 def _concepts_to_json(meta: PublicationMetaDto) -> dict[str, str]:
     return {
         "subject_area": json.dumps(
             {
-                "concept": meta["subject_area"],
-                "vocabulary": meta["subject_area_vocabulary"],
+                "concept": meta.subject_area,
+                "vocabulary": meta.subject_area_vocabulary,
             }
         ),
         "publication_type": json.dumps(
             {
-                "concept": meta["publication_type"],
-                "vocabulary": meta["publication_type_vocabulary"],
+                "concept": meta.publication_type,
+                "vocabulary": meta.publication_type_vocabulary,
             }
         ),
     }

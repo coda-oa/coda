@@ -147,8 +147,8 @@ class PublicationForm(CodaFormBase):
             publication_type_vocabulary=self.cleaned_data["publication_type_vocabulary"],
             open_access_type=self.cleaned_data["open_access_type"],
             publication_state=self.cleaned_data["publication_state"],
-            online_publication_date=self._parse_date("online"),
-            print_publication_date=self._parse_date("print"),
+            online_publication_date=self.cleaned_data["online_publication_date"],
+            print_publication_date=self.cleaned_data["print_publication_date"],
         )
 
     def _parse_date(self, media: str) -> str:

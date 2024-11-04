@@ -1,10 +1,10 @@
 from collections.abc import Mapping
-from typing import Any, cast
+from typing import Any
 
 from django import forms
 
 from coda.apps import widgets
-from coda.apps.authors.dto import AuthorDto, parse_author
+from coda.apps.authors.dto import AuthorDto
 from coda.apps.formbase import CodaFormBase
 from coda.apps.institutions.models import Institution
 from coda.author import Author, InstitutionId, Role
@@ -41,10 +41,10 @@ class AuthorForm(CodaFormBase):
     def to_dto(self) -> AuthorDto:
         data = dict(self.cleaned_data)
         data["affiliation"] = self.affiliation_pk(data)
-        return cast(AuthorDto, data)
+        return AuthorDto(**data)
 
     def to_author(self) -> Author:
-        return parse_author(self.to_dto(), id=None)
+        return self.to_dto().to_author()
 
     def affiliation_pk(self, data: Mapping[str, Any]) -> InstitutionId | None:
         if not data.get("affiliation"):

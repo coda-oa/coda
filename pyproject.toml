@@ -14,6 +14,7 @@ dependencies = [
     "psycopg2-binary>=2.9.9",
     "whitenoise>=6.6.0",
     "polars>=0.20.19",
+    "pydantic>=2.9.2",
 ]
 requires-python = ">=3.11"
 readme = "README.md"
@@ -66,7 +67,7 @@ disallow_any_unimported = true
 no_implicit_optional = true
 show_error_codes = true
 
-plugins = ["mypy_django_plugin.main"]
+plugins = ["mypy_django_plugin.main", "pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 # Django migrations should not produce any errors:

@@ -5,7 +5,7 @@ from django.utils.datastructures import MultiValueDict
 
 from coda.apps import fields
 from coda.apps.contracts.models import Contract
-from coda.apps.fundingrequests.dto import CostDto, ExternalFundingDto
+from coda.apps.fundingrequests.dto import PaymentDto, ExternalFundingDto
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 
@@ -22,17 +22,19 @@ class ContractFormset(HtmxDynamicFormset[ContractForm]):
     table_classes = "article__table"
 
 
-class CostForm(forms.Form):
+class PaymentForm(forms.Form):
     use_required_attribute = False
-    estimated_cost = forms.DecimalField(max_digits=10, decimal_places=2, initial=0)
-    estimated_cost_currency = fields.currency_field()
-    payment_method = forms.ChoiceField(choices=FundingRequest.PAYMENT_METHOD_CHOICES)
+    amount = forms.DecimalField(max_digits=10, decimal_places=2, initial=0, label="Estimated cost")
+    currency = fields.currency_field(label="Currency")
+    method = forms.ChoiceField(
+        choices=FundingRequest.PAYMENT_METHOD_CHOICES, label="Payment method"
+    )
 
-    def to_dto(self) -> CostDto:
-        return CostDto(
-            estimated_cost=float(self.cleaned_data["estimated_cost"]),
-            estimated_cost_currency=self.cleaned_data["estimated_cost_currency"],
-            payment_method=self.cleaned_data["payment_method"],
+    def to_dto(self) -> PaymentDto:
+        return PaymentDto(
+            amount=float(self.cleaned_data["amount"]),
+            currency=self.cleaned_data["currency"],
+            method=self.cleaned_data["method"],
         )
 
 
@@ -103,7 +105,7 @@ class ExternalFundingFormset(HtmxDynamicFormset[ExternalFundingForm]):
     def is_empty(self) -> bool:
         return all(form.is_empty() for form in self.forms)
 
-    def to_dto(self) -> list[ExternalFundingDto]:
+    def to_dto_list(self) -> list[ExternalFundingDto]:
         _dtos = [form.to_dto() for form in self.forms]
         return [dto for dto in _dtos if dto is not None]
 

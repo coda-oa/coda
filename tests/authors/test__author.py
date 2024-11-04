@@ -4,7 +4,7 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.test import Client
 
-from coda.apps.authors.dto import to_author_dto
+from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.models import PersonId
 from coda.apps.authors.services import as_domain_object, author_create, author_update, get_by_id
@@ -87,10 +87,10 @@ def test__given_institution_exits__when_author_is_affiliated__author_is_saved_wi
     institution.save()
 
     affiliation = institution.pk
-    josiah = to_author_dto(JOSIAHS_DATA)
-    josiah["affiliation"] = affiliation
+    josiah = AuthorDto.from_author(JOSIAHS_DATA)
+    josiah.affiliation = InstitutionId(affiliation)
 
-    client.post("/authors/create/", josiah)
+    client.post("/authors/create/", josiah.to_post_data())
 
     author = as_domain_object(cast(AuthorModel, AuthorModel.objects.first()))
     assert author.affiliation == affiliation
