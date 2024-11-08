@@ -1,8 +1,8 @@
 import datetime
-import json
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any, NamedTuple, cast
 
+import pydantic
 from django import forms
 from django.forms.renderers import BaseRenderer
 from django.forms.utils import ErrorList
@@ -12,7 +12,7 @@ from coda.apps import widgets
 from coda.apps.authors.forms import AuthorForm
 from coda.apps.formbase import CodaFormBase
 from coda.apps.preferences.models import GlobalPreferences
-from coda.apps.publications.dto import LinkDto, PublicationMetaDto
+from coda.apps.publications.dto import ConceptDto, LinkDto, PublicationMetaDto
 from coda.apps.publications.models import Concept, LinkType, Publication, Vocabulary
 from coda.author import Role
 from coda.doi import Doi
@@ -27,6 +27,13 @@ def concept_choices_from_global_settings(
         return concept_form_values(vocabulary.concepts.all())
 
     return _concept_options_by_vocabulary
+
+
+def get_concepts(vocabulary: Vocabulary | None) -> Iterable[Concept]:
+    if not vocabulary:
+        return []
+
+    return vocabulary.concepts.all()
 
 
 class Vocabularies(NamedTuple):
@@ -54,12 +61,12 @@ class PublicationForm(CodaFormBase):
     )
     publication_type = forms.ChoiceField(
         choices=concept_choices_from_global_settings("publication_type"),
-        required=False,
+        required=True,
         widget=widgets.SearchSelectWidget,
     )
     subject_area = forms.ChoiceField(
         choices=concept_choices_from_global_settings("subject_area"),
-        required=False,
+        required=True,
         widget=widgets.SearchSelectWidget,
     )
     open_access_type = forms.ChoiceField(
@@ -74,6 +81,35 @@ class PublicationForm(CodaFormBase):
     print_publication_date = forms.DateField(
         widget=forms.DateInput(attrs={"type": "date"}), required=False
     )
+
+    @classmethod
+    def from_dto(cls, dto: PublicationMetaDto) -> "PublicationForm":
+        subject_vocabulary_id = dto.subject_area.vocabulary
+        subject_vocabulary = Vocabulary.objects.filter(pk=subject_vocabulary_id).first()
+        subject_concepts = get_concepts(subject_vocabulary)
+
+        pub_type_vocabulary_id = dto.publication_type.vocabulary
+        pub_type_vocabulary = Vocabulary.objects.filter(pk=pub_type_vocabulary_id).first()
+        pub_type_concepts = get_concepts(pub_type_vocabulary)
+
+        vocabularies = Vocabularies(
+            subject_areas=subject_concepts,
+            publication_types=pub_type_concepts,
+        )
+
+        return cls(
+            data={
+                "title": dto.title,
+                "license": dto.license,
+                "subject_area": dto.subject_area.model_dump_json(),
+                "publication_type": dto.publication_type.model_dump_json(),
+                "open_access_type": dto.open_access_type,
+                "publication_state": dto.publication_state,
+                "online_publication_date": dto.online_publication_date,
+                "print_publication_date": dto.print_publication_date,
+            },
+            vocabularies=vocabularies,
+        )
 
     def __init__(
         self,
@@ -108,8 +144,8 @@ class PublicationForm(CodaFormBase):
         self._update_field_choices("publication_type", vocabularies.publication_types)
 
     def _update_field_choices(self, field_name: str, vocabulary: Iterable[Concept]) -> None:
+        field: forms.Field = self.fields[field_name]
         if vocabulary:
-            field: forms.Field = self.fields[field_name]
             self._as_choicefield(field).choices = concept_form_values(vocabulary)
             if field_name in self.errors:
                 self.errors.pop(field_name)
@@ -123,19 +159,8 @@ class PublicationForm(CodaFormBase):
         if not hasattr(self, "cleaned_data"):
             return
 
-        try:
-            subject_area = json.loads(self.data["subject_area"])
-            self.cleaned_data["subject_area"] = subject_area["concept"]
-            self.cleaned_data["subject_area_vocabulary"] = subject_area["vocabulary"]
-        except (json.decoder.JSONDecodeError, MultiValueDictKeyError):
-            self.add_error("subject_area", "Invalid value for subject area")
-
-        try:
-            publication_type = json.loads(self.data["publication_type"])
-            self.cleaned_data["publication_type"] = publication_type["concept"]
-            self.cleaned_data["publication_type_vocabulary"] = publication_type["vocabulary"]
-        except (json.decoder.JSONDecodeError, MultiValueDictKeyError):
-            self.add_error("publication_type", "Invalid value for publication type")
+        self._parse_concept("subject_area")
+        self._parse_concept("publication_type")
 
         if self.cleaned_data.get("publication_state") != Published.name():
             return
@@ -148,14 +173,18 @@ class PublicationForm(CodaFormBase):
             self.add_error("online_publication_date", str(err))
             self.add_error("print_publication_date", str(err))
 
+    def _parse_concept(self, field_name: str) -> None:
+        try:
+            self.cleaned_data[field_name] = ConceptDto.model_validate_json(self.data[field_name])
+        except (pydantic.ValidationError, MultiValueDictKeyError) as err:
+            self.add_error(field_name, str(err))
+
     def to_dto(self) -> PublicationMetaDto:
         return PublicationMetaDto(
             title=self.cleaned_data["title"],
             license=self.cleaned_data["license"],
             subject_area=self.cleaned_data["subject_area"],
-            subject_area_vocabulary=self.cleaned_data["subject_area_vocabulary"],
             publication_type=self.cleaned_data["publication_type"],
-            publication_type_vocabulary=self.cleaned_data["publication_type_vocabulary"],
             open_access_type=self.cleaned_data["open_access_type"],
             publication_state=self.cleaned_data["publication_state"],
             online_publication_date=self.cleaned_data["online_publication_date"],
@@ -202,7 +231,9 @@ def vocabulary_from_settings(vocabulary_type: str) -> Vocabulary:
 
 
 def concept_json_value(concept: Concept) -> str:
-    return json.dumps({"concept": concept.concept_id, "vocabulary": concept.vocabulary_id})
+    return ConceptDto(
+        concept=concept.concept_id, vocabulary=concept.vocabulary_id
+    ).model_dump_json()
 
 
 def concept_form_values(concepts: Iterable[Concept]) -> list[tuple[str, str]]:

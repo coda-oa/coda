@@ -63,11 +63,9 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         store = self.get_store()
         fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
         dto = PublicationDto.from_publication(fr.publication)
-        store["publication"] = dto.meta.to_post_data()
-        store["authors"] = dto.authors
+        store["publication_step"] = dto.to_post_data(exclude={"journal", "contracts"})
         store["journal"] = fr.publication.journal
         store["contracts"] = dto.contracts
-        store["links"] = dto.links
         store.save()
 
 

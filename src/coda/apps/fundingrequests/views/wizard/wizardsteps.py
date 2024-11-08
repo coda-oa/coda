@@ -1,4 +1,3 @@
-import json
 from collections.abc import Iterable
 from typing import Any, TypeVar
 
@@ -11,18 +10,17 @@ from coda.apps.authors.forms import AuthorForm
 from coda.apps.fundingrequests.forms import ContractFormset, ExternalFundingFormset, PaymentForm
 from coda.apps.journals.models import Journal
 from coda.apps.journals.services import find_by_title
-from coda.apps.publications.dto import PublicationMetaDto
-from coda.apps.publications.forms import (
-    CorrespondingAuthorForm,
-    LinkForm,
-    PublicationForm,
-    Vocabularies,
-)
-from coda.apps.publications.models import Concept, LinkType, Vocabulary
+from coda.apps.publications.dto import PublicationStepDto
+from coda.apps.publications.forms import CorrespondingAuthorForm, LinkForm, PublicationForm
+from coda.apps.publications.models import LinkType
 from coda.apps.wizard import FormStep, Step, Store
 from coda.author import AuthorList
 
 _TForm = TypeVar("_TForm", bound=Form, covariant=True)
+
+
+def form_posted(request: HttpRequest, form_type: type[Form]) -> bool:
+    return bool(request.POST.keys() & form_type.base_fields.keys())
 
 
 def form_with_post_or_store_data(
@@ -35,7 +33,7 @@ def form_with_post_or_store_data(
     Create a form instance with POST data if matching keys are present, otherwise use stored data.
     If no stored data is present, create an empty form instance.
     """
-    if request.POST.keys() & form_type.base_fields.keys():
+    if form_posted(request, form_type):
         return form_type(request.POST, **kwargs)
     elif store_data:
         return form_type(store_data, **kwargs)
@@ -122,7 +120,11 @@ class PublicationStep(Step):
         }
         if field_names & request.POST.keys():
             return CorrespondingAuthorForm(request.POST, prefix=form_prefix)
-        if store.get("submitter"):
+        elif store.get("publication_step"):
+            dto = AuthorDto(**store["publication_step"]["corresponding_author"])
+            data = dto.to_post_data(prefix=form_prefix)
+            return CorrespondingAuthorForm(data, prefix=form_prefix)
+        elif store.get("submitter"):
             dto = AuthorDto(**store["submitter"])
             author = dto.to_author()
             if author.is_corresponding_author():
@@ -132,60 +134,18 @@ class PublicationStep(Step):
         return CorrespondingAuthorForm(prefix=form_prefix)
 
     def get_publication_form(self, request: HttpRequest, store: Store) -> PublicationForm:
-        vocabularies = self.get_form_vocabularies(store)
-
         if self.requested_author_preview(request):
-            form = PublicationForm(request.POST, vocabularies=vocabularies)
+            form = PublicationForm(request.POST)
             form.errors.clear()
             return form
 
-        formdata = self.transform_to_formdata(store)
-        return form_with_post_or_store_data(
-            PublicationForm, request, formdata, vocabularies=vocabularies
-        )
-
-    def get_form_vocabularies(self, store: Store) -> Vocabularies:
-        stored_meta = store.get("publication")
-        if not stored_meta:
-            return Vocabularies()
-
-        publication_meta = PublicationMetaDto(**stored_meta)
-        subject_vocabulary_id = publication_meta.subject_area_vocabulary
-        subject_vocabulary = Vocabulary.objects.filter(pk=subject_vocabulary_id).first()
-        subject_concepts = self.get_concepts(subject_vocabulary)
-
-        pub_type_vocabulary_id = publication_meta.publication_type_vocabulary
-        pub_type_vocabulary = Vocabulary.objects.filter(pk=pub_type_vocabulary_id).first()
-        pub_type_concepts = self.get_concepts(pub_type_vocabulary)
-
-        return Vocabularies(
-            subject_areas=subject_concepts,
-            publication_types=pub_type_concepts,
-        )
-
-    def get_concepts(self, vocabulary: Vocabulary | None) -> Iterable[Concept]:
-        if not vocabulary:
-            return []
-
-        return vocabulary.concepts.all()
-
-    def transform_to_formdata(self, store: Store) -> dict[str, Any]:
-        formdata: dict[str, Any] = dict(store.get("publication", {}))
-        if formdata:
-            formdata["subject_area"] = json.dumps(
-                {
-                    "concept": formdata["subject_area"],
-                    "vocabulary": formdata["subject_area_vocabulary"],
-                }
-            )
-            formdata["publication_type"] = json.dumps(
-                {
-                    "concept": formdata["publication_type"],
-                    "vocabulary": formdata["publication_type_vocabulary"],
-                }
-            )
-
-        return formdata
+        step_dto = store.get("publication_step")
+        if form_posted(request, PublicationForm):
+            return PublicationForm(request.POST)
+        elif step_dto:
+            return PublicationForm.from_dto(PublicationStepDto(**step_dto).meta)
+        else:
+            return PublicationForm()
 
     def requested_author_preview(self, request: HttpRequest) -> bool:
         return request.POST.get("action") == "parse_authors"
@@ -217,9 +177,7 @@ class PublicationStep(Step):
         return [{"link": form.get_form_data(), "errors": form.errors} for form in forms]
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
-        corresponding_author_form = CorrespondingAuthorForm(
-            request.POST, prefix="corresponding_author"
-        )
+        corresponding_author_form = self.get_author_form(request, store)
         publication_form = PublicationForm(request.POST)
         link_formset = self.link_forms(request)
         valid = self.all_valid((corresponding_author_form, publication_form, *link_formset))
@@ -230,16 +188,14 @@ class PublicationStep(Step):
         link_forms = self.link_forms(request)
         self.clean_all((publication_form, *link_forms))
 
-        store["publication_step"] = {
-            "corresponding_author": CorrespondingAuthorForm(
+        store["publication_step"] = PublicationStepDto(
+            corresponding_author=CorrespondingAuthorForm(
                 request.POST, prefix="corresponding_author"
-            )
-            .to_dto()
-            .to_post_data(),
-            "meta": publication_form.to_dto().to_post_data(),
-            "authors": list(AuthorList.from_str(request.POST.get("authors", ""))),
-            "links": [linkform.get_form_data().to_post_data() for linkform in link_forms],
-        }
+            ).to_dto(),
+            meta=publication_form.to_dto(),
+            authors=list(AuthorList.from_str(request.POST.get("authors", ""))),
+            links=[linkform.get_form_data() for linkform in link_forms],
+        ).to_post_data()
         store.save()
 
     def all_valid(self, forms: Iterable[Form]) -> bool:

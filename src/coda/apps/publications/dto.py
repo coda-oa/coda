@@ -43,12 +43,22 @@ class LinkDto(CodaBaseDto):
             return UserLink(type=self.link_type, value=self.link_value)
 
 
+class ConceptDto(CodaBaseDto):
+    concept: ConceptId
+    vocabulary: VocabularyId
+
+    @classmethod
+    def from_concept(cls, concept: VocabularyConcept) -> "ConceptDto":
+        return cls(concept=concept.id, vocabulary=concept.vocabulary)
+
+    def to_concept(self) -> VocabularyConcept:
+        return VocabularyConcept(ConceptId(self.concept), VocabularyId(self.vocabulary))
+
+
 class PublicationMetaDto(CodaBaseDto):
     title: str
-    publication_type: str
-    publication_type_vocabulary: int
-    subject_area: str
-    subject_area_vocabulary: int
+    publication_type: ConceptDto
+    subject_area: ConceptDto
     open_access_type: str
     license: str
     publication_state: str
@@ -58,6 +68,13 @@ class PublicationMetaDto(CodaBaseDto):
 
 class JournalDto(CodaBaseDto):
     id: JournalId
+
+
+class PublicationStepDto(CodaBaseDto):
+    meta: PublicationMetaDto
+    corresponding_author: AuthorDto
+    authors: list[str]
+    links: list[LinkDto]
 
 
 class PublicationDto(CodaBaseDto):
@@ -82,14 +99,12 @@ class PublicationDto(CodaBaseDto):
             meta=PublicationMetaDto(
                 title=publication.title,
                 license=publication.license.name,
-                publication_type=publication.publication_type.id,
-                publication_type_vocabulary=publication.publication_type.vocabulary,
+                subject_area=ConceptDto.from_concept(publication.subject_area),
+                publication_type=ConceptDto.from_concept(publication.publication_type),
                 open_access_type=publication.open_access_type.name,
                 publication_state=publication.publication_state.name(),
                 online_publication_date=online_pub_date,
                 print_publication_date=print_pub_date,
-                subject_area=publication.subject_area.id,
-                subject_area_vocabulary=publication.subject_area.vocabulary,
             ),
             journal=JournalDto(id=publication.journal),
             contracts=list(publication.contracts),
@@ -102,21 +117,14 @@ class PublicationDto(CodaBaseDto):
         """
         Tries to parse a Publication from a PublicationDto.
         """
-        publication = self.meta
         return Publication(
             id=id,
-            title=NonEmptyStr(publication.title),
-            license=License[publication.license],
-            publication_type=VocabularyConcept(
-                ConceptId(publication.publication_type),
-                VocabularyId(publication.publication_type_vocabulary),
-            ),
-            subject_area=VocabularyConcept(
-                ConceptId(publication.subject_area),
-                VocabularyId(publication.subject_area_vocabulary),
-            ),
-            open_access_type=OpenAccessType[publication.open_access_type],
-            publication_state=_parse_state(publication),
+            title=NonEmptyStr(self.meta.title),
+            license=License[self.meta.license],
+            publication_type=self.meta.publication_type.to_concept(),
+            subject_area=self.meta.subject_area.to_concept(),
+            open_access_type=OpenAccessType[self.meta.open_access_type],
+            publication_state=_parse_state(self.meta),
             corresponding_author=self.corresponding_author.to_author(),
             authors=AuthorList(self.authors),
             links={link.to_link() for link in self.links},

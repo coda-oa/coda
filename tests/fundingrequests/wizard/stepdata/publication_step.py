@@ -1,4 +1,3 @@
-import json
 from typing import Any
 
 from coda.apps.publications.dto import LinkDto, PublicationDto, PublicationMetaDto
@@ -45,14 +44,7 @@ def _serialize_authors(authors: list[str]) -> str:
 
 
 def _reduce_meta(meta: PublicationMetaDto) -> dict[str, Any]:
-    return meta.to_post_data(
-        exclude={
-            "subject_area",
-            "publication_type",
-            "subject_area_vocabulary",
-            "publication_type_vocabulary",
-        }
-    )
+    return meta.to_post_data(exclude={"subject_area", "publication_type"})
 
 
 def _serialize_links(links: list[LinkDto]) -> dict[str, list[str]]:
@@ -63,18 +55,8 @@ def _serialize_links(links: list[LinkDto]) -> dict[str, list[str]]:
     return link_form_data
 
 
-def _concepts_to_json(meta: PublicationMetaDto) -> dict[str, str]:
+def _concepts_to_json(meta: PublicationMetaDto) -> dict[str, Any]:
     return {
-        "subject_area": json.dumps(
-            {
-                "concept": meta.subject_area,
-                "vocabulary": meta.subject_area_vocabulary,
-            }
-        ),
-        "publication_type": json.dumps(
-            {
-                "concept": meta.publication_type,
-                "vocabulary": meta.publication_type_vocabulary,
-            }
-        ),
+        "subject_area": meta.subject_area.model_dump_json(),
+        "publication_type": meta.publication_type.model_dump_json(),
     }
