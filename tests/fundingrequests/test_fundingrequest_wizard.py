@@ -1,5 +1,4 @@
 import functools
-import json
 from typing import Any, cast
 
 import pytest
@@ -10,11 +9,11 @@ from pytest_django.asserts import assertRedirects
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.dto import PaymentDto, ExternalFundingDto
+from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.preferences.models import GlobalPreferences
-from coda.apps.publications.dto import LinkDto, PublicationDto, PublicationMetaDto
+from coda.apps.publications.dto import PublicationDto
 from coda.apps.users.models import User
 from coda.author import InstitutionId
 from coda.contract import ContractId
@@ -29,6 +28,7 @@ from coda.publication import JournalId, VocabularyConcept
 from tests import domainfactory, dtofactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
+from tests.fundingrequests.wizard.stepdata import publication_step
 from tests.publications.test_publication_services import as_domain_concept, assert_publication_eq
 
 
@@ -224,7 +224,7 @@ def submit_wizard(
     journal = {"journal": publication.journal.id}
     submit(author.to_post_data())
     submit(journal | contracts)
-    submit(as_form_data(publication))
+    submit(publication_step.stepdata(publication))
     return submit(fundings | cost.to_post_data())
 
 
@@ -234,7 +234,7 @@ def submit_update_publication_wizard(
     wizard_url = reverse("fundingrequests:update_publication", kwargs={"pk": fr_id})
     submit = functools.partial(submit_step, client, wizard_url)
 
-    publication_formdata = as_form_data(publication_dto)
+    publication_formdata = publication_step.stepdata(publication_dto)
     submit(publication_formdata)
 
     journal_post_data = {"journal": journal_id}
@@ -263,54 +263,3 @@ def publication_type() -> VocabularyConcept:
     concept_model = GlobalPreferences.get_publication_type_vocabulary().concepts.first()
     assert concept_model is not None
     return as_domain_concept(concept_model)
-
-
-def as_form_data(publication: PublicationDto) -> dict[str, Any]:
-    meta = publication.meta
-    authors = _serialize_authors(publication.authors)
-    concepts = _concepts_to_json(meta)
-    meta_reduced = _reduce_meta(meta)
-    link_form_data = _serialize_links(publication.links)
-
-    formdata = meta_reduced | {"authors": authors} | concepts | link_form_data
-    return formdata
-
-
-def _serialize_authors(authors: list[str]) -> str:
-    return ",".join(authors)
-
-
-def _reduce_meta(meta: PublicationMetaDto) -> dict[str, Any]:
-    return meta.to_post_data(
-        {
-            "subject_area",
-            "publication_type",
-            "subject_area_vocabulary",
-            "publication_type_vocabulary",
-        }
-    )
-
-
-def _serialize_links(links: list[LinkDto]) -> dict[str, list[str]]:
-    link_form_data: dict[str, list[str]] = {"link_type": [], "link_value": []}
-    for link in links:
-        link_form_data["link_type"].append(link.link_type)
-        link_form_data["link_value"].append(link.link_value)
-    return link_form_data
-
-
-def _concepts_to_json(meta: PublicationMetaDto) -> dict[str, str]:
-    return {
-        "subject_area": json.dumps(
-            {
-                "concept": meta.subject_area,
-                "vocabulary": meta.subject_area_vocabulary,
-            }
-        ),
-        "publication_type": json.dumps(
-            {
-                "concept": meta.publication_type,
-                "vocabulary": meta.publication_type_vocabulary,
-            }
-        ),
-    }

@@ -1,7 +1,8 @@
 import enum
 import re
-from typing import Any, NamedTuple, NewType
 from collections.abc import Iterable, Iterator
+from dataclasses import dataclass, field
+from typing import Any, NewType
 
 from coda.orcid import Orcid
 from coda.string import NonEmptyStr
@@ -16,13 +17,14 @@ class Role(enum.Enum):
     CORRESPONDING_AUTHOR = "Corresponding author"
 
 
-class Author(NamedTuple):
+@dataclass
+class Author:
     id: AuthorId | None
     name: NonEmptyStr
     email: str = ""
     orcid: Orcid | None = None
     affiliation: InstitutionId | None = None
-    roles: frozenset[Role] = frozenset()
+    roles: set[Role] = field(default_factory=set)
 
     @classmethod
     def new(
@@ -39,8 +41,11 @@ class Author(NamedTuple):
             email=email,
             orcid=orcid,
             affiliation=affiliation,
-            roles=frozenset(roles),
+            roles=set(roles),
         )
+
+    def is_corresponding_author(self) -> bool:
+        return Role.CORRESPONDING_AUTHOR in self.roles
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Author):

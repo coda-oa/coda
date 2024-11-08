@@ -39,3 +39,4 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
             FundingRequest.new(publication, author, cost, funding)
         )
         store["funding_request"] = funding_request_id
+        store.save()

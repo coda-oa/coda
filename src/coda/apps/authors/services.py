@@ -11,6 +11,14 @@ from coda.orcid import Orcid
 from coda.string import NonEmptyStr
 
 
+def first() -> Author | None:
+    model = AuthorModel.objects.first()
+    if model is None:
+        return None
+
+    return as_domain_object(model)
+
+
 def get_by_id(author_id: AuthorId) -> Author:
     model = AuthorModel.objects.get(pk=author_id)
     return as_domain_object(model)
@@ -24,7 +32,7 @@ def as_domain_object(model: AuthorModel) -> Author:
         email=model.email or "",
         orcid=Orcid(person_id.orcid) if person_id.orcid else None,
         affiliation=InstitutionId(model.affiliation.pk) if model.affiliation else None,
-        roles=frozenset(deserialize_roles(model.roles) if model.roles else ()),
+        roles=set(deserialize_roles(model.roles) if model.roles else ()),
     )
 
 

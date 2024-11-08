@@ -45,14 +45,19 @@ from coda.string import NonEmptyStr
 _faker = faker.Faker()
 
 
-def author(affiliation: InstitutionId | None = None, id: AuthorId | None = None) -> Author:
+def author(
+    affiliation: InstitutionId | None = None,
+    *,
+    roles: set[Role] | None = None,
+    id: AuthorId | None = None,
+) -> Author:
     return Author(
         id=id,
         name=NonEmptyStr(_faker.name()),
         email=_faker.email(),
         orcid=random_orcid(),
         affiliation=affiliation,
-        roles=frozenset(random_roles()),
+        roles=set(roles if roles is not None else random_roles()),
     )
 
 
@@ -112,6 +117,7 @@ def publication(
         id=id,
         title=NonEmptyStr(title or _faker.sentence()),
         journal=journal or JournalId(random.randint(1, 1000)),
+        corresponding_author=author(),
         authors=random_authorlist(),
         license=random_license(),
         publication_type=publication_type or UnknownConcept,

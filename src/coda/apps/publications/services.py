@@ -2,6 +2,8 @@ import datetime
 from collections.abc import Iterable
 from typing import cast
 
+from coda.apps.authors import services as author_services
+from coda.apps.authors.models import Author as AuthorModel, PersonId
 from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import Concept, LinkType
 from coda.apps.publications.models import Link as LinkModel
@@ -32,17 +34,32 @@ def _deserialize_links(links: Iterable[LinkModel]) -> set[Link]:
     return {LinkDto(link_type=link.type.name, link_value=link.value).to_link() for link in links}
 
 
+def first() -> Publication | None:
+    model = PublicationModel.objects.first()
+    if model is None:
+        return None
+
+    return as_domain_object(model)
+
+
 def get_by_id(publication_id: PublicationId) -> Publication:
     model = PublicationModel.objects.get(pk=publication_id)
+    return as_domain_object(model)
+
+
+def as_domain_object(model: PublicationModel) -> Publication:
     state = _deserialize_publication_state(model)
 
     return Publication(
-        id=publication_id,
+        id=PublicationId(model.pk),
         title=NonEmptyStr(model.title),
         license=License[model.license],
         open_access_type=OpenAccessType[model.open_access_type],
         publication_type=_deserialize_concept(model.publication_type),
         subject_area=_deserialize_concept(model.subject_area),
+        corresponding_author=author_services.get_by_id(
+            AuthorId(cast(int, model.submitting_author_id))
+        ),
         authors=AuthorList.from_str(model.author_list or ""),
         publication_state=state,
         journal=JournalId(model.journal_id),
@@ -71,10 +88,13 @@ def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
     return state
 
 
-def publication_create(publication: Publication, author_id: AuthorId) -> PublicationId:
+def publication_create(
+    publication: Publication, author_id: AuthorId | None = None
+) -> PublicationId:
     online_publication_date, print_publication_date = _publication_dates(publication)
     publication_type = _first_by_vocabulary_concept(publication.publication_type)
     subject_area = _first_by_vocabulary_concept(publication.subject_area)
+    corresponding_author_id = author_services.author_create(publication.corresponding_author)
 
     pub_model = PublicationModel.objects.create(
         title=publication.title,
@@ -83,7 +103,7 @@ def publication_create(publication: Publication, author_id: AuthorId) -> Publica
         publication_state=publication.publication_state.name(),
         online_publication_date=online_publication_date,
         print_publication_date=print_publication_date,
-        submitting_author_id=author_id,
+        submitting_author_id=corresponding_author_id,
         author_list=str(publication.authors),
         journal_id=publication.journal,
         publication_type=publication_type,
@@ -137,6 +157,17 @@ def publication_update(publication: Publication) -> None:
     p.publication_type = publication_type
     p.subject_area = subject_area
     p.contracts.set(publication.contracts)
+
+    submitting_author = cast(AuthorModel, p.submitting_author)
+    submitting_author.name = publication.corresponding_author.name
+    submitting_author.email = publication.corresponding_author.email
+    submitting_author.affiliation_id = publication.corresponding_author.affiliation
+
+    identifiers = cast(PersonId, submitting_author.identifier)
+    identifiers.orcid = publication.corresponding_author.orcid
+    identifiers.save()
+
+    submitting_author.save()
 
     LinkModel.objects.filter(publication_id=publication.id).all().delete()
     _attach_links(publication.id, publication.links)

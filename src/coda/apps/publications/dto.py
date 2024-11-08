@@ -1,9 +1,7 @@
 import datetime
-from typing import Annotated, Any
 
-from pydantic import BeforeValidator
-
-from coda.apps.dto import CodaBaseDto
+from coda.apps.authors.dto import AuthorDto
+from coda.apps.dto import CodaBaseDto, OptionalFromStr
 from coda.author import AuthorList
 from coda.contract import ContractId
 from coda.doi import Doi
@@ -45,16 +43,6 @@ class LinkDto(CodaBaseDto):
             return UserLink(type=self.link_type, value=self.link_value)
 
 
-def _validate_dates(value: Any) -> Any | None:
-    if not value:
-        return None
-
-    return value
-
-
-DateOrNonEmpty = Annotated[datetime.date | None, BeforeValidator(_validate_dates)]
-
-
 class PublicationMetaDto(CodaBaseDto):
     title: str
     publication_type: str
@@ -64,8 +52,8 @@ class PublicationMetaDto(CodaBaseDto):
     open_access_type: str
     license: str
     publication_state: str
-    online_publication_date: DateOrNonEmpty
-    print_publication_date: DateOrNonEmpty
+    online_publication_date: OptionalFromStr[datetime.date]
+    print_publication_date: OptionalFromStr[datetime.date]
 
 
 class JournalDto(CodaBaseDto):
@@ -77,6 +65,7 @@ class PublicationDto(CodaBaseDto):
     journal: JournalDto
     contracts: list[ContractId]
     links: list[LinkDto]
+    corresponding_author: AuthorDto
     authors: list[str]
 
     @classmethod
@@ -105,6 +94,7 @@ class PublicationDto(CodaBaseDto):
             journal=JournalDto(id=publication.journal),
             contracts=list(publication.contracts),
             links=[to_link_dto(link) for link in publication.links],
+            corresponding_author=AuthorDto.from_author(publication.corresponding_author),
             authors=list(publication.authors),
         )
 
@@ -127,6 +117,7 @@ class PublicationDto(CodaBaseDto):
             ),
             open_access_type=OpenAccessType[publication.open_access_type],
             publication_state=_parse_state(publication),
+            corresponding_author=self.corresponding_author.to_author(),
             authors=AuthorList(self.authors),
             links={link.to_link() for link in self.links},
             contracts={ContractId(cid) for cid in self.contracts},

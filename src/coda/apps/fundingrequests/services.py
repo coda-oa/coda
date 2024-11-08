@@ -14,7 +14,7 @@ from coda.fundingrequest import ExternalFunding, FundingRequest, FundingRequestI
 @transaction.atomic
 def fundingrequest_create(fundingrequest: FundingRequest) -> FundingRequestId:
     author_id = author_create(fundingrequest.submitter)
-    publication_id = publication_services.publication_create(fundingrequest.publication, author_id)
+    publication_id = publication_services.publication_create(fundingrequest.publication)
     request = FundingRequestModel.objects.create(
         submitter_id=author_id,
         publication_id=publication_id,

@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from typing import cast
 
 import pytest
@@ -71,7 +72,7 @@ def test__updating_author__without_id__raises_error() -> None:
 def test__details_already_exist__reuses_existing_person(client: Client) -> None:
     author_create(JOSIAHS_DATA)
 
-    form_data = JOSIAHS_DATA._asdict()
+    form_data = asdict(JOSIAHS_DATA)
     form_data.pop("id")
     form_data["affiliation"] = ""
     client.post("/authors/create/", form_data)

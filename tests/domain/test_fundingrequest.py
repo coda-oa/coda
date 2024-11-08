@@ -21,6 +21,7 @@ def make_sut() -> FundingRequest:
         id=FundingRequestId(8),
         publication=Publication(
             id=PublicationId(8),
+            corresponding_author=Author(AuthorId(1), NonEmptyStr("John Doe")),
             title=NonEmptyStr("Publication Title"),
             journal=JournalId(3),
         ),
@@ -123,5 +124,8 @@ def test__closed_fundingrequest__is_open__is_false(closed_request: FundingReques
 
 def new_publication() -> Publication:
     return Publication(
-        id=PublicationId(999), title=NonEmptyStr("Publication Title"), journal=JournalId(999)
+        id=PublicationId(999),
+        title=NonEmptyStr("Publication Title"),
+        journal=JournalId(999),
+        corresponding_author=Author(AuthorId(999), NonEmptyStr("Jane Doe")),
     )

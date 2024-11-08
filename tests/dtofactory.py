@@ -7,7 +7,7 @@ import faker
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests.dto import PaymentDto, ExternalFundingDto
 from coda.apps.publications.dto import JournalDto, LinkDto, PublicationDto, PublicationMetaDto
-from coda.author import InstitutionId
+from coda.author import InstitutionId, Role
 from coda.fundingrequest import PaymentMethod
 from coda.publication import Published, UnknownConcept, UnpublishedState, VocabularyConcept
 from tests.domainfactory import (
@@ -21,18 +21,19 @@ from tests.domainfactory import (
 _faker = faker.Faker()
 
 
-def author_dto(affiliation_id: int | None = None) -> AuthorDto:
+def author_dto(affiliation_id: int | None = None, *, roles: set[Role] | None = None) -> AuthorDto:
+    _roles = roles if roles is not None else random_roles()
     return AuthorDto(
         name=_faker.name(),
         email=_faker.email(),
         orcid=random_orcid(),
         affiliation=InstitutionId(affiliation_id) if affiliation_id else None,
-        roles=[r.name for r in random_roles()],
+        roles=[r.name for r in _roles],
     )
 
 
 def publication_dto(
-    journal: int,
+    journal: int = 0,
     /,
     title: str = "",
     publication_type: VocabularyConcept = UnknownConcept,
@@ -42,6 +43,7 @@ def publication_dto(
 ) -> PublicationDto:
     return PublicationDto(
         meta=publication_meta_dto(title, publication_type, subject_area),
+        corresponding_author=author_dto(),
         authors=list(random_authorlist()),
         journal=JournalDto(id=journal),
         links=links or link_dtos(),

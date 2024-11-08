@@ -3,7 +3,7 @@ import enum
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, NamedTuple, NewType, Self, TypeAlias
 
-from coda.author import AuthorList
+from coda.author import Author, AuthorList, Role
 from coda.doi import Doi
 from coda.string import NonEmptyStr
 
@@ -100,6 +100,7 @@ class Publication:
     id: PublicationId | None
     title: NonEmptyStr
     journal: JournalId
+    corresponding_author: Author
     authors: AuthorList = field(default_factory=AuthorList)
     license: License = License.Unknown
     subject_area: VocabularyConcept = UnknownConcept
@@ -114,6 +115,7 @@ class Publication:
         cls,
         title: NonEmptyStr,
         journal: JournalId,
+        corresponding_author: Author,
         authors: AuthorList = AuthorList(),
         license: License = License.Unknown,
         subject_area: VocabularyConcept = UnknownConcept,
@@ -122,10 +124,14 @@ class Publication:
         publication_state: PublicationState = Unpublished(),
         links: set[Link] | None = None,
     ) -> Self:
+        if Role.CORRESPONDING_AUTHOR not in corresponding_author.roles:
+            corresponding_author.roles.add(Role.CORRESPONDING_AUTHOR)
+
         return cls(
             id=None,
             title=title,
             journal=journal,
+            corresponding_author=corresponding_author,
             authors=authors,
             license=license,
             subject_area=subject_area,

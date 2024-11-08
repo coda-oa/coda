@@ -40,21 +40,22 @@ class AuthorForm(CodaFormBase):
 
     def to_dto(self) -> AuthorDto:
         data = dict(self.cleaned_data)
-        data["affiliation"] = self.affiliation_pk(data)
+        data["affiliation"] = get_affiliation_pk(data)
         return AuthorDto(**data)
 
     def to_author(self) -> Author:
         return self.to_dto().to_author()
 
-    def affiliation_pk(self, data: Mapping[str, Any]) -> InstitutionId | None:
-        if not data.get("affiliation"):
-            return None
 
-        affiliation = data["affiliation"]
-        match affiliation:
-            case int() | str():
-                return InstitutionId(int(affiliation))
-            case Institution():
-                return InstitutionId(affiliation.pk)
-            case _:
-                return None
+def get_affiliation_pk(data: Mapping[str, Any]) -> InstitutionId | None:
+    if not data.get("affiliation"):
+        return None
+
+    affiliation = data["affiliation"]
+    match affiliation:
+        case int() | str():
+            return InstitutionId(int(affiliation))
+        case Institution():
+            return InstitutionId(affiliation.pk)
+        case _:
+            return None

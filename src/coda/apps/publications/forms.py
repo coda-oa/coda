@@ -9,10 +9,12 @@ from django.forms.utils import ErrorList
 from django.utils.datastructures import MultiValueDictKeyError
 
 from coda.apps import widgets
+from coda.apps.authors.forms import AuthorForm
 from coda.apps.formbase import CodaFormBase
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import LinkDto, PublicationMetaDto
 from coda.apps.publications.models import Concept, LinkType, Publication, Vocabulary
+from coda.author import Role
 from coda.doi import Doi
 from coda.publication import License, OpenAccessType, Published, UnpublishedState
 
@@ -30,6 +32,15 @@ def concept_choices_from_global_settings(
 class Vocabularies(NamedTuple):
     subject_areas: Iterable[Concept] = ()
     publication_types: Iterable[Concept] = ()
+
+
+class CorrespondingAuthorForm(AuthorForm):
+    use_required_attribute = False
+
+    roles = forms.MultipleChoiceField(
+        choices=((role.name, role.value) for role in Role),
+        widget=forms.MultipleHiddenInput(),
+    )
 
 
 class PublicationForm(CodaFormBase):
@@ -137,7 +148,7 @@ class PublicationForm(CodaFormBase):
             self.add_error("online_publication_date", str(err))
             self.add_error("print_publication_date", str(err))
 
-    def get_form_data(self) -> PublicationMetaDto:
+    def to_dto(self) -> PublicationMetaDto:
         return PublicationMetaDto(
             title=self.cleaned_data["title"],
             license=self.cleaned_data["license"],
