@@ -22,8 +22,8 @@
         {% endcomment %}
         {% spaceless %}
             <textarea name="authors" rows="5">
-        {% for author in authors %}{{ author }}{% endfor %}
-        </textarea>
+{{ authors|join:", " }}
+            </textarea>
         {% endspaceless %}
         <button type="submit" class="secondary" name="action" value="parse_authors">Preview parsed authors</button>
     </article>
