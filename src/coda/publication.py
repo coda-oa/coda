@@ -95,7 +95,7 @@ class VocabularyConcept(NamedTuple):
 UnknownConcept = VocabularyConcept(ConceptId("unknown"), VocabularyId(0))
 
 
-@dataclass(frozen=True)
+@dataclass
 class Publication:
     id: PublicationId | None
     title: NonEmptyStr

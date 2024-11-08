@@ -11,7 +11,7 @@ from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.forms import CorrespondingAuthorForm, PublicationForm
 from coda.apps.publications.models import Concept, Vocabulary
 from coda.author import Role
-from tests import domainfactory, dtofactory, modelfactory
+from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.wizard.stepdata import publication_step
 from tests.publications.test_publication_services import as_domain_concept
@@ -86,9 +86,10 @@ def test__publication_step__action__parse_authors__retains_posted_data_but_does_
 def test__publication_step__done__saves_page_data_to_store() -> None:
     sut = PublicationStep()
     store = DictStore()
+    publication = domainfactory.publication()
+    publication.corresponding_author = domainfactory.author(roles=set())
+    publication_dto = PublicationDto.from_publication(publication)
 
-    publication_dto = dtofactory.publication_dto()
-    publication_dto.corresponding_author = dtofactory.author_dto(roles=set())
     stepdata = publication_step.stepdata(publication_dto)
     request = request_factory.post("/", stepdata)
     sut.done(request, store)
@@ -137,11 +138,14 @@ def test__publication_step__existing_publication__publication_form_uses_existing
     pub_type_model = cast(Concept, publication_type_voc.concepts.first())
     subject_model = cast(Concept, subject_area_voc.concepts.first())
 
-    store = DictStore()
-    store["publication"] = dtofactory.publication_meta_dto(
-        publication_type=as_domain_concept(pub_type_model),
+    publication = domainfactory.publication(
         subject_area=as_domain_concept(subject_model),
-    ).to_post_data()
+        publication_type=as_domain_concept(pub_type_model),
+    )
+    meta_dto = PublicationDto.from_publication(publication).meta
+
+    store = DictStore()
+    store["publication"] = meta_dto.to_post_data()
     store.save()
 
     sut = PublicationStep()

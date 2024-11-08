@@ -25,7 +25,7 @@ from coda.fundingrequest import (
     Payment,
 )
 from coda.publication import JournalId, VocabularyConcept
-from tests import domainfactory, dtofactory, modelfactory
+from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
 from tests.fundingrequests.wizard.stepdata import publication_step
@@ -129,10 +129,11 @@ def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_d
     wizard_url = reverse("fundingrequests:update_submitter", kwargs={"pk": fr_id})
 
     affiliation = modelfactory.institution()
-    new_author = dtofactory.author_dto(affiliation.pk)
-    response = submit_step(client, wizard_url, new_author.to_post_data())
+    new_author = domainfactory.author(InstitutionId(affiliation.pk))
+    new_author_dto = AuthorDto.from_author(new_author)
+    response = submit_step(client, wizard_url, new_author_dto.to_post_data())
 
-    expected = new_author.to_author()
+    expected = new_author
     actual = repository.get_by_id(fr_id).submitter
     assert_author_eq(actual, expected)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
@@ -186,7 +187,7 @@ def test__updating_fundingrequest_funding__without_external_funding__updates_fun
     client: Client,
 ) -> None:
     fr_id = save_new_fundingrequest()
-    cost_dto = dtofactory.cost_dto()
+    cost_dto = PaymentDto.from_payment(domainfactory.payment())
     empty_funding_data = to_htmx_formset_data(
         [
             {

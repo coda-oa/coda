@@ -10,7 +10,7 @@ from coda.color import Color
 from coda.date import DateRange
 from coda.fundingrequest import Review
 from coda.string import NonEmptyStr
-from tests import dtofactory, modelfactory
+from tests import domainfactory, modelfactory
 
 
 @pytest.mark.django_db
@@ -30,7 +30,7 @@ def test__searching_for_funding_requests_by_submitter__returns_matching_funding_
     matching_request = modelfactory.fundingrequest()
     submitter = cast(Author, matching_request.submitter)
 
-    non_matching_submitter = dtofactory.author_dto()
+    non_matching_submitter = domainfactory.author()
     non_matching_submitter.name = NonEmptyStr("Not the submitter")
     _ = modelfactory.fundingrequest("No match", non_matching_submitter)
 

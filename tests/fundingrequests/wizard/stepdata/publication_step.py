@@ -2,7 +2,7 @@ import json
 from typing import Any
 
 from coda.apps.publications.dto import LinkDto, PublicationDto, PublicationMetaDto
-from tests import dtofactory
+from tests import domainfactory
 
 
 def empty_stepdata() -> dict[str, str]:
@@ -23,7 +23,7 @@ def empty_stepdata() -> dict[str, str]:
 
 
 def stepdata(publication: PublicationDto | None = None) -> dict[str, Any]:
-    publication = publication or dtofactory.publication_dto()
+    publication = publication or PublicationDto.from_publication(domainfactory.publication())
     meta = publication.meta
     authors = _serialize_authors(publication.authors)
     concepts = _concepts_to_json(meta)

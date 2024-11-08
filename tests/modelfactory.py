@@ -3,7 +3,6 @@ import random
 import faker
 
 from coda import issn
-from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.services import author_create
 from coda.apps.contracts.models import Contract
@@ -15,7 +14,7 @@ from coda.apps.invoices.models import Creditor
 from coda.apps.journals.models import Journal
 from coda.apps.publications.models import Concept, Publication, Vocabulary
 from coda.apps.publishers.models import Publisher
-from coda.author import InstitutionId
+from coda.author import Author, InstitutionId
 from coda.fundingrequest import FundingOrganizationId, FundingRequest
 from coda.publication import JournalId
 from tests import domainfactory
@@ -85,11 +84,11 @@ def external_funding(funder_id: int | None = None) -> ExternalFunding:
     )
 
 
-def fundingrequest(title: str = "", _author_dto: AuthorDto | None = None) -> FundingRequestModel:
+def fundingrequest(title: str = "", submitter: Author | None = None) -> FundingRequestModel:
     request_id = fundingrequest_create(
         FundingRequest.new(
             domainfactory.publication(JournalId(journal().pk), title),
-            domainfactory.author(InstitutionId(institution().pk)),
+            submitter or domainfactory.author(InstitutionId(institution().pk)),
             domainfactory.payment(),
             [domainfactory.external_funding(FundingOrganizationId(funding_organization().pk))],
         )
