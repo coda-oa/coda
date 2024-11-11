@@ -8,7 +8,7 @@
             {% if contract.end_date %}<p>End: {{ contract.end_date }}</p>{% endif %}
         {% endif %}
         <h2>Status</h2>
-        <p>{% include "contracts/contract_active_status.html" %}</p>
+        <p>{% include "contracts/contract_active_status.html" with entity=contract %}</p>
     </article>
     <section class="my-4">
         <h2>Publishers</h2>
