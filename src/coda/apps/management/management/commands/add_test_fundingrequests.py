@@ -71,6 +71,7 @@ class Command(BaseCommand):
             Publication.new(
                 title=NonEmptyStr(faker.sentence()),
                 authors=AuthorList(),
+                corresponding_author=self.create_author(),
                 journal=JournalId(journal.pk),
                 license=License.CC0,
                 open_access_type=OpenAccessType.Gold,
@@ -88,13 +89,7 @@ class Command(BaseCommand):
                 ),
                 links={Doi("10.1234/5678")},
             ),
-            Author.new(
-                name=NonEmptyStr(faker.name()),
-                email=faker.email(),
-                orcid=None,
-                affiliation=None,
-                roles=[Role.SUBMITTER],
-            ),
+            self.create_author(),
             Payment(amount=Money(100, Currency.USD), method=PaymentMethod.Direct),
             [
                 ExternalFunding(
@@ -107,6 +102,15 @@ class Command(BaseCommand):
 
         id = fundingrequest_create(request)
         fundingrequest_perform_review(id, review_status)
+
+    def create_author(self) -> Author:
+        return Author.new(
+            name=NonEmptyStr(faker.name()),
+            email=faker.email(),
+            orcid=None,
+            affiliation=None,
+            roles=[Role.SUBMITTER],
+        )
 
     def publisher(self) -> Publisher:
         return Publisher.objects.first() or Publisher.objects.create(name="Test Publisher")
