@@ -11,6 +11,7 @@ from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.forms import CorrespondingAuthorForm, PublicationForm
 from coda.apps.publications.models import Concept, Vocabulary
 from coda.author import Role
+from coda.vocabulary import VocabularyConcept
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.wizard.stepdata import publication_step
@@ -41,6 +42,14 @@ def parse_authors_request(
         (publication_data or publication_step.empty_stepdata())
         | {"action": "parse_authors", "authors": author_str},
     )
+
+
+def publication_type() -> VocabularyConcept:
+    return as_domain_concept(modelfactory.concept())
+
+
+def subject_area() -> VocabularyConcept:
+    return as_domain_concept(modelfactory.concept())
 
 
 @pytest.mark.django_db
@@ -86,6 +95,7 @@ def test__publication_step__action__parse_authors__retains_posted_data_but_does_
 def test__publication_step__done__saves_page_data_to_store() -> None:
     sut = PublicationStep()
     store = DictStore()
+
     publication = domainfactory.publication()
     publication.corresponding_author = domainfactory.author(roles=set())
     publication_dto = PublicationDto.from_publication(publication)

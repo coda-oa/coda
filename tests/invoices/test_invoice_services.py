@@ -1,9 +1,8 @@
 import pytest
 
-from coda.apps.authors.services import author_create
 from coda.apps.invoices import services
 from coda.apps.publications.services import publication_create
-from coda.invoice import Invoice, CreditorId
+from coda.invoice import CreditorId, Invoice
 from coda.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
 
@@ -32,8 +31,7 @@ def test__create_invoice__saves_invoice_to_database() -> None:
 
 def random_publication(publisher_id: int) -> PublicationId:
     journal_id = modelfactory.journal(publisher_id).id
-    author_id = author_create(domainfactory.author())
-    return publication_create(domainfactory.publication(journal=JournalId(journal_id)), author_id)
+    return publication_create(domainfactory.publication(journal=JournalId(journal_id)))
 
 
 def assert_invoice_eq(expected: Invoice, actual: Invoice) -> None:

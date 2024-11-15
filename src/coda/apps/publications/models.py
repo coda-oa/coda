@@ -4,7 +4,8 @@ from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract
 from coda.apps.journals.models import Journal
 from coda.author import AuthorList
-from coda.publication import License, OpenAccessType, UnknownConcept, UnpublishedState
+from coda.publication import License, OpenAccessType, UnpublishedState
+from coda.vocabulary import UnknownConcept
 
 
 class Vocabulary(models.Model):
@@ -29,6 +30,7 @@ class Concept(models.Model):
     name = models.CharField(max_length=255)
     hint = models.TextField()
     vocabulary = models.ForeignKey(Vocabulary, on_delete=models.CASCADE, related_name="concepts")
+    is_allowed = models.BooleanField(default=True)
 
     def __str__(self) -> str:
         return self.name

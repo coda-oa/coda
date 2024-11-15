@@ -36,11 +36,10 @@ from coda.publication import (
     PublicationId,
     PublicationState,
     Published,
-    UnknownConcept,
     Unpublished,
-    VocabularyConcept,
 )
 from coda.string import NonEmptyStr
+from coda.vocabulary import UnknownConcept, VocabularyConcept
 
 _faker = faker.Faker()
 

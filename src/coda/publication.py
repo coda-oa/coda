@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, NamedTuple, NewType, Self, TypeAlias
 from coda.author import Author, AuthorList, Role
 from coda.doi import Doi
 from coda.string import NonEmptyStr
+from coda.vocabulary import UnknownConcept, VocabularyConcept
 
 if TYPE_CHECKING:
     from coda.contract import ContractId
@@ -83,18 +84,6 @@ class UserLink(NamedTuple):
 Link: TypeAlias = UserLink | Doi
 
 
-ConceptId = NewType("ConceptId", str)
-VocabularyId = NewType("VocabularyId", int)
-
-
-class VocabularyConcept(NamedTuple):
-    id: ConceptId
-    vocabulary: VocabularyId
-
-
-UnknownConcept = VocabularyConcept(ConceptId("unknown"), VocabularyId(0))
-
-
 @dataclass
 class Publication:
     id: PublicationId | None
@@ -124,7 +113,7 @@ class Publication:
         publication_state: PublicationState = Unpublished(),
         links: set[Link] | None = None,
     ) -> Self:
-        if Role.CORRESPONDING_AUTHOR not in corresponding_author.roles:
+        if not corresponding_author.is_corresponding_author():
             corresponding_author.roles.add(Role.CORRESPONDING_AUTHOR)
 
         return cls(

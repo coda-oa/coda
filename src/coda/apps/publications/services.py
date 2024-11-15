@@ -3,16 +3,17 @@ from collections.abc import Iterable
 from typing import cast
 
 from coda.apps.authors import services as author_services
-from coda.apps.authors.models import Author as AuthorModel, PersonId
+from coda.apps.authors.models import Author as AuthorModel
+from coda.apps.authors.models import PersonId
 from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import Concept, LinkType
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
+from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import AuthorId, AuthorList
 from coda.contract import ContractId
 from coda.doi import Doi
 from coda.publication import (
-    ConceptId,
     JournalId,
     License,
     Link,
@@ -21,13 +22,11 @@ from coda.publication import (
     PublicationId,
     PublicationState,
     Published,
-    UnknownConcept,
     Unpublished,
     UnpublishedState,
-    VocabularyConcept,
-    VocabularyId,
 )
 from coda.string import NonEmptyStr
+from coda.vocabulary import ConceptId, UnknownConcept, VocabularyConcept, VocabularyId
 
 
 def _deserialize_links(links: Iterable[LinkModel]) -> set[Link]:
@@ -73,7 +72,11 @@ def _deserialize_concept(model_concept: Concept | None) -> VocabularyConcept:
         domain_concept = UnknownConcept
     else:
         domain_concept = VocabularyConcept(
-            ConceptId(model_concept.concept_id), VocabularyId(model_concept.vocabulary_id)
+            ConceptId(model_concept.concept_id),
+            VocabularyId(model_concept.vocabulary_id),
+            name=model_concept.name,
+            description=model_concept.hint,
+            is_allowed=model_concept.is_allowed,
         )
 
     return domain_concept
@@ -88,9 +91,12 @@ def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
     return state
 
 
-def publication_create(
-    publication: Publication, author_id: AuthorId | None = None
-) -> PublicationId:
+def publication_create(publication: Publication) -> PublicationId:
+    if publication.publication_type != UnknownConcept:
+        vocabulary = vocabulary_repository.get_by_id(publication.publication_type.vocabulary)
+        if not vocabulary.is_allowed(publication.publication_type.id):
+            raise ValueError("Publication type is not allowed")
+
     online_publication_date, print_publication_date = _publication_dates(publication)
     publication_type = _first_by_vocabulary_concept(publication.publication_type)
     subject_area = _first_by_vocabulary_concept(publication.subject_area)

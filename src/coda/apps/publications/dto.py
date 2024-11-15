@@ -6,7 +6,6 @@ from coda.author import AuthorList
 from coda.contract import ContractId
 from coda.doi import Doi
 from coda.publication import (
-    ConceptId,
     JournalId,
     License,
     Link,
@@ -18,10 +17,9 @@ from coda.publication import (
     Unpublished,
     UnpublishedState,
     UserLink,
-    VocabularyConcept,
-    VocabularyId,
 )
 from coda.string import NonEmptyStr
+from coda.vocabulary import ConceptId, VocabularyConcept, VocabularyId
 
 
 class LinkDto(CodaBaseDto):
@@ -46,13 +44,25 @@ class LinkDto(CodaBaseDto):
 class ConceptDto(CodaBaseDto):
     concept: ConceptId
     vocabulary: VocabularyId
+    name: str = ""
+    description: str = ""
 
     @classmethod
     def from_concept(cls, concept: VocabularyConcept) -> "ConceptDto":
-        return cls(concept=concept.id, vocabulary=concept.vocabulary)
+        return cls(
+            concept=concept.id,
+            vocabulary=concept.vocabulary,
+            name=concept.name,
+            description=concept.description,
+        )
 
     def to_concept(self) -> VocabularyConcept:
-        return VocabularyConcept(ConceptId(self.concept), VocabularyId(self.vocabulary))
+        return VocabularyConcept(
+            id=ConceptId(self.concept),
+            vocabulary=VocabularyId(self.vocabulary),
+            name=self.name,
+            description=self.description,
+        )
 
 
 class PublicationMetaDto(CodaBaseDto):
