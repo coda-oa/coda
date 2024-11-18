@@ -1,7 +1,6 @@
 from django.core.management import BaseCommand
 from tests import domainfactory, modelfactory
 
-from coda.apps.authors.services import author_create
 from coda.apps.invoices import services
 from coda.apps.publications.services import publication_create
 from coda.invoice import CreditorId
@@ -29,5 +28,4 @@ class Command(BaseCommand):
 
 def random_publication(publisher_id: int) -> PublicationId:
     journal_id = modelfactory.journal(publisher_id).id
-    author_id = author_create(domainfactory.author())
-    return publication_create(domainfactory.publication(journal=JournalId(journal_id)), author_id)
+    return publication_create(domainfactory.publication(journal=JournalId(journal_id)))

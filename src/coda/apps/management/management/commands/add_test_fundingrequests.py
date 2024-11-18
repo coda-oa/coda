@@ -24,17 +24,9 @@ from coda.fundingrequest import (
     Review,
 )
 from coda.money import Currency, Money
-from coda.publication import (
-    ConceptId,
-    JournalId,
-    License,
-    OpenAccessType,
-    Publication,
-    Published,
-    VocabularyConcept,
-    VocabularyId,
-)
+from coda.publication import JournalId, License, OpenAccessType, Publication, Published
 from coda.string import NonEmptyStr
+from coda.vocabulary import ConceptId, VocabularyConcept, VocabularyId
 
 faker = Faker()
 faker.add_provider(lorem)
