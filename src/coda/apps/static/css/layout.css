@@ -93,10 +93,17 @@
 }
 
 .scroll-container {
+  position: relative;
   overflow-y: auto;
 
   &.max-h-30 {
     max-height: 30rem;
+  }
+
+
+  & thead th {
+    position: sticky;
+    top: 0;
   }
 }
 

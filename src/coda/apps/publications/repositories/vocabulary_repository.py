@@ -1,4 +1,5 @@
 from typing import Any
+
 from coda.apps.publications.models import Vocabulary as VocabularyModel
 from coda.vocabulary import ConceptId, Vocabulary, VocabularyId
 
@@ -17,11 +18,7 @@ def get_by_id(id: VocabularyId) -> Vocabulary:
     except VocabularyModel.DoesNotExist:
         raise EntityNotFoundError(Vocabulary, query_name="id", query_value=id)
 
-    vocabulary = Vocabulary(id=id, name=v.name, version=v.version)
-    for c in v.concepts.all():
-        vocabulary.add_concept(
-            id=ConceptId(c.concept_id), name=c.name, description=c.hint, is_allowed=c.is_allowed
-        )
+    vocabulary = as_domain_object(v)
 
     return vocabulary
 
@@ -32,13 +29,11 @@ def first_by_name(name: str) -> Vocabulary:
     except VocabularyModel.DoesNotExist:
         raise EntityNotFoundError(Vocabulary, query_name="name", query_value=name)
 
-    vocabulary = Vocabulary(id=VocabularyId(v.id), name=v.name, version=v.version)
-    for c in v.concepts.all():
-        vocabulary.add_concept(
-            id=ConceptId(c.concept_id), name=c.name, description=c.hint, is_allowed=c.is_allowed
-        )
+    return as_domain_object(v)
 
-    return vocabulary
+
+def all() -> list[Vocabulary]:
+    return [as_domain_object(v) for v in VocabularyModel.objects.all()]
 
 
 def save(vocabulary: Vocabulary) -> None:
@@ -53,3 +48,13 @@ def save(vocabulary: Vocabulary) -> None:
         mc.hint = c.description
         mc.is_allowed = c.is_allowed
         mc.save()
+
+
+def as_domain_object(v: VocabularyModel) -> Vocabulary:
+    vocabulary = Vocabulary(id=VocabularyId(v.pk), name=v.name, version=v.version)
+    for c in v.concepts.all():
+        vocabulary.add_concept(
+            id=ConceptId(c.concept_id), name=c.name, description=c.hint, is_allowed=c.is_allowed
+        )
+
+    return vocabulary

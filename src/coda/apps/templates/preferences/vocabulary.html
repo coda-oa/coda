@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1 class="my-2">Edit Vocabularies</h1>
+    <article>
+        <h1>Choose a vocabulary</h1>
+        <select name="selected-vocabulary"
+                id="selected-vocabulary"
+                hx-get="{% url 'preferences:select_vocabulary' %}"
+                hx-target="#vocabulary-table"
+                hx-swap="outerHTML">
+            <option selected>--------</option>
+            {% for v in vocabularies %}<option value="{{ v.id }}">{{ v.name }}</option>{% endfor %}
+        </select>
+        <div class="my-2 scroll-container max-h-30">
+            <table id="vocabulary-table" class="article__table">
+            </table>
+        </div>
+    </article>
+{% endblock content %}

@@ -24,7 +24,8 @@ from coda.fundingrequest import (
     FundingRequestId,
     Payment,
 )
-from coda.publication import JournalId, VocabularyConcept
+from coda.publication import JournalId
+from coda.vocabulary import VocabularyConcept
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq

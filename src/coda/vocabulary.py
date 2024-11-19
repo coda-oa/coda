@@ -27,7 +27,7 @@ class VocabularyConcept:
         return self.id == other.id and self.vocabulary == other.vocabulary
 
 
-@dataclass
+@dataclass(repr=True)
 class Vocabulary:
     def __init__(
         self,
@@ -51,6 +51,9 @@ class Vocabulary:
 
     def allowed_concepts(self) -> Collection[VocabularyConcept]:
         return tuple(c for c in self._concepts if c.is_allowed)
+
+    def forbidden_concepts(self) -> Collection[VocabularyConcept]:
+        return tuple(c for c in self._concepts if not c.is_allowed)
 
     def is_allowed(self, concept_id: ConceptId) -> bool:
         return any(c.id == concept_id for c in self.allowed_concepts())
@@ -97,3 +100,34 @@ class Vocabulary:
 
 
 UnknownConcept = VocabularyConcept(ConceptId("unknown"), VocabularyId(0))
+
+
+@dataclass
+class LimitedVocabulary:
+    id: VocabularyId
+    vocabulary: Vocabulary
+    name: str = ""
+    version: str = ""
+
+    def __post_init__(self) -> None:
+        self._disallowed: set[ConceptId] = set()
+
+    @property
+    def concepts(self) -> Collection[VocabularyConcept]:
+        if not self._disallowed:
+            return self.vocabulary.concepts
+
+        return [c for c in self.vocabulary.concepts if c.id not in self._disallowed]
+
+    @property
+    def disallowed_concepts(self) -> Collection[VocabularyConcept]:
+        return [c for c in self.vocabulary.concepts if c.id in self._disallowed]
+
+    def get_concept(self, concept_id: ConceptId) -> VocabularyConcept:
+        if concept_id in self._disallowed:
+            raise ValueError(f"Concept {concept_id} is disallowed in this vocabulary")
+
+        return self.vocabulary.get_concept(concept_id)
+
+    def disallow(self, concept_id: ConceptId) -> None:
+        self._disallowed.add(concept_id)

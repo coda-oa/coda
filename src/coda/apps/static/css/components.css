@@ -1,3 +1,7 @@
+article {
+  border: 1px solid var(--coda-muted-border-color);
+}
+
 search-select:not(:defined) {
   /* prevents flash of options list before shadow dom styling kicks in */
   visibility: hidden;
@@ -56,6 +60,13 @@ ul.no-decoration>li {
   margin-block: 0;
 }
 
+.button-undecorated {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
 .article__table {
   width: 100%;
   margin-block-end: 0;
@@ -103,6 +114,7 @@ ul.no-decoration>li {
   position: sticky;
   top: 0;
 }
+
 
 .invoice-position-number-column {
   width: 3ch;
