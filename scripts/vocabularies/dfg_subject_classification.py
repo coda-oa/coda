@@ -13,13 +13,13 @@ DFG_SUBJECT_CLASSIFICATION_PATH = (
 
 
 def process_excel() -> pl.DataFrame:
-    df = pl.read_excel(DFG_SUBJECT_CLASSIFICATION_PATH, read_options={"skip_rows": 2})
+    df = pl.read_excel(DFG_SUBJECT_CLASSIFICATION_PATH, read_options={"header_row": 2})
     return (
         df.with_columns(
             pl.col("Subject area").alias("Subject area ID"),
-            pl.col("_duplicated_0").alias("Subject area name"),
-            pl.col("_duplicated_1").alias("Subgroup").str.replace("\n", " "),
-            pl.col("_duplicated_2").alias("Group").str.replace("\n", " "),
+            pl.col("__UNNAMED__1").alias("Subject area name"),
+            pl.col("__UNNAMED__3").alias("Subgroup").str.replace("\n", " "),
+            pl.col("__UNNAMED__4").alias("Group").str.replace("\n", " "),
         )
         .with_columns(
             pl.col("Subgroup").fill_null(strategy="forward"),
@@ -41,7 +41,8 @@ def process_excel() -> pl.DataFrame:
                 "_duplicated_1",
                 "_duplicated_2",
                 "_duplicated_3",
-            ]
+            ],
+            strict=False,
         )
     )
 
