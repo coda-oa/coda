@@ -12,6 +12,9 @@ class Vocabulary(models.Model):
     name = models.CharField(max_length=255)
     version = models.CharField(max_length=10, blank=True, default="")
 
+    is_limited = models.BooleanField(default=False)
+    base_vocabulary = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True)
+
     @staticmethod
     def empty() -> "Vocabulary":
         v, created = Vocabulary.objects.get_or_create(

@@ -1,9 +1,22 @@
 from collections.abc import Collection
 from dataclasses import dataclass
-from typing import NewType
+from typing import NewType, Protocol
 
 ConceptId = NewType("ConceptId", str)
 VocabularyId = NewType("VocabularyId", int)
+
+
+class VocabularyProtocol(Protocol):
+    id: VocabularyId
+    name: str
+    version: str
+
+    def get_concept(self, concept_id: ConceptId) -> "VocabularyConcept":
+        ...
+
+    @property
+    def concepts(self) -> Collection["VocabularyConcept"]:
+        ...
 
 
 class DuplicateConceptError(Exception):
@@ -105,7 +118,7 @@ UnknownConcept = VocabularyConcept(ConceptId("unknown"), VocabularyId(0))
 @dataclass
 class LimitedVocabulary:
     id: VocabularyId
-    vocabulary: Vocabulary
+    vocabulary: VocabularyProtocol
     name: str = ""
     version: str = ""
 
