@@ -75,7 +75,6 @@ def _deserialize_concept(model_concept: Concept | None) -> VocabularyConcept:
             VocabularyId(model_concept.vocabulary_id),
             name=model_concept.name,
             description=model_concept.hint,
-            is_allowed=model_concept.is_allowed,
         )
 
     return domain_concept

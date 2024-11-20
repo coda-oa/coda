@@ -60,7 +60,6 @@ def save(vocabulary: VocabularyProtocol) -> None:
         mc, _ = v.concepts.get_or_create(concept_id=c.id)
         mc.name = c.name
         mc.hint = c.description
-        mc.is_allowed = c.is_allowed
         mc.save()
 
     v.save()
@@ -78,8 +77,6 @@ def as_domain_object(v: VocabularyModel) -> VocabularyProtocol:
     else:
         vocabulary = Vocabulary(id=VocabularyId(v.pk), name=v.name, version=v.version)
         for c in v.concepts.all():
-            vocabulary.add_concept(
-                id=ConceptId(c.concept_id), name=c.name, description=c.hint, is_allowed=c.is_allowed
-            )
+            vocabulary.add_concept(id=ConceptId(c.concept_id), name=c.name, description=c.hint)
 
     return vocabulary
