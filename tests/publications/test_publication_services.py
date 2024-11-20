@@ -4,10 +4,8 @@ import pytest
 
 from coda.apps.authors.models import Author
 from coda.apps.journals.models import Journal
-from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import Concept
-from coda.apps.publications.repositories import vocabulary_repository
-from coda.apps.publications.services import first, get_by_id, publication_create, publication_update
+from coda.apps.publications.services import get_by_id, publication_create, publication_update
 from coda.author import AuthorId
 from coda.contract import ContractId
 from coda.publication import JournalId, Publication, PublicationId
@@ -55,26 +53,6 @@ def test__can_create_publication_with_unknown_publication_type(journal: Journal)
 
     actual = get_by_id(new_id)
     assert_publication_eq(actual, publication)
-
-
-@pytest.mark.django_db
-def test__creating_publication_with_non_allowed_publication_type__raises_error(
-    journal: Journal,
-) -> None:
-    vocabulary_model = modelfactory.vocabulary()
-    not_allowed = as_domain_concept(modelfactory.concept(vocabulary=vocabulary_model))
-    GlobalPreferences.set_publication_type_vocabulary(vocabulary_model)
-
-    vocabulary = vocabulary_repository.get_by_id(VocabularyId(vocabulary_model.pk))
-    vocabulary.set_forbidden(not_allowed.id)
-    vocabulary_repository.save(vocabulary)
-
-    publication = domainfactory.publication(JournalId(journal.pk), publication_type=not_allowed)
-
-    with pytest.raises(ValueError):
-        publication_create(publication)
-
-    assert first() is None
 
 
 @pytest.mark.django_db

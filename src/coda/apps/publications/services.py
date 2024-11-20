@@ -9,7 +9,6 @@ from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import Concept, LinkType
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
-from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import AuthorId, AuthorList
 from coda.contract import ContractId
 from coda.doi import Doi
@@ -92,11 +91,6 @@ def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
 
 
 def publication_create(publication: Publication) -> PublicationId:
-    if publication.publication_type != UnknownConcept:
-        vocabulary = vocabulary_repository.get_by_id(publication.publication_type.vocabulary)
-        if not vocabulary.is_allowed(publication.publication_type.id):
-            raise ValueError("Publication type is not allowed")
-
     online_publication_date, print_publication_date = _publication_dates(publication)
     publication_type = _first_by_vocabulary_concept(publication.publication_type)
     subject_area = _first_by_vocabulary_concept(publication.subject_area)
