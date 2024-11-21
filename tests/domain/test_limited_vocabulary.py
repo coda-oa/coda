@@ -93,3 +93,17 @@ def test__disallowed_concept__get_concept__raises_error() -> None:
 
     with pytest.raises(ValueError):
         sut.get_concept(forbidden_id)
+
+
+def test__disallowed_concepts__allowing__concept_is_in_concepts() -> None:
+    vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
+    forbidden_id = ConceptId("test-concept")
+    vocabulary.add_concept(forbidden_id)
+
+    sut = LimitedVocabulary(id=VocabularyId(1), vocabulary=vocabulary)
+    sut.disallow(forbidden_id)
+    sut.allow(forbidden_id)
+
+    assert list(sut.concepts) == [vocabulary.get_concept(forbidden_id)]
+    assert sut.get_concept(forbidden_id) == vocabulary.get_concept(forbidden_id)
+    assert list(sut.disallowed_concepts) == []

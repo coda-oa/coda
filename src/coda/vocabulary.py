@@ -108,3 +108,6 @@ class LimitedVocabulary:
 
     def disallow(self, concept_id: ConceptId) -> None:
         self._disallowed.add(concept_id)
+
+    def allow(self, concept_id: ConceptId) -> None:
+        self._disallowed.discard(concept_id)
