@@ -7,15 +7,6 @@
         </tr>
     </thead>
     <tbody>
-        <input type="hidden"
-               name="vocabulary_id"
-               value="{{ selected_vocabulary.id }}">
-        <input type="hidden"
-               name="vocabulary_name"
-               value="{{ selected_vocabulary.name }}">
-        <input type="hidden"
-               name="vocabulary_version"
-               value="{{ selected_vocabulary.version }}">
         {% for allowed_concept, forbidden_concept in concept_pairs %}
             <tr>
                 {% if allowed_concept %}
@@ -29,7 +20,7 @@
                             <button class="button-undecorated"
                                     name="disallow"
                                     value="{{ allowed_concept.id }}"
-                                    hx-post="{% url 'preferences:move_to_forbidden' %}"
+                                    hx-post="{% url 'publications:vocabulary_move_to_forbidden' %}"
                                     hx-include="input[type=hidden]"
                                     hx-target="#vocabulary-table"
                                     hx-swap="outerHTML"
@@ -63,7 +54,7 @@
                             <button class="button-undecorated"
                                     name="allow"
                                     value="{{ forbidden_concept.id }}"
-                                    hx-post="{% url 'preferences:move_to_allowed' %}"
+                                    hx-post="{% url 'publications:vocabulary_move_to_allowed' %}"
                                     hx-include="input[type=hidden]"
                                     hx-target="#vocabulary-table"
                                     hx-swap="outerHTML"

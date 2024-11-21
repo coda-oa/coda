@@ -2,6 +2,11 @@ article {
   border: 1px solid var(--coda-muted-border-color);
 }
 
+button.danger, a[role="button"].danger {
+  background-color: var(--coda-validation-invalid-color);
+  border-color: var(--coda-validation-invalid-color)
+}
+
 search-select:not(:defined) {
   /* prevents flash of options list before shadow dom styling kicks in */
   visibility: hidden;

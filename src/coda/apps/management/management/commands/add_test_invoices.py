@@ -2,7 +2,7 @@ from django.core.management import BaseCommand
 from tests import domainfactory, modelfactory
 
 from coda.apps.invoices import services
-from coda.apps.publications.services import publication_create
+from coda.apps.publications.services.publications import publication_create
 from coda.invoice import CreditorId
 from coda.money import Currency
 from coda.publication import JournalId, PublicationId

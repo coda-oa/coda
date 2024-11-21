@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+
 from django.db import transaction
 
 from coda.apps.authors.services import author_create
@@ -6,7 +7,7 @@ from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
-from coda.apps.publications import services as publication_services
+from coda.apps.publications.services import publications
 from coda.color import Color
 from coda.fundingrequest import ExternalFunding, FundingRequest, FundingRequestId, Payment, Review
 
@@ -14,7 +15,7 @@ from coda.fundingrequest import ExternalFunding, FundingRequest, FundingRequestI
 @transaction.atomic
 def fundingrequest_create(fundingrequest: FundingRequest) -> FundingRequestId:
     author_id = author_create(fundingrequest.submitter)
-    publication_id = publication_services.publication_create(fundingrequest.publication)
+    publication_id = publications.publication_create(fundingrequest.publication)
     request = FundingRequestModel.objects.create(
         submitter_id=author_id,
         publication_id=publication_id,

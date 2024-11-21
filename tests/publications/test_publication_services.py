@@ -5,11 +5,15 @@ import pytest
 from coda.apps.authors.models import Author
 from coda.apps.journals.models import Journal
 from coda.apps.publications.models import Concept
-from coda.apps.publications.services import get_by_id, publication_create, publication_update
+from coda.apps.publications.services.publications import (
+    get_by_id,
+    publication_create,
+    publication_update,
+)
 from coda.author import AuthorId
 from coda.contract import ContractId
 from coda.publication import JournalId, Publication, PublicationId
-from coda.vocabulary import VocabularyId, VocabularyConcept, ConceptId, UnknownConcept
+from coda.vocabulary import ConceptId, UnknownConcept, VocabularyConcept, VocabularyId
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 

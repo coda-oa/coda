@@ -17,7 +17,7 @@ from coda.apps.fundingrequests.views.wizard.wizardsteps import (
     SubmitterStep,
 )
 from coda.apps.publications.dto import PublicationDto
-from coda.apps.publications.services import publication_update
+from coda.apps.publications.services.publications import publication_update
 from coda.apps.wizard import SessionStore, Wizard
 
 

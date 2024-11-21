@@ -6,7 +6,7 @@ from django.db.models import Q
 from coda.apps.authors import services as author_services
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
-from coda.apps.publications import services as publication_services
+from coda.apps.publications.services import publications
 from coda.author import AuthorId
 from coda.date import DateRange
 from coda.fundingrequest import (
@@ -47,7 +47,7 @@ def as_domain_object(model: FundingRequestModel) -> FundingRequest:
 
     return constructor(
         id=FundingRequestId(model.id),
-        publication=publication_services.get_by_id(PublicationId(model.publication_id)),
+        publication=publications.get_by_id(PublicationId(model.publication_id)),
         submitter=author_services.get_by_id(AuthorId(cast(int, model.submitter_id))),
         estimated_cost=Payment(
             amount=Money(model.estimated_cost, Currency.from_code(model.estimated_cost_currency)),

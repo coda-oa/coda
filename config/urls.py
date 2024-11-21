@@ -26,6 +26,7 @@ urlpatterns = [
     path(
         "fundingrequests/", include("coda.apps.fundingrequests.urls", namespace="fundingrequests")
     ),
+    path("publications/", include("coda.apps.publications.urls", namespace="publications")),
     path("invoices/", include("coda.apps.invoices.urls", namespace="invoices")),
     path("preferences/", include("coda.apps.preferences.urls", namespace="preferences")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

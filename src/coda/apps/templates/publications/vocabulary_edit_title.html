@@ -1,0 +1,26 @@
+<div id="edit-title-container" class="flex justify-between">
+    <input type="text"
+           id="vocabulary_name"
+           name="vocabulary_name"
+           value="{{ vocabulary.name }}"
+           {% if not editing %}readonly{% endif %}>
+    {% if editing %}
+        <button type="button"
+                class="secondary"
+                name="vocabulary_id"
+                value="{{ vocabulary.id }}"
+                hx-include="#vocabulary_name"
+                hx-post="{% url 'publications:vocabulary_save_title' %}"
+                hx-target="#edit-title-container"
+                hx-swap="outerHTML">Save</button>
+    {% else %}
+        <button type="button"
+                class="secondary"
+                name="vocabulary_id"
+                value="{{ vocabulary.id }}"
+                hx-include="#vocabulary_name"
+                hx-post="{% url 'publications:vocabulary_edit_title' %}"
+                hx-target="#edit-title-container"
+                hx-swap="outerHTML">Edit</button>
+    {% endif %}
+</div>

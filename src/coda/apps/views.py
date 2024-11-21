@@ -11,7 +11,7 @@ class EntityListView(Generic[EntityType], TemplateView):
     template_name = "entity_list_page.html"
     paginate_by = 10
     entity_name: str
-    entity_create_url: str
+    entity_create_url: str = ""
     entity_list_item_template: str
     entity_list_layout_classes: str = ""
     entity_filter_template: str = ""

@@ -1,7 +1,7 @@
 import pytest
 
 from coda.apps.invoices import services
-from coda.apps.publications.services import publication_create
+from coda.apps.publications.services.publications import publication_create
 from coda.invoice import CreditorId, Invoice
 from coda.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
