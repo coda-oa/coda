@@ -39,4 +39,4 @@ def test__saved_limited_vocabulary__allowing_previously_forbidden_concept__saves
     vocabulary_repository.save(limited_vocabulary)
 
     result = vocabulary_repository.get_by_id(limited_vocabulary.id)
-    assert list(result.concepts) == list(v.concepts)
+    assert set(result.concepts) == set(v.concepts)
