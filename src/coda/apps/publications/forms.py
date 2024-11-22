@@ -14,9 +14,11 @@ from coda.apps.formbase import CodaFormBase
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import ConceptDto, LinkDto, PublicationMetaDto
 from coda.apps.publications.models import Concept, LinkType, Publication, Vocabulary
+from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import Role
 from coda.doi import Doi
 from coda.publication import License, OpenAccessType, Published, UnpublishedState
+from coda.vocabulary import UnknownConcept, VocabularyConcept, VocabularyProtocol
 
 
 def concept_choices_from_global_settings(
@@ -24,7 +26,7 @@ def concept_choices_from_global_settings(
 ) -> Callable[[], list[tuple[str, str]]]:
     def _concept_options_by_vocabulary() -> list[tuple[str, str]]:
         vocabulary = vocabulary_from_settings(vocabulary_type)
-        return concept_form_values(vocabulary.concepts.all())
+        return concept_form_values(vocabulary.concepts)
 
     return _concept_options_by_vocabulary
 
@@ -37,8 +39,8 @@ def get_concepts(vocabulary: Vocabulary | None) -> Iterable[Concept]:
 
 
 class Vocabularies(NamedTuple):
-    subject_areas: Iterable[Concept] = ()
-    publication_types: Iterable[Concept] = ()
+    subject_areas: VocabularyProtocol | None = None
+    publication_types: VocabularyProtocol | None = None
 
 
 class CorrespondingAuthorForm(AuthorForm):
@@ -85,16 +87,20 @@ class PublicationForm(CodaFormBase):
     @classmethod
     def from_dto(cls, dto: PublicationMetaDto) -> "PublicationForm":
         subject_vocabulary_id = dto.subject_area.vocabulary
-        subject_vocabulary = Vocabulary.objects.filter(pk=subject_vocabulary_id).first()
-        subject_concepts = get_concepts(subject_vocabulary)
+        if subject_vocabulary_id != UnknownConcept.vocabulary:
+            subject_areas = vocabulary_repository.get_by_id(subject_vocabulary_id)
+        else:
+            subject_areas = None
 
         pub_type_vocabulary_id = dto.publication_type.vocabulary
-        pub_type_vocabulary = Vocabulary.objects.filter(pk=pub_type_vocabulary_id).first()
-        pub_type_concepts = get_concepts(pub_type_vocabulary)
+        if pub_type_vocabulary_id != UnknownConcept.vocabulary:
+            publication_types = vocabulary_repository.get_by_id(pub_type_vocabulary_id)
+        else:
+            publication_types = None
 
         vocabularies = Vocabularies(
-            subject_areas=subject_concepts,
-            publication_types=pub_type_concepts,
+            subject_areas=subject_areas,
+            publication_types=publication_types,
         )
 
         return cls(
@@ -143,10 +149,10 @@ class PublicationForm(CodaFormBase):
         self._update_field_choices("subject_area", vocabularies.subject_areas)
         self._update_field_choices("publication_type", vocabularies.publication_types)
 
-    def _update_field_choices(self, field_name: str, vocabulary: Iterable[Concept]) -> None:
+    def _update_field_choices(self, field_name: str, vocabulary: VocabularyProtocol | None) -> None:
         field: forms.Field = self.fields[field_name]
         if vocabulary:
-            self._as_choicefield(field).choices = concept_form_values(vocabulary)
+            self._as_choicefield(field).choices = concept_form_values(vocabulary.concepts)
             if field_name in self.errors:
                 self.errors.pop(field_name)
                 field.widget.attrs.pop("aria-invalid")
@@ -219,7 +225,7 @@ class LinkForm(forms.Form):
         )
 
 
-def vocabulary_from_settings(vocabulary_type: str) -> Vocabulary:
+def vocabulary_from_settings(vocabulary_type: str) -> VocabularyProtocol:
     match vocabulary_type:
         case "publication_type":
             vocabulary = GlobalPreferences.get_publication_type_vocabulary()
@@ -230,11 +236,9 @@ def vocabulary_from_settings(vocabulary_type: str) -> Vocabulary:
     return vocabulary
 
 
-def concept_json_value(concept: Concept) -> str:
-    return ConceptDto(
-        concept=concept.concept_id, vocabulary=concept.vocabulary_id
-    ).model_dump_json()
+def concept_json(concept: VocabularyConcept) -> str:
+    return ConceptDto.from_concept(concept).model_dump_json()
 
 
-def concept_form_values(concepts: Iterable[Concept]) -> list[tuple[str, str]]:
-    return [(concept_json_value(c), c.name) for c in concepts]
+def concept_form_values(concepts: Iterable[VocabularyConcept]) -> list[tuple[str, str]]:
+    return [(concept_json(c), c.name) for c in concepts]

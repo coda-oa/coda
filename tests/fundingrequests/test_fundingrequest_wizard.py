@@ -14,6 +14,7 @@ from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import PublicationDto
+from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.users.models import User
 from coda.author import InstitutionId
 from coda.contract import ContractId
@@ -25,12 +26,12 @@ from coda.fundingrequest import (
     Payment,
 )
 from coda.publication import JournalId
-from coda.vocabulary import VocabularyConcept
+from coda.vocabulary import ConceptId, VocabularyConcept
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
 from tests.fundingrequests.wizard.stepdata import publication_step
-from tests.publications.test_publication_services import as_domain_concept, assert_publication_eq
+from tests.publications.test_publication_services import assert_publication_eq
 
 
 class FundingRequestDataBuilder:
@@ -92,8 +93,16 @@ def login(client: Client) -> None:
 
 @pytest.fixture(autouse=True)
 def prepare_global_settings() -> None:
-    GlobalPreferences.set_subject_classification_vocabulary(modelfactory.vocabulary())
-    GlobalPreferences.set_publication_type_vocabulary(modelfactory.vocabulary())
+    subject_areas = vocabulary_repository.create("subject_areas", "1.0")
+    subject_areas.add_concept(ConceptId("subject_area"), "subject_area")
+    vocabulary_repository.save(subject_areas)
+
+    publication_types = vocabulary_repository.create("publication_types", "1.0")
+    publication_types.add_concept(ConceptId("publication_type"), "publication_type")
+    vocabulary_repository.save(publication_types)
+
+    GlobalPreferences.set_subject_classification_vocabulary(subject_areas)
+    GlobalPreferences.set_publication_type_vocabulary(publication_types)
 
 
 def save_new_fundingrequest() -> FundingRequestId:
@@ -256,12 +265,8 @@ def submit_step(client: Client, url: str, form_data: dict[str, Any]) -> HttpResp
 
 
 def subject_area() -> VocabularyConcept:
-    concept_model = GlobalPreferences.get_subject_classification_vocabulary().concepts.first()
-    assert concept_model is not None
-    return as_domain_concept(concept_model)
+    return list(GlobalPreferences.get_subject_classification_vocabulary().concepts)[0]
 
 
 def publication_type() -> VocabularyConcept:
-    concept_model = GlobalPreferences.get_publication_type_vocabulary().concepts.first()
-    assert concept_model is not None
-    return as_domain_concept(concept_model)
+    return list(GlobalPreferences.get_publication_type_vocabulary().concepts)[0]
