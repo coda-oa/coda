@@ -5,11 +5,8 @@ import pytest
 from coda.apps.authors.models import Author
 from coda.apps.journals.models import Journal
 from coda.apps.publications.models import Concept
-from coda.apps.publications.services.publications import (
-    get_by_id,
-    publication_create,
-    publication_update,
-)
+from coda.apps.publications.repositories import publication_repository
+from coda.apps.publications.services.publications import publication_create, publication_update
 from coda.author import AuthorId
 from coda.contract import ContractId
 from coda.publication import JournalId, Publication, PublicationId
@@ -42,7 +39,7 @@ def test__create_publication__creates_a_publication_based_on_given_data(journal:
     )
     new_id = publication_create(publication)
 
-    actual = get_by_id(new_id)
+    actual = publication_repository.get_by_id(new_id)
     assert_publication_eq(actual, publication)
 
 
@@ -55,7 +52,7 @@ def test__can_create_publication_with_unknown_publication_type(journal: Journal)
     publication = domainfactory.publication(JournalId(journal.pk), publication_type=UnknownConcept)
     new_id = publication_create(publication)
 
-    actual = get_by_id(new_id)
+    actual = publication_repository.get_by_id(new_id)
     assert_publication_eq(actual, publication)
 
 
@@ -83,7 +80,7 @@ def test__update_publication__updates_publication_based_on_given_data(journal: J
 
     publication_update(new_publication)
 
-    actual = get_by_id(new_id)
+    actual = publication_repository.get_by_id(new_id)
     assert_publication_eq(actual, new_publication)
 
 
@@ -91,7 +88,7 @@ def test__update_publication__updates_publication_based_on_given_data(journal: J
 def test__update_publication__existing_author_gets_updated_inplace() -> None:
     publication = domainfactory.publication(JournalId(modelfactory.journal().pk))
     publication_id = publication_create(publication)
-    created = get_by_id(publication_id)
+    created = publication_repository.get_by_id(publication_id)
     expected_author_id = cast(AuthorId, created.corresponding_author.id)
 
     new_publication = domainfactory.publication(
@@ -100,7 +97,7 @@ def test__update_publication__existing_author_gets_updated_inplace() -> None:
 
     publication_update(new_publication)
 
-    actual = get_by_id(publication_id)
+    actual = publication_repository.get_by_id(publication_id)
     assert actual.corresponding_author.id == expected_author_id
 
 
@@ -125,7 +122,7 @@ def test__can_update_publication_with_unknown_concepts(journal: Journal) -> None
 
     publication_update(new_publication)
 
-    actual = get_by_id(new_id)
+    actual = publication_repository.get_by_id(new_id)
     assert_publication_eq(actual, new_publication)
 
 
@@ -143,7 +140,7 @@ def test__can_update_publication_with_contracts(journal: Journal) -> None:
 
     publication_update(expected)
 
-    actual = get_by_id(new_id)
+    actual = publication_repository.get_by_id(new_id)
     assert_publication_eq(actual, expected)
 
 

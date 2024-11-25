@@ -1,8 +1,11 @@
+from collections.abc import Collection
 from typing import Any, cast
 
 from coda.apps.publications.models import Vocabulary as VocabularyModel
 from coda.vocabulary import (
     ConceptId,
+    ConceptProtocol,
+    LimitedConcept,
     LimitedVocabulary,
     Vocabulary,
     VocabularyId,
@@ -84,6 +87,7 @@ def save(vocabulary: VocabularyProtocol) -> None:
     v.name = vocabulary.name
     v.version = vocabulary.version
 
+    concepts: Collection[ConceptProtocol]
     if isinstance(vocabulary, Vocabulary):
         concepts = vocabulary.concepts
     elif isinstance(vocabulary, LimitedVocabulary):
@@ -98,6 +102,10 @@ def save(vocabulary: VocabularyProtocol) -> None:
         mc, _ = v.concepts.get_or_create(concept_id=c.id)
         mc.name = c.name
         mc.hint = c.description
+
+        if isinstance(c, LimitedConcept):
+            mc.base_vocabulary_id = c.base_vocabulary
+
         mc.save()
 
     v.save()

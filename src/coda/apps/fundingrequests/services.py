@@ -7,7 +7,7 @@ from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
-from coda.apps.publications.services import publications
+from coda.apps.publications.repositories import publication_repository
 from coda.color import Color
 from coda.fundingrequest import ExternalFunding, FundingRequest, FundingRequestId, Payment, Review
 
@@ -15,7 +15,7 @@ from coda.fundingrequest import ExternalFunding, FundingRequest, FundingRequestI
 @transaction.atomic
 def fundingrequest_create(fundingrequest: FundingRequest) -> FundingRequestId:
     author_id = author_create(fundingrequest.submitter)
-    publication_id = publications.publication_create(fundingrequest.publication)
+    publication_id = publication_repository.save(fundingrequest.publication)
     request = FundingRequestModel.objects.create(
         submitter_id=author_id,
         publication_id=publication_id,

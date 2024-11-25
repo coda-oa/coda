@@ -34,6 +34,10 @@ class Concept(models.Model):
     hint = models.TextField()
     vocabulary = models.ForeignKey(Vocabulary, on_delete=models.CASCADE, related_name="concepts")
 
+    base_vocabulary = models.ForeignKey(
+        Vocabulary, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
+    )
+
     def __str__(self) -> str:
         return self.name
 

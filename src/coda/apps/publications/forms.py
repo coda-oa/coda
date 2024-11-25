@@ -18,7 +18,7 @@ from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import Role
 from coda.doi import Doi
 from coda.publication import License, OpenAccessType, Published, UnpublishedState
-from coda.vocabulary import UnknownConcept, VocabularyConcept, VocabularyProtocol
+from coda.vocabulary import UnknownConcept, ConceptProtocol, VocabularyProtocol
 
 
 def concept_choices_from_global_settings(
@@ -236,9 +236,9 @@ def vocabulary_from_settings(vocabulary_type: str) -> VocabularyProtocol:
     return vocabulary
 
 
-def concept_json(concept: VocabularyConcept) -> str:
+def concept_json(concept: ConceptProtocol) -> str:
     return ConceptDto.from_concept(concept).model_dump_json()
 
 
-def concept_form_values(concepts: Iterable[VocabularyConcept]) -> list[tuple[str, str]]:
+def concept_form_values(concepts: Iterable[ConceptProtocol]) -> list[tuple[str, str]]:
     return [(concept_json(c), c.name) for c in concepts]

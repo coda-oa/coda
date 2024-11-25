@@ -5,8 +5,8 @@ from coda.apps.authors import services as author_services
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.models import PersonId
 from coda.apps.publications.dto import LinkDto
+from coda.apps.publications.models import Concept, LinkType
 from coda.apps.publications.models import Link as LinkModel
-from coda.apps.publications.models import LinkType
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.author import AuthorId, AuthorList
 from coda.contract import ContractId
@@ -24,10 +24,17 @@ from coda.publication import (
     UnpublishedState,
 )
 from coda.string import NonEmptyStr
-from coda.vocabulary import UnknownConcept
+from coda.vocabulary import (
+    ConceptId,
+    ConceptProtocol,
+    LimitedConcept,
+    UnknownConcept,
+    VocabularyConcept,
+    VocabularyId,
+)
 
 
-def save(publication: Publication) -> None:
+def save(publication: Publication) -> PublicationId:
     if publication.id:
         p = PublicationModel.objects.get(pk=publication.id)
         p.journal_id = publication.journal
@@ -46,8 +53,8 @@ def save(publication: Publication) -> None:
         p.online_publication_date = publication_state.online
         p.print_publication_date = publication_state.print
 
-    p.publication_type = None
-    p.subject_area = None
+    p.publication_type = _first_by_concept(publication.publication_type)
+    p.subject_area = _first_by_concept(publication.subject_area)
     p.contracts.set(publication.contracts)
 
     if not p.submitting_author:
@@ -65,6 +72,12 @@ def save(publication: Publication) -> None:
 
     p.submitting_author.save()
     p.save()
+    return PublicationId(p.pk)
+
+
+def get_by_id(publication_id: PublicationId) -> Publication:
+    model = PublicationModel.objects.get(pk=publication_id)
+    return as_domain_object(model)
 
 
 def first() -> Publication | None:
@@ -83,8 +96,8 @@ def as_domain_object(model: PublicationModel) -> Publication:
         title=NonEmptyStr(model.title),
         license=License[model.license],
         open_access_type=OpenAccessType[model.open_access_type],
-        publication_type=UnknownConcept,
-        subject_area=UnknownConcept,
+        publication_type=_deserialize_concept(model.publication_type),
+        subject_area=_deserialize_concept(model.subject_area),
         corresponding_author=author_services.get_by_id(
             AuthorId(cast(int, model.submitting_author_id))
         ),
@@ -105,6 +118,32 @@ def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
     return state
 
 
+def _deserialize_concept(model_concept: Concept | None) -> ConceptProtocol:
+    domain_concept: ConceptProtocol
+    if model_concept is None:
+        return UnknownConcept
+
+    if model_concept.base_vocabulary_id:
+        domain_concept = LimitedConcept(
+            VocabularyConcept(
+                ConceptId(model_concept.concept_id),
+                VocabularyId(model_concept.base_vocabulary_id),
+                name=model_concept.name,
+                description=model_concept.hint,
+            ),
+            VocabularyId(model_concept.vocabulary_id),
+        )
+    else:
+        domain_concept = VocabularyConcept(
+            ConceptId(model_concept.concept_id),
+            VocabularyId(model_concept.vocabulary_id),
+            name=model_concept.name,
+            description=model_concept.hint,
+        )
+
+    return domain_concept
+
+
 def _deserialize_links(links: Iterable[LinkModel]) -> set[Link]:
     return {LinkDto(link_type=link.type.name, link_value=link.value).to_link() for link in links}
 
@@ -123,3 +162,20 @@ def _attach_links(id: PublicationId, links: Iterable[Link]) -> None:
             type=LinkType.objects.get(name=link_type),
             publication_id=cast(int, id),
         )
+
+
+def _first_by_concept(vocabulary_concept: ConceptProtocol) -> Concept | None:
+    if vocabulary_concept == UnknownConcept:
+        return None
+
+    base_vocabulary = None
+    if isinstance(vocabulary_concept, LimitedConcept):
+        base_vocabulary = vocabulary_concept.base_vocabulary
+
+    found = Concept.objects.get(
+        concept_id=vocabulary_concept.id,
+        vocabulary_id=vocabulary_concept.vocabulary,
+        base_vocabulary_id=base_vocabulary,
+    )
+
+    return found

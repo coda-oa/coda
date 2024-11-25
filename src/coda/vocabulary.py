@@ -6,16 +6,34 @@ ConceptId = NewType("ConceptId", str)
 VocabularyId = NewType("VocabularyId", int)
 
 
+class ConceptProtocol(Protocol):
+    @property
+    def id(self) -> ConceptId:
+        ...
+
+    @property
+    def vocabulary(self) -> VocabularyId:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def description(self) -> str:
+        ...
+
+
 class VocabularyProtocol(Protocol):
     id: VocabularyId
     name: str
     version: str
 
-    def get_concept(self, concept_id: ConceptId) -> "VocabularyConcept":
+    def get_concept(self, concept_id: ConceptId) -> ConceptProtocol:
         ...
 
     @property
-    def concepts(self) -> Collection["VocabularyConcept"]:
+    def concepts(self) -> Collection[ConceptProtocol]:
         ...
 
 
@@ -37,6 +55,35 @@ class VocabularyConcept:
             return NotImplemented
 
         return self.id == other.id and self.vocabulary == other.vocabulary
+
+
+@dataclass(frozen=True)
+class LimitedConcept:
+    concept: ConceptProtocol
+    vocabulary: VocabularyId
+
+    @property
+    def base_vocabulary(self) -> VocabularyId:
+        return self.concept.vocabulary
+
+    @property
+    def id(self) -> ConceptId:
+        return self.concept.id
+
+    @property
+    def name(self) -> str:
+        return self.concept.name
+
+    @property
+    def description(self) -> str:
+        return self.concept.description
+
+    def __eq__(self, value: object) -> bool:
+        base_equal = self.concept == value
+        if not base_equal and isinstance(value, LimitedConcept):
+            base_equal = self.concept.id == value.id and self.vocabulary == value.vocabulary
+
+        return base_equal
 
 
 @dataclass(repr=True)
@@ -90,21 +137,24 @@ class LimitedVocabulary:
         self._disallowed: set[ConceptId] = set()
 
     @property
-    def concepts(self) -> Collection[VocabularyConcept]:
-        if not self._disallowed:
-            return self.vocabulary.concepts
-
-        return [c for c in self.vocabulary.concepts if c.id not in self._disallowed]
+    def concepts(self) -> Collection[ConceptProtocol]:
+        return [
+            LimitedConcept(c, self.id)
+            for c in self.vocabulary.concepts
+            if c.id not in self._disallowed
+        ]
 
     @property
-    def disallowed_concepts(self) -> Collection[VocabularyConcept]:
-        return [c for c in self.vocabulary.concepts if c.id in self._disallowed]
+    def disallowed_concepts(self) -> Collection[ConceptProtocol]:
+        return [
+            LimitedConcept(c, self.id) for c in self.vocabulary.concepts if c.id in self._disallowed
+        ]
 
-    def get_concept(self, concept_id: ConceptId) -> VocabularyConcept:
+    def get_concept(self, concept_id: ConceptId) -> ConceptProtocol:
         if concept_id in self._disallowed:
             raise ValueError(f"Concept {concept_id} is disallowed in this vocabulary")
 
-        return self.vocabulary.get_concept(concept_id)
+        return LimitedConcept(self.vocabulary.get_concept(concept_id), self.id)
 
     def disallow(self, concept_id: ConceptId) -> None:
         self._disallowed.add(concept_id)

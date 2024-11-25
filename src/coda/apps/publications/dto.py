@@ -19,7 +19,7 @@ from coda.publication import (
     UserLink,
 )
 from coda.string import NonEmptyStr
-from coda.vocabulary import ConceptId, VocabularyConcept, VocabularyId
+from coda.vocabulary import ConceptId, ConceptProtocol, VocabularyConcept, VocabularyId
 
 
 class LinkDto(CodaBaseDto):
@@ -48,7 +48,7 @@ class ConceptDto(CodaBaseDto):
     description: str = ""
 
     @classmethod
-    def from_concept(cls, concept: VocabularyConcept) -> "ConceptDto":
+    def from_concept(cls, concept: ConceptProtocol) -> "ConceptDto":
         return cls(
             concept=concept.id,
             vocabulary=concept.vocabulary,
@@ -56,7 +56,7 @@ class ConceptDto(CodaBaseDto):
             description=concept.description,
         )
 
-    def to_concept(self) -> VocabularyConcept:
+    def to_concept(self) -> ConceptProtocol:
         return VocabularyConcept(
             id=ConceptId(self.concept),
             vocabulary=VocabularyId(self.vocabulary),

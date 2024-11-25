@@ -8,7 +8,7 @@ from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.services import author_update
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests import services
-from coda.apps.fundingrequests.dto import PaymentDto, ExternalFundingDto
+from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
 from coda.apps.fundingrequests.views.wizard.wizardsteps import (
     FundingStep,
@@ -17,7 +17,7 @@ from coda.apps.fundingrequests.views.wizard.wizardsteps import (
     SubmitterStep,
 )
 from coda.apps.publications.dto import PublicationDto
-from coda.apps.publications.services.publications import publication_update
+from coda.apps.publications.repositories import publication_repository
 from coda.apps.wizard import SessionStore, Wizard
 
 
@@ -57,7 +57,7 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         fr = fundingrequest_repository.get_by_id(pk)
         dto = publication_dto_from(self.get_store())
         publication = dto.to_publication(fr.publication.id)
-        publication_update(publication)
+        publication_repository.save(publication)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
