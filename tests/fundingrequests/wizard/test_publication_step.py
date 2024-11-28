@@ -9,13 +9,12 @@ from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests.views.wizard.wizardsteps import PublicationStep
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.forms import CorrespondingAuthorForm, PublicationForm
-from coda.apps.publications.models import Concept, Vocabulary
+from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import Role
-from coda.vocabulary import VocabularyConcept
-from tests import domainfactory, modelfactory
+from coda.vocabulary import Vocabulary, VocabularyConcept
+from tests import domainfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.wizard.stepdata import publication_step
-from tests.publications.test_publication_services import as_domain_concept
 from tests.test_wizard import DictStore
 
 request_factory = RequestFactory()
@@ -45,11 +44,19 @@ def parse_authors_request(
 
 
 def publication_type() -> VocabularyConcept:
-    return as_domain_concept(modelfactory.concept())
+    v = vocabulary_repository.create("publication_type", "1.0")
+    v.add_concept("pub-type-1", "Pub Type 1")
+    vocabulary_repository.save(v)
+
+    return v.get_concept("pub-type-1")
 
 
 def subject_area() -> VocabularyConcept:
-    return as_domain_concept(modelfactory.concept())
+    v = vocabulary_repository.create("subject_area", "1.0")
+    v.add_concept("subject-area-1", "Subject Area 1")
+    vocabulary_repository.save(v)
+
+    return v.get_concept("subject-area-1")
 
 
 @pytest.mark.django_db
@@ -142,15 +149,17 @@ def test__publication_step__authors_in_post_and_store__get_context_data__prefers
 def test__publication_step__existing_publication__publication_form_uses_existing_vocabularies() -> (
     None
 ):
-    publication_type_voc = modelfactory.vocabulary()
-    subject_area_voc = modelfactory.vocabulary()
+    publication_type_voc = vocabulary_repository.create("publication_type", "1.0")
+    publication_type_voc.add_concept("pub-type-1", "Pub Type 1")
+    vocabulary_repository.save(publication_type_voc)
 
-    pub_type_model = cast(Concept, publication_type_voc.concepts.first())
-    subject_model = cast(Concept, subject_area_voc.concepts.first())
+    subject_area_voc = vocabulary_repository.create("subject_area", "1.0")
+    subject_area_voc.add_concept("subject-area-1", "Subject Area 1")
+    vocabulary_repository.save(subject_area_voc)
 
     publication = domainfactory.publication(
-        subject_area=as_domain_concept(subject_model),
-        publication_type=as_domain_concept(pub_type_model),
+        subject_area=subject_area_voc.get_concept("subject-area-1"),
+        publication_type=publication_type_voc.get_concept("pub-type-1"),
     )
     dto = PublicationDto.from_publication(publication)
 
@@ -281,4 +290,4 @@ def assert_has_concept_choices(
 ) -> None:
     field = cast(forms.ChoiceField, form.fields[field_name])
     choice_names = [name for _, name in field.choices]
-    assert choice_names == [c.name for c in vocabulary.concepts.all()]
+    assert choice_names == [c.name for c in vocabulary.concepts]

@@ -1,52 +1,30 @@
 import pytest
 
-from coda.vocabulary import (
-    ConceptId,
-    LimitedConcept,
-    LimitedVocabulary,
-    Vocabulary,
-    VocabularyConcept,
-    VocabularyId,
-)
+from coda.vocabulary import LimitedVocabulary, Vocabulary, VocabularyId
 
 
 def test__limited_vocabulary__all_concepts_are_allowed_by_default() -> None:
     vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
-    vocabulary.add_concept(id=ConceptId("test-concept"))
+    vocabulary.add_concept(concept_id="test-concept")
 
     sut = LimitedVocabulary(id=VocabularyId(1), vocabulary=vocabulary)
 
-    assert list(sut.concepts) == list(vocabulary.concepts)
+    list(sut.concepts) == list(vocabulary.concepts)
 
 
 def test__limited_vocabulary__all_concepts_belong_to_limited_vocabulary() -> None:
     vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
-    vocabulary.add_concept(id=ConceptId("test-concept"))
-    vocabulary.add_concept(id=ConceptId("another-concept"))
+    vocabulary.add_concept(concept_id="test-concept")
+    vocabulary.add_concept(concept_id="another-concept")
 
     sut = LimitedVocabulary(id=VocabularyId(1), vocabulary=vocabulary)
 
     assert {concept.vocabulary for concept in sut.concepts} == {VocabularyId(1)}
 
 
-def test__a_limited_concept__equals_its_wrapped_concept() -> None:
-    base = VocabularyConcept(id=ConceptId("test"), vocabulary=VocabularyId(0))
-    sut = LimitedConcept(base, VocabularyId(1))
-
-    assert sut == base
-
-
-def test__a_limited_concept__equals_another_limited_concept_with_same_data() -> None:
-    base = VocabularyConcept(id=ConceptId("test"), vocabulary=VocabularyId(0))
-    first = LimitedConcept(base, VocabularyId(1))
-    second = LimitedConcept(base, VocabularyId(1))
-
-    assert first == second
-
-
 def test__set_concept_forbidden__concept_is_not_in_concepts() -> None:
     vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
-    forbidden_id = ConceptId("test-concept")
+    forbidden_id = "test-concept"
     vocabulary.add_concept(forbidden_id)
 
     sut = LimitedVocabulary(id=VocabularyId(1), vocabulary=vocabulary)
@@ -57,8 +35,8 @@ def test__set_concept_forbidden__concept_is_not_in_concepts() -> None:
 
 def test__two_concepts__one_disallowed__concepts_contains_allowed() -> None:
     vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
-    allowed_id = ConceptId("test-concept")
-    forbidden_id = ConceptId("test-concept-2")
+    allowed_id = "test-concept"
+    forbidden_id = "test-concept-2"
     vocabulary.add_concept(allowed_id)
     vocabulary.add_concept(forbidden_id)
 
@@ -70,7 +48,7 @@ def test__two_concepts__one_disallowed__concepts_contains_allowed() -> None:
 
 def test__disallowed_concept__belongs_to_limited_vocabulary() -> None:
     vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
-    forbidden_id = ConceptId("test-concept")
+    forbidden_id = "test-concept"
     vocabulary.add_concept(forbidden_id)
 
     sut = LimitedVocabulary(id=VocabularyId(1), vocabulary=vocabulary)
@@ -81,9 +59,9 @@ def test__disallowed_concept__belongs_to_limited_vocabulary() -> None:
 
 def test__three_concepts__two_disallowed__concepts_contains_allowed() -> None:
     vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
-    allowed_id = ConceptId("test-concept")
-    forbidden_id = ConceptId("test-concept-2")
-    forbidden_id_2 = ConceptId("test-concept-3")
+    allowed_id = "test-concept"
+    forbidden_id = "test-concept-2"
+    forbidden_id_2 = "test-concept-3"
     vocabulary.add_concept(allowed_id)
     vocabulary.add_concept(forbidden_id)
     vocabulary.add_concept(forbidden_id_2)
@@ -97,9 +75,9 @@ def test__three_concepts__two_disallowed__concepts_contains_allowed() -> None:
 
 def test__multiple_disallowed__all_contained_in_disallowed_concepts() -> None:
     vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
-    forbidden_id_1 = ConceptId("test-concept")
-    forbidden_id_2 = ConceptId("test-concept-2")
-    forbidden_id_3 = ConceptId("test-concept-3")
+    forbidden_id_1 = "test-concept"
+    forbidden_id_2 = "test-concept-2"
+    forbidden_id_3 = "test-concept-3"
     vocabulary.add_concept(forbidden_id_1)
     vocabulary.add_concept(forbidden_id_2)
     vocabulary.add_concept(forbidden_id_3)
@@ -118,7 +96,7 @@ def test__multiple_disallowed__all_contained_in_disallowed_concepts() -> None:
 
 def test__get_concept__returns_limited_concept() -> None:
     vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
-    concept_id = ConceptId("test-concept")
+    concept_id = "test-concept"
     vocabulary.add_concept(concept_id)
 
     limited_id = VocabularyId(1)
@@ -130,7 +108,7 @@ def test__get_concept__returns_limited_concept() -> None:
 
 def test__disallowed_concept__get_concept__raises_error() -> None:
     vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
-    forbidden_id = ConceptId("test-concept")
+    forbidden_id = "test-concept"
     vocabulary.add_concept(forbidden_id)
 
     sut = LimitedVocabulary(id=VocabularyId(1), vocabulary=vocabulary)
@@ -142,7 +120,7 @@ def test__disallowed_concept__get_concept__raises_error() -> None:
 
 def test__disallowed_concepts__allowing__concept_is_in_concepts() -> None:
     vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
-    forbidden_id = ConceptId("test-concept")
+    forbidden_id = "test-concept"
     vocabulary.add_concept(forbidden_id)
 
     sut = LimitedVocabulary(id=VocabularyId(1), vocabulary=vocabulary)

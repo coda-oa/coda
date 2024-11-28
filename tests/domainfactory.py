@@ -39,7 +39,7 @@ from coda.publication import (
     Unpublished,
 )
 from coda.string import NonEmptyStr
-from coda.vocabulary import ConceptProtocol, UnknownConcept
+from coda.vocabulary import VocabularyConcept, UnknownConcept
 
 _faker = faker.Faker()
 
@@ -102,8 +102,8 @@ def free_position() -> Position[str]:
 def publication(
     journal: JournalId | None = None,
     title: str = "",
-    publication_type: ConceptProtocol | None = None,
-    subject_area: ConceptProtocol | None = None,
+    publication_type: VocabularyConcept | None = None,
+    subject_area: VocabularyConcept | None = None,
     contracts: tuple[ContractId, ...] = (),
     *,
     id: PublicationId | None = None,

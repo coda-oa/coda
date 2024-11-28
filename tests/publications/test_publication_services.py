@@ -4,13 +4,12 @@ import pytest
 
 from coda.apps.authors.models import Author
 from coda.apps.journals.models import Journal
-from coda.apps.publications.models import Concept
-from coda.apps.publications.repositories import publication_repository
+from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.apps.publications.services.publications import publication_create, publication_update
 from coda.author import AuthorId
 from coda.contract import ContractId
 from coda.publication import JournalId, Publication, PublicationId
-from coda.vocabulary import ConceptId, UnknownConcept, VocabularyConcept, VocabularyId
+from coda.vocabulary import UnknownConcept
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 
@@ -27,24 +26,26 @@ def journal() -> Journal:
 
 @pytest.mark.django_db
 def test__create_publication__creates_a_publication_based_on_given_data(journal: Journal) -> None:
-    publication_type_concept = modelfactory.concept()
-    subject_area_concept = modelfactory.concept()
+    pub_types = vocabulary_repository.create("publication_type", "1.0")
+    pub_types.add_concept("pub-type-1", "Pub Type 1")
+    vocabulary_repository.save(pub_types)
+
+    subject_areas = vocabulary_repository.create("subject_area", "1.0")
+    subject_areas.add_concept("subject-area-1", "Subject Area 1")
+    vocabulary_repository.save(subject_areas)
+
     contracts = (ContractId(modelfactory.contract().pk), ContractId(modelfactory.contract().pk))
 
     publication = domainfactory.publication(
         JournalId(journal.pk),
-        publication_type=as_domain_concept(publication_type_concept),
-        subject_area=as_domain_concept(subject_area_concept),
+        publication_type=pub_types.get_concept("pub-type-1"),
+        subject_area=subject_areas.get_concept("subject-area-1"),
         contracts=contracts,
     )
     new_id = publication_create(publication)
 
     actual = publication_repository.get_by_id(new_id)
     assert_publication_eq(actual, publication)
-
-
-def as_domain_concept(c: Concept) -> VocabularyConcept:
-    return VocabularyConcept(id=ConceptId(c.concept_id), vocabulary=VocabularyId(c.vocabulary_id))
 
 
 @pytest.mark.django_db
@@ -58,23 +59,27 @@ def test__can_create_publication_with_unknown_publication_type(journal: Journal)
 
 @pytest.mark.django_db
 def test__update_publication__updates_publication_based_on_given_data(journal: Journal) -> None:
-    old_pub_type = modelfactory.concept()
-    old_subject_area = modelfactory.concept()
+    pub_types = vocabulary_repository.create("publication_type", "1.0")
+    pub_types.add_concept("old-pub-type", "Pub Type 1")
+    pub_types.add_concept("new-pub-type", "Pub Type 1")
+    vocabulary_repository.save(pub_types)
+
+    subject_areas = vocabulary_repository.create("subject_area", "1.0")
+    subject_areas.add_concept("old-subject-area", "Subject Area 1")
+    subject_areas.add_concept("new-subject-area", "Subject Area 1")
+    vocabulary_repository.save(subject_areas)
 
     publication = domainfactory.publication(
         JournalId(journal.pk),
-        publication_type=as_domain_concept(old_pub_type),
-        subject_area=as_domain_concept(old_subject_area),
+        publication_type=pub_types.get_concept("old-pub-type"),
+        subject_area=subject_areas.get_concept("old-subject-area"),
     )
     new_id = publication_create(publication)
-
-    new_pub_type = modelfactory.concept()
-    new_subject_area = modelfactory.concept()
     new_journal = modelfactory.journal()
     new_publication = domainfactory.publication(
         JournalId(new_journal.pk),
-        publication_type=as_domain_concept(new_pub_type),
-        subject_area=as_domain_concept(new_subject_area),
+        publication_type=pub_types.get_concept("new-pub-type"),
+        subject_area=subject_areas.get_concept("new-subject-area"),
         id=PublicationId(new_id),
     )
 
@@ -103,12 +108,18 @@ def test__update_publication__existing_author_gets_updated_inplace() -> None:
 
 @pytest.mark.django_db
 def test__can_update_publication_with_unknown_concepts(journal: Journal) -> None:
-    old_pub_type = modelfactory.concept()
-    old_subject_area = modelfactory.concept()
+    pub_types = vocabulary_repository.create("publication_type", "1.0")
+    pub_types.add_concept("old-pub-type", "Pub Type 1")
+    vocabulary_repository.save(pub_types)
+
+    subject_areas = vocabulary_repository.create("subject_area", "1.0")
+    subject_areas.add_concept("old-subject-area", "Subject Area 1")
+    vocabulary_repository.save(subject_areas)
+
     publication = domainfactory.publication(
         JournalId(journal.pk),
-        publication_type=as_domain_concept(old_pub_type),
-        subject_area=as_domain_concept(old_subject_area),
+        publication_type=pub_types.get_concept("old-pub-type"),
+        subject_area=subject_areas.get_concept("old-subject-area"),
     )
     new_id = publication_create(publication)
 

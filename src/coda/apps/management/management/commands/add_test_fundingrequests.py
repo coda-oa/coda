@@ -26,7 +26,6 @@ from coda.fundingrequest import (
 from coda.money import Currency, Money
 from coda.publication import JournalId, License, OpenAccessType, Publication, Published
 from coda.string import NonEmptyStr
-from coda.vocabulary import ConceptId, VocabularyConcept, VocabularyId
 
 faker = Faker()
 faker.add_provider(lorem)
@@ -56,8 +55,8 @@ class Command(BaseCommand):
         subject_area_vocabulary = GlobalPreferences.get_subject_classification_vocabulary()
         publication_types_vocabulary = GlobalPreferences.get_publication_type_vocabulary()
 
-        random_subject = random.choice(subject_area_vocabulary.concepts.all())
-        random_publication_type = random.choice(publication_types_vocabulary.concepts.all())
+        random_subject = random.choice(list(subject_area_vocabulary.concepts))
+        random_publication_type = random.choice(list(publication_types_vocabulary.concepts))
 
         request = FundingRequest.new(
             Publication.new(
@@ -71,14 +70,8 @@ class Command(BaseCommand):
                     date.fromisoformat(faker.date()),
                     date.fromisoformat(faker.date()),
                 ),
-                subject_area=VocabularyConcept(
-                    id=ConceptId(random_subject.concept_id),
-                    vocabulary=VocabularyId(random_subject.vocabulary.pk),
-                ),
-                publication_type=VocabularyConcept(
-                    id=ConceptId(random_publication_type.concept_id),
-                    vocabulary=VocabularyId(random_publication_type.vocabulary.pk),
-                ),
+                subject_area=random_subject,
+                publication_type=random_publication_type,
                 links={Doi("10.1234/5678")},
             ),
             self.create_author(),

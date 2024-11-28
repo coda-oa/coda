@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 
 from coda.apps.authors.models import Author
@@ -21,7 +23,9 @@ class Vocabulary(models.Model):
             name="empty vocabulary", pk=UnknownConcept.vocabulary
         )
         if created or v.concepts.count() == 0:
-            Concept.objects.create(concept_id=UnknownConcept.id, name="unknown", vocabulary=v)
+            Concept.objects.create(
+                concept_id=UnknownConcept.concept_id, name="unknown", vocabulary=v
+            )
         return v
 
     def __str__(self) -> str:
@@ -29,14 +33,11 @@ class Vocabulary(models.Model):
 
 
 class Concept(models.Model):
+    entity_id = models.UUIDField(default=uuid.uuid4)
     concept_id = models.CharField(max_length=255)
     name = models.CharField(max_length=255)
     hint = models.TextField()
     vocabulary = models.ForeignKey(Vocabulary, on_delete=models.CASCADE, related_name="concepts")
-
-    base_vocabulary = models.ForeignKey(
-        Vocabulary, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
-    )
 
     def __str__(self) -> str:
         return self.name

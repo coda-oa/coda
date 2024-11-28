@@ -4,10 +4,9 @@ from typing import Any, cast
 from coda.apps.publications.models import Vocabulary as VocabularyModel
 from coda.vocabulary import (
     ConceptId,
-    ConceptProtocol,
-    LimitedConcept,
     LimitedVocabulary,
     Vocabulary,
+    VocabularyConcept,
     VocabularyId,
     VocabularyProtocol,
 )
@@ -87,7 +86,7 @@ def save(vocabulary: VocabularyProtocol) -> None:
     v.name = vocabulary.name
     v.version = vocabulary.version
 
-    concepts: Collection[ConceptProtocol]
+    concepts: Collection[VocabularyConcept]
     if isinstance(vocabulary, Vocabulary):
         concepts = vocabulary.concepts
     elif isinstance(vocabulary, LimitedVocabulary):
@@ -99,13 +98,10 @@ def save(vocabulary: VocabularyProtocol) -> None:
         raise ValueError(f"Unsupported vocabulary type: {type(vocabulary)}")
 
     for c in concepts:
-        mc, _ = v.concepts.get_or_create(concept_id=c.id)
+        mc, _ = v.concepts.get_or_create(entity_id=c.id)
+        mc.concept_id = c.concept_id
         mc.name = c.name
         mc.hint = c.description
-
-        if isinstance(c, LimitedConcept):
-            mc.base_vocabulary_id = c.base_vocabulary
-
         mc.save()
 
     v.save()
@@ -128,10 +124,22 @@ def as_domain_object(v: VocabularyModel) -> VocabularyProtocol:
             version=base_vocabulary.version,
         )
         for c in v.concepts.all():
-            vocabulary.disallow(ConceptId(c.concept_id))
+            vocabulary.disallow(c.concept_id)
     else:
-        vocabulary = Vocabulary(id=VocabularyId(v.pk), name=v.name, version=v.version)
-        for c in v.concepts.all():
-            vocabulary.add_concept(id=ConceptId(c.concept_id), name=c.name, description=c.hint)
+        vocabulary = Vocabulary(
+            id=VocabularyId(v.pk),
+            name=v.name,
+            version=v.version,
+            concepts=[
+                VocabularyConcept(
+                    id=ConceptId(str(c.entity_id)),
+                    concept_id=c.concept_id,
+                    vocabulary=VocabularyId(v.pk),
+                    name=c.name,
+                    description=c.hint,
+                )
+                for c in v.concepts.all()
+            ],
+        )
 
     return vocabulary

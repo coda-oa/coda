@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, NamedTuple, NewType, Self, TypeAlias
 from coda.author import Author, AuthorList, Role
 from coda.doi import Doi
 from coda.string import NonEmptyStr
-from coda.vocabulary import ConceptProtocol, UnknownConcept
+from coda.vocabulary import VocabularyConcept, UnknownConcept
 
 if TYPE_CHECKING:
     from coda.contract import ContractId
@@ -92,8 +92,8 @@ class Publication:
     corresponding_author: Author
     authors: AuthorList = field(default_factory=AuthorList)
     license: License = License.Unknown
-    subject_area: ConceptProtocol = UnknownConcept
-    publication_type: ConceptProtocol = UnknownConcept
+    subject_area: VocabularyConcept = UnknownConcept
+    publication_type: VocabularyConcept = UnknownConcept
     open_access_type: OpenAccessType = OpenAccessType.Unknown
     publication_state: PublicationState = Unpublished()
     contracts: set["ContractId"] = field(default_factory=set)
@@ -107,8 +107,8 @@ class Publication:
         corresponding_author: Author,
         authors: AuthorList = AuthorList(),
         license: License = License.Unknown,
-        subject_area: ConceptProtocol = UnknownConcept,
-        publication_type: ConceptProtocol = UnknownConcept,
+        subject_area: VocabularyConcept = UnknownConcept,
+        publication_type: VocabularyConcept = UnknownConcept,
         open_access_type: OpenAccessType = OpenAccessType.Unknown,
         publication_state: PublicationState = Unpublished(),
         links: set[Link] | None = None,

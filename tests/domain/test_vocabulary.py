@@ -9,65 +9,64 @@ from coda.vocabulary import (
 )
 
 
+def assert_all_concepts_fields_eq(
+    concepts: list[VocabularyConcept], other_concepts: list[VocabularyConcept]
+) -> None:
+    for concept, other_concept in zip(concepts, other_concepts):
+        assert_concept_fields_eq(concept, other_concept)
+
+
+def assert_concept_fields_eq(concept: VocabularyConcept, other_concept: VocabularyConcept) -> bool:
+    assert concept.concept_id == other_concept.concept_id
+    assert concept.name == other_concept.name
+    assert concept.description == other_concept.description
+    assert concept.vocabulary == other_concept.vocabulary
+    return True
+
+
+DUMMY_CONCEPT_ID = ConceptId.new()
+
+
 def test__can_create_vocabulary_with_concepts() -> None:
     sut = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
-    sut.add_concept(id=ConceptId("test-concept"), name="Test Concept", description="A test concept")
-    sut.add_concept(
-        id=ConceptId("test-concept-2"), name="Test Concept", description="A test concept"
-    )
+    sut.add_concept(concept_id="test-concept", name="Test Concept", description="A test concept")
+    sut.add_concept(concept_id="test-concept-2", name="Test Concept", description="A test concept")
 
-    assert list(sut.concepts) == [
+    expected_concepts = [
         VocabularyConcept(
-            id=ConceptId("test-concept"),
+            id=DUMMY_CONCEPT_ID,
+            concept_id="test-concept",
             name="Test Concept",
             description="A test concept",
             vocabulary=VocabularyId(0),
         ),
         VocabularyConcept(
-            id=ConceptId("test-concept-2"),
+            id=DUMMY_CONCEPT_ID,
+            concept_id="test-concept-2",
             name="Test Concept",
             description="A test concept",
             vocabulary=VocabularyId(0),
         ),
     ]
 
+    assert_all_concepts_fields_eq(list(sut.concepts), expected_concepts)
+
 
 def test__concept_ids__must_be_unique() -> None:
     sut = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
-    sut.add_concept(id=ConceptId("test-concept"), name="Test Concept", description="A test concept")
+    sut.add_concept(concept_id="test-concept", name="Test Concept", description="A test concept")
 
     with pytest.raises(DuplicateConceptError):
         sut.add_concept(
-            id=ConceptId("test-concept"), name="Test Concept", description="A test concept"
+            concept_id="test-concept", name="Test Concept", description="A test concept"
         )
 
 
-def test__two_concepts_with_same_concept_id_and_vocabulary_id__are_always_equal() -> None:
-    cid = ConceptId("test-concept")
+def test__two_concepts_with_same_id__are_always_equal() -> None:
     vid = VocabularyId(0)
-    concept = VocabularyConcept(id=cid, vocabulary=vid)
-    same_concept_with_more_data = VocabularyConcept(id=cid, vocabulary=vid, name="Additional Info")
+    concept = VocabularyConcept(id=DUMMY_CONCEPT_ID, concept_id="test-concept", vocabulary=vid)
+    same_concept_with_more_data = VocabularyConcept(
+        id=DUMMY_CONCEPT_ID, concept_id="same-concept", vocabulary=vid, name="Additional Info"
+    )
 
     assert concept == same_concept_with_more_data
-
-
-def test__two_concepts_with_different_vocabulary_ids__are_not_equal() -> None:
-    cid = ConceptId("test-concept")
-    vid = VocabularyId(0)
-    concept = VocabularyConcept(id=cid, vocabulary=vid)
-
-    other_vid = VocabularyId(1)
-    other_vocabulary_same_concept = VocabularyConcept(id=cid, vocabulary=other_vid)
-
-    assert concept != other_vocabulary_same_concept
-
-
-def test__two_concepts_with_different_concept_ids__are_not_equal() -> None:
-    cid = ConceptId("test-concept")
-    vid = VocabularyId(0)
-    concept = VocabularyConcept(id=cid, vocabulary=vid)
-
-    other_cid = ConceptId("other-concept")
-    other_concept_same_vocabulary = VocabularyConcept(id=other_cid, vocabulary=vid)
-
-    assert concept != other_concept_same_vocabulary

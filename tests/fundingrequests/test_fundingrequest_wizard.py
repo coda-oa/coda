@@ -26,7 +26,7 @@ from coda.fundingrequest import (
     Payment,
 )
 from coda.publication import JournalId
-from coda.vocabulary import ConceptId, VocabularyConcept
+from coda.vocabulary import VocabularyConcept
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
@@ -94,11 +94,11 @@ def login(client: Client) -> None:
 @pytest.fixture(autouse=True)
 def prepare_global_settings() -> None:
     subject_areas = vocabulary_repository.create("subject_areas", "1.0")
-    subject_areas.add_concept(ConceptId("subject_area"), "subject_area")
+    subject_areas.add_concept("subject_area", "subject_area")
     vocabulary_repository.save(subject_areas)
 
     publication_types = vocabulary_repository.create("publication_types", "1.0")
-    publication_types.add_concept(ConceptId("publication_type"), "publication_type")
+    publication_types.add_concept("publication_type", "publication_type")
     vocabulary_repository.save(publication_types)
 
     GlobalPreferences.set_subject_classification_vocabulary(subject_areas)
