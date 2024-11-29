@@ -11,15 +11,10 @@
             <tr>
                 {% if allowed_concept %}
                     <td>
-                        <input type="hidden" name="allowed_ids" value="{{ allowed_concept.id }}">
-                        <input type="hidden" name="allowed_names" value="{{ allowed_concept.name }}">
-                        <input type="hidden"
-                               name="allowed_descriptions"
-                               value="{{ allowed_concept.description }}">
                         <span>
                             <button class="button-undecorated"
                                     name="disallow"
-                                    value="{{ allowed_concept.id }}"
+                                    value="{{ allowed_concept.concept_id }}"
                                     hx-post="{% url 'publications:vocabulary_move_to_forbidden' %}"
                                     hx-include="input[type=hidden]"
                                     hx-target="#vocabulary-table"
@@ -36,24 +31,17 @@
                                 </svg>
                             </button>
                         </span>
-                        {{ allowed_concept.name }}
+                        {{ allowed_concept.concept_id }} {{ allowed_concept.name }}
                     </td>
                 {% else %}
                     <td></td>
                 {% endif %}
                 {% if forbidden_concept %}
                     <td>
-                        <input type="hidden" name="forbidden_ids" value="{{ forbidden_concept.id }}">
-                        <input type="hidden"
-                               name="forbidden_names"
-                               value="{{ forbidden_concept.name }}">
-                        <input type="hidden"
-                               name="forbidden_descriptions"
-                               value="{{ forbidden_concept.description }}">
                         <span>
                             <button class="button-undecorated"
                                     name="allow"
-                                    value="{{ forbidden_concept.id }}"
+                                    value="{{ forbidden_concept.concept_id }}"
                                     hx-post="{% url 'publications:vocabulary_move_to_allowed' %}"
                                     hx-include="input[type=hidden]"
                                     hx-target="#vocabulary-table"
@@ -70,7 +58,7 @@
                                 </svg>
                             </button>
                         </span>
-                        {{ forbidden_concept.name }}
+                        {{ forbidden_concept.concept_id }} {{ forbidden_concept.name }}
                     </td>
                 {% else %}
                     <td></td>
