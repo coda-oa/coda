@@ -7,6 +7,11 @@ button.danger, a[role="button"].danger {
   border-color: var(--coda-validation-invalid-color)
 }
 
+button.success, a[role="button"].danger {
+  background-color: var(--coda-validation-valid-color);
+  border-color: var(--coda-validation-valid-color)
+}
+
 search-select:not(:defined) {
   /* prevents flash of options list before shadow dom styling kicks in */
   visibility: hidden;

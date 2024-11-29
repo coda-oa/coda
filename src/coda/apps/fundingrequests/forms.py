@@ -5,7 +5,7 @@ from django.utils.datastructures import MultiValueDict
 
 from coda.apps import fields
 from coda.apps.contracts.models import Contract
-from coda.apps.fundingrequests.dto import PaymentDto, ExternalFundingDto
+from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 
@@ -119,3 +119,11 @@ class LabelForm(forms.ModelForm[Label]):
 
 class ChooseLabelForm(forms.Form):
     label = forms.ModelChoiceField[Label](queryset=Label.objects.all(), label="")
+
+
+class ReviewForm(forms.Form):
+    funding_sum = forms.DecimalField(
+        max_digits=10, decimal_places=2, initial=0, label="Funding sum"
+    )
+    funding_currency = fields.currency_field(label="Currency")
+    reviewer_comments = forms.CharField(widget=forms.Textarea, required=False)

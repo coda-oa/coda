@@ -21,6 +21,7 @@ funding_formset = ExternalFundingFormset.get_management_view()
 urlpatterns = [
     path("", fundingrequest_list, name="list"),
     path("<int:pk>/", fundingrequest_detail, name="detail"),
+    path("<int:pk>/review/", review.review_page, name="review"),
     path("create/wizard/", FundingRequestWizard.as_view(), name="create_wizard"),
     path("update/submitter/<int:pk>/", UpdateSubmitterView.as_view(), name="update_submitter"),
     path(

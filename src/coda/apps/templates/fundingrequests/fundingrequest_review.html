@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}
+    Review
+{% endblock title %}
+{% block content %}
+    <h1 class="my-2">Review</h1>
+    <article>
+        {{ form.as_table }}
+        <div class="flex my-2">
+            <button class="success" type="submit" name="action" value="approve">Approve</button>
+            <button class="secondary" type="submit" name="action" value="return">Save and return</button>
+            <button class="danger" type="submit" name="action" value="reject">Reject</button>
+        </div>
+    </article>
+{% endblock content %}
