@@ -8,7 +8,7 @@ from django.urls import reverse
 
 from coda.apps.authors.models import Author
 from coda.apps.publications.models import Publication
-from coda.fundingrequest import PaymentMethod, Review
+from coda.fundingrequest import PaymentMethod, ReviewResult
 
 
 class FundingOrganization(models.Model):
@@ -49,9 +49,9 @@ class FundingRequest(models.Model):
         return f"coda-{id}-{d.strftime('%Y-%m-%d')}"
 
     PROCESSING_CHOICES = [
-        (Review.Approved.value, "Approved"),
-        (Review.Open.value, "In Progress"),
-        (Review.Rejected.value, "Rejected"),
+        (ReviewResult.Approved.value, "Approved"),
+        (ReviewResult.Open.value, "In Progress"),
+        (ReviewResult.Rejected.value, "Rejected"),
     ]
 
     PAYMENT_METHOD_CHOICES = [
@@ -84,13 +84,13 @@ class FundingRequest(models.Model):
         return reverse("fundingrequests:detail", kwargs={"pk": self.pk})
 
     def approve(self) -> None:
-        self.processing_status = Review.Approved.value
+        self.processing_status = ReviewResult.Approved.value
         self.save()
 
     def reject(self) -> None:
-        self.processing_status = Review.Rejected.value
+        self.processing_status = ReviewResult.Rejected.value
         self.save()
 
     def open(self) -> None:
-        self.processing_status = Review.Open.value
+        self.processing_status = ReviewResult.Open.value
         self.save()

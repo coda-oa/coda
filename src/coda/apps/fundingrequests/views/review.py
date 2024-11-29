@@ -10,10 +10,10 @@ from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.forms import ReviewForm
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.services import fundingrequest_perform_review
-from coda.fundingrequest import FundingRequestId, Review
+from coda.fundingrequest import FundingRequestId, ReviewResult
 
 
-def fundingrequest_action(review: Review) -> Callable[[HttpRequest], HttpResponse]:
+def fundingrequest_action(review: ReviewResult) -> Callable[[HttpRequest], HttpResponse]:
     @login_required
     @require_POST
     def post(request: HttpRequest) -> HttpResponse:
@@ -27,9 +27,9 @@ def fundingrequest_action(review: Review) -> Callable[[HttpRequest], HttpRespons
     return post
 
 
-approve = fundingrequest_action(Review.Approved)
-reject = fundingrequest_action(Review.Rejected)
-open = fundingrequest_action(Review.Open)
+approve = fundingrequest_action(ReviewResult.Approved)
+reject = fundingrequest_action(ReviewResult.Rejected)
+open = fundingrequest_action(ReviewResult.Open)
 
 
 def review_page(request: HttpRequest, pk: int) -> HttpResponse:

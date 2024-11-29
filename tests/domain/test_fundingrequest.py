@@ -9,7 +9,7 @@ from coda.fundingrequest import (
     FundingRequestLocked,
     Payment,
     PaymentMethod,
-    Review,
+    ReviewResult,
 )
 from coda.money import Currency, Money
 from coda.publication import JournalId, Publication, PublicationId
@@ -42,34 +42,42 @@ def make_sut() -> FundingRequest:
     return sut
 
 
-@pytest.fixture(params=[Review.Rejected, Review.Approved])
+@pytest.fixture(params=[ReviewResult.Rejected, ReviewResult.Approved])
 def closed_request(request: pytest.FixtureRequest) -> FundingRequest:
-    status: Review = request.param
+    status: ReviewResult = request.param
     sut = make_sut()
-    sut.add_review(status)
+    if status == ReviewResult.Rejected:
+        sut.reject("Rejected")
+    else:
+        sut.approve(Money(100, Currency.EUR), "Approved")
+
     return sut
 
 
 def test__new_fundingrequest__has_open_review() -> None:
     sut = make_sut()
 
-    assert sut.review() == Review.Open
+    assert sut.review() == ReviewResult.Open
 
 
 def test__open_fundingrequest__add_approved_review__changes_status_to_approved() -> None:
     sut = make_sut()
 
-    sut.add_review(Review.Approved)
+    sut.approve(Money(100, Currency.EUR), "Approved")
 
-    assert sut.review() == Review.Approved
+    assert sut.review() == ReviewResult.Approved
+    assert sut.funding_amount == Money(100, Currency.EUR)
+    assert sut.review_remarks == "Approved"
 
 
 def test__open_fundingrequest__reject__changes_status_to_rejected() -> None:
     sut = make_sut()
 
-    sut.add_review(Review.Rejected)
+    sut.reject("Rejected")
 
-    assert sut.review() == Review.Rejected
+    assert sut.review() == ReviewResult.Rejected
+    assert sut.review_remarks == "Rejected"
+    assert sut.funding_amount == Money(0, Currency.EUR)
 
 
 def test__rejected_fundingrequest__open__changes_status_to_open(
@@ -79,7 +87,18 @@ def test__rejected_fundingrequest__open__changes_status_to_open(
 
     sut.open()
 
-    assert sut.review() == Review.Open
+    assert sut.review() == ReviewResult.Open
+
+
+def test__approved_fundingrequest__open__keeps_funding_amount_and_remarks() -> None:
+    sut = make_sut()
+    sut.approve(Money(100, Currency.EUR), "A Comment")
+
+    sut.open()
+
+    assert sut.review() == ReviewResult.Open
+    assert sut.funding_amount == Money(100, Currency.EUR)
+    assert sut.review_remarks == "A Comment"
 
 
 def test__closed_fundingrequest__changing_publication__raises_error(

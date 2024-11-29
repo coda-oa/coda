@@ -69,3 +69,9 @@ class ExternalFundingDto(CodaBaseDto):
             project_id=NonEmptyStr(self.project_id),
             project_name=self.project_name,
         )
+
+
+class ReviewDto(CodaBaseDto):
+    decided_funding_amount: float
+    decided_funding_currency: str
+    reviewer_remarks: str

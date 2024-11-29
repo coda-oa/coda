@@ -9,7 +9,15 @@ from coda.apps.fundingrequests.models import FundingRequest as FundingRequestMod
 from coda.apps.fundingrequests.models import Label
 from coda.apps.publications.repositories import publication_repository
 from coda.color import Color
-from coda.fundingrequest import ExternalFunding, FundingRequest, FundingRequestId, Payment, Review
+from coda.fundingrequest import (
+    ExternalFunding,
+    FundingRequest,
+    FundingRequestId,
+    Payment,
+    ReviewResult,
+)
+from coda.money._currency import Currency
+from coda.money._money import Money
 
 
 @transaction.atomic
@@ -45,9 +53,14 @@ def fundingrequest_funding_update(
     funding_request.save()
 
 
-def fundingrequest_perform_review(id: FundingRequestId, review: Review) -> None:
+def fundingrequest_perform_review(id: FundingRequestId, review: ReviewResult) -> None:
     funding_request = fundingrequest_repository.get_by_id(id)
-    funding_request.add_review(review)
+    if review == ReviewResult.Rejected:
+        funding_request.reject()
+    elif review == ReviewResult.Approved:
+        funding_request.approve(Money(0, Currency.EUR))
+    else:
+        funding_request.open()
     FundingRequestModel.objects.filter(pk=id).update(
         processing_status=funding_request.review().value.lower()
     )

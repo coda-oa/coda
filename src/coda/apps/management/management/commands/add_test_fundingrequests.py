@@ -21,7 +21,7 @@ from coda.fundingrequest import (
     FundingRequest,
     Payment,
     PaymentMethod,
-    Review,
+    ReviewResult,
 )
 from coda.money import Currency, Money
 from coda.publication import JournalId, License, OpenAccessType, Publication, Published
@@ -42,13 +42,13 @@ class Command(BaseCommand):
     def handle(self, *args: str, **options: str) -> None:
         number = int(options["number"])
         for _ in range(number):
-            review = random.choice([review for review in Review])
+            review = random.choice([review for review in ReviewResult])
             self.funding_request(review_status=review)
 
     def funding_request(
         self,
         /,
-        review_status: Review = Review.Open,
+        review_status: ReviewResult = ReviewResult.Open,
     ) -> None:
         journal = self.journal()
         _ = LinkType.objects.get_or_create(name="DOI")

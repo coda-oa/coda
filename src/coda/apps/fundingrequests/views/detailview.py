@@ -13,7 +13,7 @@ from coda.apps.fundingrequests.models import ExternalFunding, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import Publication
-from coda.fundingrequest import Review
+from coda.fundingrequest import ReviewResult
 from coda.money import Currency, Money
 from coda.publication import License, Link
 
@@ -30,13 +30,13 @@ class RequestViewModel(NamedTuple):
     review_status: str
 
     def is_open(self) -> bool:
-        return self.review_status == Review.Open.value
+        return self.review_status == ReviewResult.Open.value
 
     def is_approved(self) -> bool:
-        return self.review_status == Review.Approved.value
+        return self.review_status == ReviewResult.Approved.value
 
     def is_rejected(self) -> bool:
-        return self.review_status == Review.Rejected.value
+        return self.review_status == ReviewResult.Rejected.value
 
 
 class SubmitterViewModel(NamedTuple):
@@ -76,7 +76,7 @@ def request_viewmodel(fr: FundingRequestModel) -> RequestViewModel:
         created_at=fr.created_at,
         updated_at=fr.updated_at,
         estimated_cost=Money(fr.estimated_cost, Currency[fr.estimated_cost_currency]),
-        review_status=Review(fr.processing_status).value,
+        review_status=ReviewResult(fr.processing_status).value,
     )
 
 

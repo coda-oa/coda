@@ -4,7 +4,7 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.fundingrequests import repository
-from coda.fundingrequest import FundingRequestId, Review
+from coda.fundingrequest import FundingRequestId, ReviewResult
 from tests import modelfactory
 
 
@@ -65,12 +65,12 @@ def test__approving_or_requesting_non_existent_request__raises_404(
 
 
 def assert_approved(id: FundingRequestId) -> None:
-    assert repository.get_by_id(id).review() == Review.Approved
+    assert repository.get_by_id(id).review() == ReviewResult.Approved
 
 
 def assert_rejected(id: FundingRequestId) -> None:
-    assert repository.get_by_id(id).review() == Review.Rejected
+    assert repository.get_by_id(id).review() == ReviewResult.Rejected
 
 
 def assert_open(id: FundingRequestId) -> None:
-    assert repository.get_by_id(id).review() == Review.Open
+    assert repository.get_by_id(id).review() == ReviewResult.Open

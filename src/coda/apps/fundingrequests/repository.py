@@ -16,7 +16,7 @@ from coda.fundingrequest import (
     FundingRequestId,
     Payment,
     PaymentMethod,
-    Review,
+    ReviewResult,
 )
 from coda.money import Currency, Money
 from coda.publication import PublicationId
@@ -38,9 +38,9 @@ def get_by_id(id: FundingRequestId) -> FundingRequest:
 
 def as_domain_object(model: FundingRequestModel) -> FundingRequest:
     match model.processing_status:
-        case Review.Approved.value:
+        case ReviewResult.Approved.value:
             constructor = FundingRequest.approved
-        case Review.Rejected.value:
+        case ReviewResult.Rejected.value:
             constructor = FundingRequest.rejected
         case _:
             constructor = FundingRequest

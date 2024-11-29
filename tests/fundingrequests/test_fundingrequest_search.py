@@ -10,7 +10,7 @@ from coda.apps.authors.models import Author
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.color import Color
-from coda.fundingrequest import Review
+from coda.fundingrequest import ReviewResult
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 
@@ -98,7 +98,7 @@ def test__searching_for_funding_requests_by_process_state__shows_only_matching_f
 
     in_progress_request = modelfactory.fundingrequest()  # noqa: F841
 
-    query = {"processing_status": [Review.Approved.value, Review.Rejected.value]}
+    query = {"processing_status": [ReviewResult.Approved.value, ReviewResult.Rejected.value]}
     response = search_fundingrequests(client, query)
 
     assert_contains(response.context, {approved_request, rejected_request})
