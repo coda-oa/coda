@@ -21,6 +21,9 @@ class VocabularyProtocol(Protocol):
     def get_concept(self, concept_id: str) -> "VocabularyConcept":
         ...
 
+    def get_concept_by_id(self, concept_id: ConceptId) -> "VocabularyConcept":
+        ...
+
     @property
     def concepts(self) -> Collection["VocabularyConcept"]:
         ...
@@ -70,6 +73,13 @@ class Vocabulary:
         self.name = name
         self.version = version
         self._concepts: list[VocabularyConcept] = list(concepts or [])
+
+    def get_concept_by_id(self, concept_id: ConceptId) -> VocabularyConcept:
+        for concept in self._concepts:
+            if concept.id == concept_id:
+                return concept
+
+        raise ValueError(f"Concept ID {concept_id} not found in vocabulary")
 
     def get_concept(self, concept_id: str) -> VocabularyConcept:
         index = self._find_concept_index(concept_id)
@@ -136,6 +146,12 @@ class LimitedVocabulary:
             for c in self.vocabulary.concepts
             if c.concept_id in self._disallowed
         ]
+
+    def get_concept_by_id(self, concept_id: ConceptId) -> VocabularyConcept:
+        if concept_id in self._disallowed:
+            raise ValueError(f"Concept {concept_id} is disallowed in this vocabulary")
+
+        return self._move_concept_to_self(self.vocabulary.get_concept_by_id(concept_id))
 
     def get_concept(self, concept_id: str) -> VocabularyConcept:
         if concept_id in self._disallowed:

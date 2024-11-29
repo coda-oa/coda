@@ -39,8 +39,30 @@ class Concept(models.Model):
     hint = models.TextField()
     vocabulary = models.ForeignKey(Vocabulary, on_delete=models.CASCADE, related_name="concepts")
 
+    @classmethod
+    def unknown(cls) -> "Concept":
+        c, _ = Concept.objects.get_or_create(
+            concept_id=UnknownConcept.concept_id,
+            vocabulary_id=UnknownConcept.vocabulary,
+            name="unknown",
+        )
+
+        return c
+
     def __str__(self) -> str:
         return self.name
+
+
+class PublicationAttachedConcept(models.Model):
+    entity_id = models.UUIDField(default=uuid.uuid4, unique=False)
+    vocabulary = models.ForeignKey(Vocabulary, on_delete=models.CASCADE, default=Vocabulary.empty)
+    name = models.CharField(max_length=255, blank=True)
+
+    @classmethod
+    def unknown(cls) -> "PublicationAttachedConcept":
+        return cls.objects.create(
+            entity_id=UnknownConcept.id, vocabulary_id=UnknownConcept.vocabulary
+        )
 
 
 class Publication(models.Model):
@@ -51,15 +73,26 @@ class Publication(models.Model):
     title = models.CharField(max_length=255)
     journal = models.ForeignKey(Journal, on_delete=models.CASCADE, related_name="publications")
     submitting_author = models.OneToOneField(
-        Author, on_delete=models.CASCADE, related_name="submitted_publication", null=True
+        Author,
+        on_delete=models.CASCADE,
+        related_name="submitted_publication",
+        null=True,
     )
 
-    subject_area = models.ForeignKey(
-        Concept, on_delete=models.SET_NULL, related_name="publications_of_subject", null=True
+    subject_area = models.OneToOneField(
+        PublicationAttachedConcept,
+        on_delete=models.CASCADE,
+        related_name="+",
+        default=PublicationAttachedConcept.unknown,
     )
-    publication_type = models.ForeignKey(
-        Concept, on_delete=models.SET_NULL, related_name="publications_with_type", null=True
+
+    publication_type = models.OneToOneField(
+        PublicationAttachedConcept,
+        on_delete=models.CASCADE,
+        related_name="+",
+        default=PublicationAttachedConcept.unknown,
     )
+
     open_access_type = models.CharField(choices=OA_TYPES, default=OpenAccessType.Closed.name)
     license = models.CharField(choices=LICENSE_CHOICES, default=License.Unknown.name)
 

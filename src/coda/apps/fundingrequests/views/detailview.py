@@ -99,8 +99,8 @@ def publication_viewmodel(publication: Publication) -> PublicationViewModel:
         publication_state=publication.publication_state,
         publication_date=publication.online_publication_date,
         license=License[publication.license].value,
-        publication_type=publication.publication_type.name if publication.publication_type else "",
-        subject_area=publication.subject_area.name if publication.subject_area else "",
+        publication_type=publication.publication_type.name,
+        subject_area=publication.subject_area.name,
         oa_type=publication.open_access_type,
         references=[
             LinkDto(link_type=link.type.name, link_value=link.value).to_link()

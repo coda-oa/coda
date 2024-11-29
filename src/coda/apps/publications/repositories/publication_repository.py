@@ -5,9 +5,10 @@ from coda.apps.authors import services as author_services
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.models import PersonId
 from coda.apps.publications.dto import LinkDto
-from coda.apps.publications.models import Concept, LinkType
+from coda.apps.publications.models import LinkType, PublicationAttachedConcept
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
+from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import AuthorId, AuthorList
 from coda.contract import ContractId
 from coda.doi import Doi
@@ -46,8 +47,16 @@ def save(publication: Publication) -> PublicationId:
         p.online_publication_date = publication_state.online
         p.print_publication_date = publication_state.print
 
-    p.publication_type = _first_by_concept(publication.publication_type)
-    p.subject_area = _first_by_concept(publication.subject_area)
+    p.publication_type.entity_id = publication.publication_type.id
+    p.publication_type.vocabulary_id = publication.publication_type.vocabulary
+    p.publication_type.name = publication.publication_type.name
+    p.publication_type.save()
+
+    p.subject_area.entity_id = publication.subject_area.id
+    p.subject_area.vocabulary_id = publication.subject_area.vocabulary
+    p.subject_area.name = publication.subject_area.name
+    p.subject_area.save()
+
     p.contracts.set(publication.contracts)
 
     if not p.submitting_author:
@@ -111,19 +120,12 @@ def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
     return state
 
 
-def _deserialize_concept(model_concept: Concept | None) -> VocabularyConcept:
-    if model_concept is None:
+def _deserialize_concept(model_concept: PublicationAttachedConcept) -> VocabularyConcept:
+    if model_concept.entity_id == UnknownConcept.id:
         return UnknownConcept
 
-    domain_concept = VocabularyConcept(
-        id=ConceptId(str(model_concept.entity_id)),
-        concept_id=model_concept.concept_id,
-        vocabulary=VocabularyId(model_concept.vocabulary_id),
-        name=model_concept.name,
-        description=model_concept.hint,
-    )
-
-    return domain_concept
+    v = vocabulary_repository.get_by_id(cast(VocabularyId, model_concept.vocabulary_id))
+    return v.get_concept_by_id(ConceptId(str(model_concept.entity_id)))
 
 
 def _deserialize_links(links: Iterable[LinkModel]) -> set[Link]:
@@ -144,15 +146,3 @@ def _attach_links(id: PublicationId, links: Iterable[Link]) -> None:
             type=LinkType.objects.get(name=link_type),
             publication_id=cast(int, id),
         )
-
-
-def _first_by_concept(vocabulary_concept: VocabularyConcept) -> Concept | None:
-    if vocabulary_concept == UnknownConcept:
-        return None
-
-    found = Concept.objects.get(
-        concept_id=vocabulary_concept.concept_id,
-        vocabulary_id=vocabulary_concept.vocabulary,
-    )
-
-    return found

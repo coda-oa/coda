@@ -1,7 +1,8 @@
+from collections.abc import Collection
 import pytest
 
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.vocabulary import LimitedVocabulary
+from coda.vocabulary import LimitedVocabulary, VocabularyConcept
 
 
 @pytest.mark.django_db
@@ -39,6 +40,8 @@ def test__saved_limited_vocabulary__allowing_previously_forbidden_concept__saves
     vocabulary_repository.save(limited_vocabulary)
 
     result = vocabulary_repository.get_by_id(limited_vocabulary.id)
-    assert sorted(result.concepts, key=lambda c: c.id) == sorted(
-        v.concepts, key=lambda c: c.concept_id
-    )
+    assert sorted_by_concept_id(result.concepts) == sorted_by_concept_id(v.concepts)
+
+
+def sorted_by_concept_id(concepts: Collection[VocabularyConcept]) -> list[VocabularyConcept]:
+    return sorted(concepts, key=lambda c: c.concept_id)
