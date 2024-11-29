@@ -107,41 +107,7 @@ def move_to_allowed(request: HttpRequest) -> HttpResponse:
 def get_vocabulary(request: HttpRequest) -> LimitedVocabulary:
     v_id = VocabularyId(int(request.POST["vocabulary_id"]))
     vocabulary = vocabulary_repository.get_limited_by_id(v_id)
-
-    # allowed = get_allowed_concepts(request)
-    # forbidden = get_forbidden_concept(request)
-    # add_allowed(vocabulary, allowed)
-    # add_forbidden(vocabulary, forbidden)
-
     return vocabulary
-
-
-# def add_allowed(vocabulary: Vocabulary, allowed: Iterable[tuple[str, str, str]]) -> None:
-#     for a_id, a_name, a_description in allowed:
-#         vocabulary.add_concept(id=ConceptId(a_id), name=a_name, description=a_description)
-
-
-# def add_forbidden(vocabulary: Vocabulary, forbidden: Iterable[tuple[str, str, str]]) -> None:
-#     for f_id, f_name, f_description in forbidden:
-#         vocabulary.add_concept(
-#             id=ConceptId(f_id), name=f_name, description=f_description, is_allowed=False
-#         )
-
-
-# def get_allowed_concepts(request: HttpRequest) -> Iterable[tuple[str, str, str]]:
-#     return zip(
-#         request.POST.getlist("allowed_ids"),
-#         request.POST.getlist("allowed_names"),
-#         request.POST.getlist("allowed_descriptions"),
-#     )
-
-
-# def get_forbidden_concept(request: HttpRequest) -> Iterable[tuple[str, str, str]]:
-#     return zip(
-#         request.POST.getlist("forbidden_ids"),
-#         request.POST.getlist("forbidden_names"),
-#         request.POST.getlist("forbidden_descriptions"),
-#     )
 
 
 def concept_pairs(vocabulary: LimitedVocabulary) -> Iterable[ConceptPair]:
