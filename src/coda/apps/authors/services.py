@@ -41,7 +41,7 @@ def author_create(author: Author) -> AuthorId:
     if author.orcid:
         _id, _ = PersonId.objects.get_or_create(orcid=author.orcid)
     else:
-        _id = None
+        _id = PersonId.objects.create()
 
     roles = serialize_roles(author.roles)
     _author = AuthorModel.objects.create(
