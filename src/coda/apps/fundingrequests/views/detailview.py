@@ -50,6 +50,7 @@ class SubmitterViewModel(NamedTuple):
 
 class PublicationViewModel(NamedTuple):
     title: str
+    corresponding_author: str
     authors: Iterable[str]
     journal_title: str
     journal_eissn: str
@@ -99,6 +100,7 @@ def submitter_viewmodel(submitter: Author) -> SubmitterViewModel:
 def publication_viewmodel(publication: Publication) -> PublicationViewModel:
     return PublicationViewModel(
         title=publication.title,
+        corresponding_author=cast(Author, publication.submitting_author).name,
         authors=list(publication.authors),
         journal_title=publication.journal.title,
         journal_eissn=publication.journal.eissn,
