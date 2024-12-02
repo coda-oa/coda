@@ -38,7 +38,11 @@ def as_domain_object(model: AuthorModel) -> Author:
 
 def author_create(author: Author) -> AuthorId:
     affiliation = _find_affiliation(author.affiliation)
-    _id, _ = PersonId.objects.get_or_create(orcid=author.orcid)
+    if author.orcid:
+        _id, _ = PersonId.objects.get_or_create(orcid=author.orcid)
+    else:
+        _id = None
+
     roles = serialize_roles(author.roles)
     _author = AuthorModel.objects.create(
         name=author.name, email=author.email, identifier=_id, affiliation=affiliation, roles=roles
