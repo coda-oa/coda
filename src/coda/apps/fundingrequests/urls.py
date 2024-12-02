@@ -21,7 +21,8 @@ funding_formset = ExternalFundingFormset.get_management_view()
 urlpatterns = [
     path("", fundingrequest_list, name="list"),
     path("<int:pk>/", fundingrequest_detail, name="detail"),
-    path("<int:pk>/review/", review.review_page, name="review"),
+    path("review/<int:pk>/", review.review_page, name="review"),
+    path("review/<int:pk>/submit", review.review_submit, name="review_submit"),
     path("create/wizard/", FundingRequestWizard.as_view(), name="create_wizard"),
     path("update/submitter/<int:pk>/", UpdateSubmitterView.as_view(), name="update_submitter"),
     path(
@@ -30,9 +31,6 @@ urlpatterns = [
         name="update_publication",
     ),
     path("update/funding/<int:pk>/", UpdateFundingView.as_view(), name="update_funding"),
-    path("approve/", review.approve, name="approve"),
-    path("reject/", review.reject, name="reject"),
-    path("open/", review.open, name="open"),
     path("create_label/<int:next>", LabelCreateView.as_view(), name="label_create"),
     path("attach_label/", attach_label, name="label_attach"),
     path("detach_label/", detach_label, name="label_detach"),

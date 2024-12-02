@@ -68,12 +68,16 @@ class FundingRequest(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    processing_status = models.CharField(max_length=20, choices=PROCESSING_CHOICES, default="open")
     labels = models.ManyToManyField(Label, related_name="requests")
     submitter = models.ForeignKey(
         Author, on_delete=models.CASCADE, related_name="funding_requests", null=True, blank=True
     )
     publication = models.OneToOneField(Publication, on_delete=models.CASCADE)
+
+    processing_status = models.CharField(max_length=20, choices=PROCESSING_CHOICES, default="open")
+    review_decided_funding_amount = models.DecimalField(max_digits=10, decimal_places=4, null=True)
+    review_decided_funding_currency = models.CharField(max_length=3, null=True)
+    review_remarks = models.TextField(blank=True)
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)

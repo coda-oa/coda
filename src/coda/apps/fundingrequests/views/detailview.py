@@ -28,6 +28,8 @@ class RequestViewModel(NamedTuple):
     updated_at: datetime.date
     estimated_cost: Money
     review_status: str
+    review_remarks: str
+    funding_amount: Money
 
     def is_open(self) -> bool:
         return self.review_status == ReviewResult.Open.value
@@ -77,6 +79,11 @@ def request_viewmodel(fr: FundingRequestModel) -> RequestViewModel:
         updated_at=fr.updated_at,
         estimated_cost=Money(fr.estimated_cost, Currency[fr.estimated_cost_currency]),
         review_status=ReviewResult(fr.processing_status).value,
+        review_remarks=fr.review_remarks,
+        funding_amount=Money(
+            fr.review_decided_funding_amount or 0,
+            Currency[fr.review_decided_funding_currency or "EUR"],
+        ),
     )
 
 

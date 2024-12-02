@@ -2,12 +2,14 @@ article {
   border: 1px solid var(--coda-muted-border-color);
 }
 
-button.danger, a[role="button"].danger {
+button.danger,
+a[role="button"].danger {
   background-color: var(--coda-validation-invalid-color);
   border-color: var(--coda-validation-invalid-color)
 }
 
-button.success, a[role="button"].danger {
+button.success,
+a[role="button"].success {
   background-color: var(--coda-validation-valid-color);
   border-color: var(--coda-validation-valid-color)
 }

@@ -1,17 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1 class="my-2">
-        <span class="mr-1">Funding Request</span>
-        <small>
-            {% if funding_request.is_open %}
-                <span class="pill status-label open">Open</span>
-            {% elif funding_request.is_approved %}
-                <span class="pill status-label approved">Approved</span>
-            {% elif funding_request.is_rejected %}
-                <span class="pill status-label rejected">Rejected</span>
-            {% endif %}
-        </small>
-    </h1>
+    <h1 class="my-2">Funding Request</h1>
     <div class="grid col-2">
         <div>
             <article>
@@ -138,7 +127,7 @@
                         </tr>
                     </tbody>
                 </table>
-                <h3 class="mt-1_5">Third party funding</h3>
+                <h3 class="mt-1_5">External Research Funding</h3>
                 <table class="article__table fundingrequest-table">
                     <thead>
                         <tr>
@@ -160,27 +149,34 @@
             </article>
         </div>
         <aside class="vh-100 sticky">
-            <h2 class="my-1">Review</h2>
-            <hr>
-            <div class="flex">
+            <h2 class="my-1">
+                <span class="mr-1">Review</span>
                 {% if funding_request.is_open %}
-                    <form method="post" action="{% url "fundingrequests:approve" %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                        <button type="submit" class="status-label approved">Approve</button>
-                    </form>
-                    <form method="post" action="{% url "fundingrequests:reject" %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                        <button type="submit" class="status-label rejected">Reject</button>
-                    </form>
-                {% else %}
-                    <form method="post" action="{% url "fundingrequests:open" %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                        <button type="submit">Re-open</button>
-                    </form>
+                    <span class="pill status-label open">Open</span>
+                {% elif funding_request.is_approved %}
+                    <span class="pill status-label approved">Approved</span>
+                {% elif funding_request.is_rejected %}
+                    <span class="pill status-label rejected">Rejected</span>
                 {% endif %}
+            </h2>
+            <hr>
+            <div>
+                {% if funding_request.is_approved %}
+                    <p class="my-2">
+                        <b>Funding amount:</b> {{ funding_request.funding_amount }}
+                    </p>
+                {% endif %}
+                {% if funding_request.review_remarks %}
+                    <div class="my-2">
+                        <p>
+                            <b>Remarks</b>
+                        </p>
+                        <p>{{ funding_request.review_remarks }}</p>
+                    </div>
+                {% endif %}
+                <a href="{% url 'fundingrequests:review' pk=funding_request.id %}"
+                   role="button"
+                   class="secondary w-100">Submit Review</a>
             </div>
             <h2 class="my-1">Labels</h2>
             <hr>

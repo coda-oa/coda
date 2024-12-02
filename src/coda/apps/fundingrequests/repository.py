@@ -37,15 +37,7 @@ def get_by_id(id: FundingRequestId) -> FundingRequest:
 
 
 def as_domain_object(model: FundingRequestModel) -> FundingRequest:
-    match model.processing_status:
-        case ReviewResult.Approved.value:
-            constructor = FundingRequest.approved
-        case ReviewResult.Rejected.value:
-            constructor = FundingRequest.rejected
-        case _:
-            constructor = FundingRequest
-
-    return constructor(
+    fr = FundingRequest(
         id=FundingRequestId(model.id),
         publication=publication_repository.get_by_id(PublicationId(model.publication_id)),
         submitter=author_services.get_by_id(AuthorId(cast(int, model.submitter_id))),
@@ -62,6 +54,31 @@ def as_domain_object(model: FundingRequestModel) -> FundingRequest:
             for ef in model.external_funding.all()
         ],
     )
+
+    match model.processing_status:
+        case ReviewResult.Approved.value:
+            fr.approve(
+                decided_funding=Money(
+                    model.review_decided_funding_amount or 0,
+                    Currency.from_code(model.review_decided_funding_currency or "EUR"),
+                ),
+                remarks=model.review_remarks,
+            )
+        case ReviewResult.Rejected.value:
+            fr.reject(model.review_remarks)
+        case ReviewResult.Open.value:
+            fr.open(model.review_remarks)
+
+    return fr
+
+
+def save_review(fr: FundingRequest) -> None:
+    fr_model = FundingRequestModel.objects.get(pk=cast(FundingRequestId, fr.id))
+    fr_model.processing_status = fr.review().value.lower()
+    fr_model.review_decided_funding_amount = fr.funding_amount.amount
+    fr_model.review_decided_funding_currency = fr.funding_amount.currency.code
+    fr_model.review_remarks = fr.review_remarks
+    fr_model.save()
 
 
 def search(

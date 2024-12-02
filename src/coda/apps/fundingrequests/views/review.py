@@ -1,5 +1,3 @@
-from collections.abc import Callable
-
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
@@ -7,35 +5,46 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.forms import ReviewForm
-from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
-from coda.apps.fundingrequests.services import fundingrequest_perform_review
-from coda.fundingrequest import FundingRequestId, ReviewResult
+from coda.fundingrequest import FundingRequest, FundingRequestId
+from coda.money import Currency, Money
 
 
-def fundingrequest_action(review: ReviewResult) -> Callable[[HttpRequest], HttpResponse]:
-    @login_required
-    @require_POST
-    def post(request: HttpRequest) -> HttpResponse:
-        try:
-            id = FundingRequestId(int(request.POST["fundingrequest"]))
-            fundingrequest_perform_review(id, review)
-            return redirect(reverse("fundingrequests:detail", kwargs={"pk": id}))
-        except FundingRequestModel.DoesNotExist:
-            return HttpResponse(status=404)
-
-    return post
-
-
-approve = fundingrequest_action(ReviewResult.Approved)
-reject = fundingrequest_action(ReviewResult.Rejected)
-open = fundingrequest_action(ReviewResult.Open)
-
-
+@login_required
 def review_page(request: HttpRequest, pk: int) -> HttpResponse:
     fr = repository.get_by_id(FundingRequestId(pk))
     return render(
         request,
         "fundingrequests/fundingrequest_review.html",
-        {"fundingrequest": fr, "form": ReviewForm()},
+        {
+            "fundingrequest": fr,
+            "currencies": list(Currency),
+            "selected_currency": fr.funding_amount.currency,
+        },
     )
+
+
+@login_required
+@require_POST
+def review_submit(request: HttpRequest, pk: int) -> HttpResponse:
+    id = FundingRequestId(pk)
+    fr = repository.get_by_id(id)
+    process_review(fr, request)
+    repository.save_review(fr)
+    return redirect(reverse("fundingrequests:detail", kwargs={"pk": id}))
+
+
+def process_review(fr: FundingRequest, request: HttpRequest) -> None:
+    funding = Money(
+        request.POST["decided_funding_amount"],
+        Currency.from_code(request.POST["decided_funding_currency"]),
+    )
+    remarks = request.POST["reviewer_remarks"]
+
+    action = request.POST["action"]
+    match action:
+        case "approve":
+            fr.approve(funding, remarks)
+        case "reject":
+            fr.reject(remarks)
+        case "open":
+            fr.open(remarks)

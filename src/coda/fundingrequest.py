@@ -106,9 +106,10 @@ class FundingRequest:
     def reject(self, remarks: str = "") -> None:
         self._review = Review(result=ReviewResult.Rejected, remarks=remarks)
 
-    def open(self) -> None:
+    def open(self, remarks: str = "") -> None:
         self._review = Review(
-            decided_funding=self._review.decided_funding, remarks=self._review.remarks
+            decided_funding=self._review.decided_funding,
+            remarks=remarks or self._review.remarks,
         )
 
     def is_open(self) -> bool:
