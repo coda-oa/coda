@@ -4,7 +4,9 @@ from typing import Any
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 
+from coda.apps.contracts.models import Contract
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.services import invoice_create
 from coda.apps.publications.models import Publication
@@ -80,6 +82,16 @@ def parse_into_position_list(positions: list[dict[str, Any]], currency: Currency
 
 
 @login_required
+def tab_switch(request: HttpRequest) -> HttpResponse:
+    tab = request.GET["tab"]
+    return render(
+        request,
+        "invoices/add_positions.html",
+        {"tab": tab, "cost_types": [ct.value for ct in CostType]},
+    )
+
+
+@login_required
 def search_publications(request: HttpRequest) -> HttpResponse:
     query = request.POST.get("q", "")
     if query:
@@ -89,6 +101,18 @@ def search_publications(request: HttpRequest) -> HttpResponse:
 
     search_results = [search_result_for(pub) for pub in publications]
     return render(request, "invoices/search_publications.html", {"publications": search_results})
+
+
+@login_required
+def search_contracts(request: HttpRequest) -> HttpResponse:
+    query = request.POST.get("contract_query", "")
+    if query:
+        contracts = Contract.objects.filter(name__icontains=query)
+    else:
+        contracts = Contract.objects.none()
+
+    search_results = [search_results_for_contract(contract) for contract in contracts]
+    return render(request, "invoices/search_contracts.html", {"contracts": search_results})
 
 
 @login_required
@@ -236,3 +260,11 @@ def maybe_request_context(publication: Publication) -> dict[str, Any]:
         }
     else:
         return {"request_id": "", "url": ""}
+
+
+def search_results_for_contract(contract: Contract) -> dict[str, Any]:
+    return {
+        "id": contract.id,
+        "name": contract.name,
+        "url": reverse("contracts:detail", kwargs={"pk": contract.id}),
+    }

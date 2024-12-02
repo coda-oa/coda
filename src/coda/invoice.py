@@ -1,10 +1,11 @@
 import datetime
-from decimal import Decimal
 import enum
 from collections.abc import Iterable
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Generic, NamedTuple, NewType, Self, TypeVar
 
+from coda.contract import ContractId
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
@@ -40,7 +41,7 @@ class TaxRate(Decimal):
         return super().__new__(cls, v.quantize(Decimal("0.0000")))
 
 
-ItemType = PublicationId | str
+ItemType = PublicationId | ContractId | str
 T = TypeVar("T", bound=ItemType, covariant=True)
 Positions = Iterable["Position[ItemType]"]
 

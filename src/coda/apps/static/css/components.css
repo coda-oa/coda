@@ -239,3 +239,32 @@ details.dropdown>ul:has(.label)>li {
     --_message-background-color: rgb(205, 130, 10);
   }
 }
+
+
+.tab-list {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 0.2rem;
+
+  & button {
+    padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
+    border: none;
+    border-radius: 0;
+
+    background-color: var(--coda-secondary-background);
+
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  & button:first-child {
+    border-top-left-radius: var(--coda-border-radius);
+    border-bottom-left-radius: var(--coda-border-radius);
+  }
+
+  & button:last-child {
+    border-top-right-radius: var(--coda-border-radius);
+    border-bottom-right-radius: var(--coda-border-radius);
+  }
+}

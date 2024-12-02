@@ -5,7 +5,9 @@ from coda.apps.invoices.views.create import (
     create_invoice,
     get_total,
     remove_position,
+    search_contracts,
     search_publications,
+    tab_switch,
 )
 from coda.apps.invoices.views.creditor import (
     CreditorCreateView,
@@ -22,6 +24,8 @@ urlpatterns = [
     path("<int:pk>/", invoice_detail, name="detail"),
     path("create/", create_invoice, name="create"),
     path("create/search-publications/", search_publications, name="pub_search"),
+    path("create/search-contracts/", search_contracts, name="contract_search"),
+    path("create/tab-switch/", tab_switch, name="tab_switch"),
     path("create/add-position/", add_position, name="add_position"),
     path("create/remove-position/", remove_position, name="remove_position"),
     path("create/total/", get_total, name="get_total"),

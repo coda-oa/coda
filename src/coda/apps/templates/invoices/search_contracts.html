@@ -1,0 +1,45 @@
+<div id="contract-search">
+    <h3>Search Contracts</h3>
+    <div role="group">
+        <input type="search"
+               name="contract_query"
+               placeholder="Search contracts"
+               value="{{ request.POST.contract_query }}"
+               class="flex-6">
+        <button type="button"
+                name="action"
+                value="search"
+                class="flex-1 pill"
+                hx-post="{% url 'invoices:contract_search' %}"
+                hx-target="#contract-search"
+                hx-swap="outerHTML">Search</button>
+    </div>
+    {% if contracts %}
+        <table class="article__table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for contract in contracts %}
+                    <tr>
+                        <td>
+                            <a href="{{ contract.url }}">{{ contract.name }}</a>
+                        </td>
+                        <td>
+                            <button type="button"
+                                    class="outline secondary"
+                                    name="add-contract-position"
+                                    value="{{ contract.id }}"
+                                    hx-post="{% url 'invoices:add_position' %}"
+                                    hx-target="#positions"
+                                    hx-swap="outerHTML">Add</button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</div>

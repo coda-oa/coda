@@ -26,7 +26,7 @@
             </table>
         </article>
         {% include "invoices/invoice_positions.html" %}
-        {% include "invoices/add_positions.html" %}
+        {% include "invoices/add_positions.html" with tab="publications" %}
         <button type="submit" name="action" value="create">Create</button>
     </form>
 {% endblock content %}
