@@ -113,7 +113,10 @@ def test__publication_step__done__saves_page_data_to_store() -> None:
 
     actual = store["publication_step"]
     non_publication_step_items = {"journal", "contracts"}
-    expected = publication_dto.to_post_data(exclude=non_publication_step_items)
+
+    expected_dto = publication_dto.model_copy(deep=True)
+    expected_dto.corresponding_author.roles = [Role.CORRESPONDING_AUTHOR.name]
+    expected = expected_dto.to_post_data(exclude=non_publication_step_items)
     assert actual == expected
 
 
