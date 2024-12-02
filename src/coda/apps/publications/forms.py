@@ -49,7 +49,18 @@ class CorrespondingAuthorForm(AuthorForm):
     roles = forms.MultipleChoiceField(
         choices=((role.name, role.value) for role in Role),
         widget=forms.MultipleHiddenInput(),
+        required=False,
     )
+
+    def full_clean(self) -> None:
+        super().full_clean()
+        if not hasattr(self, "cleaned_data"):
+            return
+
+        self.cleaned_data["roles"] = [
+            Role.CORRESPONDING_AUTHOR.name,
+            *self.cleaned_data.get("roles", []),
+        ]
 
 
 class PublicationForm(CodaFormBase):
