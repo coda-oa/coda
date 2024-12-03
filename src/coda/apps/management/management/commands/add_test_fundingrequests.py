@@ -7,8 +7,9 @@ from django.db import transaction
 from faker import Faker
 from faker.providers import lorem
 
+from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingOrganization
-from coda.apps.fundingrequests.services import fundingrequest_create, fundingrequest_perform_review
+from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.journals.models import Journal
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import LinkType
@@ -86,7 +87,13 @@ class Command(BaseCommand):
         )
 
         id = fundingrequest_create(request)
-        fundingrequest_perform_review(id, review_status)
+        request.id = id
+        if review_status == ReviewResult.Approved:
+            request.approve(Money(100, Currency.EUR))
+        elif review_status == ReviewResult.Rejected:
+            request.reject()
+
+        repository.save_review(request)
 
     def create_author(self) -> Author:
         return Author.new(
