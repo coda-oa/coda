@@ -26,6 +26,9 @@ class Review:
     result: ReviewResult = ReviewResult.Open
     remarks: str = ""
 
+    def with_remarks(self, remarks: str) -> "Review":
+        return Review(self.decided_funding, self.result, remarks)
+
 
 class ExternalFunding(NamedTuple):
     organization: FundingOrganizationId
@@ -109,8 +112,11 @@ class FundingRequest:
     def open(self, remarks: str = "") -> None:
         self._review = Review(
             decided_funding=self._review.decided_funding,
-            remarks=remarks or self._review.remarks,
+            remarks=remarks,
         )
+
+    def remark(self, remarks: str) -> None:
+        self._review = self._review.with_remarks(remarks)
 
     def is_open(self) -> bool:
         return self._review.result == ReviewResult.Open

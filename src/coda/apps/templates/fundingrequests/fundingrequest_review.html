@@ -27,9 +27,14 @@
                 <textarea name="reviewer_remarks" id="reviewer_remarks" rows="5">{{ fundingrequest.review_remarks }}</textarea>
             </label>
             <div class="grid my-2">
-                <button class="success" type="submit" name="action" value="approve">Approve</button>
-                <button class="secondary" type="submit" name="action" value="return">Save and return</button>
-                <button class="danger" type="submit" name="action" value="reject">Reject</button>
+                {% if fundingrequest.is_open %}
+                    <button class="success" type="submit" name="action" value="approve">Approve</button>
+                    <button class="secondary" type="submit" name="action" value="return">Save and return</button>
+                    <button class="danger" type="submit" name="action" value="reject">Reject</button>
+                {% else %}
+                    <button type="submit" name="action" value="open">Open</button>
+                    <button class="secondary" type="submit" name="action" value="return">Save and return</button>
+                {% endif %}
             </div>
         </form>
     </article>

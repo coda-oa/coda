@@ -85,9 +85,10 @@ def test__rejected_fundingrequest__open__changes_status_to_open(
 ) -> None:
     sut = closed_request
 
-    sut.open()
+    sut.open("Reopened")
 
     assert sut.review() == ReviewResult.Open
+    assert sut.review_remarks == "Reopened"
 
 
 def test__approved_fundingrequest__open__keeps_funding_amount_and_remarks() -> None:

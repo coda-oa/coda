@@ -48,3 +48,5 @@ def process_review(fr: FundingRequest, request: HttpRequest) -> None:
             fr.reject(remarks)
         case "open":
             fr.open(remarks)
+        case "return":
+            fr.remark(remarks)
