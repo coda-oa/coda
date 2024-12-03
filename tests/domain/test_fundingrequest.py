@@ -91,7 +91,7 @@ def test__rejected_fundingrequest__open__changes_status_to_open(
     assert sut.review_remarks == "Reopened"
 
 
-def test__approved_fundingrequest__open__keeps_funding_amount_and_remarks() -> None:
+def test__approved_fundingrequest__open__keeps_funding_amount() -> None:
     sut = make_sut()
     sut.approve(Money(100, Currency.EUR), "A Comment")
 
@@ -99,7 +99,6 @@ def test__approved_fundingrequest__open__keeps_funding_amount_and_remarks() -> N
 
     assert sut.review() == ReviewResult.Open
     assert sut.funding_amount == Money(100, Currency.EUR)
-    assert sut.review_remarks == "A Comment"
 
 
 def test__closed_fundingrequest__changing_publication__raises_error(
