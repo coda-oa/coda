@@ -1,9 +1,13 @@
 import pytest
 
+from coda.apps.contracts.services import contract_create
 from coda.apps.invoices import services
 from coda.apps.publications.services.publications import publication_create
+
+from coda.contract import ContractId
 from coda.invoice import CreditorId, Invoice
 from coda.publication import JournalId, PublicationId
+
 from tests import domainfactory, modelfactory
 
 
@@ -12,6 +16,8 @@ def test__create_invoice__saves_invoice_to_database() -> None:
     creditor_id = modelfactory.creditor().id
     publisher_id = modelfactory.publisher().id
     publications = [random_publication(publisher_id) for _ in range(3)]
+    contracts = [random_contract() for _ in range(3)]
+
     invoice = domainfactory.invoice(
         creditor=CreditorId(creditor_id),
         positions=[
@@ -19,6 +25,7 @@ def test__create_invoice__saves_invoice_to_database() -> None:
                 domainfactory.publication_position(publication=publication)
                 for publication in publications
             ],
+            *[domainfactory.contract_position(contract=contract) for contract in contracts],
             *[domainfactory.free_position() for _ in range(3)],
         ],
     )
@@ -32,6 +39,10 @@ def test__create_invoice__saves_invoice_to_database() -> None:
 def random_publication(publisher_id: int) -> PublicationId:
     journal_id = modelfactory.journal(publisher_id).id
     return publication_create(domainfactory.publication(journal=JournalId(journal_id)))
+
+
+def random_contract() -> ContractId:
+    return contract_create(domainfactory.contract())
 
 
 def assert_invoice_eq(expected: Invoice, actual: Invoice) -> None:

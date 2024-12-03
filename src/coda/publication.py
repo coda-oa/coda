@@ -13,7 +13,10 @@ if TYPE_CHECKING:
 
 
 JournalId = NewType("JournalId", int)
-PublicationId = NewType("PublicationId", int)
+
+
+class PublicationId(int):
+    __slots__ = ()
 
 
 class UnpublishedState(enum.Enum):

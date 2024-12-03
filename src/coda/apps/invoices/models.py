@@ -1,6 +1,7 @@
 from django.db import models
 from django.urls import reverse
 
+from coda.apps.contracts.models import Contract
 from coda.apps.publications.models import Publication
 
 
@@ -32,6 +33,8 @@ class Invoice(models.Model):
 class Position(models.Model):
     description = models.TextField()
     publication = models.ForeignKey(Publication, on_delete=models.CASCADE, null=True)
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, null=True)
+
     cost_amount = models.DecimalField(max_digits=10, decimal_places=4)
     cost_currency = models.CharField(max_length=3)
     cost_type = models.CharField(max_length=255, default="other")

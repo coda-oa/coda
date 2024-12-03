@@ -10,7 +10,17 @@ from coda.apps.contracts.models import Contract
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.services import invoice_create
 from coda.apps.publications.models import Publication
-from coda.invoice import CostType, CreditorId, Invoice, InvoiceId, Position, Positions, TaxRate
+from coda.contract import ContractId
+from coda.invoice import (
+    CostType,
+    CreditorId,
+    Invoice,
+    InvoiceId,
+    ItemType,
+    Position,
+    Positions,
+    TaxRate,
+)
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
@@ -70,15 +80,25 @@ def temp_invoice(positions: list[dict[str, Any]], currency: Currency) -> Invoice
 def parse_into_position_list(positions: list[dict[str, Any]], currency: Currency) -> Positions:
     return [
         Position(
-            item=(
-                PublicationId(int(position["id"])) if "id" in position else position["description"]
-            ),
+            item=get_position_item(position),
             cost=Money(position["cost_amount"], currency),
             cost_type=CostType(position["cost_type"]),
             tax_rate=TaxRate(int(position["tax_rate"]) / 100),
         )
         for position in positions
     ]
+
+
+def get_position_item(position: dict[str, Any]) -> ItemType:
+    match position["type"]:
+        case "contract":
+            return ContractId(position["id"])
+        case "publication":
+            return PublicationId(position["id"])
+        case "free":
+            return str(position["description"])
+        case _:
+            raise ValueError(f"Unknown position type: {position['type']}")
 
 
 @login_required
@@ -117,6 +137,18 @@ def search_contracts(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def add_position(request: HttpRequest) -> HttpResponse:
+    positions = assemble_positions(request)
+
+    return render(
+        request,
+        "invoices/invoice_positions.html",
+        {"positions": positions, "cost_types": [ct.value for ct in CostType]}
+        | invoice_total_context(positions, request.POST.get("currency", "EUR")),
+    )
+
+
+@login_required
+def add_contract(request: HttpRequest) -> HttpResponse:
     positions = assemble_positions(request)
 
     return render(
@@ -168,6 +200,9 @@ def assemble_positions(request: HttpRequest) -> list[dict[str, Any]]:
     if free_position := parse_added_free_position(request):
         positions.append(free_position)
 
+    if new_contract_position := parse_added_contract_position(request):
+        positions.append(new_contract_position)
+
     if new_publication_position := parse_added_publication_position(request):
         positions.append(new_publication_position)
 
@@ -183,8 +218,12 @@ def existing_positions(request: HttpRequest) -> list[dict[str, Any]]:
 def parse_position_data(request: HttpRequest, index: int) -> dict[str, Any]:
     if request.POST.get(f"position-{index}-type") == "free":
         return parse_free_position(request, index)
-    else:
+    elif request.POST.get(f"position-{index}-type") == "publication":
         return parse_publication_position(request, index)
+    elif request.POST.get(f"position-{index}-type") == "contract":
+        return parse_contract_position(request, index)
+    else:
+        return {}
 
 
 def parse_free_position(request: HttpRequest, index: int) -> dict[str, Any]:
@@ -203,6 +242,14 @@ def parse_publication_position(request: HttpRequest, index: int) -> dict[str, An
             "request_id": request.POST.get(f"position-{index}-fundingrequest-id", ""),
             "url": request.POST.get(f"position-{index}-fundingrequest-url", ""),
         },
+    }
+
+
+def parse_contract_position(request: HttpRequest, index: int) -> dict[str, Any]:
+    return parse_common_position_data(request, index) | {
+        "type": "contract",
+        "id": request.POST.get(f"position-{index}-id", "0"),
+        "name": request.POST.get(f"position-{index}-name", ""),
     }
 
 
@@ -225,6 +272,22 @@ def parse_added_publication_position(request: HttpRequest) -> dict[str, Any] | N
         "id": str(publication.id),
         "title": publication.title,
         "funding_request": maybe_request_context(publication),
+        "cost_amount": str(0.00),
+        "cost_type": CostType.Publication_Charge.value,
+        "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),
+    }
+
+
+def parse_added_contract_position(request: HttpRequest) -> dict[str, Any] | None:
+    contract_id = request.POST.get("add-contract-position")
+    if contract_id is None:
+        return None
+
+    contract = Contract.objects.get(pk=contract_id)
+    return {
+        "type": "contract",
+        "id": str(contract.id),
+        "name": contract.name,
         "cost_amount": str(0.00),
         "cost_type": CostType.Publication_Charge.value,
         "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),

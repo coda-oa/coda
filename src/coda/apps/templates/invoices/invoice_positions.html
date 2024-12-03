@@ -33,6 +33,14 @@
                             <input type="hidden"
                                    name="position-{{ forloop.counter }}-title"
                                    value="{{ position.title }}">
+                        {% elif position.type == "contract" %}
+                            {{ position.name }}
+                            <input type="hidden"
+                                   name="position-{{ forloop.counter }}-id"
+                                   value="{{ position.id }}">
+                            <input type="hidden"
+                                   name="position-{{ forloop.counter }}-name"
+                                   value="{{ position.name }}">
                         {% else %}
                             <input type="text"
                                    name="position-{{ forloop.counter }}-description"

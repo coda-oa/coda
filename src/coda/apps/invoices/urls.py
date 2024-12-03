@@ -1,6 +1,7 @@
 from django.urls import path
 
 from coda.apps.invoices.views.create import (
+    add_contract,
     add_position,
     create_invoice,
     get_total,
@@ -27,6 +28,7 @@ urlpatterns = [
     path("create/search-contracts/", search_contracts, name="contract_search"),
     path("create/tab-switch/", tab_switch, name="tab_switch"),
     path("create/add-position/", add_position, name="add_position"),
+    path("create/add-contract/", add_contract, name="add_contract"),
     path("create/remove-position/", remove_position, name="remove_position"),
     path("create/total/", get_total, name="get_total"),
     path("creditors/", CreditorListView.as_view(), name="creditor_list"),

@@ -9,9 +9,11 @@ from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from coda.apps.contracts.models import Contract
 from coda.apps.invoices.services import get_by_id
 from coda.apps.invoices.views.create import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.apps.publications.models import Publication
+from coda.contract import ContractId
 from coda.invoice import CostType, CreditorId, Invoice, InvoiceId, PaymentStatus, Position, TaxRate
 from coda.money import Currency, Money
 from coda.publication import PublicationId
@@ -25,10 +27,20 @@ _faker = faker.Faker()
 @pytest.mark.usefixtures("logged_in")
 def test__searching_for_publication__returns_matches_in_response(client: Client) -> None:
     fr = modelfactory.fundingrequest()
-    response = search(client, fr.publication.title)
+    response = search_publication(client, fr.publication.title)
 
-    expected_context = expect_search_result(fr.publication)
+    expected_context = expect_publication_search_result(fr.publication)
     assert [expected_context] == response.context["publications"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_for_contract__returns_matches_in_response(client: Client) -> None:
+    contract = modelfactory.contract()
+    response = client.post(reverse("invoices:contract_search"), {"contract_query": contract.name})
+
+    expected_context = expect_contract_search_result(contract)
+    assert [expected_context] == response.context["contracts"]
 
 
 @pytest.mark.django_db
@@ -40,6 +52,17 @@ def test__add_publication_as_position__returns_position_in_response(client: Clie
     response = add_publication_position(client, publication.id)
 
     expected = expect_new_publication_position(publication)
+    assert [expected] == response.context["positions"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__add_contract_as_position__returns_position_in_response(client: Client) -> None:
+    contract = modelfactory.contract()
+
+    response = add_contract_position(client, contract.id)
+
+    expected = expect_new_contract_position(contract)
     assert [expected] == response.context["positions"]
 
 
@@ -61,6 +84,17 @@ def test__changing_publication_position_data__updates_position_in_response(clien
     response = client.post(reverse("invoices:create"), position_data)
 
     expected = expect_existing_publication_position(position_data)
+    assert expected in response.context["positions"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__changing_contract_position_data__updates_position_in_response(client: Client) -> None:
+    contract = modelfactory.contract()
+    position_data = number_of_positions(1) | create_contract_position_input(contract)
+    response = client.post(reverse("invoices:create"), position_data)
+
+    expected = expect_existing_contract_position(position_data)
     assert expected in response.context["positions"]
 
 
@@ -98,10 +132,12 @@ def test__given_position_added__removing_position__position_removed_from_respons
 @pytest.mark.usefixtures("logged_in")
 def test__given_positions_added__create__saves_new_invoice(client: Client) -> None:
     creditor = modelfactory.creditor()
-    first = modelfactory.publication()
+    publication = modelfactory.publication()
+    contract = modelfactory.contract()
 
-    first_position_data = create_publication_position_input(first, 1)
+    first_position_data = create_publication_position_input(publication, 1)
     second_position_data = create_free_position_input(2)
+    third_position_data = create_contract_position_input(contract, 3)
 
     post_data = (
         {
@@ -112,9 +148,10 @@ def test__given_positions_added__create__saves_new_invoice(client: Client) -> No
             "status": PaymentStatus.Unpaid.value,
             "currency": Currency.EUR.code,
         }
-        | number_of_positions(2)
+        | number_of_positions(3)
         | first_position_data
         | second_position_data
+        | third_position_data
     )
 
     response = client.post(reverse("invoices:create"), post_data)
@@ -149,11 +186,20 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                 CostType(post_data["position-2-cost-type"]),
                 TaxRate(int(post_data["position-2-taxrate"]) / 100),
             ),
+            Position(
+                ContractId(post_data["position-3-id"]),
+                Money(
+                    post_data["position-3-cost"],
+                    Currency[post_data["currency"]],
+                ),
+                CostType(post_data["position-3-cost-type"]),
+                TaxRate(int(post_data["position-3-taxrate"]) / 100),
+            ),
         ],
     )
 
 
-def search(
+def search_publication(
     client: Client, title: str, other_post_data: dict[str, str] | None = None
 ) -> TemplateResponse:
     return cast(
@@ -170,6 +216,18 @@ def add_publication_position(
         client.post(
             reverse("invoices:add_position"),
             {"add-publication-position": id} | (other_post_data or {}),
+        ),
+    )
+
+
+def add_contract_position(
+    client: Client, id: int, /, other_post_data: dict[str, Any] | None = None
+) -> TemplateResponse:
+    return cast(
+        TemplateResponse,
+        client.post(
+            reverse("invoices:add_contract"),
+            {"add-contract-position": id} | (other_post_data or {}),
         ),
     )
 
@@ -208,6 +266,17 @@ def create_publication_position_input(publication: Publication, index: int = 1) 
     }
 
 
+def create_contract_position_input(contract: Contract, index: int = 1) -> dict[str, str]:
+    return {
+        f"position-{index}-type": "contract",
+        f"position-{index}-id": str(contract.id),
+        f"position-{index}-name": contract.name,
+        f"position-{index}-cost": _random_cost(),
+        f"position-{index}-taxrate": _random_tax_rate(),
+        f"position-{index}-cost-type": _random_cost_type(),
+    }
+
+
 def new_free_position_data() -> dict[str, str]:
     return {
         "action": "add-free-position",
@@ -237,6 +306,17 @@ def expect_new_free_position(free_position_data: dict[str, str]) -> dict[str, An
         "cost_amount": free_position_data["free-position-cost"],
         "cost_type": free_position_data["free-position-cost-type"],
         "tax_rate": free_position_data["free-position-taxrate"],
+    }
+
+
+def expect_new_contract_position(contract: Contract) -> dict[str, Any]:
+    return {
+        "type": "contract",
+        "id": str(contract.id),
+        "name": contract.name,
+        "cost_amount": str(0.00),
+        "cost_type": CostType.Publication_Charge.value,
+        "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),
     }
 
 
@@ -286,7 +366,26 @@ def expect_existing_publication_position(
     }
 
 
-def expect_search_result(publication: Publication) -> dict[str, Any]:
+def expect_existing_contract_position(position_data: dict[str, str], i: int = 1) -> dict[str, Any]:
+    return {
+        "type": "contract",
+        "id": position_data[f"position-{i}-id"],
+        "name": position_data[f"position-{i}-name"],
+        "cost_amount": position_data[f"position-{i}-cost"],
+        "cost_type": position_data[f"position-{i}-cost-type"],
+        "tax_rate": position_data[f"position-{i}-taxrate"],
+    }
+
+
+def expect_contract_search_result(contract: Contract) -> dict[str, Any]:
+    return {
+        "id": contract.id,
+        "name": contract.name,
+        "url": reverse("contracts:detail", kwargs={"pk": contract.id}),
+    }
+
+
+def expect_publication_search_result(publication: Publication) -> dict[str, Any]:
     fr = publication.fundingrequest if hasattr(publication, "fundingrequest") else None
     return {
         "id": publication.id,

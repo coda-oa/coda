@@ -7,13 +7,16 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 
 from coda.apps.authors.models import Author
+from coda.apps.contracts.models import Contract
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.services import as_domain_object
 from coda.apps.publications.models import Publication
 from coda.apps.views import EntityListView
+from coda.contract import ContractId
 from coda.invoice import FundingSourceId, ItemType, Position
 from coda.money import Money
+from coda.publication import PublicationId
 
 
 class InvoiceListView(EntityListView["InvoiceViewModel"], LoginRequiredMixin):
@@ -55,9 +58,14 @@ def invoice_viewmodel(invoice_model: InvoiceModel) -> "InvoiceViewModel":
 
 def position_viewmodel(position: Position[ItemType], number: int) -> "PositionViewModel":
     match position.item:
-        case int(pub_id):
+        case ContractId(contract_id):
+            contract = get_object_or_404(Contract, pk=contract_id)
+            position_name = contract.name
+            submitter = ""
+            related_funding_request = None
+        case PublicationId(pub_id):
             publication = get_object_or_404(Publication, pk=pub_id)
-            publication_title = publication.title
+            position_name = publication.title
             submitter = cast(Author, publication.submitting_author).name
             related_request = FundingRequest.objects.filter(publication_id=position.item).first()
             related_funding_request = None
@@ -67,13 +75,13 @@ def position_viewmodel(position: Position[ItemType], number: int) -> "PositionVi
                     request_id=related_request.request_id,
                 )
         case str(description):
-            publication_title = description
+            position_name = description
             submitter = ""
             related_funding_request = None
 
     return PositionViewModel(
         number=str(number),
-        name=publication_title,
+        name=position_name,
         publication_submitter=submitter,
         cost=position.cost,
         cost_type=position.cost_type.value,

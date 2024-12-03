@@ -6,7 +6,11 @@ from coda.date import DateRange
 from coda.publication import JournalId
 from coda.string import NonEmptyStr
 
-ContractId = NewType("ContractId", int)
+
+class ContractId(int):
+    __slots__ = ()
+
+
 PublisherId = NewType("PublisherId", int)
 
 

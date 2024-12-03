@@ -1,5 +1,10 @@
 import datetime
 import uuid
+from typing import Annotated, Any
+
+from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import core_schema
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.dto import CodaBaseDto, OptionalFromStr
@@ -91,10 +96,44 @@ class PublicationStepDto(CodaBaseDto):
     links: list[LinkDto]
 
 
+class ContractListAnnotation:
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        _source_type: Any,
+        _handler: GetCoreSchemaHandler,
+    ) -> core_schema.CoreSchema:
+        def validate_from_list(value: list[int]) -> list[ContractId]:
+            return [ContractId(cid) for cid in value]
+
+        from_list_schema = core_schema.chain_schema(
+            [
+                core_schema.list_schema(),
+                core_schema.no_info_plain_validator_function(validate_from_list),
+            ]
+        )
+
+        return core_schema.json_or_python_schema(
+            json_schema=from_list_schema,
+            python_schema=core_schema.union_schema(
+                [
+                    core_schema.is_instance_schema(list),
+                    from_list_schema,
+                ]
+            ),
+        )
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, _core_schema: core_schema.CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        return handler(core_schema.list_schema())
+
+
 class PublicationDto(CodaBaseDto):
     meta: PublicationMetaDto
     journal: JournalDto
-    contracts: list[ContractId]
+    contracts: Annotated[list[ContractId], ContractListAnnotation]
     links: list[LinkDto]
     corresponding_author: AuthorDto
     authors: list[str]

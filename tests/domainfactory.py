@@ -6,7 +6,7 @@ import faker
 
 from coda import orcid
 from coda.author import Author, AuthorId, AuthorList, InstitutionId, Role
-from coda.contract import ContractId
+from coda.contract import Contract, ContractId
 from coda.doi import Doi
 from coda.fundingrequest import (
     ExternalFunding,
@@ -60,6 +60,14 @@ def author(
     )
 
 
+def contract(id: ContractId | None = None) -> Contract:
+    return Contract(
+        id=id or ContractId(random.randint(1, 1000)),
+        name=NonEmptyStr(_faker.sentence()),
+        publishers=(),
+    )
+
+
 def invoice(
     id: InvoiceId | None = None,
     creditor: CreditorId | None = None,
@@ -83,6 +91,20 @@ def publication_position(
 ) -> Position[PublicationId]:
     return Position(
         item=publication or PublicationId(random.randint(1, 1000)),
+        cost=random_money(currency),
+        cost_type=random.choice(list(CostType)),
+        tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
+        funding_source=funding_source,
+    )
+
+
+def contract_position(
+    contract: ContractId | None = None,
+    currency: Currency | None = None,
+    funding_source: FundingSourceId | None = None,
+) -> Position[ContractId]:
+    return Position(
+        item=contract or ContractId(random.randint(1, 1000)),
         cost=random_money(currency),
         cost_type=random.choice(list(CostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),

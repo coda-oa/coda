@@ -11,6 +11,7 @@ from coda.invoice import (
     Position,
     TaxRate,
 )
+from coda.contract import ContractId
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
@@ -28,11 +29,7 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
         status=PaymentStatus(model.status),
         positions=[
             Position(
-                item=(
-                    PublicationId(position.publication_id)
-                    if position.publication_id
-                    else position.description
-                ),
+                item=_get_item_from_position_model(position),
                 cost=Money(position.cost_amount, Currency[position.cost_currency]),
                 cost_type=CostType(position.cost_type),
                 tax_rate=TaxRate(position.tax_rate),
@@ -48,6 +45,15 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
     )
 
 
+def _get_item_from_position_model(position: PositionModel) -> ItemType:
+    if position.contract_id:
+        return ContractId(position.contract_id)
+    elif position.publication_id:
+        return PublicationId(position.publication_id)
+    else:
+        return position.description
+
+
 def invoice_create(invoice: Invoice) -> InvoiceId:
     m = InvoiceModel.objects.create(
         number=invoice.number,
@@ -59,7 +65,17 @@ def invoice_create(invoice: Invoice) -> InvoiceId:
 
     def _create_position(pos: Position[ItemType]) -> PositionModel:
         match pos.item:
-            case int(pub_id):
+            case ContractId(contract_id):
+                return PositionModel(
+                    contract_id=contract_id,
+                    cost_amount=pos.cost.amount,
+                    cost_currency=pos.cost.currency.code,
+                    cost_type=pos.cost_type.value,
+                    tax_rate=pos.tax_rate,
+                    funding_source_id=pos.funding_source,
+                    invoice_id=m.id,
+                )
+            case PublicationId(pub_id):
                 return PositionModel(
                     publication_id=pub_id,
                     cost_amount=pos.cost.amount,
