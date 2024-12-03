@@ -1,6 +1,5 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.forms.utils import ErrorList
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest
 from django.views.generic import CreateView, DetailView
 
 from coda.apps.journals.forms import JournalForm
@@ -40,14 +39,6 @@ journal_list_view = JournalListView.as_view()
 class JournalCreateView(LoginRequiredMixin, CreateView[Journal, JournalForm]):
     form_class = JournalForm
     template_name = "generic_form_view.html"
-
-    def form_valid(self, form: JournalForm) -> HttpResponse:
-        existing = Journal.objects.filter(eissn=form.instance.eissn).first()
-        form.errors["eissn"] = ErrorList(["Journal with this E-ISSN already exists."])
-        if existing:
-            return self.form_invalid(form)
-
-        return super().form_valid(form)
 
 
 journal_create_view = JournalCreateView.as_view()

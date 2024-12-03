@@ -2,6 +2,7 @@ from typing import Any
 
 from django import forms
 
+from coda.apps.journals import services
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
 from coda.issn import Issn
@@ -17,6 +18,17 @@ def issn_validator(value: Any) -> None:
 class JournalForm(forms.ModelForm[Journal]):
     eissn = forms.CharField(max_length=9, label="E-ISSN", validators=[issn_validator])
     publisher = forms.ModelChoiceField(queryset=Publisher.objects.all().order_by("name"))
+
+    def is_valid(self) -> bool:
+        valid = super().is_valid()
+        if not valid:
+            return False
+
+        if services.find_by_eissn(self.cleaned_data["eissn"]).exists():
+            self.add_error("eissn", "Journal with this E-ISSN already exists.")
+            return False
+
+        return True
 
     class Meta:
         model = Journal
