@@ -59,6 +59,23 @@ def test__updating_author__saves_updated_author_to_db() -> None:
 
 
 @pytest.mark.django_db
+def test__can_update_author_with_existing_orcid() -> None:
+    existing = domainfactory.author()
+    existing.orcid = Orcid(test_orcid.JOSIAH_CARBERRY)
+    author_create(existing)
+
+    another = domainfactory.author()
+    new_id = author_create(another)
+
+    another.id = new_id
+    another.orcid = Orcid(test_orcid.JOSIAH_CARBERRY)
+
+    author_update(another)
+
+    assert get_by_id(new_id).orcid == Orcid(test_orcid.JOSIAH_CARBERRY)
+
+
+@pytest.mark.django_db
 def test__updating_author__without_id__raises_error() -> None:
     author = domainfactory.author()
     author_create(author)

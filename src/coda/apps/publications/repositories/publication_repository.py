@@ -1,12 +1,12 @@
 from collections.abc import Iterable
 from typing import cast
 
+from django.db import transaction
+
 from coda.apps.authors import services as author_services
-from coda.apps.authors.models import Author as AuthorModel
-from coda.apps.authors.models import PersonId
 from coda.apps.publications.dto import LinkDto
-from coda.apps.publications.models import LinkType, PublicationAttachedConcept
 from coda.apps.publications.models import Link as LinkModel
+from coda.apps.publications.models import LinkType, PublicationAttachedConcept
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import AuthorId, AuthorList
@@ -28,6 +28,7 @@ from coda.string import NonEmptyStr
 from coda.vocabulary import ConceptId, UnknownConcept, VocabularyConcept, VocabularyId
 
 
+@transaction.atomic
 def save(publication: Publication) -> PublicationId:
     if publication.id:
         p = PublicationModel.objects.get(pk=publication.id)
@@ -60,19 +61,12 @@ def save(publication: Publication) -> PublicationId:
     p.contracts.set(publication.contracts)
 
     if not p.submitting_author:
-        p.submitting_author = AuthorModel()
+        author_id = author_services.author_create(publication.corresponding_author)
+        p.submitting_author_id = author_id
+    else:
+        publication.corresponding_author.id = AuthorId(p.submitting_author.id)
+        author_services.author_update(publication.corresponding_author)
 
-    p.submitting_author.name = publication.corresponding_author.name
-    p.submitting_author.email = publication.corresponding_author.email
-    p.submitting_author.affiliation_id = publication.corresponding_author.affiliation
-
-    if not p.submitting_author.identifier:
-        p.submitting_author.identifier = PersonId()
-
-    p.submitting_author.identifier.orcid = publication.corresponding_author.orcid
-    p.submitting_author.identifier.save()
-
-    p.submitting_author.save()
     p.save()
     return PublicationId(p.pk)
 

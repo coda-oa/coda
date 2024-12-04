@@ -56,8 +56,15 @@ def author_update(author: Author) -> Author:
 
     model = AuthorModel.objects.get(pk=author.id)
     identifier = cast(PersonId, model.identifier)
-    identifier.orcid = author.orcid
-    identifier.save()
+    if author.orcid:
+        existing = PersonId.objects.filter(orcid=author.orcid)
+        if existing.exists():
+            model.identifier = existing.get()
+            model.identifier.save()
+        else:
+            identifier.orcid = author.orcid
+            identifier.save()
+
     model.name = author.name
     model.email = author.email
     if author.affiliation:

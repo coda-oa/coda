@@ -1,9 +1,11 @@
 import pytest
 
+from coda.apps.authors.services import author_create
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
+from coda.orcid import Orcid
 from coda.publication import JournalId, Publication, PublicationId
 from coda.vocabulary import VocabularyConcept, Vocabulary
-from tests import domainfactory, modelfactory
+from tests import domainfactory, modelfactory, test_orcid
 from tests.publications.test_publication_services import assert_publication_eq
 
 
@@ -45,6 +47,22 @@ def test__existing_publication__save_with_new_data__is_saved_in_database() -> No
     assert actual is not None
     assert existing_id == updated_id
     assert_publication_eq(actual, updated)
+
+
+@pytest.mark.django_db
+def test__can_save_publication_with_author_that_has_existing_orcid() -> None:
+    _orcid = test_orcid.JOSIAH_CARBERRY
+    author = domainfactory.author()
+    author.orcid = Orcid(_orcid)
+    author_create(author)
+
+    journal = JournalId(modelfactory.journal().pk)
+    publication = domainfactory.publication(journal)
+    publication.corresponding_author = author
+
+    id = publication_repository.save(publication)
+
+    assert_publication_eq(publication_repository.get_by_id(id), publication)
 
 
 @pytest.mark.django_db
