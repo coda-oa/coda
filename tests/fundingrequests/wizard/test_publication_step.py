@@ -10,7 +10,7 @@ from coda.apps.fundingrequests.views.wizard.wizardsteps import PublicationStep
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.forms import CorrespondingAuthorForm, PublicationForm
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.author import Role
+from coda.author import AuthorList, Role
 from coda.vocabulary import Vocabulary, VocabularyConcept
 from tests import domainfactory
 from tests.authors.test__author import assert_author_eq
@@ -124,7 +124,10 @@ def test__publication_step__done__saves_page_data_to_store() -> None:
 def test__publication_step__authors_in_store__get_context_data__contains_authors() -> None:
     sut = PublicationStep()
     store = DictStore()
-    store["authors"] = expected_authors
+    publication = domainfactory.publication()
+    publication.authors = AuthorList(expected_authors)
+    store_data = PublicationDto.from_publication(publication)
+    store["publication_step"] = store_data.to_post_data(exclude={"journal", "contracts"})
     store.save()
 
     ctx = sut.get_context_data(request_factory.get("/"), store)
@@ -138,7 +141,10 @@ def test__publication_step__authors_in_post_and_store__get_context_data__prefers
 ):
     sut = PublicationStep()
     store = DictStore()
-    store["authors"] = ["other authors"]
+    publication = domainfactory.publication()
+    publication.authors = AuthorList(["John Doe", "Jane Doe"])
+    store_data = PublicationDto.from_publication(publication)
+    store["publication_step"] = store_data.to_post_data(exclude={"journal", "contracts"})
 
     step_data = publication_step.stepdata()
     step_data["authors"] = author_str

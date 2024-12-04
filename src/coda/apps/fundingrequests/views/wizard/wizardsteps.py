@@ -153,8 +153,8 @@ class PublicationStep(Step):
     def get_authors(self, request: HttpRequest, store: Store) -> AuthorList:
         if request.POST.get("authors"):
             return AuthorList.from_str(request.POST.get("authors", ""))
-        elif store.get("authors"):
-            return AuthorList(store["authors"])
+        elif publication_step := store.get("publication_step"):
+            return AuthorList(publication_step["authors"])
         else:
             return AuthorList()
 
