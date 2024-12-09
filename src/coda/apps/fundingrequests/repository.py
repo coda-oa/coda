@@ -98,7 +98,7 @@ def search(
         query = query & Q(submitter__name__icontains=submitter)
 
     if publisher:
-        query = query & Q(publication__journal__publisher__name__icontains=publisher)
+        query = query & Q(publication__article_journal__publisher__name__icontains=publisher)
 
     if processing_states:
         query = query & Q(processing_status__in=processing_states)

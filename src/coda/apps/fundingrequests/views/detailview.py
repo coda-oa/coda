@@ -11,6 +11,7 @@ from coda.apps.contracts.models import Contract
 from coda.apps.fundingrequests.forms import ChooseLabelForm
 from coda.apps.fundingrequests.models import ExternalFunding, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
+from coda.apps.journals.models import Journal
 from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import Publication
 from coda.fundingrequest import ReviewResult
@@ -98,13 +99,15 @@ def submitter_viewmodel(submitter: Author) -> SubmitterViewModel:
 
 
 def publication_viewmodel(publication: Publication) -> PublicationViewModel:
+    # FIXME: Remove type ignore. This is just a placeholder while refactoring types is in progress
+    journal: Journal = publication.article_journal  # type: ignore
     return PublicationViewModel(
         title=publication.title,
         corresponding_author=cast(Author, publication.submitting_author).name,
         authors=list(publication.authors),
-        journal_title=publication.journal.title,
-        journal_eissn=publication.journal.eissn,
-        publisher_name=publication.journal.publisher.name,
+        journal_title=journal.title,
+        journal_eissn=journal.eissn,
+        publisher_name=journal.publisher.name,
         publication_state=publication.publication_state,
         publication_date=publication.online_publication_date,
         license=License[publication.license].value,

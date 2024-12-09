@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from typing import Protocol
 
 import pytest
 
@@ -11,10 +11,15 @@ from coda.vocabulary import Vocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory, test_orcid
 from tests.publications.test_publication_services import assert_publication_eq
 
-PublicationFactory = Callable[
-    [VocabularyConcept, VocabularyConcept],
-    tuple[PublicationId, BasePublication],
-]
+
+class PublicationFactory(Protocol):
+    def __call__(
+        self,
+        subject_area: VocabularyConcept,
+        publication_type: VocabularyConcept,
+        publication_id: PublicationId | None = None,
+    ) -> tuple[PublicationId, BasePublication]:
+        ...
 
 
 def save_publication(
@@ -34,13 +39,16 @@ def save_publication(
 
 
 def save_monograph(
-    subject_area: VocabularyConcept, publication_type: VocabularyConcept
+    subject_area: VocabularyConcept,
+    publication_type: VocabularyConcept,
+    publication_id: PublicationId | None = None,
 ) -> tuple[PublicationId, Monograph]:
     publisher = modelfactory.publisher().id
     publication = domainfactory.monograph(
         publisher=PublisherId(publisher),
         subject_area=subject_area,
         publication_type=publication_type,
+        id=publication_id,
     )
     id = publication_repository.save(publication)
     return id, publication
@@ -70,17 +78,20 @@ def test__save_publication__get_by_id__returns_publication(
 
 
 @pytest.mark.django_db
-def test__existing_publication__save_with_new_data__is_saved_in_database() -> None:
+@pytest.mark.parametrize("publication_factory", publication_factories())
+def test__existing_publication__save_with_new_data__is_saved_in_database(
+    publication_factory: PublicationFactory,
+) -> None:
     old_concept, new_concept = "old-concept", "new-concept"
     subject_area_vocabulary = vocabulary_with_concepts(old_concept, new_concept)
     publication_type_vocabulary = vocabulary_with_concepts(old_concept, new_concept)
 
-    existing_id, _ = save_publication(
+    existing_id, _ = publication_factory(
         subject_area_vocabulary.get_concept(old_concept),
         publication_type_vocabulary.get_concept(old_concept),
     )
 
-    updated_id, updated = save_publication(
+    updated_id, updated = publication_factory(
         subject_area_vocabulary.get_concept(new_concept),
         publication_type_vocabulary.get_concept(new_concept),
         publication_id=existing_id,

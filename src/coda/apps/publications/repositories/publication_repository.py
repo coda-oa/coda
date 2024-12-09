@@ -10,7 +10,7 @@ from coda.apps.publications.models import LinkType, PublicationAttachedConcept
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import AuthorId, AuthorList
-from coda.contract import ContractId
+from coda.contract import ContractId, PublisherId
 from coda.doi import Doi
 from coda.publication import (
     BasePublication,
@@ -95,12 +95,12 @@ def save(publication: BasePublication) -> PublicationId:
     return PublicationId(p.pk)
 
 
-def get_by_id(publication_id: PublicationId) -> Publication:
+def get_by_id(publication_id: PublicationId) -> BasePublication:
     model = PublicationModel.objects.get(pk=publication_id)
     return as_domain_object(model)
 
 
-def first() -> Publication | None:
+def first() -> BasePublication | None:
     p = PublicationModel.objects.first()
     if not p:
         return None
@@ -108,25 +108,45 @@ def first() -> Publication | None:
     return as_domain_object(p)
 
 
-def as_domain_object(model: PublicationModel) -> Publication:
+def as_domain_object(model: PublicationModel) -> BasePublication:
     state = _deserialize_publication_state(model)
 
-    return Publication(
-        id=PublicationId(model.pk),
-        title=NonEmptyStr(model.title),
-        license=License[model.license],
-        open_access_type=OpenAccessType[model.open_access_type],
-        publication_type=_deserialize_concept(model.publication_type),
-        subject_area=_deserialize_concept(model.subject_area),
-        corresponding_author=author_services.get_by_id(
-            AuthorId(cast(int, model.submitting_author_id))
-        ),
-        authors=AuthorList.from_str(model.author_list or ""),
-        publication_state=state,
-        journal=JournalId(cast(int, model.article_journal_id)),
-        contracts={ContractId(c.pk) for c in model.contracts.all()},
-        links=_deserialize_links(model.links.all()),
-    )
+    if model.article_journal_id:
+        return Publication(
+            id=PublicationId(model.pk),
+            title=NonEmptyStr(model.title),
+            license=License[model.license],
+            open_access_type=OpenAccessType[model.open_access_type],
+            publication_type=_deserialize_concept(model.publication_type),
+            subject_area=_deserialize_concept(model.subject_area),
+            corresponding_author=author_services.get_by_id(
+                AuthorId(cast(int, model.submitting_author_id))
+            ),
+            authors=AuthorList.from_str(model.author_list or ""),
+            publication_state=state,
+            journal=JournalId(model.article_journal_id),
+            contracts={ContractId(c.pk) for c in model.contracts.all()},
+            links=_deserialize_links(model.links.all()),
+        )
+    elif model.monograph_publisher_id:
+        return Monograph(
+            id=PublicationId(model.pk),
+            title=NonEmptyStr(model.title),
+            license=License[model.license],
+            open_access_type=OpenAccessType[model.open_access_type],
+            publication_type=_deserialize_concept(model.publication_type),
+            subject_area=_deserialize_concept(model.subject_area),
+            corresponding_author=author_services.get_by_id(
+                AuthorId(cast(int, model.submitting_author_id))
+            ),
+            authors=AuthorList.from_str(model.author_list or ""),
+            publication_state=state,
+            publisher=PublisherId(model.monograph_publisher_id),
+            contracts={ContractId(c.pk) for c in model.contracts.all()},
+            links=_deserialize_links(model.links.all()),
+        )
+    else:
+        raise ValueError("Unknown publication type")
 
 
 def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
