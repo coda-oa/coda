@@ -9,6 +9,7 @@
 
     --coda-primary-background: var(--pico-primary-background);
     --coda-primary-border: var(--pico-primary-border);
+    --coda-primary-inverse: var(--pico-primary-inverse);
 
     --coda-secondary-inverse: var(--pico-secondary-inverse);
     --coda-secondary-background: var(--pico-secondary-background);

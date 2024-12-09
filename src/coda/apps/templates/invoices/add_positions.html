@@ -9,21 +9,28 @@
                         name="tab"
                         value="publications"
                         role="tab"
-                        aria-controls="tab-content">Publications</button>
+                        aria-controls="tab-content"
+                        {% if tab == "publications" %}aria-selected="true" class="active"{% endif %}>
+                    Publications
+                </button>
                 <button hx-get="{% url 'invoices:tab_switch' %}"
                         hx-target="#add-positions-container"
                         hx-swap="outerHTML"
                         name="tab"
                         value="contracts"
                         role="tab"
-                        aria-controls="tab-content">Contracts</button>
+                        aria-controls="tab-content"
+                        {% if tab == "contracts" %}aria-selected="true" class="active"{% endif %}>Contracts</button>
                 <button hx-get="{% url 'invoices:tab_switch' %}"
                         hx-target="#add-positions-container"
                         hx-swap="outerHTML"
                         name="tab"
                         value="free-position"
                         role="tab"
-                        aria-controls="tab-content">Free Position</button>
+                        aria-controls="tab-content"
+                        {% if tab == "free-position" %}aria-selected="true" class="active"{% endif %}>
+                    Free Position
+                </button>
             </div>
         </header>
         <div class="tab-content">

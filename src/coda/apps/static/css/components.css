@@ -246,11 +246,18 @@ details.dropdown>ul:has(.label)>li {
   grid-auto-flow: column;
   gap: 0.2rem;
 
+  & .active {
+    --_tab-background: color-mix(in srgb, var(--coda-primary-border) 70%, black);
+    background: var(--_tab-background);
+    border: 1px solid var(--_tab-background);
+  }
+
   & button {
     padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
-    border: none;
+    border: 1px solid var(--coda-secondary-background);
     border-radius: 0;
 
+    color: var(--coda-secondary-inverse);
     background-color: var(--coda-secondary-background);
 
     text-align: center;
