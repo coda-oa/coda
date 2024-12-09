@@ -1,5 +1,6 @@
+import abc
 import functools
-from typing import Any, cast
+from typing import Any, Self, cast
 
 import pytest
 from django.http import HttpResponse
@@ -25,7 +26,7 @@ from coda.fundingrequest import (
     FundingRequestId,
     Payment,
 )
-from coda.publication import JournalId
+from coda.publication import BasePublication, JournalId, Publication
 from coda.vocabulary import VocabularyConcept
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
@@ -37,26 +38,20 @@ from tests.publications.test_publication_services import assert_publication_eq
 class FundingRequestDataBuilder:
     def __init__(self) -> None:
         self.affiliation = modelfactory.institution()
-        self.journal = modelfactory.journal()
         self.funder = modelfactory.funding_organization()
         self.contracts = [modelfactory.contract() for _ in range(1, 3)]
 
         self.submitter = domainfactory.author(affiliation=InstitutionId(self.affiliation.pk))
-        self.publication = domainfactory.publication(
-            journal=JournalId(self.journal.pk),
-            publication_type=publication_type(),
-            subject_area=subject_area(),
-            contracts=tuple(ContractId(c.pk) for c in self.contracts),
-        )
         self.estimated_cost = domainfactory.payment()
         self.external_funding = [
             domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
             domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
         ]
 
-    def with_payment(self, payment: Payment) -> "FundingRequestDataBuilder":
-        self.estimated_cost = payment
-        return self
+    @property
+    @abc.abstractmethod
+    def publication(self) -> BasePublication:
+        ...
 
     def build(self) -> FundingRequest:
         return FundingRequest.new(
@@ -70,11 +65,12 @@ class FundingRequestDataBuilder:
     def expected(self) -> FundingRequest:
         return self.build()
 
+    def with_payment(self, payment: Payment) -> Self:
+        self.estimated_cost = payment
+        return self
+
     def submitter_dto(self) -> AuthorDto:
         return AuthorDto.from_author(self.submitter)
-
-    def publication_dto(self) -> PublicationDto:
-        return PublicationDto.from_publication(self.publication)
 
     def external_funding_dto(self) -> list[ExternalFundingDto]:
         return [self._to_external_funding_dto(f) for f in self.external_funding]
@@ -84,6 +80,25 @@ class FundingRequestDataBuilder:
 
     def _to_external_funding_dto(self, funding: ExternalFunding) -> ExternalFundingDto:
         return ExternalFundingDto.from_external_funding(funding)
+
+
+class ArticleRequestDataBuilder(FundingRequestDataBuilder):
+    def __init__(self) -> None:
+        super().__init__()
+        self.journal = modelfactory.journal()
+        self._publication = domainfactory.publication(
+            journal=JournalId(self.journal.pk),
+            publication_type=publication_type(),
+            subject_area=subject_area(),
+            contracts=tuple(ContractId(c.pk) for c in self.contracts),
+        )
+
+    @property
+    def publication(self) -> Publication:
+        return self._publication
+
+    def publication_dto(self) -> PublicationDto:
+        return PublicationDto.from_publication(self._publication)
 
 
 @pytest.fixture(autouse=True)
@@ -106,7 +121,7 @@ def prepare_global_settings() -> None:
 
 
 def save_new_fundingrequest() -> FundingRequestId:
-    fr = FundingRequestDataBuilder().expected
+    fr = ArticleRequestDataBuilder().expected
     fr_id = fundingrequest_create(fr)
     return fr_id
 
@@ -115,7 +130,7 @@ def save_new_fundingrequest() -> FundingRequestId:
 def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
-    builder = FundingRequestDataBuilder()
+    builder = ArticleRequestDataBuilder()
 
     response = submit_wizard(
         client,
@@ -155,7 +170,7 @@ def test__updating_fundingrequest_publication__updates_funding_request_and_shows
 ) -> None:
     existing_request_id = save_new_fundingrequest()
 
-    builder = FundingRequestDataBuilder()
+    builder = ArticleRequestDataBuilder()
     response = submit_update_publication_wizard(
         client,
         existing_request_id,
@@ -176,7 +191,7 @@ def test__updating_fundingrequest_funding__updates_funding_request_and_shows_det
     fr_id = save_new_fundingrequest()
     fr_before_update = repository.get_by_id(fr_id)
 
-    builder = FundingRequestDataBuilder().with_payment(fr_before_update.estimated_cost)
+    builder = ArticleRequestDataBuilder().with_payment(fr_before_update.estimated_cost)
     external_funding = builder.external_funding_dto()
     external_funding_data = [ef.to_post_data() for ef in external_funding]
     cost_dto = builder.cost_dto()

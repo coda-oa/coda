@@ -50,7 +50,9 @@ def author() -> AuthorModel:
 
 def publication(title: str = "") -> Publication:
     title = title or _faker.sentence()
-    return Publication.objects.create(title=title, journal=journal(), submitting_author=author())
+    return Publication.objects.create(
+        title=title, article_journal=journal(), submitting_author=author()
+    )
 
 
 def contract() -> Contract:

@@ -110,7 +110,7 @@ class BasePublication:
         return isinstance(self.publication_state, Published)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Publication(BasePublication):
     journal: JournalId
 
@@ -146,7 +146,7 @@ class Publication(BasePublication):
         )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Monograph(BasePublication):
     publisher: PublisherId
 

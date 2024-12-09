@@ -15,6 +15,7 @@ from coda.publication import (
     JournalId,
     License,
     Link,
+    Monograph,
     OpenAccessType,
     Publication,
     PublicationId,
@@ -191,6 +192,34 @@ class PublicationDto(PublicationBaseDto):
 
 class MonographDto(PublicationBaseDto):
     publisher: PublisherId
+
+    @classmethod
+    def from_monograph(cls, publication: Monograph) -> "MonographDto":
+        match publication.publication_state:
+            case Published(online_date, print_date):
+                online_pub_date = online_date
+                print_pub_date = print_date
+            case _:
+                online_pub_date = None
+                print_pub_date = None
+
+        return cls(
+            meta=PublicationMetaDto(
+                title=publication.title,
+                license=publication.license.name,
+                subject_area=ConceptDto.from_concept(publication.subject_area),
+                publication_type=ConceptDto.from_concept(publication.publication_type),
+                open_access_type=publication.open_access_type.name,
+                publication_state=publication.publication_state.name(),
+                online_publication_date=online_pub_date,
+                print_publication_date=print_pub_date,
+            ),
+            publisher=publication.publisher,
+            contracts=list(publication.contracts),
+            links=[to_link_dto(link) for link in publication.links],
+            corresponding_author=AuthorDto.from_author(publication.corresponding_author),
+            authors=list(publication.authors),
+        )
 
 
 def _parse_state(publication: PublicationMetaDto) -> PublicationState:

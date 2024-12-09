@@ -1,21 +1,65 @@
+from collections.abc import Callable
+
 import pytest
 
 from coda.apps.authors.services import author_create
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
+from coda.contract import PublisherId
 from coda.orcid import Orcid
-from coda.publication import JournalId, Publication, PublicationId
-from coda.vocabulary import VocabularyConcept, Vocabulary
+from coda.publication import BasePublication, JournalId, Monograph, Publication, PublicationId
+from coda.vocabulary import Vocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory, test_orcid
 from tests.publications.test_publication_services import assert_publication_eq
 
+PublicationFactory = Callable[
+    [VocabularyConcept, VocabularyConcept],
+    tuple[PublicationId, BasePublication],
+]
+
+
+def save_publication(
+    subject_area: VocabularyConcept,
+    publication_type: VocabularyConcept,
+    publication_id: PublicationId | None = None,
+) -> tuple[PublicationId, Publication]:
+    journal = JournalId(modelfactory.journal().id)
+    publication = domainfactory.publication(
+        journal=journal,
+        subject_area=subject_area,
+        publication_type=publication_type,
+        id=publication_id,
+    )
+    id = publication_repository.save(publication)
+    return id, publication
+
+
+def save_monograph(
+    subject_area: VocabularyConcept, publication_type: VocabularyConcept
+) -> tuple[PublicationId, Monograph]:
+    publisher = modelfactory.publisher().id
+    publication = domainfactory.monograph(
+        publisher=PublisherId(publisher),
+        subject_area=subject_area,
+        publication_type=publication_type,
+    )
+    id = publication_repository.save(publication)
+    return id, publication
+
+
+def publication_factories() -> list[PublicationFactory]:
+    return [save_publication, save_monograph]
+
 
 @pytest.mark.django_db
-def test__save_publication__get_by_id__returns_publication() -> None:
+@pytest.mark.parametrize("publication_factory", publication_factories())
+def test__save_publication__get_by_id__returns_publication(
+    publication_factory: PublicationFactory,
+) -> None:
     concept = "1"
     subject_area_vocabulary = vocabulary_with_concepts(concept)
     publication_type_vocabulary = vocabulary_with_concepts(concept)
 
-    id, publication = save_publication(
+    id, publication = publication_factory(
         subject_area_vocabulary.get_concept(concept),
         publication_type_vocabulary.get_concept(concept),
     )
@@ -84,22 +128,6 @@ def test__save_publication_with_limited_vocabulary__get_by_id__returns_publicati
     actual = publication_repository.get_by_id(id)
 
     assert actual.subject_area.vocabulary == limited.id
-
-
-def save_publication(
-    subject_area: VocabularyConcept,
-    publication_type: VocabularyConcept,
-    publication_id: PublicationId | None = None,
-) -> tuple[PublicationId, Publication]:
-    journal = JournalId(modelfactory.journal().id)
-    publication = domainfactory.publication(
-        journal=journal,
-        subject_area=subject_area,
-        publication_type=publication_type,
-        id=publication_id,
-    )
-    id = publication_repository.save(publication)
-    return id, publication
 
 
 def vocabulary_with_concepts(*concepts: str) -> Vocabulary:

@@ -104,13 +104,14 @@ def test__approved_fundingrequest__open__keeps_funding_amount() -> None:
 def test__closed_fundingrequest__changing_publication__raises_error(
     closed_request: FundingRequest,
 ) -> None:
+    # FIXME: Remove type ignore. This is just a placeholder while refactoring types is in progress
     sut = closed_request
-    old_journal = sut.publication.journal
+    old_journal = sut.publication.journal  # type: ignore
 
     with pytest.raises(FundingRequestLocked):
         sut.publication = new_publication()
 
-    assert sut.publication.journal == old_journal
+    assert sut.publication.journal == old_journal  # type: ignore
 
 
 def test__closed_fundingrequest__changing_submitter__raises_error(

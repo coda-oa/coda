@@ -8,7 +8,7 @@ from coda.apps.publications.repositories import publication_repository, vocabula
 from coda.apps.publications.services.publications import publication_create, publication_update
 from coda.author import AuthorId
 from coda.contract import ContractId
-from coda.publication import JournalId, Publication, PublicationId
+from coda.publication import BasePublication, JournalId, Monograph, Publication, PublicationId
 from coda.vocabulary import UnknownConcept
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
@@ -155,10 +155,9 @@ def test__can_update_publication_with_contracts(journal: Journal) -> None:
     assert_publication_eq(actual, expected)
 
 
-def assert_publication_eq(actual: Publication, expected: Publication) -> None:
+def assert_base_publication_eq(actual: BasePublication, expected: BasePublication) -> None:
     assert actual.title == expected.title
     assert actual.authors == expected.authors
-    assert actual.journal == expected.journal
     assert actual.license == expected.license
     assert actual.publication_type == expected.publication_type
     assert actual.subject_area == expected.subject_area
@@ -167,3 +166,25 @@ def assert_publication_eq(actual: Publication, expected: Publication) -> None:
     assert actual.contracts == expected.contracts
     assert actual.links == expected.links
     assert_author_eq(actual.corresponding_author, expected.corresponding_author)
+
+
+def assert_monograph_eq(actual: Monograph, expected: Monograph) -> None:
+    assert_base_publication_eq(actual, expected)
+    assert actual.publisher == expected.publisher
+
+
+def assert_article_eq(actual: Publication, expected: Publication) -> None:
+    assert_base_publication_eq(actual, expected)
+    assert actual.journal == expected.journal
+
+
+def assert_publication_eq(actual: BasePublication, expected: BasePublication) -> None:
+    match actual, expected:
+        case Monograph(), Monograph():
+            assert_monograph_eq(actual, expected)
+        case Publication(), Publication():
+            assert_article_eq(actual, expected)
+        case _:
+            raise AssertionError(
+                f"Mismatched publication types: {type(actual)} and {type(expected)}"
+            )

@@ -9,6 +9,7 @@ from django.http import HttpRequest
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
+from coda.apps.journals.models import Journal
 from coda.apps.views import EntityListView
 from coda.author import Author
 from coda.date import DateRange
@@ -69,13 +70,14 @@ class ListViewModel(NamedTuple):
 
 
 def as_viewmodel(funding_request: FundingRequestModel) -> ListViewModel:
+    journal = cast(Journal, funding_request.publication.article_journal)
     return ListViewModel(
         id=funding_request.id,
         url=funding_request.get_absolute_url(),
         publication_title=funding_request.publication.title,
         submitter_name=cast(Author, funding_request.submitter).name,
-        journal_title=funding_request.publication.journal.title,
-        journal_url=funding_request.publication.journal.get_absolute_url(),
+        journal_title=journal.title,
+        journal_url=journal.get_absolute_url(),
         updated_at=funding_request.updated_at,
         labels=funding_request.labels.all(),
         status=funding_request.processing_status,

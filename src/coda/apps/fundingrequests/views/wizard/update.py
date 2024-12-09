@@ -60,11 +60,12 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         publication_repository.save(publication)
 
     def prepare(self, request: HttpRequest) -> None:
+        # FIXME: Remove type ignore. This is just a placeholder while refactoring types is in progress
         store = self.get_store()
         fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
-        dto = PublicationDto.from_publication(fr.publication)
+        dto = PublicationDto.from_publication(fr.publication)  # type: ignore
         store["publication_step"] = dto.to_post_data(exclude={"journal", "contracts"})
-        store["journal"] = fr.publication.journal
+        store["journal"] = fr.publication.journal  # type: ignore
         store["contracts"] = dto.contracts
         store.save()
 

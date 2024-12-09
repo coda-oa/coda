@@ -6,6 +6,7 @@ import pytest
 from coda.apps.authors.models import Author
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.services import label_attach, label_create
+from coda.apps.journals.models import Journal
 from coda.color import Color
 from coda.date import DateRange
 from coda.fundingrequest import ReviewResult
@@ -76,7 +77,8 @@ def test__searching_for_funding_requests_by_process_state__returns_matching_fund
 @pytest.mark.django_db
 def test__searching_for_funding_requests_by_publisher__returns_matching_funding_requests() -> None:
     matching_request = modelfactory.fundingrequest()
-    matching_publisher = matching_request.publication.journal.publisher
+    journal = cast(Journal, matching_request.publication.article_journal)
+    matching_publisher = journal.publisher
 
     _ = modelfactory.fundingrequest("No match")
 

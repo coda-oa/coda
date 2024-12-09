@@ -6,7 +6,7 @@ from typing import NamedTuple, NewType
 from coda.author import Author
 from coda.money import Money
 from coda.money._currency import Currency
-from coda.publication import Publication
+from coda.publication import BasePublication, Publication
 from coda.string import NonEmptyStr
 
 FundingRequestId = NewType("FundingRequestId", int)
@@ -55,7 +55,7 @@ class FundingRequest:
     def __init__(
         self,
         id: FundingRequestId | None,
-        publication: Publication,
+        publication: BasePublication,
         submitter: Author,
         estimated_cost: Payment,
         external_funding: Iterable[ExternalFunding] = (),
@@ -70,7 +70,7 @@ class FundingRequest:
     @classmethod
     def new(
         cls,
-        publication: Publication,
+        publication: BasePublication,
         submitter: Author,
         estimated_cost: Payment,
         external_funding: Iterable[ExternalFunding] = (),
@@ -81,7 +81,7 @@ class FundingRequest:
     def approved(
         cls,
         id: FundingRequestId,
-        publication: Publication,
+        publication: BasePublication,
         submitter: Author,
         estimated_cost: Payment,
         external_funding: Iterable[ExternalFunding] = (),
@@ -94,7 +94,7 @@ class FundingRequest:
     def rejected(
         cls,
         id: FundingRequestId,
-        publication: Publication,
+        publication: BasePublication,
         submitter: Author,
         estimated_cost: Payment,
         external_funding: Iterable[ExternalFunding] = (),
@@ -139,7 +139,7 @@ class FundingRequest:
         self._submitter = author
 
     @property
-    def publication(self) -> Publication:
+    def publication(self) -> BasePublication:
         return self._publication
 
     @publication.setter

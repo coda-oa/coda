@@ -13,9 +13,11 @@ from coda.author import AuthorId, AuthorList
 from coda.contract import ContractId
 from coda.doi import Doi
 from coda.publication import (
+    BasePublication,
     JournalId,
     License,
     Link,
+    Monograph,
     OpenAccessType,
     Publication,
     PublicationId,
@@ -28,13 +30,35 @@ from coda.string import NonEmptyStr
 from coda.vocabulary import ConceptId, UnknownConcept, VocabularyConcept, VocabularyId
 
 
-@transaction.atomic
-def save(publication: Publication) -> PublicationId:
+def _initial_article(publication: Publication) -> PublicationModel:
     if publication.id:
         p = PublicationModel.objects.get(pk=publication.id)
-        p.journal_id = publication.journal
+        p.article_journal_id = publication.journal
     else:
-        p = PublicationModel.objects.create(journal_id=publication.journal)
+        p = PublicationModel.objects.create(article_journal_id=publication.journal)
+
+    return p
+
+
+def _initial_monograph(publication: Monograph) -> PublicationModel:
+    if publication.id:
+        p = PublicationModel.objects.get(pk=publication.id)
+        p.monograph_publisher_id = publication.publisher
+    else:
+        p = PublicationModel.objects.create(monograph_publisher_id=publication.publisher)
+
+    return p
+
+
+@transaction.atomic
+def save(publication: BasePublication) -> PublicationId:
+    match publication:
+        case Publication():
+            p = _initial_article(publication)
+        case Monograph():
+            p = _initial_monograph(publication)
+        case _:
+            raise ValueError("Unknown publication type")
 
     p.title = publication.title
     p.license = publication.license.name
@@ -99,7 +123,7 @@ def as_domain_object(model: PublicationModel) -> Publication:
         ),
         authors=AuthorList.from_str(model.author_list or ""),
         publication_state=state,
-        journal=JournalId(model.journal_id),
+        journal=JournalId(cast(int, model.article_journal_id)),
         contracts={ContractId(c.pk) for c in model.contracts.all()},
         links=_deserialize_links(model.links.all()),
     )
