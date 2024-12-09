@@ -9,7 +9,7 @@ from pydantic_core import core_schema
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.dto import CodaBaseDto, OptionalFromStr
 from coda.author import AuthorList
-from coda.contract import ContractId
+from coda.contract import ContractId, PublisherId
 from coda.doi import Doi
 from coda.publication import (
     JournalId,
@@ -130,13 +130,16 @@ class ContractListAnnotation:
         return handler(core_schema.list_schema())
 
 
-class PublicationDto(CodaBaseDto):
+class PublicationBaseDto(CodaBaseDto):
     meta: PublicationMetaDto
-    journal: JournalDto
+    corresponding_author: AuthorDto
     contracts: Annotated[list[ContractId], ContractListAnnotation]
     links: list[LinkDto]
-    corresponding_author: AuthorDto
     authors: list[str]
+
+
+class PublicationDto(PublicationBaseDto):
+    journal: JournalDto
 
     @classmethod
     def from_publication(cls, publication: Publication) -> "PublicationDto":
@@ -184,6 +187,10 @@ class PublicationDto(CodaBaseDto):
             contracts={ContractId(cid) for cid in self.contracts},
             journal=self.journal.id,
         )
+
+
+class MonographDto(PublicationBaseDto):
+    publisher: PublisherId
 
 
 def _parse_state(publication: PublicationMetaDto) -> PublicationState:

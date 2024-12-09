@@ -6,7 +6,7 @@ import faker
 
 from coda import orcid
 from coda.author import Author, AuthorId, AuthorList, InstitutionId, Role
-from coda.contract import Contract, ContractId
+from coda.contract import Contract, ContractId, PublisherId
 from coda.doi import Doi
 from coda.fundingrequest import (
     ExternalFunding,
@@ -31,6 +31,7 @@ from coda.money import Currency, Money
 from coda.publication import (
     JournalId,
     License,
+    Monograph,
     OpenAccessType,
     Publication,
     PublicationId,
@@ -39,7 +40,7 @@ from coda.publication import (
     Unpublished,
 )
 from coda.string import NonEmptyStr
-from coda.vocabulary import VocabularyConcept, UnknownConcept
+from coda.vocabulary import UnknownConcept, VocabularyConcept
 
 _faker = faker.Faker()
 
@@ -145,6 +146,30 @@ def publication(
         subject_area=subject_area or UnknownConcept,
         open_access_type=random_open_access_type(),
         publication_state=state,
+        contracts=set(contracts),
+        links={Doi("10.1234/5678")},
+    )
+
+
+def monograph(
+    publisher: PublisherId | None = None,
+    contracts: tuple[ContractId, ...] = (),
+    publication_type: VocabularyConcept | None = None,
+    subject_area: VocabularyConcept | None = None,
+    *,
+    id: PublicationId | None = None,
+) -> Monograph:
+    return Monograph(
+        id=id,
+        publisher=publisher or PublisherId(random.randint(1, 1000)),
+        title=NonEmptyStr(_faker.sentence()),
+        corresponding_author=author(),
+        authors=random_authorlist(),
+        license=random_license(),
+        publication_type=publication_type or UnknownConcept,
+        subject_area=subject_area or UnknownConcept,
+        open_access_type=random_open_access_type(),
+        publication_state=Unpublished(),
         contracts=set(contracts),
         links={Doi("10.1234/5678")},
     )

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, NamedTuple, NewType, Self, TypeAlias
 
 from coda.author import Author, AuthorList, Role
+from coda.contract import PublisherId
 from coda.doi import Doi
 from coda.string import NonEmptyStr
 from coda.vocabulary import VocabularyConcept, UnknownConcept
@@ -87,20 +88,31 @@ class UserLink(NamedTuple):
 Link: TypeAlias = UserLink | Doi
 
 
-@dataclass
-class Publication:
+@dataclass(kw_only=True)
+class BasePublication:
     id: PublicationId | None
     title: NonEmptyStr
-    journal: JournalId
     corresponding_author: Author
     authors: AuthorList = field(default_factory=AuthorList)
-    license: License = License.Unknown
-    subject_area: VocabularyConcept = UnknownConcept
-    publication_type: VocabularyConcept = UnknownConcept
-    open_access_type: OpenAccessType = OpenAccessType.Unknown
-    publication_state: PublicationState = Unpublished()
+    license: License = field(default=License.Unknown)
+    subject_area: VocabularyConcept = field(default=UnknownConcept)
+    publication_type: VocabularyConcept = field(default=UnknownConcept)
+    open_access_type: OpenAccessType = field(default=OpenAccessType.Unknown)
+    publication_state: PublicationState = field(default=Unpublished())
     contracts: set["ContractId"] = field(default_factory=set)
     links: set[Link] = field(default_factory=set)
+
+    def __post_init__(self) -> None:
+        if not self.corresponding_author.is_corresponding_author():
+            self.corresponding_author.roles.add(Role.CORRESPONDING_AUTHOR)
+
+    def is_published(self) -> bool:
+        return isinstance(self.publication_state, Published)
+
+
+@dataclass
+class Publication(BasePublication):
+    journal: JournalId
 
     @classmethod
     def new(
@@ -133,5 +145,35 @@ class Publication:
             links=links or set(),
         )
 
-    def is_published(self) -> bool:
-        return isinstance(self.publication_state, Published)
+
+@dataclass
+class Monograph(BasePublication):
+    publisher: PublisherId
+
+    @classmethod
+    def new(
+        cls,
+        title: NonEmptyStr,
+        publisher: PublisherId,
+        corresponding_author: Author,
+        authors: AuthorList = AuthorList(),
+        license: License = License.Unknown,
+        subject_area: VocabularyConcept = UnknownConcept,
+        publication_type: VocabularyConcept = UnknownConcept,
+        open_access_type: OpenAccessType = OpenAccessType.Unknown,
+        publication_state: PublicationState = Unpublished(),
+        links: set[Link] | None = None,
+    ) -> Self:
+        return cls(
+            id=None,
+            title=title,
+            publisher=publisher,
+            corresponding_author=corresponding_author,
+            authors=authors,
+            license=license,
+            subject_area=subject_area,
+            publication_type=publication_type,
+            open_access_type=open_access_type,
+            publication_state=publication_state,
+            links=links or set(),
+        )

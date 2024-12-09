@@ -1,10 +1,13 @@
 import datetime
 from collections.abc import Iterable
-from typing import NamedTuple, NewType
+from typing import TYPE_CHECKING, NamedTuple, NewType
 
 from coda.date import DateRange
-from coda.publication import JournalId
 from coda.string import NonEmptyStr
+
+
+if TYPE_CHECKING:
+    from coda.publication import JournalId
 
 
 class ContractId(int):
@@ -19,7 +22,7 @@ class Contract(NamedTuple):
     name: NonEmptyStr
     publishers: tuple[PublisherId, ...]
     period: DateRange = DateRange.create()
-    journals: tuple[JournalId, ...] = ()
+    journals: tuple["JournalId", ...] = ()
 
     @classmethod
     def new(
@@ -27,7 +30,7 @@ class Contract(NamedTuple):
         name: NonEmptyStr,
         publishers: Iterable[PublisherId],
         period: DateRange = DateRange.create(),
-        journals: Iterable[JournalId] = (),
+        journals: Iterable["JournalId"] = (),
     ) -> "Contract":
         return cls(None, name, tuple(publishers), period, tuple(journals))
 
