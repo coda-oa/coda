@@ -48,6 +48,22 @@ class FundingRequestDataBuilder:
             domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
         ]
 
+        self.prepare_vocabularies()
+        self.set_global_preferences()
+
+    def prepare_vocabularies(self) -> None:
+        self.subject_areas = vocabulary_repository.create("subject_areas", "1.0")
+        self.subject_areas.add_concept("subject_area", "subject_area")
+        vocabulary_repository.save(self.subject_areas)
+
+        self.publication_types = vocabulary_repository.create("publication_types", "1.0")
+        self.publication_types.add_concept("publication_type", "publication_type")
+        vocabulary_repository.save(self.publication_types)
+
+    def set_global_preferences(self) -> None:
+        GlobalPreferences.set_subject_classification_vocabulary(self.subject_areas)
+        GlobalPreferences.set_publication_type_vocabulary(self.publication_types)
+
     @property
     @abc.abstractmethod
     def publication(self) -> BasePublication:
@@ -88,8 +104,8 @@ class ArticleRequestDataBuilder(FundingRequestDataBuilder):
         self.journal = modelfactory.journal()
         self._publication = domainfactory.publication(
             journal=JournalId(self.journal.pk),
-            publication_type=publication_type(),
-            subject_area=subject_area(),
+            publication_type=list(self.publication_types.concepts)[0],
+            subject_area=list(self.subject_areas.concepts)[0],
             contracts=tuple(ContractId(c.pk) for c in self.contracts),
         )
 
@@ -104,20 +120,6 @@ class ArticleRequestDataBuilder(FundingRequestDataBuilder):
 @pytest.fixture(autouse=True)
 def login(client: Client) -> None:
     client.force_login(User.objects.create_user(username="testuser"))
-
-
-@pytest.fixture(autouse=True)
-def prepare_global_settings() -> None:
-    subject_areas = vocabulary_repository.create("subject_areas", "1.0")
-    subject_areas.add_concept("subject_area", "subject_area")
-    vocabulary_repository.save(subject_areas)
-
-    publication_types = vocabulary_repository.create("publication_types", "1.0")
-    publication_types.add_concept("publication_type", "publication_type")
-    vocabulary_repository.save(publication_types)
-
-    GlobalPreferences.set_subject_classification_vocabulary(subject_areas)
-    GlobalPreferences.set_publication_type_vocabulary(publication_types)
 
 
 def save_new_fundingrequest() -> FundingRequestId:

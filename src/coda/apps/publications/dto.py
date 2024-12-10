@@ -221,6 +221,25 @@ class MonographDto(PublicationBaseDto):
             authors=list(publication.authors),
         )
 
+    def to_monograph(self, id: PublicationId | None = None) -> Monograph:
+        """
+        Tries to parse a Monograph from a MonographDto.
+        """
+        return Monograph(
+            id=id,
+            title=NonEmptyStr(self.meta.title),
+            license=License[self.meta.license],
+            publication_type=self.meta.publication_type.to_concept(),
+            subject_area=self.meta.subject_area.to_concept(),
+            open_access_type=OpenAccessType[self.meta.open_access_type],
+            publication_state=_parse_state(self.meta),
+            corresponding_author=self.corresponding_author.to_author(),
+            authors=AuthorList(self.authors),
+            links={link.to_link() for link in self.links},
+            contracts={ContractId(cid) for cid in self.contracts},
+            publisher=self.publisher,
+        )
+
 
 def _parse_state(publication: PublicationMetaDto) -> PublicationState:
     state = publication.publication_state

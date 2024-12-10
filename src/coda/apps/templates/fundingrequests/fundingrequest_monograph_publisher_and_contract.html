@@ -1,41 +1,23 @@
 {% extends "forms/wizardform.html" %}
-<h1 class="my-2">Publisher</h1>
-<article>
-    <h2 class="mb-2">Find Publisher</h2>
-    <fieldset role="group">
-        <input type="search"
-               name="publisher_name"
-               id="publisher_name"
-               value="{{ publisher_name }}">
-        <button type="button"
-                hx-post="{% url 'fundingrequests:wizard_find_publisher' %}"
-                class="inline-search-pill pill-right">Search</button>
-    </fieldset>
-    <div class="scroll-container max-h-30">
-        <table class="article__table my-2">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Select</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for publisher in publishers %}
-                    <tr>
-                        <td>{{ publisher.name }}</td>
-                        <td>
-                            <input type="radio"
-                                   name="publisher"
-                                   value="{{ publisher.pk }}"
-                                   {% if publisher.pk == selected_publisher.pk %}checked{% endif %}>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</article>
-<article>
-    <h2>Contracts</h2>
-    {{ contract_formset.as_inline }}
-</article>
+{% block wizard_step %}
+    <h1 class="my-2">Publisher</h1>
+    <article>
+        <h2 class="mb-2">Find Publisher</h2>
+        <fieldset role="group">
+            <input type="search"
+                   name="publisher_name"
+                   id="publisher_name"
+                   value="{{ publisher_name }}">
+            <button type="button"
+                    hx-post="{% url 'fundingrequests:wizard_find_publisher' %}"
+                    hx-target="#publisher-search-results"
+                    hx-swap="outerHTML"
+                    class="inline-search-pill pill-right">Search</button>
+        </fieldset>
+        {% include "fundingrequests/partials/publisher_search_results.html" %}
+    </article>
+    <article>
+        <h2>Contracts</h2>
+        {{ contract_formset.as_inline }}
+    </article>
+{% endblock wizard_step %}

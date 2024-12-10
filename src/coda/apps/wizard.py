@@ -1,5 +1,6 @@
 from abc import ABC
 from collections.abc import Callable, Iterable
+import logging
 from typing import Any, Generic, NamedTuple, Protocol, TypeVar, cast, overload
 
 from django.forms import Form
@@ -198,10 +199,11 @@ class Wizard(View):
         current_index = self.index()
         current_step = self.steps[current_index]
         store = self.get_store()
-        if current_step.is_valid(self.request, store):
+        if valid := current_step.is_valid(self.request, store):
             current_step.done(self.request, store)
             current_index = current_index + 1
 
+        logging.info("Step of type %s is valid: %s", type(current_step), valid)
         return current_index
 
     def _out_of_bounds(self, current_step: int) -> bool:
