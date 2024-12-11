@@ -1,12 +1,12 @@
-from dataclasses import dataclass, field
 import enum
 from collections.abc import Iterable
-from typing import NamedTuple, NewType
+from dataclasses import dataclass, field
+from typing import Generic, NamedTuple, NewType, TypeAlias, TypeVar
 
 from coda.author import Author
 from coda.money import Money
 from coda.money._currency import Currency
-from coda.publication import BasePublication, Publication
+from coda.publication import BasePublication, Monograph, Publication
 from coda.string import NonEmptyStr
 
 FundingRequestId = NewType("FundingRequestId", int)
@@ -51,11 +51,17 @@ class FundingRequestLocked(RuntimeError):
     pass
 
 
-class FundingRequest:
+TPublication = TypeVar("TPublication", bound=BasePublication)
+AnyFundingRequest: TypeAlias = (
+    "FundingRequest[BasePublication] | FundingRequest[Publication] | FundingRequest[Monograph]"
+)
+
+
+class FundingRequest(Generic[TPublication]):
     def __init__(
         self,
         id: FundingRequestId | None,
-        publication: BasePublication,
+        publication: TPublication,
         submitter: Author,
         estimated_cost: Payment,
         external_funding: Iterable[ExternalFunding] = (),
@@ -70,38 +76,12 @@ class FundingRequest:
     @classmethod
     def new(
         cls,
-        publication: BasePublication,
+        publication: TPublication,
         submitter: Author,
         estimated_cost: Payment,
         external_funding: Iterable[ExternalFunding] = (),
-    ) -> "FundingRequest":
+    ) -> "FundingRequest[TPublication]":
         return cls(None, publication, submitter, estimated_cost, external_funding)
-
-    @classmethod
-    def approved(
-        cls,
-        id: FundingRequestId,
-        publication: BasePublication,
-        submitter: Author,
-        estimated_cost: Payment,
-        external_funding: Iterable[ExternalFunding] = (),
-    ) -> "FundingRequest":
-        request = cls(id, publication, submitter, estimated_cost, external_funding)
-        request._review = Review(result=ReviewResult.Approved)
-        return request
-
-    @classmethod
-    def rejected(
-        cls,
-        id: FundingRequestId,
-        publication: BasePublication,
-        submitter: Author,
-        estimated_cost: Payment,
-        external_funding: Iterable[ExternalFunding] = (),
-    ) -> "FundingRequest":
-        request = cls(id, publication, submitter, estimated_cost, external_funding)
-        request._review = Review(result=ReviewResult.Rejected)
-        return request
 
     def approve(self, decided_funding: Money, remarks: str = "") -> None:
         self._review = Review(decided_funding, ReviewResult.Approved, remarks)
@@ -139,11 +119,11 @@ class FundingRequest:
         self._submitter = author
 
     @property
-    def publication(self) -> BasePublication:
+    def publication(self) -> TPublication:
         return self._publication
 
     @publication.setter
-    def publication(self, publication: Publication) -> None:
+    def publication(self, publication: TPublication) -> None:
         if not self.is_open():
             raise FundingRequestLocked("Cannot change publication of an approved request")
 

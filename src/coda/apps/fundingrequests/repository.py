@@ -1,7 +1,8 @@
 from collections.abc import Iterable
-from typing import cast
+from typing import Any, cast
 
 from django.db.models import Q
+from typing_extensions import TypeIs
 
 from coda.apps.authors import services as author_services
 from coda.apps.fundingrequests.models import FundingOrganization
@@ -10,6 +11,7 @@ from coda.apps.publications.repositories import publication_repository
 from coda.author import AuthorId
 from coda.date import DateRange
 from coda.fundingrequest import (
+    AnyFundingRequest,
     ExternalFunding,
     FundingOrganizationId,
     FundingRequest,
@@ -17,13 +19,14 @@ from coda.fundingrequest import (
     Payment,
     PaymentMethod,
     ReviewResult,
+    TPublication,
 )
 from coda.money import Currency, Money
-from coda.publication import PublicationId
+from coda.publication import Monograph, Publication, PublicationId
 from coda.string import NonEmptyStr
 
 
-def first() -> FundingRequest | None:
+def first() -> AnyFundingRequest | None:
     model = FundingRequestModel.objects.first()
     if model:
         return as_domain_object(model)
@@ -31,12 +34,34 @@ def first() -> FundingRequest | None:
         return None
 
 
-def get_by_id(id: FundingRequestId) -> FundingRequest:
+def get_by_id(id: FundingRequestId) -> AnyFundingRequest:
     model = FundingRequestModel.objects.get(pk=id)
     return as_domain_object(model)
 
 
-def as_domain_object(model: FundingRequestModel) -> FundingRequest:
+def get_publication_request(id: FundingRequestId) -> FundingRequest[Publication]:
+    fr = get_by_id(id)
+    if not _is_publication_type(fr, Publication):
+        raise ValueError(f"Funding request with id {id} is not an article request")
+
+    return fr
+
+
+def get_monograph_request(id: FundingRequestId) -> FundingRequest[Monograph]:
+    fr = get_by_id(id)
+    if not _is_publication_type(fr, Monograph):
+        raise ValueError(f"Funding request with id {id} is not a monograph request")
+
+    return fr
+
+
+def _is_publication_type(
+    fr: Any, publication_type: type[TPublication]
+) -> TypeIs[FundingRequest[TPublication]]:
+    return isinstance(fr, AnyFundingRequest) and isinstance(fr.publication, publication_type)
+
+
+def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
     fr = FundingRequest(
         id=FundingRequestId(model.id),
         publication=publication_repository.get_by_id(PublicationId(model.publication_id)),
@@ -72,7 +97,7 @@ def as_domain_object(model: FundingRequestModel) -> FundingRequest:
     return fr
 
 
-def save_review(fr: FundingRequest) -> None:
+def save_review(fr: AnyFundingRequest) -> None:
     fr_model = FundingRequestModel.objects.get(pk=cast(FundingRequestId, fr.id))
     fr_model.processing_status = fr.review().value.lower()
     fr_model.review_decided_funding_amount = fr.funding_amount.amount

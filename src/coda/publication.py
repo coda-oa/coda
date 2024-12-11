@@ -1,3 +1,4 @@
+from abc import ABC
 import datetime
 import enum
 from dataclasses import dataclass, field
@@ -89,7 +90,7 @@ Link: TypeAlias = UserLink | Doi
 
 
 @dataclass(kw_only=True)
-class BasePublication:
+class BasePublication(ABC):
     id: PublicationId | None
     title: NonEmptyStr
     corresponding_author: Author

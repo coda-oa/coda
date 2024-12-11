@@ -4,7 +4,12 @@ from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
 from coda.apps.fundingrequests.repository import get_by_id
 from coda.author import InstitutionId
-from coda.fundingrequest import ExternalFunding, FundingOrganizationId, FundingRequest
+from coda.fundingrequest import (
+    AnyFundingRequest,
+    ExternalFunding,
+    FundingOrganizationId,
+    FundingRequest,
+)
 from coda.publication import JournalId
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
@@ -112,7 +117,7 @@ def test__update_fundingrequest_funding__without_external_funding__deletes_old_e
     assert ExternalFundingModel.objects.count() == 0
 
 
-def assert_fundingrequest_eq(actual: FundingRequest, expected: FundingRequest) -> None:
+def assert_fundingrequest_eq(actual: AnyFundingRequest, expected: AnyFundingRequest) -> None:
     assert_author_eq(actual.submitter, expected.submitter)
     assert_publication_eq(actual.publication, expected.publication)
     assert actual.estimated_cost == expected.estimated_cost

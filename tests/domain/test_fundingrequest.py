@@ -16,7 +16,7 @@ from coda.publication import JournalId, Publication, PublicationId
 from coda.string import NonEmptyStr
 
 
-def make_sut() -> FundingRequest:
+def make_sut() -> FundingRequest[Publication]:
     sut = FundingRequest(
         id=FundingRequestId(8),
         publication=Publication(
@@ -43,7 +43,7 @@ def make_sut() -> FundingRequest:
 
 
 @pytest.fixture(params=[ReviewResult.Rejected, ReviewResult.Approved])
-def closed_request(request: pytest.FixtureRequest) -> FundingRequest:
+def closed_request(request: pytest.FixtureRequest) -> FundingRequest[Publication]:
     status: ReviewResult = request.param
     sut = make_sut()
     if status == ReviewResult.Rejected:
@@ -81,7 +81,7 @@ def test__open_fundingrequest__reject__changes_status_to_rejected() -> None:
 
 
 def test__rejected_fundingrequest__open__changes_status_to_open(
-    closed_request: FundingRequest,
+    closed_request: FundingRequest[Publication],
 ) -> None:
     sut = closed_request
 
@@ -102,20 +102,19 @@ def test__approved_fundingrequest__open__keeps_funding_amount() -> None:
 
 
 def test__closed_fundingrequest__changing_publication__raises_error(
-    closed_request: FundingRequest,
+    closed_request: FundingRequest[Publication],
 ) -> None:
-    # FIXME: Remove type ignore. This is just a placeholder while refactoring types is in progress
     sut = closed_request
-    old_journal = sut.publication.journal  # type: ignore
+    old_journal = sut.publication.journal
 
     with pytest.raises(FundingRequestLocked):
         sut.publication = new_publication()
 
-    assert sut.publication.journal == old_journal  # type: ignore
+    assert sut.publication.journal == old_journal
 
 
 def test__closed_fundingrequest__changing_submitter__raises_error(
-    closed_request: FundingRequest,
+    closed_request: FundingRequest[Publication],
 ) -> None:
     sut = closed_request
 
@@ -127,7 +126,7 @@ def test__closed_fundingrequest__changing_submitter__raises_error(
 
 
 def test__closed_then_reopened_fundingrequest__can_change_publication_again(
-    closed_request: FundingRequest,
+    closed_request: FundingRequest[Publication],
 ) -> None:
     sut = closed_request
     sut.open()
@@ -137,7 +136,9 @@ def test__closed_then_reopened_fundingrequest__can_change_publication_again(
     assert sut.publication == new_publication()
 
 
-def test__closed_fundingrequest__is_open__is_false(closed_request: FundingRequest) -> None:
+def test__closed_fundingrequest__is_open__is_false(
+    closed_request: FundingRequest[Publication],
+) -> None:
     sut = closed_request
     assert not sut.is_open()
 

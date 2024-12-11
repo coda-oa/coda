@@ -205,7 +205,7 @@ def fundingrequest(
     id: FundingRequestId | None = None,
     journal_id: JournalId | None = None,
     funding_org_id: FundingOrganizationId | None = None,
-) -> FundingRequest:
+) -> FundingRequest[Publication]:
     return FundingRequest(
         id=id or None,
         publication=publication(journal_id or JournalId(random.randint(1, 1000))),

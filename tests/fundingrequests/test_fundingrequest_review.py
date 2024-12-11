@@ -5,7 +5,7 @@ from django.urls import reverse
 from coda.apps.fundingrequests import repository, services
 from coda.fundingrequest import FundingOrganizationId, FundingRequest, ReviewResult
 from coda.money import Currency, Money
-from coda.publication import JournalId
+from coda.publication import JournalId, Publication
 from tests import domainfactory, modelfactory
 
 
@@ -84,7 +84,7 @@ def test__closed_fundingrequest__re_opening__stores_in_database(client: Client) 
     assert actual.review_remarks == remarks
 
 
-def fundingrequest() -> FundingRequest:
+def fundingrequest() -> FundingRequest[Publication]:
     journal_id = JournalId(modelfactory.journal().pk)
     organization_id = FundingOrganizationId(modelfactory.funding_organization().pk)
     return domainfactory.fundingrequest(journal_id=journal_id, funding_org_id=organization_id)

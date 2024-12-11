@@ -1,6 +1,6 @@
 import abc
 import functools
-from typing import Any, Self, cast
+from typing import Any, Generic, Self, cast
 
 import pytest
 from django.http import HttpResponse
@@ -25,8 +25,9 @@ from coda.fundingrequest import (
     FundingRequest,
     FundingRequestId,
     Payment,
+    TPublication,
 )
-from coda.publication import BasePublication, JournalId, Publication
+from coda.publication import JournalId, Publication
 from coda.vocabulary import VocabularyConcept
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
@@ -35,7 +36,7 @@ from tests.fundingrequests.wizard.stepdata import publication_step
 from tests.publications.test_publication_services import assert_publication_eq
 
 
-class FundingRequestDataBuilder:
+class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
     def __init__(self) -> None:
         self.affiliation = modelfactory.institution()
         self.funder = modelfactory.funding_organization()
@@ -66,10 +67,10 @@ class FundingRequestDataBuilder:
 
     @property
     @abc.abstractmethod
-    def publication(self) -> BasePublication:
+    def publication(self) -> TPublication:
         ...
 
-    def build(self) -> FundingRequest:
+    def build(self) -> FundingRequest[TPublication]:
         return FundingRequest.new(
             self.publication,
             self.submitter,
@@ -78,7 +79,7 @@ class FundingRequestDataBuilder:
         )
 
     @property
-    def expected(self) -> FundingRequest:
+    def expected(self) -> FundingRequest[TPublication]:
         return self.build()
 
     def with_payment(self, payment: Payment) -> Self:
@@ -98,7 +99,7 @@ class FundingRequestDataBuilder:
         return ExternalFundingDto.from_external_funding(funding)
 
 
-class ArticleRequestDataBuilder(FundingRequestDataBuilder):
+class ArticleRequestDataBuilder(FundingRequestDataBuilder[Publication]):
     def __init__(self) -> None:
         super().__init__()
         self.journal = modelfactory.journal()

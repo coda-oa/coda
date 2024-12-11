@@ -20,7 +20,7 @@ from tests.fundingrequests.test_fundingrequest_wizard import FundingRequestDataB
 from tests.fundingrequests.wizard.stepdata import publication_step
 
 
-class MonographRequestDataBuilder(FundingRequestDataBuilder):
+class MonographRequestDataBuilder(FundingRequestDataBuilder[Monograph]):
     def __init__(self) -> None:
         super().__init__()
         publisher = modelfactory.publisher()

@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from coda.apps.fundingrequests import repository
-from coda.fundingrequest import FundingRequest, FundingRequestId
+from coda.fundingrequest import AnyFundingRequest, FundingRequestId
 from coda.money import Currency, Money
 
 
@@ -33,7 +33,7 @@ def review_submit(request: HttpRequest, pk: int) -> HttpResponse:
     return redirect(reverse("fundingrequests:detail", kwargs={"pk": id}))
 
 
-def process_review(fr: FundingRequest, request: HttpRequest) -> None:
+def process_review(fr: AnyFundingRequest, request: HttpRequest) -> None:
     funding = Money(
         request.POST["decided_funding_amount"],
         Currency.from_code(request.POST["decided_funding_currency"]),
