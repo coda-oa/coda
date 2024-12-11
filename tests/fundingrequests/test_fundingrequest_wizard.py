@@ -27,7 +27,7 @@ from coda.fundingrequest import (
     Payment,
     TPublication,
 )
-from coda.publication import JournalId, Publication
+from coda.publication import JournalId, Publication, PublicationId
 from coda.vocabulary import VocabularyConcept
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
@@ -82,6 +82,10 @@ class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
     def expected(self) -> FundingRequest[TPublication]:
         return self.build()
 
+    @abc.abstractmethod
+    def with_new_publication(self, id: PublicationId | None = None) -> Self:
+        ...
+
     def with_payment(self, payment: Payment) -> Self:
         self.estimated_cost = payment
         return self
@@ -103,12 +107,23 @@ class ArticleRequestDataBuilder(FundingRequestDataBuilder[Publication]):
     def __init__(self) -> None:
         super().__init__()
         self.journal = modelfactory.journal()
-        self._publication = domainfactory.publication(
-            journal=JournalId(self.journal.pk),
+        self._publication = self.create_publication(JournalId(self.journal.pk))
+
+    def create_publication(
+        self, journal: JournalId, *, id: PublicationId | None = None
+    ) -> Publication:
+        return domainfactory.publication(
+            journal=journal,
             publication_type=list(self.publication_types.concepts)[0],
             subject_area=list(self.subject_areas.concepts)[0],
             contracts=tuple(ContractId(c.pk) for c in self.contracts),
+            id=id,
         )
+
+    def with_new_publication(self, id: PublicationId | None = None) -> Self:
+        self.journal = modelfactory.journal()
+        self._publication = self.create_publication(JournalId(self.journal.pk), id=id)
+        return self
 
     @property
     def publication(self) -> Publication:

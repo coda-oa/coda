@@ -1,4 +1,5 @@
 import functools
+from typing import Self
 
 import pytest
 from django.http import HttpResponse
@@ -9,11 +10,12 @@ from pytest_django.asserts import assertRedirects
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
+from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import PublisherStepDto
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.publications.dto import MonographDto
 from coda.contract import ContractId, PublisherId
-from coda.publication import Monograph
+from coda.publication import Monograph, PublicationId
 from tests import domainfactory, modelfactory
 from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
 from tests.fundingrequests.test_fundingrequest_wizard import FundingRequestDataBuilder, submit_step
@@ -24,12 +26,23 @@ class MonographRequestDataBuilder(FundingRequestDataBuilder[Monograph]):
     def __init__(self) -> None:
         super().__init__()
         publisher = modelfactory.publisher()
-        self._publication = domainfactory.monograph(
-            publisher=PublisherId(publisher.pk),
+        self._publication = self.create_monograph(PublisherId(publisher.pk))
+
+    def create_monograph(
+        self, publisher: PublisherId, id: PublicationId | None = None
+    ) -> Monograph:
+        return domainfactory.monograph(
+            publisher=publisher,
             publication_type=list(self.publication_types.concepts)[0],
             subject_area=list(self.subject_areas.concepts)[0],
             contracts=tuple(ContractId(c.pk) for c in self.contracts),
+            id=id,
         )
+
+    def with_new_publication(self, id: PublicationId | None = None) -> Self:
+        publisher = modelfactory.publisher()
+        self._publication = self.create_monograph(PublisherId(publisher.pk), id)
+        return self
 
     @property
     def publication(self) -> Monograph:
@@ -37,6 +50,9 @@ class MonographRequestDataBuilder(FundingRequestDataBuilder[Monograph]):
 
     def publication_dto(self) -> MonographDto:
         return MonographDto.from_monograph(self.publication)
+
+    def publisher_step_dto(self) -> PublisherStepDto:
+        return PublisherStepDto.from_monograph(self.publication)
 
 
 @pytest.mark.django_db
@@ -56,6 +72,27 @@ def test__completing_monograph_wizard__creates_funding_request_for_monograph_and
     actual = repository.first()
     assert actual is not None
     assert_fundingrequest_eq(actual, builder.expected)
+    assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": actual.id}))
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__updating_monograph_meta_step__saves_fundingrequest_with_changed_data(
+    client: Client,
+) -> None:
+    builder = MonographRequestDataBuilder()
+    id = fundingrequest_create(builder.build())
+    url = reverse("fundingrequests:update_monograph_meta", kwargs={"pk": id})
+    submit = functools.partial(submit_step, client, url)
+
+    monograph = repository.get_monograph_request(id)
+    updated = builder.with_new_publication(monograph.publication.id)
+
+    _ = submit(updated.publisher_step_dto().page_input())
+    response = submit(publication_step.stepdata(updated.publication_dto()))
+
+    actual = repository.get_monograph_request(id)
+    assert_fundingrequest_eq(actual, updated.expected)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": actual.id}))
 
 

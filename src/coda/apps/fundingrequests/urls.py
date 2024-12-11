@@ -14,6 +14,7 @@ from coda.apps.fundingrequests.views.wizard.update import (
     UpdatePublicationView,
     UpdateSubmitterView,
 )
+from coda.apps.fundingrequests.views.wizard.update_monograph import MonographUpdateMetaView
 
 app_name = "fundingrequests"
 
@@ -27,6 +28,11 @@ urlpatterns = [
     path("review/<int:pk>/submit", review.review_submit, name="review_submit"),
     path("create/wizard/", FundingRequestWizard.as_view(), name="create_wizard"),
     path("create/monograph/", MonographRequestWizard.as_view(), name="create_monograph"),
+    path(
+        "update/monograph/<int:pk>/meta",
+        MonographUpdateMetaView.as_view(),
+        name="update_monograph_meta",
+    ),
     path("update/submitter/<int:pk>/", UpdateSubmitterView.as_view(), name="update_submitter"),
     path(
         "update/publication/<int:pk>/",

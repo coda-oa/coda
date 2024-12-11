@@ -9,11 +9,16 @@ from coda.apps.fundingrequests.forms import ContractFormset
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.publishers.models import Publisher
 from coda.apps.wizard import Step, Store
+from coda.publication import Monograph
 
 
 class PublisherStepDto(CodaBaseDto):
     publisher: int
     contracts: list[int] = Field(default_factory=list)
+
+    @classmethod
+    def from_monograph(self, monograph: Monograph) -> "PublisherStepDto":
+        return PublisherStepDto(publisher=monograph.publisher, contracts=list(monograph.contracts))
 
     def page_input(self) -> dict[str, Any]:
         return {
