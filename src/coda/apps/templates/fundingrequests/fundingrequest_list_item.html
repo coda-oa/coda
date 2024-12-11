@@ -1,18 +1,15 @@
 {% load param_replace %}
 <article class="fundingrequest">
-    <p class="text-ellipsis mb-0_5">
-        <a href="{% url "fundingrequests:detail" pk=entity.id %}">{{ entity.publication_title }}</a>
-    </p>
-    <p class="mb-1_5">
-        <i><small>last updated at {{ entity.updated_at }}</small></i>
-    </p>
-    <p>Submitted by: {{ entity.submitter_name }}</p>
-    <p class="text-ellipsis">
-        {{ entity.publishing_entity_type }}
-        <a href="{{ entity.publishing_entity_url }}">{{ entity.publishing_entity_name }}</a>
-    </p>
-    <p class="flex justify-between mt-1_5">
-        <small>
+    <div class="flex justify-between align-center">
+        <div>
+            <h2 class="text-ellipsis mb-0_5">
+                <a href="{% url "fundingrequests:detail" pk=entity.id %}">{{ entity.publication_title }}</a>
+            </h2>
+            <p class="my-0">
+                <i><small>last updated at {{ entity.updated_at }}</small></i>
+            </p>
+        </div>
+        <div>
             {% if entity.status == "open" %}
                 <span class="pill open status-label">Open</span>
             {% elif entity.status == "approved" %}
@@ -22,15 +19,21 @@
             {% else %}
                 <span>{{ entity.status }}</span>
             {% endif %}
-        </small>
-        <span>
-            {% url "fundingrequests:list" as list_url %}
-            {% for label in entity.labels %}
-                <a href="{{ list_url }}?{% param_replace labels=label.id %}">
-                    <small class="label pill"
-                           style="--label-bg-color: {{ label.hexcolor }};
-                                  --label-border-color: {{ label.hexcolor }}">{{ label.name }}</small></a>
-            {% endfor %}
-        </span>
+        </div>
+    </div>
+    <hr class="mb-2">
+    <p>Submitted by: {{ entity.submitter_name }}</p>
+    <p class="text-ellipsis">
+        {{ entity.publishing_entity_type }}
+        <a href="{{ entity.publishing_entity_url }}">{{ entity.publishing_entity_name }}</a>
+    </p>
+    <p class="flex mb-0_5 mt-2">
+        {% url "fundingrequests:list" as list_url %}
+        {% for label in entity.labels %}
+            <a href="{{ list_url }}?{% param_replace labels=label.id %}">
+                <small class="label pill"
+                       style="--label-bg-color: {{ label.hexcolor }};
+                              --label-border-color: {{ label.hexcolor }}">{{ label.name }}</small></a>
+        {% endfor %}
     </p>
 </article>
