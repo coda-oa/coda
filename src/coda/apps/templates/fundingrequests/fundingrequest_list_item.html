@@ -8,7 +8,8 @@
     </p>
     <p>Submitted by: {{ entity.submitter_name }}</p>
     <p class="text-ellipsis">
-        Journal: <a href="{{ entity.journal_url }}">{{ entity.journal_title }}</a>
+        {{ entity.publishing_entity_type }}
+        <a href="{{ entity.publishing_entity_url }}">{{ entity.publishing_entity_name }}</a>
     </p>
     <p class="flex justify-between mt-1_5">
         <small>

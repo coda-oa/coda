@@ -5,6 +5,7 @@ from typing import Any, NamedTuple, cast
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from django.urls import reverse
 
 from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract
@@ -12,7 +13,6 @@ from coda.apps.fundingrequests.forms import ChooseLabelForm
 from coda.apps.fundingrequests.models import ExternalFunding, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.publications.dto import LinkDto
-from coda.apps.publications.models import Publication
 from coda.fundingrequest import ReviewResult
 from coda.money import Currency, Money
 from coda.publication import License, Link
@@ -49,12 +49,14 @@ class SubmitterViewModel(NamedTuple):
 
 
 class PublicationViewModel(NamedTuple):
+    edit_url: str
     title: str
     corresponding_author: str
     authors: Iterable[str]
-    journal_title: str
-    journal_eissn: str
-    publisher_name: str
+    publishing_entity_type: str
+    publishing_entity_name: str
+    publishing_entity_identifier_name: str
+    publishing_entity_identifier: str
     publication_state: str
     publication_date: datetime.date | None
     license: str
@@ -97,28 +99,35 @@ def submitter_viewmodel(submitter: Author) -> SubmitterViewModel:
     )
 
 
-def publication_viewmodel(publication: Publication) -> PublicationViewModel:
+def publication_viewmodel(fundingrequest: FundingRequestModel) -> PublicationViewModel:
+    publication = fundingrequest.publication
     article_journal = publication.article_journal
     monograph_publisher = publication.monograph_publisher
     if article_journal is not None:
-        journal_title = article_journal.title
-        journal_eissn = article_journal.eissn
-        publisher_name = article_journal.publisher.name
+        edit_url = reverse("fundingrequests:update_publication", kwargs={"pk": fundingrequest.id})
+        name = f"{article_journal.title}, {article_journal.publisher.name}"
+        identifier_name = "EISSN"
+        identifier = article_journal.eissn
+        type = "Journal"
+    elif monograph_publisher is not None:
+        edit_url = reverse(
+            "fundingrequests:update_monograph_meta", kwargs={"pk": fundingrequest.id}
+        )
+        name = monograph_publisher.name
+        identifier, identifier_name = "", ""
+        type = "Publisher"
     else:
-        journal_title = ""
-        journal_eissn = ""
-        publisher_name = ""
-
-    if monograph_publisher is not None:
-        publisher_name = monograph_publisher.name
+        raise ValueError("Publication is neither an article nor a monograph")
 
     return PublicationViewModel(
+        edit_url=edit_url,
         title=publication.title,
         corresponding_author=cast(Author, publication.submitting_author).name,
         authors=list(publication.authors),
-        journal_title=journal_title,
-        journal_eissn=journal_eissn,
-        publisher_name=publisher_name,
+        publishing_entity_name=name,
+        publishing_entity_type=type,
+        publishing_entity_identifier_name=identifier_name,
+        publishing_entity_identifier=identifier,
         publication_state=publication.publication_state,
         publication_date=publication.online_publication_date,
         license=License[publication.license].value,
@@ -151,7 +160,7 @@ def context(fr: FundingRequestModel) -> dict[str, Any]:
     ctx = {
         "funding_request": request_viewmodel(fr),
         "submitter": submitter_viewmodel(cast(Author, fr.submitter)),
-        "publication": publication_viewmodel(fr.publication),
+        "publication": publication_viewmodel(fr),
         "label_form": ChooseLabelForm(),
         "external_funding": [funding_viewmodel(ef) for ef in fr.external_funding.all()],
     }

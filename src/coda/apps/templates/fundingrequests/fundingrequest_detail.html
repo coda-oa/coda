@@ -40,8 +40,7 @@
             <article>
                 <header class="flex justify-between align-center">
                     <h2 class="fundingrequest__detail-title">Publication Details</h2>
-                    <a href="{% url "fundingrequests:update_publication" pk=funding_request.id %}"
-                       role="button">Edit</a>
+                    <a href="{{ publication.edit_url }}" role="button">Edit</a>
                 </header>
                 <table class="article__table fundingrequest-table">
                     <tbody>
@@ -58,13 +57,15 @@
                             <td>{{ publication.publication_state }}</td>
                         </tr>
                         <tr>
-                            <th>Journal Title</th>
-                            <td>{{ publication.journal_title }}</td>
+                            <th>{{ publication.publishing_entity_type }}</th>
+                            <td>{{ publication.publishing_entity_name }}</td>
                         </tr>
-                        <tr>
-                            <th>Journal EISSN</th>
-                            <td>{{ publication.journal_eissn }}</td>
-                        </tr>
+                        {% if publication.publishing_entity_identifier %}
+                            <tr>
+                                <th>{{ publication.publishing_entity_identifier_name }}</th>
+                                <td>{{ publication.publishing_entity_identifier }}</td>
+                            </tr>
+                        {% endif %}
                         <tr>
                             <th>Authors</th>
                             <td>{{ publication.authors|join:", " }}</td>
