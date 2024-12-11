@@ -52,9 +52,6 @@ class FundingRequestLocked(RuntimeError):
 
 
 TPublication = TypeVar("TPublication", bound=BasePublication)
-AnyFundingRequest: TypeAlias = (
-    "FundingRequest[BasePublication] | FundingRequest[Publication] | FundingRequest[Monograph]"
-)
 
 
 class FundingRequest(Generic[TPublication]):
@@ -139,3 +136,8 @@ class FundingRequest(Generic[TPublication]):
     @property
     def review_remarks(self) -> str:
         return self._review.remarks
+
+
+AnyFundingRequest: TypeAlias = (
+    FundingRequest[BasePublication] | FundingRequest[Publication] | FundingRequest[Monograph]
+)

@@ -58,7 +58,7 @@ def get_monograph_request(id: FundingRequestId) -> FundingRequest[Monograph]:
 def _is_publication_type(
     fr: Any, publication_type: type[TPublication]
 ) -> TypeIs[FundingRequest[TPublication]]:
-    return isinstance(fr, AnyFundingRequest) and isinstance(fr.publication, publication_type)
+    return isinstance(fr, FundingRequest) and isinstance(fr.publication, publication_type)
 
 
 def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
