@@ -1,5 +1,6 @@
 from typing import Any
 
+from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from pydantic import Field
@@ -32,10 +33,20 @@ class PublisherStep(Step):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         ctx = super().get_context_data(request, store)
-        return ctx | {
-            "contract_formset": ContractFormset(),
-            "publishers": Publisher.objects.none(),
-        }
+
+        if store.get("publisher_step"):
+            dto = PublisherStepDto(**store["publisher_step"])
+            publisher = Publisher.objects.get(pk=dto.publisher)
+            ctx["selected_publisher"] = publisher
+            ctx["publishers"] = [publisher]
+            ctx["contract_formset"] = ContractFormset.from_data(
+                [{"contract": cid} for cid in dto.contracts]
+            )
+        else:
+            ctx["contract_formset"] = ContractFormset()
+            ctx["publishers"] = Publisher.objects.none()
+
+        return ctx
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         return bool(request.POST.get("publisher"))
@@ -48,6 +59,7 @@ class PublisherStep(Step):
         store.save()
 
 
+@login_required
 def find_publisher(request: HttpRequest) -> HttpResponse:
     publishers = Publisher.objects.filter(name__icontains=request.POST["publisher_name"])
     return render(
