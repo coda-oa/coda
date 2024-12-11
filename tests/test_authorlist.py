@@ -104,6 +104,11 @@ def test__author_list__from_str__creates_author_list_param(authors: str) -> None
     assert list(sut) == ["John Doe", "Jane Doe", "Alice Doe"]
 
 
+def test__author_list__from_str__does_not_split_phd() -> None:
+    sut = AuthorList.from_str("John Doe, Jane Doe, Alice Doe PhD")
+    assert list(sut) == ["John Doe", "Jane Doe", "Alice Doe PhD"]
+
+
 @pytest.mark.parametrize("data_pair", real_world_examples)
 def test__author_list__from_str__creates_author_list_param_real_world(data_pair: DataPair) -> None:
     sut = AuthorList.from_str(data_pair.actual)

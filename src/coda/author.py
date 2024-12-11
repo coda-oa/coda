@@ -70,7 +70,7 @@ def _parse_line(line: str, /, reverse_names: bool) -> list[str]:
 
 
 def _insert_missing_space(author: str) -> str:
-    return re.sub(r"([a-z])([A-Z])", r"\1 \2", author)
+    return re.sub(r"([a-z])([A-Z])(?<!\sPhD)", r"\1 \2", author)
 
 
 def _replace_broken_umlaute(author: str) -> str:
