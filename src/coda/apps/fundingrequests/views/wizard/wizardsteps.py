@@ -161,8 +161,9 @@ class PublicationStep(Step):
     def get_links_context(self, request: HttpRequest, store: Store) -> list[dict[str, Any]]:
         if self.has_links(request):
             return self.assemble_link_dtos(request)
-        elif store.get("links"):
-            return [{"link": link, "errors": {}} for link in list(store["links"])]
+        elif publication_step := store.get("publication_step"):
+            links = publication_step.get("links", [])
+            return [{"link": link, "errors": {}} for link in links]
 
         return []
 
