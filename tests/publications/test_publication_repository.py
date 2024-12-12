@@ -5,6 +5,7 @@ import pytest
 from coda.apps.authors.services import author_create
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.contract import PublisherId
+from coda.doi import Doi
 from coda.orcid import Orcid
 from coda.publication import BasePublication, JournalId, Monograph, Publication, PublicationId
 from coda.vocabulary import Vocabulary, VocabularyConcept
@@ -139,6 +140,21 @@ def test__save_publication_with_limited_vocabulary__get_by_id__returns_publicati
     actual = publication_repository.get_by_id(id)
 
     assert actual.subject_area.vocabulary == limited.id
+
+
+@pytest.mark.django_db
+def test__existing_publication_with_links__save_without_links__links_are_removed() -> None:
+    journal = JournalId(modelfactory.journal().pk)
+    publication = domainfactory.publication(journal)
+    publication.links = {Doi("10.1234/5678")}
+    id = publication_repository.save(publication)
+
+    publication.id = id
+    publication.links.clear()
+    publication_repository.save(publication)
+
+    actual = publication_repository.get_by_id(id)
+    assert actual.links == set()
 
 
 def vocabulary_with_concepts(*concepts: str) -> Vocabulary:

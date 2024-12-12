@@ -65,6 +65,7 @@ def save(publication: BasePublication) -> PublicationId:
     p.open_access_type = publication.open_access_type.name
     p.author_list = str(publication.authors)
     p.publication_state = publication.publication_state.name()
+    p.links.all().delete()
     _attach_links(PublicationId(p.id), publication.links)
 
     if publication.is_published():
