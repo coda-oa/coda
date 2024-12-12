@@ -1,14 +1,9 @@
 {% load param_replace %}
 <article class="fundingrequest">
     <div class="flex justify-between align-center">
-        <div>
-            <h2 class="text-ellipsis mb-0_5">
-                <a href="{% url "fundingrequests:detail" pk=entity.id %}">{{ entity.publication_title }}</a>
-            </h2>
-            <p class="my-0">
-                <i><small>last updated at {{ entity.updated_at }}</small></i>
-            </p>
-        </div>
+        <h2 class="text-ellipsis flex-basis-80 mb-0_5">
+            <a href="{% url "fundingrequests:detail" pk=entity.id %}">{{ entity.publication_title }}</a>
+        </h2>
         <div>
             {% if entity.status == "open" %}
                 <span class="pill open status-label">Open</span>
@@ -21,6 +16,9 @@
             {% endif %}
         </div>
     </div>
+    <p class="my-0">
+        <i><small>last updated at {{ entity.updated_at }}</small></i>
+    </p>
     <hr class="mb-2">
     <p>Submitted by: {{ entity.submitter_name }}</p>
     <p class="text-ellipsis">

@@ -41,6 +41,10 @@
   flex: 6 !important;
 }
 
+.flex-basis-80 {
+  flex-basis: 80%;
+}
+
 .justify-around {
   justify-content: space-around;
 }
