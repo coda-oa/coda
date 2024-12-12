@@ -54,7 +54,7 @@ class Command(BaseCommand):
         journal = self.journal()
         _ = LinkType.objects.get_or_create(name="DOI")
         subject_area_vocabulary = GlobalPreferences.get_subject_classification_vocabulary()
-        publication_types_vocabulary = GlobalPreferences.get_publication_type_vocabulary()
+        publication_types_vocabulary = GlobalPreferences.get_article_publication_type_vocabulary()
 
         random_subject = random.choice(list(subject_area_vocabulary.concepts))
         random_publication_type = random.choice(list(publication_types_vocabulary.concepts))

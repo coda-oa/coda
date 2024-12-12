@@ -228,7 +228,7 @@ class LinkForm(forms.Form):
 def vocabulary_from_settings(vocabulary_type: str) -> VocabularyProtocol:
     match vocabulary_type:
         case "publication_type":
-            vocabulary = GlobalPreferences.get_publication_type_vocabulary()
+            vocabulary = GlobalPreferences.get_article_publication_type_vocabulary()
         case "subject_area":
             vocabulary = GlobalPreferences.get_subject_classification_vocabulary()
         case _:

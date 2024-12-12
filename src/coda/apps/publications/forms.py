@@ -128,6 +128,24 @@ class PublicationForm(CodaFormBase):
             vocabularies=vocabularies,
         )
 
+    @classmethod
+    def with_article_vocabulary(cls, data: Mapping[str, Any] | None = None) -> "PublicationForm":
+        vocabularies = Vocabularies(
+            subject_areas=GlobalPreferences.get_subject_classification_vocabulary(),
+            publication_types=GlobalPreferences.get_article_publication_type_vocabulary(),
+        )
+
+        return cls(data, vocabularies=vocabularies)
+
+    @classmethod
+    def with_monograph_vocabulary(cls, data: Mapping[str, Any] | None = None) -> "PublicationForm":
+        vocabularies = Vocabularies(
+            subject_areas=GlobalPreferences.get_subject_classification_vocabulary(),
+            publication_types=GlobalPreferences.get_monograph_publication_type_vocabulary(),
+        )
+
+        return cls(data, vocabularies=vocabularies)
+
     def __init__(
         self,
         data: Mapping[str, Any] | None = None,
@@ -239,7 +257,7 @@ class LinkForm(forms.Form):
 def vocabulary_from_settings(vocabulary_type: str) -> VocabularyProtocol:
     match vocabulary_type:
         case "publication_type":
-            vocabulary = GlobalPreferences.get_publication_type_vocabulary()
+            vocabulary = GlobalPreferences.get_article_publication_type_vocabulary()
         case "subject_area":
             vocabulary = GlobalPreferences.get_subject_classification_vocabulary()
         case _:

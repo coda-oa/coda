@@ -17,7 +17,7 @@ from coda.apps.wizard import SessionStore, Wizard
 
 class MonographUpdateMetaView(Wizard):
     store_name = "monograph_request_update_meta"
-    steps = [PublisherStep(), PublicationStep()]
+    steps = [PublisherStep(), PublicationStep.for_monograph()]
     store_factory = SessionStore
 
     def get_success_url(self) -> str:

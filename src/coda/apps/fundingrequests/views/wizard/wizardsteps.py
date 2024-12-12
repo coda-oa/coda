@@ -103,6 +103,22 @@ class JournalStep(Step):
 
 class PublicationStep(Step):
     template_name: str = "fundingrequests/fundingrequest_publication.html"
+    publication_kind: str
+    form_constructors = {
+        "article": PublicationForm.with_article_vocabulary,
+        "monograph": PublicationForm.with_monograph_vocabulary,
+    }
+
+    @classmethod
+    def for_article(cls) -> "PublicationStep":
+        return cls("article")
+
+    @classmethod
+    def for_monograph(cls) -> "PublicationStep":
+        return cls("monograph")
+
+    def __init__(self, publication_kind: str = "article") -> None:
+        self.make_publication_form = self.form_constructors[publication_kind]
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         return {
@@ -135,17 +151,17 @@ class PublicationStep(Step):
 
     def get_publication_form(self, request: HttpRequest, store: Store) -> PublicationForm:
         if self.requested_author_preview(request):
-            form = PublicationForm(request.POST)
+            form = self.make_publication_form(request.POST)
             form.errors.clear()
             return form
 
         step_dto = store.get("publication_step")
         if form_posted(request, PublicationForm):
-            return PublicationForm(request.POST)
+            return self.make_publication_form(request.POST)
         elif step_dto:
             return PublicationForm.from_dto(PublicationStepDto(**step_dto).meta)
         else:
-            return PublicationForm()
+            return self.make_publication_form()
 
     def requested_author_preview(self, request: HttpRequest) -> bool:
         return request.POST.get("action") == "parse_authors"
@@ -179,7 +195,7 @@ class PublicationStep(Step):
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         corresponding_author_form = self.get_author_form(request, store)
-        publication_form = PublicationForm(request.POST)
+        publication_form = self.make_publication_form(request.POST)
         link_formset = self.link_forms(request)
         valid = self.all_valid((corresponding_author_form, publication_form, *link_formset))
         return valid

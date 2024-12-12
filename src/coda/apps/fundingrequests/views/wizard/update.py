@@ -47,7 +47,7 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
 class UpdatePublicationView(LoginRequiredMixin, Wizard):
     store_name = "update_publication_wizard"
     store_factory = SessionStore
-    steps = [PublicationStep(), JournalStep()]
+    steps = [PublicationStep.for_article(), JournalStep()]
 
     def get_success_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})

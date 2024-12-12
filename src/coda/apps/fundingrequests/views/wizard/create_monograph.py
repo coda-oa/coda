@@ -18,7 +18,7 @@ from coda.fundingrequest import FundingRequest
 class MonographRequestWizard(LoginRequiredMixin, Wizard):
     store_name = "monograph_request_wizard"
     store_factory = SessionStore
-    steps = [SubmitterStep(), PublisherStep(), PublicationStep(), FundingStep()]
+    steps = [SubmitterStep(), PublisherStep(), PublicationStep.for_monograph(), FundingStep()]
 
     def get_success_url(self) -> str:
         store = self.get_store()

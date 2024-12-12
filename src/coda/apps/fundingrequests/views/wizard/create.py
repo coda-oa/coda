@@ -20,7 +20,7 @@ from coda.fundingrequest import FundingRequest
 class FundingRequestWizard(LoginRequiredMixin, Wizard):
     store_name = "funding_request_wizard"
     store_factory = SessionStore
-    steps = [SubmitterStep(), JournalStep(), PublicationStep(), FundingStep()]
+    steps = [SubmitterStep(), JournalStep(), PublicationStep.for_article(), FundingStep()]
 
     def get_success_url(self) -> str:
         store = self.get_store()

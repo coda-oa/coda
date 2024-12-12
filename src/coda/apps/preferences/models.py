@@ -55,9 +55,14 @@ class GlobalPreferences(models.Model):
         return vocabulary_repository.as_domain_object(prefs.subject_classification_vocabulary)
 
     @staticmethod
-    def get_publication_type_vocabulary() -> VocabularyProtocol:
+    def get_article_publication_type_vocabulary() -> VocabularyProtocol:
         prefs, _ = GlobalPreferences.objects.get_or_create()
         return vocabulary_repository.as_domain_object(prefs.article_publication_type_vocabulary)
+
+    @staticmethod
+    def get_monograph_publication_type_vocabulary() -> VocabularyProtocol:
+        prefs, _ = GlobalPreferences.objects.get_or_create()
+        return vocabulary_repository.as_domain_object(prefs.monograph_publication_type_vocabulary)
 
     @staticmethod
     def get_home_currency() -> Currency:
@@ -71,9 +76,15 @@ class GlobalPreferences(models.Model):
         prefs.save()
 
     @staticmethod
-    def set_publication_type_vocabulary(vocabulary: VocabularyProtocol) -> None:
+    def set_article_publication_type_vocabulary(vocabulary: VocabularyProtocol) -> None:
         prefs, _ = GlobalPreferences.objects.get_or_create()
         prefs.article_publication_type_vocabulary_id = vocabulary.id
+        prefs.save()
+
+    @staticmethod
+    def set_monograph_publication_type_vocabulary(vocabulary: VocabularyProtocol) -> None:
+        prefs, _ = GlobalPreferences.objects.get_or_create()
+        prefs.monograph_publication_type_vocabulary_id = vocabulary.id
         prefs.save()
 
     @staticmethod

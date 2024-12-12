@@ -7,7 +7,8 @@ from django.test import RequestFactory
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests.views.wizard.wizardsteps import PublicationStep
-from coda.apps.publications.dto import PublicationDto
+from coda.apps.preferences.models import GlobalPreferences
+from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.publications.forms import CorrespondingAuthorForm, PublicationForm
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import AuthorList, Role
@@ -43,20 +44,38 @@ def parse_authors_request(
     )
 
 
-def publication_type() -> VocabularyConcept:
-    v = vocabulary_repository.create("publication_type", "1.0")
-    v.add_concept("pub-type-1", "Pub Type 1")
-    vocabulary_repository.save(v)
+@pytest.mark.django_db
+def test__publication_step_for_article__with_valid_data__is_valid() -> None:
+    create_vocabularies()
+    sut = PublicationStep.for_article()
+    store = DictStore()
 
-    return v.get_concept("pub-type-1")
+    publication = domainfactory.publication(
+        publication_type=an_article_type(), subject_area=a_subject_area()
+    )
+    publication_dto = PublicationDto.from_publication(publication)
+
+    stepdata = publication_step.stepdata(publication_dto)
+    request = request_factory.post("/", stepdata)
+
+    assert sut.is_valid(request, store)
 
 
-def subject_area() -> VocabularyConcept:
-    v = vocabulary_repository.create("subject_area", "1.0")
-    v.add_concept("subject-area-1", "Subject Area 1")
-    vocabulary_repository.save(v)
+@pytest.mark.django_db
+def test__publication_step_for_monograph__with_valid_data__is_valid() -> None:
+    create_vocabularies()
+    sut = PublicationStep.for_monograph()
+    store = DictStore()
 
-    return v.get_concept("subject-area-1")
+    publication = domainfactory.monograph(
+        publication_type=a_monograph_type(), subject_area=a_subject_area()
+    )
+    publication_dto = MonographDto.from_monograph(publication)
+
+    stepdata = publication_step.stepdata(publication_dto)
+    request = request_factory.post("/", stepdata)
+
+    assert sut.is_valid(request, store)
 
 
 @pytest.mark.django_db
@@ -292,6 +311,102 @@ def test__publication_step__corresponding_author_in_store__new_corresponding_aut
     author_form: CorrespondingAuthorForm = ctx["author_form"]
     author_form.full_clean()
     assert_author_eq(author_form.to_author(), expected_corresponding_author)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "step_request",
+    [
+        request_factory.get("/"),
+        request_factory.post("/", publication_step.stepdata()),
+        request_factory.post("/", parse()),
+    ],
+)
+def test__publication_step_for_article__has_concepts_of_article_publication_type_vocabulary_from_settings(
+    step_request: HttpRequest,
+) -> None:
+    publication_type_voc = vocabulary_repository.create("publication_type", "1.0")
+    publication_type_voc.add_concept("pub-type-1", "Pub Type 1")
+    vocabulary_repository.save(publication_type_voc)
+    GlobalPreferences.set_article_publication_type_vocabulary(publication_type_voc)
+
+    sut = PublicationStep.for_article()
+    ctx = sut.get_context_data(step_request, DictStore())
+
+    pub_form = cast(PublicationForm, ctx["publication_form"])
+    assert_has_concept_choices(pub_form, "publication_type", publication_type_voc)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "step_request",
+    [
+        request_factory.get("/"),
+        request_factory.post("/", publication_step.stepdata()),
+        request_factory.post("/", parse()),
+    ],
+)
+def test__publication_step_for_monograph__has_concepts_of_monograph_publication_type_vocabulary_from_settings(
+    step_request: HttpRequest,
+) -> None:
+    publication_type_voc = vocabulary_repository.create("publication_type", "1.0")
+    publication_type_voc.add_concept("pub-type-1", "Pub Type 1")
+    vocabulary_repository.save(publication_type_voc)
+    GlobalPreferences.set_monograph_publication_type_vocabulary(publication_type_voc)
+
+    sut = PublicationStep.for_monograph()
+    ctx = sut.get_context_data(step_request, DictStore())
+
+    pub_form = cast(PublicationForm, ctx["publication_form"])
+    assert_has_concept_choices(pub_form, "publication_type", publication_type_voc)
+
+
+def create_vocabularies() -> None:
+    article_vocabulary()
+    monograph_vocabulary()
+    subject_areas()
+
+
+def article_vocabulary() -> Vocabulary:
+    v = vocabulary_repository.create("article types", "1.0")
+    v.add_concept("article", "Article")
+    vocabulary_repository.save(v)
+    GlobalPreferences.set_article_publication_type_vocabulary(v)
+
+    return v
+
+
+def monograph_vocabulary() -> Vocabulary:
+    v = vocabulary_repository.create("monograph types", "1.0")
+    v.add_concept("monograph", "Monograph")
+    vocabulary_repository.save(v)
+    GlobalPreferences.set_monograph_publication_type_vocabulary(v)
+
+    return v
+
+
+def subject_areas() -> Vocabulary:
+    v = vocabulary_repository.create("subject_area", "1.0")
+    v.add_concept("subject-area-1", "Subject Area 1")
+    vocabulary_repository.save(v)
+
+    GlobalPreferences.set_subject_classification_vocabulary(v)
+    return v
+
+
+def an_article_type() -> VocabularyConcept:
+    v = GlobalPreferences.get_article_publication_type_vocabulary()
+    return next(iter(v.concepts))
+
+
+def a_subject_area() -> VocabularyConcept:
+    v = GlobalPreferences.get_subject_classification_vocabulary()
+    return next(iter(v.concepts))
+
+
+def a_monograph_type() -> VocabularyConcept:
+    v = GlobalPreferences.get_monograph_publication_type_vocabulary()
+    return next(iter(v.concepts))
 
 
 def assert_has_concept_choices(

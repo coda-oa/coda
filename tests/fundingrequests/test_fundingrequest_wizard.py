@@ -63,7 +63,7 @@ class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
 
     def set_global_preferences(self) -> None:
         GlobalPreferences.set_subject_classification_vocabulary(self.subject_areas)
-        GlobalPreferences.set_publication_type_vocabulary(self.publication_types)
+        GlobalPreferences.set_article_publication_type_vocabulary(self.publication_types)
 
     @property
     @abc.abstractmethod
@@ -302,4 +302,4 @@ def subject_area() -> VocabularyConcept:
 
 
 def publication_type() -> VocabularyConcept:
-    return list(GlobalPreferences.get_publication_type_vocabulary().concepts)[0]
+    return list(GlobalPreferences.get_article_publication_type_vocabulary().concepts)[0]
