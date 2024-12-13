@@ -157,6 +157,23 @@ def test__existing_publication_with_links__save_without_links__links_are_removed
     assert actual.links == set()
 
 
+@pytest.mark.django_db
+def test__find_by_vocabulary__returns_publications_with_matching_vocabulary() -> None:
+    publication_types = vocabulary_with_concepts("pub-type")
+    subject_areas = vocabulary_with_concepts("sub-area")
+
+    id, _ = save_publication(
+        subject_area=subject_areas.get_concept("sub-area"),
+        publication_type=publication_types.get_concept("pub-type"),
+    )
+
+    actual, *_ = publication_repository.find_publications_by_vocabulary(publication_types.id)
+    assert actual.id == id
+
+    actual, *_ = publication_repository.find_publications_by_vocabulary(subject_areas.id)
+    assert actual.id == id
+
+
 def vocabulary_with_concepts(*concepts: str) -> Vocabulary:
     vocabulary = vocabulary_repository.create("A Vocabulary", "1.0")
     for concept in concepts:

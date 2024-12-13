@@ -1,8 +1,12 @@
 from collections.abc import Collection
+
 import pytest
 
 from coda.apps.publications.repositories import vocabulary_repository
+from coda.apps.publications.services.publications import publication_create
+from coda.publication import JournalId
 from coda.vocabulary import LimitedVocabulary, VocabularyConcept
+from tests import domainfactory, modelfactory
 
 
 @pytest.mark.django_db
@@ -43,5 +47,26 @@ def test__saved_limited_vocabulary__allowing_previously_forbidden_concept__saves
     assert sorted_by_concept_id(result.concepts) == sorted_by_concept_id(v.concepts)
 
 
+@pytest.mark.django_db
+def test__vocabulary_in_use_by_publication__delete__raises_error() -> None:
+    v = vocabulary_repository.create(name="test", version="1.0")
+    v.add_concept("concept")
+    vocabulary_repository.save(v)
+
+    concept = v.get_concept("concept")
+    create_publication_with(concept)
+
+    with pytest.raises(vocabulary_repository.VocabularyInUseError):
+        vocabulary_repository.delete(v.id)
+
+    assert vocabulary_repository.get_by_id(v.id) is not None
+
+
 def sorted_by_concept_id(concepts: Collection[VocabularyConcept]) -> list[VocabularyConcept]:
     return sorted(concepts, key=lambda c: c.concept_id)
+
+
+def create_publication_with(concept: VocabularyConcept) -> None:
+    journal = JournalId(modelfactory.journal().pk)
+    p = domainfactory.publication(journal, publication_type=concept)
+    publication_create(p)

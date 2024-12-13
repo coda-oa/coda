@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from typing import cast
 
 from django.db import transaction
+from django.db.models import Q
 
 from coda.apps.authors import services as author_services
 from coda.apps.publications.dto import LinkDto
@@ -107,6 +108,13 @@ def first() -> BasePublication | None:
         return None
 
     return as_domain_object(p)
+
+
+def find_publications_by_vocabulary(vocabulary_id: VocabularyId) -> list[BasePublication]:
+    query = Q(publication_type__vocabulary_id=vocabulary_id) | Q(
+        subject_area__vocabulary_id=vocabulary_id
+    )
+    return [as_domain_object(p) for p in PublicationModel.objects.filter(query)]
 
 
 def as_domain_object(model: PublicationModel) -> BasePublication:

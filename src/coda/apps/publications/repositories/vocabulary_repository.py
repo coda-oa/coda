@@ -2,6 +2,8 @@ from collections.abc import Collection
 from typing import Any, cast
 
 from coda.apps.publications.models import Vocabulary as VocabularyModel
+from coda.apps.publications.repositories import publication_repository
+from coda.publication import BasePublication
 from coda.vocabulary import (
     ConceptId,
     LimitedVocabulary,
@@ -18,6 +20,13 @@ class EntityNotFoundError(Exception):
         self.entity_type = entity_type
         self.query_name = query_name
         self.query_value = query_value
+
+
+class VocabularyInUseError(Exception):
+    def __init__(self, vocabulary: VocabularyProtocol, publications: list[BasePublication]) -> None:
+        super().__init__(f"Vocabulary {vocabulary.id} is in use")
+        self.vocabulary = vocabulary
+        self.publications = publications
 
 
 def create(name: str, version: str) -> Vocabulary:
@@ -108,6 +117,9 @@ def save(vocabulary: VocabularyProtocol) -> None:
 
 
 def delete(id: VocabularyId) -> None:
+    if publications := publication_repository.find_publications_by_vocabulary(id):
+        raise VocabularyInUseError(vocabulary=get_by_id(id), publications=publications)
+
     VocabularyModel.objects.get(pk=id).delete()
 
 
