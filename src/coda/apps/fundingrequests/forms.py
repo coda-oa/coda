@@ -5,13 +5,34 @@ from django.utils.datastructures import MultiValueDict
 
 from coda.apps import fields
 from coda.apps.contracts.models import Contract
+from coda.apps.contracts.services import as_domain_object
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
+from coda.contract import ContractYear
+from coda.apps.formbase import CodaFormBase
 
 
-class ContractForm(forms.Form):
+class ContractForm(CodaFormBase):
     contract = forms.ModelChoiceField[Contract](queryset=Contract.objects.all())
+    year = forms.IntegerField()
+
+    def contract_year(self) -> ContractYear:
+        return ContractYear(
+            contract=as_domain_object(self.cleaned_data["contract"]),
+            year=self.cleaned_data["year"],
+        )
+
+    def is_valid(self) -> bool:
+        is_valid = super().is_valid()
+
+        try:
+            _ = self.contract_year()
+        except ValueError as e:
+            self.add_error("year", str(e))
+            return False
+
+        return is_valid
 
 
 class ContractFormset(HtmxDynamicFormset[ContractForm]):
@@ -20,6 +41,9 @@ class ContractFormset(HtmxDynamicFormset[ContractForm]):
     min_forms = 0
 
     table_classes = "article__table"
+
+    def contract_years(self) -> list[ContractYear]:
+        return [form.contract_year() for form in self.forms]
 
 
 class PaymentForm(forms.Form):

@@ -2,8 +2,7 @@ from collections.abc import Collection
 
 import pytest
 
-from coda.apps.publications.repositories import vocabulary_repository
-from coda.apps.publications.services.publications import publication_create
+from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.publication import JournalId
 from coda.vocabulary import LimitedVocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory
@@ -69,4 +68,4 @@ def sorted_by_concept_id(concepts: Collection[VocabularyConcept]) -> list[Vocabu
 def create_publication_with(concept: VocabularyConcept) -> None:
     journal = JournalId(modelfactory.journal().pk)
     p = domainfactory.publication(journal, publication_type=concept)
-    publication_create(p)
+    publication_repository.save(p)

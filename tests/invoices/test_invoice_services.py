@@ -2,8 +2,8 @@ import pytest
 
 from coda.apps.contracts.services import contract_create
 from coda.apps.invoices import services
-from coda.apps.publications.services.publications import publication_create
 
+from coda.apps.publications.repositories import publication_repository
 from coda.contract import ContractId
 from coda.invoice import CreditorId, Invoice
 from coda.publication import JournalId, PublicationId
@@ -38,7 +38,7 @@ def test__create_invoice__saves_invoice_to_database() -> None:
 
 def random_publication(publisher_id: int) -> PublicationId:
     journal_id = modelfactory.journal(publisher_id).id
-    return publication_create(domainfactory.publication(journal=JournalId(journal_id)))
+    return publication_repository.save(domainfactory.publication(journal=JournalId(journal_id)))
 
 
 def random_contract() -> ContractId:

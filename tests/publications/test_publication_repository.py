@@ -3,6 +3,7 @@ from typing import Protocol
 import pytest
 
 from coda.apps.authors.services import author_create
+from coda.apps.contracts.services import as_domain_object
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.contract import PublisherId
 from coda.doi import Doi
@@ -10,7 +11,7 @@ from coda.orcid import Orcid
 from coda.publication import BasePublication, JournalId, Monograph, Publication, PublicationId
 from coda.vocabulary import Vocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory, test_orcid
-from tests.publications.test_publication_services import assert_publication_eq
+from tests.authors.test__author import assert_author_eq
 
 
 class PublicationFactory(Protocol):
@@ -29,10 +30,13 @@ def save_publication(
     publication_id: PublicationId | None = None,
 ) -> tuple[PublicationId, Publication]:
     journal = JournalId(modelfactory.journal().id)
+    contracts = [as_domain_object(modelfactory.contract()) for _ in range(4)]
+    contract_years = [domainfactory.contract_year(contract) for contract in contracts]
     publication = domainfactory.publication(
         journal=journal,
         subject_area=subject_area,
         publication_type=publication_type,
+        contracts=tuple(contract_years),
         id=publication_id,
     )
     id = publication_repository.save(publication)
@@ -181,3 +185,38 @@ def vocabulary_with_concepts(*concepts: str) -> Vocabulary:
 
     vocabulary_repository.save(vocabulary)
     return vocabulary
+
+
+def assert_base_publication_eq(actual: BasePublication, expected: BasePublication) -> None:
+    assert actual.title == expected.title
+    assert actual.authors == expected.authors
+    assert actual.license == expected.license
+    assert actual.publication_type == expected.publication_type
+    assert actual.subject_area == expected.subject_area
+    assert actual.open_access_type == expected.open_access_type
+    assert actual.publication_state == expected.publication_state
+    assert actual.contracts == expected.contracts
+    assert actual.links == expected.links
+    assert_author_eq(actual.corresponding_author, expected.corresponding_author)
+
+
+def assert_monograph_eq(actual: Monograph, expected: Monograph) -> None:
+    assert_base_publication_eq(actual, expected)
+    assert actual.publisher == expected.publisher
+
+
+def assert_article_eq(actual: Publication, expected: Publication) -> None:
+    assert_base_publication_eq(actual, expected)
+    assert actual.journal == expected.journal
+
+
+def assert_publication_eq(actual: BasePublication, expected: BasePublication) -> None:
+    match actual, expected:
+        case Monograph(), Monograph():
+            assert_monograph_eq(actual, expected)
+        case Publication(), Publication():
+            assert_article_eq(actual, expected)
+        case _:
+            raise AssertionError(
+                f"Mismatched publication types: {type(actual)} and {type(expected)}"
+            )

@@ -1,8 +1,8 @@
 from django.core.management import BaseCommand
+from coda.apps.publications.repositories import publication_repository
 from tests import domainfactory, modelfactory
 
 from coda.apps.invoices import services
-from coda.apps.publications.services.publications import publication_create
 from coda.invoice import CreditorId
 from coda.money import Currency
 from coda.publication import JournalId, PublicationId
@@ -28,4 +28,4 @@ class Command(BaseCommand):
 
 def random_publication(publisher_id: int) -> PublicationId:
     journal_id = modelfactory.journal(publisher_id).id
-    return publication_create(domainfactory.publication(journal=JournalId(journal_id)))
+    return publication_repository.save(domainfactory.publication(journal=JournalId(journal_id)))

@@ -7,9 +7,10 @@ from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema
 
 from coda.apps.authors.dto import AuthorDto
+from coda.apps.contracts import services as contract_services
 from coda.apps.dto import CodaBaseDto, OptionalFromStr
 from coda.author import AuthorList
-from coda.contract import ContractId, PublisherId
+from coda.contract import ContractId, ContractYear, PublisherId
 from coda.doi import Doi
 from coda.publication import (
     JournalId,
@@ -97,30 +98,27 @@ class PublicationStepDto(CodaBaseDto):
     links: list[LinkDto]
 
 
-class ContractListAnnotation:
+class ContractIdAnnotation:
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
         _source_type: Any,
         _handler: GetCoreSchemaHandler,
     ) -> core_schema.CoreSchema:
-        def validate_from_list(value: list[int]) -> list[ContractId]:
-            return [ContractId(cid) for cid in value]
+        def validate_from_int(value: int) -> ContractId:
+            return ContractId(value)
 
-        from_list_schema = core_schema.chain_schema(
+        from_int_schema = core_schema.chain_schema(
             [
-                core_schema.list_schema(),
-                core_schema.no_info_plain_validator_function(validate_from_list),
+                core_schema.int_schema(),
+                core_schema.no_info_plain_validator_function(validate_from_int),
             ]
         )
 
         return core_schema.json_or_python_schema(
-            json_schema=from_list_schema,
+            json_schema=from_int_schema,
             python_schema=core_schema.union_schema(
-                [
-                    core_schema.is_instance_schema(list),
-                    from_list_schema,
-                ]
+                [core_schema.is_instance_schema(int), from_int_schema]
             ),
         )
 
@@ -128,13 +126,25 @@ class ContractListAnnotation:
     def __get_pydantic_json_schema__(
         cls, _core_schema: core_schema.CoreSchema, handler: GetJsonSchemaHandler
     ) -> JsonSchemaValue:
-        return handler(core_schema.list_schema())
+        return handler(core_schema.int_schema())
+
+
+class ContractYearDto(CodaBaseDto):
+    contract: Annotated[ContractId, ContractIdAnnotation]
+    year: int
+
+    @classmethod
+    def from_contract_year(cls, contract_year: ContractYear) -> "ContractYearDto":
+        return cls(contract=contract_year.contract.id, year=contract_year.year)
+
+    def to_contract_year(self) -> ContractYear:
+        return ContractYear(self.year, contract_services.get_by_id(self.contract))
 
 
 class PublicationBaseDto(CodaBaseDto):
     meta: PublicationMetaDto
     corresponding_author: AuthorDto
-    contracts: Annotated[list[ContractId], ContractListAnnotation]
+    contracts: list[ContractYearDto]
     links: list[LinkDto]
     authors: list[str]
 
@@ -164,7 +174,9 @@ class PublicationDto(PublicationBaseDto):
                 print_publication_date=print_pub_date,
             ),
             journal=JournalDto(id=publication.journal),
-            contracts=list(publication.contracts),
+            contracts=[
+                ContractYearDto(contract=c.contract.id, year=c.year) for c in publication.contracts
+            ],
             links=[to_link_dto(link) for link in publication.links],
             corresponding_author=AuthorDto.from_author(publication.corresponding_author),
             authors=list(publication.authors),
@@ -185,7 +197,7 @@ class PublicationDto(PublicationBaseDto):
             corresponding_author=self.corresponding_author.to_author(),
             authors=AuthorList(self.authors),
             links={link.to_link() for link in self.links},
-            contracts={ContractId(cid) for cid in self.contracts},
+            contracts=tuple(c.to_contract_year() for c in self.contracts),
             journal=self.journal.id,
         )
 
@@ -215,7 +227,7 @@ class MonographDto(PublicationBaseDto):
                 print_publication_date=print_pub_date,
             ),
             publisher=publication.publisher,
-            contracts=list(publication.contracts),
+            contracts=list(ContractYearDto.from_contract_year(c) for c in publication.contracts),
             links=[to_link_dto(link) for link in publication.links],
             corresponding_author=AuthorDto.from_author(publication.corresponding_author),
             authors=list(publication.authors),
@@ -236,7 +248,7 @@ class MonographDto(PublicationBaseDto):
             corresponding_author=self.corresponding_author.to_author(),
             authors=AuthorList(self.authors),
             links={link.to_link() for link in self.links},
-            contracts={ContractId(cid) for cid in self.contracts},
+            contracts=tuple(c.to_contract_year() for c in self.contracts),
             publisher=self.publisher,
         )
 

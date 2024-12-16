@@ -2,6 +2,7 @@ import abc
 import functools
 from typing import Any, Generic, Self, cast
 
+from faker import Faker
 import pytest
 from django.http import HttpResponse
 from django.test import Client
@@ -9,6 +10,7 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.authors.dto import AuthorDto
+from coda.apps.contracts.services import as_domain_object
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.services import fundingrequest_create
@@ -18,7 +20,6 @@ from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.users.models import User
 from coda.author import InstitutionId
-from coda.contract import ContractId
 from coda.fundingrequest import (
     ExternalFunding,
     FundingOrganizationId,
@@ -33,14 +34,16 @@ from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
 from tests.fundingrequests.wizard.stepdata import publication_step
-from tests.publications.test_publication_services import assert_publication_eq
+from tests.publications.test_publication_repository import assert_publication_eq
 
 
 class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
     def __init__(self) -> None:
+        self._faker = Faker()
         self.affiliation = modelfactory.institution()
         self.funder = modelfactory.funding_organization()
-        self.contracts = [modelfactory.contract() for _ in range(1, 3)]
+        self.contracts = [as_domain_object(modelfactory.contract()) for _ in range(1, 3)]
+        self.contract_years = [domainfactory.contract_year(c) for c in self.contracts]
 
         self.submitter = domainfactory.author(affiliation=InstitutionId(self.affiliation.pk))
         self.estimated_cost = domainfactory.payment()
@@ -116,7 +119,7 @@ class ArticleRequestDataBuilder(FundingRequestDataBuilder[Publication]):
             journal=journal,
             publication_type=list(self.publication_types.concepts)[0],
             subject_area=list(self.subject_areas.concepts)[0],
-            contracts=tuple(ContractId(c.pk) for c in self.contracts),
+            contracts=tuple(self.contract_years),
             id=id,
         )
 
@@ -264,7 +267,9 @@ def submit_wizard(
     submit = functools.partial(submit_step, client, create_wizard_url)
 
     fundings = to_htmx_formset_data(external_funding)
-    contracts = to_htmx_formset_data([{"contract": cid} for cid in publication.contracts])
+    contracts = to_htmx_formset_data(
+        [{"contract": c.contract, "year": c.year} for c in publication.contracts]
+    )
     journal = {"journal": publication.journal.id}
     submit(author.to_post_data())
     submit(journal | contracts)
@@ -282,7 +287,9 @@ def submit_update_publication_wizard(
     submit(publication_formdata)
 
     journal_post_data = {"journal": journal_id}
-    contracts = to_htmx_formset_data([{"contract": cid} for cid in publication_dto.contracts])
+    contracts = to_htmx_formset_data(
+        [{"contract": c.contract, "year": c.year} for c in publication_dto.contracts]
+    )
     return submit(journal_post_data | contracts)
 
 

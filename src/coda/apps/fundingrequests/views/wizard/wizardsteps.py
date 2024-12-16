@@ -10,7 +10,7 @@ from coda.apps.authors.forms import AuthorForm
 from coda.apps.fundingrequests.forms import ContractFormset, ExternalFundingFormset, PaymentForm
 from coda.apps.journals.models import Journal
 from coda.apps.journals.services import find_by_title
-from coda.apps.publications.dto import PublicationStepDto
+from coda.apps.publications.dto import ContractYearDto, PublicationStepDto
 from coda.apps.publications.forms import CorrespondingAuthorForm, LinkForm, PublicationForm
 from coda.apps.publications.models import LinkType
 from coda.apps.wizard import FormStep, Step, Store
@@ -94,10 +94,12 @@ class JournalStep(Step):
 
     def done(self, request: HttpRequest, store: Store) -> None:
         contract_formset = ContractFormset(request.POST)
-        contracts = [c["contract"].pk for c in contract_formset.data]
 
         store["journal"] = request.POST["journal"]
-        store["contracts"] = contracts
+        store["contracts"] = [
+            ContractYearDto.from_contract_year(c).to_post_data()
+            for c in contract_formset.contract_years()
+        ]
         store.save()
 
 

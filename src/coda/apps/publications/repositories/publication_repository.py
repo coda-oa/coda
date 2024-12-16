@@ -5,13 +5,15 @@ from django.db import transaction
 from django.db.models import Q
 
 from coda.apps.authors import services as author_services
+from coda.apps.contracts.models import Contract
+from coda.apps.contracts import services as contract_services
 from coda.apps.publications.dto import LinkDto
-from coda.apps.publications.models import Link as LinkModel
+from coda.apps.publications.models import AttachedContract, Link as LinkModel
 from coda.apps.publications.models import LinkType, PublicationAttachedConcept
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import AuthorId, AuthorList
-from coda.contract import ContractId, PublisherId
+from coda.contract import ContractId, ContractYear, PublisherId
 from coda.doi import Doi
 from coda.publication import (
     BasePublication,
@@ -29,26 +31,6 @@ from coda.publication import (
 )
 from coda.string import NonEmptyStr
 from coda.vocabulary import ConceptId, UnknownConcept, VocabularyConcept, VocabularyId
-
-
-def _initial_article(publication: Publication) -> PublicationModel:
-    if publication.id:
-        p = PublicationModel.objects.get(pk=publication.id)
-        p.article_journal_id = publication.journal
-    else:
-        p = PublicationModel.objects.create(article_journal_id=publication.journal)
-
-    return p
-
-
-def _initial_monograph(publication: Monograph) -> PublicationModel:
-    if publication.id:
-        p = PublicationModel.objects.get(pk=publication.id)
-        p.monograph_publisher_id = publication.publisher
-    else:
-        p = PublicationModel.objects.create(monograph_publisher_id=publication.publisher)
-
-    return p
 
 
 @transaction.atomic
@@ -84,7 +66,7 @@ def save(publication: BasePublication) -> PublicationId:
     p.subject_area.name = publication.subject_area.name
     p.subject_area.save()
 
-    p.contracts.set(publication.contracts)
+    _attach_contracts(p, publication.contracts)
 
     if not p.submitting_author:
         author_id = author_services.author_create(publication.corresponding_author)
@@ -134,7 +116,10 @@ def as_domain_object(model: PublicationModel) -> BasePublication:
             authors=AuthorList.from_str(model.author_list or ""),
             publication_state=state,
             journal=JournalId(model.article_journal_id),
-            contracts={ContractId(c.pk) for c in model.contracts.all()},
+            contracts=tuple(
+                ContractYear(c.contract_year, contract_services.as_domain_object(c.contract))
+                for c in model.attached_contracts.all()
+            ),
             links=_deserialize_links(model.links.all()),
         )
     elif model.monograph_publisher_id:
@@ -151,11 +136,34 @@ def as_domain_object(model: PublicationModel) -> BasePublication:
             authors=AuthorList.from_str(model.author_list or ""),
             publication_state=state,
             publisher=PublisherId(model.monograph_publisher_id),
-            contracts={ContractId(c.pk) for c in model.contracts.all()},
+            contracts=tuple(
+                ContractYear(c.contract_year, contract_services.as_domain_object(c.contract))
+                for c in model.attached_contracts.all()
+            ),
             links=_deserialize_links(model.links.all()),
         )
     else:
         raise ValueError("Unknown publication type")
+
+
+def _initial_article(publication: Publication) -> PublicationModel:
+    if publication.id:
+        p = PublicationModel.objects.get(pk=publication.id)
+        p.article_journal_id = publication.journal
+    else:
+        p = PublicationModel.objects.create(article_journal_id=publication.journal)
+
+    return p
+
+
+def _initial_monograph(publication: Monograph) -> PublicationModel:
+    if publication.id:
+        p = PublicationModel.objects.get(pk=publication.id)
+        p.monograph_publisher_id = publication.publisher
+    else:
+        p = PublicationModel.objects.create(monograph_publisher_id=publication.publisher)
+
+    return p
 
 
 def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
@@ -193,3 +201,20 @@ def _attach_links(id: PublicationId, links: Iterable[Link]) -> None:
             type=LinkType.objects.get(name=link_type),
             publication_id=cast(int, id),
         )
+
+
+def _attach_contracts(p: PublicationModel, contracts: Iterable[ContractYear]) -> None:
+    contract_ids = {cy.contract.id for cy in contracts if cy.contract.id}
+    model_contracts = Contract.objects.filter(id__in=contract_ids).order_by("id")
+
+    _delete_unused_attached_contracts(p, contract_ids)
+
+    sorted_contracts = sorted(contracts, key=lambda c: cast(ContractId, c.contract.id))
+    for model_contract, contract_year in zip(model_contracts, sorted_contracts):
+        AttachedContract.objects.get_or_create(
+            publication_id=p.pk, contract_id=model_contract.pk, contract_year=contract_year.year
+        )
+
+
+def _delete_unused_attached_contracts(p: PublicationModel, contracts: Iterable[ContractId]) -> None:
+    AttachedContract.objects.filter(publication_id=p.id).exclude(contract__in=contracts).delete()

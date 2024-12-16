@@ -14,7 +14,7 @@ from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import PublisherStepDto
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.publications.dto import MonographDto
-from coda.contract import ContractId, PublisherId
+from coda.contract import PublisherId
 from coda.publication import Monograph, PublicationId
 from tests import domainfactory, modelfactory
 from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
@@ -35,7 +35,7 @@ class MonographRequestDataBuilder(FundingRequestDataBuilder[Monograph]):
             publisher=publisher,
             publication_type=list(self.publication_types.concepts)[0],
             subject_area=list(self.subject_areas.concepts)[0],
-            contracts=tuple(ContractId(c.pk) for c in self.contracts),
+            contracts=tuple(self.contract_years),
             id=id,
         )
 

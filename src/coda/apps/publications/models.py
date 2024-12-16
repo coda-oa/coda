@@ -66,6 +66,14 @@ class PublicationAttachedConcept(models.Model):
         )
 
 
+class AttachedContract(models.Model):
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE)
+    contract_year = models.IntegerField()
+    publication = models.ForeignKey(
+        "Publication", on_delete=models.CASCADE, related_name="attached_contracts"
+    )
+
+
 class Publication(models.Model):
     STATES = (("Published", "Published"), *((s.name, s.value) for s in UnpublishedState))
     OA_TYPES = tuple((t.name, t.value) for t in OpenAccessType)
@@ -107,7 +115,7 @@ class Publication(models.Model):
     publication_state = models.CharField(
         max_length=255, choices=STATES, default=UnpublishedState.Unknown.name
     )
-    contracts = models.ManyToManyField(Contract, related_name="publications")
+
     online_publication_date = models.DateField(null=True)
     print_publication_date = models.DateField(null=True)
     author_list = models.CharField(max_length=255, null=True, blank=True)

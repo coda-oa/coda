@@ -56,7 +56,9 @@ def publication(title: str = "") -> Publication:
 
 
 def contract() -> Contract:
-    return Contract.objects.create(name=_faker.word())
+    start = _faker.date_this_decade(before_today=True, after_today=False)
+    end = _faker.date_this_decade(before_today=False, after_today=True)
+    return Contract.objects.create(name=_faker.word(), start_date=start, end_date=end)
 
 
 def vocabulary() -> Vocabulary:

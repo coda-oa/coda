@@ -13,7 +13,7 @@ from coda.fundingrequest import (
 from coda.publication import JournalId
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
-from tests.publications.test_publication_services import assert_publication_eq
+from tests.publications.test_publication_repository import assert_publication_eq
 
 
 def create_funding() -> ExternalFunding:

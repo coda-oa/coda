@@ -1,12 +1,14 @@
 import random
 from datetime import date
+from decimal import Decimal
 from typing import cast
 
 import faker
 
 from coda import orcid
 from coda.author import Author, AuthorId, AuthorList, InstitutionId, Role
-from coda.contract import Contract, ContractId, PublisherId
+from coda.contract import Contract, ContractId, ContractYear, PublisherId
+from coda.date import DateRange
 from coda.doi import Doi
 from coda.fundingrequest import (
     ExternalFunding,
@@ -61,12 +63,20 @@ def author(
     )
 
 
-def contract(id: ContractId | None = None) -> Contract:
+def contract(id: ContractId | None = None, period: DateRange = DateRange.create()) -> Contract:
     return Contract(
         id=id or ContractId(random.randint(1, 1000)),
         name=NonEmptyStr(_faker.sentence()),
         publishers=(),
+        period=period,
     )
+
+
+def contract_year(contract: Contract) -> ContractYear:
+    def _pick_year_from_contract_period(c: Contract) -> int:
+        return _faker.date_between_dates(c.period.start, c.period.end).year
+
+    return ContractYear(year=_pick_year_from_contract_period(contract), contract=contract)
 
 
 def invoice(
@@ -127,7 +137,7 @@ def publication(
     title: str = "",
     publication_type: VocabularyConcept | None = None,
     subject_area: VocabularyConcept | None = None,
-    contracts: tuple[ContractId, ...] = (),
+    contracts: tuple[ContractYear, ...] = (),
     *,
     id: PublicationId | None = None,
 ) -> Publication:
@@ -146,14 +156,14 @@ def publication(
         subject_area=subject_area or UnknownConcept,
         open_access_type=random_open_access_type(),
         publication_state=state,
-        contracts=set(contracts),
+        contracts=contracts,
         links={Doi("10.1234/5678")},
     )
 
 
 def monograph(
     publisher: PublisherId | None = None,
-    contracts: tuple[ContractId, ...] = (),
+    contracts: tuple[ContractYear, ...] = (),
     publication_type: VocabularyConcept | None = None,
     subject_area: VocabularyConcept | None = None,
     *,
@@ -170,7 +180,7 @@ def monograph(
         subject_area=subject_area or UnknownConcept,
         open_access_type=random_open_access_type(),
         publication_state=Unpublished(),
-        contracts=set(contracts),
+        contracts=contracts,
         links={Doi("10.1234/5678")},
     )
 
@@ -186,7 +196,7 @@ def payment() -> Payment:
 
 
 def random_money(currency: Currency | None = None) -> Money:
-    amount = random.random() * random.randint(1, 1000)
+    amount = Decimal(random.random() * random.randint(1, 1000)).quantize(Decimal("0.01"))
     currency = currency or random.choice([c for c in Currency])
     money = Money(str(amount), currency)
     return money

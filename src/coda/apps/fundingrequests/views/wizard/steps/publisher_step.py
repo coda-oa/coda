@@ -3,11 +3,11 @@ from typing import Any
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
-from pydantic import Field
 
 from coda.apps.dto import CodaBaseDto
 from coda.apps.fundingrequests.forms import ContractFormset
 from coda.apps.htmx_components.converters import to_htmx_formset_data
+from coda.apps.publications.dto import ContractYearDto
 from coda.apps.publishers.models import Publisher
 from coda.apps.wizard import Step, Store
 from coda.publication import Monograph
@@ -15,16 +15,19 @@ from coda.publication import Monograph
 
 class PublisherStepDto(CodaBaseDto):
     publisher: int
-    contracts: list[int] = Field(default_factory=list)
+    contracts: list[ContractYearDto]
 
     @classmethod
     def from_monograph(self, monograph: Monograph) -> "PublisherStepDto":
-        return PublisherStepDto(publisher=monograph.publisher, contracts=list(monograph.contracts))
+        contracts = [ContractYearDto.from_contract_year(c) for c in monograph.contracts]
+        return PublisherStepDto(publisher=monograph.publisher, contracts=contracts)
 
     def page_input(self) -> dict[str, Any]:
         return {
             "publisher": self.publisher,
-            **to_htmx_formset_data([{"contract": c} for c in self.contracts]),
+            **to_htmx_formset_data(
+                [{"contract": c.contract, "year": c.year} for c in self.contracts]
+            ),
         }
 
 
@@ -49,11 +52,16 @@ class PublisherStep(Step):
         return ctx
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
-        return bool(request.POST.get("publisher"))
+        publisher_valid = bool(request.POST.get("publisher"))
+        contract_formset = ContractFormset(request.POST)
+        contract_formset_valid = contract_formset.is_valid()
+        return publisher_valid and contract_formset_valid
 
     def done(self, request: HttpRequest, store: Store) -> None:
         contract_formset = ContractFormset(request.POST)
-        contracts = [c["contract"].pk for c in contract_formset.data]
+        contracts = [
+            ContractYearDto.from_contract_year(c) for c in contract_formset.contract_years()
+        ]
         dto = PublisherStepDto(publisher=request.POST["publisher"], contracts=contracts)
         store["publisher_step"] = dto.to_post_data()
         store.save()

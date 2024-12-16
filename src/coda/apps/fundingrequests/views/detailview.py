@@ -138,7 +138,7 @@ def publication_viewmodel(fundingrequest: FundingRequestModel) -> PublicationVie
             LinkDto(link_type=link.type.name, link_value=link.value).to_link()
             for link in publication.links.all()
         ],
-        contracts=publication.contracts.all(),
+        contracts=[c.contract for c in publication.attached_contracts.all()],
     )
 
 

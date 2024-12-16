@@ -11,7 +11,7 @@ from coda.string import NonEmptyStr
 from coda.vocabulary import VocabularyConcept, UnknownConcept
 
 if TYPE_CHECKING:
-    from coda.contract import ContractId
+    from coda.contract import ContractYear
 
 
 JournalId = NewType("JournalId", int)
@@ -100,7 +100,7 @@ class BasePublication(ABC):
     publication_type: VocabularyConcept = field(default=UnknownConcept)
     open_access_type: OpenAccessType = field(default=OpenAccessType.Unknown)
     publication_state: PublicationState = field(default=Unpublished())
-    contracts: set["ContractId"] = field(default_factory=set)
+    contracts: tuple["ContractYear", ...] = ()
     links: set[Link] = field(default_factory=set)
 
     def __post_init__(self) -> None:

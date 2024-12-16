@@ -12,6 +12,9 @@ class DateRange(NamedTuple):
     ) -> Self:
         start_date = start or datetime.date.min
         end_date = end or datetime.date.max
+        if start_date > end_date:
+            raise ValueError(f"Start date {start_date} must be before end date {end_date}")
+
         return cls(start_date, end_date)
 
     @classmethod
