@@ -9,6 +9,7 @@ from coda.apps.contracts.services import as_domain_object
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
+from coda.apps.publications.dto import ContractYearDto
 from coda.contract import ContractYear
 from coda.apps.formbase import CodaFormBase
 
@@ -21,6 +22,11 @@ class ContractForm(CodaFormBase):
         return ContractYear(
             contract=as_domain_object(self.cleaned_data["contract"]),
             year=self.cleaned_data["year"],
+        )
+
+    def to_dto(self) -> ContractYearDto:
+        return ContractYearDto(
+            contract=self.cleaned_data["contract"].pk, year=self.cleaned_data["year"]
         )
 
     def is_valid(self) -> bool:
@@ -44,6 +50,9 @@ class ContractFormset(HtmxDynamicFormset[ContractForm]):
 
     def contract_years(self) -> list[ContractYear]:
         return [form.contract_year() for form in self.forms]
+
+    def to_dto_list(self) -> list[ContractYearDto]:
+        return [form.to_dto() for form in self.forms]
 
 
 class PaymentForm(forms.Form):

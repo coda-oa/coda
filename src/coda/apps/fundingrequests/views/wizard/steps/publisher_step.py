@@ -37,13 +37,18 @@ class PublisherStep(Step):
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         ctx = super().get_context_data(request, store)
 
-        if store.get("publisher_step"):
+        if request.POST.get("publisher"):
+            publisher = Publisher.objects.get(pk=request.POST["publisher"])
+            ctx["selected_publisher"] = publisher
+            ctx["publishers"] = [publisher]
+            ctx["contract_formset"] = ContractFormset(request.POST)
+        elif store.get("publisher_step"):
             dto = PublisherStepDto(**store["publisher_step"])
             publisher = Publisher.objects.get(pk=dto.publisher)
             ctx["selected_publisher"] = publisher
             ctx["publishers"] = [publisher]
             ctx["contract_formset"] = ContractFormset.from_data(
-                [{"contract": cid} for cid in dto.contracts]
+                [c.to_post_data() for c in dto.contracts]
             )
         else:
             ctx["contract_formset"] = ContractFormset()
