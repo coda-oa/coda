@@ -90,7 +90,7 @@ class JournalStep(Step):
         return ctx
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
-        return bool(request.POST.get("journal"))
+        return bool(request.POST.get("journal")) and ContractFormset(request.POST).is_valid()
 
     def done(self, request: HttpRequest, store: Store) -> None:
         contract_formset = ContractFormset(request.POST)
