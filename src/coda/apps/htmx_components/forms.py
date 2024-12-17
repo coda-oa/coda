@@ -122,6 +122,9 @@ class HtmxDynamicFormset(Generic[FormType]):
         if not issubclass(self.form_class, forms.Form):
             raise TypeError("form_class must be a subclass of django.forms.Form")
 
+        if data is not None:
+            _ = self.is_valid()
+
     @cached_property
     def forms(self) -> list[FormType]:
         total_forms = _total_forms(self._data, self.prefix, self.min_forms)
@@ -143,7 +146,14 @@ class HtmxDynamicFormset(Generic[FormType]):
 
     @cache
     def is_valid(self) -> bool:
-        return all(form.is_valid() for form in self.forms)
+        # NOTE: we have to run a full for loop here instead of using something like all()
+        # because we need to run is_valid() on all forms to ensure that all error lists are populated
+        valid = True
+        for form in self.forms:
+            if not form.is_valid():
+                valid = False
+
+        return valid
 
     def render(self, mode: str = _DEFAULT_RENDER_MODE) -> str:
         return render_to_string(
@@ -184,6 +194,7 @@ class ManagementView(View, Generic[FormType]):
     def post(self, request: HttpRequest) -> HttpResponse:
         if request.POST.get("form_action_add") is not None:
             forms = self._forms(request.POST.dict(), self._total_forms() + 1)
+            forms[-1].errors.clear()
             return self._get_response(request, forms)
         elif (_form_index := request.POST.get("form_action_delete")) is not None:
             form_index = int(_form_index)
@@ -202,10 +213,6 @@ class ManagementView(View, Generic[FormType]):
 
     def _forms(self, data: dict[str, Any], num_forms: int) -> list[FormType]:
         forms = _forms(data, num_forms, self.form_class)
-
-        for form in forms:
-            form.errors.clear()
-
         return forms
 
     def _get_response(self, request: HttpRequest, forms: list[FormType]) -> HttpResponse:
