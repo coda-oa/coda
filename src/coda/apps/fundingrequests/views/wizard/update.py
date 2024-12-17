@@ -65,7 +65,7 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         dto = PublicationDto.from_publication(fr.publication)
         store["publication_step"] = dto.to_post_data(exclude={"journal", "contracts"})
         store["journal"] = fr.publication.journal
-        store["contracts"] = dto.contracts
+        store["contracts"] = [c.to_post_data() for c in dto.contracts]
         store.save()
 
 

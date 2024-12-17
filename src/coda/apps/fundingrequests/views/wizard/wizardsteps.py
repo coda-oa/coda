@@ -82,9 +82,9 @@ class JournalStep(Step):
         if request.POST.get("total_forms"):
             ctx["contract_formset"] = ContractFormset(request.POST)
         else:
-            contracts = store.get("contracts", [])
+            contracts = [ContractYearDto(**c) for c in store.get("contracts", [])]
             ctx["contract_formset"] = ContractFormset.from_data(
-                [{"contract": cid} for cid in contracts]
+                [c.to_post_data() for c in contracts]
             )
 
         return ctx
