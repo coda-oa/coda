@@ -86,15 +86,11 @@
                             <td>{{ publication.oa_type }}</td>
                         </tr>
                         <tr>
-                            <th>Publisher</th>
-                            <td>{{ publication.publisher_name }}</td>
-                        </tr>
-                        <tr>
                             <th>Contracts</th>
                             <td>
-                                {% for contract in publication.contracts %}
+                                {% for contract_year in publication.contracts %}
                                     <p>
-                                        <a href="{% url "contracts:detail" pk=contract.pk %}">{{ contract.name }}</a>
+                                        <a href="{% url "contracts:detail" pk=contract_year.contract.pk %}">{{ contract_year.contract.name }} ({{ contract_year.contract_year }})</a>
                                     </p>
                                 {% endfor %}
                             </td>

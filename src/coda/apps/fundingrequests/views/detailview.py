@@ -8,11 +8,11 @@ from django.shortcuts import render
 from django.urls import reverse
 
 from coda.apps.authors.models import Author
-from coda.apps.contracts.models import Contract
 from coda.apps.fundingrequests.forms import ChooseLabelForm
 from coda.apps.fundingrequests.models import ExternalFunding, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.publications.dto import LinkDto
+from coda.apps.publications.models import AttachedContract
 from coda.fundingrequest import ReviewResult
 from coda.money import Currency, Money
 from coda.publication import License, Link
@@ -64,7 +64,7 @@ class PublicationViewModel(NamedTuple):
     subject_area: str
     oa_type: str
     references: Iterable[Link]
-    contracts: Iterable[Contract]
+    contracts: Iterable[AttachedContract]
 
 
 class ExternalFundingViewModel(NamedTuple):
@@ -138,7 +138,7 @@ def publication_viewmodel(fundingrequest: FundingRequestModel) -> PublicationVie
             LinkDto(link_type=link.type.name, link_value=link.value).to_link()
             for link in publication.links.all()
         ],
-        contracts=[c.contract for c in publication.attached_contracts.all()],
+        contracts=[c for c in publication.attached_contracts.all()],
     )
 
 
