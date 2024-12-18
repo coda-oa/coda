@@ -117,7 +117,7 @@ def as_domain_object(model: PublicationModel) -> BasePublication:
             publication_state=state,
             journal=JournalId(model.article_journal_id),
             contracts=tuple(
-                ContractYear(c.contract_year, contract_services.as_domain_object(c.contract))
+                contract_services.as_domain_object(c.contract).in_year(c.contract_year)
                 for c in model.attached_contracts.all()
             ),
             links=_deserialize_links(model.links.all()),
@@ -137,7 +137,7 @@ def as_domain_object(model: PublicationModel) -> BasePublication:
             publication_state=state,
             publisher=PublisherId(model.monograph_publisher_id),
             contracts=tuple(
-                ContractYear(c.contract_year, contract_services.as_domain_object(c.contract))
+                contract_services.as_domain_object(c.contract).in_year(c.contract_year)
                 for c in model.attached_contracts.all()
             ),
             links=_deserialize_links(model.links.all()),

@@ -138,7 +138,7 @@ class ContractYearDto(CodaBaseDto):
         return cls(contract=contract_year.contract.id, year=contract_year.year)
 
     def to_contract_year(self) -> ContractYear:
-        return ContractYear(self.year, contract_services.get_by_id(self.contract))
+        return contract_services.get_by_id(self.contract).in_year(self.year)
 
 
 class PublicationBaseDto(CodaBaseDto):

@@ -76,7 +76,7 @@ def contract_year(contract: Contract) -> ContractYear:
     def _pick_year_from_contract_period(c: Contract) -> int:
         return _faker.date_between_dates(c.period.start, c.period.end).year
 
-    return ContractYear(year=_pick_year_from_contract_period(contract), contract=contract)
+    return contract.in_year(year=_pick_year_from_contract_period(contract))
 
 
 def invoice(

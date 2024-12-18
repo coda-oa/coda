@@ -19,10 +19,7 @@ class ContractForm(CodaFormBase):
     year = forms.IntegerField()
 
     def contract_year(self) -> ContractYear:
-        return ContractYear(
-            contract=as_domain_object(self.cleaned_data["contract"]),
-            year=self.cleaned_data["year"],
-        )
+        return as_domain_object(self.cleaned_data["contract"]).in_year(self.cleaned_data["year"])
 
     def to_dto(self) -> ContractYearDto:
         return ContractYearDto(

@@ -40,6 +40,9 @@ class Contract:
         date = date or datetime.date.today()
         return date in self.period
 
+    def in_year(self, year: int) -> "ContractYear":
+        return ContractYear(year, self)
+
 
 @dataclass(slots=True)
 class ContractYear:
@@ -57,6 +60,18 @@ class ContractYear:
 
     def _contract_years(self) -> range:
         return range(self.contract.period.start.year, self.contract.period.end.year + 1)
+
+    @property
+    def name(self) -> str:
+        return self.contract.name
+
+    @property
+    def publishers(self) -> tuple[PublisherId, ...]:
+        return self.contract.publishers
+
+    @property
+    def journals(self) -> tuple["JournalId", ...]:
+        return self.contract.journals
 
     def __str__(self) -> str:
         return f"{self.contract.name} ({self.year})"
