@@ -43,6 +43,9 @@ class Contract:
     def in_year(self, year: int) -> "ContractYear":
         return ContractYear(year, self)
 
+    def in_first_year(self) -> "ContractYear":
+        return ContractYear(self.period.start.year, self)
+
 
 @dataclass(slots=True)
 class ContractYear:
@@ -60,6 +63,10 @@ class ContractYear:
 
     def _contract_years(self) -> range:
         return range(self.contract.period.start.year, self.contract.period.end.year + 1)
+
+    @property
+    def contract_id(self) -> ContractId | None:
+        return self.contract.id
 
     @property
     def name(self) -> str:

@@ -34,6 +34,7 @@ class Position(models.Model):
     description = models.TextField()
     publication = models.ForeignKey(Publication, on_delete=models.CASCADE, null=True)
     contract = models.ForeignKey(Contract, on_delete=models.CASCADE, null=True)
+    contract_year = models.IntegerField(null=True)
 
     cost_amount = models.DecimalField(max_digits=10, decimal_places=4)
     cost_currency = models.CharField(max_length=3)

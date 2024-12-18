@@ -34,10 +34,17 @@
                                    name="position-{{ forloop.counter }}-title"
                                    value="{{ position.title }}">
                         {% elif position.type == "contract" %}
-                            {{ position.name }}
+                            <p>{{ position.name }}</p>
                             <input type="hidden"
                                    name="position-{{ forloop.counter }}-id"
                                    value="{{ position.id }}">
+                            <fieldset role="group">
+                                <label for="position-{{ forloop.counter }}-year">Year:</label>
+                                <input type="text"
+                                       id="position-{{ forloop.counter }}-year"
+                                       name="position-{{ forloop.counter }}-year"
+                                       value="{{ position.contract_year }}">
+                            </fieldset>
                             <input type="hidden"
                                    name="position-{{ forloop.counter }}-name"
                                    value="{{ position.name }}">

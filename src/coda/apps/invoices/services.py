@@ -1,3 +1,4 @@
+from coda.apps.contracts import services as contract_services
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
 from coda.invoice import (
@@ -11,7 +12,7 @@ from coda.invoice import (
     Position,
     TaxRate,
 )
-from coda.contract import ContractId
+from coda.contract import ContractYear
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
@@ -46,8 +47,9 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
 
 
 def _get_item_from_position_model(position: PositionModel) -> ItemType:
-    if position.contract_id:
-        return ContractId(position.contract_id)
+    if position.contract and position.contract_year:
+        contract = contract_services.as_domain_object(position.contract)
+        return contract.in_year(position.contract_year)
     elif position.publication_id:
         return PublicationId(position.publication_id)
     else:
@@ -65,9 +67,10 @@ def invoice_create(invoice: Invoice) -> InvoiceId:
 
     def _create_position(pos: Position[ItemType]) -> PositionModel:
         match pos.item:
-            case ContractId(contract_id):
+            case ContractYear() as contract_year:
                 return PositionModel(
-                    contract_id=contract_id,
+                    contract_id=contract_year.contract.id,
+                    contract_year=contract_year.year,
                     cost_amount=pos.cost.amount,
                     cost_currency=pos.cost.currency.code,
                     cost_type=pos.cost_type.value,

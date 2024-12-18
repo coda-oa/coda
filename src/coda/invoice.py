@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Generic, NamedTuple, NewType, Self, TypeVar
 
-from coda.contract import ContractId
+from coda.contract import ContractYear
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
@@ -33,6 +33,8 @@ class CostType(enum.Enum):
 
 
 class TaxRate(Decimal):
+    __slots__ = ()
+
     def __new__(cls, value: Decimal | float | str) -> Self:
         v = Decimal(value)
         if v < 0:
@@ -41,7 +43,7 @@ class TaxRate(Decimal):
         return super().__new__(cls, v.quantize(Decimal("0.0000")))
 
 
-ItemType = PublicationId | ContractId | str
+ItemType = PublicationId | ContractYear | str
 T = TypeVar("T", bound=ItemType, covariant=True)
 Positions = Iterable["Position[ItemType]"]
 
@@ -58,6 +60,15 @@ class Position(NamedTuple, Generic[T]):
     cost_type: CostType
     tax_rate: TaxRate = TaxRate(0)
     funding_source: FundingSourceId | None = None
+
+    def net(self) -> Money:
+        return self.cost
+
+    def tax(self) -> Money:
+        return self.cost * self.tax_rate
+
+    def total(self) -> Money:
+        return self.net() + self.tax()
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,12 +99,10 @@ class Invoice:
         return next(iter(self.positions)).cost.currency
 
     def tax(self) -> Money:
-        return sum(
-            (pos.cost * pos.tax_rate for pos in self.positions), Money(0, self._get_currency())
-        )
+        return sum((pos.tax() for pos in self.positions), Money(0, self._get_currency()))
 
     def net(self) -> Money:
-        return sum((pos.cost for pos in self.positions), Money(0, self._get_currency()))
+        return sum((pos.net() for pos in self.positions), Money(0, self._get_currency()))
 
     def total(self) -> Money:
         return self.net() + self.tax()

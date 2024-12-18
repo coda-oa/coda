@@ -19,6 +19,7 @@
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Year</th>
                     <th></th>
                 </tr>
             </thead>
@@ -29,10 +30,18 @@
                             <a href="{{ contract.url }}">{{ contract.name }}</a>
                         </td>
                         <td>
+                            <input type="number" name="contract-year" id="contract-year">
+                        </td>
+                        <td>
+                            <input type="hidden"
+                                   id="contract-id"
+                                   name="contract-id"
+                                   value="{{ contract.id }}">
                             <button type="button"
                                     class="outline secondary"
-                                    name="add-contract-position"
-                                    value="{{ contract.id }}"
+                                    name="action"
+                                    value="add-contract-position"
+                                    hx-include="#contract-year #contract-id"
                                     hx-post="{% url 'invoices:add_position' %}"
                                     hx-target="#positions"
                                     hx-swap="outerHTML">Add</button>

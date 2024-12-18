@@ -4,7 +4,7 @@ from coda.apps.contracts.services import contract_create
 from coda.apps.invoices import services
 
 from coda.apps.publications.repositories import publication_repository
-from coda.contract import ContractId
+from coda.contract import Contract
 from coda.invoice import CreditorId, Invoice
 from coda.publication import JournalId, PublicationId
 
@@ -16,7 +16,7 @@ def test__create_invoice__saves_invoice_to_database() -> None:
     creditor_id = modelfactory.creditor().id
     publisher_id = modelfactory.publisher().id
     publications = [random_publication(publisher_id) for _ in range(3)]
-    contracts = [random_contract() for _ in range(3)]
+    contracts = [domainfactory.contract_year(random_contract()) for _ in range(3)]
 
     invoice = domainfactory.invoice(
         creditor=CreditorId(creditor_id),
@@ -41,8 +41,11 @@ def random_publication(publisher_id: int) -> PublicationId:
     return publication_repository.save(domainfactory.publication(journal=JournalId(journal_id)))
 
 
-def random_contract() -> ContractId:
-    return contract_create(domainfactory.contract())
+def random_contract() -> Contract:
+    contract = domainfactory.contract()
+    contract_id = contract_create(contract)
+    contract.id = contract_id
+    return contract
 
 
 def assert_invoice_eq(expected: Invoice, actual: Invoice) -> None:

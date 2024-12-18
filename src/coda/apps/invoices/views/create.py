@@ -6,6 +6,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
+from coda.apps.contracts import services as contract_services
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.services import invoice_create
@@ -92,7 +93,9 @@ def parse_into_position_list(positions: list[dict[str, Any]], currency: Currency
 def get_position_item(position: dict[str, Any]) -> ItemType:
     match position["type"]:
         case "contract":
-            return ContractId(position["id"])
+            contract = contract_services.get_by_id(ContractId(position["id"]))
+            year = int(position["contract_year"])
+            return contract.in_year(year)
         case "publication":
             return PublicationId(position["id"])
         case "free":
@@ -250,6 +253,7 @@ def parse_contract_position(request: HttpRequest, index: int) -> dict[str, Any]:
         "type": "contract",
         "id": request.POST.get(f"position-{index}-id", "0"),
         "name": request.POST.get(f"position-{index}-name", ""),
+        "contract_year": request.POST.get(f"position-{index}-year", ""),
     }
 
 
@@ -279,15 +283,17 @@ def parse_added_publication_position(request: HttpRequest) -> dict[str, Any] | N
 
 
 def parse_added_contract_position(request: HttpRequest) -> dict[str, Any] | None:
-    contract_id = request.POST.get("add-contract-position")
-    if contract_id is None:
+    if request.POST.get("action") != "add-contract-position":
         return None
 
-    contract = Contract.objects.get(pk=contract_id)
+    contract_id = ContractId(request.POST.get("contract-id", ""))
+    year = int(request.POST.get("contract-year", ""))
+    contract_year = contract_services.get_by_id(contract_id).in_year(year)
     return {
         "type": "contract",
-        "id": str(contract.id),
-        "name": contract.name,
+        "id": str(contract_year.contract_id),
+        "name": contract_year.name,
+        "contract_year": str(contract_year.year),
         "cost_amount": str(0.00),
         "cost_type": CostType.Publication_Charge.value,
         "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),

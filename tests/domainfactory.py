@@ -63,7 +63,12 @@ def author(
     )
 
 
-def contract(id: ContractId | None = None, period: DateRange = DateRange.create()) -> Contract:
+def contract(id: ContractId | None = None, period: DateRange | None = None) -> Contract:
+    if period is None:
+        start = _faker.date_this_decade(before_today=True, after_today=False)
+        end = _faker.date_this_decade(before_today=False, after_today=True)
+        period = DateRange.create(start=start, end=end)
+
     return Contract(
         id=id or ContractId(random.randint(1, 1000)),
         name=NonEmptyStr(_faker.sentence()),
@@ -110,12 +115,12 @@ def publication_position(
 
 
 def contract_position(
-    contract: ContractId | None = None,
+    contract: ContractYear,
     currency: Currency | None = None,
     funding_source: FundingSourceId | None = None,
-) -> Position[ContractId]:
+) -> Position[ContractYear]:
     return Position(
-        item=contract or ContractId(random.randint(1, 1000)),
+        item=contract,
         cost=random_money(currency),
         cost_type=random.choice(list(CostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),

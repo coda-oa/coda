@@ -9,15 +9,15 @@ from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
-from coda.apps.contracts.models import Contract
+from coda.apps.contracts import services as contract_services
 from coda.apps.invoices.services import get_by_id
 from coda.apps.invoices.views.create import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.apps.publications.models import Publication
-from coda.contract import ContractId
+from coda.contract import ContractId, Contract, ContractYear
 from coda.invoice import CostType, CreditorId, Invoice, InvoiceId, PaymentStatus, Position, TaxRate
 from coda.money import Currency, Money
 from coda.publication import PublicationId
-from tests import modelfactory
+from tests import domainfactory, modelfactory
 from tests.invoices.test_invoice_services import assert_invoice_eq
 
 _faker = faker.Faker()
@@ -36,7 +36,7 @@ def test__searching_for_publication__returns_matches_in_response(client: Client)
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__searching_for_contract__returns_matches_in_response(client: Client) -> None:
-    contract = modelfactory.contract()
+    contract = contract_services.as_domain_object(modelfactory.contract())
     response = client.post(reverse("invoices:contract_search"), {"contract_query": contract.name})
 
     expected_context = expect_contract_search_result(contract)
@@ -58,11 +58,12 @@ def test__add_publication_as_position__returns_position_in_response(client: Clie
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__add_contract_as_position__returns_position_in_response(client: Client) -> None:
-    contract = modelfactory.contract()
+    contract = contract_services.as_domain_object(modelfactory.contract())
+    contract_year = domainfactory.contract_year(contract)
 
-    response = add_contract_position(client, contract.id)
+    response = add_contract_position(client, contract_year)
 
-    expected = expect_new_contract_position(contract)
+    expected = expect_new_contract_position(contract_year)
     assert [expected] == response.context["positions"]
 
 
@@ -90,8 +91,9 @@ def test__changing_publication_position_data__updates_position_in_response(clien
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__changing_contract_position_data__updates_position_in_response(client: Client) -> None:
-    contract = modelfactory.contract()
-    position_data = number_of_positions(1) | create_contract_position_input(contract)
+    contract = contract_services.as_domain_object(modelfactory.contract())
+    contract_year = domainfactory.contract_year(contract)
+    position_data = number_of_positions(1) | create_contract_position_input(contract_year)
     response = client.post(reverse("invoices:create"), position_data)
 
     expected = expect_existing_contract_position(position_data)
@@ -133,11 +135,12 @@ def test__given_position_added__removing_position__position_removed_from_respons
 def test__given_positions_added__create__saves_new_invoice(client: Client) -> None:
     creditor = modelfactory.creditor()
     publication = modelfactory.publication()
-    contract = modelfactory.contract()
+    contract = contract_services.as_domain_object(modelfactory.contract())
+    contract_year = domainfactory.contract_year(contract)
 
     first_position_data = create_publication_position_input(publication, 1)
     second_position_data = create_free_position_input(2)
-    third_position_data = create_contract_position_input(contract, 3)
+    third_position_data = create_contract_position_input(contract_year, 3)
 
     post_data = (
         {
@@ -163,6 +166,8 @@ def test__given_positions_added__create__saves_new_invoice(client: Client) -> No
 
 
 def expected_invoice(post_data: dict[str, str]) -> Invoice:
+    contract = contract_services.get_by_id(ContractId(int(post_data["position-3-id"])))
+    contract_year = contract.in_year(int(post_data["position-3-year"]))
     return Invoice.new(
         post_data["number"],
         datetime.date.fromisoformat(post_data["date"]),
@@ -187,7 +192,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                 TaxRate(int(post_data["position-2-taxrate"]) / 100),
             ),
             Position(
-                ContractId(post_data["position-3-id"]),
+                contract_year,
                 Money(
                     post_data["position-3-cost"],
                     Currency[post_data["currency"]],
@@ -221,15 +226,23 @@ def add_publication_position(
 
 
 def add_contract_position(
-    client: Client, id: int, /, other_post_data: dict[str, Any] | None = None
+    client: Client, contract_year: ContractYear, /, other_post_data: dict[str, Any] | None = None
 ) -> TemplateResponse:
     return cast(
         TemplateResponse,
         client.post(
             reverse("invoices:add_contract"),
-            {"add-contract-position": id} | (other_post_data or {}),
+            new_contract_position_data(contract_year) | (other_post_data or {}),
         ),
     )
+
+
+def new_contract_position_data(contract_year: ContractYear) -> dict[str, str]:
+    return {
+        "action": "add-contract-position",
+        "contract-id": str(contract_year.contract.id),
+        "contract-year": str(contract_year.year),
+    }
 
 
 def number_of_positions(num: int) -> dict[str, str]:
@@ -266,10 +279,11 @@ def create_publication_position_input(publication: Publication, index: int = 1) 
     }
 
 
-def create_contract_position_input(contract: Contract, index: int = 1) -> dict[str, str]:
+def create_contract_position_input(contract: ContractYear, index: int = 1) -> dict[str, str]:
     return {
         f"position-{index}-type": "contract",
-        f"position-{index}-id": str(contract.id),
+        f"position-{index}-id": str(contract.contract.id),
+        f"position-{index}-year": str(contract.year),
         f"position-{index}-name": contract.name,
         f"position-{index}-cost": _random_cost(),
         f"position-{index}-taxrate": _random_tax_rate(),
@@ -309,11 +323,12 @@ def expect_new_free_position(free_position_data: dict[str, str]) -> dict[str, An
     }
 
 
-def expect_new_contract_position(contract: Contract) -> dict[str, Any]:
+def expect_new_contract_position(contract_year: ContractYear) -> dict[str, Any]:
     return {
         "type": "contract",
-        "id": str(contract.id),
-        "name": contract.name,
+        "id": str(contract_year.contract_id),
+        "name": contract_year.name,
+        "contract_year": str(contract_year.year),
         "cost_amount": str(0.00),
         "cost_type": CostType.Publication_Charge.value,
         "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),
@@ -371,6 +386,7 @@ def expect_existing_contract_position(position_data: dict[str, str], i: int = 1)
         "type": "contract",
         "id": position_data[f"position-{i}-id"],
         "name": position_data[f"position-{i}-name"],
+        "contract_year": position_data[f"position-{i}-year"],
         "cost_amount": position_data[f"position-{i}-cost"],
         "cost_type": position_data[f"position-{i}-cost-type"],
         "tax_rate": position_data[f"position-{i}-taxrate"],
