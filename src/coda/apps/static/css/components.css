@@ -14,6 +14,7 @@ a[role="button"].success {
   border-color: var(--coda-validation-valid-color)
 }
 
+
 search-select:not(:defined) {
   /* prevents flash of options list before shadow dom styling kicks in */
   visibility: hidden;
@@ -240,7 +241,6 @@ details.dropdown>ul:has(.label)>li {
   }
 }
 
-
 .tab-list {
   display: grid;
   grid-auto-flow: column;
@@ -274,4 +274,31 @@ details.dropdown>ul:has(.label)>li {
     border-top-right-radius: var(--coda-border-radius);
     border-bottom-right-radius: var(--coda-border-radius);
   }
+}
+
+#positions__list tr {
+  & td {
+    padding-block: 1rem;
+  }
+
+  & td:has(input, select, button, fieldset, a[role="button"]) {
+    vertical-align: bottom;
+  }
+
+  & input,
+  & select,
+  & label,
+  & button,
+  & fieldset,
+  a[role="button"] {
+    margin: 0;
+  }
+}
+
+.inline-label {
+  padding-inline: var(--coda-form-element-spacing-horizontal);
+  padding-block: var(--coda-form-element-spacing-vertical);
+  border: 1px solid var(--coda-muted-border-color);
+  border-top-left-radius: var(--coda-border-radius);
+  border-bottom-left-radius: var(--coda-border-radius);
 }
