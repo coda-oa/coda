@@ -1,11 +1,10 @@
-from dataclasses import dataclass
 import datetime
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, NewType
 
 from coda.date import DateRange
 from coda.string import NonEmptyStr
-
 
 if TYPE_CHECKING:
     from coda.publication import JournalId
@@ -40,8 +39,17 @@ class Contract:
         date = date or datetime.date.today()
         return date in self.period
 
+    def is_active_in_year(self, year: int) -> bool:
+        return year in range(self.period.start.year, self.period.end.year + 1)
+
     def in_year(self, year: int) -> "ContractYear":
         return ContractYear(year, self)
+
+    def in_year_or_first(self, year: int) -> "ContractYear":
+        if self.is_active_in_year(year):
+            return self.in_year(year)
+
+        return self.in_first_year()
 
     def in_first_year(self) -> "ContractYear":
         return ContractYear(self.period.start.year, self)
@@ -58,8 +66,8 @@ class ContractYear:
     contract: Contract
 
     def __post_init__(self) -> None:
-        if self.year not in self._contract_years():
-            raise ValueError(f"Contract is not active in {self.year}")
+        if not self.contract.is_active_in_year(self.year):
+            raise InvalidContractYearError(self.year, self.contract)
 
     def _contract_years(self) -> range:
         return range(self.contract.period.start.year, self.contract.period.end.year + 1)
@@ -82,3 +90,10 @@ class ContractYear:
 
     def __str__(self) -> str:
         return f"{self.contract.name} ({self.year})"
+
+
+class InvalidContractYearError(ValueError):
+    def __init__(self, year: int, contract: Contract, *args: object) -> None:
+        super().__init__(f"Contract is not active in {year}", *args)
+        self.year = year
+        self.contract = contract

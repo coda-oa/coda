@@ -1,15 +1,16 @@
 import datetime
 from typing import Any
+from collections.abc import Callable
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
-from coda.apps.contracts import services as contract_services
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.services import invoice_create
+from coda.apps.invoices.views.positions import get_position_type
 from coda.apps.publications.models import Publication
 from coda.contract import ContractId
 from coda.invoice import (
@@ -23,16 +24,19 @@ from coda.invoice import (
     TaxRate,
 )
 from coda.money import Currency, Money
-from coda.publication import PublicationId
 
 DEFAULT_TAX_RATE_PERCENTAGE = 19
 
 
 @login_required
 def create_invoice(request: HttpRequest) -> HttpResponse:
+    errors = {}
     if request.POST.get("action") == "create":
-        if new_id := save_invoice(request):
-            return redirect("invoices:detail", pk=new_id)
+        try:
+            if new_id := save_invoice(request):
+                return redirect("invoices:detail", pk=new_id)
+        except PositionError as e:
+            errors = {"errors": {f"position-{e.position}-error": e.message()}}
 
     return render(
         request,
@@ -42,7 +46,8 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
             "currencies": list(Currency),
             "cost_types": [ct.value for ct in CostType],
             "positions": existing_positions(request),
-        },
+        }
+        | errors,
     )
 
 
@@ -61,9 +66,7 @@ def parse_invoice(form: InvoiceForm, positions: list[dict[str, Any]]) -> Invoice
         number=form.cleaned_data["number"],
         date=form.cleaned_data["date"],
         creditor=CreditorId(form.cleaned_data["creditor"].id),
-        positions=parse_into_position_list(
-            positions, Currency.from_code(form.cleaned_data["currency"])
-        ),
+        positions=parse_into_position_list(positions, form.get_currency(), get_position_item),
         comment=form.cleaned_data["comment"],
     )
 
@@ -73,35 +76,45 @@ def temp_invoice(positions: list[dict[str, Any]], currency: Currency) -> Invoice
         number="",
         date=datetime.date.today(),
         creditor=CreditorId(1),
-        positions=parse_into_position_list(positions, currency),
+        positions=parse_into_position_list(positions, currency, get_position_item_safely),
         comment="",
     )
 
 
-def parse_into_position_list(positions: list[dict[str, Any]], currency: Currency) -> Positions:
+def parse_into_position_list(
+    positions: list[dict[str, Any]],
+    currency: Currency,
+    item_parser: Callable[[dict[str, Any]], ItemType],
+) -> Positions:
     return [
-        Position(
-            item=get_position_item(position),
+        parse_position(index, position, currency, item_parser)
+        for index, position in enumerate(positions, start=1)
+    ]
+
+
+def parse_position(
+    index: int,
+    position: dict[str, Any],
+    currency: Currency,
+    item_parser: Callable[[dict[str, Any]], ItemType],
+) -> Position[ItemType]:
+    try:
+        return Position(
+            item=item_parser(position),
             cost=Money(position["cost_amount"], currency),
             cost_type=CostType(position["cost_type"]),
             tax_rate=TaxRate(int(position["tax_rate"]) / 100),
         )
-        for position in positions
-    ]
+    except Exception as e:
+        raise PositionError(index, e)
 
 
 def get_position_item(position: dict[str, Any]) -> ItemType:
-    match position["type"]:
-        case "contract":
-            contract = contract_services.get_by_id(ContractId(position["id"]))
-            year = int(position["contract_year"])
-            return contract.in_year(year)
-        case "publication":
-            return PublicationId(position["id"])
-        case "free":
-            return str(position["description"])
-        case _:
-            raise ValueError(f"Unknown position type: {position['type']}")
+    return get_position_type(position["type"]).from_request(position).parse()
+
+
+def get_position_item_safely(position: dict[str, Any]) -> ItemType:
+    return get_position_type(position["type"]).from_request(position).parse_safe()
 
 
 @login_required
@@ -288,12 +301,13 @@ def parse_added_contract_position(request: HttpRequest) -> dict[str, Any] | None
 
     contract_id = ContractId(request.POST.get("contract-id", ""))
     year = int(request.POST.get("contract-year", ""))
-    contract_year = contract_services.get_by_id(contract_id).in_year(year)
+    contract_name = request.POST.get("contract-name", "")
+
     return {
         "type": "contract",
-        "id": str(contract_year.contract_id),
-        "name": contract_year.name,
-        "contract_year": str(contract_year.year),
+        "id": str(contract_id),
+        "name": contract_name,
+        "contract_year": str(year),
         "cost_amount": str(0.00),
         "cost_type": CostType.Publication_Charge.value,
         "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),
@@ -337,3 +351,13 @@ def search_results_for_contract(contract: Contract) -> dict[str, Any]:
         "name": contract.name,
         "url": reverse("contracts:detail", kwargs={"pk": contract.id}),
     }
+
+
+class PositionError(Exception):
+    def __init__(self, position: int, inner: Exception, *args: Any) -> None:
+        super().__init__(*args)
+        self.position = position
+        self.inner = inner
+
+    def message(self) -> str:
+        return str(self.inner)

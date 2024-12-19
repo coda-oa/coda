@@ -3,6 +3,7 @@ from django import forms
 from coda.apps.fields import currency_field
 from coda.apps.invoices.models import Creditor
 from coda.invoice import PaymentStatus
+from coda.money import Currency
 
 
 class InvoiceForm(forms.Form):
@@ -16,6 +17,9 @@ class InvoiceForm(forms.Form):
         initial=PaymentStatus.Unpaid.value,
     )
     comment = forms.CharField(widget=forms.Textarea, required=False, label="Comment")
+
+    def get_currency(self) -> Currency:
+        return Currency.from_code(self.cleaned_data["currency"])
 
 
 class CreditorForm(forms.ModelForm[Creditor]):

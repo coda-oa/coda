@@ -1,6 +1,7 @@
+from dataclasses import dataclass
 import datetime
 import random
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 import faker
 import pytest
@@ -13,7 +14,7 @@ from coda.apps.contracts import services as contract_services
 from coda.apps.invoices.services import get_by_id
 from coda.apps.invoices.views.create import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.apps.publications.models import Publication
-from coda.contract import ContractId, Contract, ContractYear
+from coda.contract import ContractId, Contract
 from coda.invoice import CostType, CreditorId, Invoice, InvoiceId, PaymentStatus, Position, TaxRate
 from coda.money import Currency, Money
 from coda.publication import PublicationId
@@ -63,7 +64,9 @@ def test__add_contract_as_position__returns_position_in_response(client: Client)
 
     response = add_contract_position(client, contract_year)
 
-    expected = expect_new_contract_position(contract_year)
+    expected = expect_new_contract_position(
+        contract_year.contract_id, contract_year.year, contract_year.name
+    )
     assert [expected] == response.context["positions"]
 
 
@@ -165,6 +168,36 @@ def test__given_positions_added__create__saves_new_invoice(client: Client) -> No
     assertRedirects(response, reverse("invoices:detail", kwargs={"pk": 1}))
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__given_position_with_invalid_contract_year__create__returns_error(client: Client) -> None:
+    creditor = modelfactory.creditor()
+    contract = contract_services.as_domain_object(modelfactory.contract())
+    contract_year = InvalidContractYear(contract, 1)
+
+    first_position_data = create_contract_position_input(contract_year, 1)
+
+    post_data = (
+        {
+            "action": "create",
+            "number": _faker.pystr(),
+            "date": _faker.date(),
+            "creditor": str(creditor.id),
+            "status": PaymentStatus.Unpaid.value,
+            "currency": Currency.EUR.code,
+        }
+        | number_of_positions(1)
+        | first_position_data
+    )
+
+    response = client.post(reverse("invoices:create"), post_data)
+
+    expected = {
+        "position-1-error": f"Contract is not active in {contract_year.year}",
+    }
+    assert expected == response.context["errors"]
+
+
 def expected_invoice(post_data: dict[str, str]) -> Invoice:
     contract = contract_services.get_by_id(ContractId(int(post_data["position-3-id"])))
     contract_year = contract.in_year(int(post_data["position-3-year"]))
@@ -226,7 +259,10 @@ def add_publication_position(
 
 
 def add_contract_position(
-    client: Client, contract_year: ContractYear, /, other_post_data: dict[str, Any] | None = None
+    client: Client,
+    contract_year: "ContractYearLike",
+    /,
+    other_post_data: dict[str, Any] | None = None,
 ) -> TemplateResponse:
     return cast(
         TemplateResponse,
@@ -237,11 +273,14 @@ def add_contract_position(
     )
 
 
-def new_contract_position_data(contract_year: ContractYear) -> dict[str, str]:
+def new_contract_position_data(contract_year: "ContractYearLike") -> dict[str, str]:
+    contract = contract_year.contract
+    year = contract_year.year
     return {
         "action": "add-contract-position",
-        "contract-id": str(contract_year.contract.id),
-        "contract-year": str(contract_year.year),
+        "contract-id": str(contract.id),
+        "contract-year": str(year),
+        "contract-name": contract.name,
     }
 
 
@@ -279,7 +318,7 @@ def create_publication_position_input(publication: Publication, index: int = 1) 
     }
 
 
-def create_contract_position_input(contract: ContractYear, index: int = 1) -> dict[str, str]:
+def create_contract_position_input(contract: "ContractYearLike", index: int = 1) -> dict[str, str]:
     return {
         f"position-{index}-type": "contract",
         f"position-{index}-id": str(contract.contract.id),
@@ -323,12 +362,14 @@ def expect_new_free_position(free_position_data: dict[str, str]) -> dict[str, An
     }
 
 
-def expect_new_contract_position(contract_year: ContractYear) -> dict[str, Any]:
+def expect_new_contract_position(
+    contract_id: ContractId | None, year: int, contract_name: str
+) -> dict[str, Any]:
     return {
         "type": "contract",
-        "id": str(contract_year.contract_id),
-        "name": contract_year.name,
-        "contract_year": str(contract_year.year),
+        "id": str(contract_id),
+        "name": contract_name,
+        "contract_year": str(year),
         "cost_amount": str(0.00),
         "cost_type": CostType.Publication_Charge.value,
         "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),
@@ -412,3 +453,35 @@ def expect_publication_search_result(publication: Publication) -> dict[str, Any]
             else {"request_id": "", "url": ""}
         ),
     }
+
+
+class ContractYearLike(Protocol):
+    @property
+    def contract(self) -> Contract:
+        ...
+
+    @property
+    def contract_id(self) -> ContractId | None:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def year(self) -> int:
+        ...
+
+
+@dataclass
+class InvalidContractYear:
+    contract: Contract
+    year: int
+
+    @property
+    def contract_id(self) -> ContractId | None:
+        return self.contract.id
+
+    @property
+    def name(self) -> str:
+        return self.contract.name
