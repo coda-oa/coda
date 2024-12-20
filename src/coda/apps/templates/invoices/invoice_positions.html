@@ -1,3 +1,4 @@
+{% load getitem %}
 <article id="positions">
     <h2>Invoice Positions</h2>
     {% if positions %}
@@ -41,13 +42,19 @@
                             <input type="hidden"
                                    name="position-{{ forloop.counter }}-id"
                                    value="{{ position.id }}">
-                            <fieldset role="group">
-                                <label for="position-{{ forloop.counter }}-year" class="inline-label">Year:</label>
-                                <input type="text"
-                                       id="position-{{ forloop.counter }}-year"
-                                       name="position-{{ forloop.counter }}-year"
-                                       value="{{ position.contract_year }}">
-                            </fieldset>
+                            {% with index=forloop.counter|stringformat:"s" %}
+                                {% with error_key="position-"|add:index|add:"-error" %}
+                                    {% if error_key in errors %}<p class="messages error">{{ errors|getitem:error_key }}</p>{% endif %}
+                                    <fieldset role="group">
+                                        <label for="position-{{ forloop.counter }}-year" class="inline-label">Year</label>
+                                        <input type="text"
+                                               id="position-{{ forloop.counter }}-year"
+                                               name="position-{{ forloop.counter }}-year"
+                                               value="{{ position.contract_year }}"
+                                               {% if error_key in errors %}aria-invalid="true"{% endif %}>
+                                    </fieldset>
+                                {% endwith %}
+                            {% endwith %}
                         </td>
                     {% else %}
                         <td>

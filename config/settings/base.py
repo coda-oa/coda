@@ -191,6 +191,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
             ],
             "libraries": {
+                "getitem": "coda.apps.templatetags.getitem",
                 "getlist": "coda.apps.templatetags.getlist",
                 "param_replace": "coda.apps.templatetags.param_replace",
             },

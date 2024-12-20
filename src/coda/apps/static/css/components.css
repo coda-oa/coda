@@ -220,25 +220,29 @@ details.dropdown>ul:has(.label)>li {
   --_message-background-color: none;
   padding: var(--coda-spacing) !important;
   margin-block: var(--coda-spacing) !important;
-  background-color: var(--_message-background-color);
+  background-color: var(--_background-color);
   border-radius: var(--coda-border-radius);
   color: white;
+}
 
-  &.info {
-    --_message-background-color: var(--coda-primary-border);
-  }
+.info {
+  --_background-color: var(--coda-primary-border);
+}
 
-  &.success {
-    --_message-background-color: var(--coda-validation-valid-color);
-  }
+.success {
+  --_background-color: var(--coda-validation-valid-color);
+}
 
-  &.error {
-    --_message-background-color: var(--coda-validation-invalid-color);
-  }
+.error {
+  --_background-color: var(--coda-validation-invalid-color);
+}
 
-  &.warning {
-    --_message-background-color: rgb(205, 130, 10);
-  }
+.warning {
+  --_background-color: rgb(205, 130, 10);
+}
+
+:is(.info, .success, .error, .warning) {
+  background-color: var(--_background-color);
 }
 
 .tab-list {
