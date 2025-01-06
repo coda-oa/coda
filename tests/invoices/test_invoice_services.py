@@ -13,6 +13,15 @@ from tests import domainfactory, modelfactory
 
 @pytest.mark.django_db
 def test__create_invoice__saves_invoice_to_database() -> None:
+    invoice = make_invoice()
+
+    new_id = services.invoice_create(invoice)
+
+    actual = services.get_by_id(new_id)
+    assert_invoice_eq(invoice, actual)
+
+
+def make_invoice() -> Invoice:
     creditor_id = modelfactory.creditor().id
     publisher_id = modelfactory.publisher().id
     publications = [random_publication(publisher_id) for _ in range(3)]
@@ -30,10 +39,7 @@ def test__create_invoice__saves_invoice_to_database() -> None:
         ],
     )
 
-    new_id = services.invoice_create(invoice)
-
-    actual = services.get_by_id(new_id)
-    assert_invoice_eq(invoice, actual)
+    return invoice
 
 
 def random_publication(publisher_id: int) -> PublicationId:

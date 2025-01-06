@@ -6,8 +6,9 @@ from pydantic import BeforeValidator
 
 from coda.apps.contracts import services as contract_services
 from coda.apps.dto import CodaBaseDto
+from coda.apps.publications.repositories import publication_repository
 from coda.contract import ContractId, ContractYear
-from coda.invoice import CostType, ItemType
+from coda.invoice import CostType, ItemType, Position
 from coda.publication import PublicationId
 
 T = TypeVar("T", bound=ItemType, covariant=True)
@@ -31,6 +32,11 @@ class CommonPosition(abc.ABC, CodaBaseDto, Generic[T]):
     cost_type: str = CostType.Publication_Charge.value
     cost_amount: Decimal = Decimal("0.00")
     tax_rate: Decimal = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
+
+    @classmethod
+    @abc.abstractmethod
+    def from_position(cls, position: Position[T]) -> "CommonPosition[T]":
+        ...
 
     @classmethod
     def from_request(cls, post_data: dict[str, str], prefix: str = "") -> Self:
@@ -62,6 +68,17 @@ class PublicationPosition(CommonPosition[PublicationId]):
     title: str
     funding_request: RelatedFundingRequest = RelatedFundingRequest()
 
+    @classmethod
+    def from_position(cls, position: Position[PublicationId]) -> "PublicationPosition":
+        publication = publication_repository.get_by_id(position.item)
+
+        return cls(
+            id=publication.id,
+            title=publication.title,
+            cost_amount=position.cost.amount,
+            tax_rate=position.tax_rate,
+        )
+
     def parse(self) -> PublicationId:
         return PublicationId(self.id)
 
@@ -72,6 +89,15 @@ class PublicationPosition(CommonPosition[PublicationId]):
 class FreePosition(CommonPosition[str]):
     type: str = "free"
     description: str
+
+    @classmethod
+    def from_position(cls, position: Position[str]) -> "FreePosition":
+        return cls(
+            description=position.item,
+            cost_amount=position.cost.amount,
+            cost_type=position.cost_type,
+            tax_rate=position.tax_rate,
+        )
 
     def parse(self) -> str:
         return self.description
@@ -85,6 +111,22 @@ class ContractPosition(CommonPosition[ContractYear]):
     id: Int
     name: str
     contract_year: int
+
+    @classmethod
+    def from_position(cls, position: Position[ContractYear]) -> "ContractPosition":
+        if not position.item.contract_id:
+            raise ValueError("Contract ID is required for ContractPosition")
+
+        contract = contract_services.get_by_id(position.item.contract_id)
+
+        return cls(
+            id=contract.id,
+            name=contract.name,
+            contract_year=position.item.year,
+            cost_amount=position.cost.amount,
+            cost_type=position.cost_type,
+            tax_rate=position.tax_rate,
+        )
 
     def parse(self) -> ContractYear:
         contract = contract_services.get_by_id(ContractId(self.id))
@@ -101,6 +143,12 @@ _position_type_registry: dict[str, type[CommonPosition[ItemType]]] = {
     "contract": ContractPosition,
 }
 
+_item_type_to_position: dict[type[ItemType], type[CommonPosition[ItemType]]] = {
+    PublicationId: PublicationPosition,
+    ContractYear: ContractPosition,
+    str: FreePosition,
+}
+
 
 def position_type_names() -> list[str]:
     return list(_position_type_registry.keys())
@@ -108,3 +156,7 @@ def position_type_names() -> list[str]:
 
 def get_position_type(type_name: str) -> type[CommonPosition[ItemType]]:
     return _position_type_registry[type_name]
+
+
+def to_position_dto(p: Position[ItemType]) -> CommonPosition[ItemType]:
+    return _item_type_to_position[type(p.item)].from_position(p)

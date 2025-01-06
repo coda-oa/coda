@@ -15,6 +15,7 @@ from coda.apps.invoices.views.creditor import (
 )
 from coda.apps.invoices.views.inspect import invoice_detail, invoice_list
 from coda.apps.invoices.views.search import search_contracts, search_publications
+from coda.apps.invoices.views.update import update_invoice
 
 app_name = "invoices"
 
@@ -28,6 +29,7 @@ urlpatterns = [
     path("create/add-position/", add_position, name="add_position"),
     path("create/remove-position/", remove_position, name="remove_position"),
     path("create/total/", invoice_total, name="get_total"),
+    path("update/<int:pk>/", update_invoice, name="update"),
     path("creditors/", CreditorListView.as_view(), name="creditor_list"),
     path("creditors/<int:pk>/", CreditorDetailView.as_view(), name="creditor_detail"),
     path("creditors/create/", CreditorCreateView.as_view(), name="creditor_create"),

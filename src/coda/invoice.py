@@ -71,7 +71,7 @@ class Position(NamedTuple, Generic[T]):
         return self.net() + self.tax()
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class Invoice:
     id: InvoiceId | None
     number: str
