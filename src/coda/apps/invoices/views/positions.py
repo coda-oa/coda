@@ -7,10 +7,12 @@ from pydantic import BeforeValidator
 from coda.apps.contracts import services as contract_services
 from coda.apps.dto import CodaBaseDto
 from coda.contract import ContractId, ContractYear
-from coda.invoice import ItemType
+from coda.invoice import CostType, ItemType
 from coda.publication import PublicationId
 
 T = TypeVar("T", bound=ItemType, covariant=True)
+
+DEFAULT_TAX_RATE_PERCENTAGE = 19
 
 
 def try_int(value: str) -> int | None:
@@ -26,15 +28,15 @@ IntOrNone = Annotated[int | None, BeforeValidator(try_int)]
 
 class CommonPosition(abc.ABC, CodaBaseDto, Generic[T]):
     type: str
-    cost_type: str
-    cost_amount: Decimal
-    tax_rate: Decimal
+    cost_type: str = CostType.Publication_Charge.value
+    cost_amount: Decimal = Decimal("0.00")
+    tax_rate: Decimal = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
 
     @classmethod
     def from_request(cls, post_data: dict[str, str], prefix: str = "") -> Self:
         if prefix:
             post_data = {
-                key.removeprefix(prefix): value
+                key.removeprefix(prefix).replace("-", "_"): value
                 for key, value in post_data.items()
                 if key.startswith(prefix)
             }
@@ -50,7 +52,7 @@ class CommonPosition(abc.ABC, CodaBaseDto, Generic[T]):
 
 
 class RelatedFundingRequest(CodaBaseDto):
-    request_id: IntOrNone
+    request_id: str | None = None
     url: str = ""
 
 
@@ -58,7 +60,7 @@ class PublicationPosition(CommonPosition[PublicationId]):
     type: str = "publication"
     id: Int
     title: str
-    funding_request: RelatedFundingRequest
+    funding_request: RelatedFundingRequest = RelatedFundingRequest()
 
     def parse(self) -> PublicationId:
         return PublicationId(self.id)
@@ -98,6 +100,10 @@ _position_type_registry: dict[str, type[CommonPosition[ItemType]]] = {
     "free": FreePosition,
     "contract": ContractPosition,
 }
+
+
+def position_type_names() -> list[str]:
+    return list(_position_type_registry.keys())
 
 
 def get_position_type(type_name: str) -> type[CommonPosition[ItemType]]:

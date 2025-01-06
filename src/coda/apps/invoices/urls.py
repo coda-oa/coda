@@ -1,14 +1,11 @@
 from django.urls import path
 
 from coda.apps.invoices.views.create import (
-    add_contract,
     add_position,
     create_invoice,
-    get_total,
+    invoice_total,
     remove_position,
-    search_contracts,
-    search_publications,
-    tab_switch,
+    switch_position_tab,
 )
 from coda.apps.invoices.views.creditor import (
     CreditorCreateView,
@@ -17,6 +14,7 @@ from coda.apps.invoices.views.creditor import (
     CreditorUpdateView,
 )
 from coda.apps.invoices.views.inspect import invoice_detail, invoice_list
+from coda.apps.invoices.views.search import search_contracts, search_publications
 
 app_name = "invoices"
 
@@ -26,11 +24,10 @@ urlpatterns = [
     path("create/", create_invoice, name="create"),
     path("create/search-publications/", search_publications, name="pub_search"),
     path("create/search-contracts/", search_contracts, name="contract_search"),
-    path("create/tab-switch/", tab_switch, name="tab_switch"),
+    path("create/tab-switch/", switch_position_tab, name="tab_switch"),
     path("create/add-position/", add_position, name="add_position"),
-    path("create/add-contract/", add_contract, name="add_contract"),
     path("create/remove-position/", remove_position, name="remove_position"),
-    path("create/total/", get_total, name="get_total"),
+    path("create/total/", invoice_total, name="get_total"),
     path("creditors/", CreditorListView.as_view(), name="creditor_list"),
     path("creditors/<int:pk>/", CreditorDetailView.as_view(), name="creditor_detail"),
     path("creditors/create/", CreditorCreateView.as_view(), name="creditor_create"),

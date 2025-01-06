@@ -46,10 +46,11 @@
                                 {% with error_key="position-"|add:index|add:"-error" %}
                                     {% if error_key in errors %}<p class="messages error">{{ errors|getitem:error_key }}</p>{% endif %}
                                     <fieldset role="group">
-                                        <label for="position-{{ forloop.counter }}-year" class="inline-label">Year</label>
+                                        <label for="position-{{ forloop.counter }}-contract-year"
+                                               class="inline-label">Year</label>
                                         <input type="text"
-                                               id="position-{{ forloop.counter }}-year"
-                                               name="position-{{ forloop.counter }}-year"
+                                               id="position-{{ forloop.counter }}-contract-year"
+                                               name="position-{{ forloop.counter }}-contract-year"
                                                value="{{ position.contract_year }}"
                                                {% if error_key in errors %}aria-invalid="true"{% endif %}>
                                     </fieldset>
@@ -73,14 +74,14 @@
                     </td>
                     <td>
                         <input type="number"
-                               name="position-{{ forloop.counter }}-cost"
+                               name="position-{{ forloop.counter }}-cost-amount"
                                min="0"
                                step="0.0001"
                                value="{{ position.cost_amount }}">
                     </td>
                     <td>
                         <input type="number"
-                               name="position-{{ forloop.counter }}-taxrate"
+                               name="position-{{ forloop.counter }}-tax-rate"
                                min="0"
                                max="100"
                                step="1"

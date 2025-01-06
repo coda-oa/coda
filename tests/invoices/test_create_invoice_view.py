@@ -12,7 +12,7 @@ from pytest_django.asserts import assertRedirects
 
 from coda.apps.contracts import services as contract_services
 from coda.apps.invoices.services import get_by_id
-from coda.apps.invoices.views.create import DEFAULT_TAX_RATE_PERCENTAGE
+from coda.apps.invoices.views.positions import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.apps.publications.models import Publication
 from coda.contract import ContractId, Contract
 from coda.invoice import CostType, CreditorId, Invoice, InvoiceId, PaymentStatus, Position, TaxRate
@@ -200,7 +200,7 @@ def test__given_position_with_invalid_contract_year__create__returns_error(clien
 
 def expected_invoice(post_data: dict[str, str]) -> Invoice:
     contract = contract_services.get_by_id(ContractId(int(post_data["position-3-id"])))
-    contract_year = contract.in_year(int(post_data["position-3-year"]))
+    contract_year = contract.in_year(int(post_data["position-3-contract-year"]))
     return Invoice.new(
         post_data["number"],
         datetime.date.fromisoformat(post_data["date"]),
@@ -209,29 +209,29 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
             Position(
                 PublicationId(int(post_data["position-1-id"])),
                 Money(
-                    post_data["position-1-cost"],
+                    post_data["position-1-cost-amount"],
                     Currency[post_data["currency"]],
                 ),
                 CostType(post_data["position-1-cost-type"]),
-                TaxRate(int(post_data["position-1-taxrate"]) / 100),
+                TaxRate(int(post_data["position-1-tax-rate"]) / 100),
             ),
             Position(
                 post_data["position-2-description"],
                 Money(
-                    post_data["position-2-cost"],
+                    post_data["position-2-cost-amount"],
                     Currency[post_data["currency"]],
                 ),
                 CostType(post_data["position-2-cost-type"]),
-                TaxRate(int(post_data["position-2-taxrate"]) / 100),
+                TaxRate(int(post_data["position-2-tax-rate"]) / 100),
             ),
             Position(
                 contract_year,
                 Money(
-                    post_data["position-3-cost"],
+                    post_data["position-3-cost-amount"],
                     Currency[post_data["currency"]],
                 ),
                 CostType(post_data["position-3-cost-type"]),
-                TaxRate(int(post_data["position-3-taxrate"]) / 100),
+                TaxRate(int(post_data["position-3-tax-rate"]) / 100),
             ),
         ],
     )
@@ -267,7 +267,7 @@ def add_contract_position(
     return cast(
         TemplateResponse,
         client.post(
-            reverse("invoices:add_contract"),
+            reverse("invoices:add_position"),
             new_contract_position_data(contract_year) | (other_post_data or {}),
         ),
     )
@@ -292,8 +292,8 @@ def create_free_position_input(index: int = 1) -> dict[str, str]:
     return {
         f"position-{index}-type": "free",
         f"position-{index}-description": _faker.sentence(),
-        f"position-{index}-cost": _random_cost(),
-        f"position-{index}-taxrate": _random_tax_rate(),
+        f"position-{index}-cost-amount": _random_cost(),
+        f"position-{index}-tax-rate": _random_tax_rate(),
         f"position-{index}-cost-type": _random_cost_type(),
     }
 
@@ -310,8 +310,8 @@ def create_publication_position_input(publication: Publication, index: int = 1) 
         f"position-{index}-type": "publication",
         f"position-{index}-id": str(publication.id),
         f"position-{index}-title": publication.title,
-        f"position-{index}-cost": _random_cost(),
-        f"position-{index}-taxrate": _random_tax_rate(),
+        f"position-{index}-cost-amount": _random_cost(),
+        f"position-{index}-tax-rate": _random_tax_rate(),
         f"position-{index}-cost-type": _random_cost_type(),
         f"position-{index}-fundingrequest-id": request_id,
         f"position-{index}-fundingrequest-url": url,
@@ -322,10 +322,10 @@ def create_contract_position_input(contract: "ContractYearLike", index: int = 1)
     return {
         f"position-{index}-type": "contract",
         f"position-{index}-id": str(contract.contract.id),
-        f"position-{index}-year": str(contract.year),
+        f"position-{index}-contract-year": str(contract.year),
         f"position-{index}-name": contract.name,
-        f"position-{index}-cost": _random_cost(),
-        f"position-{index}-taxrate": _random_tax_rate(),
+        f"position-{index}-cost-amount": _random_cost(),
+        f"position-{index}-tax-rate": _random_tax_rate(),
         f"position-{index}-cost-type": _random_cost_type(),
     }
 
@@ -334,8 +334,8 @@ def new_free_position_data() -> dict[str, str]:
     return {
         "action": "add-free-position",
         "free-position-description": _faker.sentence(),
-        "free-position-cost": _random_cost(),
-        "free-position-taxrate": _random_tax_rate(),
+        "free-position-cost-amount": _random_cost(),
+        "free-position-tax-rate": _random_tax_rate(),
         "free-position-cost-type": _random_cost_type(),
     }
 
@@ -356,9 +356,9 @@ def expect_new_free_position(free_position_data: dict[str, str]) -> dict[str, An
     return {
         "type": "free",
         "description": free_position_data["free-position-description"],
-        "cost_amount": free_position_data["free-position-cost"],
+        "cost_amount": free_position_data["free-position-cost-amount"],
         "cost_type": free_position_data["free-position-cost-type"],
-        "tax_rate": free_position_data["free-position-taxrate"],
+        "tax_rate": free_position_data["free-position-tax-rate"],
     }
 
 
@@ -367,10 +367,10 @@ def expect_new_contract_position(
 ) -> dict[str, Any]:
     return {
         "type": "contract",
-        "id": str(contract_id),
+        "id": contract_id,
         "name": contract_name,
-        "contract_year": str(year),
-        "cost_amount": str(0.00),
+        "contract_year": year,
+        "cost_amount": "0.00",
         "cost_type": CostType.Publication_Charge.value,
         "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),
     }
@@ -380,16 +380,16 @@ def expect_existing_free_position(position_data: dict[str, str], index: int = 1)
     return {
         "type": "free",
         "description": position_data[f"position-{index}-description"],
-        "cost_amount": position_data[f"position-{index}-cost"],
+        "cost_amount": position_data[f"position-{index}-cost-amount"],
         "cost_type": position_data[f"position-{index}-cost-type"],
-        "tax_rate": position_data[f"position-{index}-taxrate"],
+        "tax_rate": position_data[f"position-{index}-tax-rate"],
     }
 
 
 def expect_new_publication_position(publication: Publication) -> dict[str, Any]:
     return {
         "type": "publication",
-        "id": str(publication.id),
+        "id": publication.id,
         "title": publication.title,
         "funding_request": (
             {
@@ -399,7 +399,7 @@ def expect_new_publication_position(publication: Publication) -> dict[str, Any]:
             if hasattr(publication, "fundingrequest")
             else {"request_id": "", "url": ""}
         ),
-        "cost_amount": str(0.00),
+        "cost_amount": "0.00",
         "cost_type": CostType.Publication_Charge.value,
         "tax_rate": str(DEFAULT_TAX_RATE_PERCENTAGE),
     }
@@ -410,27 +410,27 @@ def expect_existing_publication_position(
 ) -> dict[str, Any]:
     return {
         "type": "publication",
-        "id": position_data[f"position-{i}-id"],
+        "id": int(position_data[f"position-{i}-id"]),
         "title": position_data[f"position-{i}-title"],
         "funding_request": {
             "request_id": position_data[f"position-{i}-fundingrequest-id"],
             "url": position_data[f"position-{i}-fundingrequest-url"],
         },
-        "cost_amount": position_data[f"position-{i}-cost"],
+        "cost_amount": position_data[f"position-{i}-cost-amount"],
         "cost_type": position_data[f"position-{i}-cost-type"],
-        "tax_rate": position_data[f"position-{i}-taxrate"],
+        "tax_rate": position_data[f"position-{i}-tax-rate"],
     }
 
 
 def expect_existing_contract_position(position_data: dict[str, str], i: int = 1) -> dict[str, Any]:
     return {
         "type": "contract",
-        "id": position_data[f"position-{i}-id"],
+        "id": int(position_data[f"position-{i}-id"]),
         "name": position_data[f"position-{i}-name"],
-        "contract_year": position_data[f"position-{i}-year"],
-        "cost_amount": position_data[f"position-{i}-cost"],
+        "contract_year": int(position_data[f"position-{i}-contract-year"]),
+        "cost_amount": position_data[f"position-{i}-cost-amount"],
         "cost_type": position_data[f"position-{i}-cost-type"],
-        "tax_rate": position_data[f"position-{i}-taxrate"],
+        "tax_rate": position_data[f"position-{i}-tax-rate"],
     }
 
 
