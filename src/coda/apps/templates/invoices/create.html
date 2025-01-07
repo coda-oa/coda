@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1 class="my-2">Create Invoice</h1>
+    <h1 class="my-2">{{ mode_name }} Invoice</h1>
     <form method="post">
         {% csrf_token %}
         <article>
@@ -27,6 +27,6 @@
         </article>
         {% include "invoices/invoice_positions.html" %}
         {% include "invoices/add_positions.html" with tab="publications" %}
-        <button type="submit" name="action" value="create">Create</button>
+        <button type="submit" name="action" value="create">Save</button>
     </form>
 {% endblock content %}

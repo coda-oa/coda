@@ -128,10 +128,10 @@ def contract_position(
     )
 
 
-def free_position() -> Position[str]:
+def free_position(currency: Currency | None = None) -> Position[str]:
     return Position(
         item=_faker.sentence(),
-        cost=random_money(),
+        cost=random_money(currency),
         cost_type=random.choice(list(CostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
     )

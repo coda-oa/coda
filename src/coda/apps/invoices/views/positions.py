@@ -46,6 +46,7 @@ class CommonPosition(abc.ABC, CodaBaseDto, Generic[T]):
                 for key, value in post_data.items()
                 if key.startswith(prefix)
             }
+
         return cls(**post_data)
 
     @abc.abstractmethod
@@ -76,7 +77,7 @@ class PublicationPosition(CommonPosition[PublicationId]):
             id=publication.id,
             title=publication.title,
             cost_amount=position.cost.amount,
-            tax_rate=position.tax_rate,
+            tax_rate=position.tax_rate.percentage(),
         )
 
     def parse(self) -> PublicationId:
@@ -96,7 +97,7 @@ class FreePosition(CommonPosition[str]):
             description=position.item,
             cost_amount=position.cost.amount,
             cost_type=position.cost_type,
-            tax_rate=position.tax_rate,
+            tax_rate=position.tax_rate.percentage(),
         )
 
     def parse(self) -> str:
@@ -125,7 +126,7 @@ class ContractPosition(CommonPosition[ContractYear]):
             contract_year=position.item.year,
             cost_amount=position.cost.amount,
             cost_type=position.cost_type,
-            tax_rate=position.tax_rate,
+            tax_rate=position.tax_rate.percentage(),
         )
 
     def parse(self) -> ContractYear:

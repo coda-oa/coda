@@ -1,3 +1,4 @@
+import faker
 import pytest
 
 from coda.apps.contracts.services import contract_create
@@ -5,20 +6,45 @@ from coda.apps.invoices import services
 
 from coda.apps.publications.repositories import publication_repository
 from coda.contract import Contract
-from coda.invoice import CreditorId, Invoice
+from coda.invoice import CreditorId, Invoice, PaymentStatus
 from coda.publication import JournalId, PublicationId
 
 from tests import domainfactory, modelfactory
 
 
+_faker = faker.Faker()
+
+
 @pytest.mark.django_db
-def test__create_invoice__saves_invoice_to_database() -> None:
+def test__save_new_invoice__saves_invoice_to_database() -> None:
     invoice = make_invoice()
 
-    new_id = services.invoice_create(invoice)
+    new_id = services.save(invoice)
 
     actual = services.get_by_id(new_id)
     assert_invoice_eq(invoice, actual)
+
+
+@pytest.mark.django_db
+def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
+    invoice = make_invoice()
+    invoice.status = PaymentStatus.Unpaid
+
+    new_id = services.save(invoice)
+
+    updated_invoice = services.get_by_id(new_id)
+    updated_invoice.number = "updated"
+    updated_invoice.creditor = CreditorId(modelfactory.creditor().id)
+    updated_invoice.status = PaymentStatus.Paid
+    updated_invoice.date = _faker.date_object()
+    updated_invoice.positions = [domainfactory.free_position()]
+    updated_invoice.comment = "updated"
+
+    services.save(updated_invoice)
+
+    actual = services.get_by_id(new_id)
+    assert actual.id == updated_invoice.id
+    assert_invoice_eq(updated_invoice, actual)
 
 
 def make_invoice() -> Invoice:

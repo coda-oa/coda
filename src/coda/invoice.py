@@ -42,6 +42,13 @@ class TaxRate(Decimal):
 
         return super().__new__(cls, v.quantize(Decimal("0.0000")))
 
+    @classmethod
+    def from_percentage(cls, value: Decimal | float | str) -> "TaxRate":
+        return TaxRate(cls(value) / 100)
+
+    def percentage(self) -> Decimal:
+        return self * 100
+
 
 ItemType = PublicationId | ContractYear | str
 T = TypeVar("T", bound=ItemType, covariant=True)
@@ -93,16 +100,17 @@ class Invoice:
     ) -> Self:
         return cls(None, number, date, creditor, positions, status, comment)
 
-    def _get_currency(self) -> Currency:
+    def currency(self) -> Currency:
         if not self.positions:
             return Currency.EUR
+
         return next(iter(self.positions)).cost.currency
 
     def tax(self) -> Money:
-        return sum((pos.tax() for pos in self.positions), Money(0, self._get_currency()))
+        return sum((pos.tax() for pos in self.positions), Money(0, self.currency()))
 
     def net(self) -> Money:
-        return sum((pos.net() for pos in self.positions), Money(0, self._get_currency()))
+        return sum((pos.net() for pos in self.positions), Money(0, self.currency()))
 
     def total(self) -> Money:
         return self.net() + self.tax()

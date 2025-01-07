@@ -8,7 +8,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.services import invoice_create
+from coda.apps.invoices.services import save
 from coda.apps.invoices.views.positions import (
     CommonPosition,
     ContractPosition,
@@ -25,6 +25,7 @@ from coda.invoice import (
     Invoice,
     InvoiceId,
     ItemType,
+    PaymentStatus,
     Position,
     Positions,
     TaxRate,
@@ -51,6 +52,7 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
         request,
         "invoices/create.html",
         {
+            "mode_name": "Create",
             "form": InvoiceForm(request.POST if request.POST else None),
             "positions": positions_context(existing_positions(request)),
         }
@@ -90,7 +92,9 @@ def positions_context(positions: list[CommonPosition[ItemType]]) -> list[dict[st
     return [position.to_post_data() for position in positions]
 
 
-def save_invoice(request: HttpRequest) -> tuple[InvoiceId | None, ErrorDict]:
+def save_invoice(
+    request: HttpRequest, *, invoice_id: InvoiceId | None = None
+) -> tuple[InvoiceId | None, ErrorDict]:
     form = InvoiceForm(request.POST)
     if not form.is_valid():
         return None, ErrorDict(errors={})
@@ -99,15 +103,21 @@ def save_invoice(request: HttpRequest) -> tuple[InvoiceId | None, ErrorDict]:
         number_of_positions = int(request.POST.get("number-of-positions", 0))
         _positions = [parse_position_data(request, i) for i in range(1, number_of_positions + 1)]
         positions = [p for p in _positions if p is not None]
-        return invoice_create(parse_invoice(form, positions)), ErrorDict(errors={})
+        return save(parse_invoice(form, positions, invoice_id=invoice_id)), ErrorDict(errors={})
     except PositionError as e:
         return None, ErrorDict(errors={f"position-{e.position}-error": e.message()})
 
 
-def parse_invoice(form: InvoiceForm, positions: list[CommonPosition[ItemType]]) -> Invoice:
-    return Invoice.new(
+def parse_invoice(
+    form: InvoiceForm,
+    positions: list[CommonPosition[ItemType]],
+    invoice_id: InvoiceId | None = None,
+) -> Invoice:
+    return Invoice(
+        id=invoice_id,
         number=form.cleaned_data["number"],
         date=form.cleaned_data["date"],
+        status=PaymentStatus(form.cleaned_data["status"]),
         creditor=CreditorId(form.cleaned_data["creditor"].id),
         positions=parse_into_position_list(positions, form.get_currency(), lambda p: p.parse()),
         comment=form.cleaned_data["comment"],
@@ -146,7 +156,7 @@ def parse_position(
             item=item_parser(position),
             cost=Money(position.cost_amount, currency),
             cost_type=CostType(position.cost_type),
-            tax_rate=TaxRate(position.tax_rate / 100),
+            tax_rate=TaxRate.from_percentage(position.tax_rate),
         )
     except Exception as e:
         raise PositionError(index, e)

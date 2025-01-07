@@ -15,6 +15,20 @@ def position(cost: Money, tax_rate: TaxRate = TaxRate(0)) -> Position[Publicatio
     return Position(PublicationId(1), cost, CostType.Gold_OA, tax_rate=tax_rate)
 
 
+def test__invoice__with_no_positions__has_eur_currency() -> None:
+    sut = make_sut([])
+
+    assert sut.currency() == Currency.EUR
+
+
+def test__invoice__with_positions__has_currency_of_first_position() -> None:
+    first = position(Money(100, Currency.USD))
+    second = position(Money(200, Currency.USD))
+    sut = make_sut([first, second])
+
+    assert sut.currency() == Currency.USD
+
+
 def test__invoice__total__returns_sum_of_positions() -> None:
     first = position(Money(100, Currency.EUR))
     second = position(Money(200, Currency.EUR))
