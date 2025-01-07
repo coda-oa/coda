@@ -4,12 +4,8 @@ from django.shortcuts import redirect, render
 
 from coda.apps.invoices import services
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.views.create import (
-    ErrorDict,
-    _DefaultContext,
-    existing_positions,
-    save_invoice,
-)
+from coda.apps.invoices.views.create import _DefaultContext, save_invoice
+from coda.apps.invoices.views.position_list import ErrorDict, existing_positions
 from coda.apps.invoices.views.positions import to_position_dto
 from coda.invoice import InvoiceId
 

@@ -1,11 +1,12 @@
 from typing import Any
+
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
 
 from coda.apps.contracts.models import Contract
-from coda.apps.invoices.views.create import maybe_request_context
+from coda.apps.invoices.views.position_list import maybe_request_context
 from coda.apps.publications.models import Publication
 
 

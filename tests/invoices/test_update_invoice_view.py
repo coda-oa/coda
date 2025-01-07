@@ -201,9 +201,7 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
 
     response = save_invoice_view(client, invoice.id, post_data)
 
-    assert response.context["positions"] == [
-        ContractPosition(**expect_existing_contract_position(contract_input))
-    ]
+    assert response.context["positions"] == [expect_existing_contract_position(contract_input)]
 
 
 def save_invoice_view(

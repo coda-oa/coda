@@ -1,12 +1,6 @@
 from django.urls import path
 
-from coda.apps.invoices.views.create import (
-    add_position,
-    create_invoice,
-    invoice_total,
-    remove_position,
-    switch_position_tab,
-)
+from coda.apps.invoices.views.create import create_invoice
 from coda.apps.invoices.views.creditor import (
     CreditorCreateView,
     CreditorDetailView,
@@ -14,6 +8,12 @@ from coda.apps.invoices.views.creditor import (
     CreditorUpdateView,
 )
 from coda.apps.invoices.views.inspect import invoice_detail, invoice_list
+from coda.apps.invoices.views.position_list import (
+    add_position,
+    invoice_total,
+    remove_position,
+    switch_position_tab,
+)
 from coda.apps.invoices.views.search import search_contracts, search_publications
 from coda.apps.invoices.views.update import update_invoice
 

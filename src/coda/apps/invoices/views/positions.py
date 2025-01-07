@@ -59,7 +59,7 @@ class CommonPosition(abc.ABC, CodaBaseDto, Generic[T]):
 
 
 class RelatedFundingRequest(CodaBaseDto):
-    request_id: str | None = None
+    request_id: str = ""
     url: str = ""
 
 
