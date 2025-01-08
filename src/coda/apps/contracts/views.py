@@ -8,7 +8,7 @@ from django.views.generic import TemplateView
 
 from coda.apps.contracts.forms import ContractForm, EntityFormset
 from coda.apps.contracts.models import Contract as ContractModel
-from coda.apps.contracts.services import as_domain_object, contract_create
+from coda.apps.contracts.services import as_domain_object, save
 from coda.apps.views import EntityListView
 from coda.contract import Contract, PublisherId
 from coda.date import DateRange
@@ -79,7 +79,7 @@ class ContractCreateView(LoginRequiredMixin, TemplateView):
         journals = [JournalId(d["entity_id"]) for d in journal_formset.data]
 
         contract = Contract.new(NonEmptyStr(form_data["name"]), publishers, period, journals)
-        contract_id = contract_create(contract)
+        contract_id = save(contract)
         return redirect("contracts:detail", contract_id)
 
 

@@ -32,12 +32,20 @@ def as_domain_object(contract_model: ContractModel) -> Contract:
     )
 
 
-def contract_create(contract: Contract) -> ContractId:
-    contract_model = ContractModel.objects.create(
-        name=contract.name,
-        start_date=contract.period.start,
-        end_date=contract.period.end,
-    )
+def save(contract: Contract) -> ContractId:
+    if not contract.id:
+        contract_model = ContractModel.objects.create(
+            name=contract.name,
+            start_date=contract.period.start,
+            end_date=contract.period.end,
+        )
+    else:
+        contract_model = ContractModel.objects.get(pk=contract.id)
+        contract_model.name = contract.name
+        contract_model.start_date = contract.period.start
+        contract_model.end_date = contract.period.end
+
     contract_model.publishers.set(contract.publishers)
     contract_model.journals.set(contract.journals)
+    contract_model.save()
     return ContractId(contract_model.pk)

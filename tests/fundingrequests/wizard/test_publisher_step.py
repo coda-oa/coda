@@ -3,7 +3,7 @@ import datetime
 import pytest
 from django.test import RequestFactory
 
-from coda.apps.contracts.services import contract_create
+from coda.apps.contracts.services import save
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
     PublisherStep,
     PublisherStepDto,
@@ -19,7 +19,7 @@ from tests.test_wizard import DictStore
 def test__publisher_step__with_publisher_and_contracts__is_valid() -> None:
     publisher = modelfactory.publisher()
     contract = domainfactory.contract()
-    contract_id = contract_create(contract)
+    contract_id = save(contract)
     contract.id = contract_id
     contract_year = domainfactory.contract_year(contract)
 
@@ -47,7 +47,7 @@ def test__publisher_step__without_publisher__is_invalid() -> None:
 def test__publisher_step__with_contract_year_outside_period__is_invalid() -> None:
     publisher = modelfactory.publisher()
     contract = domainfactory.contract(period=DateRange.create(start=datetime.date(2024, 1, 1)))
-    contract_id = contract_create(contract)
+    contract_id = save(contract)
 
     invalid_year = 1800
 
@@ -68,7 +68,7 @@ def test__publisher_step__with_contract_year_outside_period__is_invalid() -> Non
 def test__publisher_step__with_publisher_and_contracts__done_saves_data_to_store() -> None:
     publisher = modelfactory.publisher()
     contract = domainfactory.contract()
-    contract_id = contract_create(contract)
+    contract_id = save(contract)
     contract.id = contract_id
     contract_year = domainfactory.contract_year(contract)
 
@@ -93,7 +93,7 @@ def test__publisher_step_data_in_store__when_posting_invalid_data__returns_conte
 ):
     publisher = modelfactory.publisher()
     contract = domainfactory.contract()
-    contract_id = contract_create(contract)
+    contract_id = save(contract)
     contract.id = contract_id
 
     store = DictStore()

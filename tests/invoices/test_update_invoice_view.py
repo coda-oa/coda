@@ -62,7 +62,7 @@ def test__given_invoice__goto_update_view__has_invoice_positions_in_context(clie
     _publication_position = publication_position(a_publication)
 
     a_contract = domainfactory.contract()
-    a_contract.id = contract_services.contract_create(a_contract)
+    a_contract.id = contract_services.save(a_contract)
     _contract_position = contract_position(a_contract)
 
     _free_position = free_position()
@@ -182,7 +182,7 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
     invoice.id = save(invoice)
 
     contract = domainfactory.contract()
-    contract.id = contract_services.contract_create(contract)
+    contract.id = contract_services.save(contract)
     contract_year = InvalidContractYear(contract, 1)
     contract_input = create_contract_position_input(contract_year, 1)
 

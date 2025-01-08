@@ -70,7 +70,7 @@ def contract(id: ContractId | None = None, period: DateRange | None = None) -> C
         period = DateRange.create(start=start, end=end)
 
     return Contract(
-        id=id or ContractId(random.randint(1, 1000)),
+        id=id,
         name=NonEmptyStr(_faker.sentence()),
         publishers=(),
         period=period,

@@ -3,7 +3,7 @@ import datetime
 import pytest
 from django.test import Client
 
-from coda.apps.contracts.services import contract_create, first, get_by_id
+from coda.apps.contracts.services import save, first, get_by_id
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.contract import Contract, PublisherId
 from coda.date import DateRange
@@ -24,9 +24,29 @@ def test__can_create_contract() -> None:
 
     expected = Contract.new(CONTRACT_NAME, publishers_ids, date_range(), journal_ids)
 
-    contract_id = contract_create(expected)
+    contract_id = save(expected)
 
     actual = get_by_id(contract_id)
+    assert_contract_eq(actual, expected)
+
+
+@pytest.mark.django_db
+def test__given_saved_contract__save_udpated__updates_contract() -> None:
+    publishers_ids = make_publishers()
+    journal_ids = make_journals(publishers_ids)
+
+    contract = Contract.new(CONTRACT_NAME, publishers_ids, date_range(), journal_ids)
+    contract_id = save(contract)
+
+    expected = get_by_id(contract_id)
+    expected.name = NonEmptyStr("Updated")
+    expected.publishers = ()
+    expected.journals = ()
+
+    save(expected)
+
+    actual = get_by_id(contract_id)
+    assert contract_id == actual.id
     assert_contract_eq(actual, expected)
 
 

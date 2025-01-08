@@ -1,7 +1,7 @@
 import faker
 import pytest
 
-from coda.apps.contracts.services import contract_create
+from coda.apps.contracts import services as contract_services
 from coda.apps.invoices import services
 
 from coda.apps.publications.repositories import publication_repository
@@ -75,8 +75,7 @@ def random_publication(publisher_id: int) -> PublicationId:
 
 def random_contract() -> Contract:
     contract = domainfactory.contract()
-    contract_id = contract_create(contract)
-    contract.id = contract_id
+    contract.id = contract_services.save(contract)
     return contract
 
 
