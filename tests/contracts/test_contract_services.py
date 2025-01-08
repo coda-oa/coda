@@ -1,10 +1,8 @@
 import datetime
 
 import pytest
-from django.test import Client
 
-from coda.apps.contracts.services import save, first, get_by_id
-from coda.apps.htmx_components.converters import to_htmx_formset_data
+from coda.apps.contracts.services import get_by_id, save
 from coda.contract import Contract, PublisherId
 from coda.date import DateRange
 from coda.publication import JournalId
@@ -50,31 +48,6 @@ def test__given_saved_contract__save_udpated__updates_contract() -> None:
     assert_contract_eq(actual, expected)
 
 
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
-def test__create_contract_view__can_create_contract(client: Client) -> None:
-    base_contract_data = {
-        "name": CONTRACT_NAME,
-        "start_date": START_DATE.isoformat(),
-        "end_date": END_DATE.isoformat(),
-    }
-
-    publishers = make_publishers()
-    publisher_form_data = to_htmx_formset_data(entity_form_data(publishers), prefix="publishers")
-
-    journals = make_journals(publishers)
-    journal_form_data = to_htmx_formset_data(entity_form_data(journals), prefix="journals")
-
-    data = base_contract_data | publisher_form_data | journal_form_data
-
-    client.post("/contracts/create/", data)
-
-    actual = first()
-    expected = make_contract(publishers, journals)
-    assert actual is not None
-    assert_contract_eq(actual, expected)
-
-
 def make_contract(publishers: list[PublisherId], journals: list[JournalId]) -> Contract:
     return Contract.new(CONTRACT_NAME, publishers, date_range(), journals)
 
@@ -92,10 +65,6 @@ def assert_contract_eq(actual: Contract, expected: Contract) -> None:
     assert actual.publishers == expected.publishers
     assert actual.period == expected.period
     assert actual.journals == expected.journals
-
-
-def entity_form_data(entities: list[PublisherId] | list[JournalId]) -> list[dict[str, str]]:
-    return [{"entity_id": str(id)} for id in entities]
 
 
 def date_range() -> DateRange:

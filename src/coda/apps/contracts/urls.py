@@ -2,14 +2,15 @@ from django.urls import path
 
 from coda.apps.contracts import partials
 from coda.apps.contracts.forms import EntityFormset
-from coda.apps.contracts.views import ContractCreateView, ContractListView, contract_detail
+from coda.apps.contracts.views import ContractListView, contract_detail, edit_contract_view
 
 management_view = EntityFormset.get_management_view()
 
 app_name = "contracts"
 urlpatterns = [
     path("", ContractListView.as_view(), name="list"),
-    path("create/", ContractCreateView.as_view(), name="create"),
+    path("create/", edit_contract_view, name="create"),
+    path("update/<int:pk>/", edit_contract_view, name="update"),
     path("<int:pk>/", contract_detail, name="detail"),
     path(
         "partial/entity-form",

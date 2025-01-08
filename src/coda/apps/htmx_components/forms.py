@@ -1,5 +1,5 @@
 from functools import cache, cached_property
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Self, TypeVar
 
 from django import forms
 from django.http import HttpRequest, HttpResponse
@@ -99,9 +99,9 @@ class HtmxDynamicFormset(Generic[FormType]):
         return _ManagementView
 
     @classmethod
-    def from_data(cls, data: list[dict[str, Any]]) -> "HtmxDynamicFormset[FormType]":
+    def from_data(cls, data: list[dict[str, Any]], *, form_id: str = "", prefix: str = "") -> Self:
         form_data = to_htmx_formset_data(data)
-        return cls(MultiValueDict(form_data))
+        return cls(MultiValueDict(form_data), form_id=form_id, prefix=prefix)
 
     def __init__(
         self,

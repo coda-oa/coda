@@ -1,19 +1,20 @@
-from typing import Any
+import functools
+from collections.abc import Callable
+from typing import Any, cast
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.generic import TemplateView
 
+from coda.apps.contracts import services
 from coda.apps.contracts.forms import ContractForm, EntityFormset
 from coda.apps.contracts.models import Contract as ContractModel
-from coda.apps.contracts.services import as_domain_object, save
+from coda.apps.journals.models import Journal
+from coda.apps.publishers.models import Publisher
 from coda.apps.views import EntityListView
-from coda.contract import Contract, PublisherId
-from coda.date import DateRange
+from coda.contract import Contract, ContractId, PublisherId
 from coda.publication import JournalId
-from coda.string import NonEmptyStr
 
 
 class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
@@ -23,36 +24,27 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
     entity_list_layout_classes = "grid-container"
 
     def get_entities(self, request: HttpRequest) -> list[Contract]:
-        return list(as_domain_object(c) for c in ContractModel.objects.all())
+        return services.all()
 
 
-class ContractCreateView(LoginRequiredMixin, TemplateView):
-    template_name = "contracts/contract_create.html"
+@login_required
+def contract_detail(request: HttpRequest, pk: int) -> HttpResponse:
+    contract = get_object_or_404(ContractModel, pk=pk)
+    return render(request, "contracts/contract_detail.html", {"contract": contract})
 
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        return super().get_context_data(**kwargs) | {"title": "Create Contract"} | self.get_forms()
 
-    def get_forms(self) -> dict[str, Any]:
-        if self.request.method == "POST":
-            contract_form = ContractForm(self.request.POST)
-            publisher_formset = EntityFormset(
-                self.request.POST, form_id="publishers-formset", prefix="publishers"
-            )
-            journal_formset = EntityFormset(
-                self.request.POST, form_id="journals-formset", prefix="journals"
-            )
-        else:
-            contract_form = ContractForm()
-            publisher_formset = EntityFormset(prefix="publishers", form_id="publishers-formset")
-            journal_formset = EntityFormset(prefix="journals", form_id="journals-formset")
+@login_required
+def edit_contract_view(request: HttpRequest, pk: int | None = None) -> HttpResponse:
+    save_contract: Callable[[ContractForm, EntityFormset, EntityFormset], ContractId]
+    if pk is not None:
+        contract = services.get_by_id(ContractId(pk))
+        context = get_context(request, "Update Contract", initial_contract=contract)
+        save_contract = functools.partial(update_contract, contract)
+    else:
+        context = get_context(request, "Create Contract")
+        save_contract = create_contract
 
-        return {
-            "contract_form": contract_form,
-            "publisher_formset": publisher_formset,
-            "journal_formset": journal_formset,
-        }
-
-    def post(self, request: HttpRequest) -> HttpResponse:
+    if request.method == "POST":
         contract_form = ContractForm(request.POST)
         publisher_formset = EntityFormset(request.POST, prefix="publishers")
         journal_formset = EntityFormset(request.POST, prefix="journals")
@@ -63,27 +55,73 @@ class ContractCreateView(LoginRequiredMixin, TemplateView):
         ]
 
         if all(form.is_valid() for form in forms):
-            return self.form_valid(contract_form, publisher_formset, journal_formset)
+            contract_id = save_contract(contract_form, publisher_formset, journal_formset)
+            return redirect("contracts:detail", contract_id)
 
-        return render(request, self.template_name, self.get_context_data())
+    return render(request, "contracts/contract_create.html", context)
 
-    def form_valid(
-        self, form: ContractForm, publisher_formset: EntityFormset, journal_formset: EntityFormset
-    ) -> HttpResponse:
-        form_data = form.cleaned_data
-        period = DateRange.create(
-            start=form_data.pop("start_date", None), end=form_data.pop("end_date", None)
+
+def create_contract(
+    form: ContractForm, publisher_formset: EntityFormset, journal_formset: EntityFormset
+) -> ContractId:
+    publishers = cast(list[PublisherId], publisher_formset.entity_ids())
+    journals = cast(list[JournalId], journal_formset.entity_ids())
+    contract = Contract.new(form.get_name(), publishers, form.get_period(), journals)
+    return services.save(contract)
+
+
+def update_contract(
+    contract: Contract,
+    form: ContractForm,
+    publisher_formset: EntityFormset,
+    journal_formset: EntityFormset,
+) -> ContractId:
+    publishers = cast(list[PublisherId], publisher_formset.entity_ids())
+    journals = cast(list[JournalId], journal_formset.entity_ids())
+
+    contract.name = form.get_name()
+    contract.publishers = tuple(publishers)
+    contract.journals = tuple(journals)
+    contract.period = form.get_period()
+    return services.save(contract)
+
+
+def get_context(
+    request: HttpRequest, title: str, initial_contract: Contract | None = None
+) -> dict[str, Any]:
+    return {"title": title} | get_forms(request, initial_contract=initial_contract)
+
+
+def get_forms(request: HttpRequest, initial_contract: Contract | None = None) -> dict[str, Any]:
+    if request.method == "POST":
+        contract_form = ContractForm(request.POST)
+        publisher_formset = EntityFormset(
+            request.POST, form_id="publishers-formset", prefix="publishers"
+        )
+        journal_formset = EntityFormset(request.POST, form_id="journals-formset", prefix="journals")
+    elif initial_contract is not None:
+        contract_form = ContractForm.from_contract(initial_contract)
+
+        publishers = Publisher.objects.filter(pk__in=initial_contract.publishers)
+        publisher_formset = EntityFormset.from_data(
+            [{"id": publisher.id, "name": publisher.name} for publisher in publishers],
+            prefix="publishers",
+            form_id="publishers-formset",
         )
 
-        publishers = [PublisherId(d["entity_id"]) for d in publisher_formset.data]
-        journals = [JournalId(d["entity_id"]) for d in journal_formset.data]
+        journals = Journal.objects.filter(pk__in=initial_contract.journals)
+        journal_formset = EntityFormset.from_data(
+            [{"id": journal.id, "name": journal.title} for journal in journals],
+            prefix="journals",
+            form_id="journals-formset",
+        )
+    else:
+        contract_form = ContractForm()
+        publisher_formset = EntityFormset(prefix="publishers", form_id="publishers-formset")
+        journal_formset = EntityFormset(prefix="journals", form_id="journals")
 
-        contract = Contract.new(NonEmptyStr(form_data["name"]), publishers, period, journals)
-        contract_id = save(contract)
-        return redirect("contracts:detail", contract_id)
-
-
-@login_required
-def contract_detail(request: HttpRequest, pk: int) -> HttpResponse:
-    contract = get_object_or_404(ContractModel, pk=pk)
-    return render(request, "contracts/contract_detail.html", {"contract": contract})
+    return {
+        "contract_form": contract_form,
+        "publisher_formset": publisher_formset,
+        "journal_formset": journal_formset,
+    }
