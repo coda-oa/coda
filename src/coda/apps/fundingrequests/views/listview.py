@@ -14,7 +14,7 @@ from coda.author import Author
 from coda.date import DateRange
 
 
-class FundingRequestListView(EntityListView["FundingRequestListViewModel"], LoginRequiredMixin):
+class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestListViewModel"]):
     template_name = "fundingrequests/fundingrequest_list.html"
     entity_name = "Funding Requests"
     entity_create_url = "fundingrequests:create_wizard"

@@ -18,7 +18,7 @@ from coda.money import Money
 from coda.publication import PublicationId
 
 
-class InvoiceListView(EntityListView["InvoiceViewModel"], LoginRequiredMixin):
+class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
     paginate_by = 20
     entity_name = "Invoices"
     entity_create_url = "invoices:create"

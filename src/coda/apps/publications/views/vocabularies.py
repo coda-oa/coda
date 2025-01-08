@@ -14,7 +14,7 @@ from coda.vocabulary import VocabularyConcept, LimitedVocabulary, VocabularyId, 
 ConceptPair = tuple[VocabularyConcept | None, VocabularyConcept | None]
 
 
-class VocabularyListView(EntityListView[VocabularyProtocol], LoginRequiredMixin):
+class VocabularyListView(LoginRequiredMixin, EntityListView[VocabularyProtocol]):
     entity_name = "Vocabularies"
     entity_list_item_template = "publications/vocabulary_list_item.html"
 
