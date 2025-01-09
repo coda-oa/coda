@@ -104,14 +104,14 @@ def get_forms(request: HttpRequest, initial_contract: Contract | None = None) ->
 
         publishers = Publisher.objects.filter(pk__in=initial_contract.publishers)
         publisher_formset = EntityFormset.from_data(
-            [{"id": publisher.id, "name": publisher.name} for publisher in publishers],
+            [{"entity_id": publisher.pk, "name": publisher.name} for publisher in publishers],
             prefix="publishers",
             form_id="publishers-formset",
         )
 
         journals = Journal.objects.filter(pk__in=initial_contract.journals)
         journal_formset = EntityFormset.from_data(
-            [{"id": journal.id, "name": journal.title} for journal in journals],
+            [{"entity_id": journal.pk, "name": journal.title} for journal in journals],
             prefix="journals",
             form_id="journals-formset",
         )

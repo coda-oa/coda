@@ -100,7 +100,7 @@ class HtmxDynamicFormset(Generic[FormType]):
 
     @classmethod
     def from_data(cls, data: list[dict[str, Any]], *, form_id: str = "", prefix: str = "") -> Self:
-        form_data = to_htmx_formset_data(data)
+        form_data = to_htmx_formset_data(data, prefix=prefix)
         return cls(MultiValueDict(form_data), form_id=form_id, prefix=prefix)
 
     def __init__(

@@ -47,4 +47,4 @@ class EntityFormset(HtmxDynamicFormset[EntityForm]):
     table_classes = "article__table"
 
     def entity_ids(self) -> list[int]:
-        return [form.cleaned_data["entity_id"] for form in self.forms]
+        return [cleaned_data["entity_id"] for cleaned_data in self.data]

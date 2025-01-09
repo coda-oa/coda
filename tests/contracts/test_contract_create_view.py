@@ -79,11 +79,11 @@ def test__given_saved_contract__goto_update_contract_view__shows_contract(client
 
     publisher_formset: EntityFormset = response.context["publisher_formset"]
     publisher_formset.full_clean()
-    assert publisher_formset.entity_ids() == [publisher_id for publisher_id in contract.publishers]
+    assert publisher_formset.entity_ids() == list(contract.publishers)
 
     journal_formset: EntityFormset = response.context["journal_formset"]
     journal_formset.full_clean()
-    assert journal_formset.entity_ids() == [journal_id for journal_id in contract.journals]
+    assert journal_formset.entity_ids() == list(contract.journals)
 
 
 def contract_form_data(contract: Contract) -> dict[str, str]:

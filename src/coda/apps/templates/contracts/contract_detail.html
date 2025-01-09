@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1 class="my-2">Contract: {{ contract.name }}</h1>
+    <div class="flex justify-between align-center">
+        <h1 class="my-2">Contract: {{ contract.name }}</h1>
+        <a href="{% url "contracts:update" pk=contract.pk %}"
+           role="button"
+           class="secondary">Edit</a>
+    </div>
     <article>
         {% if contract.start_date or contract.end_date %}
             <h2>Contract Period</h2>
