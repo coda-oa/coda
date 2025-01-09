@@ -23,10 +23,16 @@ class EntityNotFoundError(Exception):
 
 
 class VocabularyInUseError(Exception):
-    def __init__(self, vocabulary: VocabularyProtocol, publications: list[BasePublication]) -> None:
+    def __init__(
+        self,
+        vocabulary: VocabularyProtocol,
+        publications: list[BasePublication] | None = None,
+        limited_vocabularies: list[LimitedVocabulary] | None = None,
+    ) -> None:
         super().__init__(f"Vocabulary {vocabulary.id} is in use")
         self.vocabulary = vocabulary
-        self.publications = publications
+        self.publications = publications or []
+        self.limited_vocabularies = limited_vocabularies or []
 
 
 def create(name: str, version: str) -> Vocabulary:
@@ -79,6 +85,13 @@ def first_by_name(name: str) -> VocabularyProtocol:
     return as_domain_object(v)
 
 
+def find_limited_by_base_vocabulary(base_vocabulary_id: VocabularyId) -> list[LimitedVocabulary]:
+    return [
+        cast(LimitedVocabulary, as_domain_object(v))
+        for v in VocabularyModel.objects.filter(base_vocabulary_id=base_vocabulary_id)
+    ]
+
+
 def all() -> list[VocabularyProtocol]:
     return [as_domain_object(v) for v in VocabularyModel.objects.all()]
 
@@ -116,9 +129,16 @@ def save(vocabulary: VocabularyProtocol) -> None:
     v.save()
 
 
-def delete(id: VocabularyId) -> None:
-    if publications := publication_repository.find_publications_by_vocabulary(id):
-        raise VocabularyInUseError(vocabulary=get_by_id(id), publications=publications)
+def delete(vocabulary: VocabularyProtocol) -> None:
+    id = vocabulary.id
+    publications = publication_repository.find_publications_by_vocabulary(id)
+    limited_vocabularies = find_limited_by_base_vocabulary(id)
+    if publications or limited_vocabularies:
+        raise VocabularyInUseError(
+            vocabulary=vocabulary,
+            publications=publications,
+            limited_vocabularies=limited_vocabularies,
+        )
 
     VocabularyModel.objects.get(pk=id).delete()
 

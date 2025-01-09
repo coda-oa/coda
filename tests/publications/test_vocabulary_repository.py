@@ -56,7 +56,21 @@ def test__vocabulary_in_use_by_publication__delete__raises_error() -> None:
     create_publication_with(concept)
 
     with pytest.raises(vocabulary_repository.VocabularyInUseError):
-        vocabulary_repository.delete(v.id)
+        vocabulary_repository.delete(v)
+
+    assert vocabulary_repository.get_by_id(v.id) is not None
+
+
+@pytest.mark.django_db
+def test__vocabulary_with_limited_vocabulary__raises_error() -> None:
+    v = vocabulary_repository.create(name="test", version="1.0")
+    v.add_concept(concept_id="test-concept", name="", description="")
+    vocabulary_repository.save(v)
+
+    _ = vocabulary_repository.create_limited(v.id, "limited")
+
+    with pytest.raises(vocabulary_repository.VocabularyInUseError):
+        vocabulary_repository.delete(v)
 
     assert vocabulary_repository.get_by_id(v.id) is not None
 
