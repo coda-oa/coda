@@ -1,17 +1,16 @@
 from typing import Any
 
 from django import forms
-from django.utils.datastructures import MultiValueDict
 
 from coda.apps import fields
 from coda.apps.contracts.models import Contract
 from coda.apps.contracts.services import as_domain_object
+from coda.apps.formbase import CodaFormBase
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 from coda.apps.publications.dto import ContractYearDto
 from coda.contract import ContractYear
-from coda.apps.formbase import CodaFormBase
 
 
 class ContractForm(CodaFormBase):
@@ -120,17 +119,6 @@ class ExternalFundingForm(forms.Form):
 class ExternalFundingFormset(HtmxDynamicFormset[ExternalFundingForm]):
     name: str = "fundingrequests:external_funding_formset"
     form_class = ExternalFundingForm
-
-    @classmethod
-    def from_data(cls, data: list[dict[str, Any]]) -> "ExternalFundingFormset":
-        total_forms = len(data)
-        form_data: dict[str, Any] = {"total_forms": [total_forms]}
-        for i, d in enumerate(data, start=1):
-            form_data[f"form-{i}-organization"] = [d["organization"]]
-            form_data[f"form-{i}-project_id"] = [d["project_id"]]
-            form_data[f"form-{i}-project_name"] = [d.get("project_name", "")]
-
-        return cls(MultiValueDict(form_data))
 
     def is_empty(self) -> bool:
         return all(form.is_empty() for form in self.forms)
