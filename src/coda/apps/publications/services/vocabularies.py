@@ -1,5 +1,6 @@
-from coda.apps.publications.repositories import vocabulary_repository
-from coda.vocabulary import VocabularyId
+from coda.apps.publications.repositories import publication_repository, vocabulary_repository
+from coda.publication import BasePublication
+from coda.vocabulary import LimitedVocabulary, VocabularyConcept, VocabularyId
 
 
 def create_limited_from(vocabulary_id: VocabularyId, name: str) -> VocabularyId:
@@ -17,3 +18,38 @@ def allow_concept(vocabulary_id: VocabularyId, concept_id: str) -> None:
     limited = vocabulary_repository.get_limited_by_id(vocabulary_id)
     limited.allow(concept_id)
     vocabulary_repository.save(limited)
+
+
+def delete(vocabulary_id: VocabularyId) -> None:
+    vocabulary = vocabulary_repository.get_by_id(vocabulary_id)
+    if isinstance(vocabulary, LimitedVocabulary):
+        publications = publication_repository.find_publications_by_vocabulary(vocabulary_id)
+        _migrate_publications_to_base_vocabulary(vocabulary, publications)
+
+    vocabulary_repository.delete(vocabulary)
+
+
+def _migrate_publications_to_base_vocabulary(
+    vocabulary: LimitedVocabulary, publications: list[BasePublication]
+) -> None:
+    for publication in publications:
+        publication.publication_type = _migrate_matching_concept_to_base_vocabulary(
+            publication.publication_type,
+            vocabulary,
+        )
+
+        publication.subject_area = _migrate_matching_concept_to_base_vocabulary(
+            publication.subject_area,
+            vocabulary,
+        )
+
+        publication_repository.save(publication)
+
+
+def _migrate_matching_concept_to_base_vocabulary(
+    concept: VocabularyConcept, vocabulary: LimitedVocabulary
+) -> VocabularyConcept:
+    if concept.vocabulary == vocabulary.id:
+        return vocabulary.get_base_concept(concept.concept_id)
+
+    return concept

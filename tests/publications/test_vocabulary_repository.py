@@ -3,7 +3,7 @@ from collections.abc import Collection
 import pytest
 
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
-from coda.publication import JournalId
+from coda.publication import JournalId, PublicationId
 from coda.vocabulary import LimitedVocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory
 
@@ -53,7 +53,7 @@ def test__vocabulary_in_use_by_publication__delete__raises_error() -> None:
     vocabulary_repository.save(v)
 
     concept = v.get_concept("concept")
-    create_publication_with(concept)
+    create_publication_with_publication_type(concept)
 
     with pytest.raises(vocabulary_repository.VocabularyInUseError):
         vocabulary_repository.delete(v)
@@ -79,7 +79,13 @@ def sorted_by_concept_id(concepts: Collection[VocabularyConcept]) -> list[Vocabu
     return sorted(concepts, key=lambda c: c.concept_id)
 
 
-def create_publication_with(concept: VocabularyConcept) -> None:
+def create_publication_with_publication_type(concept: VocabularyConcept) -> PublicationId:
     journal = JournalId(modelfactory.journal().pk)
     p = domainfactory.publication(journal, publication_type=concept)
-    publication_repository.save(p)
+    return publication_repository.save(p)
+
+
+def create_publication_with_subject_area(concept: VocabularyConcept) -> PublicationId:
+    journal = JournalId(modelfactory.journal().pk)
+    p = domainfactory.publication(journal, subject_area=concept)
+    return publication_repository.save(p)

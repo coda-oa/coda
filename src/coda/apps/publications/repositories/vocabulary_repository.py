@@ -114,7 +114,7 @@ def save(vocabulary: VocabularyProtocol) -> None:
     elif isinstance(vocabulary, LimitedVocabulary):
         concepts = vocabulary.disallowed_concepts
         v.is_limited = True
-        v.base_vocabulary_id = vocabulary.vocabulary.id
+        v.base_vocabulary_id = vocabulary.base_vocabulary.id
         v.concepts.all().delete()
     else:
         raise ValueError(f"Unsupported vocabulary type: {type(vocabulary)}")
@@ -151,7 +151,7 @@ def as_domain_object(v: VocabularyModel) -> VocabularyProtocol:
         base_vocabulary_domain = as_domain_object(base_vocabulary)
         vocabulary = LimitedVocabulary(
             id=VocabularyId(v.pk),
-            vocabulary=base_vocabulary_domain,
+            base_vocabulary=base_vocabulary_domain,
             name=v.name,
             version=base_vocabulary.version,
         )

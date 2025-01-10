@@ -19,13 +19,16 @@ class VocabularyProtocol(Protocol):
     version: str
 
     def get_concept(self, concept_id: str) -> "VocabularyConcept":
+        """Get a concept by its concept ID unique to the vocabulary"""
         ...
 
     def get_concept_by_id(self, concept_id: ConceptId) -> "VocabularyConcept":
+        """Get a concept by its globally unique ID"""
         ...
 
     @property
     def concepts(self) -> Collection["VocabularyConcept"]:
+        """Get all concepts in the vocabulary"""
         ...
 
 
@@ -74,12 +77,12 @@ class Vocabulary:
         self.version = version
         self._concepts: list[VocabularyConcept] = list(concepts or [])
 
-    def get_concept_by_id(self, concept_id: ConceptId) -> VocabularyConcept:
+    def get_concept_by_id(self, id: ConceptId) -> VocabularyConcept:
         for concept in self._concepts:
-            if concept.id == concept_id:
+            if concept.id == id:
                 return concept
 
-        raise ValueError(f"Concept ID {concept_id} not found in vocabulary")
+        raise ValueError(f"Concept ID {id} not found in vocabulary")
 
     def get_concept(self, concept_id: str) -> VocabularyConcept:
         index = self._find_concept_index(concept_id)
@@ -115,7 +118,7 @@ UnknownConcept = VocabularyConcept(
 @dataclass
 class LimitedVocabulary:
     id: VocabularyId
-    vocabulary: VocabularyProtocol
+    base_vocabulary: VocabularyProtocol
     name: str = ""
     version: str = ""
 
@@ -126,7 +129,7 @@ class LimitedVocabulary:
     def concepts(self) -> Collection[VocabularyConcept]:
         return [
             self._move_concept_to_self(c)
-            for c in self.vocabulary.concepts
+            for c in self.base_vocabulary.concepts
             if c.concept_id not in self._disallowed
         ]
 
@@ -143,21 +146,25 @@ class LimitedVocabulary:
     def disallowed_concepts(self) -> Collection[VocabularyConcept]:
         return [
             self._move_concept_to_self(c)
-            for c in self.vocabulary.concepts
+            for c in self.base_vocabulary.concepts
             if c.concept_id in self._disallowed
         ]
 
-    def get_concept_by_id(self, concept_id: ConceptId) -> VocabularyConcept:
-        if concept_id in self._disallowed:
-            raise ValueError(f"Concept {concept_id} is disallowed in this vocabulary")
+    def get_concept_by_id(self, id: ConceptId) -> VocabularyConcept:
+        if id in self._disallowed:
+            raise ValueError(f"Concept {id} is disallowed in this vocabulary")
 
-        return self._move_concept_to_self(self.vocabulary.get_concept_by_id(concept_id))
+        return self._move_concept_to_self(self.base_vocabulary.get_concept_by_id(id))
+
+    def get_base_concept(self, concept_id: str) -> VocabularyConcept:
+        """Get a concept from the base vocabulary by its concept ID"""
+        return self.base_vocabulary.get_concept(concept_id)
 
     def get_concept(self, concept_id: str) -> VocabularyConcept:
         if concept_id in self._disallowed:
             raise ValueError(f"Concept {concept_id} is disallowed in this vocabulary")
 
-        return self._move_concept_to_self(self.vocabulary.get_concept(concept_id))
+        return self._move_concept_to_self(self.base_vocabulary.get_concept(concept_id))
 
     def disallow(self, concept_id: str) -> None:
         self._disallowed.add(concept_id)

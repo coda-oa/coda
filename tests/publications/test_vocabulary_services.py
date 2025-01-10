@@ -1,8 +1,15 @@
+from collections.abc import Callable
+
 import pytest
 
-from coda.apps.publications.repositories import vocabulary_repository
+from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.apps.publications.services import vocabularies
-from coda.vocabulary import LimitedVocabulary, Vocabulary, VocabularyId
+from coda.publication import BasePublication, PublicationId
+from coda.vocabulary import LimitedVocabulary, Vocabulary, VocabularyConcept, VocabularyId
+from tests.publications.test_vocabulary_repository import (
+    create_publication_with_publication_type,
+    create_publication_with_subject_area,
+)
 
 
 @pytest.mark.django_db
@@ -16,8 +23,8 @@ def test__can_create_limited_vocabulary_from_vocabulary() -> None:
     actual = vocabulary_repository.get_by_id(vid)
     assert isinstance(actual, LimitedVocabulary)
     assert actual.name == "limited"
-    assert actual.vocabulary.id == vocabulary.id
-    assert actual.version == actual.vocabulary.version
+    assert actual.base_vocabulary.id == vocabulary.id
+    assert actual.version == actual.base_vocabulary.version
 
 
 @pytest.mark.django_db
@@ -49,3 +56,38 @@ def test__limited_vocabulary_with_disallowed_concepts__allowing_concept__is_save
 
     actual = vocabulary_repository.get_limited_by_id(vid)
     assert list(actual.disallowed_concepts) == []
+
+
+PublicationWithConceptFactory = Callable[[VocabularyConcept], PublicationId]
+PublicationVocabularyAccessor = Callable[[BasePublication], VocabularyId]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("publication_factory", "get_vocabulary"),
+    (
+        (create_publication_with_publication_type, lambda p: p.publication_type.vocabulary),
+        (create_publication_with_subject_area, lambda p: p.subject_area.vocabulary),
+    ),
+)
+def test__given_publication_using_limited_vocabulary__delete_vocabulary__migrates_publications_to_base_vocabulary(
+    publication_factory: PublicationWithConceptFactory,
+    get_vocabulary: PublicationVocabularyAccessor,
+) -> None:
+    vocabulary = vocabulary_repository.create(name="test", version="1.0")
+    vocabulary.add_concept(concept_id="test-concept", name="", description="")
+    vocabulary_repository.save(vocabulary)
+
+    limited = vocabulary_repository.create_limited(vocabulary.id, "limited")
+
+    concept = limited.get_concept("test-concept")
+    publication_id = publication_factory(concept)
+
+    vocabularies.delete(limited.id)
+
+    publication = publication_repository.get_by_id(publication_id)
+    actual_vocabulary = get_vocabulary(publication)
+
+    assert actual_vocabulary == vocabulary.id
+    with pytest.raises(vocabulary_repository.EntityNotFoundError):
+        vocabulary_repository.get_by_id(limited.id)
