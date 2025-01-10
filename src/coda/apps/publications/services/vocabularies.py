@@ -1,3 +1,4 @@
+from typing import NamedTuple
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.publication import BasePublication
 from coda.vocabulary import LimitedVocabulary, VocabularyConcept, VocabularyId
@@ -29,6 +30,13 @@ def delete(vocabulary_id: VocabularyId) -> None:
     vocabulary_repository.delete(vocabulary)
 
 
+def get_usage(vocabulary_id: VocabularyId) -> "VocabularyUsage":
+    return VocabularyUsage(
+        publications=publication_repository.find_publications_by_vocabulary(vocabulary_id),
+        derived_vocabularies=vocabulary_repository.find_limited_by_base_vocabulary(vocabulary_id),
+    )
+
+
 def _migrate_publications_to_base_vocabulary(
     vocabulary: LimitedVocabulary, publications: list[BasePublication]
 ) -> None:
@@ -53,3 +61,11 @@ def _migrate_matching_concept_to_base_vocabulary(
         return vocabulary.get_base_concept(concept.concept_id)
 
     return concept
+
+
+class VocabularyUsage(NamedTuple):
+    publications: list[BasePublication] = []
+    derived_vocabularies: list[LimitedVocabulary] = []
+
+    def is_used(self) -> bool:
+        return bool(self.publications or self.derived_vocabularies)

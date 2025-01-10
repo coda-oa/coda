@@ -17,7 +17,13 @@ urlpatterns = [
         vocabularies.edit_limited,
         name="vocabulary_edit_limited",
     ),
-    path("vabulary/edit/title", vocabularies.enter_edit_title_mode, name="vocabulary_edit_title"),
+    path("vocabularies/delete/<int:pk>", vocabularies.delete, name="vocabulary_delete"),
+    path(
+        "vocabulary/request-delete/<int:pk>",
+        vocabularies.request_delete,
+        name="vocabulary_request_delete",
+    ),
+    path("vocabulary/edit/title", vocabularies.enter_edit_title_mode, name="vocabulary_edit_title"),
     path("vocabulary/edit/save-title", vocabularies.save_title, name="vocabulary_save_title"),
     path(
         "vocabulary/edit/move-to-forbidden",

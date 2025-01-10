@@ -91,3 +91,21 @@ def test__given_publication_using_limited_vocabulary__delete_vocabulary__migrate
     assert actual_vocabulary == vocabulary.id
     with pytest.raises(vocabulary_repository.EntityNotFoundError):
         vocabulary_repository.get_by_id(limited.id)
+
+
+@pytest.mark.django_db
+def test__given_limited_vocabulary_used_by_publication__usage_report__contains_publication_and_base_vocabulary() -> (
+    None
+):
+    vocabulary = vocabulary_repository.create(name="test", version="1.0")
+    vocabulary.add_concept(concept_id="test-concept", name="", description="")
+    vocabulary_repository.save(vocabulary)
+    limited = vocabulary_repository.create_limited(vocabulary.id, "limited")
+
+    concept = vocabulary.get_concept("test-concept")
+    publication_id = create_publication_with_publication_type(concept)
+
+    actual = vocabularies.get_usage(vocabulary.id)
+
+    assert actual.publications == [publication_repository.get_by_id(publication_id)]
+    assert actual.derived_vocabularies == [limited]

@@ -5,11 +5,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
-from django.views.decorators.http import require_POST
+from django.urls import reverse
+from django.views.decorators.http import require_http_methods, require_POST
 
 from coda.apps.publications.repositories import vocabulary_repository
+from coda.apps.publications.services import vocabularies
 from coda.apps.views import EntityListView
-from coda.vocabulary import VocabularyConcept, LimitedVocabulary, VocabularyId, VocabularyProtocol
+from coda.vocabulary import LimitedVocabulary, VocabularyConcept, VocabularyId, VocabularyProtocol
 
 ConceptPair = tuple[VocabularyConcept | None, VocabularyConcept | None]
 
@@ -102,6 +104,34 @@ def move_to_allowed(request: HttpRequest) -> HttpResponse:
     vocabulary_repository.save(vocabulary)
 
     return render_vocabulary_table(request, vocabulary, concept_pairs(vocabulary))
+
+
+@login_required
+def request_delete(request: HttpRequest, pk: int) -> HttpResponse:
+    vocabulary = vocabulary_repository.get_by_id(VocabularyId(pk))
+    usage = vocabularies.get_usage(VocabularyId(pk))
+    if usage.derived_vocabularies:
+        return render(
+            request,
+            "publications/vocabulary_delete_forbidden_dialog.html",
+            {"vocabulary": vocabulary, "usage": usage},
+        )
+
+    if usage.is_used():
+        return render(
+            request,
+            "publications/vocabulary_delete_dialog.html",
+            {"vocabulary": vocabulary, "usage": usage},
+        )
+
+    return delete(request, pk)
+
+
+@login_required
+@require_http_methods(["POST", "DELETE"])
+def delete(request: HttpRequest, pk: int) -> HttpResponse:
+    vocabularies.delete(VocabularyId(pk))
+    return HttpResponse(status=200, headers={"HX-Redirect": reverse("publications:vocabularies")})
 
 
 def get_vocabulary(request: HttpRequest) -> LimitedVocabulary:

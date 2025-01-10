@@ -62,7 +62,7 @@ def test__vocabulary_in_use_by_publication__delete__raises_error() -> None:
 
 
 @pytest.mark.django_db
-def test__vocabulary_with_limited_vocabulary__raises_error() -> None:
+def test__vocabulary_with_limited_vocabulary__delete__raises_error() -> None:
     v = vocabulary_repository.create(name="test", version="1.0")
     v.add_concept(concept_id="test-concept", name="", description="")
     vocabulary_repository.save(v)

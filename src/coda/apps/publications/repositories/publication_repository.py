@@ -5,11 +5,11 @@ from django.db import transaction
 from django.db.models import Q
 
 from coda.apps.authors import services as author_services
-from coda.apps.contracts.models import Contract
 from coda.apps.contracts import services as contract_services
+from coda.apps.contracts.models import Contract
 from coda.apps.publications.dto import LinkDto
-from coda.apps.publications.models import AttachedContract, Link as LinkModel
-from coda.apps.publications.models import LinkType, PublicationAttachedConcept
+from coda.apps.publications.models import AttachedContract, LinkType, PublicationAttachedConcept
+from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import AuthorId, AuthorList
