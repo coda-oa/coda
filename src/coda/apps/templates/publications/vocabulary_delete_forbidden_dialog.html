@@ -1,8 +1,23 @@
 <dialog open>
     <article>
         <p>
-            The vocabulary <i>{{ vocabulary.name }} cannot be deleted while derived versions exist.</i>
+            The vocabulary <i>{{ vocabulary.name }}</i> cannot be deleted due to the following reasons:
         </p>
+        <ul>
+            <li>
+                {% if usage.derived_vocabularies %}
+                    <p>The following vocabularies are derived from this vocabulary:</p>
+                    <div class="scroll-container max-h-30">
+                        <ul>
+                            {% for derived_vocabulary in usage.derived_vocabularies %}<li>{{ derived_vocabulary.name }}</li>{% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </li>
+            <li>
+                {% if usage.publications %}<p>The vocabulary is in use by publications.</p>{% endif %}
+            </li>
+        </ul>
         <footer>
             <button class="secondary" onclick="this.closest('dialog').remove()">Close</button>
         </footer>

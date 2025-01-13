@@ -107,5 +107,60 @@ def test__given_limited_vocabulary_used_by_publication__usage_report__contains_p
 
     actual = vocabularies.get_usage(vocabulary.id)
 
+    assert actual.vocabulary == vocabulary
     assert actual.publications == [publication_repository.get_by_id(publication_id)]
     assert actual.derived_vocabularies == [limited]
+
+
+@pytest.mark.django_db
+def test__vocabulary_usage__with_no_publications_or_derived_vocabularies__can_be_deleted() -> None:
+    vocabulary = vocabulary_repository.create(name="test", version="1.0")
+    vocabulary.add_concept(concept_id="test-concept", name="", description="")
+    vocabulary_repository.save(vocabulary)
+
+    actual = vocabularies.get_usage(vocabulary.id)
+
+    assert actual.can_be_deleted() is True
+
+
+@pytest.mark.django_db
+def test__vocabulary_usage_of_base_vocabulary__with_derived_vocabularies__cannot_be_deleted() -> (
+    None
+):
+    vocabulary = vocabulary_repository.create(name="test", version="1.0")
+    vocabulary.add_concept(concept_id="test-concept", name="", description="")
+    vocabulary_repository.save(vocabulary)
+    _ = vocabulary_repository.create_limited(vocabulary.id, "limited")
+
+    actual = vocabularies.get_usage(vocabulary.id)
+
+    assert actual.can_be_deleted() is False
+
+
+@pytest.mark.django_db
+def test__vocabulary_usage_of_vocabulary__with_publications__cannot_be_deleted() -> None:
+    vocabulary = vocabulary_repository.create(name="test", version="1.0")
+    vocabulary.add_concept(concept_id="test-concept", name="", description="")
+    vocabulary_repository.save(vocabulary)
+
+    concept = vocabulary.get_concept("test-concept")
+    _ = create_publication_with_publication_type(concept)
+
+    actual = vocabularies.get_usage(vocabulary.id)
+
+    assert actual.can_be_deleted() is False
+
+
+@pytest.mark.django_db
+def test__vocabulary_usage_of_limited_vocabulary__with_publications__can_be_deleted() -> None:
+    vocabulary = vocabulary_repository.create(name="test", version="1.0")
+    vocabulary.add_concept(concept_id="test-concept", name="", description="")
+    vocabulary_repository.save(vocabulary)
+    limited = vocabulary_repository.create_limited(vocabulary.id, "limited")
+
+    concept = limited.get_concept("test-concept")
+    _ = create_publication_with_publication_type(concept)
+
+    actual = vocabularies.get_usage(limited.id)
+
+    assert actual.can_be_deleted() is True

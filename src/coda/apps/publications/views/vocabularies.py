@@ -110,7 +110,7 @@ def move_to_allowed(request: HttpRequest) -> HttpResponse:
 def request_delete(request: HttpRequest, pk: int) -> HttpResponse:
     vocabulary = vocabulary_repository.get_by_id(VocabularyId(pk))
     usage = vocabularies.get_usage(VocabularyId(pk))
-    if usage.derived_vocabularies:
+    if not usage.can_be_deleted():
         return render(
             request,
             "publications/vocabulary_delete_forbidden_dialog.html",
