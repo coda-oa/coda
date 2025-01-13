@@ -14,9 +14,11 @@
                     </div>
                 {% endif %}
             </li>
-            <li>
-                {% if usage.publications %}<p>The vocabulary is in use by publications.</p>{% endif %}
-            </li>
+            {% if usage.publications %}
+                <li>
+                    <p>The vocabulary is in use by publications.</p>
+                </li>
+            {% endif %}
         </ul>
         <footer>
             <button class="secondary" onclick="this.closest('dialog').remove()">Close</button>
