@@ -8,9 +8,9 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.contracts import services as contract_services
-from coda.apps.invoices import services
+from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.services import save
+from coda.apps.invoices.repository import save
 from coda.apps.invoices.views.positions import ContractPosition, FreePosition, PublicationPosition
 from coda.apps.publications.repositories import publication_repository
 from coda.contract import Contract, ContractYear
@@ -24,7 +24,7 @@ from tests.invoices.test_create_invoice_view import (
     expect_existing_contract_position,
     number_of_positions,
 )
-from tests.invoices.test_invoice_services import assert_invoice_eq
+from tests.invoices.test_invoice_repository import assert_invoice_eq
 
 
 @pytest.mark.django_db
@@ -133,7 +133,7 @@ def test__given_invoice__saving_updated_invoice__updates_invoice(client: Client)
 
     response = save_invoice_view(client, invoice.id, post_data)
 
-    actual = services.get_by_id(invoice.id)
+    actual = repository.get_by_id(invoice.id)
     assert_invoice_eq(expected, actual)
     assertRedirects(response, reverse("invoices:detail", kwargs={"pk": invoice.id}))
 
@@ -164,7 +164,7 @@ def test__given_invoice__invalid_form__does_not_save_invoice(client: Client) -> 
 
     _ = save_invoice_view(client, expected.id, post_data)
 
-    actual = services.get_by_id(expected.id)
+    actual = repository.get_by_id(expected.id)
     assert_invoice_eq(expected, actual)
 
 

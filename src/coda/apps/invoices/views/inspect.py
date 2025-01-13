@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, render
 from coda.apps.authors.models import Author
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.models import Invoice as InvoiceModel
-from coda.apps.invoices.services import as_domain_object
+from coda.apps.invoices.repository import as_domain_object
 from coda.apps.publications.models import Publication
 from coda.apps.views import EntityListView
 from coda.contract import ContractYear

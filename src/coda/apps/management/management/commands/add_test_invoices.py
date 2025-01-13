@@ -2,7 +2,7 @@ from django.core.management import BaseCommand
 from coda.apps.publications.repositories import publication_repository
 from tests import domainfactory, modelfactory
 
-from coda.apps.invoices import services
+from coda.apps.invoices import repository
 from coda.invoice import CreditorId
 from coda.money import Currency
 from coda.publication import JournalId, PublicationId
@@ -23,7 +23,7 @@ class Command(BaseCommand):
             ],
         )
 
-        services.save(invoice)
+        repository.save(invoice)
 
 
 def random_publication(publisher_id: int) -> PublicationId:

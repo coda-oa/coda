@@ -2,7 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 
-from coda.apps.invoices import services
+from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.views.create import _DefaultContext, save_invoice
 from coda.apps.invoices.views.position_list import ErrorDict, existing_positions
@@ -12,7 +12,7 @@ from coda.invoice import InvoiceId
 
 @login_required
 def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
-    invoice = services.get_by_id(InvoiceId(pk))
+    invoice = repository.get_by_id(InvoiceId(pk))
     if request.method == "POST":
         invoice_id, errors = save_invoice(request, invoice_id=invoice.id)
         if invoice_id:

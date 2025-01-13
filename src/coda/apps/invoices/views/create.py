@@ -3,7 +3,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.services import save
+from coda.apps.invoices.repository import save
 from coda.apps.invoices.views.position_list import (
     ErrorDict,
     PositionError,

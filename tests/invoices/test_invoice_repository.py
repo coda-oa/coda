@@ -2,7 +2,7 @@ import faker
 import pytest
 
 from coda.apps.contracts import services as contract_services
-from coda.apps.invoices import services
+from coda.apps.invoices import repository
 
 from coda.apps.publications.repositories import publication_repository
 from coda.contract import Contract
@@ -19,9 +19,9 @@ _faker = faker.Faker()
 def test__save_new_invoice__saves_invoice_to_database() -> None:
     invoice = make_invoice()
 
-    new_id = services.save(invoice)
+    new_id = repository.save(invoice)
 
-    actual = services.get_by_id(new_id)
+    actual = repository.get_by_id(new_id)
     assert_invoice_eq(invoice, actual)
 
 
@@ -30,9 +30,9 @@ def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
     invoice = make_invoice()
     invoice.status = PaymentStatus.Unpaid
 
-    new_id = services.save(invoice)
+    new_id = repository.save(invoice)
 
-    updated_invoice = services.get_by_id(new_id)
+    updated_invoice = repository.get_by_id(new_id)
     updated_invoice.number = "updated"
     updated_invoice.creditor = CreditorId(modelfactory.creditor().id)
     updated_invoice.status = PaymentStatus.Paid
@@ -40,9 +40,9 @@ def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
     updated_invoice.positions = [domainfactory.free_position()]
     updated_invoice.comment = "updated"
 
-    services.save(updated_invoice)
+    repository.save(updated_invoice)
 
-    actual = services.get_by_id(new_id)
+    actual = repository.get_by_id(new_id)
     assert actual.id == updated_invoice.id
     assert_invoice_eq(updated_invoice, actual)
 

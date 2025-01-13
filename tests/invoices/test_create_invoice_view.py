@@ -11,7 +11,7 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.contracts import services as contract_services
-from coda.apps.invoices.services import get_by_id
+from coda.apps.invoices.repository import get_by_id
 from coda.apps.invoices.views.positions import (
     DEFAULT_TAX_RATE_PERCENTAGE,
     ContractPosition,
@@ -25,7 +25,7 @@ from coda.invoice import CostType, CreditorId, Invoice, InvoiceId, PaymentStatus
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 from tests import domainfactory, modelfactory
-from tests.invoices.test_invoice_services import assert_invoice_eq
+from tests.invoices.test_invoice_repository import assert_invoice_eq
 
 _faker = faker.Faker()
 
