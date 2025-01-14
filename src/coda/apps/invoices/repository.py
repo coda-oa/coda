@@ -1,6 +1,9 @@
+from django.db.models import Q
+
 from coda.apps.contracts import services as contract_services
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
+from coda.date import DateRange
 from coda.invoice import (
     CostType,
     CreditorId,
@@ -19,6 +22,33 @@ from coda.publication import PublicationId
 
 def get_by_id(invoice_id: InvoiceId) -> Invoice:
     return as_domain_object(InvoiceModel.objects.get(id=invoice_id))
+
+
+def all() -> list[Invoice]:
+    return [as_domain_object(m) for m in InvoiceModel.objects.all()]
+
+
+def search(
+    *,
+    invoice_number: str | None = None,
+    creditor: str | None = None,
+    status: PaymentStatus | None = None,
+    date_range: DateRange | None = None,
+) -> list[Invoice]:
+    query = Q()
+    if invoice_number:
+        query &= Q(number__icontains=invoice_number)
+
+    if creditor:
+        query &= Q(creditor__name__icontains=creditor)
+
+    if status:
+        query &= Q(status=status.value)
+
+    if date_range:
+        query &= Q(date__range=(date_range.start, date_range.end))
+
+    return [as_domain_object(m) for m in InvoiceModel.objects.filter(query)]
 
 
 def as_domain_object(model: InvoiceModel) -> Invoice:

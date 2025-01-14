@@ -1,0 +1,46 @@
+<form method="get">
+    <div class="form-row">
+        <label for="invoice_number">Invoice number</label>
+        <input type="text"
+               id="invoice_number"
+               name="invoice_number"
+               value="{{ request.GET.invoice_number }}">
+    </div>
+    <div class="form-row">
+        <label for="creditor">Creditor</label>
+        <input type="text"
+               id="creditor"
+               name="creditor"
+               value="{{ request.GET.creditor }}">
+    </div>
+    <div class="form-row">
+        <label for="payment_status">Payment status</label>
+        <select id="payment_status" name="payment_status">
+            <option {% if not request.GET.payment_status %}selected{% endif %}>-------</option>
+            {% for ps in payment_statuses %}
+                <option value="{{ ps }}"
+                        {% if ps == request.GET.payment_status %}selected{% endif %}>{{ ps }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="grid">
+        <div class="form-row">
+            <label for="date_start">Date start</label>
+            <input type="date"
+                   id="date_start"
+                   name="date_start"
+                   value="{{ request.GET.date_start }}">
+        </div>
+        <div class="form-row">
+            <label for="date_end">Date end</label>
+            <input type="date"
+                   id="date_end"
+                   name="date_end"
+                   value="{{ request.GET.date_end }}">
+        </div>
+    </div>
+    <div class="grid align-center">
+        <button type="submit" class="m-0">Search</button>
+        <a href="{% url "invoices:list" %}" role="button" class="secondary">Clear</a>
+    </div>
+</form>

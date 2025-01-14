@@ -5,15 +5,41 @@ article {
 button.danger,
 a[role="button"].danger {
   background-color: var(--coda-validation-invalid-color);
-  border-color: var(--coda-validation-invalid-color)
+  border-color: var(--coda-validation-invalid-color);
 }
 
 button.success,
 a[role="button"].success {
   background-color: var(--coda-validation-valid-color);
-  border-color: var(--coda-validation-valid-color)
+  border-color: var(--coda-validation-valid-color);
 }
 
+.form-row {
+  display: grid;
+  grid-template-columns: 15ch 1fr;
+  align-content: center;
+}
+
+.form-row> :first-child {
+  padding-inline: var(--coda-form-element-spacing-horizontal);
+  padding-block: var(--coda-form-element-spacing-vertical);
+
+  border: 1px solid var(--coda-muted-border-color);
+  border-top-left-radius: var(--coda-border-radius);
+  border-bottom-left-radius: var(--coda-border-radius);
+}
+
+.form-row> :nth-child(2) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+
+  border-top-right-radius: var(--coda-border-radius);
+  border-bottom-right-radius: var(--coda-border-radius);
+}
+
+.form-row> :is(label, input, select) {
+  margin-block-end: var(--coda-form-element-spacing-vertical);
+}
 
 search-select:not(:defined) {
   /* prevents flash of options list before shadow dom styling kicks in */
