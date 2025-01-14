@@ -5,7 +5,11 @@ from django.shortcuts import redirect, render
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.views.create import _DefaultContext, save_invoice
-from coda.apps.invoices.views.position_list import ErrorDict, existing_positions
+from coda.apps.invoices.views.position_list import (
+    ErrorDict,
+    existing_positions,
+    invoice_total_context,
+)
 from coda.apps.invoices.views.positions import to_position_dto
 from coda.invoice import InvoiceId
 
@@ -37,5 +41,8 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     return render(
         request,
         "invoices/create.html",
-        _DefaultContext | errors | {"mode_name": "Edit", "form": form, "positions": positions},
+        _DefaultContext
+        | invoice_total_context(positions, invoice.currency().code)
+        | errors
+        | {"mode_name": "Edit", "form": form, "positions": positions},
     )
