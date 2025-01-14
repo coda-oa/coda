@@ -1,0 +1,12 @@
+{% extends "invoices/position_base.html" %}
+{% block position_type %}
+    Free Position
+{% endblock position_type %}
+{% block position_type_specifics %}
+    <div class="form-row">
+        <label for="id-position-{{ counter }}-description">Description</label>
+        <input type="text"
+               name="position-{{ counter }}-description"
+               value="{{ position.description }}">
+    </div>
+{% endblock position_type_specifics %}

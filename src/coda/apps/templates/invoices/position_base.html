@@ -1,0 +1,21 @@
+{% load static %}
+<section class="mt-2 mb-3">
+    <div class="flex justify-between align-center">
+        <h3 class="my-0">
+            #{{ counter }} -
+            {% block position_type %}
+            {% endblock position_type %}
+        </h3>
+        <button type="button"
+                name="remove-position"
+                class="my-0 outline danger"
+                value="{{ forloop.counter }}"
+                hx-post="{% url 'invoices:remove_position' %}"
+                hx-target="#positions"
+                hx-swap="outerHTML">Remove</button>
+    </div>
+    <hr class="mt-0_5">
+    {% block position_type_specifics %}
+    {% endblock position_type_specifics %}
+    {% include "invoices/position_generic_partial.html" %}
+</section>

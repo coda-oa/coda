@@ -1,0 +1,24 @@
+{% extends "invoices/position_base.html" %}
+{% load getitem %}
+{% block position_type %}
+    Contract
+{% endblock position_type %}
+{% block position_type_specifics %}
+    <h4>Contract Name: {{ position.name }}</h4>
+    {% with index=counter|stringformat:"s" %}
+        {% with error_key="position-"|add:index|add:"-error" %}
+            {% if error_key in errors %}<p class="messages error">{{ errors|getitem:error_key }}</p>{% endif %}
+            <div class="form-row">
+                <label for="id-position-{{ counter }}-contract-year">Year</label>
+                <input type="text"
+                       id="id-position-{{ counter }}-contract-year"
+                       name="position-{{ counter }}-contract-year"
+                       value="{{ position.contract_year }}"
+                       {% if error_key in errors %}aria-invalid="true"{% endif %}>
+            </div>
+        {% endwith %}
+    {% endwith %}
+    <input type="hidden"
+           name="position-{{ counter }}-name"
+           value="{{ position.name }}">
+{% endblock position_type_specifics %}

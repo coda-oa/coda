@@ -8,6 +8,13 @@ a[role="button"].danger {
   border-color: var(--coda-validation-invalid-color);
 }
 
+button.outline.danger,
+a[role="button"].outline.danger {
+  color: var(--coda-validation-invalid-color);
+  border-color: var(--coda-validation-invalid-color);
+  background-color: transparent;
+}
+
 button.success,
 a[role="button"].success {
   background-color: var(--coda-validation-valid-color);
@@ -31,7 +38,7 @@ a[role="button"].success {
   border-bottom-right-radius: 0;
 }
 
-.form-row > :first-child:is(input, select) {
+.form-row> :first-child:is(input, select) {
   background-color: var(--coda-background-color);
 }
 
@@ -162,48 +169,6 @@ ul.no-decoration>li {
   top: 0;
 }
 
-
-.invoice-position-number-column {
-  width: 3ch;
-}
-
-.invoice-position-name-column {
-  width: 28ch;
-}
-
-.invoice-position-tax-column {
-  width: 12ch;
-}
-
-.invoice-position-cost-type-column {
-  width: 25ch;
-}
-
-.invoice-position-cost-column {
-  width: 28ch;
-}
-
-.invoice-position-request-link-column {
-  width: 10ch;
-}
-
-.invoice-position-request-link {
-  font-size: 1.5rem;
-}
-
-.invoice-position-request-link a {
-  display: inline-block;
-  margin-bottom: var(--coda-spacing);
-}
-
-.invoice-position-add-button {
-  width: 100%;
-}
-
-.invoice-add-position-name-column {
-  width: calc(31ch + var(--coda-spacing) / 2);
-}
-
 .label {
   --label-text-color: color-mix(in srgb, var(--label-border-color) 80%, white);
   padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
@@ -277,60 +242,6 @@ details.dropdown>ul:has(.label)>li {
 
 :is(.info, .success, .error, .warning) {
   background-color: var(--_background-color);
-}
-
-.tab-list {
-  display: grid;
-  grid-auto-flow: column;
-  gap: 0.2rem;
-
-  & .active {
-    --_tab-background: color-mix(in srgb, var(--coda-primary-border) 70%, black);
-    background: var(--_tab-background);
-    border: 1px solid var(--_tab-background);
-  }
-
-  & button {
-    padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
-    border: 1px solid var(--coda-secondary-background);
-    border-radius: 0;
-
-    color: var(--coda-secondary-inverse);
-    background-color: var(--coda-secondary-background);
-
-    text-align: center;
-    text-decoration: none;
-    cursor: pointer;
-  }
-
-  & button:first-child {
-    border-top-left-radius: var(--coda-border-radius);
-    border-bottom-left-radius: var(--coda-border-radius);
-  }
-
-  & button:last-child {
-    border-top-right-radius: var(--coda-border-radius);
-    border-bottom-right-radius: var(--coda-border-radius);
-  }
-}
-
-#positions__list tr {
-  & td {
-    padding-block: 1rem;
-  }
-
-  & td:has(input, select, button, fieldset, a[role="button"]) {
-    vertical-align: bottom;
-  }
-
-  & input,
-  & select,
-  & label,
-  & button,
-  & fieldset,
-  a[role="button"] {
-    margin: 0;
-  }
 }
 
 .inline-label {

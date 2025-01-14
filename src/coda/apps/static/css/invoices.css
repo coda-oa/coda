@@ -1,0 +1,95 @@
+.common-position-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-areas: "cost-type amount tax-rate";
+    gap: var(--coda-spacing);
+    align-items: center;
+}
+
+.common-position-grid .cost-type {
+    grid-area: cost-type;
+}
+
+.common-position-grid .tax-rate {
+    grid-area: tax-rate;
+}
+
+.common-position-grid .amount {
+    grid-area: amount;
+}
+
+.invoice-position-number-column {
+    width: 3ch;
+}
+
+.invoice-position-name-column {
+    width: 28ch;
+}
+
+.invoice-position-tax-column {
+    width: 12ch;
+}
+
+.invoice-position-cost-type-column {
+    width: 25ch;
+}
+
+.invoice-position-cost-column {
+    width: 28ch;
+}
+
+.invoice-position-request-link-column {
+    width: 10ch;
+}
+
+.invoice-position-request-link {
+    font-size: 1.5rem;
+}
+
+.invoice-position-request-link a {
+    display: inline-block;
+    margin-bottom: var(--coda-spacing);
+}
+
+.invoice-position-add-button {
+    width: 100%;
+}
+
+.invoice-add-position-name-column {
+    width: calc(31ch + var(--coda-spacing) / 2);
+}
+
+.tab-list {
+    display: grid;
+    grid-auto-flow: column;
+    gap: 0.2rem;
+
+    & .active {
+        --_tab-background: color-mix(in srgb, var(--coda-primary-border) 70%, black);
+        background: var(--_tab-background);
+        border: 1px solid var(--_tab-background);
+    }
+
+    & button {
+        padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
+        border: 1px solid var(--coda-secondary-background);
+        border-radius: 0;
+
+        color: var(--coda-secondary-inverse);
+        background-color: var(--coda-secondary-background);
+
+        text-align: center;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    & button:first-child {
+        border-top-left-radius: var(--coda-border-radius);
+        border-bottom-left-radius: var(--coda-border-radius);
+    }
+
+    & button:last-child {
+        border-top-right-radius: var(--coda-border-radius);
+        border-bottom-right-radius: var(--coda-border-radius);
+    }
+}

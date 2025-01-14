@@ -22,6 +22,14 @@
   margin-block-end: 2rem;
 }
 
+.mb-3 {
+  margin-block-end: 3rem;
+}
+
+.mt-0_5 {
+  margin-block-start: 0.5rem;
+}
+
 .mt-1 {
   margin-block-start: 1rem;
 }
@@ -68,4 +76,8 @@
 
 .vh-100 {
   height: 100vh;
+}
+
+.p-0_25 {
+  padding: 0.4rem;
 }
