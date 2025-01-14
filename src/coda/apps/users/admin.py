@@ -14,6 +14,9 @@ class UserAdmin(auth_admin.UserAdmin[User]):
     # NOTE: we are not sure why mypy is complaining about the following line
     form = UserAdminChangeForm
     add_form = UserAdminCreationForm
+    add_fieldsets = (
+        (None, {"classes": ("wide",), "fields": ("username", "email", "password1", "password2")}),
+    )
     fieldsets = (
         (None, {"fields": ("username", "password")}),
         (_("Personal info"), {"fields": ("name", "email")}),
