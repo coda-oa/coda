@@ -27,12 +27,20 @@ a[role="button"].success {
   border: 1px solid var(--coda-muted-border-color);
   border-top-left-radius: var(--coda-border-radius);
   border-bottom-left-radius: var(--coda-border-radius);
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
-.form-row> :nth-child(2) {
+.form-row > :first-child:is(input, select) {
+  background-color: var(--coda-background-color);
+}
+
+.form-row> :last-child {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
 
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
   border-top-right-radius: var(--coda-border-radius);
   border-bottom-right-radius: var(--coda-border-radius);
 }

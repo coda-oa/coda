@@ -1,5 +1,5 @@
 <form method="get" id="search-form">
-    <div class="mb-2" role="group">
+    <div class="form-row">
         <select name="search_type" id="id_search-type" class="flex-1">
             <option value="submitter"
                     {% if not request.GET.search_type or "submitter" == request.GET.search_type %}selected{% endif %}>
@@ -16,14 +16,14 @@
                placeholder="Search">
     </div>
     <div class="grid">
-        <div>
+        <div class="form-row">
             <label for="id_start_date">Start Date</label>
             <input type="date"
                    id="id_start_date"
                    name="start_date"
                    value="{{ request.GET.start_date }}">
         </div>
-        <div>
+        <div class="form-row">
             <label for="id_end_date">End Date</label>
             <input type="date"
                    id="id_end_date"
