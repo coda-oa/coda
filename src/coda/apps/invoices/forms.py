@@ -1,7 +1,7 @@
 from django import forms
 
 from coda.apps.fields import currency_field
-from coda.apps.invoices.models import Creditor
+from coda.apps.invoices.models import Creditor, FundingSource
 from coda.invoice import PaymentStatus
 from coda.money import Currency
 
@@ -25,4 +25,10 @@ class InvoiceForm(forms.Form):
 class CreditorForm(forms.ModelForm[Creditor]):
     class Meta:
         model = Creditor
+        fields = "__all__"
+
+
+class FundingSourceForm(forms.ModelForm[FundingSource]):
+    class Meta:
+        model = FundingSource
         fields = "__all__"

@@ -7,6 +7,12 @@ from coda.apps.invoices.views.creditor import (
     CreditorListView,
     CreditorUpdateView,
 )
+from coda.apps.invoices.views.fundingsources import (
+    fundingsource_createview,
+    fundingsource_detailview,
+    fundingsource_listview,
+    fundingsource_updateview,
+)
 from coda.apps.invoices.views.inspect import invoice_detail, invoice_list
 from coda.apps.invoices.views.position_list import (
     add_position,
@@ -34,4 +40,8 @@ urlpatterns = [
     path("creditors/<int:pk>/", CreditorDetailView.as_view(), name="creditor_detail"),
     path("creditors/create/", CreditorCreateView.as_view(), name="creditor_create"),
     path("creditors/<int:pk>/update/", CreditorUpdateView.as_view(), name="creditor_update"),
+    path("fundingsources/", fundingsource_listview, name="fundingsource_list"),
+    path("fundingsources/<int:pk>/", fundingsource_detailview, name="fundingsource_detail"),
+    path("fundingsources/create/", fundingsource_createview, name="fundingsource_create"),
+    path("fundingsources/update/<int:pk>", fundingsource_updateview, name="fundingsource_update"),
 ]
