@@ -38,7 +38,7 @@ class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
         query["creditor"] = request.GET.get("creditor")
 
         if status := request.GET.get("payment_status"):
-            query["status"] = PaymentStatus(status)
+            query["status"] = self.try_into_paymentstatus(status)
 
         query["date_range"] = DateRange.try_fromisoformat(
             start=request.GET.get("date_start"),
@@ -46,6 +46,12 @@ class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
         )
 
         return list(invoice_viewmodel(i) for i in repository.search(**query))
+
+    def try_into_paymentstatus(self, status: str) -> PaymentStatus | None:
+        try:
+            return PaymentStatus(status)
+        except ValueError:
+            return None
 
 
 invoice_list = InvoiceListView.as_view()

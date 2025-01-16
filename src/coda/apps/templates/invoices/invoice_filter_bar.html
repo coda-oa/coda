@@ -16,7 +16,7 @@
     <div class="form-row">
         <label for="payment_status" class="form-row-item-sm">Payment status</label>
         <select id="payment_status" name="payment_status">
-            <option {% if not request.GET.payment_status %}selected{% endif %}>-------</option>
+            <option {% if not request.GET.payment_status %}selected{% endif %} value>-------</option>
             {% for ps in payment_statuses %}
                 <option value="{{ ps }}"
                         {% if ps == request.GET.payment_status %}selected{% endif %}>{{ ps }}</option>
