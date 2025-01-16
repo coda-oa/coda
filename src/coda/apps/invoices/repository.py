@@ -24,6 +24,10 @@ def get_by_id(invoice_id: InvoiceId) -> Invoice:
     return as_domain_object(InvoiceModel.objects.get(id=invoice_id))
 
 
+def get_by_creditor(creditor_id: CreditorId) -> list[Invoice]:
+    return [as_domain_object(m) for m in InvoiceModel.objects.filter(creditor_id=creditor_id)]
+
+
 def all() -> list[Invoice]:
     return [as_domain_object(m) for m in InvoiceModel.objects.all()]
 

@@ -1,5 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1>Creditor</h1>
-    <p>Name: {{ creditor.name }}</p>
+    <h1 class="my-2">Creditor</h1>
+    {% if invoices %}
+        <article>
+            <h2 class="mb-2">{{ creditor.name }}</h2>
+            <h3>Related Invoices</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invoice in invoices %}
+                        <tr>
+                            <td>
+                                <a href="{% url "invoices:detail" pk=invoice.id %}">{{ invoice.number }}</a>
+                            </td>
+                            <td>{{ invoice.date }}</td>
+                            <td>{{ invoice.total }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </article>
+    {% endif %}
 {% endblock content %}
