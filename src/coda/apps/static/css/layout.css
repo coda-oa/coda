@@ -3,12 +3,6 @@
   top: 0;
 }
 
-.fundingrequest-detail-grid {
-  display: grid;
-  grid-template-columns: auto 35ch;
-  gap: var(--coda-gap);
-}
-
 .grid-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(30ch, 400px), 1fr));

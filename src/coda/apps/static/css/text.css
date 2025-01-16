@@ -8,3 +8,15 @@
     white-space: nowrap;
     text-wrap: nowrap;
 }
+
+.text-center {
+    text-align: center;
+}
+
+.text-v-center {
+    vertical-align: middle;
+}
+
+a.undecorated {
+    text-decoration: none;
+}

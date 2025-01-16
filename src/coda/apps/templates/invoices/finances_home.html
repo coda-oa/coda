@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+    <h2 class="my-2">Finances</h2>
+    <div class="grid-container">
+        <article>
+            <h2 class="m-0 text-center">
+                <a href="{% url "invoices:list" %}" class="undecorated text-v-center">Invoices</a>
+            </h2>
+        </article>
+        <article>
+            <h2 class="m-0 text-center">
+                <a href="{% url "invoices:creditor_list" %}"
+                   class="undecorated text-v-center">Creditors</a>
+            </h2>
+        </article>
+        <article>
+            <h2 class="m-0 text-center">
+                <a href="{% url "invoices:fundingsource_list" %}"
+                   class="undecorated text-v-center">Funding Sources</a>
+            </h2>
+        </article>
+    </div>
+{% endblock content %}

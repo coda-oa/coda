@@ -1,5 +1,6 @@
 from django.urls import path
 
+from coda.apps.invoices.views.finances_home import finances_home
 from coda.apps.invoices.views.create import create_invoice
 from coda.apps.invoices.views.creditor import (
     CreditorCreateView,
@@ -26,7 +27,8 @@ from coda.apps.invoices.views.update import update_invoice
 app_name = "invoices"
 
 urlpatterns = [
-    path("", invoice_list, name="list"),
+    path("", finances_home, name="home"),
+    path("list/", invoice_list, name="list"),
     path("<int:pk>/", invoice_detail, name="detail"),
     path("create/", create_invoice, name="create"),
     path("create/search-publications/", search_publications, name="pub_search"),
