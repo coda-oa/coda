@@ -17,8 +17,34 @@
               crossorigin="anonymous" />
         <link rel="stylesheet"
               type="text/css"
+              href="{% static 'css/text.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/flex.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
               href="{% static 'css/components.css' %}"
               crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/article.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/button.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/forms.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              href="{% static 'css/lists.css' %}"
+              crossorigin="anonymous">
+        <link rel="stylesheet"
+              href="{% static 'css/status.css' %}"
+              crossorigin="anonymous">
         <link rel="stylesheet"
               type="text/css"
               href="{% static 'css/layout.css' %}"
@@ -33,6 +59,10 @@
         <link rel="stylesheet"
               href="{% static 'css/nav.css' %}"
               crossorigin="anonymous">
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/fundingrequests.css' %}"
+              crossorigin="anonymous" />
         <link rel="stylesheet"
               href="{% static 'css/invoices.css' %}"
               crossorigin="anonymous">
@@ -50,7 +80,7 @@
                 {% if messages %}
                     {% regroup messages by tags as messages %}
                     {% for level in messages %}
-                        <ul class="messages {{ level.grouper }} no-decoration">
+                        <ul class="messages {{ level.grouper }} undecorated">
                             {% for message in level.list %}<li>{{ message }}</li>{% endfor %}
                         </ul>
                     {% endfor %}

@@ -21,18 +21,18 @@
                 <hr class="mt-0_5">
                 <div class="common-position-grid">
                     <div class="form-row amount">
-                        <label for="tax-rate">Tax</label>
+                        <label for="tax-rate" class="form-row-item-sm">Tax</label>
                         <input id="tax-rate" type="number" readonly value="{{ tax }}">
                     </div>
                     <div class="form-row cost-type">
-                        <label for="tax-rate-cost-type">Cost Type</label>
+                        <label for="tax-rate-cost-type" class="form-row-item-sm">Cost Type</label>
                         <input id="tax-rate-cost-type" type="text" readonly value="vat">
                     </div>
                 </div>
                 <hr>
                 <div class="common-position-grid">
                     <div class="form-row amount">
-                        <label for="total">Total</label>
+                        <label for="total" class="form-row-item-sm">Total</label>
                         <input id="total"
                                type="number"
                                hx-post="{% url 'invoices:get_total' %}"

@@ -1,0 +1,19 @@
+article {
+    border: 1px solid var(--coda-muted-border-color);
+}
+
+article table {
+    width: 100%;
+    margin-block-end: 0;
+}
+
+article table tr,
+article table th,
+article table td {
+    background-color: var(--coda-card-background-color);
+}
+
+article table tbody tr:last-child td,
+article table tbody tr:last-child th {
+    border-bottom: none;
+}

@@ -1,0 +1,42 @@
+.flex {
+    --coda-gap: 1rem;
+    display: flex;
+    flex-direction: row;
+    gap: var(--coda-gap);
+}
+
+.flex-basis-80 {
+    flex-basis: 80%;
+}
+
+.justify-around {
+    justify-content: space-around;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.justify-start {
+    justify-content: flex-start;
+}
+
+.justify-end {
+    justify-content: flex-end;
+}
+
+.align-center {
+    align-items: center;
+}
+
+.align-start {
+    align-items: start;
+}
+
+.align-end {
+    align-items: end;
+}
+
+.wrap {
+    flex-wrap: wrap;
+}

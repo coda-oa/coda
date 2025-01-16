@@ -42,8 +42,6 @@ class ContractFormset(HtmxDynamicFormset[ContractForm]):
     form_class = ContractForm
     min_forms = 0
 
-    table_classes = "article__table"
-
     def contract_years(self) -> list[ContractYear]:
         return [form.contract_year() for form in self.forms]
 

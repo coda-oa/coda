@@ -1,0 +1,67 @@
+.fundingrequest__detail-grid {
+    display: grid;
+    grid-template-columns: auto 35ch;
+    gap: var(--coda-gap);
+}
+
+.fundingrequest__detail-title {
+    margin-block: 0;
+}
+
+.fundingrequest-table tbody tr > th,
+.fundingrequest-table tr > td:first-child {
+    width: 30ch;
+}
+
+.status-label {
+    background-color: var(--_status-color, transparent);
+    color: var(--coda-validation-text-color);
+
+    &.approved {
+        --_status-color: var(--coda-validation-valid-color);
+    }
+
+    &.rejected {
+        --_status-color: var(--coda-validation-invalid-color);
+    }
+
+    &.open {
+        --_status-color: var(--coda-primary-background);
+    }
+}
+
+.label {
+    --label-text-color: color-mix(in srgb, var(--label-border-color) 80%, white);
+    box-sizing: border-box;
+    padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
+    width: fit-content;
+    text-wrap: nowrap;
+
+    background: color-mix(in hsl, var(--label-bg-color) 25%, transparent 75%);
+    border: 1px solid var(--label-border-color);
+    border-radius: var(--coda-border-radius);
+    color: var(--label-text-color);
+}
+
+a:has(.label) {
+    text-decoration: none;
+}
+
+.label__button-remove {
+    flex: 0;
+    display: inline-block;
+    color: var(--label-text-color);
+    text-decoration: none;
+    background: none;
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+details.dropdown > ul:has(.label) {
+    padding-block: 0.5rem;
+}
+
+details.dropdown > ul:has(.label) > li {
+    padding-block: 0.75rem;
+}

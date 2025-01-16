@@ -1,21 +1,20 @@
 <div id="contract-search">
     <h3>Search Contracts</h3>
-    <div role="group">
+    <div class="form-row pill">
         <input type="search"
                name="contract_query"
                placeholder="Search contracts"
-               value="{{ request.POST.contract_query }}"
-               class="flex-6">
+               value="{{ request.POST.contract_query }}">
         <button type="button"
                 name="action"
                 value="search"
-                class="flex-1 pill"
+                class="form-row-item-sm"
                 hx-post="{% url 'invoices:contract_search' %}"
                 hx-target="#contract-search"
                 hx-swap="outerHTML">Search</button>
     </div>
     {% if contracts %}
-        <table class="article__table">
+        <table>
             <thead>
                 <tr>
                     <th>Name</th>

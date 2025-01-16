@@ -8,7 +8,7 @@
         <form method="post">
             <article>
                 {% csrf_token %}
-                <table class="article__table">
+                <table>
                     {{ form.as_div }}
                 </table>
                 <button type="submit" class="max-fit-content">Save</button>

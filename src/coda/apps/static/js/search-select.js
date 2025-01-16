@@ -7,7 +7,7 @@ import {
 const htmlTemplate = /*html*/ `
 <div id="search-results-wrapper">
     <input type="text" id="search-box" autocomplete="off" required>
-    <ul id="search-results" class="no-decoration">
+    <ul id="search-results" class="undecorated">
         <slot>
     </ul>
 </div>

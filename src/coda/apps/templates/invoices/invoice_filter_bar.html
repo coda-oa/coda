@@ -1,20 +1,20 @@
 <form method="get">
     <div class="form-row">
-        <label for="invoice_number">Invoice number</label>
+        <label for="invoice_number" class="form-row-item-sm">Invoice number</label>
         <input type="text"
                id="invoice_number"
                name="invoice_number"
                value="{{ request.GET.invoice_number }}">
     </div>
     <div class="form-row">
-        <label for="creditor">Creditor</label>
+        <label for="creditor" class="form-row-item-sm">Creditor</label>
         <input type="text"
                id="creditor"
                name="creditor"
                value="{{ request.GET.creditor }}">
     </div>
     <div class="form-row">
-        <label for="payment_status">Payment status</label>
+        <label for="payment_status" class="form-row-item-sm">Payment status</label>
         <select id="payment_status" name="payment_status">
             <option {% if not request.GET.payment_status %}selected{% endif %}>-------</option>
             {% for ps in payment_statuses %}
@@ -25,14 +25,14 @@
     </div>
     <div class="grid">
         <div class="form-row">
-            <label for="date_start">Date start</label>
+            <label for="date_start" class="form-row-item-sm">Date start</label>
             <input type="date"
                    id="date_start"
                    name="date_start"
                    value="{{ request.GET.date_start }}">
         </div>
         <div class="form-row">
-            <label for="date_end">Date end</label>
+            <label for="date_end" class="form-row-item-sm">Date end</label>
             <input type="date"
                    id="date_end"
                    name="date_end"

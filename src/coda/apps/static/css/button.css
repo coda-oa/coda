@@ -1,0 +1,12 @@
+button.outline:is(.info, .success, .warning, .danger) {
+  background-color: transparent;
+  border-color: var(--_background-color);
+  color: var(--_background-color);
+}
+
+button.undecorated {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+}

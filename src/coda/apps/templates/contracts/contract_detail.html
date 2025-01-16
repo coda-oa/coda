@@ -18,7 +18,7 @@
     <section class="my-4">
         <h2>Publishers</h2>
         <div class="scroll-container max-h-30">
-            <ul class="no-decoration grid-container">
+            <ul class="undecorated grid-container">
                 {% for pub in contract.publishers.all %}
                     <li>
                         <article>{{ pub.name }}</article>
@@ -30,7 +30,7 @@
     <section class="my-4">
         <h2>Journals</h2>
         <div class="scroll-container max-h-30">
-            <ul class="no-decoration grid-container">
+            <ul class="undecorated grid-container">
                 {% for j in contract.journals.all %}
                     <li>
                         <article>{{ j.title }}</article>

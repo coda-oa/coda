@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
     <h1 class="my-2">Funding Request</h1>
-    <div class="grid col-2">
+    <div class="fundingrequest__detail-grid">
         <div>
             <article>
                 <header class="flex justify-between align-center">
@@ -9,7 +9,7 @@
                     <a href="{% url "fundingrequests:update_submitter" pk=funding_request.id %}"
                        role="button">Edit</a>
                 </header>
-                <table class="article__table fundingrequest-table">
+                <table class="fundingrequest-table">
                     <tbody>
                         <tr>
                             <th>Request ID</th>
@@ -41,7 +41,7 @@
                     <h2 class="fundingrequest__detail-title">Publication Details</h2>
                     <a href="{{ publication.edit_url }}" role="button">Edit</a>
                 </header>
-                <table class="article__table fundingrequest-table">
+                <table class="fundingrequest-table">
                     <tbody>
                         <tr>
                             <th>Title</th>
@@ -99,7 +99,7 @@
                 </table>
                 {% if publication.references %}
                     <h3 class="mt-1">References</h3>
-                    <table class="article__table fundingrequest-table">
+                    <table class="fundingrequest-table">
                         <tbody>
                             {% for link in publication.references %}
                                 <tr>
@@ -119,7 +119,7 @@
                     <a href="{% url "fundingrequests:update_funding" pk=funding_request.id %}"
                        role="button">Edit</a>
                 </header>
-                <table class="article__table fundingrequest-table">
+                <table class="fundingrequest-table">
                     <tbody>
                         <tr>
                             <th>Estimated Cost</th>
@@ -128,7 +128,7 @@
                     </tbody>
                 </table>
                 <h3 class="mt-1_5">External Research Funding</h3>
-                <table class="article__table fundingrequest-table">
+                <table class="fundingrequest-table">
                     <thead>
                         <tr>
                             <td>Organization</td>

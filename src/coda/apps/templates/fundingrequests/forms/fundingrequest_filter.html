@@ -1,6 +1,6 @@
 <form method="get" id="search-form">
     <div class="form-row">
-        <select name="search_type" id="id_search-type" class="flex-1">
+        <select name="search_type" id="id_search-type" class="form-row-item-sm">
             <option value="submitter"
                     {% if not request.GET.search_type or "submitter" == request.GET.search_type %}selected{% endif %}>
                 Submitter
@@ -11,20 +11,19 @@
         </select>
         <input type="text"
                name="search_term"
-               class="flex-4"
                value="{{ request.GET.search_term }}"
                placeholder="Search">
     </div>
     <div class="grid">
         <div class="form-row">
-            <label for="id_start_date">Start Date</label>
+            <label for="id_start_date" class="form-row-item-sm">Start Date</label>
             <input type="date"
                    id="id_start_date"
                    name="start_date"
                    value="{{ request.GET.start_date }}">
         </div>
         <div class="form-row">
-            <label for="id_end_date">End Date</label>
+            <label for="id_end_date" class="form-row-item-sm">End Date</label>
             <input type="date"
                    id="id_end_date"
                    name="end_date"

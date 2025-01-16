@@ -1,5 +1,4 @@
-<table id="vocabulary-table"
-       class="article__table scroll-container max-h-30">
+<table id="vocabulary-table" class="scroll-container max-h-30">
     <thead>
         <tr>
             <th>Allowed</th>
@@ -12,7 +11,7 @@
                 {% if allowed_concept %}
                     <td>
                         <span>
-                            <button class="button-undecorated"
+                            <button class="undecorated"
                                     name="disallow"
                                     value="{{ allowed_concept.concept_id }}"
                                     hx-post="{% url 'publications:vocabulary_move_to_forbidden' %}"
@@ -39,7 +38,7 @@
                 {% if forbidden_concept %}
                     <td>
                         <span>
-                            <button class="button-undecorated"
+                            <button class="undecorated"
                                     name="allow"
                                     value="{{ forbidden_concept.concept_id }}"
                                     hx-post="{% url 'publications:vocabulary_move_to_allowed' %}"
