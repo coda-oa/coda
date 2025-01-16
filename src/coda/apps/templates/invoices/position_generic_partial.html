@@ -4,6 +4,18 @@
 <input type="hidden"
        name="position-{{ counter }}-id"
        value="{{ position.id }}">
+<div class="form-row">
+    <label for="id-position-{{ counter }}-funding-source"
+           class="form-row-item-sm">Funding Source</label>
+    <select name="position-{{ counter }}-funding-source"
+            id="id-position-{{ counter }}-funding-source">
+        <option value>-------</option>
+        {% for fs in funding_sources %}
+            <option value="{{ fs.id }}"
+                    {% if position.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
+        {% endfor %}
+    </select>
+</div>
 <div class="common-position-grid">
     <div class="form-row amount">
         <label for="id-position-{{ counter }}-cost-amount" class="form-row-item-sm">Amount</label>

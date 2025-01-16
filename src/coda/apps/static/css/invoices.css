@@ -18,6 +18,10 @@
     grid-area: amount;
 }
 
+details[open] .position-collapsed {
+    display: none;
+}
+
 .invoice-position-number-column {
     width: 3ch;
 }

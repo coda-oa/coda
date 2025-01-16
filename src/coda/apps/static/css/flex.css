@@ -40,3 +40,10 @@
 .wrap {
     flex-wrap: wrap;
 }
+
+.summary-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-right: 1.5rem; /* Adjust this value as needed */
+}

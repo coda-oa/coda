@@ -14,11 +14,11 @@
             {% else %}
                 {% include "invoices/position_free.html" with counter=forloop.counter %}
             {% endif %}
+            <hr>
         {% endfor %}
         {% if positions %}
             <div class="my-2">
-                <h3>Summary</h3>
-                <hr class="mt-0_5">
+                <h3 class="mb-1_5">Summary</h3>
                 <div class="common-position-grid">
                     <div class="form-row amount">
                         <label for="tax-rate" class="form-row-item-sm">Tax</label>
@@ -29,7 +29,6 @@
                         <input id="tax-rate-cost-type" type="text" readonly value="vat">
                     </div>
                 </div>
-                <hr>
                 <div class="common-position-grid">
                     <div class="form-row amount">
                         <label for="total" class="form-row-item-sm">Total</label>
