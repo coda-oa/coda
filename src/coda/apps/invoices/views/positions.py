@@ -19,7 +19,7 @@ DEFAULT_TAX_RATE_PERCENTAGE = 19
 def try_int(value: str) -> int | None:
     try:
         return int(value)
-    except ValueError:
+    except (TypeError, ValueError):
         return None
 
 
@@ -29,6 +29,7 @@ IntOrNone = Annotated[int | None, BeforeValidator(try_int)]
 
 class CommonPosition(abc.ABC, CodaBaseDto, Generic[T]):
     type: str
+    funding_source: IntOrNone = None
     cost_type: str = CostType.Publication_Charge.value
     cost_amount: Decimal = Decimal("0.00")
     tax_rate: Decimal = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
@@ -76,6 +77,7 @@ class PublicationPosition(CommonPosition[PublicationId]):
         return cls(
             id=publication.id,
             title=publication.title,
+            funding_source=position.funding_source,
             cost_amount=position.cost.amount,
             tax_rate=position.tax_rate.percentage(),
         )
@@ -95,6 +97,7 @@ class FreePosition(CommonPosition[str]):
     def from_position(cls, position: Position[str]) -> "FreePosition":
         return cls(
             description=position.item,
+            funding_source=position.funding_source,
             cost_amount=position.cost.amount,
             cost_type=position.cost_type,
             tax_rate=position.tax_rate.percentage(),
@@ -123,6 +126,7 @@ class ContractPosition(CommonPosition[ContractYear]):
         return cls(
             id=contract.id,
             name=contract.name,
+            funding_source=position.funding_source,
             contract_year=position.item.year,
             cost_amount=position.cost.amount,
             cost_type=position.cost_type,

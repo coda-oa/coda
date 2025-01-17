@@ -8,6 +8,7 @@ from coda.apps.invoices.views.create import _DefaultContext, save_invoice
 from coda.apps.invoices.views.position_list import (
     ErrorDict,
     existing_positions,
+    funding_sources_context,
     invoice_total_context,
 )
 from coda.apps.invoices.views.positions import to_position_dto
@@ -42,6 +43,7 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
         request,
         "invoices/create.html",
         _DefaultContext
+        | funding_sources_context()
         | invoice_total_context(positions, invoice.currency().code)
         | errors
         | {"mode_name": "Edit", "form": form, "positions": positions},

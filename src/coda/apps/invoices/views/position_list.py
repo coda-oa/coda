@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
+from coda.apps.invoices.models import FundingSource
 from coda.apps.invoices.views.positions import (
     CommonPosition,
     ContractPosition,
@@ -17,7 +18,16 @@ from coda.apps.invoices.views.positions import (
 )
 from coda.apps.publications.models import Publication
 from coda.contract import ContractId
-from coda.invoice import CostType, CreditorId, Invoice, ItemType, Position, Positions, TaxRate
+from coda.invoice import (
+    CostType,
+    CreditorId,
+    FundingSourceId,
+    Invoice,
+    ItemType,
+    Position,
+    Positions,
+    TaxRate,
+)
 from coda.money import Currency, Money
 
 _CostTypes = [ct.value for ct in CostType]
@@ -87,6 +97,9 @@ def parse_position(
             cost=Money(position.cost_amount, currency),
             cost_type=CostType(position.cost_type),
             tax_rate=TaxRate.from_percentage(position.tax_rate),
+            funding_source=(
+                FundingSourceId(position.funding_source) if position.funding_source else None
+            ),
         )
     except Exception as e:
         raise PositionError(index, e)
@@ -166,8 +179,13 @@ def render_positions(
         request,
         "invoices/invoice_positions.html",
         {"positions": positions, "cost_types": _CostTypes}
+        | funding_sources_context()
         | invoice_total_context(positions, request.POST.get("currency", "EUR")),
     )
+
+
+def funding_sources_context() -> dict[str, Any]:
+    return {"funding_sources": FundingSource.objects.all()}
 
 
 def invoice_total_context(

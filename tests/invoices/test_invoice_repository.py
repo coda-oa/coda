@@ -3,14 +3,11 @@ import pytest
 
 from coda.apps.contracts import services as contract_services
 from coda.apps.invoices import repository
-
 from coda.apps.publications.repositories import publication_repository
 from coda.contract import Contract
-from coda.invoice import CreditorId, Invoice, PaymentStatus
+from coda.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
 from coda.publication import JournalId, PublicationId
-
 from tests import domainfactory, modelfactory
-
 
 _faker = faker.Faker()
 
@@ -49,6 +46,7 @@ def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
 
 def make_invoice() -> Invoice:
     creditor_id = modelfactory.creditor().id
+    funding_source_id = FundingSourceId(modelfactory.funding_source().id)
     publisher_id = modelfactory.publisher().id
     publications = [random_publication(publisher_id) for _ in range(3)]
     contracts = [domainfactory.contract_year(random_contract()) for _ in range(3)]
@@ -57,10 +55,15 @@ def make_invoice() -> Invoice:
         creditor=CreditorId(creditor_id),
         positions=[
             *[
-                domainfactory.publication_position(publication=publication)
+                domainfactory.publication_position(
+                    publication=publication, funding_source=funding_source_id
+                )
                 for publication in publications
             ],
-            *[domainfactory.contract_position(contract=contract) for contract in contracts],
+            *[
+                domainfactory.contract_position(contract=contract, funding_source=funding_source_id)
+                for contract in contracts
+            ],
             *[domainfactory.free_position() for _ in range(3)],
         ],
     )

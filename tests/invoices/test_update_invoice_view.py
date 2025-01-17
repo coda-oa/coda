@@ -20,6 +20,7 @@ from coda.publication import JournalId, Publication, PublicationId
 from tests import domainfactory, modelfactory
 from tests.invoices.test_create_invoice_view import (
     InvalidContractYear,
+    _random_funding_source,
     create_contract_position_input,
     expect_existing_contract_position,
     number_of_positions,
@@ -216,6 +217,7 @@ def save_invoice_view(
 def publication_position(a_publication: Publication) -> Position[PublicationId]:
     return Position(
         item=cast(PublicationId, a_publication.id),
+        funding_source=_random_funding_source(),
         cost=Money(200, Currency.EUR),
         cost_type=CostType.Publication_Charge,
         tax_rate=TaxRate.from_percentage(19),
@@ -225,6 +227,7 @@ def publication_position(a_publication: Publication) -> Position[PublicationId]:
 def contract_position(a_contract: Contract) -> Position[ContractYear]:
     return Position(
         item=a_contract.in_first_year(),
+        funding_source=_random_funding_source(),
         cost=Money(100, Currency.EUR),
         cost_type=CostType.Publication_Charge,
         tax_rate=TaxRate.from_percentage(19),
@@ -234,6 +237,7 @@ def contract_position(a_contract: Contract) -> Position[ContractYear]:
 def free_position() -> Position[str]:
     return Position(
         item="Free position",
+        funding_source=_random_funding_source(),
         cost=Money(50, Currency.EUR),
         cost_type=CostType.Other,
         tax_rate=TaxRate.from_percentage(7),
@@ -248,6 +252,7 @@ def expect_publication_position(
     return PublicationPosition(
         id=publication.id,
         title=publication.title,
+        funding_source=publication_position.funding_source,
         cost_amount=publication_position.cost.amount,
         tax_rate=publication_position.tax_rate.percentage(),
     )
@@ -260,6 +265,7 @@ def expect_contract_position(contract_position: Position[ContractYear]) -> Contr
         id=contract.id,
         name=contract.name,
         contract_year=contract_position.item.year,
+        funding_source=contract_position.funding_source,
         cost_amount=contract_position.cost.amount,
         cost_type=contract_position.cost_type,
         tax_rate=contract_position.tax_rate.percentage(),
@@ -269,6 +275,7 @@ def expect_contract_position(contract_position: Position[ContractYear]) -> Contr
 def expect_free_position(free_position: Position[str]) -> FreePosition:
     return FreePosition(
         description=free_position.item,
+        funding_source=free_position.funding_source,
         cost_amount=free_position.cost.amount,
         cost_type=free_position.cost_type,
         tax_rate=free_position.tax_rate.percentage(),
