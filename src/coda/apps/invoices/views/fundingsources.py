@@ -9,7 +9,7 @@ from coda.apps.invoices.models import FundingSource
 
 class CreateFundingSourceView(LoginRequiredMixin, CreateView[FundingSource, FundingSourceForm]):
     model = FundingSource
-    success_url = reverse_lazy("invoices:fundingsources")
+    success_url = reverse_lazy("invoices:fundingsource_list")
     template_name = "generic_form_view.html"
     fields = "__all__"  # type: ignore
 
@@ -22,7 +22,7 @@ fundingsource_createview = CreateFundingSourceView.as_view()
 
 class UpdateFundingSourceView(LoginRequiredMixin, UpdateView[FundingSource, FundingSourceForm]):
     model = FundingSource
-    success_url = reverse_lazy("invoices:fundingsources")
+    success_url = reverse_lazy("invoices:fundingsource_list")
     template_name = "generic_form_view.html"
     fields = "__all__"  # type: ignore
 

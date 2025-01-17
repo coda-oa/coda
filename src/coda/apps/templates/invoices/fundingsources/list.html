@@ -8,8 +8,8 @@
     </div>
     {% for fr in fundingsources %}
         <article class="flex justify-between align-center">
-            <p>{{ fr.name }}</p>
-            <a href="{% url "invoices:fundingsource_edit" pk=fr.id %}"
+            <h2 class="m-0">{{ fr.name }}</h2>
+            <a href="{% url "invoices:fundingsource_update" pk=fr.id %}"
                class="secondary"
                role="button">Edit</a>
         </article>
