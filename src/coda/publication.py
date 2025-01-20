@@ -45,6 +45,8 @@ class OpenAccessType(enum.Enum):
     Gold = "Gold"
     Diamond = "Diamond"
     Hybrid = "Hybrid"
+    Opt_in = "Opt-in"
+    Opt_out = "Opt-out"
     Unknown = "Unknown"
     Closed = "Closed"
 

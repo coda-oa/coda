@@ -83,7 +83,10 @@ class PublicationForm(CodaFormBase):
         widget=widgets.SearchSelectWidget,
     )
     open_access_type = forms.ChoiceField(
-        choices=Publication.OA_TYPES, required=True, initial=OpenAccessType.Closed.name
+        choices=Publication.OA_TYPES,
+        required=True,
+        initial=OpenAccessType.Closed.name,
+        label="Publication Open Access Type",
     )
     publication_state = forms.ChoiceField(
         choices=Publication.STATES, required=True, initial=UnpublishedState.Unknown.name
