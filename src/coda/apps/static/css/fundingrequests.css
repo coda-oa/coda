@@ -8,14 +8,15 @@
     margin-block: 0;
 }
 
-.fundingrequest-table tbody tr > th,
-.fundingrequest-table tr > td:first-child {
+.fundingrequest-table tbody tr>th,
+.fundingrequest-table tr>td:first-child {
     width: 30ch;
 }
 
 .status-label {
+    --_status-text-color: var(--coda-validation-text-color);
     background-color: var(--_status-color, transparent);
-    color: var(--coda-validation-text-color);
+    color: var(--_status-text-color);
 
     &.approved {
         --_status-color: var(--coda-validation-valid-color);
@@ -28,6 +29,22 @@
     &.open {
         --_status-color: var(--coda-primary-background);
     }
+
+    &.waived {
+        --_status-color: rgb(163, 100, 0);
+    }
+}
+
+.fundingrequest-waive-button {
+    --_waive-button-color: rgb(163, 100, 0);
+    --_waive-button-hover-color: color-mix(in hsl, var(--_waive-button-color) 90%, white 10%);
+    background-color: var(--_waive-button-color);
+    border-color: var(--_waive-button-color);
+}
+
+.fundingrequest-waive-button:hover {
+    background-color: var(--_waive-button-hover-color);
+    border-color: var(--_waive-button-hover-color);
 }
 
 .label {
@@ -58,10 +75,10 @@ a:has(.label) {
     padding: 0;
 }
 
-details.dropdown > ul:has(.label) {
+details.dropdown>ul:has(.label) {
     padding-block: 0.5rem;
 }
 
-details.dropdown > ul:has(.label) > li {
+details.dropdown>ul:has(.label)>li {
     padding-block: 0.75rem;
 }

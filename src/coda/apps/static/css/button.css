@@ -1,7 +1,21 @@
+button:hover {
+  background-color: var(--_background-hover-color, transparent);
+  border-color: var(--_background-hover-color, transparent);
+}
+
+button:is(.info, .success, .warning, .danger) {
+  --_background-hover-color: color-mix(in hsl, var(--_background-color) 90%, white 10%);
+}
+
 button.outline:is(.info, .success, .warning, .danger) {
   background-color: transparent;
   border-color: var(--_background-color);
   color: var(--_background-color);
+}
+
+button.outline:hover {
+  background-color: var(--_background-color);
+  border-color: var(--_background-color);
 }
 
 button.undecorated {

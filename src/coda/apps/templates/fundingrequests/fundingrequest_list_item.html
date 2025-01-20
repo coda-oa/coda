@@ -11,6 +11,8 @@
                 <span class="pill approved status-label">Approved</span>
             {% elif entity.status == "rejected" %}
                 <span class="pill rejected status-label">Rejected</span>
+            {% elif entity.status == "waived" %}
+                <span class="pill waived status-label">Waived</span>
             {% else %}
                 <span>{{ entity.status }}</span>
             {% endif %}

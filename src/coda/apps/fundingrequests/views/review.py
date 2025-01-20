@@ -46,7 +46,9 @@ def process_review(fr: AnyFundingRequest, request: HttpRequest) -> None:
             fr.approve(funding, remarks)
         case "reject":
             fr.reject(remarks)
+        case "waive":
+            fr.waive_costs(remarks)
         case "open":
             fr.open(remarks)
         case "return":
-            fr.remark(remarks)
+            fr.update_remarks(remarks)

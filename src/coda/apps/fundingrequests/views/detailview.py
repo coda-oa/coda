@@ -40,6 +40,9 @@ class RequestViewModel(NamedTuple):
     def is_rejected(self) -> bool:
         return self.review_status == ReviewResult.Rejected.value
 
+    def costs_waived(self) -> bool:
+        return self.review_status == ReviewResult.Waived.value
+
 
 class SubmitterViewModel(NamedTuple):
     id: int

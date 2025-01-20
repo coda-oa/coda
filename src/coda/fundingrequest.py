@@ -15,6 +15,7 @@ FundingOrganizationId = NewType("FundingOrganizationId", int)
 
 class ReviewResult(enum.Enum):
     Open = "open"
+    Waived = "waived"
     Approved = "approved"
     Rejected = "rejected"
     Withdrawn = "withdrawn"
@@ -42,13 +43,13 @@ class PaymentMethod(enum.Enum):
     Unknown = "unknown"
 
 
-class Payment(NamedTuple):
+@dataclass
+class Payment:
     amount: Money
     method: PaymentMethod
 
-
-class FundingRequestLocked(RuntimeError):
-    pass
+    def __post_init__(self) -> None:
+        self._waived = False
 
 
 TPublication = TypeVar("TPublication", bound=BasePublication)
@@ -64,8 +65,8 @@ class FundingRequest(Generic[TPublication]):
         external_funding: Iterable[ExternalFunding] = (),
     ) -> None:
         self.id = id
-        self._publication = publication
-        self._submitter = submitter
+        self.publication = publication
+        self.submitter = submitter
         self.estimated_cost = estimated_cost
         self.external_funding = tuple(external_funding)
         self._review = Review()
@@ -92,7 +93,14 @@ class FundingRequest(Generic[TPublication]):
             remarks=remarks,
         )
 
-    def remark(self, remarks: str) -> None:
+    def waive_costs(self, remarks: str = "") -> None:
+        self._review = Review(
+            result=ReviewResult.Waived,
+            decided_funding=Money(0, Currency.EUR),
+            remarks=remarks,
+        )
+
+    def update_remarks(self, remarks: str) -> None:
         self._review = self._review.with_remarks(remarks)
 
     def is_open(self) -> bool:
@@ -104,27 +112,8 @@ class FundingRequest(Generic[TPublication]):
     def is_rejected(self) -> bool:
         return self._review.result == ReviewResult.Rejected
 
-    @property
-    def submitter(self) -> Author:
-        return self._submitter
-
-    @submitter.setter
-    def submitter(self, author: Author) -> None:
-        if not self.is_open():
-            raise FundingRequestLocked("Cannot change submitter of an approved request")
-
-        self._submitter = author
-
-    @property
-    def publication(self) -> TPublication:
-        return self._publication
-
-    @publication.setter
-    def publication(self, publication: TPublication) -> None:
-        if not self.is_open():
-            raise FundingRequestLocked("Cannot change publication of an approved request")
-
-        self._publication = publication
+    def costs_waived(self) -> bool:
+        return self._review.result == ReviewResult.Waived
 
     def review(self) -> ReviewResult:
         return self._review.result

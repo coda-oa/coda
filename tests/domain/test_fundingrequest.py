@@ -6,7 +6,6 @@ from coda.fundingrequest import (
     FundingOrganizationId,
     FundingRequest,
     FundingRequestId,
-    FundingRequestLocked,
     Payment,
     PaymentMethod,
     ReviewResult,
@@ -101,46 +100,23 @@ def test__approved_fundingrequest__open__keeps_funding_amount() -> None:
     assert sut.funding_amount == Money(100, Currency.EUR)
 
 
-def test__closed_fundingrequest__changing_publication__raises_error(
-    closed_request: FundingRequest[Publication],
-) -> None:
-    sut = closed_request
-    old_journal = sut.publication.journal
-
-    with pytest.raises(FundingRequestLocked):
-        sut.publication = new_publication()
-
-    assert sut.publication.journal == old_journal
-
-
-def test__closed_fundingrequest__changing_submitter__raises_error(
-    closed_request: FundingRequest[Publication],
-) -> None:
-    sut = closed_request
-
-    with pytest.raises(FundingRequestLocked):
-        sut.submitter = Author(AuthorId(2), NonEmptyStr("Jane Doe"))
-
-    assert sut.submitter.id == AuthorId(1)
-    assert sut.submitter.name == NonEmptyStr("John Doe")
-
-
-def test__closed_then_reopened_fundingrequest__can_change_publication_again(
-    closed_request: FundingRequest[Publication],
-) -> None:
-    sut = closed_request
-    sut.open()
-
-    sut.publication = new_publication()
-
-    assert sut.publication == new_publication()
-
-
 def test__closed_fundingrequest__is_open__is_false(
     closed_request: FundingRequest[Publication],
 ) -> None:
     sut = closed_request
     assert not sut.is_open()
+
+
+def test__fundingrequest__waive_costs__is_closed_without_funding() -> None:
+    sut = make_sut()
+    sut.waive_costs("publisher waived costs")
+
+    assert sut.costs_waived()
+    assert not sut.is_open()
+    assert not sut.is_rejected()
+    assert not sut.is_approved()
+
+    assert sut.funding_amount == Money(0, Currency.EUR)
 
 
 def new_publication() -> Publication:

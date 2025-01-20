@@ -93,6 +93,8 @@ def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
             fr.reject(model.review_remarks)
         case ReviewResult.Open.value:
             fr.open(model.review_remarks)
+        case ReviewResult.Waived.value:
+            fr.waive_costs(model.review_remarks)
 
     return fr
 
