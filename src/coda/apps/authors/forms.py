@@ -6,6 +6,7 @@ from django import forms
 from coda.apps import widgets
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.formbase import CodaFormBase
+from coda.apps.institutions import repository
 from coda.apps.institutions.models import Institution
 from coda.author import Author, InstitutionId, Role
 from coda.orcid import Orcid
@@ -27,8 +28,11 @@ class AuthorForm(CodaFormBase):
     name = forms.CharField()
     email = forms.EmailField()
     orcid = OrcidField(required=False)
-    affiliation = forms.ModelChoiceField[Institution](
-        queryset=Institution.objects.all(),
+    affiliation = forms.ChoiceField(
+        choices=lambda: (
+            (None, "-------"),
+            *((inst.pk, inst.name) for inst in repository.non_virtuals()),
+        ),
         required=False,
         widget=widgets.SearchSelectWidget,
     )

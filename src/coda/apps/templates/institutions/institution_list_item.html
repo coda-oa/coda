@@ -1,8 +1,12 @@
 <article class="grid align-center">
-    <p class="my-0 mr-2">
-        {{ entity.name }}
-        {% if entity.parent %}<small><i>Part of {{ entity.parent.name }}</i></small>{% endif %}
-    </p>
+    <div>
+        <p class="my-0">{{ entity.name }}</p>
+        {% if entity.parent %}
+            <p class="my-0">
+                <small><i>Part of {{ entity.parent.name }}</i></small>
+            </p>
+        {% endif %}
+    </div>
     <div class="justify-self-end">
         <label for="id-institution-selectable">
             <span class="mr-1">Usable as author affiliation</span>
