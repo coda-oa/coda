@@ -23,6 +23,7 @@ urlpatterns = [
     path("journals/", include("coda.apps.journals.urls", namespace="journals")),
     path("publishers/", include("coda.apps.publishers.urls", namespace="publishers")),
     path("authors/", include("coda.apps.authors.urls", namespace="authors")),
+    path("institutions/", include("coda.apps.institutions.urls", namespace="institutions")),
     path(
         "fundingrequests/", include("coda.apps.fundingrequests.urls", namespace="fundingrequests")
     ),
