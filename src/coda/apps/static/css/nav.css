@@ -1,17 +1,31 @@
+.main-grid {
+    --_nav-container-expanded-width: 23ch;
+    --_nav-container-collapsed-width: 4.5rem;
+
+    display: grid;
+    grid-template-rows: 1fr;
+    grid-template-columns: min-content [main] auto;
+}
+
+.main-grid > .container {
+    padding-block: 0;
+    padding-inline: var(--coda-spacing);
+}
+
 .nav-container {
-    --_nav-container-width: 23ch;
+    --_nav-container-width: var(--_nav-container-expanded-width);
+
+    z-index: 10;
     min-height: 100vh;
     width: var(--_nav-container-width);
-    background-color: var(--coda-card-background-color);
+    background-color: hsl(from var(--coda-card-background-color) h s l / 0.4);
     border-right: 1px solid var(--coda-muted-border-color);
+    backdrop-filter: blur(10px);
 }
 
 .nav {
-    position: sticky;
-    top: 0;
     padding: var(--coda-spacing);
     padding-inline-start: calc(var(--coda-spacing) / 2);
-
 
     & ul,
     & ul:first-of-type {
@@ -97,25 +111,40 @@
 }
 
 @media screen and (width < 1728px) {
+    .main-grid {
+        grid-template-columns:
+            [nav] var(--_nav-container-collapsed-width) [main] auto;
+    }
+
+    .main-grid > main {
+        grid-area: main;
+    }
+
+    .main-grid > .nav-container {
+        grid-area: nav;
+    }
+
     .nav-container {
-        --_nav-container-width: 4.5rem;
+        --_nav-container-width: var(--_nav-container-collapsed-width);
+        position: fixed;
+
         transition: width 0.2s ease-in-out;
     }
 
     .nav-container:hover,
     .nav-container:focus-within {
-        --_nav-container-width: 23ch;
+        --_nav-container-width: var(--_nav-container-expanded-width);
     }
 
     .nav-container .nav span {
-        --_opacity-transition-duration: 0.25s;
-        overflow: auto;
+        --_opacity-transition-duration: 0.1s;
+        visibility: hidden;
         opacity: 0;
-        transition: opacity 0.25s ease-in-out;
+        transition: opacity var(--_opacity-transition-duration) ease-in-out;
     }
 
-    .nav-container:hover .nav span {
-        --_opacity-transition-duration: 0.15s;
+    .nav-container:is(:hover, :focus-within) .nav span {
+        visibility: visible;
         opacity: 1;
     }
 

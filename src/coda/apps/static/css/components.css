@@ -22,11 +22,6 @@ search-select:not(:defined) {
   white-space: nowrap;
 }
 
-.text-ellipsis {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .pagination__current {
   border: 1px solid var(--coda-primary-border);
