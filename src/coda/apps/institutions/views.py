@@ -14,9 +14,10 @@ from coda.apps.views import EntityListView
 
 
 class InstitutionListView(LoginRequiredMixin, EntityListView[Institution]):
-    entity_name = "Institution"
+    entity_name = "Organization Structure"
     entity_filter_template = "institutions/institution_filter.html"
     entity_list_item_template = "institutions/institution_list_item.html"
+    entity_create_url = "institutions:import_view"
 
     def get_entities(self, request: HttpRequest) -> list[Institution]:
         return list(repository.search(name=request.GET.get("query")))

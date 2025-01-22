@@ -19,6 +19,9 @@
                 {% include "partials/nav_link.html" with link="publications:vocabularies" image="assets/font-family.svg" text="Vocabularies" %}
             </li>
             <li>
+                {% include "partials/nav_link.html" with link="institutions:list" image="assets/organization.svg" text="Organization" %}
+            </li>
+            <li>
                 {% include "partials/nav_link.html" with link="preferences:global_preferences" image="assets/settings.svg" text="Preferences" %}
             </li>
             {% if user.is_authenticated %}

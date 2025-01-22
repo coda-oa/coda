@@ -3,18 +3,19 @@
     Import Institutions
 {% endblock title %}
 {% block content %}
-    <div class="vh-100">
-        <h1 class="my-2">Import Institutions</h1>
+    <h1 class="my-2">Import Institutions</h1>
+    <article>
         <form action="{% url "institutions:import" %}"
               method="post"
               enctype="multipart/form-data"
-              class="grid justify-center align-center ">
+              class="flex justify-center align-center ">
             {% csrf_token %}
             <input type="file"
                    name="institution-list"
                    id="id-institution-list"
+                   class="m-0"
                    accept=".csv">
-            <button type="submit">Import</button>
+            <button class="m-0" type="submit">Import</button>
         </form>
-    </div>
+    </article>
 {% endblock content %}
