@@ -1,10 +1,10 @@
-button:hover {
-  background-color: var(--_background-hover-color, transparent);
-  border-color: var(--_background-hover-color, transparent);
-}
-
 button:is(.info, .success, .warning, .danger) {
   --_background-hover-color: color-mix(in hsl, var(--_background-color) 90%, white 10%);
+}
+
+button:is(.info, .success, .warning, .danger):hover {
+  background-color: var(--_background-hover-color);
+  border-color: var(--_background-hover-color);
 }
 
 button.outline:is(.info, .success, .warning, .danger) {
@@ -13,9 +13,14 @@ button.outline:is(.info, .success, .warning, .danger) {
   color: var(--_background-color);
 }
 
-button.outline:hover {
+button.outline:is(.info, .success, .warning, .danger):hover {
   background-color: var(--_background-color);
   border-color: var(--_background-color);
+}
+
+:is(button, [role="button"]).outline.muted {
+  border-color: var(--coda-muted-border-color);
+  color: currentColor;
 }
 
 button.undecorated {
