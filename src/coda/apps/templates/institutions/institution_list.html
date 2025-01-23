@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+    {% include "institutions/institution_list_header_bar.html" %}
+    <div class="my-2">{% include entity_filter_template %}</div>
+    {% include "partials/pagination_nav.html" %}
+    {% include "entity_list.html" with list_item_template=entity_list_item_template %}
+    {% include "partials/pagination_nav.html" %}
+{% endblock content %}

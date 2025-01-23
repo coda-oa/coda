@@ -1,4 +1,5 @@
 from io import BytesIO
+from typing import Any
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -6,24 +7,51 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.uploadedfile import UploadedFile
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
+from django.views.generic import CreateView
 
 from coda.apps.institutions import repository, services
+from coda.apps.institutions.forms import InstitutionForm
 from coda.apps.institutions.models import Institution
 from coda.apps.views import EntityListView
 
 
 class InstitutionListView(LoginRequiredMixin, EntityListView[Institution]):
+    template_name = "institutions/institution_list.html"
     entity_name = "Organization Structure"
     entity_filter_template = "institutions/institution_filter.html"
     entity_list_item_template = "institutions/institution_list_item.html"
-    entity_create_url = "institutions:import_view"
+    entity_create_url = "institutions:create"
+    entity_secondary_create_url = "institutions:import_view"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        return super().get_context_data(**kwargs) | {
+            "entity_secondary_create_url": self.entity_secondary_create_url
+        }
 
     def get_entities(self, request: HttpRequest) -> list[Institution]:
         return list(repository.search(name=request.GET.get("query")))
 
 
 institution_list_view = InstitutionListView.as_view()
+
+
+class CreateInstitutionView(LoginRequiredMixin, CreateView[Institution, InstitutionForm]):
+    template_name = "generic_form_view.html"
+    model = Institution
+    form_class = InstitutionForm
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Create Institution"
+        return context
+
+    def get_success_url(self) -> str:
+        return reverse("institutions:list")
+
+
+create_institution_view = CreateInstitutionView.as_view()
 
 
 @login_required
