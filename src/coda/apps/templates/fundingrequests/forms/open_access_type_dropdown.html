@@ -1,13 +1,13 @@
 <details class="dropdown">
-    <summary>Processing Status</summary>
+    <summary>Open Access Type</summary>
     <ul class="undecorated">
-        {% for status in processing_states %}
+        {% for status in open_access_types %}
             <li>
                 <input type="checkbox"
                        id="status-{{ status }}"
-                       name="processing_status"
+                       name="open_access_type"
                        value="{{ status }}"
-                       {% if status in request.GET.processing_status %}checked{% endif %}>
+                       {% if status in request.GET.open_access_type %}checked{% endif %}>
                 <label for="status-{{ status }}">{{ status }}</label>
             </li>
         {% endfor %}

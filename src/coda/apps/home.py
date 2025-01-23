@@ -12,9 +12,9 @@ from coda.fundingrequest import ReviewResult
 
 
 def view(request: HttpRequest) -> HttpResponse:
-    open_requests = repository.search(processing_states=[ReviewResult.Open.value])
-    rejected_requests = repository.search(processing_states=[ReviewResult.Rejected.value])
-    approved_requests = repository.search(processing_states=[ReviewResult.Approved.value])
+    open_requests = repository.search(processing_states=[ReviewResult.Open])
+    rejected_requests = repository.search(processing_states=[ReviewResult.Rejected])
+    approved_requests = repository.search(processing_states=[ReviewResult.Approved])
 
     if settings.CODA_DEMO_MODE:
         messages.warning(request, "CODA is running in demo mode.")

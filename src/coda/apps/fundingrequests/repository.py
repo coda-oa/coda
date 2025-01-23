@@ -22,7 +22,7 @@ from coda.fundingrequest import (
     TPublication,
 )
 from coda.money import Currency, Money
-from coda.publication import Monograph, Publication, PublicationId
+from coda.publication import Monograph, OpenAccessType, Publication, PublicationId
 from coda.string import NonEmptyStr
 
 
@@ -113,7 +113,8 @@ def search(
     title: str | None = None,
     submitter: str | None = None,
     publisher: str | None = None,
-    processing_states: list[str] | None = None,
+    processing_states: list[ReviewResult] | None = None,
+    open_access_types: list[OpenAccessType] | None = None,
     date_range: DateRange | None = None,
     labels: Iterable[int] | None = None,
 ) -> Iterable[FundingRequestModel]:
@@ -128,7 +129,12 @@ def search(
         query = query & Q(publication__article_journal__publisher__name__icontains=publisher)
 
     if processing_states:
-        query = query & Q(processing_status__in=processing_states)
+        review_states = [s.value.lower() for s in processing_states]
+        query = query & Q(processing_status__in=review_states)
+
+    if open_access_types:
+        oa_types = [t.value for t in open_access_types]
+        query = query & Q(publication__open_access_type__in=oa_types)
 
     if labels:
         query = query & Q(labels__in=labels)

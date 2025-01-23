@@ -14,26 +14,34 @@
                value="{{ request.GET.search_term }}"
                placeholder="Search">
     </div>
-    <div class="grid">
-        <div class="form-row">
-            <label for="id_start_date" class="form-row-item-sm">Start Date</label>
-            <input type="date"
-                   id="id_start_date"
-                   name="start_date"
-                   value="{{ request.GET.start_date }}">
-        </div>
-        <div class="form-row">
-            <label for="id_end_date" class="form-row-item-sm">End Date</label>
-            <input type="date"
-                   id="id_end_date"
-                   name="end_date"
-                   value="{{ request.GET.end_date }}">
-        </div>
-    </div>
-    <div class="grid">
-        {% include "fundingrequests/forms/status_dropdown.html" %}
-        {% include "fundingrequests/forms/label_dropdown.html" %}
-    </div>
+    <details {% if expand_advanced_search %}open{% endif %}>
+        <summary role="button" class="outline muted">
+            <span class="m-0">Advanced search</span>
+        </summary>
+        <p>
+            <div class="grid">
+                <div class="form-row">
+                    <label for="id_start_date" class="form-row-item-sm">Start Date</label>
+                    <input type="date"
+                           id="id_start_date"
+                           name="start_date"
+                           value="{{ request.GET.start_date }}">
+                </div>
+                <div class="form-row">
+                    <label for="id_end_date" class="form-row-item-sm">End Date</label>
+                    <input type="date"
+                           id="id_end_date"
+                           name="end_date"
+                           value="{{ request.GET.end_date }}">
+                </div>
+            </div>
+            <div class="grid">
+                {% include "fundingrequests/forms/status_dropdown.html" %}
+                {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
+                {% include "fundingrequests/forms/label_dropdown.html" %}
+            </div>
+        </p>
+    </details>
     <div class="grid align-center">
         <button type="submit" class="my-0">Search</button>
         <a href="{% url "fundingrequests:list" %}"

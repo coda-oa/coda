@@ -12,6 +12,8 @@ from coda.apps.fundingrequests.models import Label
 from coda.apps.views import EntityListView
 from coda.author import Author
 from coda.date import DateRange
+from coda.fundingrequest import ReviewResult
+from coda.publication import OpenAccessType
 
 
 class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestListViewModel"]):
@@ -21,14 +23,29 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
     entity_list_item_template = "fundingrequests/fundingrequest_list_item.html"
     entity_filter_template = "fundingrequests/forms/fundingrequest_filter.html"
 
+    _advanced_search_fields = [
+        "labels",
+        "processing_status",
+        "open_access_type",
+        "start_date",
+        "end_date",
+    ]
+
     def get_entities(self, request: HttpRequest) -> list["FundingRequestListViewModel"]:
         return [as_viewmodel(fr) for fr in query(request)]
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
+
+        expand_advanced_search = any(
+            self.request.GET.get(key) for key in self._advanced_search_fields
+        )
+
         return ctx | {
             "labels": Label.objects.all(),
-            "processing_states": FundingRequestModel.PROCESSING_CHOICES,
+            "processing_states": [rr.value for rr in ReviewResult],
+            "open_access_types": [oat.value for oat in OpenAccessType],
+            "expand_advanced_search": expand_advanced_search,
         }
 
 
@@ -52,7 +69,10 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
             **search_args,
             date_range=date_range,
             labels=list(map(int, request.GET.getlist("labels"))),
-            processing_states=request.GET.getlist("processing_status"),
+            processing_states=[ReviewResult(rr) for rr in request.GET.getlist("processing_status")],
+            open_access_types=[
+                OpenAccessType(oat) for oat in request.GET.getlist("open_access_type")
+            ],
         ),
     )
 
