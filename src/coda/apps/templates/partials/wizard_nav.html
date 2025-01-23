@@ -1,5 +1,9 @@
-<div class="grid my-2">
-    {% if stepper.current > 1 %}<button type="submit" name="action" value="back">Back</button>{% endif %}
+<div class="wizard-nav">
+    {% if stepper.current > 1 %}
+        <button type="submit" name="action" value="back" class="secondary">Back</button>
+    {% else %}
+        <button type="submit" name="action" value="back" class="secondary" disabled>Back</button>
+    {% endif %}
     {% if stepper.current == stepper.total %}
         <button type="submit" name="action" value="next">Save</button>
     {% else %}

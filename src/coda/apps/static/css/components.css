@@ -41,3 +41,27 @@ search-select:not(:defined) {
   border-radius: var(--coda-border-radius);
   color: white;
 }
+
+.wizard-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--coda-spacing);
+
+  position: sticky;
+  bottom: var(--coda-spacing);
+  margin-block-start: calc(var(--coda-spacing) * 2);
+  margin-inline: var(--coda-spacing);
+  padding: var(--coda-spacing);
+
+  background-color: hsl(from var(--coda-card-background-color) h s l / 0.4);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--pico-box-shadow);
+
+  border: 1px solid var(--coda-muted-border-color);
+  border-radius: var(--coda-border-radius);
+}
+
+
+.wizard-nav > button {
+  margin: 0;
+}
