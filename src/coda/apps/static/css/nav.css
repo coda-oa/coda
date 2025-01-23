@@ -56,13 +56,14 @@
     }
 
     & a {
+        border: 1px solid transparent;
         font-size: 1.15rem;
         padding-inline: var(--coda-spacing);
         text-wrap: nowrap;
     }
 
     & ul:last-of-type a:not([role="button"]):hover {
-        background-color: var(--coda-secondary-background);
+        border: 1px solid var(--coda-primary-background);
         color: var(--coda-secondary-inverse);
         text-decoration: none;
     }
