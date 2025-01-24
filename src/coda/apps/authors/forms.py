@@ -6,6 +6,7 @@ from django import forms
 from coda.apps import widgets
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.formbase import CodaFormBase
+from coda.apps.htmx_components.forms import HtmxDynamicFormset
 from coda.apps.institutions import repository
 from coda.apps.institutions.models import Institution
 from coda.author import Author, InstitutionId, Role
@@ -36,9 +37,9 @@ class AuthorForm(CodaFormBase):
         required=False,
         widget=widgets.SearchSelectWidget,
     )
-    roles = forms.MultipleChoiceField(
+    roles = forms.ChoiceField(
         choices=((role.name, role.value) for role in Role),
-        widget=forms.CheckboxSelectMultiple(),
+        # widget=forms.CheckboxSelectMultiple(),
         required=False,
     )
 
@@ -49,6 +50,13 @@ class AuthorForm(CodaFormBase):
 
     def to_author(self) -> Author:
         return self.to_dto().to_author()
+
+
+class AuthorFormset(HtmxDynamicFormset[AuthorForm]):
+    min_forms = 1
+    name = "authors:author_formset_view"
+    form_class = AuthorForm
+    table_classes = "inline-table-form"
 
 
 def get_affiliation_pk(data: Mapping[str, Any]) -> InstitutionId | None:

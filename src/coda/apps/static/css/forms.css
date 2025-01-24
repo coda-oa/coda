@@ -53,3 +53,22 @@
     border-top-right-radius: var(--coda-pill-border-radius);
     border-bottom-right-radius: var(--coda-pill-border-radius);
 }
+
+
+.inline-table-form td:has(input, select, button, search-select) {
+    padding: 0;
+}
+
+.inline-table-form td :is(input, select, button, search-select) {
+    border-radius: 0;
+}
+
+.inline-table-form td:first-child :is(input, select, button, search-select) {
+    border-top-left-radius: var(--coda-border-radius);
+    border-bottom-left-radius: var(--coda-border-radius);
+}
+
+.inline-table-form td button:last-child {
+    border-top-right-radius: var(--coda-border-radius);
+    border-bottom-right-radius: var(--coda-border-radius);
+}
