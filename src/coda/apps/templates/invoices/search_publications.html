@@ -2,6 +2,7 @@
     <h3>Search Publications</h3>
     <div class="form-row pill">
         <input type="search"
+               id="publication_query"
                name="q"
                placeholder="Search publications"
                value="{{ request.POST.q }}">
@@ -9,6 +10,7 @@
                 name="action"
                 value="search"
                 class="form-row-item-sm"
+                hx-include="#publication_query"
                 hx-post="{% url 'invoices:pub_search' %}"
                 hx-target="#publication-search"
                 hx-swap="outerHTML">Search</button>
@@ -34,6 +36,7 @@
                                     class="outline secondary"
                                     name="add-publication-position"
                                     value="{{ publication.id }}"
+                                    hx-include="#invoice-form"
                                     hx-post="{% url 'invoices:add_position' %}"
                                     hx-target="#positions"
                                     hx-swap="outerHTML">Add</button>
