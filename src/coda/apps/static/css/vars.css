@@ -1,7 +1,7 @@
-:root {
+:root, :host {
   /* CODA Variables */
-  --coda-line-height: 1.15;
-  --coda-font-size: 110%;
+  --coda-line-height: 1;
+  --coda-font-size: 100%;
 
   --coda-background-color: var(--pico-background-color);
 
@@ -11,11 +11,11 @@
   --coda-secondary-inverse: var(--pico-secondary-inverse);
   --coda-secondary-background: var(--pico-secondary-background);
 
-  --coda-muted-border-color: var(--pico-muted-border-color);
-
   --coda-form-element-spacing-vertical: var(--pico-form-element-spacing-vertical);
   --coda-form-element-spacing-horizontal: var(--pico-form-element-spacing-horizontal);
 
+  --coda-border-color: var(--pico-form-element-border-color);
+  --coda-muted-border-color: var(--pico-muted-border-color);
   --coda-border-radius: var(--pico-border-radius);
 
   --coda-pill-border-radius: 50px;
@@ -42,7 +42,6 @@
   --pico-line-height: var(--coda-line-height);
   --pico-font-size: var(--coda-font-size);
 }
-
 
 @media screen and (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
