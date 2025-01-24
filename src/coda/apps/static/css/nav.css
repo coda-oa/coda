@@ -24,6 +24,8 @@
 }
 
 .nav {
+    position: sticky;
+    top: 0;
     padding: var(--coda-spacing);
     padding-inline-start: calc(var(--coda-spacing) / 2);
 
