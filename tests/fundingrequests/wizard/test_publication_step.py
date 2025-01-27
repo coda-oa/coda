@@ -124,7 +124,6 @@ def test__publication_step__done__saves_page_data_to_store() -> None:
     store = DictStore()
 
     publication = domainfactory.publication()
-    publication.corresponding_author = domainfactory.author(role=None)
     publication_dto = PublicationDto.from_publication(publication)
 
     stepdata = publication_step.stepdata(publication_dto)
@@ -202,88 +201,6 @@ def test__publication_step__existing_publication__publication_form_uses_existing
 
     assert_has_concept_choices(pub_form, "subject_area", subject_area_voc)
     assert_has_concept_choices(pub_form, "publication_type", publication_type_voc)
-
-
-@pytest.mark.django_db
-def test__publication_step__submitter_is_corresponding_author__uses_submitter_in_corresponding_author_form() -> (
-    None
-):
-    corresponding_author = domainfactory.author(role=Role.CORRESPONDING_AUTHOR)
-
-    store = DictStore()
-    store["submitter"] = AuthorDto.from_author(corresponding_author).to_post_data()
-    store.save()
-
-    sut = PublicationStep()
-    ctx = sut.get_context_data(request_factory.get("/"), store)
-
-    author_form: AuthorForm = ctx["author_form"]
-    author_form.full_clean()
-    assert_author_eq(author_form.to_author(), corresponding_author)
-
-
-@pytest.mark.django_db
-def test__publication_step__submitter_is_not_corresponding_author__uses_empty_corresponding_author_form() -> (
-    None
-):
-    submitter = domainfactory.author(role=None)
-
-    store = DictStore()
-    store["submitter"] = AuthorDto.from_author(submitter).to_post_data()
-    store.save()
-
-    sut = PublicationStep()
-    ctx = sut.get_context_data(request_factory.get("/"), store)
-
-    author_form: AuthorForm = ctx["author_form"]
-    author_form.full_clean()
-    assert author_form.has_changed() is False
-
-
-@pytest.mark.django_db
-def test__publication_step__submitter_and_corresponding_author_in_store__uses_corresponding_author_in_form() -> (
-    None
-):
-    publication = domainfactory.publication()
-    submitter = domainfactory.author(role=Role.CORRESPONDING_AUTHOR)
-    corresponding_author = domainfactory.author(role=Role.CORRESPONDING_AUTHOR)
-    publication.corresponding_author = corresponding_author
-    dto = PublicationDto.from_publication(publication)
-
-    store = DictStore()
-    store["submitter"] = AuthorDto.from_author(submitter).to_post_data()
-    store["publication_step"] = dto.to_post_data(exclude={"journal", "contracts"})
-    store.save()
-
-    sut = PublicationStep()
-    ctx = sut.get_context_data(request_factory.get("/"), store)
-
-    author_form: AuthorForm = ctx["author_form"]
-    author_form.full_clean()
-    assert_author_eq(author_form.to_author(), corresponding_author)
-
-
-@pytest.mark.django_db
-def test__publication_step__submitter_in_store__new_corresponding_author_in_request__prefers_new_author() -> (
-    None
-):
-    submitter = domainfactory.author(role=Role.CORRESPONDING_AUTHOR)
-    publication = domainfactory.publication()
-    expected_corresponding_author = publication.corresponding_author
-    dto = PublicationDto.from_publication(publication)
-
-    store = DictStore()
-    store["submitter"] = AuthorDto.from_author(submitter).to_post_data()
-    store.save()
-
-    request = request_factory.post("/", publication_step.stepdata(dto))
-
-    sut = PublicationStep()
-    ctx = sut.get_context_data(request, store)
-
-    author_form: AuthorForm = ctx["author_form"]
-    author_form.full_clean()
-    assert_author_eq(author_form.to_author(), expected_corresponding_author)
 
 
 @pytest.mark.django_db

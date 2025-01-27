@@ -47,19 +47,38 @@ from coda.vocabulary import UnknownConcept, VocabularyConcept
 _faker = faker.Faker()
 
 
+class _NoRole:
+    __slots__ = ()
+    __instance: "_NoRole | None" = None
+
+    def __new__(cls) -> "_NoRole":
+        if cls.__instance is None:
+            cls.__instance = super().__new__(cls)
+
+        return cls.__instance
+
+
+NoRole = _NoRole()
+
+
 def author(
     affiliation: InstitutionId | None = None,
     *,
-    role: Role | None = None,
+    role: Role | _NoRole | None = None,
     id: AuthorId | None = None,
 ) -> Author:
+    if role == NoRole:
+        role = Role.CO_AUTHOR
+    elif role is None:
+        role = random_role()
+
     return Author(
         id=id,
         name=NonEmptyStr(_faker.name()),
         email=_faker.email(),
         orcid=random_orcid(),
         affiliation=affiliation,
-        role=role or random_role(),
+        role=cast(Role, role),
     )
 
 

@@ -141,12 +141,6 @@ class PublicationStep(Step):
             dto = AuthorDto(**store["publication_step"]["corresponding_author"])
             data = dto.to_post_data(prefix=form_prefix)
             return AuthorForm(data, prefix=form_prefix)
-        elif store.get("submitter"):
-            dto = AuthorDto(**store["submitter"])
-            author = dto.to_author()
-            if author.is_corresponding_author():
-                data = dto.to_post_data(prefix=form_prefix)
-                return AuthorForm(data, prefix=form_prefix)
 
         return AuthorForm(prefix=form_prefix)
 
