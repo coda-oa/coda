@@ -6,12 +6,12 @@ from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.forms import AuthorForm
+from coda.apps.authors.forms import AuthorForm, AuthorFormset
 from coda.apps.fundingrequests.forms import ContractFormset, ExternalFundingFormset, PaymentForm
 from coda.apps.journals.models import Journal
 from coda.apps.journals.services import find_by_title
 from coda.apps.publications.dto import ContractYearDto, PublicationStepDto
-from coda.apps.publications.forms import CorrespondingAuthorForm, LinkForm, PublicationForm
+from coda.apps.publications.forms import LinkForm, PublicationForm
 from coda.apps.publications.models import LinkType
 from coda.apps.wizard import FormStep, Step, Store
 from coda.author import AuthorList
@@ -124,6 +124,7 @@ class PublicationStep(Step):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         return {
+            "author_formset": AuthorFormset(request.POST),
             "author_form": self.get_author_form(request, store),
             "publication_form": self.get_publication_form(request, store),
             "authors": list(self.get_authors(request, store)),
@@ -131,25 +132,23 @@ class PublicationStep(Step):
             "links": self.get_links_context(request, store),
         }
 
-    def get_author_form(self, request: HttpRequest, store: Store) -> CorrespondingAuthorForm:
+    def get_author_form(self, request: HttpRequest, store: Store) -> AuthorForm:
         form_prefix = "corresponding_author"
-        field_names = {
-            f"{form_prefix}-{field}" for field in CorrespondingAuthorForm.base_fields.keys()
-        }
+        field_names = {f"{form_prefix}-{field}" for field in AuthorForm.base_fields.keys()}
         if field_names & request.POST.keys():
-            return CorrespondingAuthorForm(request.POST, prefix=form_prefix)
+            return AuthorForm(request.POST, prefix=form_prefix)
         elif store.get("publication_step"):
             dto = AuthorDto(**store["publication_step"]["corresponding_author"])
             data = dto.to_post_data(prefix=form_prefix)
-            return CorrespondingAuthorForm(data, prefix=form_prefix)
+            return AuthorForm(data, prefix=form_prefix)
         elif store.get("submitter"):
             dto = AuthorDto(**store["submitter"])
             author = dto.to_author()
             if author.is_corresponding_author():
                 data = dto.to_post_data(prefix=form_prefix)
-                return CorrespondingAuthorForm(data, prefix=form_prefix)
+                return AuthorForm(data, prefix=form_prefix)
 
-        return CorrespondingAuthorForm(prefix=form_prefix)
+        return AuthorForm(prefix=form_prefix)
 
     def get_publication_form(self, request: HttpRequest, store: Store) -> PublicationForm:
         if self.requested_author_preview(request):
@@ -208,9 +207,7 @@ class PublicationStep(Step):
         self.clean_all((publication_form, *link_forms))
 
         store["publication_step"] = PublicationStepDto(
-            corresponding_author=CorrespondingAuthorForm(
-                request.POST, prefix="corresponding_author"
-            ).to_dto(),
+            corresponding_author=AuthorForm(request.POST, prefix="corresponding_author").to_dto(),
             meta=publication_form.to_dto(),
             authors=list(AuthorList.from_str(request.POST.get("authors", ""))),
             links=[linkform.get_form_data() for linkform in link_forms],

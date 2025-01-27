@@ -9,13 +9,11 @@ from django.forms.utils import ErrorList
 from django.utils.datastructures import MultiValueDictKeyError
 
 from coda.apps import widgets
-from coda.apps.authors.forms import AuthorForm
 from coda.apps.formbase import CodaFormBase
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import ConceptDto, LinkDto, PublicationMetaDto
 from coda.apps.publications.models import Concept, LinkType, Publication, Vocabulary
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.author import Role
 from coda.doi import Doi
 from coda.publication import License, OpenAccessType, Published, UnpublishedState
 from coda.vocabulary import UnknownConcept, VocabularyConcept, VocabularyProtocol
@@ -41,26 +39,6 @@ def get_concepts(vocabulary: Vocabulary | None) -> Iterable[Concept]:
 class Vocabularies(NamedTuple):
     subject_areas: VocabularyProtocol | None = None
     publication_types: VocabularyProtocol | None = None
-
-
-class CorrespondingAuthorForm(AuthorForm):
-    use_required_attribute = False
-
-    roles = forms.MultipleChoiceField(
-        choices=((role.name, role.value) for role in Role),
-        widget=forms.MultipleHiddenInput(),
-        required=False,
-    )
-
-    def full_clean(self) -> None:
-        super().full_clean()
-        if not hasattr(self, "cleaned_data"):
-            return
-
-        self.cleaned_data["roles"] = [
-            Role.CORRESPONDING_AUTHOR.name,
-            *self.cleaned_data.get("roles", []),
-        ]
 
 
 class PublicationForm(CodaFormBase):

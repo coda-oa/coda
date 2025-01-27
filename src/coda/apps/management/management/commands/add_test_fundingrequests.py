@@ -101,7 +101,7 @@ class Command(BaseCommand):
             email=faker.email(),
             orcid=None,
             affiliation=None,
-            roles=[Role.SUBMITTER],
+            role=Role.SUBMITTER,
         )
 
     def publisher(self) -> Publisher:

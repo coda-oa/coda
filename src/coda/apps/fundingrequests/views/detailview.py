@@ -8,6 +8,7 @@ from django.shortcuts import render
 from django.urls import reverse
 
 from coda.apps.authors.models import Author
+from coda.apps.authors import services as author_services
 from coda.apps.fundingrequests.forms import ChooseLabelForm
 from coda.apps.fundingrequests.models import ExternalFunding, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
@@ -93,12 +94,13 @@ def request_viewmodel(fr: FundingRequestModel) -> RequestViewModel:
     )
 
 
-def submitter_viewmodel(submitter: Author) -> SubmitterViewModel:
+def submitter_viewmodel(submitter_: Author) -> SubmitterViewModel:
+    submitter = author_services.as_domain_object(submitter_)
     return SubmitterViewModel(
-        id=submitter.id,
+        id=cast(int, submitter.id),
         name=submitter.name,
-        affiliation=submitter.affiliation.name if submitter.affiliation else "",
-        roles=[r.value for r in submitter.get_roles()],
+        affiliation=submitter_.affiliation.name if submitter_.affiliation else "",
+        roles=submitter.role.value,
     )
 
 

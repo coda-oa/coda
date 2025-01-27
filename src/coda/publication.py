@@ -107,7 +107,7 @@ class BasePublication(ABC):
 
     def __post_init__(self) -> None:
         if not self.corresponding_author.is_corresponding_author():
-            self.corresponding_author.roles.add(Role.CORRESPONDING_AUTHOR)
+            self.corresponding_author.role = Role.CORRESPONDING_AUTHOR
 
     def is_published(self) -> bool:
         return isinstance(self.publication_state, Published)
@@ -131,9 +131,6 @@ class Publication(BasePublication):
         publication_state: PublicationState = Unpublished(),
         links: set[Link] | None = None,
     ) -> Self:
-        if not corresponding_author.is_corresponding_author():
-            corresponding_author.roles.add(Role.CORRESPONDING_AUTHOR)
-
         return cls(
             id=None,
             title=title,

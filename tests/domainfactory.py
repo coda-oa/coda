@@ -50,7 +50,7 @@ _faker = faker.Faker()
 def author(
     affiliation: InstitutionId | None = None,
     *,
-    roles: set[Role] | None = None,
+    role: Role | None = None,
     id: AuthorId | None = None,
 ) -> Author:
     return Author(
@@ -59,7 +59,7 @@ def author(
         email=_faker.email(),
         orcid=random_orcid(),
         affiliation=affiliation,
-        roles=set(roles if roles is not None else random_roles()),
+        role=role or random_role(),
     )
 
 
@@ -249,8 +249,8 @@ def random_orcid() -> orcid.Orcid:
     )
 
 
-def random_roles() -> list[Role]:
-    return random.choices([r for r in Role], k=random.randint(1, len(Role)))
+def random_role() -> Role:
+    return random.choice([r for r in Role])
 
 
 def random_license() -> License:

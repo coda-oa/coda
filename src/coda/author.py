@@ -1,7 +1,7 @@
 import enum
 import re
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, NewType
 
 from coda.orcid import Orcid
@@ -15,6 +15,7 @@ class Role(enum.Enum):
     SUBMITTER = "Submitter"
     CO_AUTHOR = "Co-author"
     CORRESPONDING_AUTHOR = "Corresponding author"
+    SUBMITTING_CORRESPONDING_AUTHOR = "Submitting corresponding author"
 
 
 @dataclass
@@ -24,7 +25,7 @@ class Author:
     email: str = ""
     orcid: Orcid | None = None
     affiliation: InstitutionId | None = None
-    roles: set[Role] = field(default_factory=set)
+    role: Role = Role.CO_AUTHOR
 
     @classmethod
     def new(
@@ -33,7 +34,7 @@ class Author:
         email: str,
         orcid: Orcid | None = None,
         affiliation: InstitutionId | None = None,
-        roles: Iterable[Role] = (),
+        role: Role = Role.CO_AUTHOR,
     ) -> "Author":
         return cls(
             id=None,
@@ -41,11 +42,11 @@ class Author:
             email=email,
             orcid=orcid,
             affiliation=affiliation,
-            roles=set(roles),
+            role=role,
         )
 
     def is_corresponding_author(self) -> bool:
-        return Role.CORRESPONDING_AUTHOR in self.roles
+        return Role.CORRESPONDING_AUTHOR == self.role
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Author):

@@ -1,5 +1,3 @@
-from pydantic import Field
-
 from coda.apps.dto import CodaBaseDto, OptionalFromStr
 from coda.author import Author, AuthorId, InstitutionId, Role
 from coda.orcid import Orcid
@@ -11,7 +9,7 @@ class AuthorDto(CodaBaseDto):
     email: str
     orcid: str | None
     affiliation: OptionalFromStr[InstitutionId] = None
-    roles: list[str] = Field(default_factory=list)
+    role: str
 
     @classmethod
     def from_author(cls, author: Author) -> "AuthorDto":
@@ -20,7 +18,7 @@ class AuthorDto(CodaBaseDto):
             email=author.email,
             orcid=author.orcid,
             affiliation=author.affiliation,
-            roles=[role.name for role in author.roles],
+            role=author.role.name,
         )
 
     def to_author(self, id: AuthorId | None = None) -> Author:
@@ -30,5 +28,5 @@ class AuthorDto(CodaBaseDto):
             email=self.email,
             orcid=Orcid(self.orcid) if self.orcid else None,
             affiliation=self.affiliation,
-            roles={Role[r] for r in self.roles or []},
+            role=Role[self.role],
         )

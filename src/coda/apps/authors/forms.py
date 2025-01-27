@@ -37,9 +37,8 @@ class AuthorForm(CodaFormBase):
         required=False,
         widget=widgets.SearchSelectWidget,
     )
-    roles = forms.ChoiceField(
+    role = forms.ChoiceField(
         choices=((role.name, role.value) for role in Role),
-        # widget=forms.CheckboxSelectMultiple(),
         required=False,
     )
 

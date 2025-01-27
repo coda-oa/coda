@@ -2,8 +2,8 @@ from typing import cast
 
 from django.core.exceptions import ValidationError
 
-from coda.apps.authors.models import Author as AuthorModel, deserialize_roles
-from coda.apps.authors.models import PersonId, serialize_roles
+from coda.apps.authors.models import Author as AuthorModel, deserialize_role
+from coda.apps.authors.models import PersonId, serialize_role
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
 from coda.author import Author, AuthorId, InstitutionId
@@ -32,7 +32,7 @@ def as_domain_object(model: AuthorModel) -> Author:
         email=model.email or "",
         orcid=Orcid(person_id.orcid) if person_id.orcid else None,
         affiliation=InstitutionId(model.affiliation.pk) if model.affiliation else None,
-        roles=set(deserialize_roles(model.roles) if model.roles else ()),
+        role=deserialize_role(model.roles or ""),
     )
 
 
@@ -43,7 +43,7 @@ def author_create(author: Author) -> AuthorId:
     else:
         _id = PersonId.objects.create()
 
-    roles = serialize_roles(author.roles)
+    roles = serialize_role(author.role)
     _author = AuthorModel.objects.create(
         name=author.name, email=author.email, identifier=_id, affiliation=affiliation, roles=roles
     )
@@ -70,8 +70,8 @@ def author_update(author: Author) -> Author:
     if author.affiliation:
         model.affiliation = _find_affiliation(author.affiliation)
 
-    if author.roles:
-        model.roles = serialize_roles(author.roles)
+    if author.role:
+        model.roles = serialize_role(author.role)
 
     model.save()
     return author

@@ -6,10 +6,11 @@ from django.http import HttpRequest
 from django.test import RequestFactory
 
 from coda.apps.authors.dto import AuthorDto
+from coda.apps.authors.forms import AuthorForm
 from coda.apps.fundingrequests.views.wizard.wizardsteps import PublicationStep
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import MonographDto, PublicationDto
-from coda.apps.publications.forms import CorrespondingAuthorForm, PublicationForm
+from coda.apps.publications.forms import PublicationForm
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import AuthorList, Role
 from coda.vocabulary import Vocabulary, VocabularyConcept
@@ -123,7 +124,7 @@ def test__publication_step__done__saves_page_data_to_store() -> None:
     store = DictStore()
 
     publication = domainfactory.publication()
-    publication.corresponding_author = domainfactory.author(roles=set())
+    publication.corresponding_author = domainfactory.author(role=None)
     publication_dto = PublicationDto.from_publication(publication)
 
     stepdata = publication_step.stepdata(publication_dto)
@@ -134,7 +135,6 @@ def test__publication_step__done__saves_page_data_to_store() -> None:
     non_publication_step_items = {"journal", "contracts"}
 
     expected_dto = publication_dto.model_copy(deep=True)
-    expected_dto.corresponding_author.roles = [Role.CORRESPONDING_AUTHOR.name]
     expected = expected_dto.to_post_data(exclude=non_publication_step_items)
     assert actual == expected
 
@@ -208,7 +208,7 @@ def test__publication_step__existing_publication__publication_form_uses_existing
 def test__publication_step__submitter_is_corresponding_author__uses_submitter_in_corresponding_author_form() -> (
     None
 ):
-    corresponding_author = domainfactory.author(roles={Role.CORRESPONDING_AUTHOR})
+    corresponding_author = domainfactory.author(role=Role.CORRESPONDING_AUTHOR)
 
     store = DictStore()
     store["submitter"] = AuthorDto.from_author(corresponding_author).to_post_data()
@@ -217,7 +217,7 @@ def test__publication_step__submitter_is_corresponding_author__uses_submitter_in
     sut = PublicationStep()
     ctx = sut.get_context_data(request_factory.get("/"), store)
 
-    author_form: CorrespondingAuthorForm = ctx["author_form"]
+    author_form: AuthorForm = ctx["author_form"]
     author_form.full_clean()
     assert_author_eq(author_form.to_author(), corresponding_author)
 
@@ -226,7 +226,7 @@ def test__publication_step__submitter_is_corresponding_author__uses_submitter_in
 def test__publication_step__submitter_is_not_corresponding_author__uses_empty_corresponding_author_form() -> (
     None
 ):
-    submitter = domainfactory.author(roles=set())
+    submitter = domainfactory.author(role=None)
 
     store = DictStore()
     store["submitter"] = AuthorDto.from_author(submitter).to_post_data()
@@ -235,7 +235,7 @@ def test__publication_step__submitter_is_not_corresponding_author__uses_empty_co
     sut = PublicationStep()
     ctx = sut.get_context_data(request_factory.get("/"), store)
 
-    author_form: CorrespondingAuthorForm = ctx["author_form"]
+    author_form: AuthorForm = ctx["author_form"]
     author_form.full_clean()
     assert author_form.has_changed() is False
 
@@ -245,8 +245,8 @@ def test__publication_step__submitter_and_corresponding_author_in_store__uses_co
     None
 ):
     publication = domainfactory.publication()
-    submitter = domainfactory.author(roles={Role.CORRESPONDING_AUTHOR})
-    corresponding_author = domainfactory.author(roles={Role.CORRESPONDING_AUTHOR})
+    submitter = domainfactory.author(role=Role.CORRESPONDING_AUTHOR)
+    corresponding_author = domainfactory.author(role=Role.CORRESPONDING_AUTHOR)
     publication.corresponding_author = corresponding_author
     dto = PublicationDto.from_publication(publication)
 
@@ -258,7 +258,7 @@ def test__publication_step__submitter_and_corresponding_author_in_store__uses_co
     sut = PublicationStep()
     ctx = sut.get_context_data(request_factory.get("/"), store)
 
-    author_form: CorrespondingAuthorForm = ctx["author_form"]
+    author_form: AuthorForm = ctx["author_form"]
     author_form.full_clean()
     assert_author_eq(author_form.to_author(), corresponding_author)
 
@@ -267,7 +267,7 @@ def test__publication_step__submitter_and_corresponding_author_in_store__uses_co
 def test__publication_step__submitter_in_store__new_corresponding_author_in_request__prefers_new_author() -> (
     None
 ):
-    submitter = domainfactory.author(roles={Role.CORRESPONDING_AUTHOR})
+    submitter = domainfactory.author(role=Role.CORRESPONDING_AUTHOR)
     publication = domainfactory.publication()
     expected_corresponding_author = publication.corresponding_author
     dto = PublicationDto.from_publication(publication)
@@ -281,7 +281,7 @@ def test__publication_step__submitter_in_store__new_corresponding_author_in_requ
     sut = PublicationStep()
     ctx = sut.get_context_data(request, store)
 
-    author_form: CorrespondingAuthorForm = ctx["author_form"]
+    author_form: AuthorForm = ctx["author_form"]
     author_form.full_clean()
     assert_author_eq(author_form.to_author(), expected_corresponding_author)
 
@@ -290,13 +290,13 @@ def test__publication_step__submitter_in_store__new_corresponding_author_in_requ
 def test__publication_step__corresponding_author_in_store__new_corresponding_author_in_request__prefers_new_author() -> (
     None
 ):
-    corresponding_author = domainfactory.author(roles={Role.CORRESPONDING_AUTHOR})
+    corresponding_author = domainfactory.author(role=Role.CORRESPONDING_AUTHOR)
     publication = domainfactory.publication()
     publication.corresponding_author = corresponding_author
     stored_dto = PublicationDto.from_publication(publication)
 
     new_dto = stored_dto.model_copy()
-    expected_corresponding_author = domainfactory.author(roles={Role.CORRESPONDING_AUTHOR})
+    expected_corresponding_author = domainfactory.author(role=Role.CORRESPONDING_AUTHOR)
     new_dto.corresponding_author = AuthorDto.from_author(expected_corresponding_author)
 
     store = DictStore()
@@ -308,7 +308,7 @@ def test__publication_step__corresponding_author_in_store__new_corresponding_aut
     sut = PublicationStep()
     ctx = sut.get_context_data(request, store)
 
-    author_form: CorrespondingAuthorForm = ctx["author_form"]
+    author_form: AuthorForm = ctx["author_form"]
     author_form.full_clean()
     assert_author_eq(author_form.to_author(), expected_corresponding_author)
 
