@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import cast
+from typing import TypedDict, cast
 
 from django.db import transaction
 from django.db.models import Q
@@ -12,10 +12,11 @@ from coda.apps.publications.models import AttachedContract, LinkType, Publicatio
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.author import AuthorId, AuthorList
+from coda.author import Author, AuthorId, AuthorNames
 from coda.contract import ContractId, ContractYear, PublisherId
 from coda.doi import Doi
 from coda.publication import (
+    Authors,
     BasePublication,
     JournalId,
     License,
@@ -46,10 +47,8 @@ def save(publication: BasePublication) -> PublicationId:
     p.title = publication.title
     p.license = publication.license.name
     p.open_access_type = publication.open_access_type.name
-    p.author_list = str(publication.authors)
+    p.author_list = str(publication.other_authors)
     p.publication_state = publication.publication_state.name()
-    p.links.all().delete()
-    _attach_links(PublicationId(p.id), publication.links)
 
     if publication.is_published():
         publication_state = cast(Published, publication.publication_state)
@@ -68,15 +67,15 @@ def save(publication: BasePublication) -> PublicationId:
 
     _attach_contracts(p, publication.contracts)
 
-    if not p.submitting_author:
-        author_id = author_services.author_create(publication.corresponding_author)
-        p.submitting_author_id = author_id
-    else:
-        publication.corresponding_author.id = AuthorId(p.submitting_author.id)
-        author_services.author_update(publication.corresponding_author)
+    p.relevant_authors.all().delete()
+    publication_id = PublicationId(p.pk)
+    _attach_authors(publication_id, publication.relevant_authors)
+
+    p.links.all().delete()
+    _attach_links(publication_id, publication.links)
 
     p.save()
-    return PublicationId(p.pk)
+    return publication_id
 
 
 def get_by_id(publication_id: PublicationId) -> BasePublication:
@@ -100,50 +99,40 @@ def find_publications_by_vocabulary(vocabulary_id: VocabularyId) -> list[BasePub
 
 
 def as_domain_object(model: PublicationModel) -> BasePublication:
-    state = _deserialize_publication_state(model)
-
+    common_args = _common_args(model)
     if model.article_journal_id:
         return Publication(
-            id=PublicationId(model.pk),
-            title=NonEmptyStr(model.title),
-            license=License[model.license],
-            open_access_type=OpenAccessType[model.open_access_type],
-            publication_type=_deserialize_concept(model.publication_type),
-            subject_area=_deserialize_concept(model.subject_area),
-            corresponding_author=author_services.get_by_id(
-                AuthorId(cast(int, model.submitting_author_id))
-            ),
-            authors=AuthorList.from_str(model.author_list or ""),
-            publication_state=state,
+            **common_args,
             journal=JournalId(model.article_journal_id),
-            contracts=tuple(
-                contract_services.as_domain_object(c.contract).in_year(c.contract_year)
-                for c in model.attached_contracts.all()
-            ),
-            links=_deserialize_links(model.links.all()),
         )
     elif model.monograph_publisher_id:
         return Monograph(
-            id=PublicationId(model.pk),
-            title=NonEmptyStr(model.title),
-            license=License[model.license],
-            open_access_type=OpenAccessType[model.open_access_type],
-            publication_type=_deserialize_concept(model.publication_type),
-            subject_area=_deserialize_concept(model.subject_area),
-            corresponding_author=author_services.get_by_id(
-                AuthorId(cast(int, model.submitting_author_id))
-            ),
-            authors=AuthorList.from_str(model.author_list or ""),
-            publication_state=state,
+            **common_args,
             publisher=PublisherId(model.monograph_publisher_id),
-            contracts=tuple(
-                contract_services.as_domain_object(c.contract).in_year(c.contract_year)
-                for c in model.attached_contracts.all()
-            ),
-            links=_deserialize_links(model.links.all()),
         )
     else:
         raise ValueError("Unknown publication type")
+
+
+def _common_args(model: PublicationModel) -> "_CommonPublicationArgs":
+    return _CommonPublicationArgs(
+        id=PublicationId(model.pk),
+        title=NonEmptyStr(model.title),
+        license=License[model.license],
+        open_access_type=OpenAccessType[model.open_access_type],
+        publication_type=_deserialize_concept(model.publication_type),
+        subject_area=_deserialize_concept(model.subject_area),
+        relevant_authors=Authors(
+            author_services.as_domain_object(a) for a in model.relevant_authors.all()
+        ),
+        other_authors=AuthorNames.from_str(model.author_list or ""),
+        publication_state=_deserialize_publication_state(model),
+        contracts=tuple(
+            contract_services.as_domain_object(c.contract).in_year(c.contract_year)
+            for c in model.attached_contracts.all()
+        ),
+        links=_deserialize_links(model.links.all()),
+    )
 
 
 def _initial_article(publication: Publication) -> PublicationModel:
@@ -203,6 +192,12 @@ def _attach_links(id: PublicationId, links: Iterable[Link]) -> None:
         )
 
 
+def _attach_authors(id: PublicationId, relevant_authors: Iterable[Author]) -> None:
+    for author in relevant_authors:
+        author_id = author_services.author_create(author, id)
+        author.id = AuthorId(author_id)
+
+
 def _attach_contracts(p: PublicationModel, contracts: Iterable[ContractYear]) -> None:
     contract_ids = {cy.contract.id for cy in contracts if cy.contract.id}
     model_contracts = Contract.objects.filter(id__in=contract_ids).order_by("id")
@@ -218,3 +213,17 @@ def _attach_contracts(p: PublicationModel, contracts: Iterable[ContractYear]) ->
 
 def _delete_unused_attached_contracts(p: PublicationModel, contracts: Iterable[ContractId]) -> None:
     AttachedContract.objects.filter(publication_id=p.id).exclude(contract__in=contracts).delete()
+
+
+class _CommonPublicationArgs(TypedDict):
+    id: PublicationId
+    title: NonEmptyStr
+    license: License
+    relevant_authors: Authors
+    other_authors: AuthorNames
+    subject_area: VocabularyConcept
+    publication_type: VocabularyConcept
+    open_access_type: OpenAccessType
+    publication_state: PublicationState
+    contracts: tuple[ContractYear, ...]
+    links: set[Link]

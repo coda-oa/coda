@@ -6,7 +6,7 @@ from typing import cast
 import faker
 
 from coda import orcid
-from coda.author import Author, AuthorId, AuthorList, InstitutionId, Role
+from coda.author import Author, AuthorId, AuthorNames, InstitutionId, Role
 from coda.contract import Contract, ContractId, ContractYear, PublisherId
 from coda.date import DateRange
 from coda.doi import Doi
@@ -31,6 +31,7 @@ from coda.invoice import (
 )
 from coda.money import Currency, Money
 from coda.publication import (
+    Authors,
     JournalId,
     License,
     Monograph,
@@ -173,8 +174,8 @@ def publication(
         id=id,
         title=NonEmptyStr(title or _faker.sentence()),
         journal=journal or JournalId(random.randint(1, 1000)),
-        corresponding_author=author(),
-        authors=random_authorlist(),
+        relevant_authors=relevant_authors(),
+        other_authors=random_authorlist(),
         license=random_license(),
         publication_type=publication_type or UnknownConcept,
         subject_area=subject_area or UnknownConcept,
@@ -182,6 +183,15 @@ def publication(
         publication_state=state,
         contracts=contracts,
         links={Doi("10.1234/5678")},
+    )
+
+
+def relevant_authors() -> Authors:
+    return Authors(
+        (
+            author(role=Role.SUBMITTING_CORRESPONDING_AUTHOR),
+            *(author(role=NoRole) for _ in range(random.randint(1, 3))),
+        )
     )
 
 
@@ -197,8 +207,8 @@ def monograph(
         id=id,
         publisher=publisher or PublisherId(random.randint(1, 1000)),
         title=NonEmptyStr(_faker.sentence()),
-        corresponding_author=author(),
-        authors=random_authorlist(),
+        relevant_authors=relevant_authors(),
+        other_authors=random_authorlist(),
         license=random_license(),
         publication_type=publication_type or UnknownConcept,
         subject_area=subject_area or UnknownConcept,
@@ -249,8 +259,8 @@ def fundingrequest(
     )
 
 
-def random_authorlist() -> AuthorList:
-    return AuthorList(_faker.name() for _ in range(random.randint(1, 5)))
+def random_authorlist() -> AuthorNames:
+    return AuthorNames(_faker.name() for _ in range(random.randint(1, 5)))
 
 
 def random_orcid() -> orcid.Orcid:

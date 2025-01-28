@@ -42,3 +42,7 @@ class CodaFormBase(forms.Form):
         for field in self.errors:
             attrs = self[field].field.widget.attrs
             attrs["aria-invalid"] = "true"
+
+    @classmethod
+    def form_posted(cls, request: Mapping[str, Any]) -> bool:
+        return bool(request.keys() & cls.base_fields.keys())

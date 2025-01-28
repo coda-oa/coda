@@ -60,7 +60,9 @@ def test__journal_step__journal_and_contracts_selected__is_valid(
     first_journal = journals[0]
     sut = JournalStep()
 
-    contract_years = to_htmx_formset_data([contract_year_dto(c).to_post_data() for c in contracts])
+    contract_years = to_htmx_formset_data(
+        [contract_year_dto(c).to_post_data() for c in contracts], prefix="contracts"
+    )
     request = post({"journal": first_journal.pk} | contract_years)
 
     assert sut.is_valid(request, store) is True
@@ -75,7 +77,9 @@ def test__journal_step__invalid_contract_year__is_invalid(
 
     sut = JournalStep()
 
-    contract_years = to_htmx_formset_data([{"contract": contract.pk, "year": 1800}])
+    contract_years = to_htmx_formset_data(
+        [{"contract": contract.pk, "year": 1800}], prefix="contracts"
+    )
     request = post({"journal": first_journal.pk} | contract_years)
 
     assert sut.is_valid(request, store) is False

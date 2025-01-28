@@ -1,3 +1,4 @@
+from itertools import zip_longest
 from typing import Protocol
 
 import pytest
@@ -5,13 +6,21 @@ import pytest
 from coda.apps.authors.services import author_create
 from coda.apps.contracts.services import as_domain_object
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
-from coda.contract import PublisherId
+from coda.contract import ContractYear, PublisherId
 from coda.doi import Doi
 from coda.orcid import Orcid
-from coda.publication import BasePublication, JournalId, Monograph, Publication, PublicationId
+from coda.publication import (
+    Authors,
+    BasePublication,
+    JournalId,
+    Monograph,
+    Publication,
+    PublicationId,
+)
 from coda.vocabulary import Vocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory, test_orcid
 from tests.authors.test__author import assert_author_eq
+from tests.contracts.test_contract_services import assert_contract_eq
 
 
 class PublicationFactory(Protocol):
@@ -118,7 +127,7 @@ def test__can_save_publication_with_author_that_has_existing_orcid() -> None:
 
     journal = JournalId(modelfactory.journal().pk)
     publication = domainfactory.publication(journal)
-    publication.corresponding_author = author
+    publication.relevant_authors = Authors([author])
 
     id = publication_repository.save(publication)
 
@@ -151,13 +160,12 @@ def test__existing_publication_with_links__save_without_links__links_are_removed
     journal = JournalId(modelfactory.journal().pk)
     publication = domainfactory.publication(journal)
     publication.links = {Doi("10.1234/5678")}
-    id = publication_repository.save(publication)
+    publication.id = publication_repository.save(publication)
 
-    publication.id = id
     publication.links.clear()
     publication_repository.save(publication)
 
-    actual = publication_repository.get_by_id(id)
+    actual = publication_repository.get_by_id(publication.id)
     assert actual.links == set()
 
 
@@ -189,15 +197,27 @@ def vocabulary_with_concepts(*concepts: str) -> Vocabulary:
 
 def assert_base_publication_eq(actual: BasePublication, expected: BasePublication) -> None:
     assert actual.title == expected.title
-    assert actual.authors == expected.authors
+    assert actual.other_authors == expected.other_authors
     assert actual.license == expected.license
     assert actual.publication_type == expected.publication_type
     assert actual.subject_area == expected.subject_area
     assert actual.open_access_type == expected.open_access_type
     assert actual.publication_state == expected.publication_state
-    assert actual.contracts == expected.contracts
     assert actual.links == expected.links
-    assert_author_eq(actual.corresponding_author, expected.corresponding_author)
+
+    for actual_contract, expected_contract in zip_longest(actual.contracts, expected.contracts):
+        assert_contract_year_eq(actual_contract, expected_contract)
+
+    for actual_author, expected_author in zip_longest(
+        actual.relevant_authors, expected.relevant_authors
+    ):
+        assert_author_eq(actual_author, expected_author)
+
+
+def assert_contract_year_eq(actual: ContractYear, expected: ContractYear) -> None:
+    assert actual.contract_id == expected.contract_id
+    assert_contract_eq(actual.contract, expected.contract)
+    assert actual.year == expected.year
 
 
 def assert_monograph_eq(actual: Monograph, expected: Monograph) -> None:

@@ -14,7 +14,7 @@ from coda.apps.journals.models import Journal
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import LinkType
 from coda.apps.publishers.models import Publisher
-from coda.author import Author, AuthorList, Role
+from coda.author import Author, AuthorNames, Role
 from coda.doi import Doi
 from coda.fundingrequest import (
     ExternalFunding,
@@ -62,8 +62,7 @@ class Command(BaseCommand):
         request = FundingRequest.new(
             Publication.new(
                 title=NonEmptyStr(faker.sentence()),
-                authors=AuthorList(),
-                corresponding_author=self.create_author(),
+                other_authors=AuthorNames(),
                 journal=JournalId(journal.pk),
                 license=License.CC0,
                 open_access_type=OpenAccessType.Gold,

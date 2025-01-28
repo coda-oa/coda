@@ -1,14 +1,15 @@
-from abc import ABC
+from collections.abc import Iterable
 import datetime
 import enum
+from abc import ABC
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, NamedTuple, NewType, Self, TypeAlias
 
-from coda.author import Author, AuthorList, Role
+from coda.author import Author, AuthorNames
 from coda.contract import PublisherId
 from coda.doi import Doi
 from coda.string import NonEmptyStr
-from coda.vocabulary import VocabularyConcept, UnknownConcept
+from coda.vocabulary import UnknownConcept, VocabularyConcept
 
 if TYPE_CHECKING:
     from coda.contract import ContractYear
@@ -91,12 +92,25 @@ class UserLink(NamedTuple):
 Link: TypeAlias = UserLink | Doi
 
 
+class Authors(tuple[Author, ...]):
+    __slots__ = ()
+
+    def __new__(cls, iterable: Iterable[Author] = ()) -> "Authors":
+        instance = super().__new__(cls, iterable)
+        submitting_authors = tuple(author for author in instance if author.is_submitter())
+
+        if len(submitting_authors) > 1:
+            raise ValueError("Publication can only have one submitting author")
+
+        return instance
+
+
 @dataclass(kw_only=True)
 class BasePublication(ABC):
     id: PublicationId | None
     title: NonEmptyStr
-    corresponding_author: Author
-    authors: AuthorList = field(default_factory=AuthorList)
+    relevant_authors: Authors = Authors()
+    other_authors: AuthorNames = field(default_factory=AuthorNames)
     license: License = field(default=License.Unknown)
     subject_area: VocabularyConcept = field(default=UnknownConcept)
     publication_type: VocabularyConcept = field(default=UnknownConcept)
@@ -104,10 +118,6 @@ class BasePublication(ABC):
     publication_state: PublicationState = field(default=Unpublished())
     contracts: tuple["ContractYear", ...] = ()
     links: set[Link] = field(default_factory=set)
-
-    def __post_init__(self) -> None:
-        if not self.corresponding_author.is_corresponding_author():
-            self.corresponding_author.role = Role.CORRESPONDING_AUTHOR
 
     def is_published(self) -> bool:
         return isinstance(self.publication_state, Published)
@@ -122,8 +132,8 @@ class Publication(BasePublication):
         cls,
         title: NonEmptyStr,
         journal: JournalId,
-        corresponding_author: Author,
-        authors: AuthorList = AuthorList(),
+        relevant_authors: Iterable[Author] = (),
+        other_authors: AuthorNames = AuthorNames(),
         license: License = License.Unknown,
         subject_area: VocabularyConcept = UnknownConcept,
         publication_type: VocabularyConcept = UnknownConcept,
@@ -135,8 +145,8 @@ class Publication(BasePublication):
             id=None,
             title=title,
             journal=journal,
-            corresponding_author=corresponding_author,
-            authors=authors,
+            relevant_authors=Authors(relevant_authors),
+            other_authors=other_authors,
             license=license,
             subject_area=subject_area,
             publication_type=publication_type,
@@ -155,8 +165,8 @@ class Monograph(BasePublication):
         cls,
         title: NonEmptyStr,
         publisher: PublisherId,
-        corresponding_author: Author,
-        authors: AuthorList = AuthorList(),
+        relevant_authors: Iterable[Author] = (),
+        other_authors: AuthorNames = AuthorNames(),
         license: License = License.Unknown,
         subject_area: VocabularyConcept = UnknownConcept,
         publication_type: VocabularyConcept = UnknownConcept,
@@ -168,8 +178,8 @@ class Monograph(BasePublication):
             id=None,
             title=title,
             publisher=publisher,
-            corresponding_author=corresponding_author,
-            authors=authors,
+            relevant_authors=Authors(relevant_authors),
+            other_authors=other_authors,
             license=license,
             subject_area=subject_area,
             publication_type=publication_type,

@@ -31,7 +31,7 @@ class Author:
     def new(
         cls,
         name: NonEmptyStr,
-        email: str,
+        email: str = "",
         orcid: Orcid | None = None,
         affiliation: InstitutionId | None = None,
         role: Role = Role.CO_AUTHOR,
@@ -47,6 +47,9 @@ class Author:
 
     def is_corresponding_author(self) -> bool:
         return Role.CORRESPONDING_AUTHOR == self.role
+
+    def is_submitter(self) -> bool:
+        return self.role in (Role.SUBMITTER, Role.SUBMITTING_CORRESPONDING_AUTHOR)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Author):
@@ -78,12 +81,12 @@ def _replace_broken_umlaute(author: str) -> str:
     return author.replace(" ̈u", "ü").replace(" ̈o", "ö").replace(" ̈a", "ä")
 
 
-class AuthorList(Iterable[str]):
+class AuthorNames(Iterable[str]):
     def __init__(self, authors: Iterable[str] = ()) -> None:
         self._authors = tuple(authors)
 
     @classmethod
-    def from_str(cls, authors: str) -> "AuthorList":
+    def from_str(cls, authors: str) -> "AuthorNames":
         authors = _insert_missing_space(authors)
         authors = _replace_broken_umlaute(authors)
         author_lines = authors.strip().splitlines()

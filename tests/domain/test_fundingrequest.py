@@ -20,7 +20,6 @@ def make_sut() -> FundingRequest[Publication]:
         id=FundingRequestId(8),
         publication=Publication(
             id=PublicationId(8),
-            corresponding_author=Author(AuthorId(1), NonEmptyStr("John Doe")),
             title=NonEmptyStr("Publication Title"),
             journal=JournalId(3),
         ),
@@ -124,5 +123,4 @@ def new_publication() -> Publication:
         id=PublicationId(999),
         title=NonEmptyStr("Publication Title"),
         journal=JournalId(999),
-        corresponding_author=Author(AuthorId(999), NonEmptyStr("Jane Doe")),
     )

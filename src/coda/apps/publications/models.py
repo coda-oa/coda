@@ -6,7 +6,7 @@ from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
-from coda.author import AuthorList
+from coda.author import AuthorNames
 from coda.publication import License, OpenAccessType, UnpublishedState
 from coda.vocabulary import UnknownConcept
 
@@ -121,8 +121,8 @@ class Publication(models.Model):
     author_list = models.CharField(max_length=255, null=True, blank=True)
 
     @property
-    def authors(self) -> AuthorList:
-        return AuthorList.from_str(self.author_list or "")
+    def authors(self) -> AuthorNames:
+        return AuthorNames.from_str(self.author_list or "")
 
 
 class LinkType(models.Model):

@@ -1,3 +1,4 @@
+from itertools import zip_longest
 from typing import cast
 
 import pytest
@@ -6,13 +7,14 @@ from django.http import HttpRequest
 from django.test import RequestFactory
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.forms import AuthorForm
-from coda.apps.fundingrequests.views.wizard.wizardsteps import PublicationStep
+from coda.apps.authors.forms import AuthorFormset
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.publications.forms import PublicationForm
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.author import AuthorList, Role
+from coda.author import AuthorNames, Role
+from coda.publication import Authors
 from coda.vocabulary import Vocabulary, VocabularyConcept
 from tests import domainfactory
 from tests.authors.test__author import assert_author_eq
@@ -40,8 +42,7 @@ def parse_authors_request(
 ) -> HttpRequest:
     return request_factory.post(
         "/",
-        (publication_data or publication_step.empty_stepdata())
-        | {"action": "parse_authors", "authors": author_str},
+        (publication_data or {}) | {"action": "parse_authors", "authors": author_str},
     )
 
 
@@ -77,6 +78,23 @@ def test__publication_step_for_monograph__with_valid_data__is_valid() -> None:
     request = request_factory.post("/", stepdata)
 
     assert sut.is_valid(request, store)
+
+
+@pytest.mark.django_db
+def test__publication_step__two_relevant_authors_are_submitters__is_invalid() -> None:
+    sut = PublicationStep()
+    store = DictStore()
+
+    publication_dto = PublicationDto.from_publication(domainfactory.publication())
+    publication_dto.relevant_authors = [
+        AuthorDto.from_author(domainfactory.author(role=Role.SUBMITTER)),
+        AuthorDto.from_author(domainfactory.author(role=Role.SUBMITTING_CORRESPONDING_AUTHOR)),
+    ]
+
+    stepdata = publication_step.stepdata(publication_dto)
+    request = request_factory.post("/", stepdata)
+
+    assert not sut.is_valid(request, store)
 
 
 @pytest.mark.django_db
@@ -143,7 +161,7 @@ def test__publication_step__authors_in_store__get_context_data__contains_authors
     sut = PublicationStep()
     store = DictStore()
     publication = domainfactory.publication()
-    publication.authors = AuthorList(expected_authors)
+    publication.other_authors = AuthorNames(expected_authors)
     store_data = PublicationDto.from_publication(publication)
     store["publication_step"] = store_data.to_post_data(exclude={"journal", "contracts"})
     store.save()
@@ -160,7 +178,7 @@ def test__publication_step__authors_in_post_and_store__get_context_data__prefers
     sut = PublicationStep()
     store = DictStore()
     publication = domainfactory.publication()
-    publication.authors = AuthorList(["John Doe", "Jane Doe"])
+    publication.other_authors = AuthorNames(["John Doe", "Jane Doe"])
     store_data = PublicationDto.from_publication(publication)
     store["publication_step"] = store_data.to_post_data(exclude={"journal", "contracts"})
 
@@ -204,17 +222,33 @@ def test__publication_step__existing_publication__publication_form_uses_existing
 
 
 @pytest.mark.django_db
-def test__publication_step__corresponding_author_in_store__new_corresponding_author_in_request__prefers_new_author() -> (
+def test__publication_step__relevant_authors_in_store__get_context_data__contains_authors() -> None:
+    sut = PublicationStep()
+    store = DictStore()
+    publication = domainfactory.publication()
+    publication.relevant_authors = Authors([domainfactory.author()])
+    store_data = PublicationDto.from_publication(publication)
+    store["publication_step"] = store_data.to_post_data(exclude={"journal", "contracts"})
+    store.save()
+
+    ctx = sut.get_context_data(request_factory.get("/"), store)
+
+    author_formset: AuthorFormset = ctx["author_formset"]
+    authors = map(AuthorDto.to_author, author_formset.to_dtos())
+    for actual, expected in zip_longest(authors, publication.relevant_authors):
+        assert_author_eq(actual, expected)
+
+
+@pytest.mark.django_db
+def test__publication_step__relevant_authors_in_store__new_authors_in_request__prefers_new_author() -> (
     None
 ):
-    corresponding_author = domainfactory.author(role=Role.CORRESPONDING_AUTHOR)
     publication = domainfactory.publication()
-    publication.corresponding_author = corresponding_author
     stored_dto = PublicationDto.from_publication(publication)
 
     new_dto = stored_dto.model_copy()
-    expected_corresponding_author = domainfactory.author(role=Role.CORRESPONDING_AUTHOR)
-    new_dto.corresponding_author = AuthorDto.from_author(expected_corresponding_author)
+    expected_author = domainfactory.author()
+    new_dto.relevant_authors = [AuthorDto.from_author(expected_author)]
 
     store = DictStore()
     store["publication_step"] = stored_dto.to_post_data(exclude={"journal", "contracts"})
@@ -225,9 +259,10 @@ def test__publication_step__corresponding_author_in_store__new_corresponding_aut
     sut = PublicationStep()
     ctx = sut.get_context_data(request, store)
 
-    author_form: AuthorForm = ctx["author_form"]
-    author_form.full_clean()
-    assert_author_eq(author_form.to_author(), expected_corresponding_author)
+    author_form: AuthorFormset = ctx["author_formset"]
+    author_dtos = author_form.to_dtos()
+    actual_author = author_dtos[0].to_author()
+    assert_author_eq(actual_author, expected_author)
 
 
 @pytest.mark.django_db

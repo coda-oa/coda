@@ -21,6 +21,13 @@ def deserialize_role(serialized: str) -> Role:
 class Author(models.Model):
     name = models.CharField(max_length=255)
     email = models.EmailField(null=True)
+    publication = models.ForeignKey(
+        "publications.Publication",
+        on_delete=models.CASCADE,
+        related_name="relevant_authors",
+        null=True,
+    )
+
     affiliation = models.ForeignKey(
         Institution,
         on_delete=models.SET_NULL,

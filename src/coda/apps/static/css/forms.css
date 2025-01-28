@@ -68,7 +68,17 @@
     border-bottom-left-radius: var(--coda-border-radius);
 }
 
-.inline-table-form td button:last-child {
+.inline-table-form td:nth-last-child(2) :is(input, select, button, search-select) {
     border-top-right-radius: var(--coda-border-radius);
     border-bottom-right-radius: var(--coda-border-radius);
+}
+
+.inline-table-form :is(th, td) button:last-child {
+    margin-inline-start: var(--coda-form-element-spacing-horizontal);
+    border-radius: var(--coda-border-radius);
+}
+
+.inline-table-form :is(th:last-child, td:last-child) {
+    max-width: max-content;
+    padding: 0;
 }

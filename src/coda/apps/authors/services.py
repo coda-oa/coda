@@ -8,6 +8,7 @@ from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
 from coda.author import Author, AuthorId, InstitutionId
 from coda.orcid import Orcid
+from coda.publication import PublicationId
 from coda.string import NonEmptyStr
 
 
@@ -36,7 +37,7 @@ def as_domain_object(model: AuthorModel) -> Author:
     )
 
 
-def author_create(author: Author) -> AuthorId:
+def author_create(author: Author, publication: PublicationId | None = None) -> AuthorId:
     affiliation = _find_affiliation(author.affiliation)
     if author.orcid:
         _id, _ = PersonId.objects.get_or_create(orcid=author.orcid)
@@ -45,7 +46,12 @@ def author_create(author: Author) -> AuthorId:
 
     roles = serialize_role(author.role)
     _author = AuthorModel.objects.create(
-        name=author.name, email=author.email, identifier=_id, affiliation=affiliation, roles=roles
+        name=author.name,
+        email=author.email,
+        identifier=_id,
+        affiliation=affiliation,
+        roles=roles,
+        publication_id=publication,
     )
     return AuthorId(_author.id)
 

@@ -1,6 +1,6 @@
+import logging
 from abc import ABC
 from collections.abc import Callable, Iterable
-import logging
 from typing import Any, Generic, NamedTuple, Protocol, TypeVar, cast, overload
 
 from django.forms import Form

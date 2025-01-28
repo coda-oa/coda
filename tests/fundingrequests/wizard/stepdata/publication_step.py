@@ -1,5 +1,6 @@
 from typing import Any
 
+from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.publications.dto import (
     LinkDto,
     PublicationBaseDto,
@@ -9,38 +10,19 @@ from coda.apps.publications.dto import (
 from tests import domainfactory
 
 
-def empty_stepdata() -> dict[str, str]:
-    return {
-        "title": "",
-        "authors": "",
-        "open_access_type": "",
-        "license": "",
-        "publication_state": "",
-        "online_publication_date": "",
-        "print_publication_date": "",
-        "subject_area": "",
-        "publication_type": "",
-        "corresponding_author-name": "",
-        "corresponding_author-email": "",
-        "corresponding_author-orcid": "",
-    }
-
-
 def stepdata(publication: PublicationBaseDto | None = None) -> dict[str, Any]:
     publication = publication or PublicationDto.from_publication(domainfactory.publication())
     meta = publication.meta
-    authors = _serialize_authors(publication.authors)
+    relevant_authors = to_htmx_formset_data(
+        [author.to_post_data() for author in publication.relevant_authors],
+        prefix="relevant-authors",
+    )
+    authors = _serialize_authors(publication.other_authors)
     concepts = _concepts_to_json(meta)
     meta_reduced = _reduce_meta(meta)
     link_form_data = _serialize_links(publication.links)
 
-    formdata = (
-        meta_reduced
-        | {"authors": authors}
-        | concepts
-        | link_form_data
-        | publication.corresponding_author.to_post_data(prefix="corresponding_author")
-    )
+    formdata = meta_reduced | relevant_authors | {"authors": authors} | concepts | link_form_data
     return formdata
 
 

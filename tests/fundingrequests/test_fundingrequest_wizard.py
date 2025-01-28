@@ -186,7 +186,7 @@ def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_d
 
 
 @pytest.mark.django_db
-def test__updating_fundingrequest_publication__updates_funding_request_and_shows_details(
+def test__updating_fundingrequest_publication__updates_fundingrequest_and_shows_details(
     client: Client,
 ) -> None:
     existing_request_id = save_new_fundingrequest()
@@ -290,7 +290,8 @@ def submit_update_publication_wizard(
     contracts = to_htmx_formset_data(
         [{"contract": c.contract, "year": c.year} for c in publication_dto.contracts]
     )
-    return submit(journal_post_data | contracts)
+    journal_stepdata = journal_post_data | contracts
+    return submit(journal_stepdata)
 
 
 def submit_update_funding_wizard(

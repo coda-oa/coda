@@ -7,8 +7,8 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
 
-from coda.apps.authors.models import Author
 from coda.apps.authors import services as author_services
+from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.fundingrequests.forms import ChooseLabelForm
 from coda.apps.fundingrequests.models import ExternalFunding, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
@@ -45,17 +45,19 @@ class RequestViewModel(NamedTuple):
         return self.review_status == ReviewResult.Waived.value
 
 
-class SubmitterViewModel(NamedTuple):
+class AuthorViewModel(NamedTuple):
     id: int
+    email: str
     name: str
     affiliation: str
-    roles: Iterable[str]
+    role: str
+    orcid: str
 
 
 class PublicationViewModel(NamedTuple):
     edit_url: str
     title: str
-    corresponding_author: str
+    relevant_authors: list[AuthorViewModel]
     authors: Iterable[str]
     publishing_entity_type: str
     publishing_entity_name: str
@@ -94,13 +96,15 @@ def request_viewmodel(fr: FundingRequestModel) -> RequestViewModel:
     )
 
 
-def submitter_viewmodel(submitter_: Author) -> SubmitterViewModel:
+def author_viewmodel(submitter_: AuthorModel) -> AuthorViewModel:
     submitter = author_services.as_domain_object(submitter_)
-    return SubmitterViewModel(
+    return AuthorViewModel(
         id=cast(int, submitter.id),
         name=submitter.name,
+        email=submitter.email,
         affiliation=submitter_.affiliation.name if submitter_.affiliation else "",
-        roles=submitter.role.value,
+        role=submitter.role.value,
+        orcid=submitter.orcid or "",
     )
 
 
@@ -127,7 +131,9 @@ def publication_viewmodel(fundingrequest: FundingRequestModel) -> PublicationVie
     return PublicationViewModel(
         edit_url=edit_url,
         title=publication.title,
-        corresponding_author=cast(Author, publication.submitting_author).name,
+        relevant_authors=[
+            author_viewmodel(author) for author in publication.relevant_authors.all()
+        ],
         authors=list(publication.authors),
         publishing_entity_name=name,
         publishing_entity_type=type,
@@ -164,7 +170,7 @@ def fundingrequest_detail(request: HttpRequest, pk: int) -> HttpResponse:
 def context(fr: FundingRequestModel) -> dict[str, Any]:
     ctx = {
         "funding_request": request_viewmodel(fr),
-        "submitter": submitter_viewmodel(cast(Author, fr.submitter)),
+        "submitter": author_viewmodel(cast(AuthorModel, fr.submitter)),
         "publication": publication_viewmodel(fr),
         "label_form": ChooseLabelForm(),
         "external_funding": [funding_viewmodel(ef) for ef in fr.external_funding.all()],

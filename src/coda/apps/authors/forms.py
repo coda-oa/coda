@@ -1,7 +1,9 @@
 from collections.abc import Mapping
+from functools import cache
 from typing import Any
 
 from django import forms
+from django.forms.utils import ErrorList
 
 from coda.apps import widgets
 from coda.apps.authors.dto import AuthorDto
@@ -11,6 +13,7 @@ from coda.apps.institutions import repository
 from coda.apps.institutions.models import Institution
 from coda.author import Author, InstitutionId, Role
 from coda.orcid import Orcid
+from coda.publication import Authors
 from coda.validation import as_validator
 
 
@@ -56,6 +59,37 @@ class AuthorFormset(HtmxDynamicFormset[AuthorForm]):
     name = "authors:author_formset_view"
     form_class = AuthorForm
     table_classes = "inline-table-form"
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.errors = ErrorList()
+
+    @cache
+    def to_dtos(self) -> list[AuthorDto]:
+        return [form.to_dto() for form in self.forms]
+
+    @cache
+    def is_valid(self) -> bool:
+        if not super().is_valid():
+            return False
+
+        authors = list(map(AuthorDto.to_author, self.to_dtos()))
+
+        try:
+            Authors(authors)
+        except ValueError:
+            submitter_indices = [
+                index for index, author in enumerate(authors) if author.is_submitter()
+            ]
+
+            for index in submitter_indices:
+                self.forms[index].add_error(
+                    "role", "Publication can only have one submitting author"
+                )
+
+            return False
+
+        return True
 
 
 def get_affiliation_pk(data: Mapping[str, Any]) -> InstitutionId | None:

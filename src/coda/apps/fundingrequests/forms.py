@@ -30,7 +30,7 @@ class ContractForm(CodaFormBase):
 
         try:
             _ = self.contract_year()
-        except ValueError as e:
+        except (ValueError, KeyError) as e:
             self.add_error("year", str(e))
             return False
 
@@ -49,7 +49,7 @@ class ContractFormset(HtmxDynamicFormset[ContractForm]):
         return [form.to_dto() for form in self.forms]
 
 
-class PaymentForm(forms.Form):
+class PaymentForm(CodaFormBase):
     use_required_attribute = False
     amount = forms.DecimalField(max_digits=10, decimal_places=2, initial=0, label="Estimated cost")
     currency = fields.currency_field(label="Currency")

@@ -7,10 +7,10 @@ from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.dto import PaymentDto, ExternalFundingDto
 from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.fundingrequests.views.wizard.wizardsteps import (
     FundingStep,
     JournalStep,
-    PublicationStep,
     SubmitterStep,
 )
 from coda.apps.wizard import SessionStore, Wizard
@@ -38,5 +38,6 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
         funding_request_id = services.fundingrequest_create(
             FundingRequest.new(publication, author, cost, funding)
         )
+
         store["funding_request"] = funding_request_id
         store.save()

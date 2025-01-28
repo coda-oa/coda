@@ -5,12 +5,9 @@ from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.views.wizard.parse_store import monograph_dto_from
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import PublisherStep
-from coda.apps.fundingrequests.views.wizard.wizardsteps import (
-    FundingStep,
-    PublicationStep,
-    SubmitterStep,
-)
+from coda.apps.fundingrequests.views.wizard.wizardsteps import FundingStep, SubmitterStep
 from coda.apps.wizard import SessionStore, Wizard
 from coda.fundingrequest import FundingRequest
 

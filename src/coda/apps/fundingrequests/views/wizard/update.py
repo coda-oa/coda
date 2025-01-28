@@ -10,10 +10,10 @@ from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.fundingrequests.views.wizard.wizardsteps import (
     FundingStep,
     JournalStep,
-    PublicationStep,
     SubmitterStep,
 )
 from coda.apps.publications.dto import PublicationDto

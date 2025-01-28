@@ -3,9 +3,10 @@ from typing import cast
 
 import pytest
 
-from coda.author import Author
+from coda.author import Role
 from coda.publication import JournalId, Publication, Published
 from coda.string import NonEmptyStr
+from tests import domainfactory
 
 
 def test__published_state__requires_at_least_one_date() -> None:
@@ -13,10 +14,21 @@ def test__published_state__requires_at_least_one_date() -> None:
         Published(online=cast(date, None), print=cast(date, None))
 
 
-def test__new_publication__assigns_corresponding_author_role() -> None:
-    author = Author.new(NonEmptyStr("John Doe"), "j.doe@doeworld.com")
-    publication = Publication.new(
-        title=NonEmptyStr("Publication Title"), journal=JournalId(0), corresponding_author=author
-    )
+def test__publication__can_only_have_one_submitting_author() -> None:
+    first = domainfactory.author(role=Role.SUBMITTER)
+    second = domainfactory.author(role=Role.SUBMITTER)
+    third = domainfactory.author(role=Role.SUBMITTING_CORRESPONDING_AUTHOR)
 
-    assert publication.corresponding_author.is_corresponding_author()
+    with pytest.raises(ValueError):
+        Publication.new(
+            journal=JournalId(1),
+            title=NonEmptyStr("A Title"),
+            relevant_authors=[first, second],
+        )
+
+    with pytest.raises(ValueError):
+        Publication.new(
+            journal=JournalId(1),
+            title=NonEmptyStr("A Title"),
+            relevant_authors=[first, third],
+        )

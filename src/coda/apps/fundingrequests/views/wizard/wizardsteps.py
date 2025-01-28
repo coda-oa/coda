@@ -1,26 +1,17 @@
-from collections.abc import Iterable
 from typing import Any, TypeVar
 
-from django.forms import Form
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 
-from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.forms import AuthorForm, AuthorFormset
+from coda.apps.authors.forms import AuthorForm
+from coda.apps.formbase import CodaFormBase
 from coda.apps.fundingrequests.forms import ContractFormset, ExternalFundingFormset, PaymentForm
 from coda.apps.journals.models import Journal
 from coda.apps.journals.services import find_by_title
-from coda.apps.publications.dto import ContractYearDto, PublicationStepDto
-from coda.apps.publications.forms import LinkForm, PublicationForm
-from coda.apps.publications.models import LinkType
+from coda.apps.publications.dto import ContractYearDto
 from coda.apps.wizard import FormStep, Step, Store
-from coda.author import AuthorList
 
-_TForm = TypeVar("_TForm", bound=Form, covariant=True)
-
-
-def form_posted(request: HttpRequest, form_type: type[Form]) -> bool:
-    return bool(request.POST.keys() & form_type.base_fields.keys())
+_TForm = TypeVar("_TForm", bound=CodaFormBase, covariant=True)
 
 
 def form_with_post_or_store_data(
@@ -33,7 +24,7 @@ def form_with_post_or_store_data(
     Create a form instance with POST data if matching keys are present, otherwise use stored data.
     If no stored data is present, create an empty form instance.
     """
-    if form_posted(request, form_type):
+    if form_type.form_posted(request.POST):
         return form_type(request.POST, **kwargs)
     elif store_data:
         return form_type(store_data, **kwargs)
@@ -79,18 +70,21 @@ class JournalStep(Step):
             ctx["journal_title"] = selected_journal.title
             ctx["journals"] = [selected_journal]
 
-        if request.POST.get("total_forms"):
-            ctx["contract_formset"] = ContractFormset(request.POST)
+        if request.POST.get("contracts-total_forms"):
+            ctx["contract_formset"] = ContractFormset(request.POST, prefix="contracts")
         else:
             contracts = [ContractYearDto(**c) for c in store.get("contracts", [])]
             ctx["contract_formset"] = ContractFormset.from_data(
-                [c.to_post_data() for c in contracts]
+                [c.to_post_data() for c in contracts], prefix="contracts"
             )
 
         return ctx
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
-        return bool(request.POST.get("journal")) and ContractFormset(request.POST).is_valid()
+        return (
+            bool(request.POST.get("journal"))
+            and ContractFormset(request.POST, prefix="contracts").is_valid()
+        )
 
     def done(self, request: HttpRequest, store: Store) -> None:
         contract_formset = ContractFormset(request.POST)
@@ -101,126 +95,6 @@ class JournalStep(Step):
             for c in contract_formset.contract_years()
         ]
         store.save()
-
-
-class PublicationStep(Step):
-    template_name: str = "fundingrequests/fundingrequest_publication.html"
-    publication_kind: str
-    form_constructors = {
-        "article": PublicationForm.with_article_vocabulary,
-        "monograph": PublicationForm.with_monograph_vocabulary,
-    }
-
-    @classmethod
-    def for_article(cls) -> "PublicationStep":
-        return cls("article")
-
-    @classmethod
-    def for_monograph(cls) -> "PublicationStep":
-        return cls("monograph")
-
-    def __init__(self, publication_kind: str = "article") -> None:
-        self.make_publication_form = self.form_constructors[publication_kind]
-
-    def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
-        return {
-            "author_formset": AuthorFormset(request.POST),
-            "author_form": self.get_author_form(request, store),
-            "publication_form": self.get_publication_form(request, store),
-            "authors": list(self.get_authors(request, store)),
-            "link_types": LinkType.objects.values("name"),
-            "links": self.get_links_context(request, store),
-        }
-
-    def get_author_form(self, request: HttpRequest, store: Store) -> AuthorForm:
-        form_prefix = "corresponding_author"
-        field_names = {f"{form_prefix}-{field}" for field in AuthorForm.base_fields.keys()}
-        if field_names & request.POST.keys():
-            return AuthorForm(request.POST, prefix=form_prefix)
-        elif store.get("publication_step"):
-            dto = AuthorDto(**store["publication_step"]["corresponding_author"])
-            data = dto.to_post_data(prefix=form_prefix)
-            return AuthorForm(data, prefix=form_prefix)
-
-        return AuthorForm(prefix=form_prefix)
-
-    def get_publication_form(self, request: HttpRequest, store: Store) -> PublicationForm:
-        if self.requested_author_preview(request):
-            form = self.make_publication_form(request.POST)
-            form.errors.clear()
-            return form
-
-        step_dto = store.get("publication_step")
-        if form_posted(request, PublicationForm):
-            return self.make_publication_form(request.POST)
-        elif step_dto:
-            return PublicationForm.from_dto(PublicationStepDto(**step_dto).meta)
-        else:
-            return self.make_publication_form()
-
-    def requested_author_preview(self, request: HttpRequest) -> bool:
-        return request.POST.get("action") == "parse_authors"
-
-    def get_authors(self, request: HttpRequest, store: Store) -> AuthorList:
-        if request.POST.get("authors"):
-            return AuthorList.from_str(request.POST.get("authors", ""))
-        elif publication_step := store.get("publication_step"):
-            return AuthorList(publication_step["authors"])
-        else:
-            return AuthorList()
-
-    def get_links_context(self, request: HttpRequest, store: Store) -> list[dict[str, Any]]:
-        if self.has_links(request):
-            return self.assemble_link_dtos(request)
-        elif publication_step := store.get("publication_step"):
-            links = publication_step.get("links", [])
-            return [{"link": link, "errors": {}} for link in links]
-
-        return []
-
-    def has_links(self, request: HttpRequest) -> bool:
-        return bool(request.POST.get("link_type") and request.POST.get("link_value"))
-
-    def assemble_link_dtos(self, request: HttpRequest) -> list[dict[str, Any]]:
-        forms = self.link_forms(request)
-        for form in forms:
-            form.full_clean()
-
-        return [{"link": form.get_form_data(), "errors": form.errors} for form in forms]
-
-    def is_valid(self, request: HttpRequest, store: Store) -> bool:
-        corresponding_author_form = self.get_author_form(request, store)
-        publication_form = self.make_publication_form(request.POST)
-        link_formset = self.link_forms(request)
-        valid = self.all_valid((corresponding_author_form, publication_form, *link_formset))
-        return valid
-
-    def done(self, request: HttpRequest, store: Store) -> None:
-        publication_form = PublicationForm(request.POST)
-        link_forms = self.link_forms(request)
-        self.clean_all((publication_form, *link_forms))
-
-        store["publication_step"] = PublicationStepDto(
-            corresponding_author=AuthorForm(request.POST, prefix="corresponding_author").to_dto(),
-            meta=publication_form.to_dto(),
-            authors=list(AuthorList.from_str(request.POST.get("authors", ""))),
-            links=[linkform.get_form_data() for linkform in link_forms],
-        ).to_post_data()
-        store.save()
-
-    def all_valid(self, forms: Iterable[Form]) -> bool:
-        return all(form.is_valid() for form in forms)
-
-    def clean_all(self, forms: Iterable[Form]) -> None:
-        for form in forms:
-            form.full_clean()
-
-    def link_forms(self, request: HttpRequest) -> Iterable[LinkForm]:
-        types, values = request.POST.getlist("link_type"), request.POST.getlist("link_value")
-        return [
-            LinkForm({"link_type": link_type, "link_value": link_value})
-            for link_type, link_value in zip(types, values)
-        ]
 
 
 class FundingStep(Step):
