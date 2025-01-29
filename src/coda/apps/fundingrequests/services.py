@@ -2,28 +2,53 @@ from collections.abc import Iterable
 
 from django.db import transaction
 
-from coda.apps.authors.services import author_create
 from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
+from coda.apps.fundingrequests.models import FundingRequestContact as FundingRequestContactModel
 from coda.apps.fundingrequests.models import Label
 from coda.apps.publications.repositories import publication_repository
 from coda.color import Color
-from coda.fundingrequest import AnyFundingRequest, ExternalFunding, FundingRequestId, Payment
+from coda.fundingrequest import (
+    AnyFundingRequest,
+    ExternalFunding,
+    FundingRequestContact,
+    FundingRequestId,
+    Payment,
+)
 
 
 @transaction.atomic
 def fundingrequest_create(fundingrequest: AnyFundingRequest) -> FundingRequestId:
-    author_id = author_create(fundingrequest.submitter)
     publication_id = publication_repository.save(fundingrequest.publication)
     request = FundingRequestModel.objects.create(
-        submitter_id=author_id,
         publication_id=publication_id,
         payment_method=fundingrequest.estimated_cost.method.name.lower(),
         estimated_cost=fundingrequest.estimated_cost.amount.amount,
         estimated_cost_currency=fundingrequest.estimated_cost.amount.currency.value.code,
     )
+
+    if fundingrequest.extra_contact:
+        request.extra_contact = FundingRequestContactModel.objects.create(
+            name=fundingrequest.extra_contact.name,
+            email=fundingrequest.extra_contact.email,
+        )
+
     external_funding_create(FundingRequestId(request.id), fundingrequest.external_funding)
+    request.save()
     return FundingRequestId(request.pk)
+
+
+@transaction.atomic
+def fundingrequest_contact_update(
+    fundingrequest_id: FundingRequestId, contact: FundingRequestContact
+) -> None:
+    model_contact, _ = FundingRequestContactModel.objects.get_or_create(
+        funding_request__pk=fundingrequest_id
+    )
+    model_contact.name = contact.name
+    model_contact.email = contact.email
+
+    model_contact.save()
 
 
 @transaction.atomic

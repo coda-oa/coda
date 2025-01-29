@@ -6,11 +6,11 @@ from django.template.response import TemplateResponse
 from django.test import Client
 from django.urls import reverse
 
-from coda.apps.authors.models import Author
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.color import Color
 from coda.fundingrequest import ReviewResult
+from coda.publication import Authors
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 
@@ -42,17 +42,17 @@ def test__searching_for_funding_requests_by_title__shows_only_matching_funding_r
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__searching_funding_request_by_submitter__shows_only_matching_funding_requests(
+def test__searching_funding_request_by_author__shows_only_matching_funding_requests(
     client: Client,
 ) -> None:
-    matching_request = modelfactory.fundingrequest()
-    submitter = cast(Author, matching_request.submitter)
+    matching_author = domainfactory.author()
+    matching_request = modelfactory.fundingrequest(authors=Authors([matching_author]))
 
-    non_matching_submitter = domainfactory.author()
-    non_matching_submitter.name = NonEmptyStr("Not the submitter")
-    _ = modelfactory.fundingrequest("No match", non_matching_submitter)
+    non_matching_author = domainfactory.author()
+    non_matching_author.name = NonEmptyStr("Not the submitter")
+    _ = modelfactory.fundingrequest("No match", authors=Authors([non_matching_author]))
 
-    response = search_fundingrequests(client, by_submitter(submitter.name))
+    response = search_fundingrequests(client, by_submitter(matching_author.name))
 
     assert_contains(response.context, {matching_request})
 
@@ -113,7 +113,7 @@ def by_title(title: str) -> dict[str, str]:
 
 
 def by_submitter(submitter: str) -> dict[str, str]:
-    return {"search_type": "submitter", "search_term": submitter}
+    return {"search_type": "author", "search_term": submitter}
 
 
 def assert_contains(context: RequestContext, requests: set[FundingRequest]) -> None:

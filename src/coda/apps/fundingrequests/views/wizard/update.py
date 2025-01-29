@@ -4,8 +4,6 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest
 from django.urls import reverse
 
-from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.services import author_update
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
@@ -14,34 +12,38 @@ from coda.apps.fundingrequests.views.wizard.steps.publication_step import Public
 from coda.apps.fundingrequests.views.wizard.wizardsteps import (
     FundingStep,
     JournalStep,
-    SubmitterStep,
+    ExtraContactStep,
 )
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.wizard import SessionStore, Wizard
+from coda.fundingrequest import FundingRequestContact
+from coda.string import NonEmptyStr
 
 
 class UpdateSubmitterView(LoginRequiredMixin, Wizard):
     store_name = "update_submitter_wizard"
     store_factory = SessionStore
-    steps = [SubmitterStep()]
+    steps = [ExtraContactStep()]
 
     def get_success_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
     def complete(self, /, **kwargs: Any) -> None:
         store = self.get_store()
-        fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
-        author = AuthorDto(**store["submitter"]).to_author(fr.submitter.id)
-        author_update(author)
+        stored_contact = store["submitter"]
+        contact = FundingRequestContact(
+            NonEmptyStr(stored_contact["name"]), stored_contact["email"]
+        )
+        services.fundingrequest_contact_update(self.kwargs["pk"], contact)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
         fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
-        store["submitter"] = AuthorDto.from_author(fr.submitter).to_post_data() | {
-            "id": fr.submitter.id
-        }
-        store.save()
+
+        if fr.extra_contact is not None:
+            store["submitter"] = {"name": fr.extra_contact.name, "email": fr.extra_contact.email}
+            store.save()
 
 
 class UpdatePublicationView(LoginRequiredMixin, Wizard):

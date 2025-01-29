@@ -7,7 +7,6 @@ from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
-from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.services import fundingrequest_create
@@ -98,7 +97,7 @@ def test__updating_monograph_meta_step__saves_fundingrequest_with_changed_data(
 
 def submit_wizard(
     client: Client,
-    author: AuthorDto,
+    extra_contact: dict[str, str],
     monograph: MonographDto,
     external_funding: list[ExternalFundingDto],
     cost: PaymentDto,
@@ -108,9 +107,9 @@ def submit_wizard(
 
     fundings = to_htmx_formset_data(external_funding)
 
-    submit(author.to_post_data())
     submit(
         PublisherStepDto(publisher=monograph.publisher, contracts=monograph.contracts).page_input()
     )
     submit(publication_step.stepdata(monograph))
-    return submit(fundings | cost.to_post_data())
+    submit(fundings | cost.to_post_data())
+    return submit(extra_contact)

@@ -3,13 +3,13 @@ from typing import Any, cast
 
 import pytest
 
-from coda.apps.authors.models import Author
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.apps.journals.models import Journal
 from coda.color import Color
 from coda.date import DateRange
 from coda.fundingrequest import ReviewResult
+from coda.publication import Authors
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 
@@ -27,15 +27,15 @@ def test__searching_for_funding_requests_by_title__returns_matching_funding_requ
 
 
 @pytest.mark.django_db
-def test__searching_for_funding_requests_by_submitter__returns_matching_funding_requests() -> None:
-    matching_request = modelfactory.fundingrequest()
-    submitter = cast(Author, matching_request.submitter)
+def test__searching_for_funding_requests_by_author__returns_matching_funding_requests() -> None:
+    matching_author = domainfactory.author()
+    matching_request = modelfactory.fundingrequest(authors=Authors([matching_author]))
 
-    non_matching_submitter = domainfactory.author()
-    non_matching_submitter.name = NonEmptyStr("Not the submitter")
-    _ = modelfactory.fundingrequest("No match", non_matching_submitter)
+    non_matching_author = domainfactory.author()
+    non_matching_author.name = NonEmptyStr("Not the submitter")
+    _ = modelfactory.fundingrequest("No match", authors=Authors([non_matching_author]))
 
-    results = repository.search(submitter=submitter.name)
+    results = repository.search(author=matching_author.name)
 
     assert list(results) == [matching_request]
 

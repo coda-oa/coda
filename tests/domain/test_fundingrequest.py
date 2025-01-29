@@ -1,10 +1,10 @@
 import pytest
 
-from coda.author import Author, AuthorId
 from coda.fundingrequest import (
     ExternalFunding,
     FundingOrganizationId,
     FundingRequest,
+    FundingRequestContact,
     FundingRequestId,
     Payment,
     PaymentMethod,
@@ -23,7 +23,7 @@ def make_sut() -> FundingRequest[Publication]:
             title=NonEmptyStr("Publication Title"),
             journal=JournalId(3),
         ),
-        submitter=Author(AuthorId(1), NonEmptyStr("John Doe")),
+        extra_contact=FundingRequestContact(NonEmptyStr("John Doe"), "j.doe@example.com"),
         estimated_cost=Payment(
             Money(100, Currency.EUR),
             PaymentMethod.Direct,

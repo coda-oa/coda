@@ -14,9 +14,8 @@ from coda.apps.invoices.models import Creditor, FundingSource
 from coda.apps.journals.models import Journal
 from coda.apps.publications.models import Concept, Publication, Vocabulary
 from coda.apps.publishers.models import Publisher
-from coda.author import Author, InstitutionId
 from coda.fundingrequest import FundingOrganizationId, FundingRequest
-from coda.publication import JournalId
+from coda.publication import Authors, JournalId
 from tests import domainfactory
 
 _faker = faker.Faker()
@@ -88,13 +87,13 @@ def external_funding(funder_id: int | None = None) -> ExternalFunding:
     )
 
 
-def fundingrequest(title: str = "", submitter: Author | None = None) -> FundingRequestModel:
+def fundingrequest(title: str = "", authors: Authors | None = None) -> FundingRequestModel:
     request_id = fundingrequest_create(
         FundingRequest.new(
-            domainfactory.publication(JournalId(journal().pk), title),
-            submitter or domainfactory.author(InstitutionId(institution().pk)),
+            domainfactory.publication(JournalId(journal().pk), title, relevant_authors=authors),
             domainfactory.payment(),
             [domainfactory.external_funding(FundingOrganizationId(funding_organization().pk))],
+            domainfactory.fundingrequest_contact(),
         )
     )
     return FundingRequestModel.objects.get(pk=request_id)

@@ -3,7 +3,6 @@ from typing import Any
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 
-from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.dto import PaymentDto, ExternalFundingDto
 from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
@@ -11,16 +10,16 @@ from coda.apps.fundingrequests.views.wizard.steps.publication_step import Public
 from coda.apps.fundingrequests.views.wizard.wizardsteps import (
     FundingStep,
     JournalStep,
-    SubmitterStep,
+    ExtraContactStep,
 )
 from coda.apps.wizard import SessionStore, Wizard
-from coda.fundingrequest import FundingRequest
+from coda.fundingrequest import FundingRequest, FundingRequestContact
 
 
 class FundingRequestWizard(LoginRequiredMixin, Wizard):
     store_name = "funding_request_wizard"
     store_factory = SessionStore
-    steps = [SubmitterStep(), JournalStep(), PublicationStep.for_article(), FundingStep()]
+    steps = [JournalStep(), PublicationStep.for_article(), FundingStep(), ExtraContactStep()]
 
     def get_success_url(self) -> str:
         store = self.get_store()
@@ -28,7 +27,9 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
 
     def complete(self, **kwargs: Any) -> None:
         store = self.get_store()
-        author = AuthorDto(**store["submitter"]).to_author()
+        extra_contact = FundingRequestContact(
+            store["submitter"]["name"], store["submitter"]["email"]
+        )
         publication = publication_dto_from(store).to_publication()
         cost = PaymentDto(**store["cost"]).to_payment()
         funding = []
@@ -36,7 +37,7 @@ class FundingRequestWizard(LoginRequiredMixin, Wizard):
             funding = [ExternalFundingDto(**f).to_external_funding() for f in store["funding"]]
 
         funding_request_id = services.fundingrequest_create(
-            FundingRequest.new(publication, author, cost, funding)
+            FundingRequest.new(publication, cost, funding, extra_contact)
         )
 
         store["funding_request"] = funding_request_id

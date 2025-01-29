@@ -1,15 +1,15 @@
 import abc
 import functools
+from dataclasses import asdict
 from typing import Any, Generic, Self, cast
 
-from faker import Faker
 import pytest
 from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
+from faker import Faker
 from pytest_django.asserts import assertRedirects
 
-from coda.apps.authors.dto import AuthorDto
 from coda.apps.contracts.services import as_domain_object
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
@@ -19,20 +19,23 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.users.models import User
-from coda.author import InstitutionId
 from coda.fundingrequest import (
     ExternalFunding,
     FundingOrganizationId,
     FundingRequest,
+    FundingRequestContact,
     FundingRequestId,
     Payment,
     TPublication,
 )
 from coda.publication import JournalId, Publication, PublicationId
+from coda.string import NonEmptyStr
 from coda.vocabulary import VocabularyConcept
 from tests import domainfactory, modelfactory
-from tests.authors.test__author import assert_author_eq
-from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
+from tests.fundingrequests.test_fundingrequest_services import (
+    assert_fundingrequest_contact_eq,
+    assert_fundingrequest_eq,
+)
 from tests.fundingrequests.wizard.stepdata import publication_step
 from tests.publications.test_publication_repository import assert_publication_eq
 
@@ -45,7 +48,9 @@ class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
         self.contracts = [as_domain_object(modelfactory.contract()) for _ in range(1, 3)]
         self.contract_years = [domainfactory.contract_year(c) for c in self.contracts]
 
-        self.submitter = domainfactory.author(affiliation=InstitutionId(self.affiliation.pk))
+        self.submitter = FundingRequestContact(
+            name=NonEmptyStr(self._faker.name()), email=self._faker.email()
+        )
         self.estimated_cost = domainfactory.payment()
         self.external_funding = [
             domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
@@ -76,9 +81,9 @@ class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
     def build(self) -> FundingRequest[TPublication]:
         return FundingRequest.new(
             self.publication,
-            self.submitter,
             self.estimated_cost,
             self.external_funding,
+            self.submitter,
         )
 
     @property
@@ -93,8 +98,8 @@ class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
         self.estimated_cost = payment
         return self
 
-    def submitter_dto(self) -> AuthorDto:
-        return AuthorDto.from_author(self.submitter)
+    def submitter_dto(self) -> dict[str, str]:
+        return asdict(self.submitter)
 
     def external_funding_dto(self) -> list[ExternalFundingDto]:
         return [self._to_external_funding_dto(f) for f in self.external_funding]
@@ -174,14 +179,15 @@ def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_d
     fr_id = save_new_fundingrequest()
     wizard_url = reverse("fundingrequests:update_submitter", kwargs={"pk": fr_id})
 
-    affiliation = modelfactory.institution()
-    new_author = domainfactory.author(InstitutionId(affiliation.pk))
-    new_author_dto = AuthorDto.from_author(new_author)
-    response = submit_step(client, wizard_url, new_author_dto.to_post_data())
+    expected = FundingRequestContact(
+        name=NonEmptyStr(domainfactory._faker.name()), email=domainfactory._faker.email()
+    )
 
-    expected = new_author
-    actual = repository.get_by_id(fr_id).submitter
-    assert_author_eq(actual, expected)
+    new_contact = asdict(expected)
+    response = submit_step(client, wizard_url, new_contact)
+
+    actual = repository.get_by_id(fr_id).extra_contact
+    assert_fundingrequest_contact_eq(actual, expected)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
 
 
@@ -258,7 +264,7 @@ def next() -> dict[str, str]:
 
 def submit_wizard(
     client: Client,
-    author: AuthorDto,
+    extra_contact: dict[str, str],
     publication: PublicationDto,
     external_funding: list[ExternalFundingDto],
     cost: PaymentDto,
@@ -271,10 +277,10 @@ def submit_wizard(
         [{"contract": c.contract, "year": c.year} for c in publication.contracts]
     )
     journal = {"journal": publication.journal.id}
-    submit(author.to_post_data())
     submit(journal | contracts)
     submit(publication_step.stepdata(publication))
-    return submit(fundings | cost.to_post_data())
+    submit(fundings | cost.to_post_data())
+    return submit(extra_contact)
 
 
 def submit_update_publication_wizard(

@@ -4,17 +4,16 @@ from typing import Any, cast
 from django.db.models import Q
 from typing_extensions import TypeIs
 
-from coda.apps.authors import services as author_services
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.publications.repositories import publication_repository
-from coda.author import AuthorId
 from coda.date import DateRange
 from coda.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
     FundingOrganizationId,
     FundingRequest,
+    FundingRequestContact,
     FundingRequestId,
     Payment,
     PaymentMethod,
@@ -65,7 +64,11 @@ def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
     fr = FundingRequest(
         id=FundingRequestId(model.id),
         publication=publication_repository.get_by_id(PublicationId(model.publication_id)),
-        submitter=author_services.get_by_id(AuthorId(cast(int, model.submitter_id))),
+        extra_contact=(
+            FundingRequestContact(NonEmptyStr(model.extra_contact.name), model.extra_contact.email)
+            if model.extra_contact
+            else None
+        ),
         estimated_cost=Payment(
             amount=Money(model.estimated_cost, Currency.from_code(model.estimated_cost_currency)),
             method=PaymentMethod(model.payment_method),
@@ -111,7 +114,7 @@ def save_review(fr: AnyFundingRequest) -> None:
 def search(
     *,
     title: str | None = None,
-    submitter: str | None = None,
+    author: str | None = None,
     publisher: str | None = None,
     processing_states: list[ReviewResult] | None = None,
     open_access_types: list[OpenAccessType] | None = None,
@@ -122,8 +125,8 @@ def search(
     if title:
         query = query & Q(publication__title__icontains=title)
 
-    if submitter:
-        query = query & Q(submitter__name__icontains=submitter)
+    if author:
+        query = query & Q(publication__relevant_authors__name__icontains=author)
 
     if publisher:
         query = query & Q(publication__article_journal__publisher__name__icontains=publisher)

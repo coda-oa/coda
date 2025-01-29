@@ -14,12 +14,13 @@ from coda.apps.journals.models import Journal
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import LinkType
 from coda.apps.publishers.models import Publisher
-from coda.author import Author, AuthorNames, Role
+from coda.author import AuthorNames
 from coda.doi import Doi
 from coda.fundingrequest import (
     ExternalFunding,
     FundingOrganizationId,
     FundingRequest,
+    FundingRequestContact,
     Payment,
     PaymentMethod,
     ReviewResult,
@@ -74,7 +75,6 @@ class Command(BaseCommand):
                 publication_type=random_publication_type,
                 links={Doi("10.1234/5678")},
             ),
-            self.create_author(),
             Payment(amount=Money(100, Currency.USD), method=PaymentMethod.Direct),
             [
                 ExternalFunding(
@@ -83,6 +83,7 @@ class Command(BaseCommand):
                     project_name=faker.sentence(),
                 )
             ],
+            self.extra_contact(),
         )
 
         id = fundingrequest_create(request)
@@ -94,13 +95,10 @@ class Command(BaseCommand):
 
         repository.save_review(request)
 
-    def create_author(self) -> Author:
-        return Author.new(
+    def extra_contact(self) -> FundingRequestContact:
+        return FundingRequestContact(
             name=NonEmptyStr(faker.name()),
             email=faker.email(),
-            orcid=None,
-            affiliation=None,
-            role=Role.SUBMITTER,
         )
 
     def publisher(self) -> Publisher:

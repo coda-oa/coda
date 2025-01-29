@@ -3,7 +3,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Generic, NamedTuple, NewType, TypeAlias, TypeVar
 
-from coda.author import Author
 from coda.money import Money
 from coda.money._currency import Currency
 from coda.publication import BasePublication, Monograph, Publication
@@ -55,18 +54,24 @@ class Payment:
 TPublication = TypeVar("TPublication", bound=BasePublication)
 
 
+@dataclass
+class FundingRequestContact:
+    name: NonEmptyStr
+    email: str
+
+
 class FundingRequest(Generic[TPublication]):
     def __init__(
         self,
         id: FundingRequestId | None,
         publication: TPublication,
-        submitter: Author,
         estimated_cost: Payment,
         external_funding: Iterable[ExternalFunding] = (),
+        extra_contact: FundingRequestContact | None = None,
     ) -> None:
         self.id = id
         self.publication = publication
-        self.submitter = submitter
+        self.extra_contact = extra_contact
         self.estimated_cost = estimated_cost
         self.external_funding = tuple(external_funding)
         self._review = Review()
@@ -75,11 +80,11 @@ class FundingRequest(Generic[TPublication]):
     def new(
         cls,
         publication: TPublication,
-        submitter: Author,
         estimated_cost: Payment,
         external_funding: Iterable[ExternalFunding] = (),
+        extra_contact: FundingRequestContact | None = None,
     ) -> "FundingRequest[TPublication]":
-        return cls(None, publication, submitter, estimated_cost, external_funding)
+        return cls(None, publication, estimated_cost, external_funding, extra_contact)
 
     def approve(self, decided_funding: Money, remarks: str = "") -> None:
         self._review = Review(decided_funding, ReviewResult.Approved, remarks)

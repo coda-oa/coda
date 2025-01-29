@@ -14,6 +14,7 @@ from coda.fundingrequest import (
     ExternalFunding,
     FundingOrganizationId,
     FundingRequest,
+    FundingRequestContact,
     FundingRequestId,
     Payment,
     PaymentMethod,
@@ -160,6 +161,7 @@ def free_position(currency: Currency | None = None) -> Position[str]:
 def publication(
     journal: JournalId | None = None,
     title: str = "",
+    relevant_authors: Authors | None = None,
     publication_type: VocabularyConcept | None = None,
     subject_area: VocabularyConcept | None = None,
     contracts: tuple[ContractYear, ...] = (),
@@ -174,7 +176,7 @@ def publication(
         id=id,
         title=NonEmptyStr(title or _faker.sentence()),
         journal=journal or JournalId(random.randint(1, 1000)),
-        relevant_authors=relevant_authors(),
+        relevant_authors=relevant_authors if relevant_authors is not None else _relevant_authors(),
         other_authors=random_authorlist(),
         license=random_license(),
         publication_type=publication_type or UnknownConcept,
@@ -186,7 +188,7 @@ def publication(
     )
 
 
-def relevant_authors() -> Authors:
+def _relevant_authors() -> Authors:
     return Authors(
         (
             author(role=Role.SUBMITTING_CORRESPONDING_AUTHOR),
@@ -207,7 +209,7 @@ def monograph(
         id=id,
         publisher=publisher or PublisherId(random.randint(1, 1000)),
         title=NonEmptyStr(_faker.sentence()),
-        relevant_authors=relevant_authors(),
+        relevant_authors=_relevant_authors(),
         other_authors=random_authorlist(),
         license=random_license(),
         publication_type=publication_type or UnknownConcept,
@@ -244,6 +246,13 @@ def external_funding(organization_id: FundingOrganizationId | None = None) -> Ex
     )
 
 
+def fundingrequest_contact() -> FundingRequestContact:
+    return FundingRequestContact(
+        name=NonEmptyStr(_faker.name()),
+        email=_faker.email(),
+    )
+
+
 def fundingrequest(
     *,
     id: FundingRequestId | None = None,
@@ -253,7 +262,7 @@ def fundingrequest(
     return FundingRequest(
         id=id or None,
         publication=publication(journal_id or JournalId(random.randint(1, 1000))),
-        submitter=author(),
+        extra_contact=fundingrequest_contact(),
         estimated_cost=payment(),
         external_funding=[external_funding(funding_org_id)],
     )

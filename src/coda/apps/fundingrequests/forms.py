@@ -13,6 +13,14 @@ from coda.apps.publications.dto import ContractYearDto
 from coda.contract import ContractYear
 
 
+class ExtraContactForm(CodaFormBase):
+    name = forms.CharField()
+    email = forms.EmailField()
+
+    def to_dto(self) -> dict[str, Any]:
+        return self.cleaned_data
+
+
 class ContractForm(CodaFormBase):
     contract = forms.ModelChoiceField[Contract](queryset=Contract.objects.all())
     year = forms.IntegerField()

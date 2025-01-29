@@ -3,9 +3,13 @@ from typing import Any, TypeVar
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 
-from coda.apps.authors.forms import AuthorForm
 from coda.apps.formbase import CodaFormBase
-from coda.apps.fundingrequests.forms import ContractFormset, ExternalFundingFormset, PaymentForm
+from coda.apps.fundingrequests.forms import (
+    ContractFormset,
+    ExternalFundingFormset,
+    ExtraContactForm,
+    PaymentForm,
+)
 from coda.apps.journals.models import Journal
 from coda.apps.journals.services import find_by_title
 from coda.apps.publications.dto import ContractYearDto
@@ -32,9 +36,9 @@ def form_with_post_or_store_data(
         return form_type(**kwargs)
 
 
-class SubmitterStep(FormStep):
+class ExtraContactStep(FormStep):
     template_name: str = "fundingrequests/fundingrequest_submitter.html"
-    form_class = AuthorForm
+    form_class = ExtraContactForm
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         return super().get_context_data(request, store) | {
@@ -43,14 +47,14 @@ class SubmitterStep(FormStep):
         }
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
-        form = AuthorForm(request.POST)
+        form = ExtraContactForm(request.POST)
         valid = form.is_valid()
         return valid
 
     def done(self, request: HttpRequest, store: Store) -> None:
-        form = AuthorForm(request.POST)
+        form = ExtraContactForm(request.POST)
         form.full_clean()
-        store["submitter"] = form.to_dto().to_post_data()
+        store["submitter"] = form.to_dto()
 
 
 class JournalStep(Step):

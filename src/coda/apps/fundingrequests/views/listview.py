@@ -10,7 +10,6 @@ from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
 from coda.apps.views import EntityListView
-from coda.author import Author
 from coda.date import DateRange
 from coda.fundingrequest import ReviewResult
 from coda.publication import OpenAccessType
@@ -54,7 +53,7 @@ fundingrequest_list = FundingRequestListView.as_view()
 
 def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     search_type = request.GET.get("search_type")
-    if search_type in ["title", "submitter", "publisher"]:
+    if search_type in ["title", "author", "publisher"]:
         search_args = {search_type: request.GET.get("search_term")}
     else:
         search_args = {}
@@ -113,7 +112,7 @@ def article_viewmodel(funding_request: FundingRequestModel) -> FundingRequestLis
         id=funding_request.id,
         url=funding_request.get_absolute_url(),
         publication_title=funding_request.publication.title,
-        submitter_name=cast(Author, funding_request.submitter).name,
+        submitter_name="",
         publishing_entity_type="Journal",
         publishing_entity_name=journal_title,
         publishing_entity_url=journal_url,
@@ -134,7 +133,7 @@ def monograph_viewmodel(funding_request: FundingRequestModel) -> FundingRequestL
         id=funding_request.id,
         url=funding_request.get_absolute_url(),
         publication_title=funding_request.publication.title,
-        submitter_name=cast(Author, funding_request.submitter).name,
+        submitter_name="",
         publishing_entity_type="Publisher",
         publishing_entity_name=publisher_name,
         publishing_entity_url=publisher_url,

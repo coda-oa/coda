@@ -6,9 +6,16 @@ from django.core.validators import RegexValidator
 from django.db import models
 from django.urls import reverse
 
-from coda.apps.authors.models import Author
 from coda.apps.publications.models import Publication
 from coda.fundingrequest import PaymentMethod, ReviewResult
+
+
+class FundingRequestContact(models.Model):
+    name = models.CharField()
+    email = models.EmailField()
+
+    def __str__(self) -> str:
+        return self.name
 
 
 class FundingOrganization(models.Model):
@@ -69,8 +76,8 @@ class FundingRequest(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     labels = models.ManyToManyField(Label, related_name="requests")
-    submitter = models.ForeignKey(
-        Author, on_delete=models.CASCADE, related_name="funding_requests", null=True, blank=True
+    extra_contact = models.OneToOneField(
+        FundingRequestContact, related_name="funding_request", on_delete=models.CASCADE, null=True
     )
     publication = models.OneToOneField(Publication, on_delete=models.CASCADE)
 
