@@ -81,7 +81,7 @@ class FundingRequestListViewModel(NamedTuple):
     id: int
     url: str
     publication_title: str
-    submitter_name: str
+    authors: list[str]
     publishing_entity_type: Literal["Journal", "Publisher"]
     publishing_entity_name: str
     publishing_entity_url: str
@@ -112,7 +112,7 @@ def article_viewmodel(funding_request: FundingRequestModel) -> FundingRequestLis
         id=funding_request.id,
         url=funding_request.get_absolute_url(),
         publication_title=funding_request.publication.title,
-        submitter_name="",
+        authors=[author.name for author in funding_request.publication.relevant_authors.all()],
         publishing_entity_type="Journal",
         publishing_entity_name=journal_title,
         publishing_entity_url=journal_url,
@@ -132,8 +132,8 @@ def monograph_viewmodel(funding_request: FundingRequestModel) -> FundingRequestL
         type="Monograph",
         id=funding_request.id,
         url=funding_request.get_absolute_url(),
+        authors=[author.name for author in funding_request.publication.relevant_authors.all()],
         publication_title=funding_request.publication.title,
-        submitter_name="",
         publishing_entity_type="Publisher",
         publishing_entity_name=publisher_name,
         publishing_entity_url=publisher_url,

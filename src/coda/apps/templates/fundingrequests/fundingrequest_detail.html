@@ -4,26 +4,14 @@
     <div class="fundingrequest__detail-grid">
         <div>
             <article>
-                <header class="flex justify-between align-center">
+                <header>
                     <h2 class="fundingrequest__detail-title">Request Details</h2>
-                    <a href="{% url "fundingrequests:update_submitter" pk=funding_request.id %}"
-                       role="button">Edit</a>
                 </header>
                 <table class="fundingrequest-table">
                     <tbody>
                         <tr>
                             <th>Request ID</th>
                             <td>{{ funding_request.request_id }}</td>
-                        </tr>
-                        <tr>
-                            <th>Request Submitter</th>
-                            <td>
-                                <p>{{ submitter.name }}</p>
-                                <p>{{ submitter.affiliation }}</p>
-                                <p>
-                                    {% for role in submitter.roles %}<span>{{ role }}</span>{% endfor %}
-                                </p>
-                            </td>
                         </tr>
                         <tr>
                             <th>Created at</th>
@@ -36,6 +24,28 @@
                     </tbody>
                 </table>
             </article>
+            {% if contact %}
+                <article>
+                    <header class="flex justify-between align-center">
+                        <h2 class="my-0">Separate Contact Information</h2>
+                        <a href="{% url "fundingrequests:update_submitter" pk=funding_request.id %}"
+                           role="button">Edit</a>
+                    </header>
+                    <h3>Extra Contact</h3>
+                    <table class="fundingrequest-table">
+                        <tbody>
+                            <tr>
+                                <th>Name</th>
+                                <td>{{ contact.name }}</td>
+                            </tr>
+                            <tr>
+                                <th>E-Mail</th>
+                                <td>{{ contact.email }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </article>
+            {% endif %}
             <article>
                 <header class="flex justify-between align-center">
                     <h2 class="fundingrequest__detail-title">Publication Details</h2>

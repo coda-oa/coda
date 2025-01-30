@@ -170,7 +170,7 @@ def fundingrequest_detail(request: HttpRequest, pk: int) -> HttpResponse:
 def context(fr: FundingRequestModel) -> dict[str, Any]:
     ctx = {
         "funding_request": request_viewmodel(fr),
-        "submitter": fr.extra_contact,
+        "contact": fr.extra_contact,
         "publication": publication_viewmodel(fr),
         "label_form": ChooseLabelForm(),
         "external_funding": [funding_viewmodel(ef) for ef in fr.external_funding.all()],
