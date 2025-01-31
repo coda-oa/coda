@@ -72,6 +72,9 @@
         <script src="{% static 'js/search-select.js' %}"
                 type="module"
                 crossorigin="anonymous"></script>
+        <script src="{% static 'js/search-select-multi.js' %}"
+                type="module"
+                crossorigin="anonymous"></script>
     </head>
     <body class="main-grid" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
         {% include "partials/nav.html" %}
