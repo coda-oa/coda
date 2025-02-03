@@ -7,6 +7,8 @@ from django.test import RequestFactory
 
 from coda.apps.wizard import Step, Store, StoreFactory, SupportsKeysAndGetItem, Wizard
 
+DummyName = "Test"
+
 
 class SimpleStep(Step):
     template_name: str = "simple_template.html"
@@ -22,7 +24,7 @@ class InvalidStep(Step):
 
 class StepWithContext(SimpleStep):
     template_name: str = "template_with_data.html"
-    context: dict[str, str] = {"name": "Steven"}
+    context: dict[str, str] = {"name": DummyName}
 
 
 class StepperStep(Step):
@@ -37,11 +39,14 @@ class StepWithDone(SimpleStep):
 class DictStore(Store):
     def __init__(self) -> None:
         self.saved_state: dict[str, Any] = {}
-        self.unsaved_state: dict[str, Any] = {}
+        self.current_state: dict[str, Any] = {}
+        self._clear_on_save = False
 
     def save(self) -> None:
-        self.saved_state = self.unsaved_state.copy()
-        self.unsaved_state.clear()
+        self.saved_state.update(self.current_state.copy())
+        if self._clear_on_save:
+            self.saved_state.clear()
+            self._clear_on_save = False
 
     def get(self, key: str, __default: Any = None) -> Any:
         return self.saved_state.get(key, __default)
@@ -52,10 +57,11 @@ class DictStore(Store):
         /,
         **kwargs: Any,
     ) -> None:
-        self.unsaved_state.update(__m, **kwargs)
+        self.current_state.update(__m, **kwargs)
 
     def clear(self) -> None:
-        self.unsaved_state.clear()
+        self.current_state.clear()
+        self._clear_on_save = True
 
     def reset_save_state(self) -> None:
         self.saved_state.clear()
@@ -67,13 +73,16 @@ class DictStore(Store):
         ) and len(self.saved_state) == len(expected)
 
     def __getitem__(self, key: str) -> Any:
-        return self.saved_state[key]
+        return self.current_state[key]
 
     def __setitem__(self, key: str, value: Any) -> None:
-        self.unsaved_state[key] = value
+        self.current_state[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.current_state[key]
 
     def __contains__(self, key: str) -> bool:
-        return key in self.saved_state
+        return key in self.current_state
 
 
 class SingletonDictStoreFactory:
@@ -90,6 +99,7 @@ class SingletonDictStoreFactory:
         SingletonDictStoreFactory.store_name = ""
         SingletonDictStoreFactory.store.clear()
         SingletonDictStoreFactory.store.reset_save_state()
+        SingletonDictStoreFactory.store.save()
 
 
 class WizardTestImpl(Wizard):
@@ -215,7 +225,7 @@ def test__wizard__get__clears_store() -> None:
 
     _ = get(sut)
 
-    assert store.was_saved_with({})
+    assert store.saved_state == {}
 
 
 def test__wizard_with_step__post_next__renders_second_step() -> None:
@@ -458,7 +468,7 @@ def step(s: int) -> dict[str, Any]:
     return {"step": s}
 
 
-def assert_rendered_with_context(response: HttpResponse, expected: str = "Steven") -> None:
+def assert_rendered_with_context(response: HttpResponse, expected: str = DummyName) -> None:
     assert response.content.strip() == f"{expected}".encode()
 
 

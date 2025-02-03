@@ -18,6 +18,7 @@ from coda.author import AuthorNames
 from coda.doi import Doi
 from coda.fundingrequest import (
     ExternalFunding,
+    FilledContact,
     FundingOrganizationId,
     FundingRequest,
     FundingRequestContact,
@@ -96,7 +97,7 @@ class Command(BaseCommand):
         repository.save_review(request)
 
     def extra_contact(self) -> FundingRequestContact:
-        return FundingRequestContact(
+        return FilledContact(
             name=NonEmptyStr(faker.name()),
             email=faker.email(),
         )

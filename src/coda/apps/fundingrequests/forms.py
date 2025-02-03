@@ -14,8 +14,13 @@ from coda.contract import ContractYear
 
 
 class ExtraContactForm(CodaFormBase):
+    use_required_attribute = False
+
     name = forms.CharField()
     email = forms.EmailField()
+
+    def is_valid(self) -> bool:
+        return super().is_valid() or not self.has_changed()
 
     def to_dto(self) -> dict[str, Any]:
         return self.cleaned_data

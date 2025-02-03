@@ -6,9 +6,11 @@ from coda.apps.fundingrequests.repository import get_by_id
 from coda.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
+    FilledContact,
     FundingOrganizationId,
     FundingRequest,
     FundingRequestContact,
+    NoContact,
 )
 from coda.publication import JournalId
 from coda.string import NonEmptyStr
@@ -24,8 +26,8 @@ def create_funding() -> ExternalFunding:
     )
 
 
-def extra_contact() -> FundingRequestContact:
-    return FundingRequestContact(name=NonEmptyStr(_faker.name()), email=_faker.email())
+def extra_contact() -> FilledContact:
+    return FilledContact(name=NonEmptyStr(_faker.name()), email=_faker.email())
 
 
 @pytest.mark.django_db
@@ -74,6 +76,22 @@ def test__update_fundingrequest__extra_contact__updates_contact_in_database() ->
     assert updated.extra_contact is not None
     assert updated.extra_contact.name == new_contact.name
     assert updated.extra_contact.email == new_contact.email
+
+
+@pytest.mark.django_db
+def test__fundingrequest__delete_extra_contact__updates_contact_in_database() -> None:
+    new_id = services.fundingrequest_create(
+        FundingRequest.new(
+            publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
+            extra_contact=extra_contact(),
+            estimated_cost=domainfactory.payment(),
+        )
+    )
+
+    services.fundingrequest_contact_delete(new_id)
+
+    updated = get_by_id(new_id)
+    assert updated.extra_contact is NoContact
 
 
 @pytest.mark.django_db
@@ -152,6 +170,6 @@ def assert_fundingrequest_eq(actual: AnyFundingRequest, expected: AnyFundingRequ
 
 
 def assert_fundingrequest_contact_eq(
-    actual: FundingRequestContact | None, expected: FundingRequestContact | None
+    actual: FundingRequestContact, expected: FundingRequestContact
 ) -> None:
     assert actual == expected

@@ -24,14 +24,13 @@
                     </tbody>
                 </table>
             </article>
-            {% if contact %}
-                <article>
-                    <header class="flex justify-between align-center">
-                        <h2 class="my-0">Separate Contact Information</h2>
-                        <a href="{% url "fundingrequests:update_submitter" pk=funding_request.id %}"
-                           role="button">Edit</a>
-                    </header>
-                    <h3>Extra Contact</h3>
+            <article>
+                <header class="flex justify-between align-center">
+                    <h2 class="my-0">Separate Contact Information</h2>
+                    <a href="{% url "fundingrequests:update_submitter" pk=funding_request.id %}"
+                       role="button">Edit</a>
+                </header>
+                {% if contact %}
                     <table class="fundingrequest-table">
                         <tbody>
                             <tr>
@@ -40,12 +39,17 @@
                             </tr>
                             <tr>
                                 <th>E-Mail</th>
-                                <td>{{ contact.email }}</td>
+                                <td>
+                                    <a href="mailto:{{ contact.email }}">{{ contact.email }}</a>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
-                </article>
-            {% endif %}
+                {% else %}
+                    <p>No separate contact information provided.</p>
+                    <p>Communication goes through publication authors.</p>
+                {% endif %}
+            </article>
             <article>
                 <header class="flex justify-between align-center">
                     <h2 class="fundingrequest__detail-title">Publication Details</h2>
@@ -67,7 +71,9 @@
                             {% for author in publication.relevant_authors %}
                                 <tr>
                                     <td>{{ author.name }}</td>
-                                    <td>{{ author.email }}</td>
+                                    <td>
+                                        <a href="mailto:{{ author.email }}">{{ author.email }}</a>
+                                    </td>
                                     <td>{{ author.orcid }}</td>
                                     <td>{{ author.affiliation }}</td>
                                     <td>{{ author.role }}</td>

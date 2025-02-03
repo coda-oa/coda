@@ -1,5 +1,6 @@
 import abc
 import functools
+from collections.abc import Callable
 from dataclasses import asdict
 from typing import Any, Generic, Self, cast
 
@@ -21,10 +22,12 @@ from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.users.models import User
 from coda.fundingrequest import (
     ExternalFunding,
+    FilledContact,
     FundingOrganizationId,
     FundingRequest,
     FundingRequestContact,
     FundingRequestId,
+    NoContact,
     Payment,
     TPublication,
 )
@@ -48,7 +51,7 @@ class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
         self.contracts = [as_domain_object(modelfactory.contract()) for _ in range(1, 3)]
         self.contract_years = [domainfactory.contract_year(c) for c in self.contracts]
 
-        self.submitter = FundingRequestContact(
+        self.submitter: FundingRequestContact = FilledContact(
             name=NonEmptyStr(self._faker.name()), email=self._faker.email()
         )
         self.estimated_cost = domainfactory.payment()
@@ -59,6 +62,10 @@ class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
 
         self.prepare_vocabularies()
         self.set_global_preferences()
+
+    def with_empty_contact(self) -> Self:
+        self.submitter = NoContact
+        return self
 
     def prepare_vocabularies(self) -> None:
         self.subject_areas = vocabulary_repository.create("subject_areas", "1.0")
@@ -152,11 +159,22 @@ def save_new_fundingrequest() -> FundingRequestId:
     return fr_id
 
 
+BuilderFactory = Callable[[], ArticleRequestDataBuilder]
+
+
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    "get_builder",
+    [
+        lambda: ArticleRequestDataBuilder(),
+        lambda: ArticleRequestDataBuilder().with_empty_contact(),
+    ],
+    ids=["filled_contact", "empty_contact"],
+)
 def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_details(
-    client: Client,
+    client: Client, get_builder: BuilderFactory
 ) -> None:
-    builder = ArticleRequestDataBuilder()
+    builder = get_builder()
 
     response = submit_wizard(
         client,
@@ -173,15 +191,19 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
 
 
 @pytest.mark.django_db
-def test__updating_fundingrequest_submitter__updates_funding_request_and_shows_details(
-    client: Client,
+@pytest.mark.parametrize(
+    "expected",
+    [
+        NoContact,
+        FilledContact(name=NonEmptyStr("John Doe"), email="j.doe@example.com"),
+    ],
+    ids=["empty_contact", "filled_contact"],
+)
+def test__updating_fundingrequest_contact__updates_funding_request_and_shows_details(
+    client: Client, expected: FundingRequestContact
 ) -> None:
     fr_id = save_new_fundingrequest()
     wizard_url = reverse("fundingrequests:update_submitter", kwargs={"pk": fr_id})
-
-    expected = FundingRequestContact(
-        name=NonEmptyStr(domainfactory._faker.name()), email=domainfactory._faker.email()
-    )
 
     new_contact = asdict(expected)
     response = submit_step(client, wizard_url, new_contact)
@@ -274,7 +296,8 @@ def submit_wizard(
 
     fundings = to_htmx_formset_data(external_funding)
     contracts = to_htmx_formset_data(
-        [{"contract": c.contract, "year": c.year} for c in publication.contracts]
+        [{"contract": c.contract, "year": c.year} for c in publication.contracts],
+        prefix="contracts",
     )
     journal = {"journal": publication.journal.id}
     submit(journal | contracts)
@@ -294,7 +317,8 @@ def submit_update_publication_wizard(
 
     journal_post_data = {"journal": journal_id}
     contracts = to_htmx_formset_data(
-        [{"contract": c.contract, "year": c.year} for c in publication_dto.contracts]
+        [{"contract": c.contract, "year": c.year} for c in publication_dto.contracts],
+        prefix="contracts",
     )
     journal_stepdata = journal_post_data | contracts
     return submit(journal_stepdata)

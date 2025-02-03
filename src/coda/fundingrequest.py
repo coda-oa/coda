@@ -55,9 +55,22 @@ TPublication = TypeVar("TPublication", bound=BasePublication)
 
 
 @dataclass
-class FundingRequestContact:
+class FilledContact:
     name: NonEmptyStr
     email: str
+
+
+@dataclass(frozen=True, slots=True)
+class _NoContact:
+    name: str = ""
+    email: str = ""
+
+    def __bool__(self) -> bool:
+        return False
+
+
+NoContact = _NoContact()
+FundingRequestContact = FilledContact | _NoContact
 
 
 class FundingRequest(Generic[TPublication]):
@@ -67,7 +80,7 @@ class FundingRequest(Generic[TPublication]):
         publication: TPublication,
         estimated_cost: Payment,
         external_funding: Iterable[ExternalFunding] = (),
-        extra_contact: FundingRequestContact | None = None,
+        extra_contact: FundingRequestContact = NoContact,
     ) -> None:
         self.id = id
         self.publication = publication
@@ -82,7 +95,7 @@ class FundingRequest(Generic[TPublication]):
         publication: TPublication,
         estimated_cost: Payment,
         external_funding: Iterable[ExternalFunding] = (),
-        extra_contact: FundingRequestContact | None = None,
+        extra_contact: FundingRequestContact | _NoContact = NoContact,
     ) -> "FundingRequest[TPublication]":
         return cls(None, publication, estimated_cost, external_funding, extra_contact)
 

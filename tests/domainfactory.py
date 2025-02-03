@@ -12,9 +12,9 @@ from coda.date import DateRange
 from coda.doi import Doi
 from coda.fundingrequest import (
     ExternalFunding,
+    FilledContact,
     FundingOrganizationId,
     FundingRequest,
-    FundingRequestContact,
     FundingRequestId,
     Payment,
     PaymentMethod,
@@ -246,8 +246,8 @@ def external_funding(organization_id: FundingOrganizationId | None = None) -> Ex
     )
 
 
-def fundingrequest_contact() -> FundingRequestContact:
-    return FundingRequestContact(
+def fundingrequest_contact() -> FilledContact:
+    return FilledContact(
         name=NonEmptyStr(_faker.name()),
         email=_faker.email(),
     )

@@ -42,13 +42,23 @@ def fundingrequest_create(fundingrequest: AnyFundingRequest) -> FundingRequestId
 def fundingrequest_contact_update(
     fundingrequest_id: FundingRequestId, contact: FundingRequestContact
 ) -> None:
-    model_contact, _ = FundingRequestContactModel.objects.get_or_create(
+    model_contact = FundingRequestContactModel.objects.filter(
         funding_request__pk=fundingrequest_id
-    )
+    ).first()
+
+    if not model_contact:
+        model_contact = FundingRequestContactModel.objects.create()
+        FundingRequestModel.objects.filter(pk=fundingrequest_id).update(extra_contact=model_contact)
+
     model_contact.name = contact.name
     model_contact.email = contact.email
 
     model_contact.save()
+
+
+@transaction.atomic
+def fundingrequest_contact_delete(fundingrequest_id: FundingRequestId) -> None:
+    FundingRequestContactModel.objects.filter(funding_request__pk=fundingrequest_id).delete()
 
 
 @transaction.atomic

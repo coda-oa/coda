@@ -11,10 +11,11 @@ from coda.date import DateRange
 from coda.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
+    FilledContact,
     FundingOrganizationId,
     FundingRequest,
-    FundingRequestContact,
     FundingRequestId,
+    NoContact,
     Payment,
     PaymentMethod,
     ReviewResult,
@@ -65,9 +66,9 @@ def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
         id=FundingRequestId(model.id),
         publication=publication_repository.get_by_id(PublicationId(model.publication_id)),
         extra_contact=(
-            FundingRequestContact(NonEmptyStr(model.extra_contact.name), model.extra_contact.email)
+            FilledContact(NonEmptyStr(model.extra_contact.name), model.extra_contact.email)
             if model.extra_contact
-            else None
+            else NoContact
         ),
         estimated_cost=Payment(
             amount=Money(model.estimated_cost, Currency.from_code(model.estimated_cost_currency)),

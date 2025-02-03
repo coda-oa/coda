@@ -5,11 +5,11 @@ from coda.apps.fundingrequests.views import review
 from coda.apps.fundingrequests.views.detailview import fundingrequest_detail
 from coda.apps.fundingrequests.views.labels import LabelCreateView, attach_label, detach_label
 from coda.apps.fundingrequests.views.listview import fundingrequest_list
-from coda.apps.fundingrequests.views.wizard.create import FundingRequestWizard
+from coda.apps.fundingrequests.views.wizard.create_article import ArticleRequestWizard
 from coda.apps.fundingrequests.views.wizard.create_monograph import MonographRequestWizard
-from coda.apps.fundingrequests.views.wizard.partials import add_linkrow
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import add_linkrow
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import find_publisher
-from coda.apps.fundingrequests.views.wizard.update import (
+from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdateFundingView,
     UpdatePublicationView,
     UpdateSubmitterView,
@@ -26,7 +26,7 @@ urlpatterns = [
     path("<int:pk>/", fundingrequest_detail, name="detail"),
     path("review/<int:pk>/", review.review_page, name="review"),
     path("review/<int:pk>/submit", review.review_submit, name="review_submit"),
-    path("create/wizard/", FundingRequestWizard.as_view(), name="create_wizard"),
+    path("create/wizard/", ArticleRequestWizard.as_view(), name="create_wizard"),
     path("create/monograph/", MonographRequestWizard.as_view(), name="create_monograph"),
     path(
         "update/monograph/<int:pk>/meta",

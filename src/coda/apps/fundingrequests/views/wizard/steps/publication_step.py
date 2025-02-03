@@ -1,12 +1,15 @@
 import logging
 from collections.abc import Iterable
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
-from django.http import HttpRequest
+from django.contrib.auth.decorators import login_required
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import render
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorFormset
 from coda.apps.dto import CodaBaseDto
+from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.publications.dto import LinkDto, PublicationMetaDto
 from coda.apps.publications.forms import LinkForm, PublicationForm
 from coda.apps.publications.models import LinkType
@@ -58,17 +61,15 @@ class PublicationStep(Step):
         }
 
     def get_author_formset(self, request: HttpRequest, store: Store) -> AuthorFormset:
-        if request.POST.get("relevant-authors-total_forms"):
-            logging.info("Restoring authors from POST")
-            return AuthorFormset(request.POST, prefix="relevant-authors")
-        elif step_dto := store.get("publication_step"):
-            logging.info("Restoring authors from store")
-            logging.info(step_dto)
-            return AuthorFormset.from_data(
-                step_dto.get("relevant_authors", []), prefix="relevant-authors"
-            )
-
-        return AuthorFormset(prefix="relevant-authors")
+        return cast(
+            AuthorFormset,
+            restore_formset(
+                AuthorFormset,
+                request,
+                store_data=store.get("publication_step", {}).get("relevant_authors", []),
+                prefix="relevant-authors",
+            ),
+        )
 
     def get_publication_form(self, request: HttpRequest, store: Store) -> PublicationForm:
         if self.requested_author_preview(request):
@@ -151,3 +152,12 @@ class PublicationStep(Step):
             LinkForm({"link_type": link_type, "link_value": link_value})
             for link_type, link_value in zip(types, values)
         ]
+
+
+@login_required
+def add_linkrow(request: HttpRequest) -> HttpResponse:
+    return render(
+        request,
+        "fundingrequests/partials/linkrow.html",
+        {"link_types": LinkType.objects.all()},
+    )

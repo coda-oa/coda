@@ -1,3 +1,4 @@
+from collections.abc import Callable
 import functools
 from typing import Self
 
@@ -54,12 +55,23 @@ class MonographRequestDataBuilder(FundingRequestDataBuilder[Monograph]):
         return PublisherStepDto.from_monograph(self.publication)
 
 
+BuilderFactory = Callable[[], MonographRequestDataBuilder]
+
+
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize(
+    "get_builder",
+    [
+        lambda: MonographRequestDataBuilder(),
+        lambda: MonographRequestDataBuilder().with_empty_contact(),
+    ],
+    ids=["filled_contact", "empty_contact"],
+)
 def test__completing_monograph_wizard__creates_funding_request_for_monograph_and_shows_details(
-    client: Client,
+    client: Client, get_builder: BuilderFactory
 ) -> None:
-    builder = MonographRequestDataBuilder()
+    builder = get_builder()
 
     response = submit_wizard(
         client,

@@ -77,7 +77,7 @@ class FundingRequest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     labels = models.ManyToManyField(Label, related_name="requests")
     extra_contact = models.OneToOneField(
-        FundingRequestContact, related_name="funding_request", on_delete=models.CASCADE, null=True
+        FundingRequestContact, related_name="funding_request", on_delete=models.SET_NULL, null=True
     )
     publication = models.OneToOneField(Publication, on_delete=models.CASCADE)
 

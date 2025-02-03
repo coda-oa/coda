@@ -24,10 +24,16 @@ class Store(Protocol):
     def save(self) -> None:
         ...
 
+    def __delitem__(self, key: str) -> None:
+        ...
+
     def __getitem__(self, key: str) -> Any:
         ...
 
     def __setitem__(self, key: str, value: Any) -> None:
+        ...
+
+    def __contains__(self, key: str) -> bool:
         ...
 
     @overload
@@ -72,6 +78,12 @@ class SessionStore(Store):
 
     def __setitem__(self, key: str, value: Any) -> None:
         self.data[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.data[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.data
 
     def update(
         self,

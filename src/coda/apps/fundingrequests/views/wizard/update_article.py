@@ -7,17 +7,17 @@ from django.urls import reverse
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
+from coda.apps.fundingrequests.views.wizard.steps.funding_step import FundingStep
 from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
+from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalStep
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
-from coda.apps.fundingrequests.views.wizard.wizardsteps import (
-    FundingStep,
-    JournalStep,
+from coda.apps.fundingrequests.views.wizard.steps.contact_step import (
     ExtraContactStep,
 )
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.wizard import SessionStore, Wizard
-from coda.fundingrequest import FundingRequestContact
+from coda.fundingrequest import FilledContact
 from coda.string import NonEmptyStr
 
 
@@ -31,10 +31,12 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
 
     def complete(self, /, **kwargs: Any) -> None:
         store = self.get_store()
-        stored_contact = store["submitter"]
-        contact = FundingRequestContact(
-            NonEmptyStr(stored_contact["name"]), stored_contact["email"]
-        )
+        if store.get("contact") is None:
+            services.fundingrequest_contact_delete(self.kwargs["pk"])
+            return
+
+        stored_contact = store["contact"]
+        contact = FilledContact(NonEmptyStr(stored_contact["name"]), stored_contact["email"])
         services.fundingrequest_contact_update(self.kwargs["pk"], contact)
 
     def prepare(self, request: HttpRequest) -> None:
@@ -42,7 +44,7 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
         fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
 
         if fr.extra_contact is not None:
-            store["submitter"] = {"name": fr.extra_contact.name, "email": fr.extra_contact.email}
+            store["contact"] = {"name": fr.extra_contact.name, "email": fr.extra_contact.email}
             store.save()
 
 
@@ -68,7 +70,6 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         store["publication_step"] = dto.to_post_data(exclude={"journal", "contracts"})
         store["journal"] = fr.publication.journal
         store["contracts"] = [c.to_post_data() for c in dto.contracts]
-        store.save()
 
 
 class UpdateFundingView(LoginRequiredMixin, Wizard):
