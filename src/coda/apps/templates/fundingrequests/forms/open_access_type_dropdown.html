@@ -1,15 +1,11 @@
-<details class="dropdown">
-    <summary>Open Access Type</summary>
-    <ul class="undecorated">
-        {% for status in open_access_types %}
-            <li>
-                <input type="checkbox"
-                       id="status-{{ status }}"
-                       name="open_access_type"
-                       value="{{ status }}"
-                       {% if status in request.GET.open_access_type %}checked{% endif %}>
-                <label for="status-{{ status }}">{{ status }}</label>
-            </li>
-        {% endfor %}
-    </ul>
-</details>
+{% load getlist %}
+<div class="form-row">
+    <label for="open_access_type">Open Access Type</label>
+    <search-select-multi id="open_access_type" name="open_access_type" class="w-100">
+    {% for status in open_access_types %}
+        <option slot="options"
+                value="{{ status }}"
+                {% if status in request.GET|getlist:"open_access_type" %}selected{% endif %}>{{ status }}</option>
+    {% endfor %}
+    </search-select-multi>
+</div>

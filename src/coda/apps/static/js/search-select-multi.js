@@ -4,20 +4,19 @@ TEMPLATE.innerHTML =  /*html*/ `
         :host {
             line-height: var(--coda-line-height);
             font-size: var(--coda-font-size);
-
             display: block;
-            max-width: 100%;
         }
 
         .container {
             position: relative;
             max-width: 100%;
+            width: 100%;
         }
 
         .container > * {
             box-sizing: border-box;
             line-height: var(--coda-line-height);
-            font-size: var(--coda-font-size);
+            font-size: 1rem;
         }
 
         .search-input {
@@ -26,6 +25,16 @@ TEMPLATE.innerHTML =  /*html*/ `
             border: 1px solid var(--coda-border-color);
             border-radius: var(--coda-border-radius);
             background-color: var(--coda-form-element-background-color);
+            height: calc(1rem* var(--coda-line-height) + var(--coda-form-element-spacing-vertical)* 2 + var(--coda-border-width)* 2);
+        }
+
+        .search-input::placeholder {
+            color: #8891a4;
+        }
+
+        .search-input:has( + .selected-options:not(:empty)) {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
         }
 
         .dropdown {
@@ -64,8 +73,16 @@ TEMPLATE.innerHTML =  /*html*/ `
         .selected-options {
             display: flex;
             overflow-x: auto;
-            gap: var(--coda-gap);
-            margin-top: var(--coda-gap);
+            gap: calc(var(--coda-gap) / 2);
+        }
+
+        .selected-options:not(:empty) {
+            margin-bottom: var(--coda-spacing);
+            padding: calc(var(--coda-spacing) / 2);
+            border: 1px solid var(--coda-border-color);
+            border-top: none;
+            border-bottom-left-radius: var(--coda-border-radius);
+            border-bottom-right-radius: var(--coda-border-radius);
         }
 
         .selected-tag {
@@ -91,11 +108,11 @@ TEMPLATE.innerHTML =  /*html*/ `
         }
     </style>
     <div class="container">
-        <input type="text" class="search-input" placeholder="Search...">
+        <input type="text" part="search-input" class="search-input">
+        <div class="selected-options"></div>
         <div class="dropdown">
             <slot name="options"></slot>
         </div>
-        <div class="selected-options"></div>
     </div>
 `;
 

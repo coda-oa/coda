@@ -17,6 +17,7 @@
   --coda-border-color: var(--pico-form-element-border-color);
   --coda-muted-border-color: var(--pico-muted-border-color);
   --coda-border-radius: var(--pico-border-radius);
+  --coda-border-width: var(--pico-border-width);
 
   --coda-pill-border-radius: 50px;
   --coda-pill-padding-vertical: 0.35rem;

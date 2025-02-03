@@ -35,11 +35,9 @@
                            value="{{ request.GET.end_date }}">
                 </div>
             </div>
-            <div class="grid">
-                {% include "fundingrequests/forms/status_dropdown.html" %}
-                {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
-                {% include "fundingrequests/forms/label_dropdown.html" %}
-            </div>
+            {% include "fundingrequests/forms/status_dropdown.html" %}
+            {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
+            {% include "fundingrequests/forms/label_dropdown.html" %}
         </p>
     </details>
     <div class="grid align-center">

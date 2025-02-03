@@ -18,12 +18,25 @@
     background-color: var(--coda-background-color);
 }
 
+.form-row > :first-child:is(label) {
+    height: min-content;
+}
+
 .form-row > :last-child {
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
     border-top-right-radius: var(--coda-border-radius);
     border-bottom-right-radius: var(--coda-border-radius);
 }
+
+
+.form-row > :last-child::part(search-input) {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: var(--coda-border-radius);
+    border-bottom-right-radius: var(--coda-border-radius);
+}
+
 
 .form-row > :is(label, input, select) {
     margin-block-end: var(--coda-form-element-spacing-vertical);
