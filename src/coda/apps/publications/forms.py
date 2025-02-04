@@ -224,7 +224,7 @@ class LinkForm(forms.Form):
         super().full_clean()
         if self.cleaned_data["link_type"] == "DOI":
             try:
-                Doi(self.cleaned_data["link_value"])
+                Doi(self.cleaned_data.get("link_value", ""))
             except ValueError as err:
                 self.add_error("link_value", str(err))
 
