@@ -12,21 +12,25 @@
     <tbody>
         <tr>
             <td>
-                <input type="text" name="free-position-description">
+                <input type="text"
+                       id="free-position-description"
+                       name="free-position-description">
             </td>
             <td>
-                <select name="free-position-cost-type">
+                <select id="free-position-cost-type" name="free-position-cost-type">
                     {% for type in cost_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}
                 </select>
             </td>
             <td>
                 <input type="number"
+                       id="free-position-cost-amount"
                        name="free-position-cost-amount"
                        value="0"
                        step="0.0001">
             </td>
             <td>
                 <input type="number"
+                       id="free-position-tax-rate"
                        name="free-position-tax-rate"
                        value="0"
                        min="0"
@@ -38,6 +42,7 @@
                         class="outline secondary invoice-position-add-button"
                         name="action"
                         value="add-free-position"
+                        hx-include="#invoice-form, #free-position-description,#free-position-cost-type,#free-position-cost-amount,#free-position-tax-rate"
                         hx-post="{% url 'invoices:add_position' %}"
                         hx-target="#positions"
                         hx-swap="outerHTML">Add</button>
