@@ -7,7 +7,7 @@ from coda.apps.fundingrequests.views.labels import LabelCreateView, attach_label
 from coda.apps.fundingrequests.views.listview import fundingrequest_list
 from coda.apps.fundingrequests.views.wizard.create_article import ArticleRequestWizard
 from coda.apps.fundingrequests.views.wizard.create_monograph import MonographRequestWizard
-from coda.apps.fundingrequests.views.wizard.steps.publication_step import add_linkrow
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import add_linkrow, parse_authors
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import find_publisher
 from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdateFundingView,
@@ -44,6 +44,7 @@ urlpatterns = [
     path("attach_label/", attach_label, name="label_attach"),
     path("detach_label/", detach_label, name="label_detach"),
     path("partial/add-linkrow/", add_linkrow, name="partial_add_linkrow"),
+    path("partial/parse-authors/", parse_authors, name="parse_authors"),
     path(
         "partial/contract/",
         contract_formset.as_view(),

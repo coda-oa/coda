@@ -9,15 +9,7 @@
         <p>
             Paste a list of names into the textarea and press <i>Preview parsed authors</i>. CODA will attempt to parse individual names from the given list.
         </p>
-        {% comment %}
-        NOTE: do not change the formatting of the authors textarea, as it will lead to unwanted whitespace in the rendered result.
-        {% endcomment %}
-        {% spaceless %}
-            <textarea name="authors" rows="5">
-{{ authors|join:", " }}
-            </textarea>
-        {% endspaceless %}
-        <button type="submit" class="secondary" name="action" value="parse_authors">Preview parsed authors</button>
+        {% include "fundingrequests/partials/preview_authors.html" %}
     </article>
     <article>
         <h2>Publication Meta Data</h2>

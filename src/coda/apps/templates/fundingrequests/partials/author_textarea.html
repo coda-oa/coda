@@ -1,0 +1,8 @@
+{% comment %}
+        NOTE: do not change the formatting of the authors textarea, as it will lead to unwanted whitespace in the rendered result.
+{% endcomment %}
+{% spaceless %}
+    <textarea id="id_authors" name="authors" rows="5">
+{{ authors|join:", " }}
+    </textarea>
+{% endspaceless %}

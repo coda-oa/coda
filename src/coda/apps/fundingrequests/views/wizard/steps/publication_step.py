@@ -72,11 +72,6 @@ class PublicationStep(Step):
         )
 
     def get_publication_form(self, request: HttpRequest, store: Store) -> PublicationForm:
-        if self.requested_author_preview(request):
-            form = self.make_publication_form(request.POST)
-            form.errors.clear()
-            return form
-
         step_dto = store.get("publication_step")
         if PublicationForm.form_posted(request.POST):
             return self.make_publication_form(request.POST)
@@ -84,9 +79,6 @@ class PublicationStep(Step):
             return PublicationForm.from_dto(PublicationStepDto(**step_dto).meta)
         else:
             return self.make_publication_form()
-
-    def requested_author_preview(self, request: HttpRequest) -> bool:
-        return request.POST.get("action") == "parse_authors"
 
     def get_authors(self, request: HttpRequest, store: Store) -> AuthorNames:
         if request.POST.get("authors"):
@@ -152,6 +144,15 @@ class PublicationStep(Step):
             LinkForm({"link_type": link_type, "link_value": link_value})
             for link_type, link_value in zip(types, values)
         ]
+
+
+@login_required
+def parse_authors(request: HttpRequest) -> HttpResponse:
+    return render(
+        request,
+        "fundingrequests/partials/author_textarea.html",
+        {"authors": AuthorNames.from_str(request.POST.get("authors", ""))},
+    )
 
 
 @login_required
