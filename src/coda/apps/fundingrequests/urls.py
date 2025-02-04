@@ -3,7 +3,14 @@ from django.urls import path
 from coda.apps.fundingrequests.forms import ContractFormset, ExternalFundingFormset
 from coda.apps.fundingrequests.views import review
 from coda.apps.fundingrequests.views.detailview import fundingrequest_detail
-from coda.apps.fundingrequests.views.labels import LabelCreateView, attach_label, detach_label
+from coda.apps.fundingrequests.views.labels import (
+    attach_label,
+    detach_label,
+    label_create_view,
+    label_delete_view,
+    label_list_view,
+    label_update_view,
+)
 from coda.apps.fundingrequests.views.listview import fundingrequest_list
 from coda.apps.fundingrequests.views.wizard.create_article import ArticleRequestWizard
 from coda.apps.fundingrequests.views.wizard.create_monograph import MonographRequestWizard
@@ -40,7 +47,11 @@ urlpatterns = [
         name="update_publication",
     ),
     path("update/funding/<int:pk>/", UpdateFundingView.as_view(), name="update_funding"),
-    path("create_label/<int:next>", LabelCreateView.as_view(), name="label_create"),
+    path("labels/", label_list_view, name="label_list"),
+    path("labels/create/", label_create_view, name="label_create"),
+    path("labels/create/<int:next>/", label_create_view, name="label_create"),
+    path("labels/update/<int:pk>/", label_update_view, name="label_update"),
+    path("labels/delete/<int:pk>/", label_delete_view, name="label_delete"),
     path("attach_label/", attach_label, name="label_attach"),
     path("detach_label/", detach_label, name="label_detach"),
     path("partial/add-linkrow/", add_linkrow, name="partial_add_linkrow"),

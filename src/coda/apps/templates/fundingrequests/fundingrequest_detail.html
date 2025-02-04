@@ -220,11 +220,11 @@
             </div>
             <h2 class="my-1">Labels</h2>
             <hr>
-            {% include "fundingrequests/forms/label_attach.html" %}
+            {% include "fundingrequests/labels/label_attach.html" %}
             <hr>
             <div class="flex wrap">
                 {% for label in funding_request.labels %}
-                    {% include "fundingrequests/forms/label.html" %}
+                    {% include "fundingrequests/labels/label.html" %}
                 {% endfor %}
             </div>
         </aside>

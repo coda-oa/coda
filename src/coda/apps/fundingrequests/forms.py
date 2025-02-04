@@ -144,6 +144,7 @@ class LabelForm(forms.ModelForm[Label]):
         model = Label
         fields = "__all__"
         widgets = {"hexcolor": forms.TextInput(attrs={"type": "color"})}
+        labels = {"hexcolor": "Color"}
 
 
 class ChooseLabelForm(forms.Form):
