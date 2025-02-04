@@ -33,19 +33,6 @@ def assert_expected_authors(ctx: dict[str, list[str]]) -> None:
     assert list(ctx["authors"]) == ["John Doe", "Jane Doe", "John Smith", "Anna Smith"]
 
 
-def parse() -> dict[str, str]:
-    return {"action": "parse_authors"}
-
-
-def parse_authors_request(
-    author_str: str, publication_data: dict[str, str] | None = None
-) -> HttpRequest:
-    return request_factory.post(
-        "/",
-        (publication_data or {}) | {"action": "parse_authors", "authors": author_str},
-    )
-
-
 @pytest.mark.django_db
 def test__publication_step_for_article__with_valid_data__is_valid() -> None:
     create_vocabularies()
@@ -95,45 +82,6 @@ def test__publication_step__two_relevant_authors_are_submitters__is_invalid() ->
     request = request_factory.post("/", stepdata)
 
     assert not sut.is_valid(request, store)
-
-
-@pytest.mark.django_db
-def test__publication_step__action__parse_authors__adds_author_list_to_context() -> None:
-    sut = PublicationStep()
-
-    ctx = sut.get_context_data(parse_authors_request(author_str), DictStore())
-
-    assert_expected_authors(ctx)
-
-
-@pytest.mark.django_db
-def test__publication_step__action__parse_authors__does_not_progress() -> None:
-    sut = PublicationStep()
-    store = DictStore()
-
-    request = parse_authors_request(author_str)
-    ctx = sut.get_context_data(request, store)
-
-    assert not sut.is_valid(request, store)
-    assert ctx["publication_form"].errors == {}
-
-
-@pytest.mark.django_db
-def test__publication_step__action__parse_authors__retains_posted_data_but_does_not_show_errors() -> (
-    None
-):
-    sut = PublicationStep()
-    store = DictStore()
-
-    incomplete_publication_data = publication_step.stepdata()
-    incomplete_publication_data.pop("license")
-
-    request = parse_authors_request(author_str, incomplete_publication_data)
-    ctx = sut.get_context_data(request, store)
-
-    form = ctx["publication_form"]
-    assert form.data != {}
-    assert form.errors == {}
 
 
 @pytest.mark.django_db
@@ -271,7 +219,6 @@ def test__publication_step__relevant_authors_in_store__new_authors_in_request__p
     [
         request_factory.get("/"),
         request_factory.post("/", publication_step.stepdata()),
-        request_factory.post("/", parse()),
     ],
 )
 def test__publication_step_for_article__has_concepts_of_article_publication_type_vocabulary_from_settings(
@@ -295,7 +242,6 @@ def test__publication_step_for_article__has_concepts_of_article_publication_type
     [
         request_factory.get("/"),
         request_factory.post("/", publication_step.stepdata()),
-        request_factory.post("/", parse()),
     ],
 )
 def test__publication_step_for_monograph__has_concepts_of_monograph_publication_type_vocabulary_from_settings(
