@@ -1,8 +1,12 @@
+from collections.abc import Sequence
+
 from django.db.models import Q
 
 from coda.apps.contracts import services as contract_services
+from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
+from coda.contract import ContractYear
 from coda.date import DateRange
 from coda.invoice import (
     CostType,
@@ -15,7 +19,6 @@ from coda.invoice import (
     Position,
     TaxRate,
 )
-from coda.contract import ContractYear
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
@@ -24,12 +27,12 @@ def get_by_id(invoice_id: InvoiceId) -> Invoice:
     return as_domain_object(InvoiceModel.objects.get(id=invoice_id))
 
 
-def get_by_creditor(creditor_id: CreditorId) -> list[Invoice]:
-    return [as_domain_object(m) for m in InvoiceModel.objects.filter(creditor_id=creditor_id)]
+def get_by_creditor(creditor_id: CreditorId) -> Sequence[Invoice]:
+    return DomainQuerySet(InvoiceModel.objects.filter(creditor_id=creditor_id), as_domain_object)
 
 
-def all() -> list[Invoice]:
-    return [as_domain_object(m) for m in InvoiceModel.objects.all()]
+def all() -> Sequence[Invoice]:
+    return DomainQuerySet(InvoiceModel.objects.all(), as_domain_object)
 
 
 def search(
@@ -38,7 +41,7 @@ def search(
     creditor: str | None = None,
     status: PaymentStatus | None = None,
     date_range: DateRange | None = None,
-) -> list[Invoice]:
+) -> Sequence[Invoice]:
     query = Q()
     if invoice_number:
         query &= Q(number__icontains=invoice_number)
@@ -52,7 +55,7 @@ def search(
     if date_range:
         query &= Q(date__range=(date_range.start, date_range.end))
 
-    return [as_domain_object(m) for m in InvoiceModel.objects.filter(query)]
+    return DomainQuerySet(InvoiceModel.objects.filter(query), as_domain_object)
 
 
 def as_domain_object(model: InvoiceModel) -> Invoice:

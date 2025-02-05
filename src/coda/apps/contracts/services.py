@@ -1,4 +1,7 @@
+from collections.abc import Sequence
+
 from coda.apps.contracts.models import Contract as ContractModel
+from coda.apps.domainqueryset import DomainQuerySet
 from coda.contract import Contract, ContractId, PublisherId
 from coda.date import DateRange
 from coda.publication import JournalId
@@ -18,8 +21,8 @@ def get_by_id(id: ContractId) -> Contract:
     return as_domain_object(contract_model)
 
 
-def all() -> list[Contract]:
-    return [as_domain_object(contract_model) for contract_model in ContractModel.objects.all()]
+def all() -> Sequence[Contract]:
+    return DomainQuerySet(ContractModel.objects.all(), as_domain_object)
 
 
 def as_domain_object(contract_model: ContractModel) -> Contract:

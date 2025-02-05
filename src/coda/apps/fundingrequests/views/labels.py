@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
@@ -45,7 +47,7 @@ class LabelListView(LoginRequiredMixin, EntityListView[Label]):
     entity_create_url = "fundingrequests:label_create"
     entity_list_item_template = "fundingrequests/labels/label_list_item.html"
 
-    def get_entities(self, request: HttpRequest) -> list[Label]:
+    def get_entities(self, request: HttpRequest) -> Sequence[Label]:
         return list(Label.objects.all())
 
 

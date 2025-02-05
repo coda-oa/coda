@@ -1,10 +1,12 @@
+from collections.abc import Sequence
+
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest
 from django.views.generic import CreateView, DetailView
 
+from coda.apps.journals import services
 from coda.apps.journals.forms import JournalForm
 from coda.apps.journals.models import Journal
-from coda.apps.journals.services import find_by_title
 from coda.apps.views import EntityListView
 
 
@@ -25,12 +27,12 @@ class JournalListView(LoginRequiredMixin, EntityListView[Journal]):
     entity_filter_template = "journals/journal_filter.html"
     entity_list_layout_classes = "grid-container"
 
-    def get_entities(self, request: HttpRequest) -> list[Journal]:
+    def get_entities(self, request: HttpRequest) -> Sequence[Journal]:
         search_term = self.request.GET.get("search_term", "")
         if search_term:
-            return list(find_by_title(search_term))
+            return services.find_by_title(search_term)
 
-        return list(Journal.objects.all())
+        return services.all()
 
 
 journal_list_view = JournalListView.as_view()

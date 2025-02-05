@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Any, Generic, TypeVar
 
 from django.core.paginator import Paginator
@@ -16,7 +17,7 @@ class EntityListView(Generic[EntityType], TemplateView):
     entity_list_layout_classes: str = ""
     entity_filter_template: str = ""
 
-    def get_entities(self, request: HttpRequest) -> list[EntityType]:
+    def get_entities(self, request: HttpRequest) -> Sequence[EntityType]:
         raise NotImplementedError
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:

@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Sequence
 from typing import Any, NamedTuple, cast
 
 from django.contrib.auth.decorators import login_required
@@ -32,7 +33,7 @@ class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
         ctx["payment_statuses"] = [p.value for p in PaymentStatus]
         return ctx
 
-    def get_entities(self, request: HttpRequest) -> list["InvoiceViewModel"]:
+    def get_entities(self, request: HttpRequest) -> Sequence["InvoiceViewModel"]:
         query: dict[str, Any] = {}
         query["invoice_number"] = request.GET.get("invoice_number")
         query["creditor"] = request.GET.get("creditor")

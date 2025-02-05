@@ -1,6 +1,7 @@
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from typing import Any, cast
 
+from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.publications.models import Vocabulary as VocabularyModel
 from coda.apps.publications.repositories import publication_repository
 from coda.publication import BasePublication
@@ -92,8 +93,8 @@ def find_limited_by_base_vocabulary(base_vocabulary_id: VocabularyId) -> list[Li
     ]
 
 
-def all() -> list[VocabularyProtocol]:
-    return [as_domain_object(v) for v in VocabularyModel.objects.all()]
+def all() -> Sequence[VocabularyProtocol]:
+    return DomainQuerySet(VocabularyModel.objects.all(), as_domain_object)
 
 
 def all_limited() -> list[LimitedVocabulary]:

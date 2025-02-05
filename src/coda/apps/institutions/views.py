@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from io import BytesIO
 from typing import Any
 
@@ -30,7 +31,7 @@ class InstitutionListView(LoginRequiredMixin, EntityListView[Institution]):
             "entity_secondary_create_url": self.entity_secondary_create_url
         }
 
-    def get_entities(self, request: HttpRequest) -> list[Institution]:
+    def get_entities(self, request: HttpRequest) -> Sequence[Institution]:
         return list(repository.search(name=request.GET.get("query")))
 
 

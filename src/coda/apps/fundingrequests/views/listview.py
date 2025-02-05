@@ -1,5 +1,5 @@
 import datetime
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Any, Literal, NamedTuple, cast
 
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -30,7 +30,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
         "end_date",
     ]
 
-    def get_entities(self, request: HttpRequest) -> list["FundingRequestListViewModel"]:
+    def get_entities(self, request: HttpRequest) -> Sequence["FundingRequestListViewModel"]:
         return [as_viewmodel(fr) for fr in query(request)]
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:

@@ -1,5 +1,5 @@
 import functools
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any, cast
 
 from django.contrib.auth.decorators import login_required
@@ -23,7 +23,7 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
     entity_list_item_template = "contracts/contract_list_item.html"
     entity_list_layout_classes = "grid-container"
 
-    def get_entities(self, request: HttpRequest) -> list[Contract]:
+    def get_entities(self, request: HttpRequest) -> Sequence[Contract]:
         return services.all()
 
 

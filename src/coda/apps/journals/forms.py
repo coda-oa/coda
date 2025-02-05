@@ -24,7 +24,7 @@ class JournalForm(forms.ModelForm[Journal]):
         if not valid:
             return False
 
-        if services.find_by_eissn(self.cleaned_data["eissn"]).exists():
+        if services.find_by_eissn(self.cleaned_data["eissn"]):
             self.add_error("eissn", "Journal with this E-ISSN already exists.")
             return False
 
