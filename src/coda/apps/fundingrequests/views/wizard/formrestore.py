@@ -1,3 +1,4 @@
+import logging
 from typing import Any, TypeVar
 
 from django.http import HttpRequest
@@ -45,8 +46,11 @@ def restore_formset(
         total_forms = f"{prefix}-{total_forms}"
 
     if request.POST.get(total_forms):
+        logging.info(f"Restoring formset {formset_type.__name__} with POST data")
         return formset_type(request.POST, prefix=prefix, **kwargs)
     elif store_data:
-        return formset_type.from_data(store_data, **kwargs)
+        logging.info(f"Restoring formset {formset_type.__name__} with stored data")
+        return formset_type.from_data(store_data, prefix=prefix, **kwargs)
     else:
-        return formset_type(**kwargs)
+        logging.info(f"Creating empty formset {formset_type.__name__}")
+        return formset_type(**kwargs, prefix=prefix)
