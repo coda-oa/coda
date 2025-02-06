@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from itertools import zip_longest
 
 from django.contrib.auth.decorators import login_required
@@ -20,7 +20,7 @@ class VocabularyListView(LoginRequiredMixin, EntityListView[VocabularyProtocol])
     entity_name = "Vocabularies"
     entity_list_item_template = "publications/vocabulary_list_item.html"
 
-    def get_entities(self, request: HttpRequest) -> list[VocabularyProtocol]:
+    def get_entities(self, request: HttpRequest) -> Sequence[VocabularyProtocol]:
         return vocabulary_repository.all()
 
 
