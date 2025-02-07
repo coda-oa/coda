@@ -58,7 +58,11 @@ class Isbn:
         return self._isbn
 
     def url(self) -> str:
-        return f"https://isbnsearch.org/isbn/{self}"
+        """
+        URL based on PICA interface documentation found at:
+        https://github.com/pro4bib/pica/blob/master/schnittstellen.md#sru
+        """
+        return f"https://opac.k10plus.de/DB=2.299/CMD?ACT=SRCHA&IKT=7&TRM={self}"
 
     def is_isbn_10(self) -> bool:
         return len(self) == 10
