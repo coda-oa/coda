@@ -7,7 +7,7 @@ from coda.apps.authors.services import author_create
 from coda.apps.contracts.services import as_domain_object
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.contract import ContractYear, PublisherId
-from coda.doi import Doi
+from coda.publication.links import Doi
 from coda.orcid import Orcid
 from coda.publication import (
     Authors,

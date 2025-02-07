@@ -48,6 +48,7 @@ repos:
             'pytest-django',
             'polars',
             'pydantic',
+            'pydantic-extra-types',
           ]
 
   - repo: https://github.com/psf/black

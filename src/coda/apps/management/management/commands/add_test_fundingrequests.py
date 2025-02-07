@@ -15,7 +15,7 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import LinkType
 from coda.apps.publishers.models import Publisher
 from coda.author import AuthorNames
-from coda.doi import Doi
+from coda.publication.links import Doi
 from coda.fundingrequest import (
     ExternalFunding,
     FilledContact,

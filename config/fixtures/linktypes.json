@@ -12,5 +12,12 @@
         "fields": {
             "name": "URL"
         }
+    },
+    {
+        "model": "publications.LinkType",
+        "pk": 3,
+        "fields": {
+            "name": "ISBN"
+        }
     }
 ]

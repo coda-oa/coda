@@ -9,7 +9,7 @@ from coda import orcid
 from coda.author import Author, AuthorId, AuthorNames, InstitutionId, Role
 from coda.contract import Contract, ContractId, ContractYear, PublisherId
 from coda.date import DateRange
-from coda.doi import Doi
+from coda.publication.links import Doi
 from coda.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -30,11 +30,13 @@ from coda.invoice import (
     Positions,
     TaxRate,
 )
+from coda.publication.links import Isbn
 from coda.money import Currency, Money
 from coda.publication import (
     Authors,
     JournalId,
     License,
+    Link,
     Monograph,
     OpenAccessType,
     Publication,
@@ -168,10 +170,6 @@ def publication(
     *,
     id: PublicationId | None = None,
 ) -> Publication:
-    state = cast(
-        PublicationState, random.choice([Unpublished(), Published(_random_date(), _random_date())])
-    )
-
     return Publication(
         id=id,
         title=NonEmptyStr(title or _faker.sentence()),
@@ -182,18 +180,9 @@ def publication(
         publication_type=publication_type or UnknownConcept,
         subject_area=subject_area or UnknownConcept,
         open_access_type=random_open_access_type(),
-        publication_state=state,
+        publication_state=random_publication_status(),
         contracts=contracts,
-        links={Doi("10.1234/5678")},
-    )
-
-
-def _relevant_authors() -> Authors:
-    return Authors(
-        (
-            author(role=Role.SUBMITTING_CORRESPONDING_AUTHOR),
-            *(author(role=NoRole) for _ in range(random.randint(1, 3))),
-        )
+        links=publication_links(),
     )
 
 
@@ -215,14 +204,33 @@ def monograph(
         publication_type=publication_type or UnknownConcept,
         subject_area=subject_area or UnknownConcept,
         open_access_type=random_open_access_type(),
-        publication_state=Unpublished(),
+        publication_state=random_publication_status(),
         contracts=contracts,
-        links={Doi("10.1234/5678")},
+        links=publication_links(),
+    )
+
+
+def publication_links() -> set[Link]:
+    return {Doi("10.1234/5678"), Isbn("9783608961157")}
+
+
+def random_publication_status() -> PublicationState:
+    return cast(
+        PublicationState, random.choice([Unpublished(), Published(_random_date(), _random_date())])
     )
 
 
 def _random_date() -> date:
     return date.fromisoformat(_faker.date())
+
+
+def _relevant_authors() -> Authors:
+    return Authors(
+        (
+            author(role=Role.SUBMITTING_CORRESPONDING_AUTHOR),
+            *(author(role=NoRole) for _ in range(random.randint(1, 3))),
+        )
+    )
 
 
 def payment() -> Payment:

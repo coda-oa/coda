@@ -11,7 +11,7 @@ from coda.apps.contracts import services as contract_services
 from coda.apps.dto import CodaBaseDto, OptionalFromStr
 from coda.author import AuthorNames
 from coda.contract import ContractId, ContractYear, PublisherId
-from coda.doi import Doi
+from coda.publication import links
 from coda.publication import (
     Authors,
     JournalId,
@@ -25,7 +25,6 @@ from coda.publication import (
     Published,
     Unpublished,
     UnpublishedState,
-    UserLink,
 )
 from coda.string import NonEmptyStr
 from coda.vocabulary import ConceptId, VocabularyConcept, VocabularyId
@@ -37,17 +36,10 @@ class LinkDto(CodaBaseDto):
 
     @classmethod
     def from_link(cls, link: Link) -> "LinkDto":
-        match link:
-            case UserLink(type, value):
-                return LinkDto(link_type=type, link_value=value)
-            case Doi(value):
-                return LinkDto(link_type="DOI", link_value=value)
+        return LinkDto(link_type=link.type, link_value=str(link))
 
     def to_link(self) -> Link:
-        if self.link_type == "DOI":
-            return Doi(self.link_value)
-        else:
-            return UserLink(type=self.link_type, value=self.link_value)
+        return links.create_link(self.link_type, self.link_value)
 
 
 class ConceptDto(CodaBaseDto):
@@ -171,7 +163,7 @@ class PublicationDto(PublicationBaseDto):
             contracts=[
                 ContractYearDto(contract=c.contract.id, year=c.year) for c in publication.contracts
             ],
-            links=[to_link_dto(link) for link in publication.links],
+            links=[LinkDto.from_link(link) for link in publication.links],
             relevant_authors=list(map(AuthorDto.from_author, publication.relevant_authors)),
             other_authors=list(publication.other_authors),
         )
@@ -222,7 +214,7 @@ class MonographDto(PublicationBaseDto):
             ),
             publisher=publication.publisher,
             contracts=list(ContractYearDto.from_contract_year(c) for c in publication.contracts),
-            links=[to_link_dto(link) for link in publication.links],
+            links=[LinkDto.from_link(link) for link in publication.links],
             relevant_authors=list(map(AuthorDto.from_author, publication.relevant_authors)),
             other_authors=list(publication.other_authors),
         )
@@ -257,11 +249,3 @@ def _parse_state(publication: PublicationMetaDto) -> PublicationState:
         )
     else:
         return Unpublished(state=UnpublishedState[state])
-
-
-def to_link_dto(link: Link) -> LinkDto:
-    match link:
-        case UserLink(type, value):
-            return LinkDto(link_type=type, link_value=value)
-        case Doi(value):
-            return LinkDto(link_type="DOI", link_value=value)

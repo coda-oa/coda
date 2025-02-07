@@ -1,15 +1,16 @@
-from collections.abc import Iterable
 import datetime
 import enum
 from abc import ABC
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, NamedTuple, NewType, Self, TypeAlias
 
 from coda.author import Author, AuthorNames
 from coda.contract import PublisherId
-from coda.doi import Doi
 from coda.string import NonEmptyStr
 from coda.vocabulary import UnknownConcept, VocabularyConcept
+
+from .links import Link
 
 if TYPE_CHECKING:
     from coda.contract import ContractYear
@@ -74,22 +75,6 @@ class Published:
 
 
 PublicationState: TypeAlias = Unpublished | Published
-
-
-class UserLink(NamedTuple):
-    type: str
-    value: str
-    url_prefix: str = ""
-
-    @property
-    def url(self) -> str:
-        return self.url_prefix + self.value
-
-    def __str__(self) -> str:
-        return self.value
-
-
-Link: TypeAlias = UserLink | Doi
 
 
 class Authors(tuple[Author, ...]):

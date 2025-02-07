@@ -7,14 +7,12 @@ from django.db.models import Q
 from coda.apps.authors import services as author_services
 from coda.apps.contracts import services as contract_services
 from coda.apps.contracts.models import Contract
-from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import AttachedContract, LinkType, PublicationAttachedConcept
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import Author, AuthorId, AuthorNames
 from coda.contract import ContractId, ContractYear, PublisherId
-from coda.doi import Doi
 from coda.publication import (
     Authors,
     BasePublication,
@@ -29,6 +27,7 @@ from coda.publication import (
     Published,
     Unpublished,
     UnpublishedState,
+    links,
 )
 from coda.string import NonEmptyStr
 from coda.vocabulary import ConceptId, UnknownConcept, VocabularyConcept, VocabularyId
@@ -55,15 +54,8 @@ def save(publication: BasePublication) -> PublicationId:
         p.online_publication_date = publication_state.online
         p.print_publication_date = publication_state.print
 
-    p.publication_type.entity_id = publication.publication_type.id
-    p.publication_type.vocabulary_id = publication.publication_type.vocabulary
-    p.publication_type.name = publication.publication_type.name
-    p.publication_type.save()
-
-    p.subject_area.entity_id = publication.subject_area.id
-    p.subject_area.vocabulary_id = publication.subject_area.vocabulary
-    p.subject_area.name = publication.subject_area.name
-    p.subject_area.save()
+    _save_model_concept(p.publication_type, publication.publication_type)
+    _save_model_concept(p.subject_area, publication.subject_area)
 
     _attach_contracts(p, publication.contracts)
 
@@ -76,6 +68,15 @@ def save(publication: BasePublication) -> PublicationId:
 
     p.save()
     return publication_id
+
+
+def _save_model_concept(
+    model_concept: PublicationAttachedConcept, domain_concept: VocabularyConcept
+) -> None:
+    model_concept.entity_id = domain_concept.id
+    model_concept.vocabulary_id = domain_concept.vocabulary
+    model_concept.name = domain_concept.name
+    model_concept.save()
 
 
 def get_by_id(publication_id: PublicationId) -> BasePublication:
@@ -172,22 +173,15 @@ def _deserialize_concept(model_concept: PublicationAttachedConcept) -> Vocabular
     return v.get_concept_by_id(ConceptId(str(model_concept.entity_id)))
 
 
-def _deserialize_links(links: Iterable[LinkModel]) -> set[Link]:
-    return {LinkDto(link_type=link.type.name, link_value=link.value).to_link() for link in links}
+def _deserialize_links(links_: Iterable[LinkModel]) -> set[Link]:
+    return {links.create_link(link_type=link.type.name, link_value=link.value) for link in links_}
 
 
 def _attach_links(id: PublicationId, links: Iterable[Link]) -> None:
     for link in links:
-        if isinstance(link, Doi):
-            link_type = "DOI"
-            link_value = str(link)
-        else:
-            link_type = link.type
-            link_value = link.value
-
         LinkModel.objects.create(
-            value=link_value,
-            type=LinkType.objects.get(name=link_type),
+            value=str(link),
+            type=LinkType.objects.get(name=link.type),
             publication_id=cast(int, id),
         )
 
