@@ -14,7 +14,7 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import ConceptDto, LinkDto, PublicationMetaDto
 from coda.apps.publications.models import Concept, LinkType, Publication, Vocabulary
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.publication.links import Doi
+from coda.publication import links
 from coda.publication import License, OpenAccessType, Published, UnpublishedState
 from coda.vocabulary import UnknownConcept, VocabularyConcept, VocabularyProtocol
 
@@ -222,11 +222,10 @@ class LinkForm(forms.Form):
 
     def full_clean(self) -> None:
         super().full_clean()
-        if self.cleaned_data["link_type"] == "DOI":
-            try:
-                Doi(self.cleaned_data.get("link_value", ""))
-            except ValueError as err:
-                self.add_error("link_value", str(err))
+        try:
+            links.create_link(self.cleaned_data["link_type"], self.cleaned_data["link_value"])
+        except ValueError as err:
+            self.add_error("link_value", str(err))
 
     def get_form_data(self) -> LinkDto:
         return LinkDto(

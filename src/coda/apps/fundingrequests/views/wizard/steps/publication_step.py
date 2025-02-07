@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Iterable
 from typing import Any, Protocol, cast
 
@@ -119,9 +118,6 @@ class PublicationStep(Step):
         publication_form = PublicationForm(request.POST)
         link_forms = self.link_forms(request)
         self.clean_all((publication_form, *link_forms))
-
-        logging.info("Saving publication step data")
-        logging.info("Author Formset:\n%s", authors_formset.to_dtos())
 
         store["publication_step"] = PublicationStepDto(
             relevant_authors=authors_formset.to_dtos(),

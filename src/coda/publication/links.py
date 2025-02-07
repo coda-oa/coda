@@ -1,6 +1,8 @@
 import re
 from typing import Any, NamedTuple, Protocol
 
+import pydantic
+
 from coda.string import NonEmptyStr
 
 from pydantic_core import PydanticCustomError
@@ -8,26 +10,32 @@ from pydantic_extra_types.isbn import ISBN
 
 
 class Link(Protocol):
-    @property
     def type(self) -> str:
         ...
 
-    @property
+    def value(self) -> str:
+        ...
+
     def url(self) -> str:
         ...
 
 
 class UserLink(NamedTuple):
-    type: str
-    value: str
+    link_type: str
+    link_value: str
     url_prefix: str = ""
 
-    @property
+    def type(self) -> str:
+        return self.link_type
+
+    def value(self) -> str:
+        return self.link_value
+
     def url(self) -> str:
-        return self.url_prefix + self.value
+        return self.url_prefix + self.link_value
 
     def __str__(self) -> str:
-        return self.value
+        return self.link_value
 
 
 class Isbn:
@@ -38,15 +46,17 @@ class Isbn:
         try:
             raw_isbn = NonEmptyStr(isbn.replace("-", ""))
             ISBN.validate_isbn_format(raw_isbn)
-            self._value = raw_isbn
+            self._isbn = raw_isbn
         except PydanticCustomError:
             raise ValueError(f"{isbn} is not a valid ISBN")
 
-    @property
-    def type(self) -> str:
+    @staticmethod
+    def type() -> str:
         return "ISBN"
 
-    @property
+    def value(self) -> str:
+        return self._isbn
+
     def url(self) -> str:
         return f"https://isbnsearch.org/isbn/{self}"
 
@@ -60,22 +70,22 @@ class Isbn:
         if self.is_isbn_13():
             return self
 
-        return Isbn(ISBN.convert_isbn10_to_isbn13(self._value))
+        return Isbn(ISBN.convert_isbn10_to_isbn13(self._isbn))
 
     def __str__(self) -> str:
-        return self._value
+        return self._isbn
 
     def __len__(self) -> int:
-        return len(self._value)
+        return len(self._isbn)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Isbn):
             return False
 
-        return self._value == other._value
+        return self._isbn == other._isbn
 
     def __hash__(self) -> int:
-        return hash((self._value,))
+        return hash((self._isbn,))
 
 
 class Doi:
@@ -86,8 +96,8 @@ class Doi:
         if not self._valid():
             raise ValueError("Invalid DOI format")
 
-    @property
-    def type(self) -> str:
+    @staticmethod
+    def type() -> str:
         return "DOI"
 
     def _valid(self) -> bool:
@@ -116,7 +126,9 @@ class Doi:
     def suffix(self) -> str:
         return self._doi.split("/")[1]
 
-    @property
+    def value(self) -> str:
+        return self._doi
+
     def url(self) -> str:
         return f"https://doi.org/{str(self)}"
 
@@ -132,10 +144,41 @@ class Doi:
         return hash((self._doi,))
 
 
-def create_link(link_type: str, link_value: str) -> Link:
-    if link_type == "DOI":
-        return Doi(link_value)
-    if link_type == "ISBN":
-        return Isbn(link_value)
+class Url:
+    def __init__(self, url: str) -> None:
+        try:
+            self._url = str(pydantic.HttpUrl(url))
+        except pydantic.ValidationError:
+            raise ValueError(f"{url} is not a valid URL")
 
-    return UserLink(type=link_type, value=link_value)
+    @staticmethod
+    def type() -> str:
+        return "URL"
+
+    def value(self) -> str:
+        return self._url
+
+    def url(self) -> str:
+        return self._url
+
+    def __str__(self) -> str:
+        return self._url
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Url):
+            return False
+        return self._url == other._url
+
+    def __hash__(self) -> int:
+        return hash((self._url,))
+
+
+_LinkTypes = {t.type(): t for t in (Doi, Isbn, Url)}
+
+
+def create_link(link_type: str, link_value: str) -> Link:
+    link_constructor = _LinkTypes.get(link_type)
+    if not link_constructor:
+        return UserLink(link_type=link_type, link_value=link_value)
+
+    return link_constructor(link_value)

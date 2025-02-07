@@ -36,7 +36,7 @@ class LinkDto(CodaBaseDto):
 
     @classmethod
     def from_link(cls, link: Link) -> "LinkDto":
-        return LinkDto(link_type=link.type, link_value=str(link))
+        return LinkDto(link_type=link.type(), link_value=link.value())
 
     def to_link(self) -> Link:
         return links.create_link(self.link_type, self.link_value)

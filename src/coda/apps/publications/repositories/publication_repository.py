@@ -180,8 +180,8 @@ def _deserialize_links(links_: Iterable[LinkModel]) -> set[Link]:
 def _attach_links(id: PublicationId, links: Iterable[Link]) -> None:
     for link in links:
         LinkModel.objects.create(
-            value=str(link),
-            type=LinkType.objects.get(name=link.type),
+            value=link.value(),
+            type=LinkType.objects.get(name=link.type()),
             publication_id=cast(int, id),
         )
 

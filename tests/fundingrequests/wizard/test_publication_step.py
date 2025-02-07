@@ -10,7 +10,7 @@ from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorFormset
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.preferences.models import GlobalPreferences
-from coda.apps.publications.dto import MonographDto, PublicationDto
+from coda.apps.publications.dto import LinkDto, MonographDto, PublicationDto
 from coda.apps.publications.forms import PublicationForm
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.author import AuthorNames, Role
@@ -257,6 +257,24 @@ def test__publication_step_for_monograph__has_concepts_of_monograph_publication_
 
     pub_form = cast(PublicationForm, ctx["publication_form"])
     assert_has_concept_choices(pub_form, "publication_type", publication_type_voc)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("invalid_link", [("DOI", "10/3939"), ("ISBN", "999-16-148410-0")])
+def test__publication_step__invalid_links__is_invalid(invalid_link: tuple[str, str]) -> None:
+    link_type, link_value = invalid_link
+
+    sut = PublicationStep()
+    store = DictStore()
+
+    publication = domainfactory.publication()
+    publication_dto = PublicationDto.from_publication(publication)
+    publication_dto.links = [LinkDto(link_type=link_type, link_value=link_value)]
+
+    stepdata = publication_step.stepdata(publication_dto)
+    request = request_factory.post("/", stepdata)
+
+    assert not sut.is_valid(request, store)
 
 
 def create_vocabularies() -> None:
