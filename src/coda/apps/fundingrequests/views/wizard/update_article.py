@@ -26,6 +26,9 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
     store_factory = SessionStore
     steps = [ExtraContactStep()]
 
+    def get_cancel_url(self) -> str:
+        return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
+
     def get_success_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 

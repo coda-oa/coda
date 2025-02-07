@@ -43,10 +43,6 @@ search-select:not(:defined) {
 }
 
 .wizard-nav {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: var(--coda-spacing);
-
   position: sticky;
   bottom: var(--coda-spacing);
   margin-block-start: calc(var(--coda-spacing) * 2);
@@ -59,6 +55,13 @@ search-select:not(:defined) {
 
   border: 1px solid var(--coda-muted-border-color);
   border-radius: var(--coda-border-radius);
+}
+
+
+.wizard-nav__progress {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--coda-spacing);
 }
 
 

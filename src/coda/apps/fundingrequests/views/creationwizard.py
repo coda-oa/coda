@@ -2,7 +2,7 @@ import abc
 from typing import Generic, TypeVar
 
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 
 from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
@@ -20,6 +20,8 @@ TPublication = TypeVar("TPublication", Publication, Monograph)
 
 
 class FundingRequestCreationWizard(LoginRequiredMixin, Wizard, abc.ABC, Generic[TPublication]):
+    cancel_url = reverse_lazy("fundingrequests:list")
+
     def get_success_url(self) -> str:
         store = self.get_store()
         return reverse("fundingrequests:detail", kwargs={"pk": store["funding_request"]})

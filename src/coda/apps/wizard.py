@@ -144,11 +144,15 @@ class Stepper(NamedTuple):
 class Wizard(View):
     steps: list[Step] = []
     success_url: str = ""
+    cancel_url: str = ""
     store_name: str = ""
     store_factory: StoreFactory = None  # type: ignore
 
     def get_success_url(self) -> str:
         return self.success_url
+
+    def get_cancel_url(self) -> str:
+        return self.cancel_url
 
     def get_store(self) -> Store:
         return self.store_factory(self.store_name, self.request)
@@ -225,4 +229,5 @@ class Wizard(View):
         step = self.steps[index]
         context = step.get_context_data(request, self.get_store())
         context["stepper"] = Stepper(index + 1, len(self.steps))
+        context["cancel_redirect_url"] = self.get_cancel_url()
         return render(request, step.template_name, context)
