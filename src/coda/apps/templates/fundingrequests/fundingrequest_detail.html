@@ -197,6 +197,8 @@
                     <span class="pill status-label rejected">Rejected</span>
                 {% elif funding_request.costs_waived %}
                     <span class="pill status-label waived">Costs Waived</span>
+                {% else %}
+                    <span class="pill status-label closed">Closed</span>
                 {% endif %}
             </h2>
             <hr>

@@ -82,6 +82,28 @@ def test__fundingrequest__waive_costs__stores_in_database(client: Client) -> Non
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__fundingrequest__close__stores_in_database(client: Client) -> None:
+    fr = fundingrequest()
+    fr_id = services.fundingrequest_create(fr)
+    remarks = "Withdrawn"
+
+    client.post(
+        reverse("fundingrequests:review_submit", kwargs={"pk": fr_id}),
+        {
+            "action": "close",
+            "reviewer_remarks": remarks,
+            "decided_funding_amount": 0,
+            "decided_funding_currency": "EUR",
+        },
+    )
+
+    actual = repository.get_by_id(fr_id)
+    assert not actual.is_open()
+    assert actual.review_remarks == remarks
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__closed_fundingrequest__re_opening__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
     fr_id = services.fundingrequest_create(fr)

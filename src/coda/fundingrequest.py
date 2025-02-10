@@ -17,7 +17,7 @@ class ReviewResult(enum.Enum):
     Waived = "waived"
     Approved = "approved"
     Rejected = "rejected"
-    Withdrawn = "withdrawn"
+    Closed = "closed"
 
 
 @dataclass(frozen=True)
@@ -117,6 +117,9 @@ class FundingRequest(Generic[TPublication]):
             decided_funding=Money(0, Currency.EUR),
             remarks=remarks,
         )
+
+    def close(self, remarks: str = "") -> None:
+        self._review = Review(result=ReviewResult.Closed, remarks=remarks)
 
     def update_remarks(self, remarks: str) -> None:
         self._review = self._review.with_remarks(remarks)

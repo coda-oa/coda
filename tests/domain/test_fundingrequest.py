@@ -118,6 +118,17 @@ def test__fundingrequest__waive_costs__is_closed_without_funding() -> None:
     assert sut.funding_amount == Money(0, Currency.EUR)
 
 
+def test__fundingrequest__close__is_closed_without_funding() -> None:
+    sut = make_sut()
+    sut.close("Closed")
+
+    assert not sut.is_open()
+    assert not sut.is_rejected()
+    assert not sut.is_approved()
+
+    assert sut.funding_amount == Money(0, Currency.EUR)
+
+
 def new_publication() -> Publication:
     return Publication(
         id=PublicationId(999),

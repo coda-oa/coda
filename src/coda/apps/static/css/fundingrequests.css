@@ -38,6 +38,10 @@
     &.waived {
         --_status-color: rgb(163, 100, 0);
     }
+
+    &.closed {
+        --_status-color: rgb(73, 73, 73);
+    }
 }
 
 .fundingrequest-waive-button {
