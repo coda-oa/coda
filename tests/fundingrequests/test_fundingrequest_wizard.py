@@ -1,6 +1,6 @@
 import abc
 import functools
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import asdict
 from typing import Any, Generic, Self, cast
 
@@ -20,6 +20,7 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.users.models import User
+from coda.contract import ContractYear
 from coda.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -41,6 +42,7 @@ from tests.fundingrequests.test_fundingrequest_services import (
 )
 from tests.fundingrequests.wizard.stepdata import publication_step
 from tests.publications.test_publication_repository import assert_publication_eq
+from tests.test_wizard import complete_early, next
 
 
 class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
@@ -65,6 +67,12 @@ class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
 
     def with_empty_contact(self) -> Self:
         self.submitter = NoContact
+        return self
+
+    def with_contracts(self, contract_years: Iterable[ContractYear]) -> Self:
+        self.contracts = [c.contract for c in contract_years]
+        self.contract_years = list(contract_years)
+        self.publication.contracts = tuple(self.contract_years)
         return self
 
     def prepare_vocabularies(self) -> None:
@@ -138,6 +146,10 @@ class ArticleRequestDataBuilder(FundingRequestDataBuilder[Publication]):
     def with_new_publication(self, id: PublicationId | None = None) -> Self:
         self.journal = modelfactory.journal()
         self._publication = self.create_publication(JournalId(self.journal.pk), id=id)
+        return self
+
+    def with_journal(self, journal: JournalId) -> Self:
+        self._publication.journal = journal
         return self
 
     @property
@@ -234,6 +246,31 @@ def test__updating_fundingrequest_publication__updates_fundingrequest_and_shows_
 
 
 @pytest.mark.django_db
+def test__updating_publication_page_of_update_publication_wizard__saves_early(
+    client: Client,
+) -> None:
+    existing_request_id = save_new_fundingrequest()
+    existing_request = repository.get_article_request(existing_request_id)
+
+    builder = (
+        ArticleRequestDataBuilder()
+        .with_contracts(existing_request.publication.contracts)
+        .with_journal(existing_request.publication.journal)
+    )
+
+    wizard_url = reverse("fundingrequests:update_publication", kwargs={"pk": existing_request_id})
+    submit = functools.partial(submit_complete_early, client, wizard_url)
+
+    publication_formdata = publication_step.stepdata(builder.publication_dto())
+
+    _ = client.get(wizard_url)
+    submit(publication_formdata)
+
+    actual = repository.get_by_id(existing_request_id).publication
+    assert_publication_eq(actual, builder.expected.publication)
+
+
+@pytest.mark.django_db
 def test__updating_fundingrequest_funding__updates_funding_request_and_shows_details(
     client: Client,
 ) -> None:
@@ -278,10 +315,6 @@ def test__updating_fundingrequest_funding__without_external_funding__updates_fun
     request = repository.get_by_id(fr_id)
     assert list(request.external_funding) == []
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
-
-
-def next() -> dict[str, str]:
-    return {"action": "next"}
 
 
 def submit_wizard(
@@ -333,6 +366,10 @@ def submit_update_funding_wizard(
 
 def submit_step(client: Client, url: str, form_data: dict[str, Any]) -> HttpResponse:
     return cast(HttpResponse, client.post(url, next() | form_data))
+
+
+def submit_complete_early(client: Client, url: str, form_data: dict[str, Any]) -> HttpResponse:
+    return cast(HttpResponse, client.post(url, complete_early() | form_data))
 
 
 def subject_area() -> VocabularyConcept:

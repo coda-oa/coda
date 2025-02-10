@@ -39,7 +39,7 @@ def get_by_id(id: FundingRequestId) -> AnyFundingRequest:
     return as_domain_object(model)
 
 
-def get_publication_request(id: FundingRequestId) -> FundingRequest[Publication]:
+def get_article_request(id: FundingRequestId) -> FundingRequest[Publication]:
     fr = get_by_id(id)
     if not _is_publication_type(fr, Publication):
         raise ValueError(f"Funding request with id {id} is not an article request")

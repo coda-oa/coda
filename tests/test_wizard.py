@@ -48,6 +48,9 @@ class DictStore(Store):
             self.saved_state.clear()
             self._clear_on_save = False
 
+    def keys(self) -> Iterable[str]:
+        return self.current_state.keys()
+
     def get(self, key: str, __default: Any = None) -> Any:
         return self.saved_state.get(key, __default)
 
@@ -110,6 +113,7 @@ class WizardTestImpl(Wizard):
 
 class CompletingWizardSpy(WizardTestImpl):
     completed_state: dict[str, Any] = {}
+    allow_early_complete: bool = True
 
     def __init__(self, completed_state: dict[str, Any], **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -121,8 +125,8 @@ class CompletingWizardSpy(WizardTestImpl):
         return super().get_success_url()
 
     def complete(self, **kwargs: Any) -> None:
-        store = cast(DictStore, self.get_store())
-        self.completed_state["completed"] = store.get("completed")
+        self.completed_state["store_state"] = dict(**self.get_store())
+        self.completed_state["completed"] = True
         self.completed_state |= kwargs
 
 
@@ -411,14 +415,16 @@ def test__wizard__get_and_post__pass_store_to_step() -> None:
 def test__wizard__on_completion__calls_complete_on_self_before_clearing_store() -> None:
     completed_state: dict[str, Any] = {}
     store = SingletonDictStoreFactory.store
-    store["completed"] = "completed called"
+    expected_state = "state before completed called"
+    store["store_state"] = expected_state
     store.save()
 
     sut = make_sut(CompletingWizardSpy, steps=[SimpleStep()], completed_state=completed_state)
     _ = post(sut, next())
 
     assert store.was_saved_with({})
-    assert completed_state["completed"] == "completed called"
+    assert completed_state["completed"] is True
+    assert completed_state["store_state"] == {"store_state": expected_state}
 
 
 def test__wizard__on_completion__gets_success_url_before_clearing_store() -> None:
@@ -448,6 +454,34 @@ def test__wizard_not_completed__post_next__does_not_call_complete() -> None:
     assert "completed" not in completed_state
 
 
+def test__wizard__post_complete_early__calls_done_and_complete() -> None:
+    store = SingletonDictStoreFactory.store
+    completed_state: dict[str, Any] = {}
+
+    sut = make_sut(
+        CompletingWizardSpy, steps=[StepWithDone(), SimpleStep()], completed_state=completed_state
+    )
+    _ = post(sut, complete_early())
+
+    assert "done_called" in completed_state["store_state"]
+    assert completed_state["completed"] is True
+    assert store.was_saved_with({})
+
+
+def test__wizard__early_complete_not_allowed__post_complete_early__does_not_call_complete() -> None:
+    completed_state: dict[str, Any] = {}
+
+    sut = make_sut(
+        CompletingWizardSpy,
+        steps=[SimpleStep(), SimpleStep()],
+        completed_state=completed_state,
+        allow_early_complete=False,
+    )
+    _ = post(sut, complete_early())
+
+    assert "completed" not in completed_state
+
+
 def test__wizard__initializes_store_with_id() -> None:
     sut = make_sut(steps=[SimpleStep()])
 
@@ -462,6 +496,10 @@ def next() -> dict[str, str]:
 
 def back() -> dict[str, str]:
     return {"action": "back"}
+
+
+def complete_early() -> dict[str, str]:
+    return {"action": "complete_early"}
 
 
 def step(s: int) -> dict[str, Any]:

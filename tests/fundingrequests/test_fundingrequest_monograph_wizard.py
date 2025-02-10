@@ -18,7 +18,11 @@ from coda.contract import PublisherId
 from coda.publication import Monograph, PublicationId
 from tests import domainfactory, modelfactory
 from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
-from tests.fundingrequests.test_fundingrequest_wizard import FundingRequestDataBuilder, submit_step
+from tests.fundingrequests.test_fundingrequest_wizard import (
+    FundingRequestDataBuilder,
+    submit_complete_early,
+    submit_step,
+)
 from tests.fundingrequests.wizard.stepdata import publication_step
 
 
@@ -42,6 +46,10 @@ class MonographRequestDataBuilder(FundingRequestDataBuilder[Monograph]):
     def with_new_publication(self, id: PublicationId | None = None) -> Self:
         publisher = modelfactory.publisher()
         self._publication = self.create_monograph(PublisherId(publisher.pk), id)
+        return self
+
+    def with_publisher(self, publisher: PublisherId) -> Self:
+        self.publication.publisher = publisher
         return self
 
     @property
@@ -99,12 +107,37 @@ def test__updating_monograph_meta_step__saves_fundingrequest_with_changed_data(
     monograph = repository.get_monograph_request(id)
     updated = builder.with_new_publication(monograph.publication.id)
 
-    _ = submit(updated.publisher_step_dto().page_input())
     response = submit(publication_step.stepdata(updated.publication_dto()))
+    response = submit(updated.publisher_step_dto().page_input())
 
     actual = repository.get_monograph_request(id)
     assert_fundingrequest_eq(actual, updated.expected)
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": actual.id}))
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__updating_monograph_meta_step__completed_early__saves_fundingrequest_with_changed_data(
+    client: Client,
+) -> None:
+    builder = MonographRequestDataBuilder()
+    id = fundingrequest_create(builder.build())
+    url = reverse("fundingrequests:update_monograph_meta", kwargs={"pk": id})
+    submit = functools.partial(submit_complete_early, client, url)
+
+    monograph = repository.get_monograph_request(id)
+    updated = (
+        builder.with_new_publication(id=monograph.publication.id)
+        .with_contracts(monograph.publication.contracts)
+        .with_publisher(monograph.publication.publisher)
+    )
+
+    _ = client.get(url)
+    response = submit(publication_step.stepdata(updated.publication_dto()))
+
+    actual = repository.get_monograph_request(id)
+    assert_fundingrequest_eq(actual, updated.expected)
+    assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": id}))
 
 
 def submit_wizard(

@@ -5,6 +5,9 @@
         {% else %}
             <button type="submit" name="action" value="back" class="secondary" disabled>Back</button>
         {% endif %}
+        {% if allow_early_complete and stepper.current != stepper.total %}
+            <button type="submit" name="action" value="complete_early" class="secondary">Save step and exit</button>
+        {% endif %}
         {% if stepper.current == stepper.total %}
             <button type="submit" name="action" value="next">Save</button>
         {% else %}

@@ -59,6 +59,9 @@ class Store(Protocol):
     def clear(self) -> None:
         ...
 
+    def keys(self) -> Iterable[str]:
+        ...
+
 
 class SessionStore(Store):
     def __init__(self, store_name: str, request: HttpRequest) -> None:
@@ -99,6 +102,9 @@ class SessionStore(Store):
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.data.get(key, default)
+
+    def keys(self) -> Iterable[str]:
+        return self.data.keys()
 
 
 class Step(ABC):
@@ -146,6 +152,7 @@ class Wizard(View):
     success_url: str = ""
     cancel_url: str = ""
     store_name: str = ""
+    allow_early_complete: bool = False
     store_factory: StoreFactory = None  # type: ignore
 
     def get_success_url(self) -> str:
@@ -181,7 +188,10 @@ class Wizard(View):
         store = self.get_store()
 
         response: HttpResponse
-        if self.is_last(next_index):
+        if self.is_last(next_index) or self.wants_early_complete(request):
+            if self.wants_early_complete(request):
+                self.steps[next_index].done(request, store)
+
             self.complete(**kwargs)
             response = redirect(self.get_success_url())
             store.clear()
@@ -200,6 +210,9 @@ class Wizard(View):
 
     def is_last(self, index: int) -> bool:
         return index == len(self.steps)
+
+    def wants_early_complete(self, request: HttpRequest) -> bool:
+        return request.POST.get("action") == "complete_early" and self.allow_early_complete
 
     def determine_next_index(self, request: HttpRequest) -> int:
         match request.POST.get("action"):
@@ -230,4 +243,5 @@ class Wizard(View):
         context = step.get_context_data(request, self.get_store())
         context["stepper"] = Stepper(index + 1, len(self.steps))
         context["cancel_redirect_url"] = self.get_cancel_url()
+        context["allow_early_complete"] = self.allow_early_complete
         return render(request, step.template_name, context)

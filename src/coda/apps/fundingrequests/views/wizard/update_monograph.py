@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from django.http import HttpRequest
@@ -17,13 +18,15 @@ from coda.apps.wizard import SessionStore, Wizard
 
 class MonographUpdateMetaView(Wizard):
     store_name = "monograph_request_update_meta"
-    steps = [PublisherStep(), PublicationStep.for_monograph()]
+    steps = [PublicationStep.for_monograph(), PublisherStep()]
     store_factory = SessionStore
+    allow_early_complete = True
 
     def get_success_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
     def prepare(self, request: HttpRequest) -> None:
+        logging.info("Preparing MonographUpdateMetaView")
         store = self.get_store()
         fr = repository.get_monograph_request(self.kwargs["pk"])
         dto = MonographDto.from_monograph(fr.publication)
@@ -32,6 +35,7 @@ class MonographUpdateMetaView(Wizard):
         store.save()
 
     def complete(self, /, **kwargs: Any) -> None:
+        logging.info("Completing MonographUpdateMetaView")
         pk = kwargs["pk"]
         fr = repository.get_monograph_request(pk)
         dto = monograph_dto_from(self.get_store())

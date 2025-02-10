@@ -55,24 +55,26 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
     store_name = "update_publication_wizard"
     store_factory = SessionStore
     steps = [PublicationStep.for_article(), JournalStep()]
+    allow_early_complete = True
 
     def get_success_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
     def complete(self, /, **kwargs: Any) -> None:
         pk = kwargs["pk"]
-        fr = fundingrequest_repository.get_publication_request(pk)
+        fr = fundingrequest_repository.get_article_request(pk)
         dto = publication_dto_from(self.get_store())
         publication = dto.to_publication(fr.publication.id)
         publication_repository.save(publication)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
-        fr = fundingrequest_repository.get_publication_request(self.kwargs["pk"])
+        fr = fundingrequest_repository.get_article_request(self.kwargs["pk"])
         dto = PublicationDto.from_publication(fr.publication)
         store["publication_step"] = dto.to_post_data(exclude={"journal", "contracts"})
         store["journal"] = fr.publication.journal
         store["contracts"] = [c.to_post_data() for c in dto.contracts]
+        store.save()
 
 
 class UpdateFundingView(LoginRequiredMixin, Wizard):
