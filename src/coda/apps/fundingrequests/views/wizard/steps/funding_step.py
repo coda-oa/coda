@@ -37,5 +37,5 @@ class FundingStep(Step):
 
         funding_formset = ExternalFundingFormset(request.POST)
         dto = funding_formset.to_dto_list()
-        store["funding"] = list(d.to_post_data() for d in dto) if dto else None
+        store["funding"] = list(d.to_post_data() for d in dto)
         store.save()

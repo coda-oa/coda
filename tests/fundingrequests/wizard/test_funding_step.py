@@ -137,18 +137,18 @@ def test__funding_step__only_project_id_without_organization__is_invalid() -> No
 
 
 @pytest.mark.django_db
-def test__funding_step__without_external_funding__done_does_not_store_funding() -> None:
+def test__funding_step__without_external_funding__done__funding_is_empty() -> None:
     store = DictStore()
     funding_step = FundingStep()
 
     request = _request_factory.post("/", cost_data)
     funding_step.done(request, store)
 
-    assert store.get("funding") is None
+    assert list(store.get("funding")) == []
 
 
 @pytest.mark.django_db
-def test__funding_step__with_previous_funding__subnmitting_without_external_funding__overrides_old_funding_in_store() -> (
+def test__funding_step__with_previous_funding__submitting_without_external_funding__overrides_old_funding_in_store() -> (
     None
 ):
     store = DictStore()
@@ -166,7 +166,7 @@ def test__funding_step__with_previous_funding__subnmitting_without_external_fund
     request = _request_factory.post("/", cost_data)
     funding_step.done(request, store)
 
-    assert store.get("funding") is None
+    assert list(store.get("funding")) == []
 
 
 @pytest.mark.django_db
