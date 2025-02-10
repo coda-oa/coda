@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 
 from coda.apps.contracts import services as contract_services
 from coda.apps.domainqueryset import DomainQuerySet
@@ -28,11 +28,13 @@ def get_by_id(invoice_id: InvoiceId) -> Invoice:
 
 
 def get_by_creditor(creditor_id: CreditorId) -> Sequence[Invoice]:
-    return DomainQuerySet(InvoiceModel.objects.filter(creditor_id=creditor_id), as_domain_object)
+    return DomainQuerySet(
+        _ordered(InvoiceModel.objects.filter(creditor_id=creditor_id)), as_domain_object
+    )
 
 
 def all() -> Sequence[Invoice]:
-    return DomainQuerySet(InvoiceModel.objects.all(), as_domain_object)
+    return DomainQuerySet(_ordered(InvoiceModel.objects.all()), as_domain_object)
 
 
 def search(
@@ -55,7 +57,7 @@ def search(
     if date_range:
         query &= Q(date__range=(date_range.start, date_range.end))
 
-    return DomainQuerySet(InvoiceModel.objects.filter(query), as_domain_object)
+    return DomainQuerySet(_ordered(InvoiceModel.objects.filter(query)), as_domain_object)
 
 
 def as_domain_object(model: InvoiceModel) -> Invoice:
@@ -154,3 +156,7 @@ def _create_position(m: InvoiceModel, pos: Position[ItemType]) -> PositionModel:
             )
         case _:
             raise ValueError("Invalid position item")
+
+
+def _ordered(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
+    return invoices.order_by("-date")
