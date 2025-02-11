@@ -11,6 +11,14 @@
                 integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw"
                 crossorigin="anonymous"></script>
         {% load static %}
+        <script>
+                  const root = document.documentElement;
+                  const theme = localStorage.getItem('theme');
+                  if (theme) root.setAttribute('data-theme', theme);
+        </script>
+        <script src="{% static 'js/theme-toggle.js' %}"
+                type="module"
+                crossorigin="anonymous"></script>
         <link rel="stylesheet"
               type="text/css"
               href="{% static 'css/vars.css' %}"

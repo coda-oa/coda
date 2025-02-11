@@ -1,5 +1,5 @@
 .main-grid {
-    --_nav-container-expanded-width: 23ch;
+    --_nav-container-expanded-width: 25ch;
     --_nav-container-collapsed-width: 4.5rem;
 
     display: grid;
@@ -10,6 +10,37 @@
 .main-grid > .container {
     padding-block: 0;
     padding-inline: var(--coda-spacing);
+}
+
+.coda-logo {
+    --_coda-logo-color: var(--coda-primary);
+
+    max-width: fit-content;
+    border: 1px solid var(--_coda-logo-color) !important;
+    border-radius: var(--coda-border-radius);
+
+    margin-inline: var(--coda-spacing);
+    margin-block: calc(var(--coda-spacing) * 1.5);
+}
+
+.coda-logo a {
+    display: block;
+
+    font-size: 1.75rem !important;
+
+    max-width: fit-content;
+    margin: 0 !important;
+    padding: 0 !important;
+
+    color: var(--_coda-logo-color);
+    text-align: center;
+    text-decoration: none;
+
+    transition: padding 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+.coda-logo a:hover {
+    --_coda-logo-color: var(--coda-primary-hover);
 }
 
 .nav-container {
@@ -24,55 +55,50 @@
 }
 
 .nav {
+    display: grid;
+
+    min-height: 100vh;
+    grid-template-columns: [nav logo theme-switch] var(--_nav-container-expanded-width);
+    grid-template-rows: [logo] min-content [nav] max-content [theme-switch] auto;
+    align-items: end;
+
     position: sticky;
     top: 0;
-    padding: var(--coda-spacing);
-    padding-inline-start: calc(var(--coda-spacing) / 2);
 
-    & ul,
-    & ul:first-of-type {
+    & ul {
         padding: 0;
         margin: 0;
     }
 
-    & ul:first-of-type {
-        margin-block: calc(var(--coda-spacing) * 2);
-        margin-block-start: var(--coda-spacing);
-
-        & li {
-            padding-block: 0;
-        }
-
-        & a {
-            font-size: 1.75rem;
-        }
+    & ul:has(.coda-logo) {
+        grid-area: logo;
+        padding-inline-start: calc(var(--coda-spacing) / 2);
     }
 
-    & ul:last-of-type > li {
+    & .nav__link-list {
+        grid-area: nav;
+        padding-inline-start: calc(var(--coda-spacing) / 2);
+        padding-inline-end: calc(var(--coda-spacing));
+    }
+
+    & .nav__link-list > li {
+        padding-inline-start: 0;
+        margin-inline-start: calc(var(--coda-spacing));
         margin-block: calc(var(--coda-spacing) / 2);
-    }
-
-    & ul:last-of-type > :last-child {
-        padding-inline: 0;
-        margin-block-start: calc(var(--coda-spacing) * 2);
     }
 
     & a {
         border: 1px solid transparent;
         font-size: 1.15rem;
-        padding-inline: var(--coda-spacing);
         text-wrap: nowrap;
     }
 
-    & ul:last-of-type a:not([role="button"]):hover {
+    & .nav__link-list a:not([role="button"]):hover {
         border: 1px solid var(--coda-primary-background);
-        color: var(--coda-secondary-inverse);
+        color: var(--coda-secondary);
         text-decoration: none;
     }
 
-    & ul:last-of-type a:hover img {
-        filter: invert();
-    }
 
     & a.active {
         position: relative;
@@ -95,28 +121,86 @@
         min-width: 1.5rem;
     }
 
-    & button {
-        padding-inline: var(--coda-spacing);
+    & .login_logout_button {
         text-align: left;
-        overflow: hidden;
-        text-overflow: hidden;
+        text-overflow: clip;
+
+        width: 100%;
+        margin: 0;
+        padding: 0;
+
+        background-color: transparent;
+        border: none;
+
+        a:hover {
+            text-decoration: none;
+        }
+
+        img {
+            margin: 0 !important;
+        }
+    }
+
+    & button.login_logout_button {
         text-wrap: nowrap;
     }
 
-    & a[role="button"] {
-        margin: 0;
-        padding-inline: var(--coda-spacing);
+    & li:has(.login_logout_button) {
+        border: 1px solid var(--coda-secondary-background);
+        border-radius: var(--coda-border-radius);
+        margin-inline-start: calc(var(--coda-spacing) / 2);
+        padding-inline-start: calc(var(--coda-spacing) / 2);
+    }
+
+    .theme-switch-wrapper {
+        grid-area: theme-switch;
+        padding-inline-start: calc(var(--coda-spacing) / 2);
+    }
+
+    #theme-switch {
+        position: relative;
+        display: block;
+        width: 2.5rem;
+        height: 2.5rem;
+
+        appearance: none;
+        -webkit-appearance: none;
+
+        border-radius: 50%;
+        background-color: white;
+        border: none;
+    }
+
+    #theme-switch:checked {
+        background-image: none;
+    }
+
+    #theme-switch::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
 
         width: 100%;
+        height: 100%;
 
-        text-align: left;
+        border-radius: 50%;
+
+        background-image: url("../assets/moon.svg");
+        background-position: center;
     }
+
+    #theme-switch:checked::before {
+        background-image: url("../assets/sun.svg");
+    }
+
 }
 
 @media screen and (width < 1728px) {
     .main-grid {
-        grid-template-columns:
-            [nav] var(--_nav-container-collapsed-width) [main] auto;
+        grid-template-columns: [nav] var(--_nav-container-collapsed-width) [main] auto;
     }
 
     .main-grid > main {
@@ -141,6 +225,8 @@
 
     .nav-container .nav span {
         --_opacity-transition-duration: 0.1s;
+        width: 0;
+
         visibility: hidden;
         opacity: 0;
         transition: opacity var(--_opacity-transition-duration) ease-in-out;
@@ -152,22 +238,39 @@
     }
 
     .nav {
+        grid-template-columns: [nav logo theme-switch] var(--_nav-container-collapsed-width);
+    }
+
+    .nav-container:is(:hover, :focus-within) .nav {
+        grid-template-columns: [nav logo theme-switch] var(--_nav-container-expanded-width);
+    }
+
+
+    .nav .nav__link-list {
         padding-inline-start: calc(var(--coda-spacing) / 2);
         padding-inline-end: calc(var(--coda-spacing));
     }
 }
 
-@media screen and (prefers-color-scheme: dark) {
+:root[data-theme="dark"] {
     .nav-link-icon {
+        filter: invert();
+    }
+
+    & .nav__link-list a:hover img {
         filter: invert();
     }
 }
 
-.login_logout_button {
-    padding: 0.5rem;
-    margin: 0;
 
-    a:hover {
-        text-decoration: none;
+@media screen and (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+        .nav-link-icon {
+            filter: invert();
+        }
+
+        & .nav__link-list a:hover img {
+            filter: invert();
+        }
     }
 }

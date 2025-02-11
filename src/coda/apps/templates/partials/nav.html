@@ -2,11 +2,11 @@
 <aside class="nav-container">
     <nav class="nav">
         <ul>
-            <li class="text-ellipsis">
+            <li class="coda-logo text-ellipsis">
                 <a href="{% url "home" %}"><strong>C<span>ODA</span></strong></a>
             </li>
         </ul>
-        <ul>
+        <ul class="nav__link-list">
             <li>
                 {% include "partials/nav_link.html" with link="fundingrequests:list" image="assets/fundingrequest.svg" text="Funding Requests" %}
             </li>
@@ -28,7 +28,7 @@
                 <li>
                     <form action="{% url "logout" %}" method="post">
                         {% csrf_token %}
-                        <button type="submit" class="login_logout_button outline secondary">
+                        <button type="submit" class="login_logout_button outline contrast">
                             <img src="{% static "assets/logout.svg" %}" class="nav-link-icon" alt="logout" width="auto" height="auto">
                             <span>Logout</span>
                         </button>
@@ -37,12 +37,19 @@
             {% else %}
                 <li>
                     <a role="button"
-                       class="login_logout_button outline secondary"
+                       class="login_logout_button outline contrast"
                        href="{% url "login" %}">
                         <img src="{% static "assets/login.svg" %}" class="nav-link-icon" alt="login" width="auto" height="auto">
                         <span>Login</span></a>
                 </li>
             {% endif %}
+        </ul>
+        <ul class="theme-switch-wrapper">
+            <li>
+                <input type="checkbox"
+                       id="theme-switch"
+                       aria-label="Toggle light and dark theme">
+            </li>
         </ul>
     </nav>
 </aside>
