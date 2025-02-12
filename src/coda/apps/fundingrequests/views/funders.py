@@ -1,0 +1,68 @@
+from collections.abc import Sequence
+from typing import Any
+
+from django import forms
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404
+from django.urls import reverse_lazy
+from django.views.generic import CreateView, UpdateView
+
+from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.fundingrequests.models import FundingOrganization
+from coda.apps.views import EntityListView
+
+
+class FundingOrganizationListView(LoginRequiredMixin, EntityListView[FundingOrganization]):
+    entity_name = "Funding Organizations"
+    entity_create_url = "fundingrequests:funders_create"
+    entity_list_item_template = "fundingrequests/funders/funder_list_item.html"
+
+    def get_entities(self, request: HttpRequest) -> Sequence[FundingOrganization]:
+        return DomainQuerySet(FundingOrganization.objects.all(), lambda x: x)
+
+
+fundingorganizations_list = FundingOrganizationListView.as_view()
+
+
+class FundingOrganizationForm(forms.ModelForm[FundingOrganization]):
+    class Meta:
+        model = FundingOrganization
+        fields = ["name"]
+
+
+class FundingOrganizationCreateView(
+    LoginRequiredMixin, CreateView[FundingOrganization, FundingOrganizationForm]
+):
+    model = FundingOrganization
+    form_class = FundingOrganizationForm
+    template_name = "generic_form_view.html"
+    success_url = reverse_lazy("fundingrequests:funders")
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        return super().get_context_data(**kwargs) | {"title": "Create Funding Organization"}
+
+
+fundingorganizations_create = FundingOrganizationCreateView.as_view()
+
+
+class FundingOrganizationUpdateView(
+    LoginRequiredMixin, UpdateView[FundingOrganization, FundingOrganizationForm]
+):
+    model = FundingOrganization
+    form_class = FundingOrganizationForm
+    template_name = "generic_form_view.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        return super().get_context_data(**kwargs) | {"title": "Update Funding Organization"}
+
+
+fundingorganizations_update = FundingOrganizationUpdateView.as_view()
+
+
+@login_required
+def fundingorganizations_delete(request: HttpRequest, pk: int) -> HttpResponse:
+    fundingorganization = get_object_or_404(FundingOrganization, pk=pk)
+    fundingorganization.delete()
+    return HttpResponse()

@@ -45,9 +45,14 @@
     flex-wrap: wrap;
 }
 
+.gap-2 {
+    gap: calc(var(--coda-spacing) * 2);
+}
+
 .summary-flex {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-right: 1.5rem; /* Adjust this value as needed */
+    padding-right: 1.5rem;
+    /* Adjust this value as needed */
 }
