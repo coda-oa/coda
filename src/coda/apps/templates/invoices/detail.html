@@ -41,7 +41,6 @@
                 <tr>
                     <th>#</th>
                     <th>Position</th>
-                    <th>Publication Submitter</th>
                     <th>Related Funding Request</th>
                     <th>Cost</th>
                     <th>Cost Type</th>
@@ -52,7 +51,6 @@
                     <tr>
                         <td>{{ position.number }}</td>
                         <td>{{ position.name }}</td>
-                        <td>{{ position.publication_submitter }}</td>
                         <td>
                             {% if position.related_funding_request %}
                                 <a href="{{ position.related_funding_request.url }}">{{ position.related_funding_request.request_id }}</a>
@@ -66,7 +64,6 @@
                     <td></td>
                     <td>Tax</td>
                     <td></td>
-                    <td></td>
                     <td>{{ invoice.tax.amount }} {{ invoice.tax.currency.code }}</td>
                     <td>vat</td>
                 </tr>
@@ -75,7 +72,6 @@
                     <td>
                         <strong>Total</strong>
                     </td>
-                    <td></td>
                     <td></td>
                     <td>
                         <strong>{{ invoice.total.amount }} {{ invoice.total.currency.code }}</strong>

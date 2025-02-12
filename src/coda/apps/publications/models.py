@@ -2,7 +2,6 @@ import uuid
 
 from django.db import models
 
-from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
@@ -86,13 +85,6 @@ class Publication(models.Model):
     )
     monograph_publisher = models.ForeignKey(
         Publisher, on_delete=models.CASCADE, related_name="publications", null=True
-    )
-
-    submitting_author = models.OneToOneField(
-        Author,
-        on_delete=models.CASCADE,
-        related_name="submitted_publication",
-        null=True,
     )
 
     subject_area = models.OneToOneField(

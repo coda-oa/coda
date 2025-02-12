@@ -8,7 +8,6 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 
-from coda.apps.authors.models import Author
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository
 from coda.apps.invoices.models import Creditor
@@ -89,12 +88,10 @@ def position_viewmodel(position: Position[ItemType], number: int) -> "PositionVi
         case ContractYear() as contract_year:
             contract = contract_year.contract
             position_name = str(contract.name)
-            submitter = ""
             related_funding_request = None
         case PublicationId(pub_id):
             publication = get_object_or_404(Publication, pk=pub_id)
             position_name = publication.title
-            submitter = cast(Author, publication.submitting_author).name
             related_request = FundingRequest.objects.filter(publication_id=position.item).first()
             related_funding_request = None
             if related_request:
@@ -104,13 +101,11 @@ def position_viewmodel(position: Position[ItemType], number: int) -> "PositionVi
                 )
         case str(description):
             position_name = description
-            submitter = ""
             related_funding_request = None
 
     return PositionViewModel(
         number=str(number),
         name=position_name,
-        publication_submitter=submitter,
         cost=position.cost,
         cost_type=position.cost_type.value,
         related_funding_request=related_funding_request,
@@ -126,7 +121,6 @@ class FundingRequestViewModel(NamedTuple):
 class PositionViewModel(NamedTuple):
     number: str
     name: str
-    publication_submitter: str
     cost: Money
     cost_type: str
     related_funding_request: FundingRequestViewModel | None
