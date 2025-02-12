@@ -53,6 +53,7 @@ class FundingOrganizationUpdateView(
     model = FundingOrganization
     form_class = FundingOrganizationForm
     template_name = "generic_form_view.html"
+    success_url = reverse_lazy("fundingrequests:funders")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {"title": "Update Funding Organization"}
