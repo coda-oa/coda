@@ -21,7 +21,6 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
     entity_name = "Contracts"
     entity_create_url = "contracts:create"
     entity_list_item_template = "contracts/contract_list_item.html"
-    entity_list_layout_classes = "grid-container"
 
     def get_entities(self, request: HttpRequest) -> Sequence[Contract]:
         return services.all()
