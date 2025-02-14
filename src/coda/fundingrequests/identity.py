@@ -2,6 +2,7 @@ import base64
 import datetime
 import random
 import struct
+from typing import Any
 
 from coda.fundingrequests import damm
 
@@ -15,6 +16,19 @@ def _encode_number(number: int) -> str:
     padding_removed = encoded.rstrip(b"=")
     str_id = padding_removed.decode()
     return str_id
+
+
+def _decode_base64_id(id: str) -> int:
+    padding = "=" * (4 - len(id) % 4)
+    padded_id = id + padding
+    decoded = base64.urlsafe_b64decode(padded_id)
+    int_id = int(struct.unpack("!Q", decoded)[0])
+    return int_id
+
+
+class InvalidFundingRequestId(ValueError):
+    def __init__(self, *args: Any) -> None:
+        super().__init__("The checksum of the fundingrequest is invalid", *args)
 
 
 class PublicFundingRequestId:
@@ -33,6 +47,11 @@ class PublicFundingRequestId:
 
         date = datetime.datetime.strptime(parts[1], "%Y%m%d").date()
         id_without_checksum = parts[2][:-1]
+        checksum = parts[2][-1]
+        full_id = int(str(_decode_base64_id(id_without_checksum)) + checksum)
+        if not damm.validate(full_id):
+            raise InvalidFundingRequestId()
+
         return cls(date, id_without_checksum)
 
     @classmethod
@@ -56,17 +75,10 @@ class PublicFundingRequestId:
         return "coda", self.date(), self.id()
 
     def id(self) -> str:
-        return f"{self._id}{damm.checksum(self._decode_base64_id())}"
+        return f"{self._id}{damm.checksum(_decode_base64_id(self._id))}"
 
     def date(self) -> datetime.date:
         return self._date
-
-    def _decode_base64_id(self) -> int:
-        padding = "=" * (4 - len(self._id) % 4)
-        padded_id = self._id + padding
-        decoded = base64.urlsafe_b64decode(padded_id)
-        int_id = int(struct.unpack("!Q", decoded)[0])
-        return int_id
 
     def __str__(self) -> str:
         return f"coda-{self._date:%Y%m%d}-{self.id()}"

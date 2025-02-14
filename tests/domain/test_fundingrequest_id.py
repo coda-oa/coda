@@ -3,6 +3,8 @@ import random
 
 from unittest.mock import create_autospec
 
+import pytest
+
 from coda.fundingrequests import damm
 from coda.fundingrequests.identity import PublicFundingRequestId
 
@@ -40,6 +42,19 @@ def test__fundingrequest_id__can_be_constructed_from_string() -> None:
 
     assert expected == actual
     assert expected.parts() == actual.parts()
+
+
+def test__fundingrequest_id__from_string_with_invalid_checksum__raises_error() -> None:
+    number = 247728699672827171
+    rng = create_autospec(random.Random)
+    rng.randint.return_value = number
+    date = datetime.date(2021, 1, 1)
+
+    expected = PublicFundingRequestId.create(date, rng)
+    invalid_id = str(expected)[:-1] + "0"
+
+    with pytest.raises(ValueError):
+        PublicFundingRequestId.from_str(invalid_id)
 
 
 def test__two_fundingrequest_ids__with_same_date_and_number__are_equal() -> None:
