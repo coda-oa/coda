@@ -41,7 +41,7 @@ class PublicFundingRequestId:
 
     @classmethod
     def from_str(cls, id_str: str) -> "PublicFundingRequestId":
-        parts = id_str.split("-")
+        parts = id_str.split("-", maxsplit=2)
         if len(parts) != 3 or parts[0] != "coda":
             raise ValueError(f"Invalid funding request ID: {id_str}")
 

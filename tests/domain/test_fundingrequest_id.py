@@ -31,8 +31,12 @@ def test__a_fundingrequest_id__is_consists_of_coda__date_stamp__encoded_number__
     assert actual == f"coda-{date_str}-{unpadded_url_encoded_number}{damm_checksum}"
 
 
-def test__fundingrequest_id__can_be_constructed_from_string() -> None:
-    number = 247728699672827170
+@pytest.mark.parametrize(
+    "number",
+    [247728699672827170, 11677600339380315783],
+    ids=["regular case", "number with dash when encoded"],
+)
+def test__fundingrequest_id__can_be_constructed_from_string(number: int) -> None:
     rng = create_autospec(random.Random)
     rng.randint.return_value = number
     date = datetime.date(2021, 1, 1)
