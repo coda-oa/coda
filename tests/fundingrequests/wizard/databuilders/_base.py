@@ -1,8 +1,8 @@
 import abc
-from collections.abc import Iterable
 import datetime
 import random
-from typing import Generic, Self
+from collections.abc import Iterable
+from typing import Generic, Self, TypeVar
 from unittest.mock import create_autospec
 
 from faker import Faker
@@ -10,6 +10,7 @@ from faker import Faker
 from coda.apps.contracts.services import as_domain_object
 from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraContactDto, PaymentDto
 from coda.apps.preferences.models import GlobalPreferences
+from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.contract import ContractYear
 from coda.fundingrequest import (
@@ -37,7 +38,10 @@ def fixed_request_id_factory(
     return PublicFundingRequestId.create(date, rng_)
 
 
-class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
+TPublicationDto = TypeVar("TPublicationDto", PublicationDto, MonographDto)
+
+
+class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC):
     def __init__(self) -> None:
         self._faker = Faker()
         self.affiliation = modelfactory.institution()
@@ -83,6 +87,10 @@ class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
     def set_global_preferences(self) -> None:
         GlobalPreferences.set_subject_classification_vocabulary(self.subject_areas)
         GlobalPreferences.set_article_publication_type_vocabulary(self.publication_types)
+
+    @abc.abstractmethod
+    def publication_dto(self) -> TPublicationDto:
+        ...
 
     @property
     @abc.abstractmethod

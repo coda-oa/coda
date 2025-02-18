@@ -6,7 +6,7 @@ from tests import domainfactory, modelfactory
 from tests.fundingrequests.wizard.databuilders._base import FundingRequestDataBuilder
 
 
-class ArticleRequestDataBuilder(FundingRequestDataBuilder[Publication]):
+class ArticleRequestDataBuilder(FundingRequestDataBuilder[Publication, PublicationDto]):
     def __init__(self) -> None:
         super().__init__()
         self.journal = modelfactory.journal()

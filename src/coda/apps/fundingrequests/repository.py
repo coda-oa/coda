@@ -32,7 +32,7 @@ from coda.string import NonEmptyStr
 
 
 @transaction.atomic
-def save(fundingrequest: AnyFundingRequest) -> FundingRequestId:
+def save(fundingrequest: FundingRequest[TPublication]) -> FundingRequestId:
     pid = publication_repository.save(fundingrequest.publication)
     if not fundingrequest.id:
         fr = FundingRequestModel()

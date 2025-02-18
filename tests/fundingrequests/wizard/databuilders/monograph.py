@@ -8,7 +8,7 @@ from tests import domainfactory, modelfactory
 from tests.fundingrequests.wizard.databuilders._base import FundingRequestDataBuilder
 
 
-class MonographRequestDataBuilder(FundingRequestDataBuilder[Monograph]):
+class MonographRequestDataBuilder(FundingRequestDataBuilder[Monograph, MonographDto]):
     def __init__(self) -> None:
         super().__init__()
         publisher = modelfactory.publisher()

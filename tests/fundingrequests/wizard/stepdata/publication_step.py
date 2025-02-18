@@ -11,16 +11,16 @@ from tests import domainfactory
 
 
 def stepdata(publication: PublicationBaseDto | None = None) -> dict[str, Any]:
-    publication = publication or PublicationDto.from_publication(domainfactory.publication())
-    meta = publication.meta
+    publication_ = publication or PublicationDto.from_publication(domainfactory.publication())
+    meta = publication_.meta
     relevant_authors = to_htmx_formset_data(
-        [author.to_post_data() for author in publication.relevant_authors],
+        [author.to_post_data() for author in publication_.relevant_authors],
         prefix="relevant-authors",
     )
-    authors = _serialize_authors(publication.other_authors)
+    authors = _serialize_authors(publication_.other_authors)
     concepts = _concepts_to_json(meta)
     meta_reduced = _reduce_meta(meta)
-    link_form_data = _serialize_links(publication.links)
+    link_form_data = _serialize_links(publication_.links)
 
     formdata = meta_reduced | relevant_authors | {"authors": authors} | concepts | link_form_data
     return formdata

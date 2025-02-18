@@ -1,3 +1,4 @@
+from collections.abc import Callable
 import datetime
 import random
 
@@ -20,6 +21,7 @@ from coda.publication import JournalId
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
+from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
 from tests.publications.test_publication_repository import assert_publication_eq
 
 _faker = domainfactory._faker
@@ -36,8 +38,14 @@ def extra_contact() -> FilledContact:
 
 
 @pytest.mark.django_db
-def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data() -> None:
-    builder = ArticleRequestDataBuilder()
+@pytest.mark.parametrize(
+    "get_builder",
+    [lambda: ArticleRequestDataBuilder(), lambda: MonographRequestDataBuilder()],
+)
+def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data(
+    get_builder: Callable[[], ArticleRequestDataBuilder | MonographRequestDataBuilder]
+) -> None:
+    builder = get_builder()
 
     new_id = services.create_fundingrequest(
         builder.publication_dto(),

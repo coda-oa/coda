@@ -1,3 +1,4 @@
+import abc
 import datetime
 import uuid
 from typing import Annotated, Any
@@ -11,9 +12,9 @@ from coda.apps.contracts import services as contract_services
 from coda.apps.dto import CodaBaseDto, OptionalFromStr
 from coda.author import AuthorNames
 from coda.contract import ContractId, ContractYear, PublisherId
-from coda.publication import links
 from coda.publication import (
     Authors,
+    BasePublication,
     JournalId,
     License,
     Link,
@@ -25,6 +26,7 @@ from coda.publication import (
     Published,
     Unpublished,
     UnpublishedState,
+    links,
 )
 from coda.string import NonEmptyStr
 from coda.vocabulary import ConceptId, VocabularyConcept, VocabularyId
@@ -127,12 +129,16 @@ class ContractYearDto(CodaBaseDto):
         return contract_services.get_by_id(self.contract).in_year(self.year)
 
 
-class PublicationBaseDto(CodaBaseDto):
+class PublicationBaseDto(abc.ABC, CodaBaseDto):
     meta: PublicationMetaDto
     contracts: list[ContractYearDto]
     links: list[LinkDto]
     relevant_authors: list[AuthorDto]
     other_authors: list[str]
+
+    @abc.abstractmethod
+    def to_publication(self, id: PublicationId | None = None) -> BasePublication:
+        ...
 
 
 class PublicationDto(PublicationBaseDto):
@@ -237,6 +243,9 @@ class MonographDto(PublicationBaseDto):
             contracts=tuple(c.to_contract_year() for c in self.contracts),
             publisher=self.publisher,
         )
+
+    def to_publication(self, id: PublicationId | None = None) -> Monograph:
+        return self.to_monograph(id)
 
 
 def _parse_state(publication: PublicationMetaDto) -> PublicationState:

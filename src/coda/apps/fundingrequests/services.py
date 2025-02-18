@@ -7,12 +7,11 @@ from django.db import transaction
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraContactDto, PaymentDto
-from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
-from coda.apps.publications.dto import PublicationDto
+from coda.apps.publications.dto import PublicationBaseDto
 from coda.color import Color
-from coda.fundingrequest import ExternalFunding, FundingRequest, FundingRequestId
+from coda.fundingrequest import FundingRequest, FundingRequestId
 from coda.fundingrequests.identity import PublicFundingRequestId
 
 
@@ -24,7 +23,7 @@ class RequestIdGenerator(Protocol):
 
 
 def create_fundingrequest(
-    publication: PublicationDto,
+    publication: PublicationBaseDto,
     payment: PaymentDto,
     funding: Iterable[ExternalFundingDto],
     extra_contact: ExtraContactDto,
@@ -65,21 +64,6 @@ def update_funding(
         fundingrequest_id,
         payment.to_payment(),
         map(ExternalFundingDto.to_external_funding, funding),
-    )
-
-
-def external_funding_create(
-    id: FundingRequestId,
-    external_funding: Iterable[ExternalFunding],
-) -> Iterable[ExternalFundingModel]:
-    return ExternalFundingModel.objects.bulk_create(
-        ExternalFundingModel(
-            funding_request_id=id,
-            organization_id=single_funding.organization,
-            project_id=single_funding.project_id,
-            project_name=single_funding.project_name,
-        )
-        for single_funding in external_funding
     )
 
 
