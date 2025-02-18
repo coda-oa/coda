@@ -1,0 +1,123 @@
+import abc
+from collections.abc import Iterable
+import datetime
+import random
+from typing import Generic, Self
+from unittest.mock import create_autospec
+
+from faker import Faker
+
+from coda.apps.contracts.services import as_domain_object
+from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraContactDto, PaymentDto
+from coda.apps.preferences.models import GlobalPreferences
+from coda.apps.publications.repositories import vocabulary_repository
+from coda.contract import ContractYear
+from coda.fundingrequest import (
+    ExternalFunding,
+    FilledContact,
+    FundingOrganizationId,
+    FundingRequest,
+    FundingRequestContact,
+    NoContact,
+    Payment,
+    TPublication,
+)
+from coda.fundingrequests.identity import PublicFundingRequestId
+from coda.publication import PublicationId
+from coda.string import NonEmptyStr
+from tests import domainfactory, modelfactory
+
+
+def fixed_request_id_factory(
+    date: datetime.date | None = None, rng: random.Random | None = None
+) -> PublicFundingRequestId:
+    date = datetime.date.today()
+    rng_ = create_autospec(random.Random)
+    rng_.randint.return_value = 1
+    return PublicFundingRequestId.create(date, rng_)
+
+
+class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
+    def __init__(self) -> None:
+        self._faker = Faker()
+        self.affiliation = modelfactory.institution()
+        self.funder = modelfactory.funding_organization()
+        self.contracts = [as_domain_object(modelfactory.contract()) for _ in range(1, 3)]
+        self.contract_years = [domainfactory.contract_year(c) for c in self.contracts]
+
+        self.extra_contact: FundingRequestContact = FilledContact(
+            name=NonEmptyStr(self._faker.name()), email=self._faker.email()
+        )
+        self.estimated_cost = domainfactory.payment()
+        self.external_funding = [
+            domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
+            domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
+        ]
+
+        self.prepare_vocabularies()
+        self.set_global_preferences()
+
+    def without_external_funding(self) -> Self:
+        self.external_funding = []
+        return self
+
+    def with_empty_contact(self) -> Self:
+        self.extra_contact = NoContact
+        return self
+
+    def with_contracts(self, contract_years: Iterable[ContractYear]) -> Self:
+        self.contracts = [c.contract for c in contract_years]
+        self.contract_years = list(contract_years)
+        self.publication.contracts = tuple(self.contract_years)
+        return self
+
+    def prepare_vocabularies(self) -> None:
+        self.subject_areas = vocabulary_repository.create("subject_areas", "1.0")
+        self.subject_areas.add_concept("subject_area", "subject_area")
+        vocabulary_repository.save(self.subject_areas)
+
+        self.publication_types = vocabulary_repository.create("publication_types", "1.0")
+        self.publication_types.add_concept("publication_type", "publication_type")
+        vocabulary_repository.save(self.publication_types)
+
+    def set_global_preferences(self) -> None:
+        GlobalPreferences.set_subject_classification_vocabulary(self.subject_areas)
+        GlobalPreferences.set_article_publication_type_vocabulary(self.publication_types)
+
+    @property
+    @abc.abstractmethod
+    def publication(self) -> TPublication:
+        ...
+
+    def build(self) -> FundingRequest[TPublication]:
+        return FundingRequest.new(
+            self.publication,
+            self.estimated_cost,
+            request_id=fixed_request_id_factory(),
+            external_funding=self.external_funding,
+            extra_contact=self.extra_contact,
+        )
+
+    @property
+    def expected(self) -> FundingRequest[TPublication]:
+        return self.build()
+
+    @abc.abstractmethod
+    def with_new_publication(self, id: PublicationId | None = None) -> Self:
+        ...
+
+    def with_payment(self, payment: Payment) -> Self:
+        self.estimated_cost = payment
+        return self
+
+    def extra_contact_dto(self) -> ExtraContactDto:
+        return ExtraContactDto.from_contact(self.extra_contact)
+
+    def external_funding_dto(self) -> list[ExternalFundingDto]:
+        return [self._to_external_funding_dto(f) for f in self.external_funding]
+
+    def cost_dto(self) -> PaymentDto:
+        return PaymentDto.from_payment(self.estimated_cost)
+
+    def _to_external_funding_dto(self, funding: ExternalFunding) -> ExternalFundingDto:
+        return ExternalFundingDto.from_external_funding(funding)

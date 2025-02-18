@@ -3,7 +3,15 @@ from typing import Annotated
 from pydantic import AfterValidator
 
 from coda.apps.dto import CodaBaseDto
-from coda.fundingrequest import ExternalFunding, FundingOrganizationId, Payment, PaymentMethod
+from coda.fundingrequest import (
+    ExternalFunding,
+    FilledContact,
+    FundingOrganizationId,
+    FundingRequestContact,
+    NoContact,
+    Payment,
+    PaymentMethod,
+)
 from coda.money import Currency, Money
 from coda.string import NonEmptyStr
 
@@ -69,6 +77,31 @@ class ExternalFundingDto(CodaBaseDto):
             project_id=NonEmptyStr(self.project_id),
             project_name=self.project_name,
         )
+
+
+class ExtraContactDto(CodaBaseDto):
+    """
+    Data Transfer Object (DTO) for extra contact information.
+
+    Attributes:
+        name (str): The name of the contact.
+        email (str): The email address of the contact.
+    """
+
+    name: str | None = None
+    email: str | None = None
+
+    @classmethod
+    def from_contact(cls, contact: FundingRequestContact) -> "ExtraContactDto":
+        """Creates an instance of ExtraContactDto from a FundingRequestContact object."""
+        return cls(name=contact.name, email=contact.email)
+
+    def to_contact(self) -> FundingRequestContact:
+        """Converts the ExtraContactDto instance to a FundingRequestContact object."""
+        if self.name and self.email:
+            return FilledContact(name=NonEmptyStr(self.name), email=self.email)
+        else:
+            return NoContact
 
 
 class ReviewDto(CodaBaseDto):

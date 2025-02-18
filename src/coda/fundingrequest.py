@@ -1,8 +1,10 @@
+import datetime
 import enum
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Generic, NamedTuple, NewType, TypeAlias, TypeVar
 
+from coda.fundingrequests.identity import PublicFundingRequestId
 from coda.money import Money
 from coda.money._currency import Currency
 from coda.publication import BasePublication, Monograph, Publication
@@ -77,12 +79,14 @@ class FundingRequest(Generic[TPublication]):
     def __init__(
         self,
         id: FundingRequestId | None,
+        request_id: PublicFundingRequestId,
         publication: TPublication,
         estimated_cost: Payment,
         external_funding: Iterable[ExternalFunding] = (),
         extra_contact: FundingRequestContact = NoContact,
     ) -> None:
         self.id = id
+        self.request_id = request_id
         self.publication = publication
         self.extra_contact = extra_contact
         self.estimated_cost = estimated_cost
@@ -94,10 +98,22 @@ class FundingRequest(Generic[TPublication]):
         cls,
         publication: TPublication,
         estimated_cost: Payment,
+        request_id: PublicFundingRequestId | None = None,
         external_funding: Iterable[ExternalFunding] = (),
         extra_contact: FundingRequestContact | _NoContact = NoContact,
     ) -> "FundingRequest[TPublication]":
-        return cls(None, publication, estimated_cost, external_funding, extra_contact)
+        return cls(
+            None,
+            request_id or PublicFundingRequestId.create(),
+            publication,
+            estimated_cost,
+            external_funding,
+            extra_contact,
+        )
+
+    @property
+    def request_date(self) -> datetime.date:
+        return self.request_id.date()
 
     def approve(self, decided_funding: Money, remarks: str = "") -> None:
         self._review = Review(decided_funding, ReviewResult.Approved, remarks)

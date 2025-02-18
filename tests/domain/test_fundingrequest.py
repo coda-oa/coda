@@ -1,3 +1,4 @@
+import datetime
 import pytest
 
 from coda.fundingrequest import (
@@ -10,14 +11,17 @@ from coda.fundingrequest import (
     PaymentMethod,
     ReviewResult,
 )
+from coda.fundingrequests.identity import PublicFundingRequestId
 from coda.money import Currency, Money
 from coda.publication import JournalId, Publication, PublicationId
 from coda.string import NonEmptyStr
+from tests import domainfactory
 
 
 def make_sut() -> FundingRequest[Publication]:
     sut = FundingRequest(
         id=FundingRequestId(8),
+        request_id=PublicFundingRequestId.create(),
         publication=Publication(
             id=PublicationId(8),
             title=NonEmptyStr("Publication Title"),
@@ -50,6 +54,18 @@ def closed_request(request: pytest.FixtureRequest) -> FundingRequest[Publication
         sut.approve(Money(100, Currency.EUR), "Approved")
 
     return sut
+
+
+def test__fundingrequest__date_of_request_id__is_date_of_fundingrequest() -> None:
+    date = datetime.date(2024, 9, 6)
+    request_id = PublicFundingRequestId.create(date)
+    sut = FundingRequest.new(
+        request_id=request_id,
+        publication=domainfactory.publication(),
+        estimated_cost=domainfactory.payment(),
+    )
+
+    assert sut.request_date == date
 
 
 def test__new_fundingrequest__has_open_review() -> None:

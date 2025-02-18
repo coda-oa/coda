@@ -1,6 +1,5 @@
 import datetime
 import uuid
-from typing import Any
 
 from django.core.validators import RegexValidator
 from django.db import models
@@ -67,7 +66,7 @@ class FundingRequest(models.Model):
         (PaymentMethod.Unknown.value, "Unknown"),
     ]
 
-    request_id = models.CharField(max_length=25, unique=True)
+    request_id = models.CharField(max_length=26, unique=True)
     estimated_cost = models.DecimalField(max_digits=10, decimal_places=4)
     estimated_cost_currency = models.CharField(max_length=3)
     payment_method = models.CharField(
@@ -85,11 +84,6 @@ class FundingRequest(models.Model):
     review_decided_funding_amount = models.DecimalField(max_digits=10, decimal_places=4, null=True)
     review_decided_funding_currency = models.CharField(max_length=3, null=True)
     review_remarks = models.TextField(blank=True)
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        if not self.request_id:
-            self.request_id = self.create_request_id()
 
     def get_absolute_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.pk})

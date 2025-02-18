@@ -1,6 +1,5 @@
-from collections.abc import Callable
 import functools
-from typing import Self
+from collections.abc import Callable
 
 import pytest
 from django.http import HttpResponse
@@ -9,59 +8,17 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
-from coda.apps.fundingrequests.services import fundingrequest_create
+from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraContactDto, PaymentDto
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import PublisherStepDto
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.publications.dto import MonographDto
-from coda.contract import PublisherId
-from coda.publication import Monograph, PublicationId
-from tests import domainfactory, modelfactory
 from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
-from tests.fundingrequests.test_fundingrequest_wizard import (
-    FundingRequestDataBuilder,
+from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
+from tests.fundingrequests.wizard.stepdata import publication_step
+from tests.fundingrequests.wizard.test_fundingrequest_article_wizard import (
     submit_complete_early,
     submit_step,
 )
-from tests.fundingrequests.wizard.stepdata import publication_step
-
-
-class MonographRequestDataBuilder(FundingRequestDataBuilder[Monograph]):
-    def __init__(self) -> None:
-        super().__init__()
-        publisher = modelfactory.publisher()
-        self._publication = self.create_monograph(PublisherId(publisher.pk))
-
-    def create_monograph(
-        self, publisher: PublisherId, id: PublicationId | None = None
-    ) -> Monograph:
-        return domainfactory.monograph(
-            publisher=publisher,
-            publication_type=list(self.publication_types.concepts)[0],
-            subject_area=list(self.subject_areas.concepts)[0],
-            contracts=tuple(self.contract_years),
-            id=id,
-        )
-
-    def with_new_publication(self, id: PublicationId | None = None) -> Self:
-        publisher = modelfactory.publisher()
-        self._publication = self.create_monograph(PublisherId(publisher.pk), id)
-        return self
-
-    def with_publisher(self, publisher: PublisherId) -> Self:
-        self.publication.publisher = publisher
-        return self
-
-    @property
-    def publication(self) -> Monograph:
-        return self._publication
-
-    def publication_dto(self) -> MonographDto:
-        return MonographDto.from_monograph(self.publication)
-
-    def publisher_step_dto(self) -> PublisherStepDto:
-        return PublisherStepDto.from_monograph(self.publication)
-
 
 BuilderFactory = Callable[[], MonographRequestDataBuilder]
 
@@ -83,7 +40,7 @@ def test__completing_monograph_wizard__creates_funding_request_for_monograph_and
 
     response = submit_wizard(
         client,
-        builder.submitter_dto(),
+        builder.extra_contact_dto(),
         builder.publication_dto(),
         builder.external_funding_dto(),
         builder.cost_dto(),
@@ -100,7 +57,7 @@ def test__updating_monograph_meta_step__saves_fundingrequest_with_changed_data(
     client: Client,
 ) -> None:
     builder = MonographRequestDataBuilder()
-    id = fundingrequest_create(builder.build())
+    id = repository.save(builder.build())
     url = reverse("fundingrequests:update_monograph_meta", kwargs={"pk": id})
     submit = functools.partial(submit_step, client, url)
 
@@ -121,7 +78,7 @@ def test__updating_monograph_meta_step__completed_early__saves_fundingrequest_wi
     client: Client,
 ) -> None:
     builder = MonographRequestDataBuilder()
-    id = fundingrequest_create(builder.build())
+    id = repository.save(builder.build())
     url = reverse("fundingrequests:update_monograph_meta", kwargs={"pk": id})
     submit = functools.partial(submit_complete_early, client, url)
 
@@ -142,7 +99,7 @@ def test__updating_monograph_meta_step__completed_early__saves_fundingrequest_wi
 
 def submit_wizard(
     client: Client,
-    extra_contact: dict[str, str],
+    extra_contact: ExtraContactDto,
     monograph: MonographDto,
     external_funding: list[ExternalFundingDto],
     cost: PaymentDto,
@@ -157,4 +114,4 @@ def submit_wizard(
     )
     submit(publication_step.stepdata(monograph))
     submit(fundings | cost.to_post_data())
-    return submit(extra_contact)
+    return submit(extra_contact.to_post_data())

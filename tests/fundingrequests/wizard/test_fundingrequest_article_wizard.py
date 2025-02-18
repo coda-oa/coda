@@ -1,163 +1,37 @@
-import abc
 import functools
-from collections.abc import Callable, Iterable
-from dataclasses import asdict
-from typing import Any, Generic, Self, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 import pytest
 from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
-from faker import Faker
 from pytest_django.asserts import assertRedirects
 
-from coda.apps.contracts.services import as_domain_object
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
-from coda.apps.fundingrequests.services import fundingrequest_create
+from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraContactDto, PaymentDto
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import PublicationDto
-from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.users.models import User
-from coda.contract import ContractYear
 from coda.fundingrequest import (
-    ExternalFunding,
     FilledContact,
-    FundingOrganizationId,
-    FundingRequest,
     FundingRequestContact,
     FundingRequestId,
     NoContact,
-    Payment,
-    TPublication,
 )
-from coda.publication import JournalId, Publication, PublicationId
+from coda.publication import JournalId
 from coda.string import NonEmptyStr
 from coda.vocabulary import VocabularyConcept
-from tests import domainfactory, modelfactory
+from tests import domainfactory
 from tests.fundingrequests.test_fundingrequest_services import (
     assert_fundingrequest_contact_eq,
     assert_fundingrequest_eq,
 )
+from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.fundingrequests.wizard.stepdata import publication_step
 from tests.publications.test_publication_repository import assert_publication_eq
 from tests.test_wizard import complete_early, next
-
-
-class FundingRequestDataBuilder(Generic[TPublication], abc.ABC):
-    def __init__(self) -> None:
-        self._faker = Faker()
-        self.affiliation = modelfactory.institution()
-        self.funder = modelfactory.funding_organization()
-        self.contracts = [as_domain_object(modelfactory.contract()) for _ in range(1, 3)]
-        self.contract_years = [domainfactory.contract_year(c) for c in self.contracts]
-
-        self.submitter: FundingRequestContact = FilledContact(
-            name=NonEmptyStr(self._faker.name()), email=self._faker.email()
-        )
-        self.estimated_cost = domainfactory.payment()
-        self.external_funding = [
-            domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
-            domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
-        ]
-
-        self.prepare_vocabularies()
-        self.set_global_preferences()
-
-    def with_empty_contact(self) -> Self:
-        self.submitter = NoContact
-        return self
-
-    def with_contracts(self, contract_years: Iterable[ContractYear]) -> Self:
-        self.contracts = [c.contract for c in contract_years]
-        self.contract_years = list(contract_years)
-        self.publication.contracts = tuple(self.contract_years)
-        return self
-
-    def prepare_vocabularies(self) -> None:
-        self.subject_areas = vocabulary_repository.create("subject_areas", "1.0")
-        self.subject_areas.add_concept("subject_area", "subject_area")
-        vocabulary_repository.save(self.subject_areas)
-
-        self.publication_types = vocabulary_repository.create("publication_types", "1.0")
-        self.publication_types.add_concept("publication_type", "publication_type")
-        vocabulary_repository.save(self.publication_types)
-
-    def set_global_preferences(self) -> None:
-        GlobalPreferences.set_subject_classification_vocabulary(self.subject_areas)
-        GlobalPreferences.set_article_publication_type_vocabulary(self.publication_types)
-
-    @property
-    @abc.abstractmethod
-    def publication(self) -> TPublication:
-        ...
-
-    def build(self) -> FundingRequest[TPublication]:
-        return FundingRequest.new(
-            self.publication,
-            self.estimated_cost,
-            self.external_funding,
-            self.submitter,
-        )
-
-    @property
-    def expected(self) -> FundingRequest[TPublication]:
-        return self.build()
-
-    @abc.abstractmethod
-    def with_new_publication(self, id: PublicationId | None = None) -> Self:
-        ...
-
-    def with_payment(self, payment: Payment) -> Self:
-        self.estimated_cost = payment
-        return self
-
-    def submitter_dto(self) -> dict[str, str]:
-        return asdict(self.submitter)
-
-    def external_funding_dto(self) -> list[ExternalFundingDto]:
-        return [self._to_external_funding_dto(f) for f in self.external_funding]
-
-    def cost_dto(self) -> PaymentDto:
-        return PaymentDto.from_payment(self.estimated_cost)
-
-    def _to_external_funding_dto(self, funding: ExternalFunding) -> ExternalFundingDto:
-        return ExternalFundingDto.from_external_funding(funding)
-
-
-class ArticleRequestDataBuilder(FundingRequestDataBuilder[Publication]):
-    def __init__(self) -> None:
-        super().__init__()
-        self.journal = modelfactory.journal()
-        self._publication = self.create_publication(JournalId(self.journal.pk))
-
-    def create_publication(
-        self, journal: JournalId, *, id: PublicationId | None = None
-    ) -> Publication:
-        return domainfactory.publication(
-            journal=journal,
-            publication_type=list(self.publication_types.concepts)[0],
-            subject_area=list(self.subject_areas.concepts)[0],
-            contracts=tuple(self.contract_years),
-            id=id,
-        )
-
-    def with_new_publication(self, id: PublicationId | None = None) -> Self:
-        self.journal = modelfactory.journal()
-        self._publication = self.create_publication(JournalId(self.journal.pk), id=id)
-        return self
-
-    def with_journal(self, journal: JournalId) -> Self:
-        self._publication.journal = journal
-        return self
-
-    @property
-    def publication(self) -> Publication:
-        return self._publication
-
-    def publication_dto(self) -> PublicationDto:
-        return PublicationDto.from_publication(self._publication)
 
 
 @pytest.fixture(autouse=True)
@@ -167,7 +41,7 @@ def login(client: Client) -> None:
 
 def save_new_fundingrequest() -> FundingRequestId:
     fr = ArticleRequestDataBuilder().expected
-    fr_id = fundingrequest_create(fr)
+    fr_id = repository.save(fr)
     return fr_id
 
 
@@ -190,7 +64,7 @@ def test__completing_fundingrequest_wizard__creates_funding_request_and_shows_de
 
     response = submit_wizard(
         client,
-        builder.submitter_dto(),
+        builder.extra_contact_dto(),
         builder.publication_dto(),
         builder.external_funding_dto(),
         builder.cost_dto(),
@@ -217,8 +91,8 @@ def test__updating_fundingrequest_contact__updates_funding_request_and_shows_det
     fr_id = save_new_fundingrequest()
     wizard_url = reverse("fundingrequests:update_submitter", kwargs={"pk": fr_id})
 
-    new_contact = asdict(expected)
-    response = submit_step(client, wizard_url, new_contact)
+    new_contact = ExtraContactDto.from_contact(expected)
+    response = submit_step(client, wizard_url, new_contact.to_post_data())
 
     actual = repository.get_by_id(fr_id).extra_contact
     assert_fundingrequest_contact_eq(actual, expected)
@@ -319,7 +193,7 @@ def test__updating_fundingrequest_funding__without_external_funding__updates_fun
 
 def submit_wizard(
     client: Client,
-    extra_contact: dict[str, str],
+    extra_contact: ExtraContactDto,
     publication: PublicationDto,
     external_funding: list[ExternalFundingDto],
     cost: PaymentDto,
@@ -336,7 +210,7 @@ def submit_wizard(
     submit(journal | contracts)
     submit(publication_step.stepdata(publication))
     submit(fundings | cost.to_post_data())
-    return submit(extra_contact)
+    return submit(extra_contact.to_post_data())
 
 
 def submit_update_publication_wizard(

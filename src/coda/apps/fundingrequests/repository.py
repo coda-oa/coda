@@ -1,11 +1,14 @@
 from collections.abc import Iterable
 from typing import Any, cast
 
+from django.db import transaction
 from django.db.models import Q
 from typing_extensions import TypeIs
 
+from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
+from coda.apps.fundingrequests.models import FundingRequestContact as FundingRequestContactModel
 from coda.apps.publications.repositories import publication_repository
 from coda.date import DateRange
 from coda.fundingrequest import (
@@ -14,6 +17,7 @@ from coda.fundingrequest import (
     FilledContact,
     FundingOrganizationId,
     FundingRequest,
+    FundingRequestContact,
     FundingRequestId,
     NoContact,
     Payment,
@@ -21,9 +25,72 @@ from coda.fundingrequest import (
     ReviewResult,
     TPublication,
 )
+from coda.fundingrequests.identity import PublicFundingRequestId
 from coda.money import Currency, Money
 from coda.publication import Monograph, OpenAccessType, Publication, PublicationId
 from coda.string import NonEmptyStr
+
+
+@transaction.atomic
+def save(fundingrequest: AnyFundingRequest) -> FundingRequestId:
+    pid = publication_repository.save(fundingrequest.publication)
+    if not fundingrequest.id:
+        fr = FundingRequestModel()
+    else:
+        fr = FundingRequestModel.objects.get(pk=fundingrequest.id)
+
+    fr.publication_id = pid
+    fr.request_id = str(fundingrequest.request_id)
+
+    _save_contact(fundingrequest.extra_contact, fr)
+    _save_funding(fr, fundingrequest.estimated_cost, fundingrequest.external_funding)
+
+    fr.save()
+    return FundingRequestId(fr.id)
+
+
+@transaction.atomic
+def save_review(fr: AnyFundingRequest) -> None:
+    fr_model = FundingRequestModel.objects.get(pk=cast(FundingRequestId, fr.id))
+    fr_model.processing_status = fr.review().value.lower()
+    fr_model.review_decided_funding_amount = fr.funding_amount.amount
+    fr_model.review_decided_funding_currency = fr.funding_amount.currency.code
+    fr_model.review_remarks = fr.review_remarks
+    fr_model.save()
+
+
+@transaction.atomic
+def save_contact(id: FundingRequestId, contact: FundingRequestContact) -> None:
+    fr = FundingRequestModel.objects.get(pk=id)
+    _save_contact(contact, fr)
+
+
+@transaction.atomic
+def save_funding(
+    id: FundingRequestId, payment: Payment, funding: Iterable[ExternalFunding]
+) -> None:
+    fr = FundingRequestModel.objects.get(pk=id)
+    _save_funding(fr, payment, funding)
+
+
+def _save_funding(
+    fr: FundingRequestModel, payment: Payment, funding: Iterable[ExternalFunding]
+) -> None:
+    fr.estimated_cost = payment.amount.amount
+    fr.estimated_cost_currency = payment.amount.currency.code
+    fr.payment_method = payment.method.value
+    fr.save()
+
+    fr.external_funding.all().delete()
+    ExternalFundingModel.objects.bulk_create(
+        ExternalFundingModel(
+            funding_request_id=fr.id,
+            organization_id=ef.organization,
+            project_id=ef.project_id,
+            project_name=ef.project_name,
+        )
+        for ef in funding
+    )
 
 
 def first() -> AnyFundingRequest | None:
@@ -64,6 +131,7 @@ def _is_publication_type(
 def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
     fr = FundingRequest(
         id=FundingRequestId(model.id),
+        request_id=PublicFundingRequestId.from_str(model.request_id),
         publication=publication_repository.get_by_id(PublicationId(model.publication_id)),
         extra_contact=(
             FilledContact(NonEmptyStr(model.extra_contact.name), model.extra_contact.email)
@@ -105,13 +173,19 @@ def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
     return fr
 
 
-def save_review(fr: AnyFundingRequest) -> None:
-    fr_model = FundingRequestModel.objects.get(pk=cast(FundingRequestId, fr.id))
-    fr_model.processing_status = fr.review().value.lower()
-    fr_model.review_decided_funding_amount = fr.funding_amount.amount
-    fr_model.review_decided_funding_currency = fr.funding_amount.currency.code
-    fr_model.review_remarks = fr.review_remarks
-    fr_model.save()
+def _save_contact(contact: FundingRequestContact, fr: FundingRequestModel) -> None:
+    if contact:
+        if fr.extra_contact:
+            extra_contact = fr.extra_contact
+        else:
+            extra_contact = FundingRequestContactModel()
+            extra_contact.funding_request = fr
+
+        extra_contact.name = contact.name
+        extra_contact.email = contact.email
+        extra_contact.save()
+    elif fr.extra_contact:
+        fr.extra_contact.delete()
 
 
 def search(

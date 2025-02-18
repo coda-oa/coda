@@ -6,19 +6,17 @@ from django.urls import reverse
 
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests import services
-from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
-from coda.apps.fundingrequests.views.wizard.steps.funding_step import FundingStep
+from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraContactDto, PaymentDto
 from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
-from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalStep
-from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.fundingrequests.views.wizard.steps.contact_step import (
     ExtraContactStep,
 )
+from coda.apps.fundingrequests.views.wizard.steps.funding_step import FundingStep
+from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalStep
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.wizard import SessionStore, Wizard
-from coda.fundingrequest import FilledContact
-from coda.string import NonEmptyStr
 
 
 class UpdateSubmitterView(LoginRequiredMixin, Wizard):
@@ -34,19 +32,14 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
 
     def complete(self, /, **kwargs: Any) -> None:
         store = self.get_store()
-        if store.get("contact") is None:
-            services.fundingrequest_contact_delete(self.kwargs["pk"])
-            return
-
-        stored_contact = store["contact"]
-        contact = FilledContact(NonEmptyStr(stored_contact["name"]), stored_contact["email"])
-        services.fundingrequest_contact_update(self.kwargs["pk"], contact)
+        contact = ExtraContactDto(**store.get("contact", {}))
+        services.update_contact(self.kwargs["pk"], contact)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
         fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
 
-        if fr.extra_contact is not None:
+        if fr.extra_contact:
             store["contact"] = {"name": fr.extra_contact.name, "email": fr.extra_contact.email}
             store.save()
 
@@ -87,11 +80,11 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
 
     def complete(self, /, **kwargs: Any) -> None:
         store = self.get_store()
-        cost = PaymentDto(**store["cost"]).to_payment()
+        cost = PaymentDto(**store["cost"])
         funding = []
         if store.get("funding") is not None:
-            funding = [ExternalFundingDto(**f).to_external_funding() for f in store["funding"]]
-        services.fundingrequest_funding_update(self.kwargs["pk"], cost, funding)
+            funding = [ExternalFundingDto(**f) for f in store["funding"]]
+        services.update_funding(self.kwargs["pk"], cost, funding)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()

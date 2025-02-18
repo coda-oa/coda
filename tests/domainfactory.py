@@ -9,7 +9,6 @@ from coda import orcid
 from coda.author import Author, AuthorId, AuthorNames, InstitutionId, Role
 from coda.contract import Contract, ContractId, ContractYear, PublisherId
 from coda.date import DateRange
-from coda.publication.links import Doi
 from coda.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -19,6 +18,7 @@ from coda.fundingrequest import (
     Payment,
     PaymentMethod,
 )
+from coda.fundingrequests.identity import PublicFundingRequestId
 from coda.invoice import (
     CostType,
     CreditorId,
@@ -30,7 +30,6 @@ from coda.invoice import (
     Positions,
     TaxRate,
 )
-from coda.publication.links import Isbn
 from coda.money import Currency, Money
 from coda.publication import (
     Authors,
@@ -45,6 +44,7 @@ from coda.publication import (
     Published,
     Unpublished,
 )
+from coda.publication.links import Doi, Isbn
 from coda.string import NonEmptyStr
 from coda.vocabulary import UnknownConcept, VocabularyConcept
 
@@ -264,11 +264,13 @@ def fundingrequest_contact() -> FilledContact:
 def fundingrequest(
     *,
     id: FundingRequestId | None = None,
+    request_id: PublicFundingRequestId | None = None,
     journal_id: JournalId | None = None,
     funding_org_id: FundingOrganizationId | None = None,
 ) -> FundingRequest[Publication]:
     return FundingRequest(
         id=id or None,
+        request_id=request_id or PublicFundingRequestId.create(),
         publication=publication(journal_id or JournalId(random.randint(1, 1000))),
         extra_contact=fundingrequest_contact(),
         estimated_cost=payment(),

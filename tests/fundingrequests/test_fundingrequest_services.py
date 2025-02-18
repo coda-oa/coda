@@ -1,7 +1,7 @@
 import pytest
 
-from coda.apps.fundingrequests import services
-from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
+from coda.apps.fundingrequests import repository, services
+from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraContactDto, PaymentDto
 from coda.apps.fundingrequests.repository import get_by_id
 from coda.fundingrequest import (
     AnyFundingRequest,
@@ -15,6 +15,7 @@ from coda.fundingrequest import (
 from coda.publication import JournalId
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory
+from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.publications.test_publication_repository import assert_publication_eq
 
 _faker = domainfactory._faker
@@ -32,36 +33,37 @@ def extra_contact() -> FilledContact:
 
 @pytest.mark.django_db
 def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data() -> None:
-    expected = FundingRequest.new(
-        publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
-        estimated_cost=domainfactory.payment(),
-        external_funding=[create_funding(), create_funding()],
-        extra_contact=extra_contact(),
+    builder = ArticleRequestDataBuilder()
+
+    new_id = services.create_fundingrequest(
+        builder.publication_dto(),
+        builder.cost_dto(),
+        builder.external_funding_dto(),
+        builder.extra_contact_dto(),
     )
 
-    new_id = services.fundingrequest_create(expected)
-
     actual = get_by_id(new_id)
-    assert_fundingrequest_eq(actual, expected)
+    assert_fundingrequest_eq(actual, builder.expected)
 
 
 @pytest.mark.django_db
 def test__create_fundingrequest__without_external_funding__creates_fundingrequest() -> None:
-    new_id = services.fundingrequest_create(
-        FundingRequest.new(
-            publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
-            extra_contact=extra_contact(),
-            estimated_cost=domainfactory.payment(),
-        )
+    builder = ArticleRequestDataBuilder().without_external_funding()
+
+    new_id = services.create_fundingrequest(
+        builder.publication_dto(),
+        builder.cost_dto(),
+        builder.external_funding_dto(),
+        builder.extra_contact_dto(),
     )
 
-    actual = get_by_id(new_id)
+    actual = repository.get_by_id(new_id)
     assert list(actual.external_funding) == []
 
 
 @pytest.mark.django_db
 def test__update_fundingrequest__extra_contact__updates_contact_in_database() -> None:
-    new_id = services.fundingrequest_create(
+    new_id = repository.save(
         FundingRequest.new(
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
             extra_contact=extra_contact(),
@@ -69,8 +71,8 @@ def test__update_fundingrequest__extra_contact__updates_contact_in_database() ->
         )
     )
 
-    new_contact = extra_contact()
-    services.fundingrequest_contact_update(new_id, contact=new_contact)
+    new_contact = ExtraContactDto.from_contact(extra_contact())
+    services.update_contact(new_id, contact=new_contact)
 
     updated = get_by_id(new_id)
     assert updated.extra_contact is not None
@@ -79,8 +81,8 @@ def test__update_fundingrequest__extra_contact__updates_contact_in_database() ->
 
 
 @pytest.mark.django_db
-def test__fundingrequest__delete_extra_contact__updates_contact_in_database() -> None:
-    new_id = services.fundingrequest_create(
+def test__fundingrequest__empty_extra_contact__fundingrequest_has_no_contact() -> None:
+    new_id = repository.save(
         FundingRequest.new(
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
             extra_contact=extra_contact(),
@@ -88,7 +90,7 @@ def test__fundingrequest__delete_extra_contact__updates_contact_in_database() ->
         )
     )
 
-    services.fundingrequest_contact_delete(new_id)
+    services.update_contact(new_id, contact=ExtraContactDto(name="", email=""))
 
     updated = get_by_id(new_id)
     assert updated.extra_contact is NoContact
@@ -98,7 +100,7 @@ def test__fundingrequest__delete_extra_contact__updates_contact_in_database() ->
 def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_external_funding() -> (
     None
 ):
-    new_id = services.fundingrequest_create(
+    new_id = repository.save(
         FundingRequest.new(
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
             extra_contact=extra_contact(),
@@ -109,58 +111,18 @@ def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_exte
     new_cost = domainfactory.payment()
     new_organization = modelfactory.funding_organization()
     new_funding = [domainfactory.external_funding(FundingOrganizationId(new_organization.pk))]
-    services.fundingrequest_funding_update(new_id, new_cost, new_funding)
+
+    payment_dto = PaymentDto.from_payment(new_cost)
+    funding_dtos = map(ExternalFundingDto.from_external_funding, new_funding)
+    services.update_funding(new_id, payment_dto, funding_dtos)
 
     updated = get_by_id(new_id)
     assert updated.estimated_cost == new_cost
     assert list(updated.external_funding) == list(new_funding)
 
 
-@pytest.mark.django_db
-def test__update_fundingrequest_funding__deletes_old_external_funding() -> None:
-    org_id = FundingOrganizationId(modelfactory.funding_organization().pk)
-    new_id = services.fundingrequest_create(
-        FundingRequest.new(
-            publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
-            extra_contact=extra_contact(),
-            estimated_cost=domainfactory.payment(),
-            external_funding=[domainfactory.external_funding(org_id)],
-        )
-    )
-
-    new_funding = [domainfactory.external_funding(org_id)]
-
-    services.fundingrequest_funding_update(new_id, domainfactory.payment(), new_funding)
-
-    assert ExternalFundingModel.objects.count() == 1
-
-
-@pytest.mark.django_db
-def test__update_fundingrequest_funding__without_external_funding__deletes_old_external_funding() -> (
-    None
-):
-    new_id = services.fundingrequest_create(
-        FundingRequest.new(
-            publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
-            extra_contact=extra_contact(),
-            estimated_cost=domainfactory.payment(),
-            external_funding=[
-                domainfactory.external_funding(
-                    FundingOrganizationId(modelfactory.funding_organization().pk)
-                )
-            ],
-        )
-    )
-
-    new_funding: list[ExternalFunding] = []
-    services.fundingrequest_funding_update(new_id, domainfactory.payment(), new_funding)
-
-    updated = get_by_id(new_id)
-    assert updated.external_funding == ()
-    assert ExternalFundingModel.objects.count() == 0
-
-
 def assert_fundingrequest_eq(actual: AnyFundingRequest, expected: AnyFundingRequest) -> None:
+    assert actual.request_date == expected.request_date
     assert_fundingrequest_contact_eq(actual.extra_contact, expected.extra_contact)
 
     assert_publication_eq(actual.publication, expected.publication)

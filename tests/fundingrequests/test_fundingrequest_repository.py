@@ -8,10 +8,58 @@ from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.apps.journals.models import Journal
 from coda.color import Color
 from coda.date import DateRange
-from coda.fundingrequest import ReviewResult
-from coda.publication import Authors
+from coda.fundingrequest import FundingOrganizationId, NoContact, ReviewResult
+from coda.publication import Authors, JournalId
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory
+from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
+
+
+@pytest.mark.django_db
+def test__saving_fungingrequest__get_by_id__returns_fundingrequest() -> None:
+    journal = JournalId(modelfactory.journal().id)
+    funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
+    request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
+    id = repository.save(request)
+
+    result = repository.get_by_id(id)
+
+    assert_fundingrequest_eq(result, request)
+
+
+@pytest.mark.django_db
+def test__existing_fundingrequest__save__updates_fundingrequest() -> None:
+    journal = JournalId(modelfactory.journal().id)
+    funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
+    request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
+    id = repository.save(request)
+
+    new_funding = FundingOrganizationId(modelfactory.funding_organization().pk)
+    expected = domainfactory.fundingrequest(
+        id=id,
+        request_id=request.request_id,
+        journal_id=journal,
+        funding_org_id=new_funding,
+    )
+    repository.save(expected)
+
+    actual = repository.get_by_id(id)
+    assert_fundingrequest_eq(actual, expected)
+
+
+@pytest.mark.django_db
+def test__fundingrequest_without_extra_contact__save__get_by_id_returns_fundingrequest_without_contact() -> (
+    None
+):
+    journal = JournalId(modelfactory.journal().id)
+    funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
+    request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
+    request.extra_contact = NoContact
+    id = repository.save(request)
+
+    result = repository.get_by_id(id)
+
+    assert result.extra_contact == NoContact
 
 
 @pytest.mark.django_db

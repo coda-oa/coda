@@ -4,7 +4,7 @@ from typing import Generic, TypeVar
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse, reverse_lazy
 
-from coda.apps.fundingrequests import services
+from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.wizard import Store, Wizard
 from coda.fundingrequest import (
@@ -14,6 +14,7 @@ from coda.fundingrequest import (
     FundingRequestContact,
     NoContact,
 )
+from coda.fundingrequests.identity import PublicFundingRequestId
 from coda.publication import Monograph, Publication
 
 TPublication = TypeVar("TPublication", Publication, Monograph)
@@ -21,6 +22,7 @@ TPublication = TypeVar("TPublication", Publication, Monograph)
 
 class FundingRequestCreationWizard(LoginRequiredMixin, Wizard, abc.ABC, Generic[TPublication]):
     cancel_url = reverse_lazy("fundingrequests:list")
+    request_id_generator = PublicFundingRequestId.create
 
     def get_success_url(self) -> str:
         store = self.get_store()
@@ -32,8 +34,14 @@ class FundingRequestCreationWizard(LoginRequiredMixin, Wizard, abc.ABC, Generic[
         cost = PaymentDto(**store["cost"]).to_payment()
         funding = self.parse_funding(store)
         extra_contact = self.parse_contact(store)
-        funding_request_id = services.fundingrequest_create(
-            FundingRequest.new(publication, cost, funding, extra_contact)
+        funding_request_id = repository.save(
+            FundingRequest.new(
+                publication,
+                cost,
+                request_id=FundingRequestCreationWizard.request_id_generator(),
+                external_funding=funding,
+                extra_contact=extra_contact,
+            )
         )
         store["funding_request"] = funding_request_id
         store.save()

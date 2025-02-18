@@ -2,7 +2,7 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
-from coda.apps.fundingrequests import repository, services
+from coda.apps.fundingrequests import repository
 from coda.fundingrequest import FundingOrganizationId, FundingRequest, ReviewResult
 from coda.money import Currency, Money
 from coda.publication import JournalId, Publication
@@ -15,7 +15,7 @@ def test__fundingrequest__approving_with_funding_amount_and_remarks__stores_in_d
     client: Client,
 ) -> None:
     fr = fundingrequest()
-    fr_id = services.fundingrequest_create(fr)
+    fr_id = repository.save(fr)
     funding = Money(100, Currency.EUR)
     remarks = "Approved with funding"
 
@@ -39,7 +39,7 @@ def test__fundingrequest__approving_with_funding_amount_and_remarks__stores_in_d
 @pytest.mark.usefixtures("logged_in")
 def test__fundingrequest__rejecting_with_remark__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
-    fr_id = services.fundingrequest_create(fr)
+    fr_id = repository.save(fr)
     remarks = "Rejected because of reasons"
 
     client.post(
@@ -62,7 +62,7 @@ def test__fundingrequest__rejecting_with_remark__stores_in_database(client: Clie
 @pytest.mark.usefixtures("logged_in")
 def test__fundingrequest__waive_costs__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
-    fr_id = services.fundingrequest_create(fr)
+    fr_id = repository.save(fr)
     remarks = "Waived costs"
 
     client.post(
@@ -84,7 +84,7 @@ def test__fundingrequest__waive_costs__stores_in_database(client: Client) -> Non
 @pytest.mark.usefixtures("logged_in")
 def test__fundingrequest__close__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
-    fr_id = services.fundingrequest_create(fr)
+    fr_id = repository.save(fr)
     remarks = "Withdrawn"
 
     client.post(
@@ -106,7 +106,7 @@ def test__fundingrequest__close__stores_in_database(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test__closed_fundingrequest__re_opening__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
-    fr_id = services.fundingrequest_create(fr)
+    fr_id = repository.save(fr)
     fr.id = fr_id
     fr.approve(Money(100, Currency.EUR), "Approved")
     repository.save_review(fr)

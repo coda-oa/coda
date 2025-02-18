@@ -9,13 +9,11 @@ from faker.providers import lorem
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingOrganization
-from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.journals.models import Journal
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import LinkType
 from coda.apps.publishers.models import Publisher
 from coda.author import AuthorNames
-from coda.publication.links import Doi
 from coda.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -28,6 +26,7 @@ from coda.fundingrequest import (
 )
 from coda.money import Currency, Money
 from coda.publication import JournalId, License, OpenAccessType, Publication, Published
+from coda.publication.links import Doi
 from coda.string import NonEmptyStr
 
 faker = Faker()
@@ -77,17 +76,17 @@ class Command(BaseCommand):
                 links={Doi("10.1234/5678")},
             ),
             Payment(amount=Money(100, Currency.USD), method=PaymentMethod.Direct),
-            [
+            external_funding=[
                 ExternalFunding(
                     organization=FundingOrganizationId(self.funding_organization().pk),
                     project_id=NonEmptyStr(str(uuid4())),
                     project_name=faker.sentence(),
                 )
             ],
-            self.extra_contact(),
+            extra_contact=self.extra_contact(),
         )
 
-        id = fundingrequest_create(request)
+        id = repository.save(request)
         request.id = id
         if review_status == ReviewResult.Approved:
             request.approve(Money(100, Currency.EUR))

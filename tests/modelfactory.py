@@ -6,9 +6,9 @@ from coda import issn
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.services import author_create
 from coda.apps.contracts.models import Contract
+from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganization
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
-from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
 from coda.apps.invoices.models import Creditor, FundingSource
 from coda.apps.journals.models import Journal
@@ -86,12 +86,14 @@ def external_funding(funder_id: int | None = None) -> ExternalFunding:
 
 
 def fundingrequest(title: str = "", authors: Authors | None = None) -> FundingRequestModel:
-    request_id = fundingrequest_create(
+    request_id = repository.save(
         FundingRequest.new(
             domainfactory.publication(JournalId(journal().pk), title, relevant_authors=authors),
             domainfactory.payment(),
-            [domainfactory.external_funding(FundingOrganizationId(funding_organization().pk))],
-            domainfactory.fundingrequest_contact(),
+            external_funding=[
+                domainfactory.external_funding(FundingOrganizationId(funding_organization().pk))
+            ],
+            extra_contact=domainfactory.fundingrequest_contact(),
         )
     )
     return FundingRequestModel.objects.get(pk=request_id)
