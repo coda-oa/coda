@@ -93,6 +93,10 @@ def _save_funding(
     )
 
 
+def request_id_exists(request_id: PublicFundingRequestId) -> bool:
+    return FundingRequestModel.objects.filter(request_id=str(request_id)).exists()
+
+
 def first() -> AnyFundingRequest | None:
     model = FundingRequestModel.objects.first()
     if model:

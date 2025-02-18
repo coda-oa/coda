@@ -1,3 +1,6 @@
+import datetime
+import random
+
 import pytest
 
 from coda.apps.fundingrequests import repository, services
@@ -12,6 +15,7 @@ from coda.fundingrequest import (
     FundingRequestContact,
     NoContact,
 )
+from coda.fundingrequests.identity import PublicFundingRequestId
 from coda.publication import JournalId
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory
@@ -44,6 +48,31 @@ def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data() 
 
     actual = get_by_id(new_id)
     assert_fundingrequest_eq(actual, builder.expected)
+
+
+@pytest.mark.django_db
+def test__create_fundingrequest__id_already_used__retries_with_new_id() -> None:
+    builder = ArticleRequestDataBuilder()
+    repository.save(builder.expected)
+
+    ids = [builder.expected.request_id, PublicFundingRequestId.create()]
+    id_iter = iter(ids)
+
+    def generator(
+        date: datetime.date | None = None, rng: random.Random | None = None
+    ) -> PublicFundingRequestId:
+        return next(id_iter)
+
+    new_id = services.create_fundingrequest(
+        builder.publication_dto(),
+        builder.cost_dto(),
+        builder.external_funding_dto(),
+        builder.extra_contact_dto(),
+        request_id_generator=generator,
+    )
+
+    actual = get_by_id(new_id)
+    assert actual.request_id == ids[1]
 
 
 @pytest.mark.django_db
