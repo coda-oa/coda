@@ -32,7 +32,7 @@ from coda.string import NonEmptyStr
 
 
 @transaction.atomic
-def save(fundingrequest: FundingRequest[TPublication]) -> FundingRequestId:
+def save(fundingrequest: AnyFundingRequest) -> FundingRequestId:
     pid = publication_repository.save(fundingrequest.publication)
     if not fundingrequest.id:
         fr = FundingRequestModel()
@@ -41,6 +41,7 @@ def save(fundingrequest: FundingRequest[TPublication]) -> FundingRequestId:
 
     fr.publication_id = pid
     fr.request_id = str(fundingrequest.request_id)
+    fr.request_remarks = fundingrequest.request_remarks
 
     _save_contact(fundingrequest.extra_contact, fr)
     _save_funding(fr, fundingrequest.estimated_cost, fundingrequest.external_funding)
@@ -154,6 +155,7 @@ def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
             )
             for ef in model.external_funding.all()
         ],
+        request_remarks=model.request_remarks,
     )
 
     match model.processing_status:
@@ -179,9 +181,8 @@ def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
 
 def _save_contact(contact: FundingRequestContact, fr: FundingRequestModel) -> None:
     if contact:
-        if fr.extra_contact:
-            extra_contact = fr.extra_contact
-        else:
+        extra_contact = fr.extra_contact
+        if not extra_contact:
             extra_contact = FundingRequestContactModel()
             extra_contact.funding_request = fr
 
@@ -190,6 +191,7 @@ def _save_contact(contact: FundingRequestContact, fr: FundingRequestModel) -> No
         extra_contact.save()
     elif fr.extra_contact:
         fr.extra_contact.delete()
+        fr.extra_contact = None
 
 
 def search(

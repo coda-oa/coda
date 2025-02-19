@@ -6,7 +6,12 @@ from typing import Protocol
 from django.db import transaction
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraContactDto, PaymentDto
+from coda.apps.fundingrequests.dto import (
+    ExternalFundingDto,
+    ExtraContactDto,
+    ExtraInformationDto,
+    PaymentDto,
+)
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
 from coda.apps.publications.dto import PublicationBaseDto
@@ -26,7 +31,7 @@ def create_fundingrequest(
     publication: PublicationBaseDto,
     payment: PaymentDto,
     funding: Iterable[ExternalFundingDto],
-    extra_contact: ExtraContactDto,
+    extra_information: ExtraInformationDto,
     *,
     request_id_generator: RequestIdGenerator = PublicFundingRequestId.create,
 ) -> FundingRequestId:
@@ -35,7 +40,8 @@ def create_fundingrequest(
         payment.to_payment(),
         request_id=_find_unused_request_id(request_id_generator),
         external_funding=[f.to_external_funding() for f in funding],
-        extra_contact=extra_contact.to_contact(),
+        extra_contact=extra_information.extra_contact.to_contact(),
+        request_remarks=extra_information.request_remarks,
     )
 
     return repository.save(fr)
@@ -49,9 +55,24 @@ def _find_unused_request_id(request_id_generator: RequestIdGenerator) -> PublicF
     return request_id
 
 
+def update_extra_information(
+    fundingrequest_id: FundingRequestId, extra_information: ExtraInformationDto
+) -> None:
+    fr = repository.get_by_id(fundingrequest_id)
+    fr.extra_contact = extra_information.extra_contact.to_contact()
+    fr.request_remarks = extra_information.request_remarks
+    repository.save(fr)
+
+
 def update_contact(fundingrequest_id: FundingRequestId, contact: ExtraContactDto) -> None:
     domain_contact = contact.to_contact()
     repository.save_contact(fundingrequest_id, domain_contact)
+
+
+def update_request_remarks(fundingrequest_id: FundingRequestId, remarks: str) -> None:
+    fr = repository.get_by_id(fundingrequest_id)
+    fr.request_remarks = remarks
+    repository.save(fr)
 
 
 @transaction.atomic

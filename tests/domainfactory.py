@@ -275,6 +275,7 @@ def fundingrequest(
         extra_contact=fundingrequest_contact(),
         estimated_cost=payment(),
         external_funding=[external_funding(funding_org_id)],
+        request_remarks=_faker.sentence(),
     )
 
 

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import AfterValidator
+from pydantic import AfterValidator, Field
 
 from coda.apps.dto import CodaBaseDto
 from coda.fundingrequest import (
@@ -102,6 +102,11 @@ class ExtraContactDto(CodaBaseDto):
             return FilledContact(name=NonEmptyStr(self.name), email=self.email)
         else:
             return NoContact
+
+
+class ExtraInformationDto(CodaBaseDto):
+    extra_contact: ExtraContactDto = Field(default_factory=ExtraContactDto)
+    request_remarks: str = ""
 
 
 class ReviewDto(CodaBaseDto):

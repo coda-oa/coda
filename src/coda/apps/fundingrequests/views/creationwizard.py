@@ -5,7 +5,12 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse, reverse_lazy
 
 from coda.apps.fundingrequests import services
-from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraContactDto, PaymentDto
+from coda.apps.fundingrequests.dto import (
+    ExternalFundingDto,
+    ExtraContactDto,
+    ExtraInformationDto,
+    PaymentDto,
+)
 from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.wizard import Store, Wizard
 from coda.fundingrequests.identity import PublicFundingRequestId
@@ -26,12 +31,12 @@ class FundingRequestCreationWizard(LoginRequiredMixin, Wizard, abc.ABC, Generic[
         publication = self.parse_publication(store)
         cost = PaymentDto(**store["cost"])
         funding = self.parse_funding(store)
-        extra_contact = self.parse_contact(store)
+        extra_information = ExtraInformationDto(
+            extra_contact=self.parse_contact(store),
+            request_remarks=store.get("request_remarks", ""),
+        )
         funding_request_id = services.create_fundingrequest(
-            publication,
-            cost,
-            funding,
-            extra_contact,
+            publication, cost, funding, extra_information
         )
         store["funding_request"] = funding_request_id
         store.save()

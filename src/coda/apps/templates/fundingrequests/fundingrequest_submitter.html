@@ -1,8 +1,13 @@
 {% extends "forms/wizardform.html" %}
 {% block wizard_step %}
     <h1>New Funding Request</h1>
-    <h2>Request Submitter</h2>
-    <table>
-        {{ form.as_table }}
-    </table>
+    <article>
+        <h2>Separate contact information</h2>
+        <p>Additional contact information in case communication for this funding request is not handled by the authors.</p>
+        <div class="mt-2">{{ form.as_div }}</div>
+    </article>
+    <article>
+        <h2>Request remarks</h2>
+        <textarea name="request_remarks" rows="10">{{ request_remarks }}</textarea>
+    </article>
 {% endblock wizard_step %}

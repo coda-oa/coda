@@ -6,10 +6,15 @@ from django.urls import reverse
 
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests import services
-from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraContactDto, PaymentDto
+from coda.apps.fundingrequests.dto import (
+    ExternalFundingDto,
+    ExtraContactDto,
+    ExtraInformationDto,
+    PaymentDto,
+)
 from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
-from coda.apps.fundingrequests.views.wizard.steps.contact_step import (
-    ExtraContactStep,
+from coda.apps.fundingrequests.views.wizard.steps.extrainformation_step import (
+    ExtraInformationStep,
 )
 from coda.apps.fundingrequests.views.wizard.steps.funding_step import FundingStep
 from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalStep
@@ -19,10 +24,10 @@ from coda.apps.publications.repositories import publication_repository
 from coda.apps.wizard import SessionStore, Wizard
 
 
-class UpdateSubmitterView(LoginRequiredMixin, Wizard):
+class UpdateExtraInformationView(LoginRequiredMixin, Wizard):
     store_name = "update_submitter_wizard"
     store_factory = SessionStore
-    steps = [ExtraContactStep()]
+    steps = [ExtraInformationStep()]
 
     def get_cancel_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
@@ -33,12 +38,16 @@ class UpdateSubmitterView(LoginRequiredMixin, Wizard):
     def complete(self, /, **kwargs: Any) -> None:
         store = self.get_store()
         contact = ExtraContactDto(**store.get("contact", {}))
-        services.update_contact(self.kwargs["pk"], contact)
+        extra_info = ExtraInformationDto(
+            request_remarks=store.get("request_remarks"), extra_contact=contact
+        )
+
+        services.update_extra_information(self.kwargs["pk"], extra_info)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
         fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
-
+        store["request_remarks"] = fr.request_remarks
         if fr.extra_contact:
             store["contact"] = {"name": fr.extra_contact.name, "email": fr.extra_contact.email}
             store.save()

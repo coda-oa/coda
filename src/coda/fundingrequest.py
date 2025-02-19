@@ -2,7 +2,7 @@ import datetime
 import enum
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Generic, NamedTuple, NewType, TypeAlias, TypeVar
+from typing import Final, Generic, NamedTuple, NewType, TypeAlias, TypeVar
 
 from coda.fundingrequests.identity import PublicFundingRequestId
 from coda.money import Money
@@ -71,7 +71,7 @@ class _NoContact:
         return False
 
 
-NoContact = _NoContact()
+NoContact: Final = _NoContact()
 FundingRequestContact = FilledContact | _NoContact
 
 
@@ -84,6 +84,7 @@ class FundingRequest(Generic[TPublication]):
         estimated_cost: Payment,
         external_funding: Iterable[ExternalFunding] = (),
         extra_contact: FundingRequestContact = NoContact,
+        request_remarks: str = "",
     ) -> None:
         self.id = id
         self.request_id = request_id
@@ -92,6 +93,7 @@ class FundingRequest(Generic[TPublication]):
         self.estimated_cost = estimated_cost
         self.external_funding = tuple(external_funding)
         self._review = Review()
+        self.request_remarks = request_remarks
 
     @classmethod
     def new(
@@ -101,6 +103,7 @@ class FundingRequest(Generic[TPublication]):
         request_id: PublicFundingRequestId | None = None,
         external_funding: Iterable[ExternalFunding] = (),
         extra_contact: FundingRequestContact | _NoContact = NoContact,
+        request_remarks: str = "",
     ) -> "FundingRequest[TPublication]":
         return cls(
             None,
@@ -109,6 +112,7 @@ class FundingRequest(Generic[TPublication]):
             estimated_cost,
             external_funding,
             extra_contact,
+            request_remarks,
         )
 
     @property

@@ -2,7 +2,7 @@ from dataclasses import asdict
 
 from django.test import RequestFactory
 
-from coda.apps.fundingrequests.views.wizard.steps.contact_step import ExtraContactStep
+from coda.apps.fundingrequests.views.wizard.steps.extrainformation_step import ExtraInformationStep
 from coda.fundingrequest import FilledContact
 from coda.string import NonEmptyStr
 from tests.test_wizard import DictStore
@@ -10,7 +10,7 @@ from tests.test_wizard import DictStore
 
 def test__contact_step__form_valid__is_valid() -> None:
     contact = FilledContact(name=NonEmptyStr("John Doe"), email="j.doe@example.com")
-    sut = ExtraContactStep()
+    sut = ExtraInformationStep()
 
     request = RequestFactory().post("/", data=asdict(contact))
 
@@ -19,7 +19,7 @@ def test__contact_step__form_valid__is_valid() -> None:
 
 def test__contact_step__empty_form__is_valid() -> None:
     contact = {"name": "", "email": ""}
-    sut = ExtraContactStep()
+    sut = ExtraInformationStep()
 
     request = RequestFactory().post("/", data=contact)
 
@@ -28,7 +28,7 @@ def test__contact_step__empty_form__is_valid() -> None:
 
 def test__contact_step__name_but_no_email__is_not_valid() -> None:
     contact = {"name": "John Doe", "email": ""}
-    sut = ExtraContactStep()
+    sut = ExtraInformationStep()
 
     request = RequestFactory().post("/", data=contact)
 
@@ -37,7 +37,7 @@ def test__contact_step__name_but_no_email__is_not_valid() -> None:
 
 def test__contact_step__email_but_no_name__is_not_valid() -> None:
     contact = {"name": "", "email": "j.doe@example.com"}
-    sut = ExtraContactStep()
+    sut = ExtraInformationStep()
 
     request = RequestFactory().post("/", data=contact)
 
@@ -46,7 +46,7 @@ def test__contact_step__email_but_no_name__is_not_valid() -> None:
 
 def test__contact_step__done__stores__contact_in_store() -> None:
     contact = FilledContact(name=NonEmptyStr("John Doe"), email="j.doe@example.com")
-    sut = ExtraContactStep()
+    sut = ExtraInformationStep()
 
     request = RequestFactory().post("/", data=asdict(contact))
 
@@ -58,7 +58,7 @@ def test__contact_step__done__stores__contact_in_store() -> None:
 
 def test__contact_step__empty_form__done__does_not_store_contact_in_store() -> None:
     contact = {"name": "", "email": ""}
-    sut = ExtraContactStep()
+    sut = ExtraInformationStep()
 
     request = RequestFactory().post("/", data=contact)
 
@@ -72,7 +72,7 @@ def test__contact_step__contact_in_store__done_with_empty_form__removes_contact_
     None
 ):
     contact = FilledContact(name=NonEmptyStr("John Doe"), email="j.doe@example.com")
-    sut = ExtraContactStep()
+    sut = ExtraInformationStep()
     store = DictStore()
     store["contact"] = asdict(contact)
     store.save()

@@ -26,7 +26,7 @@ from coda.apps.fundingrequests.views.wizard.steps.publisher_step import find_pub
 from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdateFundingView,
     UpdatePublicationView,
-    UpdateSubmitterView,
+    UpdateExtraInformationView,
 )
 from coda.apps.fundingrequests.views.wizard.update_monograph import MonographUpdateMetaView
 
@@ -48,7 +48,9 @@ urlpatterns = [
         MonographUpdateMetaView.as_view(),
         name="update_monograph_meta",
     ),
-    path("update/submitter/<int:pk>/", UpdateSubmitterView.as_view(), name="update_submitter"),
+    path(
+        "update/submitter/<int:pk>/", UpdateExtraInformationView.as_view(), name="update_submitter"
+    ),
     path(
         "update/publication/<int:pk>/",
         UpdatePublicationView.as_view(),

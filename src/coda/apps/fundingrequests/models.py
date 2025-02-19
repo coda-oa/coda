@@ -85,6 +85,8 @@ class FundingRequest(models.Model):
     review_decided_funding_currency = models.CharField(max_length=3, null=True)
     review_remarks = models.TextField(blank=True)
 
+    request_remarks = models.TextField(blank=True)
+
     def get_absolute_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.pk})
 

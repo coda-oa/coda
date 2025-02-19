@@ -5,7 +5,12 @@ import random
 import pytest
 
 from coda.apps.fundingrequests import repository, services
-from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraContactDto, PaymentDto
+from coda.apps.fundingrequests.dto import (
+    ExternalFundingDto,
+    ExtraContactDto,
+    ExtraInformationDto,
+    PaymentDto,
+)
 from coda.apps.fundingrequests.repository import get_by_id
 from coda.fundingrequest import (
     AnyFundingRequest,
@@ -51,7 +56,7 @@ def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data(
         builder.publication_dto(),
         builder.cost_dto(),
         builder.external_funding_dto(),
-        builder.extra_contact_dto(),
+        builder.extra_information_dto(),
     )
 
     actual = get_by_id(new_id)
@@ -75,7 +80,7 @@ def test__create_fundingrequest__id_already_used__retries_with_new_id() -> None:
         builder.publication_dto(),
         builder.cost_dto(),
         builder.external_funding_dto(),
-        builder.extra_contact_dto(),
+        builder.extra_information_dto(),
         request_id_generator=generator,
     )
 
@@ -91,7 +96,7 @@ def test__create_fundingrequest__without_external_funding__creates_fundingreques
         builder.publication_dto(),
         builder.cost_dto(),
         builder.external_funding_dto(),
-        builder.extra_contact_dto(),
+        builder.extra_information_dto(),
     )
 
     actual = repository.get_by_id(new_id)
@@ -127,10 +132,27 @@ def test__fundingrequest__empty_extra_contact__fundingrequest_has_no_contact() -
         )
     )
 
-    services.update_contact(new_id, contact=ExtraContactDto(name="", email=""))
+    services.update_extra_information(new_id, ExtraInformationDto(extra_contact=ExtraContactDto()))
 
     updated = get_by_id(new_id)
     assert updated.extra_contact is NoContact
+
+
+@pytest.mark.django_db
+def test__fundingrequest__update_request_remarks__is_saved_to_db() -> None:
+    new_id = repository.save(
+        FundingRequest.new(
+            publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
+            extra_contact=extra_contact(),
+            estimated_cost=domainfactory.payment(),
+        )
+    )
+
+    new_remarks = _faker.sentence()
+    services.update_extra_information(new_id, ExtraInformationDto(request_remarks=new_remarks))
+
+    updated = get_by_id(new_id)
+    assert updated.request_remarks == new_remarks
 
 
 @pytest.mark.django_db
@@ -160,12 +182,13 @@ def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_exte
 
 def assert_fundingrequest_eq(actual: AnyFundingRequest, expected: AnyFundingRequest) -> None:
     assert actual.request_date == expected.request_date
-    assert_fundingrequest_contact_eq(actual.extra_contact, expected.extra_contact)
 
     assert_publication_eq(actual.publication, expected.publication)
     assert actual.estimated_cost == expected.estimated_cost
     assert list(actual.external_funding) == list(expected.external_funding)
     assert actual.review() == expected.review()
+    assert_fundingrequest_contact_eq(actual.extra_contact, expected.extra_contact)
+    assert actual.request_remarks == expected.request_remarks
 
 
 def assert_fundingrequest_contact_eq(

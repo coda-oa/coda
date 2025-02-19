@@ -8,7 +8,12 @@ from unittest.mock import create_autospec
 from faker import Faker
 
 from coda.apps.contracts.services import as_domain_object
-from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraContactDto, PaymentDto
+from coda.apps.fundingrequests.dto import (
+    ExternalFundingDto,
+    ExtraContactDto,
+    ExtraInformationDto,
+    PaymentDto,
+)
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.publications.repositories import vocabulary_repository
@@ -57,6 +62,7 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
             domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
             domainfactory.external_funding(FundingOrganizationId(self.funder.pk)),
         ]
+        self._request_remarks = self._faker.sentence()
 
         self.prepare_vocabularies()
         self.set_global_preferences()
@@ -67,6 +73,14 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
 
     def with_empty_contact(self) -> Self:
         self.extra_contact = NoContact
+        return self
+
+    def with_new_contact(self) -> Self:
+        self.extra_contact = domainfactory.fundingrequest_contact()
+        return self
+
+    def with_new_request_remarks(self) -> Self:
+        self._request_remarks = self._faker.sentence()
         return self
 
     def with_contracts(self, contract_years: Iterable[ContractYear]) -> Self:
@@ -104,6 +118,7 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
             request_id=fixed_request_id_factory(),
             external_funding=self.external_funding,
             extra_contact=self.extra_contact,
+            request_remarks=self._request_remarks,
         )
 
     @property
@@ -118,8 +133,11 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
         self.estimated_cost = payment
         return self
 
-    def extra_contact_dto(self) -> ExtraContactDto:
-        return ExtraContactDto.from_contact(self.extra_contact)
+    def extra_information_dto(self) -> ExtraInformationDto:
+        return ExtraInformationDto(
+            extra_contact=ExtraContactDto.from_contact(self.extra_contact),
+            request_remarks=self._request_remarks,
+        )
 
     def external_funding_dto(self) -> list[ExternalFundingDto]:
         return [self._to_external_funding_dto(f) for f in self.external_funding]
