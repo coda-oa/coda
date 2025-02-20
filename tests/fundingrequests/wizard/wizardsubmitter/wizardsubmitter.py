@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 from django.http import HttpResponse
 from django.test import Client
@@ -17,6 +17,7 @@ from tests.fundingrequests.wizard.stepdata import (
 )
 from tests.test_wizard import complete_early, next
 
+TDataBuilder = TypeVar("TDataBuilder", ArticleRequestDataBuilder, MonographRequestDataBuilder)
 StepDataFactory = Callable[[], dict[str, Any]]
 StepIterationStrategy = Callable[[list[StepDataFactory]], Iterable[dict[str, Any]]]
 
@@ -27,6 +28,16 @@ def post_data_iterator(steps: list[StepDataFactory]) -> Iterable[dict[str, Any]]
 
 
 def complete_early_iterator(until: int = -1) -> StepIterationStrategy:
+    """
+    Creates an iterator that yields steps up to, but not including, the specified index and then yields the step at the specified index with the complete early message.
+
+    Args:
+        until (int): The index up to which steps should be yielded. Defaults to -1, which means all steps are yielded.
+
+    Returns:
+        StepIterationStrategy: A function that takes a list of StepDataFactory objects and yields dictionaries.
+    """
+
     def _complete_early_iterator(steps: list[StepDataFactory]) -> Iterable[dict[str, Any]]:
         for step in steps[:until]:
             yield next() | step()
@@ -38,6 +49,23 @@ def complete_early_iterator(until: int = -1) -> StepIterationStrategy:
 
 
 class WizardSubmitter:
+    """
+    A class to automate the submission of a series of steps in a wizard-like form.
+
+    Attributes:
+        step_iterator (StepIterationStrategy): A strategy for iterating over the steps. Defaults to post_data_iterator.
+
+    Methods:
+        submit_all() -> HttpResponse:
+            Submits all steps in the wizard form and returns the final HTTP response.
+
+        goto_initial_page() -> None:
+            Navigates to the initial page of the wizard form.
+
+        submit_step(data: dict[str, Any]) -> HttpResponse:
+            Submits a single step in the wizard form and returns the HTTP response.
+    """
+
     def __init__(
         self,
         client: Client,
@@ -109,7 +137,7 @@ def monograph_wizardsubmitter(
 def update_extra_information_wizard(
     client: Client,
     fundingrequest_id: FundingRequestId,
-    data_builder: ArticleRequestDataBuilder | MonographRequestDataBuilder,
+    data_builder: TDataBuilder,
 ) -> WizardSubmitter:
     url = reverse("fundingrequests:update_submitter", kwargs={"pk": fundingrequest_id})
 
@@ -157,7 +185,7 @@ def update_monograph_publication_wizard(
 def update_funding_wizard(
     client: Client,
     fundingrequest_id: FundingRequestId,
-    data_builder: ArticleRequestDataBuilder | MonographRequestDataBuilder,
+    data_builder: TDataBuilder,
 ) -> WizardSubmitter:
     url = reverse("fundingrequests:update_funding", kwargs={"pk": fundingrequest_id})
 
