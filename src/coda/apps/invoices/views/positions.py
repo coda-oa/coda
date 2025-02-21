@@ -4,7 +4,7 @@ from typing import Annotated, Generic, Self, TypeVar
 
 from pydantic import BeforeValidator
 
-from coda.apps.contracts import services as contract_services
+from coda.apps.contracts import repository as contract_services
 from coda.apps.dto import CodaBaseDto
 from coda.apps.publications.repositories import publication_repository
 from coda.contract import ContractId, ContractYear

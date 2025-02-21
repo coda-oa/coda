@@ -5,14 +5,14 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
-from coda.apps.contracts import services
+from coda.apps.contracts import repository
 from coda.apps.contracts.forms import ContractForm, EntityFormset
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.contract import Contract, PublisherId
 from coda.date import DateRange
 from coda.publication import JournalId
 from coda.string import NonEmptyStr
-from tests.contracts.test_contract_services import (
+from tests.contracts.test_contract_repository import (
     assert_contract_eq,
     make_contract,
     make_journals,
@@ -33,7 +33,7 @@ def test__create_contract_view__can_create_contract(client: Client) -> None:
 
     client.post(reverse("contracts:create"), data)
 
-    actual = services.first()
+    actual = repository.first()
     assert actual is not None
     assert_contract_eq(actual, expected)
 
@@ -42,7 +42,7 @@ def test__create_contract_view__can_create_contract(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test__given_saved_contract__update_contract_view__updates_contract(client: Client) -> None:
     contract = make_contract(make_publishers(), make_journals(make_publishers()))
-    contract_id = services.save(contract)
+    contract_id = repository.save(contract)
 
     expected = Contract(
         id=contract_id,
@@ -60,7 +60,7 @@ def test__given_saved_contract__update_contract_view__updates_contract(client: C
 
     client.post(reverse("contracts:update", kwargs={"pk": contract_id}), data)
 
-    actual = services.get_by_id(contract_id)
+    actual = repository.get_by_id(contract_id)
     assert_contract_eq(actual, expected)
 
 
@@ -68,7 +68,7 @@ def test__given_saved_contract__update_contract_view__updates_contract(client: C
 @pytest.mark.usefixtures("logged_in")
 def test__given_saved_contract__goto_update_contract_view__shows_contract(client: Client) -> None:
     contract = make_contract(make_publishers(), make_journals(make_publishers()))
-    contract_id = services.save(contract)
+    contract_id = repository.save(contract)
 
     response = client.get(reverse("contracts:update", kwargs={"pk": contract_id}))
 
@@ -91,6 +91,7 @@ def contract_form_data(contract: Contract) -> dict[str, str]:
         "name": contract.name,
         "start_date": contract.period.start.isoformat(),
         "end_date": contract.period.end.isoformat(),
+        "publication_billing": contract.publication_billing.value,
     }
 
 

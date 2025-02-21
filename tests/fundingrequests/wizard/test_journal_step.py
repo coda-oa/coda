@@ -5,7 +5,7 @@ from django.http import HttpRequest
 from django.test import RequestFactory
 
 from coda.apps.contracts.models import Contract
-from coda.apps.contracts.services import as_domain_object
+from coda.apps.contracts.repository import as_domain_object
 from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalStep
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.journals.models import Journal

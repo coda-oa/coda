@@ -8,7 +8,7 @@ from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.contracts import services as contract_services
+from coda.apps.contracts import repository as contract_services
 from coda.apps.dto import CodaBaseDto, OptionalFromStr
 from coda.author import AuthorNames
 from coda.contract import ContractId, ContractYear, PublisherId

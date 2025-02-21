@@ -1,7 +1,7 @@
 from django import forms
 
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
-from coda.contract import Contract
+from coda.contract import Contract, PublicationBilling
 from coda.date import DateRange
 from coda.string import NonEmptyStr
 
@@ -11,6 +11,9 @@ class ContractForm(forms.Form):
     name = forms.CharField(required=True)
     start_date = forms.DateField(required=False, widget=forms.TextInput(attrs={"type": "date"}))
     end_date = forms.DateField(required=False, widget=forms.TextInput(attrs={"type": "date"}))
+    publication_billing = forms.ChoiceField(
+        choices=[(billing_type.value, billing_type.value) for billing_type in PublicationBilling],
+    )
 
     @classmethod
     def from_contract(cls, contract: Contract) -> "ContractForm":
@@ -19,6 +22,7 @@ class ContractForm(forms.Form):
                 "name": contract.name,
                 "start_date": contract.period.start,
                 "end_date": contract.period.end,
+                "publication_billing": contract.publication_billing.value,
             }
         )
 
@@ -27,6 +31,9 @@ class ContractForm(forms.Form):
 
     def get_period(self) -> DateRange:
         return DateRange(start=self.cleaned_data["start_date"], end=self.cleaned_data["end_date"])
+
+    def get_billing(self) -> PublicationBilling:
+        return PublicationBilling(self.cleaned_data["publication_billing"])
 
 
 class EntityForm(forms.Form):

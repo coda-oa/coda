@@ -114,3 +114,9 @@ class Invoice:
 
     def total(self) -> Money:
         return self.net() + self.tax()
+
+    def pay(self) -> None:
+        self.status = PaymentStatus.Paid
+
+    def reset_payment(self) -> None:
+        self.status = PaymentStatus.Unpaid

@@ -14,9 +14,11 @@ from coda.apps.fundingrequests.models import ExternalFunding, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import AttachedContract
+from coda.apps.publications.services import publications
 from coda.fundingrequest import ReviewResult
 from coda.money import Currency, Money
 from coda.publication import License, Link
+from coda.publication.publication import PublicationId
 
 template_name = "fundingrequests/fundingrequest_detail.html"
 
@@ -72,6 +74,7 @@ class PublicationViewModel(NamedTuple):
     references: Iterable[Link]
     contracts: Iterable[AttachedContract]
     request_remarks: str = ""
+    payment_status: str = ""
 
 
 class ExternalFundingViewModel(NamedTuple):
@@ -152,6 +155,7 @@ def publication_viewmodel(fundingrequest: FundingRequestModel) -> PublicationVie
         ],
         contracts=[c for c in publication.attached_contracts.all()],
         request_remarks=fundingrequest.request_remarks,
+        payment_status=publications.get_payment_status(PublicationId(publication.id)),
     )
 
 

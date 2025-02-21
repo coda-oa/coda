@@ -10,7 +10,7 @@ from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
-from coda.apps.contracts import services as contract_services
+from coda.apps.contracts import repository as contract_services
 from coda.apps.invoices.models import FundingSource
 from coda.apps.invoices.repository import get_by_id
 from coda.apps.invoices.views.positions import (

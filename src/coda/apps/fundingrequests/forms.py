@@ -4,7 +4,7 @@ from django import forms
 
 from coda.apps import fields
 from coda.apps.contracts.models import Contract
-from coda.apps.contracts.services import as_domain_object
+from coda.apps.contracts.repository import as_domain_object
 from coda.apps.formbase import CodaFormBase
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label

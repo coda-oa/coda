@@ -7,7 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from coda.apps.contracts import services
+from coda.apps.contracts import repository
 from coda.apps.contracts.forms import ContractForm, EntityFormset
 from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.journals.models import Journal
@@ -23,7 +23,7 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
     entity_list_item_template = "contracts/contract_list_item.html"
 
     def get_entities(self, request: HttpRequest) -> Sequence[Contract]:
-        return services.all()
+        return repository.all()
 
 
 @login_required
@@ -36,7 +36,7 @@ def contract_detail(request: HttpRequest, pk: int) -> HttpResponse:
 def edit_contract_view(request: HttpRequest, pk: int | None = None) -> HttpResponse:
     save_contract: Callable[[ContractForm, EntityFormset, EntityFormset], ContractId]
     if pk is not None:
-        contract = services.get_by_id(ContractId(pk))
+        contract = repository.get_by_id(ContractId(pk))
         context = get_context(request, "Update Contract", initial_contract=contract)
         save_contract = functools.partial(update_contract, contract)
     else:
@@ -65,8 +65,10 @@ def create_contract(
 ) -> ContractId:
     publishers = cast(list[PublisherId], publisher_formset.entity_ids())
     journals = cast(list[JournalId], journal_formset.entity_ids())
-    contract = Contract.new(form.get_name(), publishers, form.get_period(), journals)
-    return services.save(contract)
+    contract = Contract.new(
+        form.get_name(), publishers, form.get_period(), journals, form.get_billing()
+    )
+    return repository.save(contract)
 
 
 def update_contract(
@@ -82,7 +84,8 @@ def update_contract(
     contract.publishers = tuple(publishers)
     contract.journals = tuple(journals)
     contract.period = form.get_period()
-    return services.save(contract)
+    contract.publication_billing = form.get_billing()
+    return repository.save(contract)
 
 
 def get_context(

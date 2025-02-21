@@ -1,9 +1,10 @@
 import datetime
+import random
 
 import pytest
 
-from coda.apps.contracts.services import get_by_id, save
-from coda.contract import Contract, PublisherId
+from coda.apps.contracts.repository import get_by_id, save
+from coda.contract import Contract, PublicationBilling, PublisherId
 from coda.date import DateRange
 from coda.publication import JournalId
 from coda.string import NonEmptyStr
@@ -20,7 +21,9 @@ def test__can_create_contract() -> None:
     publishers_ids = make_publishers()
     journal_ids = make_journals(publishers_ids)
 
-    expected = Contract.new(CONTRACT_NAME, publishers_ids, date_range(), journal_ids)
+    expected = Contract.new(
+        CONTRACT_NAME, publishers_ids, date_range(), journal_ids, PublicationBilling.Consolidated
+    )
 
     contract_id = save(expected)
 
@@ -40,6 +43,7 @@ def test__given_saved_contract__save_udpated__updates_contract() -> None:
     expected.name = NonEmptyStr("Updated")
     expected.publishers = ()
     expected.journals = ()
+    expected.publication_billing = PublicationBilling.Consolidated
 
     save(expected)
 
@@ -49,7 +53,8 @@ def test__given_saved_contract__save_udpated__updates_contract() -> None:
 
 
 def make_contract(publishers: list[PublisherId], journals: list[JournalId]) -> Contract:
-    return Contract.new(CONTRACT_NAME, publishers, date_range(), journals)
+    billing = random.choice([billing_type for billing_type in PublicationBilling])
+    return Contract.new(CONTRACT_NAME, publishers, date_range(), journals, billing)
 
 
 def make_publishers() -> list[PublisherId]:
@@ -65,6 +70,7 @@ def assert_contract_eq(actual: Contract, expected: Contract) -> None:
     assert actual.publishers == expected.publishers
     assert actual.period == expected.period
     assert actual.journals == expected.journals
+    assert actual.publication_billing == expected.publication_billing
 
 
 def date_range() -> DateRange:

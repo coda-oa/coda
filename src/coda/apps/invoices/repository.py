@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 from django.db.models import Q, QuerySet
 
-from coda.apps.contracts import services as contract_services
+from coda.apps.contracts import repository as contract_services
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
@@ -35,6 +35,13 @@ def get_by_creditor(creditor_id: CreditorId) -> Sequence[Invoice]:
 
 def all() -> Sequence[Invoice]:
     return DomainQuerySet(_ordered(InvoiceModel.objects.all()), as_domain_object)
+
+
+def publication_paid(publication_id: PublicationId) -> bool:
+    return InvoiceModel.objects.filter(
+        status=PaymentStatus.Paid.value,
+        positions__publication_id=publication_id,
+    ).exists()
 
 
 def search(

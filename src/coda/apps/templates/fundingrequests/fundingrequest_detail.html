@@ -209,14 +209,14 @@
                 {% endif %}
             </h2>
             <hr>
-            <div>
+            <div class="mb-2">
                 {% if funding_request.is_approved %}
-                    <p class="my-2">
+                    <p class="mb-2">
                         <b>Funding amount:</b> {{ funding_request.funding_amount }}
                     </p>
                 {% endif %}
                 {% if funding_request.review_remarks %}
-                    <div class="my-2">
+                    <div class="mb-2">
                         <p>
                             <b>Remarks</b>
                         </p>
@@ -227,14 +227,21 @@
                    role="button"
                    class="secondary w-100">Submit Review</a>
             </div>
-            <h2 class="my-1">Labels</h2>
-            <hr>
-            {% include "fundingrequests/labels/label_attach.html" %}
-            <hr>
-            <div class="flex wrap">
-                {% for label in funding_request.labels %}
-                    {% include "fundingrequests/labels/label.html" %}
-                {% endfor %}
+            <div class="mb-2">
+                <h2 class="my-1">Payment Status</h2>
+                <hr>
+                <p>{{ publication.payment_status }}</p>
+            </div>
+            <div class="mb-2">
+                <h2 class="my-1">Labels</h2>
+                <hr>
+                {% include "fundingrequests/labels/label_attach.html" %}
+                <hr>
+                <div class="flex wrap">
+                    {% for label in funding_request.labels %}
+                        {% include "fundingrequests/labels/label.html" %}
+                    {% endfor %}
+                </div>
             </div>
         </aside>
     </div>

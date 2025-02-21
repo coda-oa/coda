@@ -1,4 +1,5 @@
 import datetime
+import enum
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NewType
@@ -17,6 +18,11 @@ class ContractId(int):
 PublisherId = NewType("PublisherId", int)
 
 
+class PublicationBilling(enum.StrEnum):
+    Individually = enum.auto()
+    Consolidated = enum.auto()
+
+
 @dataclass(slots=True)
 class Contract:
     id: ContractId | None
@@ -24,6 +30,7 @@ class Contract:
     publishers: tuple[PublisherId, ...]
     period: DateRange = DateRange.create()
     journals: tuple["JournalId", ...] = ()
+    publication_billing: PublicationBilling = PublicationBilling.Individually
 
     @classmethod
     def new(
@@ -32,8 +39,12 @@ class Contract:
         publishers: Iterable[PublisherId],
         period: DateRange = DateRange.create(),
         journals: Iterable["JournalId"] = (),
+        publication_billing: PublicationBilling = PublicationBilling.Individually,
     ) -> "Contract":
-        return cls(None, name, tuple(publishers), period, tuple(journals))
+        return cls(None, name, tuple(publishers), period, tuple(journals), publication_billing)
+
+    def uses_consolidated_billing(self) -> bool:
+        return self.publication_billing == PublicationBilling.Consolidated
 
     def is_active(self, date: datetime.date | None = None) -> bool:
         date = date or datetime.date.today()
@@ -71,6 +82,9 @@ class ContractYear:
 
     def _contract_years(self) -> range:
         return range(self.contract.period.start.year, self.contract.period.end.year + 1)
+
+    def uses_consolidated_billing(self) -> bool:
+        return self.contract.uses_consolidated_billing()
 
     @property
     def contract_id(self) -> ContractId | None:

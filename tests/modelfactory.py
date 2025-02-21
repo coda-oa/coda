@@ -14,6 +14,7 @@ from coda.apps.invoices.models import Creditor, FundingSource
 from coda.apps.journals.models import Journal
 from coda.apps.publications.models import Concept, Publication, Vocabulary
 from coda.apps.publishers.models import Publisher
+from coda.contract import PublicationBilling
 from coda.fundingrequest import FundingOrganizationId, FundingRequest
 from coda.publication import Authors, JournalId
 from tests import domainfactory
@@ -55,7 +56,12 @@ def publication(title: str = "") -> Publication:
 def contract() -> Contract:
     start = _faker.date_this_decade(before_today=True, after_today=False)
     end = _faker.date_this_decade(before_today=False, after_today=True)
-    return Contract.objects.create(name=_faker.word(), start_date=start, end_date=end)
+    return Contract.objects.create(
+        name=_faker.word(),
+        start_date=start,
+        end_date=end,
+        publication_billing=PublicationBilling.Individually.value,
+    )
 
 
 def vocabulary() -> Vocabulary:

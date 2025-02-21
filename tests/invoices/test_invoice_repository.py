@@ -1,7 +1,7 @@
 import faker
 import pytest
 
-from coda.apps.contracts import services as contract_services
+from coda.apps.contracts import repository as contract_services
 from coda.apps.invoices import repository
 from coda.apps.publications.repositories import publication_repository
 from coda.contract import Contract
@@ -14,7 +14,7 @@ _faker = faker.Faker()
 
 @pytest.mark.django_db
 def test__save_new_invoice__saves_invoice_to_database() -> None:
-    invoice = make_invoice()
+    invoice = full_invoice()
 
     new_id = repository.save(invoice)
 
@@ -24,7 +24,7 @@ def test__save_new_invoice__saves_invoice_to_database() -> None:
 
 @pytest.mark.django_db
 def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
-    invoice = make_invoice()
+    invoice = full_invoice()
     invoice.status = PaymentStatus.Unpaid
 
     new_id = repository.save(invoice)
@@ -44,7 +44,38 @@ def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
     assert_invoice_eq(updated_invoice, actual)
 
 
-def make_invoice() -> Invoice:
+@pytest.mark.django_db
+def test__given_paid_invoice_with_publication__publication_paid__returns_true() -> None:
+    publication_id = random_publication()
+    invoice = invoice_with_publication(publication_id)
+    invoice.pay()
+    repository.save(invoice)
+
+    is_paid = repository.publication_paid(publication_id)
+
+    assert is_paid
+
+
+@pytest.mark.django_db
+def test__given_unpaid_invoice_with_publication__publication_paid__returns_false() -> None:
+    publication_id = random_publication()
+    invoice = invoice_with_publication(publication_id)
+    invoice.reset_payment()
+    repository.save(invoice)
+
+    is_paid = repository.publication_paid(publication_id)
+
+    assert not is_paid
+
+
+def invoice_with_publication(publication_id: PublicationId) -> Invoice:
+    return domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().id),
+        positions=[domainfactory.publication_position(publication=publication_id)],
+    )
+
+
+def full_invoice() -> Invoice:
     creditor_id = modelfactory.creditor().id
     funding_source_id = FundingSourceId(modelfactory.funding_source().id)
     publisher_id = modelfactory.publisher().id
@@ -71,7 +102,7 @@ def make_invoice() -> Invoice:
     return invoice
 
 
-def random_publication(publisher_id: int) -> PublicationId:
+def random_publication(publisher_id: int | None = None) -> PublicationId:
     journal_id = modelfactory.journal(publisher_id).id
     return publication_repository.save(domainfactory.publication(journal=JournalId(journal_id)))
 

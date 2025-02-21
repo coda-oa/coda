@@ -4,7 +4,7 @@ from typing import Protocol
 import pytest
 
 from coda.apps.authors.services import author_create
-from coda.apps.contracts.services import as_domain_object
+from coda.apps.contracts.repository import as_domain_object
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.contract import ContractYear, PublisherId
 from coda.publication.links import Doi
@@ -20,7 +20,7 @@ from coda.publication import (
 from coda.vocabulary import Vocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory, test_orcid
 from tests.authors.test__author import assert_author_eq
-from tests.contracts.test_contract_services import assert_contract_eq
+from tests.contracts.test_contract_repository import assert_contract_eq
 
 
 class PublicationFactory(Protocol):

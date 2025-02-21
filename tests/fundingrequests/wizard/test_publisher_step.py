@@ -3,7 +3,7 @@ import datetime
 import pytest
 from django.test import RequestFactory
 
-from coda.apps.contracts.services import save
+from coda.apps.contracts.repository import save
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
     PublisherStep,
     PublisherStepDto,

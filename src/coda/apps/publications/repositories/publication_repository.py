@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models import Q
 
 from coda.apps.authors import services as author_services
-from coda.apps.contracts import services as contract_services
+from coda.apps.contracts import repository as contract_services
 from coda.apps.contracts.models import Contract
 from coda.apps.publications.models import AttachedContract, LinkType, PublicationAttachedConcept
 from coda.apps.publications.models import Link as LinkModel

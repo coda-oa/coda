@@ -7,7 +7,7 @@ from unittest.mock import create_autospec
 
 from faker import Faker
 
-from coda.apps.contracts.services import as_domain_object
+from coda.apps.contracts.repository import as_domain_object
 from coda.apps.fundingrequests.dto import (
     ExternalFundingDto,
     ExtraContactDto,
