@@ -59,6 +59,9 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
     steps = [PublicationStep.for_article(), JournalStep()]
     allow_early_complete = True
 
+    def get_cancel_url(self) -> str:
+        return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
+
     def get_success_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
@@ -83,6 +86,9 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
     steps = [FundingStep()]
     store_name = "update_funding_wizard"
     store_factory = SessionStore
+
+    def get_cancel_url(self) -> str:
+        return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
     def get_success_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})

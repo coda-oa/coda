@@ -22,6 +22,9 @@ class MonographUpdateMetaView(Wizard):
     store_factory = SessionStore
     allow_early_complete = True
 
+    def get_cancel_url(self) -> str:
+        return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
+
     def get_success_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
