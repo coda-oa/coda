@@ -71,6 +71,7 @@ class PublicationViewModel(NamedTuple):
     oa_type: str
     references: Iterable[Link]
     contracts: Iterable[AttachedContract]
+    request_remarks: str = ""
 
 
 class ExternalFundingViewModel(NamedTuple):
@@ -150,6 +151,7 @@ def publication_viewmodel(fundingrequest: FundingRequestModel) -> PublicationVie
             for link in publication.links.all()
         ],
         contracts=[c for c in publication.attached_contracts.all()],
+        request_remarks=fundingrequest.request_remarks,
     )
 
 

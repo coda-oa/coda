@@ -26,10 +26,11 @@
             </article>
             <article>
                 <header class="flex justify-between align-center">
-                    <h2 class="my-0">Separate Contact Information</h2>
+                    <h2 class="my-0">Additional Information</h2>
                     <a href="{% url "fundingrequests:update_submitter" pk=funding_request.id %}"
                        role="button">Edit</a>
                 </header>
+                <h3>Separate Contact Information</h3>
                 {% if contact %}
                     <table class="fundingrequest-table">
                         <tbody>
@@ -48,6 +49,12 @@
                 {% else %}
                     <p>No separate contact information provided.</p>
                     <p>Communication goes through publication authors.</p>
+                {% endif %}
+                {% if publication.request_remarks %}
+                    <h3>Remarks by Request Submitter</h3>
+                    <blockquote>
+                        {{ publication.request_remarks }}
+                    </blockquote>
                 {% endif %}
             </article>
             <article>
