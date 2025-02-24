@@ -105,6 +105,7 @@ def create_invoice_for_publication(publication: Publication) -> Invoice:
         creditor=CreditorId(modelfactory.creditor().id),
         positions=[domainfactory.publication_position(publication.id)],
     )
+    invoice.reset_payment()
 
     invoice.id = invoice_repository.save(invoice)
     return invoice
