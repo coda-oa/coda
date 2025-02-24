@@ -24,6 +24,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
 
     _advanced_search_fields = [
         "labels",
+        "exclude_labels",
         "processing_status",
         "open_access_type",
         "start_date",
@@ -40,8 +41,10 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
             self.request.GET.get(key) for key in self._advanced_search_fields
         )
 
+        labels = Label.objects.all()
         return ctx | {
-            "labels": Label.objects.all(),
+            "labels": labels,
+            "exlude_labels": labels,
             "processing_states": [rr.value for rr in ReviewResult],
             "open_access_types": [oat.value for oat in OpenAccessType],
             "expand_advanced_search": expand_advanced_search,
@@ -68,6 +71,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
             **search_args,
             date_range=date_range,
             labels=list(map(int, request.GET.getlist("labels"))),
+            exclude_labels=list(map(int, request.GET.getlist("exclude_labels"))),
             processing_states=[ReviewResult(rr) for rr in request.GET.getlist("processing_status")],
             open_access_types=[
                 OpenAccessType(oat) for oat in request.GET.getlist("open_access_type")
@@ -88,6 +92,7 @@ class FundingRequestListViewModel(NamedTuple):
     updated_at: datetime.date
     labels: Iterable[Label]
     status: str
+    payment_status: dict[str, Any] | None = None
 
 
 def as_viewmodel(

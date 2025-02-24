@@ -203,6 +203,7 @@ def search(
     open_access_types: list[OpenAccessType] | None = None,
     date_range: DateRange | None = None,
     labels: Iterable[int] | None = None,
+    exclude_labels: Iterable[int] | None = None,
 ) -> Iterable[FundingRequestModel]:
     query = Q()
     if title:
@@ -224,6 +225,9 @@ def search(
 
     if labels:
         query = query & Q(labels__in=labels)
+
+    if exclude_labels:
+        query = query & ~Q(labels__in=exclude_labels)
 
     if date_range:
         query = query & Q(created_at__gte=date_range.start, created_at__lte=date_range.end)
