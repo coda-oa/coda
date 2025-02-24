@@ -45,30 +45,18 @@ def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
 
 
 @pytest.mark.django_db
-def test__given_paid_invoice_with_publication__publication_paid__returns_true() -> None:
+def test__given_paid_invoice_with_publication__invoice_with_publication__returns_invoice() -> None:
     publication_id = random_publication()
-    invoice = invoice_with_publication(publication_id)
-    invoice.pay()
-    repository.save(invoice)
+    invoice = create_invoice_with_publication(publication_id)
+    invoice.id = repository.save(invoice)
 
-    is_paid = repository.publication_paid(publication_id)
+    actual = repository.invoice_with_publication(publication_id)
 
-    assert is_paid
-
-
-@pytest.mark.django_db
-def test__given_unpaid_invoice_with_publication__publication_paid__returns_false() -> None:
-    publication_id = random_publication()
-    invoice = invoice_with_publication(publication_id)
-    invoice.reset_payment()
-    repository.save(invoice)
-
-    is_paid = repository.publication_paid(publication_id)
-
-    assert not is_paid
+    assert actual is not None
+    assert_invoice_eq(invoice, actual)
 
 
-def invoice_with_publication(publication_id: PublicationId) -> Invoice:
+def create_invoice_with_publication(publication_id: PublicationId) -> Invoice:
     return domainfactory.invoice(
         creditor=CreditorId(modelfactory.creditor().id),
         positions=[domainfactory.publication_position(publication=publication_id)],

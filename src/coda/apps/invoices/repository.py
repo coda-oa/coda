@@ -37,11 +37,13 @@ def all() -> Sequence[Invoice]:
     return DomainQuerySet(_ordered(InvoiceModel.objects.all()), as_domain_object)
 
 
-def publication_paid(publication_id: PublicationId) -> bool:
-    return InvoiceModel.objects.filter(
-        status=PaymentStatus.Paid.value,
-        positions__publication_id=publication_id,
-    ).exists()
+def invoice_with_publication(publication_id: PublicationId) -> Invoice | None:
+    invoice = InvoiceModel.objects.filter(positions__publication_id=publication_id).first()
+
+    if not invoice:
+        return None
+
+    return as_domain_object(invoice)
 
 
 def search(

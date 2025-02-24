@@ -230,7 +230,35 @@
             <div class="mb-2">
                 <h2 class="my-1">Payment Status</h2>
                 <hr>
-                <p>{{ publication.payment_status }}</p>
+                {% if publication.payment_status.status == "Unpaid" %}
+                    <p>
+                        <strong>{{ publication.payment_status.status }}</strong>
+                    </p>
+                    {% if publication.payment_status.invoice_number %}
+                        <p>
+                            Invoice:
+                            <a href="{{ publication.payment_status.url }}">{{ publication.payment_status.invoice_number }}</a>
+                        </p>
+                    {% endif %}
+                {% elif publication.payment_status.status == "Paid" %}
+                    <p>
+                        <strong>{{ publication.payment_status.status }}</strong>
+                    </p>
+                    <p>
+                        Invoice:
+                        <a href="{{ publication.payment_status.url }}">{{ publication.payment_status.invoice_number }}</a>
+                    </p>
+                {% elif publication.payment_status.status == "Covered by contract" %}
+                    <p>
+                        <strong>{{ publication.payment_status.status }}</strong>
+                    </p>
+                    <p>
+                        Contract:
+                        <a href="{{ publication.payment_status.url }}">
+                            {{ publication.payment_status.contract_name }} ({{ publication.payment_status.contract_year }})
+                        </a>
+                    </p>
+                {% endif %}
             </div>
             <div class="mb-2">
                 <h2 class="my-1">Labels</h2>

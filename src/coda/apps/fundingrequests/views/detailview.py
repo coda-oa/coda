@@ -74,7 +74,7 @@ class PublicationViewModel(NamedTuple):
     references: Iterable[Link]
     contracts: Iterable[AttachedContract]
     request_remarks: str = ""
-    payment_status: str = ""
+    payment_status: dict[str, Any] | None = None
 
 
 class ExternalFundingViewModel(NamedTuple):
@@ -155,8 +155,41 @@ def publication_viewmodel(fundingrequest: FundingRequestModel) -> PublicationVie
         ],
         contracts=[c for c in publication.attached_contracts.all()],
         request_remarks=fundingrequest.request_remarks,
-        payment_status=publications.get_payment_status(PublicationId(publication.id)),
+        payment_status=payment_status_viewmodel(publication.id),
     )
+
+
+def payment_status_viewmodel(publication_id: int) -> dict[str, Any]:
+    status = publications.get_payment_status(PublicationId(publication_id))
+    match status:
+        case publications.PublicationCoveredByContract(contract_id, contract_name, contract_year):
+            return {
+                "status": "Covered by contract",
+                "contract_id": contract_id,
+                "contract_name": contract_name,
+                "contract_year": contract_year,
+                "url": reverse("contracts:detail", kwargs={"pk": contract_id}),
+            }
+
+        case publications.PublicationPaid(invoice_id, invoice_number):
+            return {
+                "status": "Paid",
+                "invoice_id": invoice_id,
+                "invoice_number": invoice_number,
+                "url": reverse("invoices:detail", kwargs={"pk": invoice_id}),
+            }
+
+        case publications.PublicationUnpaid(invoice_id, invoice_number):
+            return {
+                "status": "Unpaid",
+                "invoice_id": invoice_id,
+                "invoice_number": invoice_number,
+                "url": (
+                    reverse("invoices:detail", kwargs={"pk": invoice_id}) if invoice_id else None
+                ),
+            }
+
+    return status
 
 
 def funding_viewmodel(external_funding: ExternalFunding) -> ExternalFundingViewModel:
