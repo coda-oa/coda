@@ -110,7 +110,7 @@ class Publication(models.Model):
 
     online_publication_date = models.DateField(null=True)
     print_publication_date = models.DateField(null=True)
-    author_list = models.CharField(max_length=255, null=True, blank=True)
+    author_list = models.TextField(null=True, blank=True)
 
     @property
     def authors(self) -> AuthorNames:
