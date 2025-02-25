@@ -4,7 +4,7 @@
 {% endblock title %}
 {% block content %}
     <h1 class="my-2">{{ title }}</h1>
-    <form action="{% url 'contracts:create' %}" method="post">
+    <form action="{{ url }}" method="post">
         {% csrf_token %}
         <article>
             <h2>Base information</h2>

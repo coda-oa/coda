@@ -22,6 +22,27 @@ from tests.contracts.test_contract_repository import (
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__create_contract_view__url_in_context_maps_to_create_contract_view(client: Client) -> None:
+    expected_url = reverse("contracts:create")
+    response = client.get(expected_url)
+    assert response.context["url"] == expected_url
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__update_contract_view__url_in_context_maps_to_update_contract_view(client: Client) -> None:
+    publishers = make_publishers()
+    journals = make_journals(publishers)
+    contract = make_contract(publishers, journals)
+    contract.id = repository.save(contract)
+
+    expected_url = reverse("contracts:update", kwargs={"pk": contract.id})
+    response = client.get(expected_url)
+    assert response.context["url"] == expected_url
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__create_contract_view__can_create_contract(client: Client) -> None:
     publishers = make_publishers()
     journals = make_journals(publishers)
@@ -62,6 +83,7 @@ def test__given_saved_contract__update_contract_view__updates_contract(client: C
 
     actual = repository.get_by_id(contract_id)
     assert_contract_eq(actual, expected)
+    assert len(repository.all()) == 1
 
 
 @pytest.mark.django_db

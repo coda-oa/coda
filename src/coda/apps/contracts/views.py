@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from coda.apps.contracts import repository
 from coda.apps.contracts.forms import ContractForm, EntityFormset
@@ -91,7 +92,12 @@ def update_contract(
 def get_context(
     request: HttpRequest, title: str, initial_contract: Contract | None = None
 ) -> dict[str, Any]:
-    return {"title": title} | get_forms(request, initial_contract=initial_contract)
+    url = (
+        reverse("contracts:create")
+        if initial_contract is None
+        else reverse("contracts:update", kwargs={"pk": initial_contract.id})
+    )
+    return {"title": title} | {"url": url} | get_forms(request, initial_contract=initial_contract)
 
 
 def get_forms(request: HttpRequest, initial_contract: Contract | None = None) -> dict[str, Any]:
@@ -120,7 +126,7 @@ def get_forms(request: HttpRequest, initial_contract: Contract | None = None) ->
     else:
         contract_form = ContractForm()
         publisher_formset = EntityFormset(prefix="publishers", form_id="publishers-formset")
-        journal_formset = EntityFormset(prefix="journals", form_id="journals")
+        journal_formset = EntityFormset(prefix="journals", form_id="journals-formset")
 
     return {
         "contract_form": contract_form,
