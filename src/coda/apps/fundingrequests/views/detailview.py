@@ -18,6 +18,12 @@ from coda.apps.publications.services import publications
 from coda.fundingrequest import ReviewResult
 from coda.money import Currency, Money
 from coda.publication import License, Link
+from coda.publication.payment import (
+    InvoiceReceived,
+    PublicationCoveredByContract,
+    PublicationPaid,
+    PublicationUnpaid,
+)
 from coda.publication.publication import PublicationId
 
 template_name = "fundingrequests/fundingrequest_detail.html"
@@ -162,7 +168,7 @@ def publication_viewmodel(fundingrequest: FundingRequestModel) -> PublicationVie
 def payment_status_viewmodel(publication_id: int) -> dict[str, Any]:
     status = publications.get_payment_status(PublicationId(publication_id))
     match status:
-        case publications.PublicationCoveredByContract(contract_id, contract_name, contract_year):
+        case PublicationCoveredByContract(contract_id, contract_name, contract_year):
             return {
                 "status": "Covered by contract",
                 "contract_id": contract_id,
@@ -171,7 +177,7 @@ def payment_status_viewmodel(publication_id: int) -> dict[str, Any]:
                 "url": reverse("contracts:detail", kwargs={"pk": contract_id}),
             }
 
-        case publications.PublicationPaid(invoice_id, invoice_number):
+        case PublicationPaid(invoice_id, invoice_number):
             return {
                 "status": "Paid",
                 "invoice_id": invoice_id,
@@ -179,14 +185,14 @@ def payment_status_viewmodel(publication_id: int) -> dict[str, Any]:
                 "url": reverse("invoices:detail", kwargs={"pk": invoice_id}),
             }
 
-        case publications.PublicationUnpaid(invoice_id, invoice_number):
+        case PublicationUnpaid():
+            return {"status": "Unpaid"}
+        case InvoiceReceived(invoice_id, invoice_number):
             return {
-                "status": "Unpaid",
+                "status": "Invoice received",
                 "invoice_id": invoice_id,
                 "invoice_number": invoice_number,
-                "url": (
-                    reverse("invoices:detail", kwargs={"pk": invoice_id}) if invoice_id else None
-                ),
+                "url": reverse("invoices:detail", kwargs={"pk": invoice_id}),
             }
 
     return status

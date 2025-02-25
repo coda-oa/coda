@@ -110,7 +110,7 @@ def contract_year(contract: Contract) -> ContractYear:
 def invoice(
     id: InvoiceId | None = None,
     creditor: CreditorId | None = None,
-    positions: Positions = (),
+    positions: Positions | None = None,
 ) -> Invoice:
     status = random.choice([s for s in PaymentStatus])
     return Invoice(
@@ -118,7 +118,11 @@ def invoice(
         date=date.fromisoformat(_faker.date()),
         number=NonEmptyStr(str(_faker.uuid4())),
         creditor=creditor or CreditorId(random.randint(1, 1000)),
-        positions=positions or [publication_position() for n in range(random.randint(1, 5))],
+        positions=(
+            positions
+            if positions is not None
+            else [publication_position() for n in range(random.randint(1, 5))]
+        ),
         status=status,
     )
 
