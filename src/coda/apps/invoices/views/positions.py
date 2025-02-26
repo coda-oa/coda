@@ -33,6 +33,7 @@ class CommonPosition(abc.ABC, CodaBaseDto, Generic[T]):
     cost_type: str = CostType.Publication_Charge.value
     cost_amount: Decimal = Decimal("0.00")
     tax_rate: Decimal = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
+    external_position_id: str = ""
 
     @classmethod
     @abc.abstractmethod
@@ -80,6 +81,7 @@ class PublicationPosition(CommonPosition[PublicationId]):
             funding_source=position.funding_source,
             cost_amount=position.cost.amount,
             tax_rate=position.tax_rate.percentage(),
+            external_position_id=position.external_position_id,
         )
 
     def parse(self) -> PublicationId:
@@ -101,6 +103,7 @@ class FreePosition(CommonPosition[str]):
             cost_amount=position.cost.amount,
             cost_type=position.cost_type,
             tax_rate=position.tax_rate.percentage(),
+            external_position_id=position.external_position_id,
         )
 
     def parse(self) -> str:
@@ -131,6 +134,7 @@ class ContractPosition(CommonPosition[ContractYear]):
             cost_amount=position.cost.amount,
             cost_type=position.cost_type,
             tax_rate=position.tax_rate.percentage(),
+            external_position_id=position.external_position_id,
         )
 
     def parse(self) -> ContractYear:

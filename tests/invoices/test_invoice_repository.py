@@ -36,6 +36,7 @@ def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
     updated_invoice.date = _faker.date_object()
     updated_invoice.positions = [domainfactory.free_position()]
     updated_invoice.comment = "updated"
+    updated_invoice.external_invoice_id = "updated"
 
     repository.save(updated_invoice)
 
@@ -106,3 +107,6 @@ def assert_invoice_eq(expected: Invoice, actual: Invoice) -> None:
     assert expected.creditor == actual.creditor
     assert expected.positions == actual.positions
     assert expected.status == actual.status
+    assert expected.date == actual.date
+    assert expected.comment == actual.comment
+    assert expected.external_invoice_id == actual.external_invoice_id

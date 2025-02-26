@@ -95,10 +95,12 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
                     if position.funding_source_id
                     else None
                 ),
+                external_position_id=position.external_position_id,
             )
             for position in model.positions.all()
         ],
         comment=model.comment,
+        external_invoice_id=model.external_invoice_id,
     )
 
 
@@ -120,6 +122,7 @@ def save(invoice: Invoice) -> InvoiceId:
             creditor_id=invoice.creditor,
             comment=invoice.comment,
             status=invoice.status.value,
+            external_invoice_id=invoice.external_invoice_id,
         )
     else:
         m = InvoiceModel.objects.get(id=invoice.id)
@@ -129,6 +132,7 @@ def save(invoice: Invoice) -> InvoiceId:
         m.comment = invoice.comment
         m.status = invoice.status.value
         m.positions.all().delete()
+        m.external_invoice_id = invoice.external_invoice_id
         m.save()
 
     PositionModel.objects.bulk_create(
@@ -154,6 +158,7 @@ def _create_position(m: InvoiceModel, pos: Position[ItemType]) -> PositionModel:
                 tax_rate=pos.tax_rate,
                 funding_source_id=pos.funding_source,
                 invoice_id=m.id,
+                external_position_id=pos.external_position_id,
             )
         case PublicationId(pub_id):
             return PositionModel(
@@ -164,6 +169,7 @@ def _create_position(m: InvoiceModel, pos: Position[ItemType]) -> PositionModel:
                 tax_rate=pos.tax_rate,
                 funding_source_id=pos.funding_source,
                 invoice_id=m.id,
+                external_position_id=pos.external_position_id,
             )
         case str(description):
             return PositionModel(
@@ -174,6 +180,7 @@ def _create_position(m: InvoiceModel, pos: Position[ItemType]) -> PositionModel:
                 tax_rate=pos.tax_rate,
                 funding_source_id=pos.funding_source,
                 invoice_id=m.id,
+                external_position_id=pos.external_position_id,
             )
         case _:
             raise ValueError("Invalid position item")

@@ -253,6 +253,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                 CostType(post_data["position-1-cost-type"]),
                 TaxRate(int(post_data["position-1-tax-rate"]) / 100),
                 FundingSourceId(int(post_data["position-1-funding-source"])),
+                external_position_id=post_data["position-1-external-position-id"],
             ),
             Position(
                 post_data["position-2-description"],
@@ -263,6 +264,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                 CostType(post_data["position-2-cost-type"]),
                 TaxRate(int(post_data["position-2-tax-rate"]) / 100),
                 FundingSourceId(int(post_data["position-2-funding-source"])),
+                external_position_id=post_data["position-2-external-position-id"],
             ),
             Position(
                 contract_year,
@@ -273,6 +275,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                 CostType(post_data["position-3-cost-type"]),
                 TaxRate(int(post_data["position-3-tax-rate"]) / 100),
                 FundingSourceId(int(post_data["position-3-funding-source"])),
+                external_position_id=post_data["position-3-external-position-id"],
             ),
         ],
     )
@@ -337,6 +340,7 @@ def create_free_position_input(index: int = 1) -> dict[str, str]:
         f"position-{index}-cost-amount": _random_cost(),
         f"position-{index}-tax-rate": _random_tax_rate(),
         f"position-{index}-cost-type": _random_cost_type(),
+        f"position-{index}-external-position-id": str(_faker.uuid4()),
     }
 
 
@@ -358,6 +362,7 @@ def create_publication_position_input(publication: Publication, index: int = 1) 
         f"position-{index}-funding-source": str(_random_funding_source()),
         f"position-{index}-fundingrequest-id": request_id,
         f"position-{index}-fundingrequest-url": url,
+        f"position-{index}-external-position-id": str(_faker.uuid4()),
     }
 
 
@@ -371,6 +376,7 @@ def create_contract_position_input(contract: "ContractYearLike", index: int = 1)
         f"position-{index}-cost-amount": _random_cost(),
         f"position-{index}-tax-rate": _random_tax_rate(),
         f"position-{index}-cost-type": _random_cost_type(),
+        f"position-{index}-external-position-id": str(_faker.uuid4()),
     }
 
 
@@ -430,6 +436,7 @@ def expect_existing_free_position(position_data: dict[str, str], index: int = 1)
         cost_amount=position_data[f"position-{index}-cost-amount"],
         cost_type=position_data[f"position-{index}-cost-type"],
         tax_rate=position_data[f"position-{index}-tax-rate"],
+        external_position_id=position_data[f"position-{index}-external-position-id"],
     )
 
 
@@ -465,6 +472,7 @@ def expect_existing_publication_position(
         cost_amount=position_data[f"position-{i}-cost-amount"],
         cost_type=position_data[f"position-{i}-cost-type"],
         tax_rate=position_data[f"position-{i}-tax-rate"],
+        external_position_id=position_data[f"position-{i}-external-position-id"],
     )
 
 
@@ -479,6 +487,7 @@ def expect_existing_contract_position(
         cost_amount=position_data[f"position-{i}-cost-amount"],
         cost_type=position_data[f"position-{i}-cost-type"],
         tax_rate=position_data[f"position-{i}-tax-rate"],
+        external_position_id=position_data[f"position-{i}-external-position-id"],
     )
 
 

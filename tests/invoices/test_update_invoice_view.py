@@ -53,6 +53,7 @@ def test__given_invoice__goto_update_view__has_invoice_head_in_form(client: Clie
     assert invoice_form.data["currency"] == _free_position.cost.currency.code
     assert invoice_form.data["status"] == invoice.status.value
     assert invoice_form.data["comment"] == invoice.comment
+    assert invoice_form.data["external_invoice_id"] == invoice.external_invoice_id
 
 
 @pytest.mark.django_db
@@ -112,6 +113,7 @@ def test__given_invoice__saving_updated_invoice__updates_invoice(client: Client)
         positions=[first_position, second_position],
         status=PaymentStatus.Paid,
         comment="Another comment",
+        external_invoice_id="external",
     )
 
     post_data = (
@@ -122,6 +124,7 @@ def test__given_invoice__saving_updated_invoice__updates_invoice(client: Client)
             "status": expected.status.value,
             "comment": expected.comment,
             "currency": expected.currency().code,
+            "external_invoice_id": expected.external_invoice_id,
         }
         | number_of_positions(2)
         | expect_free_position(first_position).to_post_data(
@@ -195,6 +198,7 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
             "status": invoice.status.value,
             "comment": invoice.comment,
             "currency": invoice.currency().code,
+            "external_invoice_id": invoice.external_invoice_id,
         }
         | number_of_positions(1)
         | contract_input
@@ -208,6 +212,7 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
 def save_invoice_view(
     client: Client, invoice_id: InvoiceId, post_data: dict[str, Any]
 ) -> TemplateResponse:
+    print("Post data: ", post_data)
     return cast(
         TemplateResponse,
         client.post(reverse("invoices:update", kwargs={"pk": invoice_id}), post_data),
@@ -221,6 +226,7 @@ def publication_position(a_publication: Publication) -> Position[PublicationId]:
         cost=Money(200, Currency.EUR),
         cost_type=CostType.Publication_Charge,
         tax_rate=TaxRate.from_percentage(19),
+        external_position_id=f"external-publication-{a_publication.id}",
     )
 
 
@@ -231,6 +237,7 @@ def contract_position(a_contract: Contract) -> Position[ContractYear]:
         cost=Money(100, Currency.EUR),
         cost_type=CostType.Publication_Charge,
         tax_rate=TaxRate.from_percentage(19),
+        external_position_id=f"external-contract-{a_contract.id}",
     )
 
 
@@ -241,6 +248,7 @@ def free_position() -> Position[str]:
         cost=Money(50, Currency.EUR),
         cost_type=CostType.Other,
         tax_rate=TaxRate.from_percentage(7),
+        external_position_id="external-free",
     )
 
 
@@ -255,6 +263,7 @@ def expect_publication_position(
         funding_source=publication_position.funding_source,
         cost_amount=publication_position.cost.amount,
         tax_rate=publication_position.tax_rate.percentage(),
+        external_position_id=publication_position.external_position_id,
     )
 
 
@@ -269,6 +278,7 @@ def expect_contract_position(contract_position: Position[ContractYear]) -> Contr
         cost_amount=contract_position.cost.amount,
         cost_type=contract_position.cost_type,
         tax_rate=contract_position.tax_rate.percentage(),
+        external_position_id=contract_position.external_position_id,
     )
 
 
@@ -279,6 +289,7 @@ def expect_free_position(free_position: Position[str]) -> FreePosition:
         cost_amount=free_position.cost.amount,
         cost_type=free_position.cost_type,
         tax_rate=free_position.tax_rate.percentage(),
+        external_position_id=free_position.external_position_id,
     )
 
 

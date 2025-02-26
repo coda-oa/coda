@@ -72,4 +72,5 @@ def parse_invoice(
         creditor=CreditorId(form.cleaned_data["creditor"].id),
         positions=parse_into_position_list(positions, form.get_currency(), lambda p: p.parse()),
         comment=form.cleaned_data["comment"],
+        external_invoice_id=form.cleaned_data["external_invoice_id"],
     )

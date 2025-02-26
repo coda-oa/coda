@@ -121,9 +121,14 @@ def invoice(
         positions=(
             positions
             if positions is not None
-            else [publication_position() for n in range(random.randint(1, 5))]
+            else [
+                publication_position(),
+                free_position(),
+                contract_position(contract_year(contract())),
+            ]
         ),
         status=status,
+        external_invoice_id=str(_faker.uuid4()),
     )
 
 
@@ -138,6 +143,7 @@ def publication_position(
         cost_type=random.choice(list(CostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         funding_source=funding_source,
+        external_position_id=str(_faker.uuid4()),
     )
 
 
@@ -152,6 +158,7 @@ def contract_position(
         cost_type=random.choice(list(CostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         funding_source=funding_source,
+        external_position_id=str(_faker.uuid4()),
     )
 
 
@@ -161,6 +168,7 @@ def free_position(currency: Currency | None = None) -> Position[str]:
         cost=random_money(currency),
         cost_type=random.choice(list(CostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
+        external_position_id=str(_faker.uuid4()),
     )
 
 

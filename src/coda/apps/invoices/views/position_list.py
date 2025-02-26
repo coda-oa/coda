@@ -100,6 +100,7 @@ def parse_position(
             funding_source=(
                 FundingSourceId(position.funding_source) if position.funding_source else None
             ),
+            external_position_id=position.external_position_id,
         )
     except Exception as e:
         raise PositionError(index, e)

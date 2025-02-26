@@ -36,6 +36,7 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
                 "status": invoice.status.value,
                 "comment": invoice.comment,
                 "currency": invoice.currency().code,
+                "external_invoice_id": invoice.external_invoice_id,
             }
         )
 

@@ -16,6 +16,11 @@ class InvoiceForm(forms.Form):
         choices=[(s.value, s.value) for s in PaymentStatus],
         initial=PaymentStatus.Unpaid.value,
     )
+    external_invoice_id = forms.CharField(
+        max_length=255,
+        required=False,
+        label="External Invoice ID",
+    )
     comment = forms.CharField(widget=forms.Textarea, required=False, label="Comment")
 
     def get_currency(self) -> Currency:

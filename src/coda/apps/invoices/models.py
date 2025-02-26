@@ -25,6 +25,7 @@ class Invoice(models.Model):
     number = models.CharField(max_length=255)
     status = models.CharField(max_length=255, default="unpaid")
     comment = models.TextField(blank=True)
+    external_invoice_id = models.CharField(max_length=255, blank=True)
 
     def get_absolute_url(self) -> str:
         return reverse("invoices:detail", kwargs={"pk": self.pk})
@@ -42,3 +43,4 @@ class Position(models.Model):
     tax_rate = models.DecimalField(max_digits=10, decimal_places=4, default=0)
     funding_source = models.ForeignKey(FundingSource, on_delete=models.CASCADE, null=True)
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="positions")
+    external_position_id = models.CharField(max_length=255, blank=True)

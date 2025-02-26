@@ -67,6 +67,7 @@ class Position(NamedTuple, Generic[T]):
     cost_type: CostType
     tax_rate: TaxRate = TaxRate(0)
     funding_source: FundingSourceId | None = None
+    external_position_id: str = ""
 
     def net(self) -> Money:
         return self.cost
@@ -87,6 +88,7 @@ class Invoice:
     positions: Positions
     status: PaymentStatus = PaymentStatus.Unpaid
     comment: str = ""
+    external_invoice_id: str = ""
 
     @classmethod
     def new(
