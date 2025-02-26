@@ -1,3 +1,4 @@
+from collections.abc import Callable
 import datetime
 import random
 from dataclasses import dataclass
@@ -11,8 +12,8 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.contracts import repository as contract_services
+from coda.apps.invoices import repository
 from coda.apps.invoices.models import FundingSource
-from coda.apps.invoices.repository import get_by_id
 from coda.apps.invoices.views.positions import (
     DEFAULT_TAX_RATE_PERCENTAGE,
     ContractPosition,
@@ -21,19 +22,20 @@ from coda.apps.invoices.views.positions import (
     RelatedFundingRequest,
 )
 from coda.apps.publications.models import Publication
+from coda.apps.publications.services import publications
 from coda.contract import Contract, ContractId
 from coda.invoice import (
     CostType,
     CreditorId,
     FundingSourceId,
     Invoice,
-    InvoiceId,
     PaymentStatus,
     Position,
     TaxRate,
 )
 from coda.money import Currency, Money
 from coda.publication import PublicationId
+from coda.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
 from tests import domainfactory, modelfactory
 from tests.invoices.test_invoice_repository import assert_invoice_eq
 
@@ -152,7 +154,6 @@ def test__given_position_added__removing_position__position_removed_from_respons
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__given_positions_added__create__saves_new_invoice(client: Client) -> None:
-    creditor = modelfactory.creditor()
     publication = modelfactory.publication()
     contract = contract_services.as_domain_object(modelfactory.contract())
     contract_year = domainfactory.contract_year(contract)
@@ -161,51 +162,72 @@ def test__given_positions_added__create__saves_new_invoice(client: Client) -> No
     second_position_data = create_free_position_input(2)
     third_position_data = create_contract_position_input(contract_year, 3)
 
-    post_data = (
-        {
-            "action": "create",
-            "number": _faker.pystr(),
-            "date": _faker.date(),
-            "creditor": str(creditor.id),
-            "status": PaymentStatus.Unpaid.value,
-            "currency": Currency.EUR.code,
-        }
-        | number_of_positions(3)
-        | first_position_data
-        | second_position_data
-        | third_position_data
-    )
-
+    post_data = invoice_post_data([first_position_data, second_position_data, third_position_data])
     response = client.post(reverse("invoices:create"), post_data)
 
-    actual = get_by_id(InvoiceId(1))
+    actual = repository.first()
+    assert actual is not None
     expected = expected_invoice(post_data)
     assert_invoice_eq(expected, actual)
-    assertRedirects(response, reverse("invoices:detail", kwargs={"pk": 1}))
+    assertRedirects(response, reverse("invoices:detail", kwargs={"pk": actual.id}))
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize(
+    ["invoice_status", "expected_payment_status"],
+    [
+        (PaymentStatus.Paid, lambda i: PublicationPaid(i.id, i.number)),
+        (PaymentStatus.Unpaid, lambda i: InvoiceReceived(i.id, i.number)),
+    ],
+)
+def test__given_publication_added__create__publication_has_invoice_received(
+    client: Client,
+    invoice_status: PaymentStatus,
+    expected_payment_status: Callable[[Invoice], PublicationPayment],
+) -> None:
+    publication = modelfactory.publication()
+
+    post_data = invoice_post_data(
+        [create_publication_position_input(publication)], status=invoice_status
+    )
+    client.post(reverse("invoices:create"), post_data)
+
+    actual = repository.first()
+    assert actual is not None
+
+    actual_status = publications.get_payment_status(PublicationId(publication.id))
+    assert actual_status == expected_payment_status(actual)
+
+
+def invoice_post_data(
+    positions: list[dict[str, str]], *, status: PaymentStatus = PaymentStatus.Unpaid
+) -> dict[str, str]:
+    creditor = modelfactory.creditor()
+    post_data = {
+        "action": "create",
+        "number": _faker.pystr(),
+        "date": _faker.date(),
+        "creditor": str(creditor.id),
+        "status": status.value,
+        "currency": Currency.EUR.code,
+    } | number_of_positions(len(positions))
+
+    for position in positions:
+        post_data.update(position)
+
+    return post_data
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__given_position_with_invalid_contract_year__create__returns_error(client: Client) -> None:
-    creditor = modelfactory.creditor()
     contract = contract_services.as_domain_object(modelfactory.contract())
     contract_year = InvalidContractYear(contract, 1)
 
     first_position_data = create_contract_position_input(contract_year, 1)
 
-    post_data = (
-        {
-            "action": "create",
-            "number": _faker.pystr(),
-            "date": _faker.date(),
-            "creditor": str(creditor.id),
-            "status": PaymentStatus.Unpaid.value,
-            "currency": Currency.EUR.code,
-        }
-        | number_of_positions(1)
-        | first_position_data
-    )
-
+    post_data = invoice_post_data([first_position_data])
     response = client.post(reverse("invoices:create"), post_data)
 
     expected = {

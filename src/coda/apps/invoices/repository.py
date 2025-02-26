@@ -23,6 +23,14 @@ from coda.money import Currency, Money
 from coda.publication import PublicationId
 
 
+def first() -> Invoice | None:
+    model = InvoiceModel.objects.first()
+    if not model:
+        return None
+
+    return as_domain_object(model)
+
+
 def get_by_id(invoice_id: InvoiceId) -> Invoice:
     return as_domain_object(InvoiceModel.objects.get(id=invoice_id))
 
@@ -128,6 +136,10 @@ def save(invoice: Invoice) -> InvoiceId:
     )
 
     return InvoiceId(m.id)
+
+
+def delete(invoice_id: InvoiceId) -> None:
+    InvoiceModel.objects.filter(id=invoice_id).delete()
 
 
 def _create_position(m: InvoiceModel, pos: Position[ItemType]) -> PositionModel:

@@ -5,6 +5,16 @@ from coda.publication.payment import InvoiceReceived, PublicationPaid, Publicati
 from coda.publication.publication import PublicationId
 
 
+def save(invoice: Invoice) -> InvoiceId:
+    invoice.id = repository.save(invoice)
+    if invoice.is_paid():
+        _pay_publications(invoice)
+    else:
+        _invoice_received(invoice)
+
+    return invoice.id
+
+
 def pay_invoice(invoice_id: InvoiceId) -> None:
     invoice = repository.get_by_id(invoice_id)
     invoice.pay()
@@ -17,6 +27,14 @@ def reset_payment(invoice_id: InvoiceId) -> None:
     invoice.reset_payment()
     repository.save(invoice)
     _invoice_received(invoice)
+
+
+def delete_invoice(invoice_id: InvoiceId) -> None:
+    invoice = repository.get_by_id(invoice_id)
+    for p in _publication_positions(invoice):
+        publications.invoice_deleted(p)
+
+    repository.delete(invoice_id)
 
 
 def _pay_publications(invoice: Invoice) -> None:

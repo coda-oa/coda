@@ -2,8 +2,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 
+from coda.apps.invoices import services
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.repository import save
 from coda.apps.invoices.views.position_list import (
     ErrorDict,
     PositionError,
@@ -51,7 +51,10 @@ def save_invoice(
         number_of_positions = int(request.POST.get("number-of-positions", 0))
         _positions = [parse_position_data(request, i) for i in range(1, number_of_positions + 1)]
         positions = [p for p in _positions if p is not None]
-        return save(parse_invoice(form, positions, invoice_id=invoice_id)), ErrorDict(errors={})
+        return (
+            services.save(parse_invoice(form, positions, invoice_id=invoice_id)),
+            ErrorDict(errors={}),
+        )
     except PositionError as e:
         return None, ErrorDict(errors={f"position-{e.position}-error": e.message()})
 
