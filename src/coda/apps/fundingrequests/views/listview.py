@@ -9,6 +9,7 @@ from django.http import HttpRequest
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
+from coda.apps.fundingrequests.views.detailview import payment_status_viewmodel
 from coda.apps.views import EntityListView
 from coda.date import DateRange
 from coda.fundingrequest import ReviewResult
@@ -124,6 +125,7 @@ def article_viewmodel(funding_request: FundingRequestModel) -> FundingRequestLis
         updated_at=funding_request.updated_at,
         labels=funding_request.labels.all(),
         status=funding_request.processing_status,
+        payment_status=payment_status_viewmodel(funding_request.publication.id),
     )
 
 
@@ -145,6 +147,7 @@ def monograph_viewmodel(funding_request: FundingRequestModel) -> FundingRequestL
         updated_at=funding_request.updated_at,
         labels=funding_request.labels.all(),
         status=funding_request.processing_status,
+        payment_status=payment_status_viewmodel(funding_request.publication.id),
     )
 
 

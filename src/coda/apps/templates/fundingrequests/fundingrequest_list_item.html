@@ -10,11 +10,21 @@
         <i><small>last updated at {{ entity.updated_at }}</small></i>
     </p>
     <hr class="mb-2">
-    {% if entity.authors %}<p>Authors: {{ entity.authors|join:", " }}</p>{% endif %}
-    <p class="text-ellipsis">
-        {{ entity.publishing_entity_type }}
-        <a href="{{ entity.publishing_entity_url }}">{{ entity.publishing_entity_name }}</a>
-    </p>
+    <div class="grid">
+        <div>
+            {% if entity.authors %}<p>Authors: {{ entity.authors|join:", " }}</p>{% endif %}
+            <p class="text-ellipsis">
+                {{ entity.publishing_entity_type }}
+                <a href="{{ entity.publishing_entity_url }}">{{ entity.publishing_entity_name }}</a>
+            </p>
+        </div>
+        <div>
+            <p>
+                <strong>Payment status</strong>
+            </p>
+            {% include "fundingrequests/partials/payment_status.html" with payment_status=entity.payment_status %}
+        </div>
+    </div>
     <p class="flex mb-0_5 mt-2">
         {% url "fundingrequests:list" as list_url %}
         {% for label in entity.labels %}

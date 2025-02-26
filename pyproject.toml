@@ -37,7 +37,7 @@ build-backend = "pdm.backend"
 
 [tool.pdm.scripts]
 coverage = "pytest --cov"
-unittests = "pytest -m 'not integration'"
+unittests = "pytest -m 'not integration' --ff"
 alltests = "pytest -vv"
 
 [tool.black]

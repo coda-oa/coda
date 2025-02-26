@@ -230,26 +230,7 @@
             <div class="mb-2">
                 <h2 class="my-1">Payment Status</h2>
                 <hr>
-                <p>
-                    <strong>{{ publication.payment_status.status }}</strong>
-                </p>
-                {% if publication.payment_status.invoice_number %}
-                    <p>
-                        Invoice:
-                        <a href="{{ publication.payment_status.url }}">{{ publication.payment_status.invoice_number }}</a>
-                    </p>
-                {% endif %}
-                {% if publication.payment_status.contract_name %}
-                    <p>
-                        <strong>{{ publication.payment_status.status }}</strong>
-                    </p>
-                    <p>
-                        Contract:
-                        <a href="{{ publication.payment_status.url }}">
-                            {{ publication.payment_status.contract_name }} ({{ publication.payment_status.contract_year }})
-                        </a>
-                    </p>
-                {% endif %}
+                {% include "fundingrequests/partials/payment_status.html" with payment_status=publication.payment_status %}
             </div>
             <div class="mb-2">
                 <h2 class="my-1">Labels</h2>
