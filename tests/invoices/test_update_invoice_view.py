@@ -273,7 +273,7 @@ def expect_contract_position(contract_position: Position[ContractYear]) -> Contr
     return ContractPosition(
         id=contract.id,
         name=contract.name,
-        contract_year=contract_position.item.year,
+        year=contract_position.item.year,
         funding_source=contract_position.funding_source,
         cost_amount=contract_position.cost.amount,
         cost_type=contract_position.cost_type,

@@ -1,6 +1,5 @@
 import datetime
 from collections.abc import Callable
-from decimal import Decimal
 from typing import Any, TypedDict
 
 from django.contrib.auth.decorators import login_required
@@ -17,7 +16,6 @@ from coda.apps.invoices.views.positions import (
     get_position_type,
 )
 from coda.apps.publications.models import Publication
-from coda.contract import ContractId
 from coda.invoice import (
     CostType,
     CreditorId,
@@ -154,23 +152,14 @@ def parse_added_contract_position(request: HttpRequest) -> ContractPosition | No
     if request.POST.get("action") != "add-contract-position":
         return None
 
-    contract_id = ContractId(request.POST.get("contract-id", ""))
-    year = int(request.POST.get("contract-year", ""))
-    contract_name = request.POST.get("contract-name", "")
-
-    return ContractPosition(id=contract_id, name=contract_name, contract_year=year)
+    return ContractPosition.from_request(request.POST, prefix="contract-")
 
 
 def parse_added_free_position(request: HttpRequest) -> FreePosition | None:
     if request.POST.get("action") != "add-free-position":
         return None
 
-    return FreePosition(
-        cost_amount=request.POST.get("free-position-cost-amount", Decimal("0.00")),
-        cost_type=request.POST.get("free-position-cost-type", CostType.Other.value),
-        tax_rate=Decimal(request.POST.get("free-position-tax-rate", "0")),
-        description=request.POST.get("free-position-description", ""),
-    )
+    return FreePosition.from_request(request.POST, prefix="free-position-")
 
 
 def render_positions(

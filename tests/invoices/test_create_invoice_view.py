@@ -79,22 +79,23 @@ def test__add_publication_as_position__returns_position_in_response(client: Clie
 def test__add_contract_as_position__returns_position_in_response(client: Client) -> None:
     contract = contract_services.as_domain_object(modelfactory.contract())
     contract_year = domainfactory.contract_year(contract)
+    expected = expect_new_contract_position(contract_year)
 
-    response = add_contract_position(client, contract_year)
+    response = add_contract_position(client, expected)
 
-    expected = expect_new_contract_position(
-        contract_year.contract_id, contract_year.year, contract_year.name
-    )
     assert [expected] == response.context["positions"]
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__add_free_position__returns_position_in_response(client: Client) -> None:
-    position_data = new_free_position_data()
-    response = client.post(reverse("invoices:add_position"), position_data)
+    expected = expect_new_free_position()
+    response = client.post(
+        reverse("invoices:add_position"),
+        {"action": "add-free-position"}
+        | expected.to_post_data(prefix="free-position", underscores_to_dash=True),
+    )
 
-    expected = expect_new_free_position(position_data)
     assert expected in response.context["positions"]
 
 
@@ -238,7 +239,7 @@ def test__given_position_with_invalid_contract_year__create__returns_error(clien
 
 def expected_invoice(post_data: dict[str, str]) -> Invoice:
     contract = contract_services.get_by_id(ContractId(int(post_data["position-3-id"])))
-    contract_year = contract.in_year(int(post_data["position-3-contract-year"]))
+    contract_year = contract.in_year(int(post_data["position-3-year"]))
     return Invoice.new(
         post_data["number"],
         datetime.date.fromisoformat(post_data["date"]),
@@ -304,7 +305,7 @@ def add_publication_position(
 
 def add_contract_position(
     client: Client,
-    contract_year: "ContractYearLike",
+    contract_position: ContractPosition,
     /,
     other_post_data: dict[str, Any] | None = None,
 ) -> TemplateResponse:
@@ -312,20 +313,11 @@ def add_contract_position(
         TemplateResponse,
         client.post(
             reverse("invoices:add_position"),
-            new_contract_position_data(contract_year) | (other_post_data or {}),
+            {"action": "add-contract-position"}
+            | contract_position.to_post_data(prefix="contract")
+            | (other_post_data or {}),
         ),
     )
-
-
-def new_contract_position_data(contract_year: "ContractYearLike") -> dict[str, str]:
-    contract = contract_year.contract
-    year = contract_year.year
-    return {
-        "action": "add-contract-position",
-        "contract-id": str(contract.id),
-        "contract-year": str(year),
-        "contract-name": contract.name,
-    }
 
 
 def number_of_positions(num: int) -> dict[str, str]:
@@ -370,23 +362,13 @@ def create_contract_position_input(contract: "ContractYearLike", index: int = 1)
     return {
         f"position-{index}-type": "contract",
         f"position-{index}-id": str(contract.contract.id),
-        f"position-{index}-contract-year": str(contract.year),
+        f"position-{index}-year": str(contract.year),
         f"position-{index}-name": contract.name,
         f"position-{index}-funding-source": str(_random_funding_source()),
         f"position-{index}-cost-amount": _random_cost(),
         f"position-{index}-tax-rate": _random_tax_rate(),
         f"position-{index}-cost-type": _random_cost_type(),
         f"position-{index}-external-position-id": str(_faker.uuid4()),
-    }
-
-
-def new_free_position_data() -> dict[str, str]:
-    return {
-        "action": "add-free-position",
-        "free-position-description": _faker.sentence(),
-        "free-position-cost-amount": _random_cost(),
-        "free-position-tax-rate": _random_tax_rate(),
-        "free-position-cost-type": _random_cost_type(),
     }
 
 
@@ -407,22 +389,23 @@ def _random_funding_source() -> FundingSourceId:
     return FundingSourceId(fs.id)
 
 
-def expect_new_free_position(free_position_data: dict[str, str]) -> FreePosition:
+def expect_new_free_position() -> FreePosition:
     return FreePosition(
-        description=free_position_data["free-position-description"],
-        cost_amount=free_position_data["free-position-cost-amount"],
-        cost_type=free_position_data["free-position-cost-type"],
-        tax_rate=free_position_data["free-position-tax-rate"],
+        description=_faker.sentence(),
+        cost_amount=_random_cost(),
+        cost_type=_random_cost_type(),
+        tax_rate=_random_tax_rate(),
     )
 
 
-def expect_new_contract_position(
-    contract_id: ContractId | None, year: int, contract_name: str
-) -> ContractPosition:
+def expect_new_contract_position(contract_year: "ContractYearLike") -> ContractPosition:
+    contract_id = contract_year.contract_id
+    year = contract_year.year
+    contract_name = contract_year.name
     return ContractPosition(
         id=contract_id,
         name=contract_name,
-        contract_year=year,
+        year=year,
         cost_amount="0.00",
         cost_type=CostType.Publication_Charge.value,
         tax_rate=str(DEFAULT_TAX_RATE_PERCENTAGE),
@@ -482,7 +465,7 @@ def expect_existing_contract_position(
     return ContractPosition(
         id=int(position_data[f"position-{i}-id"]),
         name=position_data[f"position-{i}-name"],
-        contract_year=int(position_data[f"position-{i}-contract-year"]),
+        year=int(position_data[f"position-{i}-year"]),
         funding_source=position_data[f"position-{i}-funding-source"],
         cost_amount=position_data[f"position-{i}-cost-amount"],
         cost_type=position_data[f"position-{i}-cost-type"],

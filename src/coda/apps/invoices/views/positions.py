@@ -114,10 +114,12 @@ class FreePosition(CommonPosition[str]):
 
 
 class ContractPosition(CommonPosition[ContractYear]):
+    """DTO for a contract position already added to an invoice."""
+
     type: str = "contract"
     id: Int
     name: str
-    contract_year: int
+    year: int
 
     @classmethod
     def from_position(cls, position: Position[ContractYear]) -> "ContractPosition":
@@ -130,7 +132,7 @@ class ContractPosition(CommonPosition[ContractYear]):
             id=contract.id,
             name=contract.name,
             funding_source=position.funding_source,
-            contract_year=position.item.year,
+            year=position.item.year,
             cost_amount=position.cost.amount,
             cost_type=position.cost_type,
             tax_rate=position.tax_rate.percentage(),
@@ -139,11 +141,11 @@ class ContractPosition(CommonPosition[ContractYear]):
 
     def parse(self) -> ContractYear:
         contract = contract_services.get_by_id(ContractId(self.id))
-        return contract.in_year(self.contract_year)
+        return contract.in_year(self.year)
 
     def parse_safe(self) -> ContractYear:
         contract = contract_services.get_by_id(ContractId(self.id))
-        return contract.in_year_or_first(self.contract_year)
+        return contract.in_year_or_first(self.year)
 
 
 _position_type_registry: dict[str, type[CommonPosition[ItemType]]] = {
