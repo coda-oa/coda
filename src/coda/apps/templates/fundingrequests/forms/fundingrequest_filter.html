@@ -1,9 +1,9 @@
 <form method="get" id="search-form">
     <div class="form-row">
-        <select name="search_type" id="id_search-type" class="form-row-item-sm">
+        <select name="search_type" id="id_search-type" class="max-fit-content">
             <option value="submitter"
                     {% if not request.GET.search_type or "submitter" == request.GET.search_type %}selected{% endif %}>
-                Submitter
+                Author
             </option>
             <option value="title"
                     {% if "title" == request.GET.search_type %}selected{% endif %}>Publication Title</option>
@@ -37,6 +37,7 @@
             </div>
             {% include "fundingrequests/forms/status_dropdown.html" %}
             {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
+            {% include "fundingrequests/forms/payment_status.html" %}
             {% include "fundingrequests/forms/label_dropdown.html" %}
         </p>
     </details>

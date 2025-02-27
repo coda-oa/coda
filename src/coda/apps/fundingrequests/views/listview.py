@@ -1,5 +1,5 @@
 import datetime
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Literal, NamedTuple, cast
 
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -11,10 +11,19 @@ from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.views.detailview import payment_status_viewmodel
+from coda.apps.publications.services import publications
 from coda.apps.views import EntityListView
 from coda.date import DateRange
 from coda.fundingrequest import ReviewResult
 from coda.publication import OpenAccessType
+from coda.publication.payment import (
+    InvoiceReceived,
+    PublicationCoveredByContract,
+    PublicationPaid,
+    PublicationPaymentStatus,
+    PublicationUnpaid,
+)
+from coda.publication.publication import PublicationId
 
 
 class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestListViewModel"]):
@@ -33,10 +42,44 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
         "end_date",
     ]
 
+    _payment_status_map = {
+        "paid": PublicationPaid,
+        "unpaid": PublicationUnpaid,
+        "invoice_received": InvoiceReceived,
+        "covered_by_contract": PublicationCoveredByContract,
+    }
+
+    _payment_status_choices = [
+        ("paid", "Paid"),
+        ("unpaid", "Unpaid"),
+        ("invoice_received", "Invoice Received"),
+        ("covered_by_contract", "Covered by Contract"),
+    ]
+
     def get_entities(self, request: HttpRequest) -> Sequence["FundingRequestListViewModel"]:
-        # NOTE: I'm not sure why mypy complains about this,
-        # as the domain model protocol only requires an id attribute.
-        return DomainQuerySet(query(request), as_viewmodel)  # type: ignore
+        fundingrequests = query(request)
+        if not request.GET.get("payment_status"):
+            # NOTE: I'm not sure why mypy complains about this,
+            # as the domain model protocol only requires an id attribute.
+            return DomainQuerySet(fundingrequests, as_viewmodel)  # type: ignore
+
+        requested_payment_statuses = {
+            self._payment_status_map[status] for status in request.GET.getlist("payment_status")
+        }
+        payment_statuses = {
+            fundingrequest.publication.id: publications.get_payment_status(
+                PublicationId(fundingrequest.publication.id)
+            )
+            for fundingrequest in fundingrequests
+        }
+        payment_statuses = {
+            publication_id: payment_status
+            for publication_id, payment_status in payment_statuses.items()
+            if type(payment_status) in requested_payment_statuses
+        }
+
+        entities = fundingrequests.filter(publication__id__in=payment_statuses.keys())
+        return DomainQuerySet(entities, lambda fr: as_viewmodel(fr, get_payment_status=PaymentStatusLookup(payment_statuses)))  # type: ignore
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
@@ -52,6 +95,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
             "processing_states": [rr.value for rr in ReviewResult],
             "open_access_types": [oat.value for oat in OpenAccessType],
             "expand_advanced_search": expand_advanced_search,
+            "payment_status_choices": self._payment_status_choices,
         }
 
 
@@ -99,18 +143,25 @@ class FundingRequestListViewModel(NamedTuple):
     payment_status: dict[str, Any] | None = None
 
 
+GetPaymentStatus = Callable[[PublicationId], PublicationPaymentStatus]
+
+
 def as_viewmodel(
     funding_request: FundingRequestModel,
+    get_payment_status: GetPaymentStatus = publications.get_payment_status,
 ) -> FundingRequestListViewModel:
+    payment_status = get_payment_status(PublicationId(funding_request.publication.id))
     if is_article(funding_request):
-        return article_viewmodel(funding_request)
+        return article_viewmodel(funding_request, payment_status)
     elif is_monograph(funding_request):
-        return monograph_viewmodel(funding_request)
+        return monograph_viewmodel(funding_request, payment_status)
 
     raise ValueError("Funding request is neither an article nor a monograph.")
 
 
-def article_viewmodel(funding_request: FundingRequestModel) -> FundingRequestListViewModel:
+def article_viewmodel(
+    funding_request: FundingRequestModel, payment_status: PublicationPaymentStatus
+) -> FundingRequestListViewModel:
     journal = funding_request.publication.article_journal
     assert journal is not None
 
@@ -128,11 +179,13 @@ def article_viewmodel(funding_request: FundingRequestModel) -> FundingRequestLis
         updated_at=funding_request.updated_at,
         labels=funding_request.labels.all(),
         status=funding_request.processing_status,
-        payment_status=payment_status_viewmodel(funding_request.publication.id),
+        payment_status=payment_status_viewmodel(payment_status),
     )
 
 
-def monograph_viewmodel(funding_request: FundingRequestModel) -> FundingRequestListViewModel:
+def monograph_viewmodel(
+    funding_request: FundingRequestModel, payment_status: PublicationPaymentStatus
+) -> FundingRequestListViewModel:
     publisher = funding_request.publication.monograph_publisher
     assert publisher is not None
 
@@ -150,7 +203,7 @@ def monograph_viewmodel(funding_request: FundingRequestModel) -> FundingRequestL
         updated_at=funding_request.updated_at,
         labels=funding_request.labels.all(),
         status=funding_request.processing_status,
-        payment_status=payment_status_viewmodel(funding_request.publication.id),
+        payment_status=payment_status_viewmodel(payment_status),
     )
 
 
@@ -160,3 +213,11 @@ def is_monograph(funding_request: FundingRequestModel) -> bool:
 
 def is_article(funding_request: FundingRequestModel) -> bool:
     return funding_request.publication.article_journal is not None
+
+
+class PaymentStatusLookup:
+    def __init__(self, payment_statuses: dict[int, PublicationPaymentStatus]) -> None:
+        self._payment_statuses = payment_statuses
+
+    def __call__(self, publication_id: int) -> PublicationPaymentStatus:
+        return self._payment_statuses[publication_id]

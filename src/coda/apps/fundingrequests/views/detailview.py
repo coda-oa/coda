@@ -22,6 +22,7 @@ from coda.publication.payment import (
     InvoiceReceived,
     PublicationCoveredByContract,
     PublicationPaid,
+    PublicationPaymentStatus,
     PublicationUnpaid,
 )
 from coda.publication.publication import PublicationId
@@ -161,13 +162,14 @@ def publication_viewmodel(fundingrequest: FundingRequestModel) -> PublicationVie
         ],
         contracts=[c for c in publication.attached_contracts.all()],
         request_remarks=fundingrequest.request_remarks,
-        payment_status=payment_status_viewmodel(publication.id),
+        payment_status=payment_status_viewmodel(
+            publications.get_payment_status(PublicationId(publication.id))
+        ),
     )
 
 
-def payment_status_viewmodel(publication_id: int) -> dict[str, Any]:
-    status = publications.get_payment_status(PublicationId(publication_id))
-    match status:
+def payment_status_viewmodel(payment_status: PublicationPaymentStatus) -> dict[str, Any]:
+    match payment_status:
         case PublicationCoveredByContract(contract_id, contract_name, contract_year):
             return {
                 "status": "Covered by contract",
@@ -195,7 +197,7 @@ def payment_status_viewmodel(publication_id: int) -> dict[str, Any]:
                 "url": reverse("invoices:detail", kwargs={"pk": invoice_id}),
             }
 
-    return status
+    return payment_status
 
 
 def funding_viewmodel(external_funding: ExternalFunding) -> ExternalFundingViewModel:
