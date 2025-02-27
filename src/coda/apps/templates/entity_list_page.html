@@ -3,6 +3,8 @@
     {% include "entity_list_title_bar.html" %}
     {% if entity_filter_template %}
         <div class="my-2">{% include entity_filter_template %}</div>
+    {% elif use_generic_entity_filter %}
+        <div class="my-2">{% include "entity_generic_filter.html" %}</div>
     {% endif %}
     {% include "partials/pagination_nav.html" %}
     {% include "entity_list.html" with list_item_template=entity_list_item_template list_layout_classes=entity_list_layout_classes %}
