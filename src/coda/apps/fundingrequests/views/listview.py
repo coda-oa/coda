@@ -38,6 +38,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
         "exclude_labels",
         "processing_status",
         "open_access_type",
+        "payment_status",
         "start_date",
         "end_date",
     ]
@@ -103,12 +104,6 @@ fundingrequest_list = FundingRequestListView.as_view()
 
 
 def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
-    search_type = request.GET.get("search_type")
-    if search_type in ["title", "author", "publisher"]:
-        search_args = {search_type: request.GET.get("search_term")}
-    else:
-        search_args = {}
-
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
     date_range = DateRange.try_fromisoformat(start=start_date, end=end_date)
@@ -116,7 +111,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     return cast(
         QuerySet[FundingRequestModel],
         repository.search(
-            **search_args,
+            generic_search=request.GET.get("search_term"),
             date_range=date_range,
             labels=list(map(int, request.GET.getlist("labels"))),
             exclude_labels=list(map(int, request.GET.getlist("exclude_labels"))),

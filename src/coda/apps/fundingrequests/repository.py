@@ -196,6 +196,7 @@ def _save_contact(contact: FundingRequestContact, fr: FundingRequestModel) -> No
 
 def search(
     *,
+    generic_search: str | None = None,
     title: str | None = None,
     author: str | None = None,
     publisher: str | None = None,
@@ -206,6 +207,17 @@ def search(
     exclude_labels: Iterable[int] | None = None,
 ) -> Iterable[FundingRequestModel]:
     query = Q()
+
+    if generic_search:
+        query = query & (
+            Q(publication__title__icontains=generic_search)
+            | Q(publication__relevant_authors__name__icontains=generic_search)
+            | Q(publication__article_journal__title__icontains=generic_search)
+            | Q(publication__article_journal__publisher__name__icontains=generic_search)
+            | Q(publication__monograph_publisher__name__icontains=generic_search)
+            | Q(request_id__icontains=generic_search)
+        )
+
     if title:
         query = query & Q(publication__title__icontains=title)
 
