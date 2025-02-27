@@ -6,6 +6,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
+from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
@@ -33,7 +34,9 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
     ]
 
     def get_entities(self, request: HttpRequest) -> Sequence["FundingRequestListViewModel"]:
-        return [as_viewmodel(fr) for fr in query(request)]
+        # NOTE: I'm not sure why mypy complains about this,
+        # as the domain model protocol only requires an id attribute.
+        return DomainQuerySet(query(request), as_viewmodel)  # type: ignore
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
@@ -83,7 +86,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
 
 class FundingRequestListViewModel(NamedTuple):
     type: Literal["Article", "Monograph"]
-    id: int
+    id: int | None
     url: str
     publication_title: str
     authors: list[str]
