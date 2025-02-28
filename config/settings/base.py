@@ -25,6 +25,12 @@ if READ_DOT_ENV_FILE:
 # Demo mode displays a warning message on the home page.
 CODA_DEMO_MODE = env.bool("CODA_DEMO_MODE", False)
 
+# FORMS
+# Contracts can submit a very large number of fields
+# Until we find a better solution we will keep this value high
+# https://docs.djangoproject.com/en/dev/ref/settings/#data-upload-max-number-fields
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10_000
+
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
 DEBUG = env.bool("DJANGO_DEBUG", False)
 # Local time zone. Choices are
