@@ -9,9 +9,8 @@ eval $(pdm venv activate prod)
 pdm run /app/manage.py migrate
 pdm run /app/manage.py loaddata config/fixtures/*
 
-# TODO: this is a temporary solution to add some test data to the database
+# NOTE: adding journals also adds contracts, which should be reworked
 pdm run manage.py add_test_journals
-pdm run manage.py add_test_institutions
 
 pdm run /app/manage.py collectstatic --noinput
 
