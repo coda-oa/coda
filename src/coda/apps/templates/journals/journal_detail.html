@@ -1,9 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1 class="my-2">{{ journal.title }}</h1>
+    <div class="flex justify-between align-center">
+        <h1 class="my-2">Journal</h1>
+        <a href="{% url "journals:update" eissn=journal.eissn %}"
+           role="button"
+           class="secondary">Edit</a>
+    </div>
     <article>
-        <p>Name: {{ journal.title }}</p>
+        <header>
+            <h2 class="my-0">{{ journal.title }}</h2>
+        </header>
         <p>E-ISSN: {{ journal.eissn }}</p>
-        <p>Publisher: {{ journal.publisher.name }}</p>
+        <p class="mb-0">Publisher: {{ journal.publisher.name }}</p>
     </article>
 {% endblock content %}
