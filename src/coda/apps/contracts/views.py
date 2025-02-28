@@ -30,7 +30,12 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
 @login_required
 def contract_detail(request: HttpRequest, pk: int) -> HttpResponse:
     contract = get_object_or_404(ContractModel, pk=pk)
-    return render(request, "contracts/contract_detail.html", {"contract": contract})
+    domain_contract = repository.as_domain_object(contract)
+    return render(
+        request,
+        "contracts/contract_detail.html",
+        {"contract": contract, "entity": domain_contract},
+    )
 
 
 @login_required
