@@ -18,5 +18,5 @@
         {% include "contracts/contract_search_results.html" with prefix=formset.prefix %}
     </div>
     <h3>Selected</h3>
-    {{ formset.as_inline }}
+    <div class="scroll-container max-h-30">{{ formset.as_inline }}</div>
 </article>
