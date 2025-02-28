@@ -4,8 +4,8 @@ import httpx
 
 from scripts.vocabularies._common import Concept, Vocabulary
 
-COAR_RESOURCE_TYPES_3_1 = (
-    "https://vocabularies.coar-repositories.org/resource_types/3.1/resource_types_for_dspace_en.xml"
+COAR_RESOURCE_TYPES_3_2 = (
+    "https://vocabularies.coar-repositories.org/resource_types/resource_types_for_dspace_en.xml"
 )
 
 
@@ -16,8 +16,8 @@ def download_vocabulary(url: str) -> bytes:
 
 
 def parse_vocabulary() -> Vocabulary:
-    content = download_vocabulary(COAR_RESOURCE_TYPES_3_1)
-    return _parse_vocabulary(content.decode(), "COAR Resource Types", "3.1")
+    content = download_vocabulary(COAR_RESOURCE_TYPES_3_2)
+    return _parse_vocabulary(content.decode(), "COAR Resource Types", "3.2")
 
 
 def _parse_vocabulary(content: str, name: str, version: str) -> Vocabulary:
