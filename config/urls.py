@@ -20,8 +20,7 @@ urlpatterns = [
     path("logout/", view=LogoutView.as_view(), name="logout"),
     path("users/", include("coda.apps.users.urls", namespace="users")),
     path("contracts/", include("coda.apps.contracts.urls", namespace="contracts")),
-    path("journals/", include("coda.apps.journals.urls", namespace="journals")),
-    path("publishers/", include("coda.apps.publishers.urls", namespace="publishers")),
+    path("publishing/", include("coda.apps.publishing.urls", namespace="publishing")),
     path("authors/", include("coda.apps.authors.urls", namespace="authors")),
     path("institutions/", include("coda.apps.institutions.urls", namespace="institutions")),
     path(

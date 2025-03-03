@@ -25,7 +25,7 @@ journal_detail_view = JournalDetailView.as_view()
 class JournalListView(LoginRequiredMixin, EntityListView[Journal]):
     paginate_by = 20
     entity_name = "Journals"
-    entity_create_url = "journals:create"
+    entity_create_url = "publishing:journals:create"
     entity_list_item_template = "journals/journal_list_item.html"
     entity_filter_template = "journals/journal_filter.html"
 
@@ -43,7 +43,7 @@ journal_list_view = JournalListView.as_view()
 class JournalCreateView(LoginRequiredMixin, CreateView[Journal, JournalForm]):
     form_class = JournalForm
     template_name = "generic_form_view.html"
-    success_url = reverse_lazy("journals:list")
+    success_url = reverse_lazy("publishing:journals:list")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -59,7 +59,7 @@ class JournalUpdateView(LoginRequiredMixin, UpdateView[Journal, JournalForm]):
     template_name = "generic_form_view.html"
     slug_field = "eissn"
     slug_url_kwarg = "eissn"
-    success_url = reverse_lazy("journals:list")
+    success_url = reverse_lazy("publishing:journals:list")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)

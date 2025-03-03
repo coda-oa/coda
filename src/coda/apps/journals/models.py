@@ -16,7 +16,7 @@ class Journal(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def get_absolute_url(self) -> str:
-        return reverse("journals:detail", kwargs={"eissn": self.eissn})
+        return reverse("publishing:journals:detail", kwargs={"eissn": self.eissn})
 
     def __str__(self) -> str:
         return f"{self.title} | {self.publisher.name}"

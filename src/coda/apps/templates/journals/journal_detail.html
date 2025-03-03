@@ -2,7 +2,7 @@
 {% block content %}
     <div class="flex justify-between align-center">
         <h1 class="my-2">Journal</h1>
-        <a href="{% url "journals:update" eissn=journal.eissn %}"
+        <a href="{% url "publishing:journals:update" eissn=journal.eissn %}"
            role="button"
            class="secondary">Edit</a>
     </div>

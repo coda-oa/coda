@@ -1,5 +1,5 @@
 .main-grid {
-    --_nav-container-expanded-width: 25ch;
+    --_nav-container-expanded-width: 28ch;
     --_nav-container-collapsed-width: 4.5rem;
 
     display: grid;

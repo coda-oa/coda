@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}
+    Journals & Publishers
+{% endblock title %}
+{% block content %}
+    <h1 class="my-2">Journals & Publishers</h1>
+    <div class="grid">
+        <article class="flex justify-between align-center">
+            <div>
+                <h2>Journals</h2>
+                <p>An overview of all journals that are currently in the system.</p>
+            </div>
+            <a href="{% url 'publishing:journals:list' %}"
+               role="button"
+               class="outline contrast">View</a>
+        </article>
+        <article class="flex justify-between align-center">
+            <div>
+                <h2>Publishers</h2>
+                <p>An overview of all publishers that are currently in the system.</p>
+            </div>
+            <a href="{% url 'publishing:publishers:list' %}"
+               role="button"
+               class="outline contrast">View</a>
+        </article>
+    </div>
+{% endblock content %}

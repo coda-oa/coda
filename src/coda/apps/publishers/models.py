@@ -10,7 +10,7 @@ class Publisher(models.Model):
 
     def get_absolute_url(self) -> str:
         """Publishers currently have no detail view. Therefore, the list view is returned."""
-        listview_url = reverse("publishers:list")
+        listview_url = reverse("publishing:publishers:list")
         encoded_query_string = urlencode({"query": self.name})
         return f"{listview_url}?{encoded_query_string}"
 

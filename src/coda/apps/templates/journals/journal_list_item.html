@@ -7,7 +7,7 @@
         <p>Publisher: {{ entity.publisher.name }}</p>
     </div>
     <div>
-        <a href="{% url "journals:update" eissn=entity.eissn %}"
+        <a href="{% url "publishing:journals:update" eissn=entity.eissn %}"
            role="button"
            class="secondary">Edit</a>
     </div>

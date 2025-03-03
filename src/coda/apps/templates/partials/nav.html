@@ -10,7 +10,9 @@
             <li>
                 {% include "partials/nav_link.html" with link="fundingrequests:home" image="assets/fundingrequest.svg" text="Request Center" %}
             </li>
-            <li>{% include "partials/nav_link.html" with link="journals:list" image="assets/journal.svg" text="Journals" %}</li>
+            <li>
+                {% include "partials/nav_link.html" with link="publishing:home" image="assets/journal.svg" text="Journals & Publishers" %}
+            </li>
             <li>{% include "partials/nav_link.html" with link="invoices:home" image="assets/cash.svg" text="Finances" %}</li>
             <li>
                 {% include "partials/nav_link.html" with link="contracts:list" image="assets/briefcase.svg" text="Contracts" %}

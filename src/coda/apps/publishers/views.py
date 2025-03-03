@@ -14,7 +14,7 @@ from coda.apps.views import EntityListView
 class PublisherListView(LoginRequiredMixin, EntityListView[Publisher]):
     entity_list_item_template = "publishers/publisher_list_item.html"
     entity_name = "Publishers"
-    entity_create_url = "publishers:create"
+    entity_create_url = "publishing:publishers:create"
     use_generic_entity_filter = True
 
     def get_entities(self, request: Any) -> Sequence[Publisher]:
@@ -34,7 +34,7 @@ class PublisherCreateView(LoginRequiredMixin, CreateView[Publisher, PublisherFor
     template_name = "generic_form_view.html"
     model = Publisher
     form_class = PublisherForm
-    success_url = reverse_lazy("publishers:list")
+    success_url = reverse_lazy("publishing:publishers:list")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -46,7 +46,7 @@ class PublisherUpdateView(LoginRequiredMixin, UpdateView[Publisher, PublisherFor
     template_name = "generic_form_view.html"
     model = Publisher
     form_class = PublisherForm
-    success_url = reverse_lazy("publishers:list")
+    success_url = reverse_lazy("publishing:publishers:list")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
