@@ -1,13 +1,32 @@
-import enum
-from typing import Iterable, Protocol
+import datetime
+from dataclasses import dataclass
+from typing import Any, Generic, Protocol
+from collections.abc import Iterable
+
+from coda.fundingrequest import FundingRequest, TPublication
 
 
-class CheckResult(enum.Enum):
-    SUCCESS = enum.auto()
-    FAILURE = enum.auto()
+@dataclass(frozen=True, slots=True)
+class CheckSuccessful:
+    data: Any = None
 
 
-class Check(Protocol):
+@dataclass(frozen=True, slots=True)
+class CheckFailed:
+    reason: str
+
+
+CheckResult = CheckSuccessful | CheckFailed
+
+
+@dataclass(frozen=True, slots=True)
+class CheckRun(Generic[TPublication]):
+    check: "Check[TPublication]"
+    timestamp: datetime.datetime
+    result: CheckResult
+
+
+class Check(Protocol, Generic[TPublication]):
     @property
     def name(self) -> str:
         ...
@@ -16,25 +35,28 @@ class Check(Protocol):
     def description(self) -> str:
         ...
 
-    def __call__(self) -> CheckResult:
+    def __call__(self, fundingrequest: FundingRequest[TPublication]) -> CheckResult:
         ...
 
 
-class Checklist:
+class Checklist(Generic[TPublication]):
     """
     Represents a checklist of checks to be performed.
     """
 
-    def __init__(self, checks: Iterable[Check] = ()) -> None:
+    def __init__(self, checks: Iterable[Check[TPublication]] = ()) -> None:  # noqa: F821
         self.checks = list(checks)
 
-    def run(self) -> Iterable[CheckResult]:
+    def run(
+        self, fundingrequest: FundingRequest[TPublication], now: datetime.datetime | None = None
+    ) -> Iterable[CheckRun[TPublication]]:
         """
         Executes all the checks and returns a list of CheckResult objects.
         """
-        return (check() for check in self.checks)
+        now = now or datetime.datetime.now()
+        return (CheckRun(check, now, check(fundingrequest)) for check in self.checks)
 
-    def add_check(self, check: Check) -> None:
+    def add_check(self, check: Check[TPublication]) -> None:
         """
         Adds a check to the list of checks.
 

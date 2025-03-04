@@ -1,0 +1,21 @@
+from coda import doaj
+from coda.doaj import DoajListedJournal, HasApc
+from coda.issn import Issn
+from coda.money._currency import Currency
+from coda.money._money import Money
+
+
+# Data taken from https://doaj.org/toc/2950-2578
+# at March 4th, 2025
+
+DOAJ_LISTED_ISSN = Issn("2950-2578")
+EXPECTED_JOURNAL = DoajListedJournal(
+    title="Materials Today Quantum",
+    publisher="Elsevier",
+    issn=DOAJ_LISTED_ISSN,
+    apc=HasApc(price=Money(2770, Currency.USD)),
+)
+
+
+def test__doaj__searching_for_listed_issn__returns_journal() -> None:
+    assert doaj.find_journal(DOAJ_LISTED_ISSN) == EXPECTED_JOURNAL

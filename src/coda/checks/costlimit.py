@@ -1,24 +1,25 @@
-from typing import Protocol
-
-from coda.checks.checklist import CheckResult
+from coda.checks.checklist import CheckFailed, CheckResult, CheckSuccessful
+from coda.fundingrequest import AnyFundingRequest
 from coda.money import CurrencyExchange, Money
 
 
-class Application(Protocol):
-    @property
-    def cost(self) -> Money:
-        ...
-
-
 class CostLimitCheck:
+    name = "Cost limit check"
+
     def __init__(self, limit: Money, converter: CurrencyExchange) -> None:
         self.limit = limit
         self.converter = converter
 
-    def __call__(self, app: Application) -> CheckResult:
-        converted_cost = app.cost.convert_to(self.limit.currency, self.converter)
+    @property
+    def description(self) -> str:
+        return f"Cost must not exceed {self.limit}"
+
+    def __call__(self, fundingrequest: AnyFundingRequest) -> CheckResult:
+        converted_cost = fundingrequest.estimated_cost.amount.convert_to(
+            self.limit.currency, self.converter
+        )
 
         if converted_cost <= self.limit:
-            return CheckResult.SUCCESS
+            return CheckSuccessful()
         else:
-            return CheckResult.FAILURE
+            return CheckFailed(f"Cost exceeds limit of {self.limit}")

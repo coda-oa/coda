@@ -1,0 +1,58 @@
+from dataclasses import dataclass
+from typing import Final
+
+import httpx
+
+from coda.issn import Issn
+from coda.money import Money
+from coda.money._currency import Currency
+
+
+@dataclass(frozen=True, slots=True)
+class HasApc:
+    price: Money
+
+
+@dataclass(frozen=True, slots=True)
+class NoApc_:
+    pass
+
+
+NoApc: Final = NoApc_()
+Apc = HasApc | NoApc_
+
+
+@dataclass(frozen=True, slots=True)
+class DoajListedJournal:
+    title: str
+    publisher: str
+    issn: Issn
+    apc: Apc
+
+
+DoajJournalSearchUrl: Final = "https://doaj.org/api/search/journals/issn:{issn}"
+
+
+def find_journal(issn: Issn) -> DoajListedJournal | None:
+    url = DoajJournalSearchUrl.format(issn=issn)
+    response = httpx.get(url).raise_for_status()
+    data = response.json().get("results", [])
+
+    if not data:
+        return None
+
+    journal_entry = data[0].get("bibjson", {})
+    apc_data = journal_entry.get("apc", {}).get("max")
+    apc: Apc = NoApc
+    if apc_data:
+        first_apc = apc_data[0]
+        apc = HasApc(
+            price=Money(first_apc.get("price"), Currency.from_code(first_apc.get("currency")))
+        )
+
+    return DoajListedJournal(
+        title=journal_entry.get("title"),
+        publisher=journal_entry.get("publisher", {}).get("name"),
+        issn=Issn(journal_entry.get("eissn")),
+        apc=apc,
+    )
