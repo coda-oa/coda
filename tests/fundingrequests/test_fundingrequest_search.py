@@ -9,7 +9,7 @@ from django.urls import reverse
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.color import Color
-from coda.fundingrequest import ReviewResult
+from coda.fundingrequest.fundingrequest import ReviewResult
 from coda.publication import Authors
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory

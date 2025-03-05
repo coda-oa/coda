@@ -12,7 +12,7 @@ from coda.apps.fundingrequests.dto import (
     PaymentDto,
 )
 from coda.apps.fundingrequests.repository import get_by_id
-from coda.fundingrequest import (
+from coda.fundingrequest.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
     FilledContact,
@@ -21,7 +21,7 @@ from coda.fundingrequest import (
     FundingRequestContact,
     NoContact,
 )
-from coda.fundingrequests.identity import PublicFundingRequestId
+from coda.fundingrequest.identity import PublicFundingRequestId
 from coda.publication import JournalId
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory

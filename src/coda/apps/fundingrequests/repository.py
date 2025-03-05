@@ -11,7 +11,7 @@ from coda.apps.fundingrequests.models import FundingRequest as FundingRequestMod
 from coda.apps.fundingrequests.models import FundingRequestContact as FundingRequestContactModel
 from coda.apps.publications.repositories import publication_repository
 from coda.date import DateRange
-from coda.fundingrequest import (
+from coda.fundingrequest.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
     FilledContact,
@@ -25,7 +25,7 @@ from coda.fundingrequest import (
     ReviewResult,
     TPublication,
 )
-from coda.fundingrequests.identity import PublicFundingRequestId
+from coda.fundingrequest.identity import PublicFundingRequestId
 from coda.money import Currency, Money
 from coda.publication import Monograph, OpenAccessType, Publication, PublicationId
 from coda.string import NonEmptyStr

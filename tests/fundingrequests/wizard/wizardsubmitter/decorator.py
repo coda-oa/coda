@@ -5,7 +5,7 @@ from typing import Any, Generic, cast
 import pytest
 from django.test import Client
 
-from coda.fundingrequest import FundingRequestId
+from coda.fundingrequest.fundingrequest import FundingRequestId
 from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
 

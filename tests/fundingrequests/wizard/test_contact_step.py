@@ -3,7 +3,7 @@ from dataclasses import asdict
 from django.test import RequestFactory
 
 from coda.apps.fundingrequests.views.wizard.steps.extrainformation_step import ExtraInformationStep
-from coda.fundingrequest import FilledContact
+from coda.fundingrequest.fundingrequest import FilledContact
 from coda.string import NonEmptyStr
 from tests.test_wizard import DictStore
 

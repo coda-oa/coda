@@ -4,7 +4,7 @@ import random
 import struct
 from typing import Any
 
-from coda.fundingrequests import damm
+from coda.fundingrequest import damm
 
 # NOTE: the largest number that can be encoded in base64 with struct.pack("!Q", n)
 ID_RANGE = (1, 18446744073709551615)

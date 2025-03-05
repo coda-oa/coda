@@ -15,7 +15,7 @@ from coda.apps.fundingrequests.models import FundingRequest as FundingRequestMod
 from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import AttachedContract
 from coda.apps.publications.services import publications
-from coda.fundingrequest import ReviewResult
+from coda.fundingrequest.fundingrequest import ReviewResult
 from coda.money import Currency, Money
 from coda.publication import License, Link
 from coda.publication.payment import (

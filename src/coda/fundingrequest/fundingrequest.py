@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Final, Generic, NamedTuple, NewType, TypeAlias, TypeVar
 
-from coda.fundingrequests.identity import PublicFundingRequestId
+from coda.fundingrequest.identity import PublicFundingRequestId
 from coda.money import Money
 from coda.money._currency import Currency
 from coda.publication import BasePublication, Monograph, Publication

@@ -3,7 +3,7 @@ from django.test import Client
 from django.urls import reverse
 
 from coda.apps.fundingrequests import repository
-from coda.fundingrequest import FundingOrganizationId, FundingRequest, ReviewResult
+from coda.fundingrequest.fundingrequest import FundingOrganizationId, FundingRequest, ReviewResult
 from coda.money import Currency, Money
 from coda.publication import JournalId, Publication
 from tests import domainfactory, modelfactory

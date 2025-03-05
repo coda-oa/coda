@@ -1,7 +1,7 @@
 import datetime
 import pytest
 
-from coda.fundingrequest import (
+from coda.fundingrequest.fundingrequest import (
     ExternalFunding,
     FilledContact,
     FundingOrganizationId,
@@ -11,7 +11,7 @@ from coda.fundingrequest import (
     PaymentMethod,
     ReviewResult,
 )
-from coda.fundingrequests.identity import PublicFundingRequestId
+from coda.fundingrequest.identity import PublicFundingRequestId
 from coda.money import Currency, Money
 from coda.publication import JournalId, Publication, PublicationId
 from coda.string import NonEmptyStr

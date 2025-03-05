@@ -16,8 +16,8 @@ from coda.apps.fundingrequests.models import FundingRequest as FundingRequestMod
 from coda.apps.fundingrequests.models import Label
 from coda.apps.publications.dto import PublicationBaseDto
 from coda.color import Color
-from coda.fundingrequest import FundingRequest, FundingRequestId
-from coda.fundingrequests.identity import PublicFundingRequestId
+from coda.fundingrequest.fundingrequest import FundingRequest, FundingRequestId
+from coda.fundingrequest.identity import PublicFundingRequestId
 
 
 class RequestIdGenerator(Protocol):

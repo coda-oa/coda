@@ -2,7 +2,7 @@
 
 from django.db import migrations
 
-from coda.fundingrequests.identity import PublicFundingRequestId
+from coda.fundingrequest.identity import PublicFundingRequestId
 
 
 def assign_new_fundingrequest_id(apps, schema_editor):

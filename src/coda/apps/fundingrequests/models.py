@@ -6,7 +6,7 @@ from django.db import models
 from django.urls import reverse
 
 from coda.apps.publications.models import Publication
-from coda.fundingrequest import PaymentMethod, ReviewResult
+from coda.fundingrequest.fundingrequest import PaymentMethod, ReviewResult
 
 
 class FundingRequestContact(models.Model):

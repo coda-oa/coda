@@ -15,7 +15,7 @@ from coda.apps.journals.models import Journal
 from coda.apps.publications.models import Concept, Publication, Vocabulary
 from coda.apps.publishers.models import Publisher
 from coda.contract import PublicationBilling
-from coda.fundingrequest import FundingOrganizationId, FundingRequest
+from coda.fundingrequest.fundingrequest import FundingOrganizationId, FundingRequest
 from coda.publication import Authors, JournalId
 from tests import domainfactory
 

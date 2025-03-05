@@ -1,5 +1,5 @@
 import random
-from coda.fundingrequests import damm
+from coda.fundingrequest import damm
 
 
 def test__a_number_with_damm_checksum_appended__is_valid() -> None:

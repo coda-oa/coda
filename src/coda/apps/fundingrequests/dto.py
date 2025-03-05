@@ -3,7 +3,7 @@ from typing import Annotated
 from pydantic import AfterValidator, Field
 
 from coda.apps.dto import CodaBaseDto
-from coda.fundingrequest import (
+from coda.fundingrequest.fundingrequest import (
     ExternalFunding,
     FilledContact,
     FundingOrganizationId,

@@ -14,7 +14,7 @@ from coda.apps.fundingrequests.views.detailview import payment_status_viewmodel
 from coda.apps.publications.services import publications
 from coda.apps.views import EntityListView
 from coda.date import DateRange
-from coda.fundingrequest import ReviewResult
+from coda.fundingrequest.fundingrequest import ReviewResult
 from coda.publication import OpenAccessType
 from coda.publication.payment import (
     InvoiceReceived,

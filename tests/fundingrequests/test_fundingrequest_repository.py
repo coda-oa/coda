@@ -8,7 +8,7 @@ from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.apps.journals.models import Journal
 from coda.color import Color
 from coda.date import DateRange
-from coda.fundingrequest import FundingOrganizationId, NoContact, ReviewResult
+from coda.fundingrequest.fundingrequest import FundingOrganizationId, NoContact, ReviewResult
 from coda.publication import Authors, JournalId
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory

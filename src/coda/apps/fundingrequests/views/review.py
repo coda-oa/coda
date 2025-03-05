@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from coda.apps.fundingrequests import repository
-from coda.fundingrequest import AnyFundingRequest, FundingRequestId
+from coda.fundingrequest.fundingrequest import AnyFundingRequest, FundingRequestId
 from coda.money import Currency, Money
 
 

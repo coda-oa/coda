@@ -9,7 +9,7 @@ from coda import orcid
 from coda.author import Author, AuthorId, AuthorNames, InstitutionId, Role
 from coda.contract import Contract, ContractId, ContractYear, PublisherId
 from coda.date import DateRange
-from coda.fundingrequest import (
+from coda.fundingrequest.fundingrequest import (
     ExternalFunding,
     FilledContact,
     FundingOrganizationId,
@@ -18,7 +18,7 @@ from coda.fundingrequest import (
     Payment,
     PaymentMethod,
 )
-from coda.fundingrequests.identity import PublicFundingRequestId
+from coda.fundingrequest.identity import PublicFundingRequestId
 from coda.invoice import (
     CostType,
     CreditorId,

@@ -8,7 +8,7 @@ from coda.checks.checklist import (
     CheckResult,
     CheckSuccessful,
 )
-from coda.fundingrequest import FundingRequest
+from coda.fundingrequest.fundingrequest import FundingRequest
 from coda.publication.publication import Publication
 from tests import domainfactory
 
