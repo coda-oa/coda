@@ -14,7 +14,8 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import LinkType
 from coda.apps.publishers.models import Publisher
 from coda.author import AuthorNames
-from coda.fundingrequest.fundingrequest import (
+from coda.fundingrequest import Review
+from coda.fundingrequest import (
     ExternalFunding,
     FilledContact,
     FundingOrganizationId,
@@ -22,8 +23,8 @@ from coda.fundingrequest.fundingrequest import (
     FundingRequestContact,
     Payment,
     PaymentMethod,
-    ReviewResult,
 )
+from coda.fundingrequest.review import ReviewResult
 from coda.money import Currency, Money
 from coda.publication import JournalId, License, OpenAccessType, Publication, Published
 from coda.publication.links import Doi
@@ -86,14 +87,16 @@ class Command(BaseCommand):
             extra_contact=self.extra_contact(),
         )
 
-        id = repository.save(request)
-        request.id = id
-        if review_status == ReviewResult.Approved:
-            request.approve(Money(100, Currency.EUR))
-        elif review_status == ReviewResult.Rejected:
-            request.reject()
+        request.id = repository.save(request)
 
-        repository.save_review(request)
+        review = Review(
+            request.id,
+            decided_funding=Money(100, Currency.EUR),
+            remarks=faker.sentence(),
+            result=review_status,
+        )
+
+        repository.save_review(review)
 
     def extra_contact(self) -> FundingRequestContact:
         return FilledContact(

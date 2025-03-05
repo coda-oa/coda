@@ -5,7 +5,8 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from coda.apps.fundingrequests import repository
-from coda.fundingrequest.fundingrequest import AnyFundingRequest, FundingRequestId
+from coda.fundingrequest import Review
+from coda.fundingrequest import FundingRequestId
 from coda.money import Currency, Money
 
 
@@ -27,13 +28,13 @@ def review_page(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 def review_submit(request: HttpRequest, pk: int) -> HttpResponse:
     id = FundingRequestId(pk)
-    fr = repository.get_by_id(id)
-    process_review(fr, request)
-    repository.save_review(fr)
+    review = repository.get_review(id)
+    review = process_review(review, request)
+    repository.save_review(review)
     return redirect(reverse("fundingrequests:detail", kwargs={"pk": id}))
 
 
-def process_review(fr: AnyFundingRequest, request: HttpRequest) -> None:
+def process_review(review: Review, request: HttpRequest) -> Review:
     funding = Money(
         request.POST["decided_funding_amount"],
         Currency.from_code(request.POST["decided_funding_currency"]),
@@ -43,14 +44,16 @@ def process_review(fr: AnyFundingRequest, request: HttpRequest) -> None:
     action = request.POST["action"]
     match action:
         case "approve":
-            fr.approve(funding, remarks)
+            review = review.approved(funding, remarks)
         case "reject":
-            fr.reject(remarks)
+            review = review.rejected(remarks)
         case "close":
-            fr.close(remarks)
+            review = review.closed(remarks)
         case "waive":
-            fr.waive_costs(remarks)
+            review = review.costs_waived(remarks)
         case "open":
-            fr.open(remarks)
+            review = review.opened(remarks)
         case "return":
-            fr.update_remarks(remarks)
+            review = review.with_remarks(remarks)
+
+    return review

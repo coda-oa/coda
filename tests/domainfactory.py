@@ -9,7 +9,8 @@ from coda import orcid
 from coda.author import Author, AuthorId, AuthorNames, InstitutionId, Role
 from coda.contract import Contract, ContractId, ContractYear, PublisherId
 from coda.date import DateRange
-from coda.fundingrequest.fundingrequest import (
+from coda.fundingrequest import Review
+from coda.fundingrequest import (
     ExternalFunding,
     FilledContact,
     FundingOrganizationId,
@@ -279,6 +280,7 @@ def fundingrequest(
     request_id: PublicFundingRequestId | None = None,
     journal_id: JournalId | None = None,
     funding_org_id: FundingOrganizationId | None = None,
+    review: Review | None = None,
 ) -> FundingRequest[Publication]:
     return FundingRequest(
         id=id or None,
@@ -288,6 +290,7 @@ def fundingrequest(
         estimated_cost=payment(),
         external_funding=[external_funding(funding_org_id)],
         request_remarks=_faker.sentence(),
+        review=review,
     )
 
 

@@ -3,7 +3,7 @@ from typing import Protocol
 
 from coda.checks.checklist import Check, CheckFailed, CheckResult, CheckSuccessful
 from coda.doaj import DoajListedJournal
-from coda.fundingrequest.fundingrequest import FundingRequest
+from coda.fundingrequest import FundingRequest
 from coda.issn import Issn
 from coda.publication.publication import JournalId, Publication
 

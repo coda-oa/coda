@@ -1,35 +1,17 @@
 import datetime
 import enum
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Final, Generic, NamedTuple, NewType, TypeAlias, TypeVar
 
 from coda.fundingrequest.identity import PublicFundingRequestId
+from coda.fundingrequest.review import Review, ReviewResult
 from coda.money import Money
-from coda.money._currency import Currency
 from coda.publication import BasePublication, Monograph, Publication
 from coda.string import NonEmptyStr
 
 FundingRequestId = NewType("FundingRequestId", int)
 FundingOrganizationId = NewType("FundingOrganizationId", int)
-
-
-class ReviewResult(enum.Enum):
-    Open = "open"
-    Waived = "waived"
-    Approved = "approved"
-    Rejected = "rejected"
-    Closed = "closed"
-
-
-@dataclass(frozen=True)
-class Review:
-    decided_funding: Money = field(default_factory=lambda: Money(0, Currency.EUR))
-    result: ReviewResult = ReviewResult.Open
-    remarks: str = ""
-
-    def with_remarks(self, remarks: str) -> "Review":
-        return Review(self.decided_funding, self.result, remarks)
 
 
 class ExternalFunding(NamedTuple):
@@ -85,6 +67,7 @@ class FundingRequest(Generic[TPublication]):
         external_funding: Iterable[ExternalFunding] = (),
         extra_contact: FundingRequestContact = NoContact,
         request_remarks: str = "",
+        review: Review | None = None,
     ) -> None:
         self.id = id
         self.request_id = request_id
@@ -92,7 +75,7 @@ class FundingRequest(Generic[TPublication]):
         self.extra_contact = extra_contact
         self.estimated_cost = estimated_cost
         self.external_funding = tuple(external_funding)
-        self._review = Review()
+        self._review = review or Review(self.id)
         self.request_remarks = request_remarks
 
     @classmethod
@@ -118,31 +101,6 @@ class FundingRequest(Generic[TPublication]):
     @property
     def request_date(self) -> datetime.date:
         return self.request_id.date()
-
-    def approve(self, decided_funding: Money, remarks: str = "") -> None:
-        self._review = Review(decided_funding, ReviewResult.Approved, remarks)
-
-    def reject(self, remarks: str = "") -> None:
-        self._review = Review(result=ReviewResult.Rejected, remarks=remarks)
-
-    def open(self, remarks: str = "") -> None:
-        self._review = Review(
-            decided_funding=self._review.decided_funding,
-            remarks=remarks,
-        )
-
-    def waive_costs(self, remarks: str = "") -> None:
-        self._review = Review(
-            result=ReviewResult.Waived,
-            decided_funding=Money(0, Currency.EUR),
-            remarks=remarks,
-        )
-
-    def close(self, remarks: str = "") -> None:
-        self._review = Review(result=ReviewResult.Closed, remarks=remarks)
-
-    def update_remarks(self, remarks: str) -> None:
-        self._review = self._review.with_remarks(remarks)
 
     def is_open(self) -> bool:
         return self._review.result == ReviewResult.Open

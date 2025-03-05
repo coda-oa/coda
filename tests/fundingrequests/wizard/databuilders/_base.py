@@ -18,7 +18,7 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.contract import ContractYear
-from coda.fundingrequest.fundingrequest import (
+from coda.fundingrequest import (
     ExternalFunding,
     FilledContact,
     FundingOrganizationId,

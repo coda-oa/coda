@@ -6,10 +6,13 @@ from django.template.response import TemplateResponse
 from django.test import Client
 from django.urls import reverse
 
+from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.color import Color
-from coda.fundingrequest.fundingrequest import ReviewResult
+from coda.fundingrequest import FundingRequestId, Review
+from coda.fundingrequest.review import ReviewResult
+from coda.money import Currency, Money
 from coda.publication import Authors
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory
@@ -91,10 +94,12 @@ def test__searching_for_funding_requests_by_process_state__shows_only_matching_f
     client: Client,
 ) -> None:
     approved_request = modelfactory.fundingrequest()
-    approved_request.approve()
+    approved_request_id = FundingRequestId(approved_request.id)
+    repository.save_review(Review(approved_request_id).approved(Money(100, Currency.EUR)))
 
     rejected_request = modelfactory.fundingrequest()
-    rejected_request.reject()
+    rejected_request_id = FundingRequestId(rejected_request.id)
+    repository.save_review(Review(rejected_request_id).rejected())
 
     in_progress_request = modelfactory.fundingrequest()  # noqa: F841
 

@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
 
-from coda.fundingrequest.fundingrequest import FundingRequestId
+from coda.fundingrequest import FundingRequestId
 from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
 from tests.fundingrequests.wizard.stepdata import (

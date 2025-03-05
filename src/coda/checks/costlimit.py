@@ -1,5 +1,5 @@
 from coda.checks.checklist import CheckFailed, CheckResult, CheckSuccessful
-from coda.fundingrequest.fundingrequest import AnyFundingRequest
+from coda.fundingrequest import AnyFundingRequest
 from coda.money import CurrencyExchange, Money
 
 

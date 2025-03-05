@@ -3,7 +3,9 @@ from django.test import Client
 from django.urls import reverse
 
 from coda.apps.fundingrequests import repository
-from coda.fundingrequest.fundingrequest import FundingOrganizationId, FundingRequest, ReviewResult
+from coda.fundingrequest import Review
+from coda.fundingrequest import FundingOrganizationId, FundingRequest
+from coda.fundingrequest.review import ReviewResult
 from coda.money import Currency, Money
 from coda.publication import JournalId, Publication
 from tests import domainfactory, modelfactory
@@ -106,15 +108,14 @@ def test__fundingrequest__close__stores_in_database(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test__closed_fundingrequest__re_opening__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
-    fr_id = repository.save(fr)
-    fr.id = fr_id
-    fr.approve(Money(100, Currency.EUR), "Approved")
-    repository.save_review(fr)
+    fr.id = repository.save(fr)
+    review = Review(fr.id).closed()
+    repository.save_review(review)
 
     remarks = "Re-opened for further review"
 
     client.post(
-        reverse("fundingrequests:review_submit", kwargs={"pk": fr_id}),
+        reverse("fundingrequests:review_submit", kwargs={"pk": fr.id}),
         {
             "action": "open",
             "reviewer_remarks": remarks,
@@ -123,7 +124,7 @@ def test__closed_fundingrequest__re_opening__stores_in_database(client: Client) 
         },
     )
 
-    actual = repository.get_by_id(fr_id)
+    actual = repository.get_by_id(fr.id)
     assert actual.review() == ReviewResult.Open
     assert actual.review_remarks == remarks
 

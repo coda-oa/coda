@@ -14,7 +14,7 @@ from coda.apps.fundingrequests.views.detailview import payment_status_viewmodel
 from coda.apps.publications.services import publications
 from coda.apps.views import EntityListView
 from coda.date import DateRange
-from coda.fundingrequest.fundingrequest import ReviewResult
+from coda.fundingrequest.review import ReviewResult
 from coda.publication import OpenAccessType
 from coda.publication.payment import (
     InvoiceReceived,
@@ -157,6 +157,9 @@ def as_viewmodel(
 def article_viewmodel(
     funding_request: FundingRequestModel, payment_status: PublicationPaymentStatus
 ) -> FundingRequestListViewModel:
+    assert funding_request.publication.article_journal is not None
+    assert funding_request.review is not None
+
     journal = funding_request.publication.article_journal
     assert journal is not None
 
@@ -173,7 +176,7 @@ def article_viewmodel(
         publishing_entity_url=journal_url,
         updated_at=funding_request.updated_at,
         labels=funding_request.labels.all(),
-        status=funding_request.processing_status,
+        status=funding_request.review.review_result,
         payment_status=payment_status_viewmodel(payment_status),
     )
 
@@ -181,6 +184,8 @@ def article_viewmodel(
 def monograph_viewmodel(
     funding_request: FundingRequestModel, payment_status: PublicationPaymentStatus
 ) -> FundingRequestListViewModel:
+    assert funding_request.publication.monograph_publisher is not None
+    assert funding_request.review is not None
     publisher = funding_request.publication.monograph_publisher
     assert publisher is not None
 
@@ -197,7 +202,7 @@ def monograph_viewmodel(
         publishing_entity_url=publisher_url,
         updated_at=funding_request.updated_at,
         labels=funding_request.labels.all(),
-        status=funding_request.processing_status,
+        status=funding_request.review.review_result,
         payment_status=payment_status_viewmodel(payment_status),
     )
 

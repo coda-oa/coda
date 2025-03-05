@@ -15,7 +15,7 @@ from coda.apps.fundingrequests.models import FundingRequest as FundingRequestMod
 from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import AttachedContract
 from coda.apps.publications.services import publications
-from coda.fundingrequest.fundingrequest import ReviewResult
+from coda.fundingrequest.review import ReviewResult
 from coda.money import Currency, Money
 from coda.publication import License, Link
 from coda.publication.payment import (
@@ -98,11 +98,11 @@ def request_viewmodel(fr: FundingRequestModel) -> RequestViewModel:
         created_at=fr.created_at,
         updated_at=fr.updated_at,
         estimated_cost=Money(fr.estimated_cost, Currency[fr.estimated_cost_currency]),
-        review_status=ReviewResult(fr.processing_status).value,
-        review_remarks=fr.review_remarks,
+        review_status=ReviewResult.of(fr.review.review_result).value,
+        review_remarks=fr.review.remarks,
         funding_amount=Money(
-            fr.review_decided_funding_amount or 0,
-            Currency[fr.review_decided_funding_currency or "EUR"],
+            fr.review.decided_funding_amount or 0,
+            Currency.from_code(fr.review.decided_funding_currency or "EUR"),
         ),
     )
 

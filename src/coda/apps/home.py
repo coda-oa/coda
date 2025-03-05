@@ -8,7 +8,7 @@ from django.shortcuts import render
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest
-from coda.fundingrequest.fundingrequest import ReviewResult
+from coda.fundingrequest.review import ReviewResult
 
 
 def view(request: HttpRequest) -> HttpResponse:

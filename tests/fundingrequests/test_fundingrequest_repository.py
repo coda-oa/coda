@@ -8,7 +8,10 @@ from coda.apps.fundingrequests.services import label_attach, label_create
 from coda.apps.journals.models import Journal
 from coda.color import Color
 from coda.date import DateRange
-from coda.fundingrequest.fundingrequest import FundingOrganizationId, NoContact, ReviewResult
+from coda.fundingrequest import FundingRequestId, Review
+from coda.fundingrequest import FundingOrganizationId, NoContact
+from coda.fundingrequest.review import ReviewResult
+from coda.money import Currency, Money
 from coda.publication import Authors, JournalId
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory
@@ -108,10 +111,12 @@ def test__searching_for_funding_requests_by_process_state__returns_matching_fund
     None
 ):
     approved_request = modelfactory.fundingrequest()
-    approved_request.approve()
+    approved_request_id = FundingRequestId(approved_request.id)
+    repository.save_review(Review(approved_request_id).approved(Money(100, Currency.EUR)))
 
     rejected_request = modelfactory.fundingrequest()
-    rejected_request.reject()
+    rejected_request_id = FundingRequestId(rejected_request.id)
+    repository.save_review(Review(rejected_request_id).rejected())
 
     in_progress_request = modelfactory.fundingrequest()  # noqa: F841
 

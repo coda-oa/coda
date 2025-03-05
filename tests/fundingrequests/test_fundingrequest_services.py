@@ -12,7 +12,7 @@ from coda.apps.fundingrequests.dto import (
     PaymentDto,
 )
 from coda.apps.fundingrequests.repository import get_by_id
-from coda.fundingrequest.fundingrequest import (
+from coda.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
     FilledContact,

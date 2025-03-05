@@ -1,3 +1,4 @@
+from .review import Review, ReviewResult
 from .fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
@@ -9,8 +10,6 @@ from .fundingrequest import (
     NoContact,
     Payment,
     PaymentMethod,
-    Review,
-    ReviewResult,
     TPublication,
 )
 from .identity import PublicFundingRequestId

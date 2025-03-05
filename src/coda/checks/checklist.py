@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Generic, Protocol
 from collections.abc import Iterable
 
-from coda.fundingrequest.fundingrequest import FundingRequest, TPublication
+from coda.fundingrequest import FundingRequest, TPublication
 
 
 @dataclass(frozen=True, slots=True)

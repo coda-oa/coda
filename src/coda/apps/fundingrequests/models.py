@@ -1,12 +1,10 @@
-import datetime
-import uuid
-
 from django.core.validators import RegexValidator
 from django.db import models
 from django.urls import reverse
 
 from coda.apps.publications.models import Publication
-from coda.fundingrequest.fundingrequest import PaymentMethod, ReviewResult
+from coda.fundingrequest import PaymentMethod
+from coda.fundingrequest.review import ReviewResult
 
 
 class FundingRequestContact(models.Model):
@@ -47,13 +45,14 @@ class Label(models.Model):
         return self.name
 
 
-class FundingRequest(models.Model):
-    @staticmethod
-    def create_request_id(id: str | None = None, date: datetime.date | None = None) -> str:
-        id = id or uuid.uuid4().hex[:8]
-        d = date or datetime.date.today()
-        return f"coda-{id}-{d.strftime('%Y-%m-%d')}"
+class FundingRequestReview(models.Model):
+    review_result = models.CharField(max_length=20, default="open")
+    decided_funding_amount = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    decided_funding_currency = models.CharField(max_length=3, blank=True)
+    remarks = models.TextField(blank=True)
 
+
+class FundingRequest(models.Model):
     PROCESSING_CHOICES = [
         (ReviewResult.Approved.value, "Approved"),
         (ReviewResult.Open.value, "In Progress"),
@@ -80,24 +79,11 @@ class FundingRequest(models.Model):
     )
     publication = models.OneToOneField(Publication, on_delete=models.CASCADE)
 
-    processing_status = models.CharField(max_length=20, choices=PROCESSING_CHOICES, default="open")
-    review_decided_funding_amount = models.DecimalField(max_digits=10, decimal_places=4, null=True)
-    review_decided_funding_currency = models.CharField(max_length=3, null=True)
-    review_remarks = models.TextField(blank=True)
-
     request_remarks = models.TextField(blank=True)
+
+    review = models.OneToOneField(
+        "FundingRequestReview", on_delete=models.CASCADE, related_name="fundingrequest"
+    )
 
     def get_absolute_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.pk})
-
-    def approve(self) -> None:
-        self.processing_status = ReviewResult.Approved.value
-        self.save()
-
-    def reject(self) -> None:
-        self.processing_status = ReviewResult.Rejected.value
-        self.save()
-
-    def open(self) -> None:
-        self.processing_status = ReviewResult.Open.value
-        self.save()

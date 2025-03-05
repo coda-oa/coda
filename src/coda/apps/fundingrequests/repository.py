@@ -1,17 +1,23 @@
 from collections.abc import Iterable
-from typing import Any, cast
+from typing import Any
 
 from django.db import transaction
 from django.db.models import Q
 from typing_extensions import TypeIs
 
-from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
-from coda.apps.fundingrequests.models import FundingOrganization
+from coda.apps.fundingrequests.models import (
+    ExternalFunding as ExternalFundingModel,
+)
+from coda.apps.fundingrequests.models import (
+    FundingOrganization,
+    FundingRequestReview,
+)
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import FundingRequestContact as FundingRequestContactModel
 from coda.apps.publications.repositories import publication_repository
 from coda.date import DateRange
-from coda.fundingrequest.fundingrequest import (
+from coda.fundingrequest import Review
+from coda.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
     FilledContact,
@@ -22,10 +28,10 @@ from coda.fundingrequest.fundingrequest import (
     NoContact,
     Payment,
     PaymentMethod,
-    ReviewResult,
     TPublication,
 )
 from coda.fundingrequest.identity import PublicFundingRequestId
+from coda.fundingrequest.review import ReviewResult
 from coda.money import Currency, Money
 from coda.publication import Monograph, OpenAccessType, Publication, PublicationId
 from coda.string import NonEmptyStr
@@ -36,6 +42,7 @@ def save(fundingrequest: AnyFundingRequest) -> FundingRequestId:
     pid = publication_repository.save(fundingrequest.publication)
     if not fundingrequest.id:
         fr = FundingRequestModel()
+        fr.review = FundingRequestReview.objects.create()
     else:
         fr = FundingRequestModel.objects.get(pk=fundingrequest.id)
 
@@ -51,13 +58,13 @@ def save(fundingrequest: AnyFundingRequest) -> FundingRequestId:
 
 
 @transaction.atomic
-def save_review(fr: AnyFundingRequest) -> None:
-    fr_model = FundingRequestModel.objects.get(pk=cast(FundingRequestId, fr.id))
-    fr_model.processing_status = fr.review().value.lower()
-    fr_model.review_decided_funding_amount = fr.funding_amount.amount
-    fr_model.review_decided_funding_currency = fr.funding_amount.currency.code
-    fr_model.review_remarks = fr.review_remarks
-    fr_model.save()
+def save_review(review: Review) -> None:
+    review_model = FundingRequestReview.objects.filter(fundingrequest=review.fundingrequest).get()
+    review_model.review_result = review.result.value
+    review_model.decided_funding_amount = review.decided_funding.amount
+    review_model.decided_funding_currency = review.decided_funding.currency.code
+    review_model.remarks = review.remarks
+    review_model.save()
 
 
 @transaction.atomic
@@ -134,8 +141,11 @@ def _is_publication_type(
 
 
 def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
+    fr_id = FundingRequestId(model.id)
+    review = _get_review(getattr(model, "review", None), fr_id)
+
     fr = FundingRequest(
-        id=FundingRequestId(model.id),
+        id=fr_id,
         request_id=PublicFundingRequestId.from_str(model.request_id),
         publication=publication_repository.get_by_id(PublicationId(model.publication_id)),
         extra_contact=(
@@ -156,27 +166,31 @@ def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
             for ef in model.external_funding.all()
         ],
         request_remarks=model.request_remarks,
+        review=review,
     )
 
-    match model.processing_status:
-        case ReviewResult.Approved.value:
-            fr.approve(
-                decided_funding=Money(
-                    model.review_decided_funding_amount or 0,
-                    Currency.from_code(model.review_decided_funding_currency or "EUR"),
-                ),
-                remarks=model.review_remarks,
-            )
-        case ReviewResult.Rejected.value:
-            fr.reject(model.review_remarks)
-        case ReviewResult.Open.value:
-            fr.open(model.review_remarks)
-        case ReviewResult.Waived.value:
-            fr.waive_costs(model.review_remarks)
-        case ReviewResult.Closed.value:
-            fr.close(model.review_remarks)
-
     return fr
+
+
+def get_review(id: FundingRequestId) -> Review:
+    model = FundingRequestReview.objects.filter(fundingrequest=id).first()
+    return _get_review(model, id)
+
+
+def _get_review(model: FundingRequestReview | None, fr_id: FundingRequestId) -> Review:
+    if not model:
+        return Review(fr_id)
+
+    review_result = ReviewResult.of(model.review_result)
+    return Review(
+        fr_id,
+        decided_funding=Money(
+            model.decided_funding_amount or 0,
+            Currency.from_code(model.decided_funding_currency or "EUR"),
+        ),
+        remarks=model.remarks,
+        result=review_result,
+    )
 
 
 def _save_contact(contact: FundingRequestContact, fr: FundingRequestModel) -> None:
@@ -229,7 +243,7 @@ def search(
 
     if processing_states:
         review_states = [s.value.lower() for s in processing_states]
-        query = query & Q(processing_status__in=review_states)
+        query = query & Q(review__review_result__in=review_states)
 
     if open_access_types:
         oa_types = [t.value for t in open_access_types]
