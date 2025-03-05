@@ -67,9 +67,9 @@ def make_journals(publishers_ids: list[PublisherId]) -> list[JournalId]:
 
 def assert_contract_eq(actual: Contract, expected: Contract) -> None:
     assert actual.name == expected.name
-    assert actual.publishers == expected.publishers
     assert actual.period == expected.period
-    assert actual.journals == expected.journals
+    assert set(actual.publishers) == set(expected.publishers)
+    assert set(actual.journals) == set(expected.journals)
     assert actual.publication_billing == expected.publication_billing
 
 

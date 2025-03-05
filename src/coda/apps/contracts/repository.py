@@ -4,6 +4,7 @@ from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.contract import Contract, ContractId, PublicationBilling, PublisherId
 from coda.date import DateRange
+from coda.lazyiterable import LazyCachedIterable
 from coda.publication import JournalId
 from coda.string import NonEmptyStr
 
@@ -29,8 +30,10 @@ def as_domain_object(contract_model: ContractModel) -> Contract:
     return Contract(
         id=ContractId(contract_model.pk),
         name=NonEmptyStr(contract_model.name),
-        publishers=tuple(PublisherId(p.pk) for p in contract_model.publishers.all()),
-        journals=tuple(JournalId(j.pk) for j in contract_model.journals.all()),
+        publishers=LazyCachedIterable(
+            PublisherId(p.pk) for p in contract_model.publishers.iterator()
+        ),
+        journals=LazyCachedIterable(JournalId(j.pk) for j in contract_model.journals.iterator()),
         period=DateRange.create(start=contract_model.start_date, end=contract_model.end_date),
         publication_billing=PublicationBilling(contract_model.publication_billing),
     )

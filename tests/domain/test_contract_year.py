@@ -2,8 +2,9 @@ import datetime
 
 import pytest
 
-from coda.contract import Contract, ContractYear
+from coda.contract import Contract, ContractYear, PublisherId
 from coda.date import DateRange
+from coda.lazyiterable import LazyCachedIterable
 from coda.string import NonEmptyStr
 
 
@@ -27,9 +28,25 @@ def test__contract_active_from_mid_year__can_create_contract_year() -> None:
     assert contract_year.contract == contract
 
 
+def test__contract_year__equals_contract_year_with_same_year_and_contract() -> None:
+    contract_ref = make_contract()
+    contract_year = ContractYear(year=2024, contract=contract_ref)
+
+    other_contact_ref = make_contract()
+    other_contract_year = ContractYear(year=2024, contract=other_contact_ref)
+
+    assert contract_year == other_contract_year
+
+
 def make_contract(
     period: DateRange = DateRange.create(
         start=datetime.date(2024, 1, 1), end=datetime.date(2024, 12, 31)
     )
 ) -> Contract:
-    return Contract.new(name=NonEmptyStr("contract name"), period=period, publishers=())
+    return Contract.new(
+        name=NonEmptyStr("contract name"),
+        period=period,
+        # NOTE: we are intentionally using an iterable that pytest cannot compare natively
+        # to ensure that contract year comparison cannot just compare references
+        publishers=LazyCachedIterable(pid for pid in (PublisherId(1), PublisherId(2))),
+    )

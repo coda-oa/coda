@@ -27,9 +27,9 @@ class PublicationBilling(enum.StrEnum):
 class Contract:
     id: ContractId | None
     name: NonEmptyStr
-    publishers: tuple[PublisherId, ...]
+    publishers: Iterable[PublisherId]
     period: DateRange = DateRange.create()
-    journals: tuple["JournalId", ...] = ()
+    journals: Iterable["JournalId"] = ()
     publication_billing: PublicationBilling = PublicationBilling.Individually
 
     @classmethod
@@ -41,7 +41,7 @@ class Contract:
         journals: Iterable["JournalId"] = (),
         publication_billing: PublicationBilling = PublicationBilling.Individually,
     ) -> "Contract":
-        return cls(None, name, tuple(publishers), period, tuple(journals), publication_billing)
+        return cls(None, name, publishers, period, journals, publication_billing)
 
     def uses_consolidated_billing(self) -> bool:
         return self.publication_billing == PublicationBilling.Consolidated
@@ -95,15 +95,24 @@ class ContractYear:
         return self.contract.name
 
     @property
-    def publishers(self) -> tuple[PublisherId, ...]:
+    def publishers(self) -> Iterable[PublisherId]:
         return self.contract.publishers
 
     @property
-    def journals(self) -> tuple["JournalId", ...]:
+    def journals(self) -> Iterable["JournalId"]:
         return self.contract.journals
 
     def __str__(self) -> str:
         return f"{self.contract.name} ({self.year})"
+
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, ContractYear):
+            return False
+
+        return self.year == value.year and self.contract_id == value.contract_id
+
+    def __hash__(self) -> int:
+        return hash((str(self.__class__), self.year, self.contract_id))
 
 
 class InvalidContractYearError(ValueError):
