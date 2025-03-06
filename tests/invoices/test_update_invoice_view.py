@@ -1,4 +1,5 @@
 import datetime
+import random
 from typing import Any, cast
 
 import pytest
@@ -220,11 +221,12 @@ def save_invoice_view(
 
 
 def publication_position(a_publication: Publication) -> Position[PublicationId]:
+    cost_type = random.choice(list(CostType))
     return Position(
         item=cast(PublicationId, a_publication.id),
         funding_source=_random_funding_source(),
         cost=Money(200, Currency.EUR),
-        cost_type=CostType.Publication_Charge,
+        cost_type=cost_type,
         tax_rate=TaxRate.from_percentage(19),
         external_position_id=f"external-publication-{a_publication.id}",
     )
@@ -261,6 +263,7 @@ def expect_publication_position(
         id=publication.id,
         title=publication.title,
         funding_source=publication_position.funding_source,
+        cost_type=publication_position.cost_type,
         cost_amount=publication_position.cost.amount,
         tax_rate=publication_position.tax_rate.percentage(),
         external_position_id=publication_position.external_position_id,

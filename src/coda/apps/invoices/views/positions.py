@@ -79,6 +79,7 @@ class PublicationPosition(CommonPosition[PublicationId]):
             id=publication.id,
             title=publication.title,
             funding_source=position.funding_source,
+            cost_type=position.cost_type,
             cost_amount=position.cost.amount,
             tax_rate=position.tax_rate.percentage(),
             external_position_id=position.external_position_id,
