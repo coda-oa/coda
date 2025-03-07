@@ -97,6 +97,7 @@ LOCAL_APPS = [
     "coda.apps.publications",
     "coda.apps.fundingrequests",
     "coda.apps.invoices",
+    "coda.apps.checklist",
     "coda.apps.management",
     "coda.apps.preferences",
     "coda.apps.htmx_components",

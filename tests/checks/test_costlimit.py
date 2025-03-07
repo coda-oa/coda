@@ -20,7 +20,9 @@ def one2one(origin: Currency, target: Currency) -> Decimal:
 
 
 def make_sut(cost: Money = LIMIT) -> CostLimitCheck:
-    return CostLimitCheck(cost, converter=one2one)
+    sut = CostLimitCheck(converter=one2one)
+    sut.params = {"limit": cost.amount, "currency": cost.currency.code}
+    return sut
 
 
 def test__cost_limit_check__when_application_cost_is_below_threshold__returns_success() -> None:
@@ -49,7 +51,7 @@ def test__cost_above_limit_in_different_currency__returns_failure() -> None:
 
     app = domainfactory.fundingrequest()
     app.estimated_cost.amount = Money(LIMIT.amount, Currency.USD)
-    sut = CostLimitCheck(LIMIT, converter=over_limit_exchange)
+    sut = CostLimitCheck(converter=over_limit_exchange, limit=LIMIT)
 
     result = sut(app)
 
@@ -62,8 +64,14 @@ def test__cost_below_limit_in_different_currency__returns_success() -> None:
 
     app = domainfactory.fundingrequest()
     app.estimated_cost.amount = Money(LIMIT.amount, Currency.USD)
-    sut = CostLimitCheck(LIMIT, converter=under_limit_exchange)
+    sut = CostLimitCheck(converter=under_limit_exchange, limit=LIMIT)
 
     result = sut(app)
 
     assert result == CheckSuccessful()
+
+
+def test__cost_limit_check__params__returns_limit() -> None:
+    sut = make_sut()
+
+    assert sut.params == {"limit": LIMIT.amount, "currency": LIMIT.currency.code}

@@ -1,19 +1,21 @@
 import datetime
+from typing import Any
 
 from coda.checks.checklist import (
-    Check,
     CheckFailed,
-    CheckRun,
     Checklist,
+    ChecklistRun,
     CheckResult,
+    CheckRun,
     CheckSuccessful,
 )
-from coda.fundingrequest import FundingRequest
-from coda.publication.publication import Publication
+from coda.fundingrequest import FundingRequest, FundingRequestId, TPublication
 from tests import domainfactory
 
+FUNDING_REQUEST_ID = FundingRequestId(1)
 
-class CheckSpy(Check[Publication]):
+
+class CheckSpy:
     @classmethod
     def successful(cls, name: str, description: str) -> "CheckSpy":
         return cls(name, description, CheckSuccessful(None))
@@ -27,6 +29,7 @@ class CheckSpy(Check[Publication]):
         self._description = description
         self.result = result
         self.was_called = False
+        self.params: dict[str, Any] = {}
 
     @property
     def name(self) -> str:
@@ -36,7 +39,7 @@ class CheckSpy(Check[Publication]):
     def description(self) -> str:
         return self._description
 
-    def __call__(self, fundingrequest: FundingRequest[Publication]) -> CheckResult:
+    def __call__(self, fundingrequest: FundingRequest[TPublication]) -> CheckResult:
         self.was_called = True
         return self.result
 
@@ -53,34 +56,35 @@ def failing_check(timestamp: datetime.datetime) -> CheckSpy:
     return CheckSpy.failing(check_name, check_description)
 
 
-def run(checklist: Checklist[Publication], now: datetime.datetime) -> list[CheckRun[Publication]]:
-    fundingrequest = domainfactory.fundingrequest()
-    return list(checklist.run(fundingrequest, now))
+def run(checklist: Checklist, now: datetime.datetime) -> ChecklistRun:
+    fundingrequest = domainfactory.fundingrequest(id=FUNDING_REQUEST_ID)
+    return checklist.run(fundingrequest, now)
 
 
 def test__running_checklist_with_no_checks_returns_empty_list() -> None:
-    checklist = Checklist[Publication]()
-    assert run(checklist, datetime.datetime.now()) == []
+    checklist = Checklist()
+    now = datetime.datetime.now()
+    assert run(checklist, now) == ChecklistRun(FUNDING_REQUEST_ID, now, [])
 
 
 def test__running_checklist_with_successful_check__returns_success_result() -> None:
     now = datetime.datetime.now()
     check = successful_check(now)
-    checklist = Checklist[Publication]()
+    checklist = Checklist()
     checklist.add_check(check)
 
-    expected = CheckRun(check, now, check.result)
-    assert run(checklist, now) == [expected]
+    expected = CheckRun(check, now, check.result, FUNDING_REQUEST_ID)
+    assert run(checklist, now) == ChecklistRun(FUNDING_REQUEST_ID, now, [expected])
 
 
 def test__running_checklist_with_failing_check__returns_failure_result() -> None:
     now = datetime.datetime.now()
     check = failing_check(now)
-    checklist = Checklist[Publication]()
+    checklist = Checklist()
     checklist.add_check(check)
 
-    expected = CheckRun(check, now, check.result)
-    assert run(checklist, now) == [expected]
+    expected = CheckRun(check, now, check.result, FUNDING_REQUEST_ID)
+    assert run(checklist, now) == ChecklistRun(FUNDING_REQUEST_ID, now, [expected])
 
 
 def test__running_checklist_with_multiple_checks__returns_results_in_order() -> None:
@@ -89,9 +93,9 @@ def test__running_checklist_with_multiple_checks__returns_results_in_order() -> 
     second = failing_check(now)
     checklist = Checklist((first, second))
 
-    first_run = CheckRun(first, now, first.result)
-    second_run = CheckRun(second, now, second.result)
-    assert run(checklist, now) == [first_run, second_run]
+    first_run = CheckRun(first, now, first.result, FUNDING_REQUEST_ID)
+    second_run = CheckRun(second, now, second.result, FUNDING_REQUEST_ID)
+    assert run(checklist, now) == ChecklistRun(FUNDING_REQUEST_ID, now, [first_run, second_run])
 
 
 def test__adding_a_check__does_not_run_check() -> None:
@@ -99,19 +103,3 @@ def test__adding_a_check__does_not_run_check() -> None:
     _ = Checklist([spy])
 
     assert not spy.was_called
-
-
-def test__when_running_checklist__checks_are_yielded_in_order() -> None:
-    now = datetime.datetime.now()
-    spy1 = successful_check(now)
-    spy2 = successful_check(now)
-    checklist = Checklist((spy1, spy2))
-
-    it = iter(checklist.run(domainfactory.fundingrequest(), now))
-
-    next(it)
-    assert spy1.was_called
-    assert not spy2.was_called
-
-    next(it)
-    assert spy2.was_called

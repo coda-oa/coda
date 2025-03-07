@@ -1,11 +1,11 @@
 from collections.abc import Callable
-from typing import Protocol
+from typing import Any, Protocol
 
-from coda.checks.checklist import Check, CheckFailed, CheckResult, CheckSuccessful
+from coda.checks.checklist import CheckFailed, CheckResult, CheckSuccessful
 from coda.doaj import DoajListedJournal
-from coda.fundingrequest import FundingRequest
+from coda.fundingrequest import FundingRequest, TPublication
 from coda.issn import Issn
-from coda.publication.publication import JournalId, Publication
+from coda.publication import JournalId, Publication
 
 
 class DoajApi(Protocol):
@@ -16,8 +16,9 @@ class DoajApi(Protocol):
 IssnProvider = Callable[[JournalId], Issn]
 
 
-class DoajCheck(Check[Publication]):
+class DoajCheck:
     name = "Check DOAJ listing"
+    params: dict[str, Any] = {}
 
     def __init__(self, doaj_api: DoajApi, get_issn: IssnProvider) -> None:
         self.api = doaj_api
@@ -27,7 +28,8 @@ class DoajCheck(Check[Publication]):
     def description(self) -> str:
         return "Journal must be listed in DOAJ"
 
-    def __call__(self, fundingrequest: FundingRequest[Publication]) -> CheckResult:
+    def __call__(self, fundingrequest: FundingRequest[TPublication]) -> CheckResult:
+        assert isinstance(fundingrequest.publication, Publication)
         issn = self.get_issn(fundingrequest.publication.journal)
         journal = self.api.find_journal(issn)
 

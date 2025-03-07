@@ -1,9 +1,9 @@
 import datetime
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Any, Generic, Protocol
-from collections.abc import Iterable
+from typing import Any, Protocol
 
-from coda.fundingrequest import FundingRequest, TPublication
+from coda.fundingrequest import FundingRequest, FundingRequestId, TPublication
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,13 +20,26 @@ CheckResult = CheckSuccessful | CheckFailed
 
 
 @dataclass(frozen=True, slots=True)
-class CheckRun(Generic[TPublication]):
-    check: "Check[TPublication]"
+class CheckRun:
+    check: "Check"
     timestamp: datetime.datetime
     result: CheckResult
+    fundingrequest: FundingRequestId
 
 
-class Check(Protocol, Generic[TPublication]):
+@dataclass(frozen=True, slots=True)
+class ChecklistRun:
+    fundingrequest: FundingRequestId
+    timestamp: datetime.datetime
+    checkruns: Iterable[CheckRun]
+
+    def __iter__(self) -> Iterator[CheckRun]:
+        yield from (check for check in self.checkruns)
+
+
+class Check(Protocol):
+    params: dict[str, Any]
+
     @property
     def name(self) -> str:
         ...
@@ -39,24 +52,34 @@ class Check(Protocol, Generic[TPublication]):
         ...
 
 
-class Checklist(Generic[TPublication]):
+class Checklist:
     """
     Represents a checklist of checks to be performed.
     """
 
-    def __init__(self, checks: Iterable[Check[TPublication]] = ()) -> None:  # noqa: F821
+    def __init__(self, checks: Iterable[Check] = ()) -> None:  # noqa: F821
         self.checks = list(checks)
 
     def run(
         self, fundingrequest: FundingRequest[TPublication], now: datetime.datetime | None = None
-    ) -> Iterable[CheckRun[TPublication]]:
+    ) -> ChecklistRun:
         """
         Executes all the checks and returns a list of CheckResult objects.
         """
-        now = now or datetime.datetime.now()
-        return (CheckRun(check, now, check(fundingrequest)) for check in self.checks)
+        if fundingrequest.id is None:
+            raise ValueError("Cannot run checks on a funding request without an id")
 
-    def add_check(self, check: Check[TPublication]) -> None:
+        now = now or datetime.datetime.now()
+        return ChecklistRun(
+            fundingrequest.id,
+            now,
+            [
+                CheckRun(check, now, check(fundingrequest), fundingrequest.id)
+                for check in self.checks
+            ],
+        )
+
+    def add_check(self, check: Check) -> None:
         """
         Adds a check to the list of checks.
 
