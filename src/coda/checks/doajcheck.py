@@ -1,15 +1,17 @@
 from collections.abc import Callable
 from typing import Any, Protocol
+from typing_extensions import TypeIs
 
+from coda import doaj
+from coda.apps.journals import services
 from coda.checks.checklist import CheckFailed, CheckResult, CheckSuccessful
-from coda.doaj import DoajListedJournal
 from coda.fundingrequest import FundingRequest, TPublication
 from coda.issn import Issn
 from coda.publication import JournalId, Publication
 
 
 class DoajApi(Protocol):
-    def find_journal(self, issn: Issn) -> DoajListedJournal | None:
+    def find_journal(self, issn: Issn) -> doaj.DoajListedJournal | None:
         raise NotImplementedError
 
 
@@ -17,12 +19,17 @@ IssnProvider = Callable[[JournalId], Issn]
 
 
 class DoajCheck:
-    name = "Check DOAJ listing"
     params: dict[str, Any] = {}
 
-    def __init__(self, doaj_api: DoajApi, get_issn: IssnProvider) -> None:
+    def __init__(
+        self, doaj_api: DoajApi = doaj, get_issn: IssnProvider = services.eissn_for
+    ) -> None:
         self.api = doaj_api
         self.get_issn = get_issn
+
+    @property
+    def name(self) -> str:
+        return "Check DOAJ listing"
 
     @property
     def description(self) -> str:
@@ -36,4 +43,26 @@ class DoajCheck:
         if journal is None:
             return CheckFailed("Journal not listed in DOAJ")
 
-        return CheckSuccessful(journal)
+        return CheckSuccessful(data=self._to_dict(journal))
+
+    def _to_dict(self, doaj_journal: doaj.DoajListedJournal) -> dict[str, str | int]:
+        return {
+            "title": doaj_journal.title,
+            "publisher": doaj_journal.publisher,
+            "issn": doaj_journal.issn,
+            "apc": self._format_apc_price(doaj_journal),
+            "doaj_url": doaj_journal.doaj_url,
+        }
+
+    def _format_apc_price(self, doaj_journal: doaj.DoajListedJournal) -> str:
+        apc = doaj_journal.apc
+        if not self._has_apc(apc):
+            return "No APC"
+
+        return f"{apc.price.amount} {apc.price.currency.code}"
+
+    def _has_apc(self, apc: doaj.Apc) -> TypeIs[doaj.HasApc]:
+        return apc is not doaj.NoApc
+
+    def __str__(self) -> str:
+        return self.name

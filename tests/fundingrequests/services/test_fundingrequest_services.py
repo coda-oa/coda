@@ -1,6 +1,6 @@
-from collections.abc import Callable
 import datetime
 import random
+from collections.abc import Callable
 
 import pytest
 
@@ -48,11 +48,11 @@ def extra_contact() -> FilledContact:
     [lambda: ArticleRequestDataBuilder(), lambda: MonographRequestDataBuilder()],
 )
 def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data(
-    get_builder: Callable[[], ArticleRequestDataBuilder | MonographRequestDataBuilder]
+    get_builder: Callable[[], ArticleRequestDataBuilder | MonographRequestDataBuilder],
 ) -> None:
     builder = get_builder()
 
-    new_id = services.create_fundingrequest(
+    new_id = services.fundingrequests.create_fundingrequest(
         builder.publication_dto(),
         builder.cost_dto(),
         builder.external_funding_dto(),
@@ -76,7 +76,7 @@ def test__create_fundingrequest__id_already_used__retries_with_new_id() -> None:
     ) -> PublicFundingRequestId:
         return next(id_iter)
 
-    new_id = services.create_fundingrequest(
+    new_id = services.fundingrequests.create_fundingrequest(
         builder.publication_dto(),
         builder.cost_dto(),
         builder.external_funding_dto(),
@@ -92,7 +92,7 @@ def test__create_fundingrequest__id_already_used__retries_with_new_id() -> None:
 def test__create_fundingrequest__without_external_funding__creates_fundingrequest() -> None:
     builder = ArticleRequestDataBuilder().without_external_funding()
 
-    new_id = services.create_fundingrequest(
+    new_id = services.fundingrequests.create_fundingrequest(
         builder.publication_dto(),
         builder.cost_dto(),
         builder.external_funding_dto(),
@@ -114,7 +114,7 @@ def test__update_fundingrequest__extra_contact__updates_contact_in_database() ->
     )
 
     new_contact = ExtraContactDto.from_contact(extra_contact())
-    services.update_contact(new_id, contact=new_contact)
+    services.fundingrequests.update_contact(new_id, contact=new_contact)
 
     updated = get_by_id(new_id)
     assert updated.extra_contact is not None
@@ -132,7 +132,9 @@ def test__fundingrequest__empty_extra_contact__fundingrequest_has_no_contact() -
         )
     )
 
-    services.update_extra_information(new_id, ExtraInformationDto(extra_contact=ExtraContactDto()))
+    services.fundingrequests.update_extra_information(
+        new_id, ExtraInformationDto(extra_contact=ExtraContactDto())
+    )
 
     updated = get_by_id(new_id)
     assert updated.extra_contact is NoContact
@@ -149,7 +151,9 @@ def test__fundingrequest__update_request_remarks__is_saved_to_db() -> None:
     )
 
     new_remarks = _faker.sentence()
-    services.update_extra_information(new_id, ExtraInformationDto(request_remarks=new_remarks))
+    services.fundingrequests.update_extra_information(
+        new_id, ExtraInformationDto(request_remarks=new_remarks)
+    )
 
     updated = get_by_id(new_id)
     assert updated.request_remarks == new_remarks
@@ -173,7 +177,7 @@ def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_exte
 
     payment_dto = PaymentDto.from_payment(new_cost)
     funding_dtos = map(ExternalFundingDto.from_external_funding, new_funding)
-    services.update_funding(new_id, payment_dto, funding_dtos)
+    services.fundingrequests.update_funding(new_id, payment_dto, funding_dtos)
 
     updated = get_by_id(new_id)
     assert updated.estimated_cost == new_cost

@@ -209,6 +209,12 @@
                 {% endif %}
             </h2>
             <hr>
+            {% if checks %}
+                <div class="mb-2">
+                    <h3>Checks</h3>
+                    {% include "fundingrequests/partials/checkrun.html" %}
+                </div>
+            {% endif %}
             <div class="mb-2">
                 {% if funding_request.is_approved %}
                     <p class="mb-2">

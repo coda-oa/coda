@@ -3,7 +3,15 @@ import enum
 from abc import ABC
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, NamedTuple, NewType, Self, TypeAlias
+from typing import (
+    TYPE_CHECKING,
+    NamedTuple,
+    NewType,
+    Self,
+    TypeAlias,
+    TypeGuard,
+    TypeVar,
+)
 
 from coda.author import Author, AuthorNames
 from coda.contract import PublisherId
@@ -90,6 +98,9 @@ class Authors(tuple[Author, ...]):
         return instance
 
 
+PublicationKind = TypeVar("PublicationKind", bound="BasePublication")
+
+
 @dataclass(kw_only=True)
 class BasePublication(ABC):
     id: PublicationId | None
@@ -106,6 +117,9 @@ class BasePublication(ABC):
 
     def is_published(self) -> bool:
         return isinstance(self.publication_state, Published)
+
+    def is_kind(self, kind: type[PublicationKind]) -> TypeGuard[PublicationKind]:
+        return isinstance(self, kind)
 
 
 @dataclass(kw_only=True)

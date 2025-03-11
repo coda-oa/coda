@@ -23,5 +23,9 @@ def find_by_eissn(eissn: Issn) -> Sequence[Journal]:
     return DomainQuerySet(Journal.objects.filter(eissn=eissn), _map_self)
 
 
+def eissn_for(pk: int) -> Issn:
+    return Issn(Journal.objects.filter(pk=pk).values_list("eissn", flat=True).get())
+
+
 def _map_self(journal: Journal) -> Journal:
     return journal

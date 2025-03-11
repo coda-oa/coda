@@ -36,6 +36,7 @@ class Payment:
 
 
 TPublication = TypeVar("TPublication", bound=BasePublication)
+TCheckPublication = TypeVar("TCheckPublication", bound=BasePublication)
 
 
 @dataclass

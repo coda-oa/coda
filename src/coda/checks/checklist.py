@@ -1,6 +1,6 @@
 import datetime
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from coda.fundingrequest import FundingRequest, FundingRequestId, TPublication
@@ -8,12 +8,30 @@ from coda.fundingrequest import FundingRequest, FundingRequestId, TPublication
 
 @dataclass(frozen=True, slots=True)
 class CheckSuccessful:
-    data: Any = None
+    data: dict[str, str | int] = field(default_factory=dict)
+
+    def is_successful(self) -> bool:
+        return True
+
+    def __bool__(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return "Check successful"
 
 
 @dataclass(frozen=True, slots=True)
 class CheckFailed:
     reason: str
+
+    def is_successful(self) -> bool:
+        return False
+
+    def __bool__(self) -> bool:
+        return False
+
+    def __str__(self) -> str:
+        return f"Check failed: {self.reason}"
 
 
 CheckResult = CheckSuccessful | CheckFailed
@@ -25,6 +43,14 @@ class CheckRun:
     timestamp: datetime.datetime
     result: CheckResult
     fundingrequest: FundingRequestId
+
+    @property
+    def check_name(self) -> str:
+        return self.check.name
+
+    @property
+    def check_description(self) -> str:
+        return self.check.description
 
 
 @dataclass(frozen=True, slots=True)

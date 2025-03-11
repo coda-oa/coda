@@ -28,8 +28,10 @@ class DoajListedJournal:
     publisher: str
     issn: Issn
     apc: Apc
+    doaj_url: str = ""
 
 
+DoajJournalUrlBase: Final = "https://doaj.org/toc/{issn}"
 DoajJournalSearchUrl: Final = "https://doaj.org/api/search/journals/issn:{issn}"
 
 
@@ -55,4 +57,5 @@ def find_journal(issn: Issn) -> DoajListedJournal | None:
         publisher=journal_entry.get("publisher", {}).get("name"),
         issn=Issn(journal_entry.get("eissn")),
         apc=apc,
+        doaj_url=DoajJournalUrlBase.format(issn=issn),
     )

@@ -8,7 +8,8 @@ from django.urls import reverse
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.fundingrequests.services import label_attach, label_create
+from coda.apps.fundingrequests.services.labels import label_attach
+from coda.apps.fundingrequests.services.labels import label_create
 from coda.color import Color
 from coda.fundingrequest import FundingRequestId, Review
 from coda.fundingrequest.review import ReviewResult

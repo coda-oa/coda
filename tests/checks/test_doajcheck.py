@@ -20,6 +20,16 @@ def doaj_journal() -> DoajListedJournal:
     return EXPECTED_JOURNAL
 
 
+def doaj_journal_dict() -> dict[str, str | int]:
+    return {
+        "title": "Materials Today Quantum",
+        "publisher": "Elsevier",
+        "issn": "2950-2578",
+        "apc": "2770.00 USD",
+        "doaj_url": "https://doaj.org/toc/2950-2578",
+    }
+
+
 @dataclass
 class DoajApiStub:
     journals: list[DoajListedJournal] = field(default_factory=list)
@@ -39,7 +49,7 @@ def test__doaj_check__listing_required__journal_in_doaj__is_successful() -> None
 
     result = check(fundingrequest)
 
-    assert result == CheckSuccessful(data=doaj_journal())
+    assert result == CheckSuccessful(data=doaj_journal_dict())
 
 
 def test__doaj_check__listing_required__journal_not_in_doaj__fails() -> None:
@@ -58,4 +68,4 @@ def test__doaj_check_with_real_api__journal_in_doaj__is_successful() -> None:
 
     result = check(fundingrequest)
 
-    assert result == CheckSuccessful(data=doaj_journal())
+    assert result == CheckSuccessful(data=doaj_journal_dict())

@@ -8,9 +8,9 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, UpdateView
 
-from coda.apps.fundingrequests import services
 from coda.apps.fundingrequests.forms import LabelForm
 from coda.apps.fundingrequests.models import FundingRequest, Label
+import coda.apps.fundingrequests.services.labels
 from coda.apps.views import EntityListView
 
 
@@ -66,7 +66,7 @@ def label_delete_view(request: HttpRequest, pk: int) -> HttpResponse:
 def attach_label(request: HttpRequest) -> HttpResponse:
     funding_request = get_object_or_404(FundingRequest, pk=request.POST["fundingrequest"])
     label = get_object_or_404(Label, pk=request.POST["label"])
-    services.label_attach(funding_request, label)
+    coda.apps.fundingrequests.services.labels.label_attach(funding_request, label)
     return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))
 
 
@@ -75,5 +75,5 @@ def attach_label(request: HttpRequest) -> HttpResponse:
 def detach_label(request: HttpRequest) -> HttpResponse:
     funding_request = get_object_or_404(FundingRequest, pk=request.POST["fundingrequest"])
     label = get_object_or_404(Label, pk=request.POST["label"])
-    services.label_detach(funding_request, label)
+    coda.apps.fundingrequests.services.labels.label_detach(funding_request, label)
     return redirect(reverse("fundingrequests:detail", kwargs={"pk": funding_request.pk}))

@@ -5,6 +5,7 @@ from typing import Protocol
 
 from django.db import transaction
 
+from coda.checks.checkfactory import CheckFactory
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import (
     ExternalFundingDto,
@@ -12,10 +13,8 @@ from coda.apps.fundingrequests.dto import (
     ExtraInformationDto,
     PaymentDto,
 )
-from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
-from coda.apps.fundingrequests.models import Label
+from coda.apps.fundingrequests.services.checks import run_checks
 from coda.apps.publications.dto import PublicationBaseDto
-from coda.color import Color
 from coda.fundingrequest import FundingRequest, FundingRequestId
 from coda.fundingrequest.identity import PublicFundingRequestId
 
@@ -34,6 +33,7 @@ def create_fundingrequest(
     extra_information: ExtraInformationDto,
     *,
     request_id_generator: RequestIdGenerator = PublicFundingRequestId.create,
+    checkfactory: CheckFactory | None = None,
 ) -> FundingRequestId:
     fr = FundingRequest.new(
         publication.to_publication(),
@@ -44,7 +44,10 @@ def create_fundingrequest(
         request_remarks=extra_information.request_remarks,
     )
 
-    return repository.save(fr)
+    fr_id = repository.save(fr)
+    run_checks(fr_id, checkfactory=checkfactory)
+
+    return fr_id
 
 
 def _find_unused_request_id(request_id_generator: RequestIdGenerator) -> PublicFundingRequestId:
@@ -86,17 +89,3 @@ def update_funding(
         payment.to_payment(),
         map(ExternalFundingDto.to_external_funding, funding),
     )
-
-
-def label_create(name: str, color: Color) -> Label:
-    return Label.objects.create(name=name, hexcolor=color.hex())
-
-
-def label_attach(funding_request: FundingRequestModel, label: Label) -> None:
-    label.requests.add(funding_request)
-    label.save()
-
-
-def label_detach(funding_request: FundingRequestModel, label: Label) -> None:
-    label.requests.remove(funding_request)
-    label.save()

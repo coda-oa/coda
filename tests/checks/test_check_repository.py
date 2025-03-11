@@ -6,6 +6,7 @@ import pytest
 
 from coda.apps.checklist import repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
+import coda.checks.checkfactory
 from coda.checks.checklist import CheckFailed, CheckResult, CheckRun, CheckSuccessful
 from coda.fundingrequest import (
     FundingOrganizationId,
@@ -13,11 +14,10 @@ from coda.fundingrequest import (
     FundingRequestId,
     TPublication,
 )
-from coda.publication import JournalId
+from coda.publication import JournalId, Publication
 from tests import domainfactory, modelfactory
 
 
-@repository.checkfactory.register
 @dataclass
 class CheckStub:
     result: CheckResult = CheckFailed("Failed")
@@ -43,6 +43,9 @@ class CheckStub:
 
 @pytest.mark.django_db
 def test__saving_checkrun_for_fundingrequest__get__returns_checkrun() -> None:
+    checkfactory = coda.checks.checkfactory.CheckFactory()
+    checkfactory.register(Publication, CheckStub)
+
     fundingrequest_id = create_fundingrequest()
 
     first_run = checkrun_for(fundingrequest_id, CheckStub.successful())
@@ -50,14 +53,19 @@ def test__saving_checkrun_for_fundingrequest__get__returns_checkrun() -> None:
 
     repository.save([first_run, second_run])
 
-    checkruns = cast(list[CheckRun], list(repository.get(fundingrequest_id)))
-    first_actual, second_actual = checkruns
+    checkruns = repository.get(fundingrequest_id, checkfactory)
+
+    checkruns_casted = cast(list[CheckRun], list(checkruns))
+    first_actual, second_actual = checkruns_casted
     assert_checkrun_eq(first_actual, first_run)
     assert_checkrun_eq(second_actual, second_run)
 
 
 @pytest.mark.django_db
 def test__given_saved_checkrun__saving_new_checkrun__overrides_old_checkrun() -> None:
+    checkfactory = coda.checks.checkfactory.CheckFactory()
+    checkfactory.register(Publication, CheckStub)
+
     fundingrequest_id = create_fundingrequest()
     run = checkrun_for(fundingrequest_id, CheckStub.successful())
     repository.save([run])
@@ -65,7 +73,7 @@ def test__given_saved_checkrun__saving_new_checkrun__overrides_old_checkrun() ->
     new_run = checkrun_for(fundingrequest_id, CheckStub.failed())
     repository.save([new_run])
 
-    checkruns = cast(list[CheckRun], list(repository.get(fundingrequest_id)))
+    checkruns = cast(list[CheckRun], list(repository.get(fundingrequest_id, checkfactory)))
     assert len(checkruns) == 1
 
 

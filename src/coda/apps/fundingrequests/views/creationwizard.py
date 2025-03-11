@@ -4,7 +4,7 @@ from typing import Generic, TypeVar
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse, reverse_lazy
 
-from coda.apps.fundingrequests import services
+from coda.apps.fundingrequests.services import fundingrequests
 from coda.apps.fundingrequests.dto import (
     ExternalFundingDto,
     ExtraContactDto,
@@ -35,7 +35,7 @@ class FundingRequestCreationWizard(LoginRequiredMixin, Wizard, abc.ABC, Generic[
             extra_contact=self.parse_contact(store),
             request_remarks=store.get("request_remarks", ""),
         )
-        funding_request_id = services.create_fundingrequest(
+        funding_request_id = fundingrequests.create_fundingrequest(
             publication, cost, funding, extra_information
         )
         store["funding_request"] = funding_request_id

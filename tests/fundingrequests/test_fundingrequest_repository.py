@@ -4,7 +4,8 @@ from typing import Any, cast
 import pytest
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.services import label_attach, label_create
+from coda.apps.fundingrequests.services.labels import label_attach
+from coda.apps.fundingrequests.services.labels import label_create
 from coda.apps.journals.models import Journal
 from coda.color import Color
 from coda.date import DateRange
@@ -15,7 +16,7 @@ from coda.money import Currency, Money
 from coda.publication import Authors, JournalId
 from coda.string import NonEmptyStr
 from tests import domainfactory, modelfactory
-from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
+from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 
 @pytest.mark.django_db

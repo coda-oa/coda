@@ -12,9 +12,11 @@ from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.fundingrequests.forms import ChooseLabelForm
 from coda.apps.fundingrequests.models import ExternalFunding, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
+from coda.apps.fundingrequests.services import checks
 from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import AttachedContract
 from coda.apps.publications.services import publications
+from coda.fundingrequest import FundingRequestId
 from coda.fundingrequest.review import ReviewResult
 from coda.money import Currency, Money
 from coda.publication import License, Link
@@ -221,6 +223,7 @@ def context(fr: FundingRequestModel) -> dict[str, Any]:
         "publication": publication_viewmodel(fr),
         "label_form": ChooseLabelForm(),
         "external_funding": [funding_viewmodel(ef) for ef in fr.external_funding.all()],
+        "checks": checks.get_checkrun(FundingRequestId(fr.id)),
     }
 
     return ctx

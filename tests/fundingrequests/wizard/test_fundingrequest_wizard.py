@@ -8,7 +8,7 @@ from pytest_django.asserts import assertRedirects
 from coda.apps.fundingrequests import repository
 from coda.apps.users.models import User
 from coda.fundingrequest import FundingRequestId
-from tests.fundingrequests.test_fundingrequest_services import assert_fundingrequest_eq
+from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
 from tests.fundingrequests.wizard.wizardsubmitter import (

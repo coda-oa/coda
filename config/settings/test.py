@@ -6,6 +6,12 @@ from pathlib import Path
 from .base import *  # noqa
 from .base import env
 
+
+# CODA SETTINGS
+# ------------------------------------------------------------------------------
+CODA_CHECKLIST_FACTORY = "tests.checks.checkfactory"
+
+
 # GENERAL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key

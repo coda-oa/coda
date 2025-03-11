@@ -14,6 +14,7 @@ EXPECTED_JOURNAL = DoajListedJournal(
     publisher="Elsevier",
     issn=DOAJ_LISTED_ISSN,
     apc=HasApc(price=Money(2770, Currency.USD)),
+    doaj_url="https://doaj.org/toc/2950-2578",
 )
 
 

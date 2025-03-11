@@ -5,7 +5,7 @@ from django.http import HttpRequest
 from django.urls import reverse
 
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-from coda.apps.fundingrequests import services
+from coda.apps.fundingrequests.services import fundingrequests
 from coda.apps.fundingrequests.dto import (
     ExternalFundingDto,
     ExtraContactDto,
@@ -42,7 +42,7 @@ class UpdateExtraInformationView(LoginRequiredMixin, Wizard):
             request_remarks=store.get("request_remarks"), extra_contact=contact
         )
 
-        services.update_extra_information(self.kwargs["pk"], extra_info)
+        fundingrequests.update_extra_information(self.kwargs["pk"], extra_info)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
@@ -99,7 +99,7 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
         funding = []
         if store.get("funding") is not None:
             funding = [ExternalFundingDto(**f) for f in store["funding"]]
-        services.update_funding(self.kwargs["pk"], cost, funding)
+        fundingrequests.update_funding(self.kwargs["pk"], cost, funding)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()

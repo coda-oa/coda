@@ -20,11 +20,14 @@ if READ_DOT_ENV_FILE:
     env.read_env(str(BASE_DIR / ".env"))
 
 
-# GENERAL
+# CODA SETTINGS
 # ------------------------------------------------------------------------------
 # Demo mode displays a warning message on the home page.
 CODA_DEMO_MODE = env.bool("CODA_DEMO_MODE", False)
+CODA_CHECKLIST_FACTORY = "coda.checks.checkfactory"
 
+# GENERAL
+# ------------------------------------------------------------------------------
 # FORMS
 # Contracts can submit a very large number of fields
 # Until we find a better solution we will keep this value high

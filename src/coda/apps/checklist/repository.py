@@ -1,30 +1,11 @@
 from collections.abc import Iterable
-from dataclasses import dataclass, field
-from typing import Final
 
 from django.db.models import QuerySet
 
 from coda.apps.checklist.models import CheckRun as CheckRunModel
-from coda.checks.checklist import Check, CheckFailed, CheckRun, CheckSuccessful
+from coda.checks.checkfactory import CheckFactory
+from coda.checks.checklist import CheckFailed, CheckRun, CheckSuccessful
 from coda.fundingrequest import FundingRequestId
-
-CheckType = type[Check]
-
-
-@dataclass
-class _CheckFactory:
-    check_types: dict[str, CheckType] = field(default_factory=dict)
-
-    def create(self, check_name: str) -> Check:
-        return self.check_types[check_name]()
-
-    def register(self, check_type: CheckType) -> CheckType:
-        check_name = check_type.__name__
-        self.check_types[check_name] = check_type
-        return check_type
-
-
-checkfactory: Final = _CheckFactory()
 
 
 def save(checkrun: Iterable[CheckRun]) -> None:
@@ -35,9 +16,13 @@ def save(checkrun: Iterable[CheckRun]) -> None:
     CheckRunModel.objects.bulk_create([_to_checkrun_model(check) for check in checkrun])
 
 
-def get(fundingrequest_id: FundingRequestId) -> Iterable[CheckRun]:
-    return (
-        _restore_checkrun(checkrun) for checkrun in _get_by_fundingrequest_id(fundingrequest_id)
+def get(
+    fundingrequest_id: FundingRequestId,
+    restoring_checkfactory: CheckFactory,
+) -> Iterable[CheckRun]:
+    return tuple(
+        _restore_checkrun(checkrun, restoring_checkfactory)
+        for checkrun in _get_by_fundingrequest_id(fundingrequest_id)
     )
 
 
@@ -47,7 +32,7 @@ def _get_by_fundingrequest_id(fundingrequest_id: FundingRequestId) -> QuerySet[C
 
 def _to_checkrun_model(check: CheckRun) -> CheckRunModel:
     data = (
-        check.result.data
+        check.result.data or {}
         if isinstance(check.result, CheckSuccessful)
         else {"reason": check.result.reason}
     )
@@ -62,14 +47,16 @@ def _to_checkrun_model(check: CheckRun) -> CheckRunModel:
     )
 
 
-def _restore_checkrun(checkrun_model: CheckRunModel) -> CheckRun:
+def _restore_checkrun(
+    checkrun_model: CheckRunModel, restoring_checkfactory: CheckFactory
+) -> CheckRun:
     result = (
         CheckSuccessful(checkrun_model.result_data)
         if checkrun_model.result == "success"
         else CheckFailed(checkrun_model.result_data["reason"])
     )
 
-    check = checkfactory.create(checkrun_model.check_name)
+    check = restoring_checkfactory.create(checkrun_model.check_name)
     checkrun = CheckRun(
         check=check,
         result=result,
