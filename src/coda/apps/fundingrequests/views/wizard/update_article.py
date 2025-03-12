@@ -20,7 +20,6 @@ from coda.apps.fundingrequests.views.wizard.steps.funding_step import FundingSte
 from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalStep
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.publications.dto import PublicationDto
-from coda.apps.publications.repositories import publication_repository
 from coda.apps.wizard import SessionStore, Wizard
 
 
@@ -67,10 +66,8 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
 
     def complete(self, /, **kwargs: Any) -> None:
         pk = kwargs["pk"]
-        fr = fundingrequest_repository.get_article_request(pk)
         dto = publication_dto_from(self.get_store())
-        publication = dto.to_publication(fr.publication.id)
-        publication_repository.save(publication)
+        fundingrequests.update_publication(pk, dto)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()

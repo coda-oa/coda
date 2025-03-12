@@ -12,6 +12,7 @@ from coda.apps.fundingrequests.dto import (
     PaymentDto,
 )
 from coda.apps.fundingrequests.repository import get_by_id
+from coda.apps.publications.dto import PublicationDto
 from coda.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
@@ -104,7 +105,7 @@ def test__create_fundingrequest__without_external_funding__creates_fundingreques
 
 
 @pytest.mark.django_db
-def test__update_fundingrequest__extra_contact__updates_contact_in_database() -> None:
+def test__fundingrequest__update_publication__updates_publication() -> None:
     new_id = repository.save(
         FundingRequest.new(
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
@@ -113,17 +114,17 @@ def test__update_fundingrequest__extra_contact__updates_contact_in_database() ->
         )
     )
 
-    new_contact = ExtraContactDto.from_contact(extra_contact())
-    services.fundingrequests.update_contact(new_id, contact=new_contact)
+    new_publication = domainfactory.publication(JournalId(modelfactory.journal().pk))
+    services.fundingrequests.update_publication(
+        new_id, PublicationDto.from_publication(new_publication)
+    )
 
     updated = get_by_id(new_id)
-    assert updated.extra_contact is not None
-    assert updated.extra_contact.name == new_contact.name
-    assert updated.extra_contact.email == new_contact.email
+    assert_publication_eq(updated.publication, new_publication)
 
 
 @pytest.mark.django_db
-def test__fundingrequest__empty_extra_contact__fundingrequest_has_no_contact() -> None:
+def test__fundingrequest__update_with_empty_extra_contact__fundingrequest_has_no_contact() -> None:
     new_id = repository.save(
         FundingRequest.new(
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
