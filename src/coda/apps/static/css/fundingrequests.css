@@ -103,6 +103,11 @@ li.fundingrequest-check {
     color: var(--label-text-color);
 }
 
+.label.danger {
+    --label-border-color: var(--coda-validation-invalid-color);
+    --label-bg-color: var(--coda-validation-invalid-color);
+}
+
 a:has(.label) {
     text-decoration: none;
 }

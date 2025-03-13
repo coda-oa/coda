@@ -1,0 +1,27 @@
+<div id="blocklist">
+    <div class="my-2 tab-list" role="tablist">
+        <button hx-get="{% url 'blocklist:tab_switch' %}"
+                hx-target="#blocklist"
+                hx-swap="outerHTML"
+                name="tab"
+                value="journals"
+                role="tab"
+                aria-controls="tab-content"
+                {% if tab == "journals" %}aria-selected="true" class="active"{% endif %}>Journals</button>
+        <button hx-get="{% url 'blocklist:tab_switch' %}"
+                hx-target="#blocklist"
+                hx-swap="outerHTML"
+                name="tab"
+                value="publishers"
+                role="tab"
+                aria-controls="tab-content"
+                {% if tab == "publishers" %}aria-selected="true" class="active"{% endif %}>Publishers</button>
+    </div>
+    <div class="my-4 tab-content">
+        {% if tab == "publishers" %}
+            {% include "blocklist/blocklist_publishers.html" %}
+        {% else %}
+            {% include "blocklist/blocklist_journals.html" %}
+        {% endif %}
+    </div>
+</div>

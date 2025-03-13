@@ -1,0 +1,13 @@
+<div>
+    <h2 class="my-2">Publishers</h2>
+    {% for publisher in publishers %}
+        <article class="flex justify-between align-center">
+            <p class="my-0">{{ publisher.name }}</p>
+            <button type="button"
+                    class="secondary"
+                    hx-post="{% url "blocklist:unblock_publisher" pk=publisher.pk %}"
+                    hx-target="closest article"
+                    hx-swap="delete">Unblock</button>
+        </article>
+    {% endfor %}
+</div>

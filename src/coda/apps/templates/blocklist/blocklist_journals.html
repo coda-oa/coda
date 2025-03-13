@@ -1,0 +1,19 @@
+<div>
+    <h2 class="my-2">Journals</h2>
+    {% for blocked_journal in journals %}
+        <article class="flex justify-between align-center">
+            <div>
+                <p class="mb-1">{{ blocked_journal.get_title }}</p>
+                <p class="mb-2">Publisher: {{ blocked_journal.get_publisher }}</p>
+                <p class="mb-0_5">
+                    <span class="label danger">{{ blocked_journal.get_reason_display }}</span>
+                </p>
+            </div>
+            <button type="button"
+                    class="my-0 secondary"
+                    hx-target="closest article"
+                    hx-post="{% url "blocklist:unblock_journal" pk=blocked_journal.get_journal_id %}"
+                    hx-swap="delete">Unblock</button>
+        </article>
+    {% endfor %}
+</div>

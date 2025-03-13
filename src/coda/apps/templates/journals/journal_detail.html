@@ -2,9 +2,15 @@
 {% block content %}
     <div class="flex justify-between align-center">
         <h1 class="my-2">Journal</h1>
-        <a href="{% url "publishing:journals:update" eissn=journal.eissn %}"
-           role="button"
-           class="secondary">Edit</a>
+        <div>
+            <button class="danger"
+                    hx-get="{% url "blocklist:request_block_journal" pk=journal.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Block</button>
+            <a href="{% url "publishing:journals:update" eissn=journal.eissn %}"
+               role="button"
+               class="secondary">Edit</a>
+        </div>
     </div>
     <article>
         <header>
