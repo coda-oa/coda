@@ -3,10 +3,18 @@
     <div class="flex justify-between align-center">
         <h1 class="my-2">Journal</h1>
         <div>
-            <button class="danger"
-                    hx-get="{% url "blocklist:request_block_journal" pk=journal.pk %}"
-                    hx-target="body"
-                    hx-swap="beforeend">Block</button>
+            {% if is_blocked %}
+                <button class="outline success"
+                        hx-post="{% url "blocklist:unblock_journal" pk=journal.pk %}"
+                        hx-vals='{"redirect_url": "{% url "publishing:journals:detail" eissn=journal.eissn %}" }'>
+                    Unblock
+                </button>
+            {% else %}
+                <button class="outline danger"
+                        hx-get="{% url "blocklist:request_block_journal" pk=journal.pk %}"
+                        hx-target="body"
+                        hx-swap="beforeend">Block</button>
+            {% endif %}
             <a href="{% url "publishing:journals:update" eissn=journal.eissn %}"
                role="button"
                class="secondary">Edit</a>

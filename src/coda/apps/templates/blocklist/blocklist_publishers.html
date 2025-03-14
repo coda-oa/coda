@@ -1,11 +1,16 @@
 <div>
-    <h2 class="my-2">Publishers</h2>
+    <div class="flex justify-between align-center">
+        <h2 class="my-2">Publishers</h2>
+        <a href="{% url 'publishing:publishers:list' %}"
+           role="button"
+           class="secondary">Block Publishers</a>
+    </div>
     {% for publisher in publishers %}
         <article class="flex justify-between align-center">
-            <p class="my-0">{{ publisher.name }}</p>
+            <p class="my-0">{{ publisher.publisher.name }}</p>
             <button type="button"
-                    class="secondary"
-                    hx-post="{% url "blocklist:unblock_publisher" pk=publisher.pk %}"
+                    class="my-0 secondary"
+                    hx-post="{% url "blocklist:unblock_publisher" pk=publisher.publisher.pk %}"
                     hx-target="closest article"
                     hx-swap="delete">Unblock</button>
         </article>

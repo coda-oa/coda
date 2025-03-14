@@ -8,14 +8,15 @@ button:is(.info, .success, .warning, .danger):hover {
 }
 
 button.outline:is(.info, .success, .warning, .danger) {
+  --_background-hover-color: color-mix(in hsl, var(--_background-color) 85%, white 15%);
   background-color: transparent;
   border-color: var(--_background-color);
   color: var(--_background-color);
 }
 
 button.outline:is(.info, .success, .warning, .danger):hover {
-  background-color: var(--_background-color);
-  border-color: var(--_background-color);
+  color: var(--_background-hover-color);
+  border-color: var(--_background-hover-color);
 }
 
 :is(button, [role="button"]).outline.muted {

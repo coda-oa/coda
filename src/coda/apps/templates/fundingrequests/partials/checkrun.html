@@ -1,12 +1,19 @@
 {% if checks %}
     <div>
         <p>Last run: {{ checks.timestamp }}</p>
-        <ul>
+        <ul class="mb-1">
             {% for checkrun in checks %}
-                <li class="mb-1 fundingrequest-check {% if checkrun.result.is_successful %}check-success{% else %}check-failure{% endif %}">
-                    <p>
-                        <b>{{ checkrun.check_name }}</b>
-                    </p>
+                <li class="fundingrequest-check {% if checkrun.result.is_successful %}check-success{% else %}check-failure{% endif %}">
+                    <div>
+                        <p>
+                            <b>{{ checkrun.check_name }}</b>
+                        </p>
+                        {% if not checkrun.result.is_successful %}
+                            <p>
+                                <b>Failure reason:</b> {{ checkrun.result.reason }}
+                            </p>
+                        {% endif %}
+                    </div>
                 </li>
             {% endfor %}
         </ul>

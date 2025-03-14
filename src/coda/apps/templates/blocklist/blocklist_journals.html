@@ -1,5 +1,10 @@
 <div>
-    <h2 class="my-2">Journals</h2>
+    <div class="flex justify-between align-center">
+        <h2 class="my-2">Journals</h2>
+        <a href="{% url "publishing:journals:list" %}"
+           role="button"
+           class="secondary">Block Journals</a>
+    </div>
     {% for blocked_journal in journals %}
         <article class="flex justify-between align-center">
             <div>

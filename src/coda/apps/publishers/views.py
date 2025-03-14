@@ -1,27 +1,51 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from django import forms
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpRequest
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, UpdateView
 
-from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.blocklist.models import BlockList
+from coda.apps.domainqueryset import DomainModelProtocol, DomainQuerySet
 from coda.apps.publishers.models import Publisher
 from coda.apps.views import EntityListView
 
 
-class PublisherListView(LoginRequiredMixin, EntityListView[Publisher]):
+@dataclass(slots=True, frozen=True)
+class PublisherViewModel(DomainModelProtocol[int]):
+    id: int
+    name: str
+    is_blocked: bool
+
+
+class PublisherListView(LoginRequiredMixin, EntityListView[PublisherViewModel]):
     entity_list_item_template = "publishers/publisher_list_item.html"
     entity_name = "Publishers"
     entity_create_url = "publishing:publishers:create"
     use_generic_entity_filter = True
 
-    def get_entities(self, request: Any) -> Sequence[Publisher]:
+    def setup(self, request: HttpRequest, *args: Any, **kwargs: Any) -> None:
+        super().setup(request, *args, **kwargs)
+        self.blocklist = BlockList.objects.get()
+
+    def get_entities(self, request: Any) -> Sequence[PublisherViewModel]:
         return DomainQuerySet(
             Publisher.objects.filter(name__icontains=request.GET.get("query", "")).order_by("name"),
-            lambda p: p,
+            self.publisher_viewmodel,
         )
+
+    def publisher_viewmodel(self, publisher: Publisher) -> PublisherViewModel:
+        return PublisherViewModel(
+            id=publisher.id,
+            name=publisher.name,
+            is_blocked=self.is_publisher_blocked(publisher),
+        )
+
+    def is_publisher_blocked(self, publisher: Publisher) -> bool:
+        return self.blocklist.is_publisher_blocked(publisher)
 
 
 class PublisherForm(forms.ModelForm[Publisher]):

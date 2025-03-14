@@ -1,12 +1,15 @@
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, UpdateView
 
+from coda.apps.blocklist.models import BlockList
 from coda.apps.journals import services
 from coda.apps.journals.forms import JournalForm
 from coda.apps.journals.models import Journal
@@ -17,6 +20,11 @@ class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
     model = Journal
     slug_field = "eissn"
     slug_url_kwarg = "eissn"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        ctx["is_blocked"] = BlockList.objects.get().is_journal_blocked(self.object)
+        return ctx
 
 
 journal_detail_view = JournalDetailView.as_view()
@@ -71,3 +79,14 @@ class JournalUpdateView(LoginRequiredMixin, UpdateView[Journal, JournalForm]):
 
 
 journal_update_view = JournalUpdateView.as_view()
+
+
+@login_required
+def block_journal(request: HttpRequest, pk: int) -> HttpResponse:
+    reason = request.POST.get("reason", "PREDATORY")
+    journal = get_object_or_404(Journal, pk=pk)
+
+    blocklist = BlockList.objects.get()
+    blocklist.block_journal(journal, reason)
+
+    return cast(HttpResponse, journal_detail_view(request, eissn=journal.eissn))

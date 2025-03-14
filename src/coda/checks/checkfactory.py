@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
 from typing import Final
 
+from coda.checks.blockcheck import BlockCheck
 from coda.checks.checklist import Check, Checklist
 from coda.checks.doajcheck import DoajCheck
-from coda.publication import BasePublication, Publication, PublicationKind
+from coda.publication import BasePublication, Monograph, Publication, PublicationKind
 
 CheckType = type[Check]
 
@@ -35,3 +36,6 @@ class CheckFactory:
 
 checkfactory: Final = CheckFactory()
 checkfactory.register(Publication, DoajCheck)
+checkfactory.register(Publication, BlockCheck)
+
+checkfactory.register(Monograph, BlockCheck)
