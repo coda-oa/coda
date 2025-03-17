@@ -5,6 +5,7 @@ from django.http import HttpRequest
 from django.urls import reverse
 
 from coda.apps.fundingrequests import repository
+from coda.apps.fundingrequests.services import fundingrequests
 from coda.apps.fundingrequests.views.wizard.parse_store import monograph_dto_from
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
@@ -12,8 +13,8 @@ from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
     PublisherStepDto,
 )
 from coda.apps.publications.dto import MonographDto
-from coda.apps.publications.repositories import publication_repository
 from coda.apps.wizard import SessionStore, Wizard
+from coda.fundingrequest import FundingRequestId
 
 
 class MonographUpdateMetaView(Wizard):
@@ -40,7 +41,5 @@ class MonographUpdateMetaView(Wizard):
     def complete(self, /, **kwargs: Any) -> None:
         logging.info("Completing MonographUpdateMetaView")
         pk = kwargs["pk"]
-        fr = repository.get_monograph_request(pk)
         dto = monograph_dto_from(self.get_store())
-        publication = dto.to_monograph(fr.publication.id)
-        publication_repository.save(publication)
+        fundingrequests.update_publication(FundingRequestId(pk), dto)
