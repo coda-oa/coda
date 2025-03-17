@@ -24,15 +24,21 @@ class BlockCheck:
             publisher = journal.publisher
 
             journal_blocked = blocklist.is_journal_blocked(journal)
+            if journal_blocked:
+                return CheckFailed(reason=f'Journal "{journal.title}" is on the blocklist')
+
             publisher_blocked = blocklist.is_publisher_blocked(publisher)
-            if journal_blocked or publisher_blocked:
-                return CheckFailed(reason="Journal or publisher is on the blocklist")
+            if publisher_blocked:
+                return self.publisher_blocked_result(publisher)
 
         elif isinstance(fundingrequest.publication, Monograph):
             publisher_id = fundingrequest.publication.publisher
             publisher = Publisher.objects.get(pk=publisher_id)
             publisher_blocked = blocklist.is_publisher_blocked(publisher)
             if publisher_blocked:
-                return CheckFailed(reason="Publisher is on the blocklist")
+                return self.publisher_blocked_result(publisher)
 
         return CheckSuccessful()
+
+    def publisher_blocked_result(self, publisher: Publisher) -> CheckFailed:
+        return CheckFailed(reason=f"Publisher {publisher.name} is on the blocklist")
