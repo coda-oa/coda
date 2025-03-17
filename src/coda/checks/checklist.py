@@ -8,6 +8,7 @@ from coda.fundingrequest import FundingRequest, FundingRequestId, TPublication
 
 @dataclass(frozen=True, slots=True)
 class CheckSuccessful:
+    message: str = ""
     data: dict[str, str | int] = field(default_factory=dict)
 
     def is_successful(self) -> bool:
@@ -22,7 +23,11 @@ class CheckSuccessful:
 
 @dataclass(frozen=True, slots=True)
 class CheckFailed:
-    reason: str
+    message: str = ""
+
+    @property
+    def reason(self) -> str:
+        return self.message
 
     def is_successful(self) -> bool:
         return False
@@ -31,7 +36,7 @@ class CheckFailed:
         return False
 
     def __str__(self) -> str:
-        return f"Check failed: {self.reason}"
+        return f"Check failed: {self.message}"
 
 
 CheckResult = CheckSuccessful | CheckFailed

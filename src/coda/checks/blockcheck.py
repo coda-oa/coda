@@ -11,7 +11,7 @@ class BlockCheck:
 
     @property
     def name(self) -> str:
-        return self.description
+        return "Blocklist Check"
 
     @property
     def description(self) -> str:
@@ -25,11 +25,13 @@ class BlockCheck:
 
             journal_blocked = blocklist.is_journal_blocked(journal)
             if journal_blocked:
-                return CheckFailed(reason=f'Journal "{journal.title}" is on the blocklist')
+                return CheckFailed(message=f'Journal "{journal.title}" is on the blocklist')
 
             publisher_blocked = blocklist.is_publisher_blocked(publisher)
             if publisher_blocked:
                 return self.publisher_blocked_result(publisher)
+
+            return CheckSuccessful(message="Journal and publisher are not on the blocklist")
 
         elif isinstance(fundingrequest.publication, Monograph):
             publisher_id = fundingrequest.publication.publisher
@@ -38,7 +40,10 @@ class BlockCheck:
             if publisher_blocked:
                 return self.publisher_blocked_result(publisher)
 
-        return CheckSuccessful()
+            return CheckSuccessful(message="Monograph publisher is not on the blocklist")
+
+        else:
+            raise ValueError("Invalid publication type")
 
     def publisher_blocked_result(self, publisher: Publisher) -> CheckFailed:
-        return CheckFailed(reason=f"Publisher {publisher.name} is on the blocklist")
+        return CheckFailed(message=f"Publisher {publisher.name} is on the blocklist")

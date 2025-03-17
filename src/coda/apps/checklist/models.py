@@ -8,6 +8,7 @@ class CheckRun(models.Model):
     check_parameters = models.JSONField(default=dict)
     fundingrequest = models.ForeignKey(FundingRequest, on_delete=models.CASCADE)
 
+    message = models.TextField(blank=True)
     result = models.CharField(max_length=255)
     result_data = models.JSONField(default=dict)
 

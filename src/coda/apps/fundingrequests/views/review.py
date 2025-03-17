@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from coda.apps.fundingrequests import repository
+from coda.apps.fundingrequests.services import checks
 from coda.fundingrequest import Review
 from coda.fundingrequest import FundingRequestId
 from coda.money import Currency, Money
@@ -20,6 +21,7 @@ def review_page(request: HttpRequest, pk: int) -> HttpResponse:
             "fundingrequest": fr,
             "currencies": list(Currency),
             "selected_currency": fr.funding_amount.currency,
+            "checks": checks.get_checkrun(FundingRequestId(pk)),
         },
     )
 

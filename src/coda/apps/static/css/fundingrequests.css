@@ -68,7 +68,7 @@ li.fundingrequest-check {
         content: '';
         display: inline-block;
 
-        width: 1rem;
+        min-width: 1rem;
         height: 1rem;
         margin-inline-end: 0.5rem;
 

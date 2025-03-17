@@ -21,13 +21,11 @@ def doaj_journal() -> DoajListedJournal:
 
 
 def doaj_journal_dict() -> dict[str, str | int]:
-    return {
-        "title": "Materials Today Quantum",
-        "publisher": "Elsevier",
-        "issn": "2950-2578",
-        "apc": "2770.00 USD",
-        "doaj_url": "https://doaj.org/toc/2950-2578",
-    }
+    return {"APC": "2770.00 USD"}
+
+
+def doaj_url() -> str:
+    return f'<a href="{doaj_journal().doaj_url}">{doaj_journal().doaj_url}</a>'
 
 
 @dataclass
@@ -49,7 +47,7 @@ def test__doaj_check__listing_required__journal_in_doaj__is_successful() -> None
 
     result = check(fundingrequest)
 
-    assert result == CheckSuccessful(data=doaj_journal_dict())
+    assert result == CheckSuccessful(message=doaj_url(), data=doaj_journal_dict())
 
 
 def test__doaj_check__listing_required__journal_not_in_doaj__fails() -> None:

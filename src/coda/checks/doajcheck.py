@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from typing import Any, Protocol
+
 from typing_extensions import TypeIs
 
 from coda import doaj
@@ -29,7 +30,7 @@ class DoajCheck:
 
     @property
     def name(self) -> str:
-        return "Check DOAJ listing"
+        return "DOAJ Check"
 
     @property
     def description(self) -> str:
@@ -43,16 +44,13 @@ class DoajCheck:
         if journal is None:
             return CheckFailed("Journal not listed in DOAJ")
 
-        return CheckSuccessful(data=self._to_dict(journal))
+        return CheckSuccessful(message=self._format_doaj_url(journal), data=self._to_dict(journal))
 
     def _to_dict(self, doaj_journal: doaj.DoajListedJournal) -> dict[str, str | int]:
-        return {
-            "title": doaj_journal.title,
-            "publisher": doaj_journal.publisher,
-            "issn": doaj_journal.issn,
-            "apc": self._format_apc_price(doaj_journal),
-            "doaj_url": doaj_journal.doaj_url,
-        }
+        return {"APC": self._format_apc_price(doaj_journal)}
+
+    def _format_doaj_url(self, doaj_journal: doaj.DoajListedJournal) -> str:
+        return f'<a href="{doaj_journal.doaj_url}">{doaj_journal.doaj_url}</a>'
 
     def _format_apc_price(self, doaj_journal: doaj.DoajListedJournal) -> str:
         apc = doaj_journal.apc

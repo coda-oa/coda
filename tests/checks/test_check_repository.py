@@ -27,7 +27,9 @@ class CheckStub:
 
     @classmethod
     def successful(cls) -> "CheckStub":
-        check = cls(result=CheckSuccessful({"some_data": "some_value"}))
+        check = cls(
+            result=CheckSuccessful(message="Success Message", data={"some_data": "some_value"})
+        )
         check.params = {"param1": "success_value"}
         return check
 

@@ -8,11 +8,8 @@
                         <p>
                             <b>{{ checkrun.check_name }}</b>
                         </p>
-                        {% if not checkrun.result.is_successful %}
-                            <p>
-                                <b>Failure reason:</b> {{ checkrun.result.reason }}
-                            </p>
-                        {% endif %}
+                        {% if checkrun.result.message %}<p>{{ checkrun.result.message|safe }}</p>{% endif %}
+                        {% for k, v in checkrun.result.data.items %}<p>{{ k }}: {{ v }}</p>{% endfor %}
                     </div>
                 </li>
             {% endfor %}

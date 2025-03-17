@@ -31,11 +31,7 @@ def _get_by_fundingrequest_id(fundingrequest_id: FundingRequestId) -> QuerySet[C
 
 
 def _to_checkrun_model(check: CheckRun) -> CheckRunModel:
-    data = (
-        check.result.data or {}
-        if isinstance(check.result, CheckSuccessful)
-        else {"reason": check.result.reason}
-    )
+    data = check.result.data if isinstance(check.result, CheckSuccessful) else {}
     result_type = "success" if isinstance(check.result, CheckSuccessful) else "failure"
     return CheckRunModel(
         fundingrequest_id=check.fundingrequest,
@@ -43,6 +39,7 @@ def _to_checkrun_model(check: CheckRun) -> CheckRunModel:
         check_parameters=check.check.params,
         result=result_type,
         result_data=data,
+        message=check.result.message,
         timestamp=check.timestamp,
     )
 
@@ -51,9 +48,9 @@ def _restore_checkrun(
     checkrun_model: CheckRunModel, restoring_checkfactory: CheckFactory
 ) -> CheckRun:
     result = (
-        CheckSuccessful(checkrun_model.result_data)
+        CheckSuccessful(message=checkrun_model.message, data=checkrun_model.result_data)
         if checkrun_model.result == "success"
-        else CheckFailed(checkrun_model.result_data["reason"])
+        else CheckFailed(checkrun_model.message)
     )
 
     check = restoring_checkfactory.create(checkrun_model.check_name)
