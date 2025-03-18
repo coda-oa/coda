@@ -18,7 +18,7 @@ FUNDING_REQUEST_ID = FundingRequestId(1)
 class CheckSpy:
     @classmethod
     def successful(cls, name: str, description: str) -> "CheckSpy":
-        return cls(name, description, CheckSuccessful({}))
+        return cls(name, description, CheckSuccessful(data={}))
 
     @classmethod
     def failing(cls, name: str, description: str) -> "CheckSpy":

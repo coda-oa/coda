@@ -13,10 +13,10 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import LinkDto, MonographDto, PublicationDto
 from coda.apps.publications.forms import PublicationForm
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.author import AuthorNames, Role
+from coda.author import AuthorNames, InstitutionId, Role
 from coda.publication import Authors
 from coda.vocabulary import Vocabulary, VocabularyConcept
-from tests import domainfactory
+from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.wizard.stepdata import publication_step
 from tests.test_wizard import DictStore
@@ -275,6 +275,28 @@ def test__publication_step__invalid_links__is_invalid(invalid_link: tuple[str, s
     request = request_factory.post("/", stepdata)
 
     assert not sut.is_valid(request, store)
+
+
+@pytest.mark.django_db
+def test__existing_author_with_disabled_affiliation_in_store__using_disabled_affiliation_is_valid() -> (
+    None
+):
+    affiliation = modelfactory.institution(enabled=False)
+    publication = domainfactory.publication()
+    publication.relevant_authors = Authors(
+        [domainfactory.author(affiliation=InstitutionId(affiliation.pk))]
+    )
+    publication_dto = PublicationDto.from_publication(publication)
+
+    store = DictStore()
+    store["publication_step"] = publication_dto.to_post_data()
+    store.save()
+
+    sut = PublicationStep()
+    stepdata = publication_step.stepdata(publication_dto)
+    request = request_factory.post("/", stepdata)
+
+    assert sut.is_valid(request, store)
 
 
 def create_vocabularies() -> None:

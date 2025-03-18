@@ -1,12 +1,16 @@
 import datetime
+import itertools
 import random
 from collections.abc import Iterable
-from typing import Protocol
+from typing import Protocol, overload
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraInformationDto, PaymentDto
 from coda.apps.fundingrequests.services.checks import run_checks
+from coda.apps.institutions import repository as institution_repository
+from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import PublicationBaseDto
+from coda.author import Author
 from coda.checks.checkfactory import CheckFactory
 from coda.fundingrequest import FundingRequest, FundingRequestId
 from coda.fundingrequest.identity import PublicFundingRequestId
@@ -83,3 +87,31 @@ def update_funding(
         map(ExternalFundingDto.to_external_funding, funding),
     )
     run_checks(fundingrequest_id, checkfactory=checkfactory)
+
+
+@overload
+def get_institutions_allowed_as_affiliation(
+    for_authors: Iterable[Author],
+) -> Iterable[Institution]:
+    ...
+
+
+@overload
+def get_institutions_allowed_as_affiliation() -> Iterable[Institution]:
+    ...
+
+
+def get_institutions_allowed_as_affiliation(
+    for_authors: Iterable[Author] = (),
+) -> Iterable[Institution]:
+    allowed_institutions = tuple(institution_repository.non_virtuals())
+    author_affiliations = {author.affiliation for author in for_authors if author.affiliation}
+    author_affiliations = {
+        affiliation
+        for affiliation in author_affiliations
+        if not any(affiliation == inst.pk for inst in allowed_institutions)
+    }
+    author_institutions = (
+        institution_repository.get_by_id(affiliation) for affiliation in author_affiliations
+    )
+    return itertools.chain(author_institutions, allowed_institutions)

@@ -28,8 +28,8 @@ def _issn() -> str:
     return f"{digits[:4]}-{digits[4:]}{checksum}"
 
 
-def institution() -> Institution:
-    return Institution.objects.create(name=_faker.company())
+def institution(enabled: bool = True) -> Institution:
+    return Institution.objects.create(name=_faker.company(), virtual=not enabled)
 
 
 def publisher() -> Publisher:

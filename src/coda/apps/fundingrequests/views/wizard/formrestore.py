@@ -46,11 +46,11 @@ def restore_formset(
         total_forms = f"{prefix}-{total_forms}"
 
     if request.POST.get(total_forms):
-        logging.info(f"Restoring formset {formset_type.__name__} with POST data")
+        logging.info(f"Restoring formset {formset_type} with POST data")
         return formset_type(request.POST, prefix=prefix, **kwargs)
     elif store_data:
-        logging.info(f"Restoring formset {formset_type.__name__} with stored data")
+        logging.info(f"Restoring formset {formset_type} with stored data")
         return formset_type.from_data(store_data, prefix=prefix, **kwargs)
     else:
-        logging.info(f"Creating empty formset {formset_type.__name__}")
+        logging.info(f"Creating empty formset {formset_type}")
         return formset_type(**kwargs, prefix=prefix)

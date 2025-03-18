@@ -8,6 +8,7 @@ from django.shortcuts import render
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorFormset
 from coda.apps.dto import CodaBaseDto
+from coda.apps.fundingrequests.services import fundingrequests
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.publications.dto import LinkDto, PublicationMetaDto
 from coda.apps.publications.forms import LinkForm, PublicationForm
@@ -60,15 +61,24 @@ class PublicationStep(Step):
         }
 
     def get_author_formset(self, request: HttpRequest, store: Store) -> AuthorFormset:
-        return cast(
+        relevant_authors = store.get("publication_step", {}).get("relevant_authors", [])
+        authors = [AuthorDto(**author).to_author() for author in relevant_authors]
+
+        formset_class = AuthorFormset.use_institutions(
+            fundingrequests.get_institutions_allowed_as_affiliation(for_authors=authors)
+        )
+
+        formset = cast(
             AuthorFormset,
             restore_formset(
-                AuthorFormset,
+                formset_class,
                 request,
-                store_data=store.get("publication_step", {}).get("relevant_authors", []),
+                store_data=relevant_authors,
                 prefix="relevant-authors",
             ),
         )
+
+        return formset
 
     def get_publication_form(self, request: HttpRequest, store: Store) -> PublicationForm:
         step_dto = store.get("publication_step")
@@ -128,7 +138,11 @@ class PublicationStep(Step):
         store.save()
 
     def all_valid(self, forms: Iterable[FormLike]) -> bool:
-        return all(form.is_valid() for form in forms)
+        for form in forms:
+            if not form.is_valid():
+                return False
+
+        return True
 
     def clean_all(self, forms: Iterable[FormLike]) -> None:
         for form in forms:

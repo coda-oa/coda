@@ -1,6 +1,6 @@
 import datetime
 import random
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 
 import pytest
 
@@ -12,7 +12,9 @@ from coda.apps.fundingrequests.dto import (
     PaymentDto,
 )
 from coda.apps.fundingrequests.repository import get_by_id
+from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import PublicationDto
+from coda.author import InstitutionId
 from coda.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
@@ -183,6 +185,59 @@ def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_exte
     updated = get_by_id(new_id)
     assert updated.estimated_cost == new_cost
     assert list(updated.external_funding) == list(new_funding)
+
+
+@pytest.mark.django_db
+def test__get_institutions__returns_enabled_institutions() -> None:
+    enabled = modelfactory.institution(enabled=True)
+    disabled = modelfactory.institution(enabled=False)  # noqa
+
+    institutions = services.fundingrequests.get_institutions_allowed_as_affiliation()
+
+    assert list(institutions) == [enabled]
+
+
+@pytest.mark.django_db
+def test__authors_with_disabled_institutions_as_affiliation__get_institutions__returns_enabled_institutions_and_currently_set_disabled_institution() -> (
+    None
+):
+    enabled = modelfactory.institution(enabled=True)
+    disabled_affiliation_1 = modelfactory.institution(enabled=False)
+    disabled_affiliation_2 = modelfactory.institution(enabled=False)
+    should_not_include = modelfactory.institution(enabled=False)  # noqa
+
+    first_author = domainfactory.author(affiliation=InstitutionId(disabled_affiliation_1.pk))
+    second_author = domainfactory.author(affiliation=InstitutionId(disabled_affiliation_2.pk))
+
+    institutions = services.fundingrequests.get_institutions_allowed_as_affiliation(
+        for_authors=[first_author, second_author]
+    )
+
+    expected_institutions = [enabled, disabled_affiliation_1, disabled_affiliation_2]
+    assert_contains_expected_institutions(institutions, expected_institutions)
+
+
+@pytest.mark.django_db
+def test__author_with_enabled_institution_as_affiliation__get_institutions__returns_enabled_institutions_without_duplicates() -> (
+    None
+):
+    affiliation = modelfactory.institution(enabled=True)
+    author = domainfactory.author(affiliation=InstitutionId(affiliation.pk))
+
+    institutions = services.fundingrequests.get_institutions_allowed_as_affiliation(
+        for_authors=[author]
+    )
+
+    assert_contains_expected_institutions(institutions, [affiliation])
+
+
+def assert_contains_expected_institutions(
+    actual: Iterable[Institution], expected: Iterable[Institution]
+) -> None:
+    expected_institution_set = set(expected)
+    actual_tuple = tuple(actual)
+    assert len(actual_tuple) == len(expected_institution_set)
+    assert set(actual_tuple) == expected_institution_set
 
 
 def assert_fundingrequest_eq(actual: AnyFundingRequest, expected: AnyFundingRequest) -> None:

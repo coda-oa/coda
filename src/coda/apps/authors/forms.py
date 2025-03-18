@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from functools import cache
 from typing import Any
 
@@ -63,6 +63,20 @@ class AuthorFormset(HtmxDynamicFormset[AuthorForm]):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.errors = ErrorList()
+
+    @classmethod
+    def use_institutions(cls, institutions: Iterable[Institution]) -> "type[AuthorFormset]":
+        class AuthorFormWithInstitutions(AuthorForm):
+            affiliation = forms.ChoiceField(
+                choices=((inst.pk, inst.name) for inst in institutions),
+                required=False,
+                widget=widgets.SearchSelectWidget,
+            )
+
+        class AuthorFormsetWithInstitutions(AuthorFormset):
+            form_class = AuthorFormWithInstitutions
+
+        return AuthorFormsetWithInstitutions
 
     @cache
     def to_dtos(self) -> list[AuthorDto]:
