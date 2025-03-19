@@ -68,7 +68,10 @@ class AuthorFormset(HtmxDynamicFormset[AuthorForm]):
     def use_institutions(cls, institutions: Iterable[Institution]) -> "type[AuthorFormset]":
         class AuthorFormWithInstitutions(AuthorForm):
             affiliation = forms.ChoiceField(
-                choices=((inst.pk, inst.name) for inst in institutions),
+                choices=(
+                    (None, "-------"),
+                    *((inst.pk, inst.name) for inst in institutions),
+                ),
                 required=False,
                 widget=widgets.SearchSelectWidget,
             )
