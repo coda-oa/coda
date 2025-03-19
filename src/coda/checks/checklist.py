@@ -14,8 +14,8 @@ class CheckSuccessful:
     def is_successful(self) -> bool:
         return True
 
-    def __bool__(self) -> bool:
-        return True
+    def is_failed(self) -> bool:
+        return False
 
     def __str__(self) -> str:
         return "Check successful"
@@ -32,14 +32,28 @@ class CheckFailed:
     def is_successful(self) -> bool:
         return False
 
-    def __bool__(self) -> bool:
-        return False
+    def is_failed(self) -> bool:
+        return True
 
     def __str__(self) -> str:
         return f"Check failed: {self.message}"
 
 
-CheckResult = CheckSuccessful | CheckFailed
+@dataclass(frozen=True, slots=True)
+class CheckWarning:
+    message: str = ""
+
+    def is_successful(self) -> bool:
+        return False
+
+    def is_failed(self) -> bool:
+        return False
+
+    def __str__(self) -> str:
+        return f"Check warning: {self.message}"
+
+
+CheckResult = CheckSuccessful | CheckFailed | CheckWarning
 
 
 @dataclass(frozen=True, slots=True)

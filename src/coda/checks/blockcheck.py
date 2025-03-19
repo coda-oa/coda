@@ -1,7 +1,7 @@
 from coda.apps.blocklist.models import BlockList
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
-from coda.checks.checklist import CheckFailed, CheckResult, CheckSuccessful
+from coda.checks.checklist import CheckFailed, CheckResult, CheckSuccessful, CheckWarning
 from coda.fundingrequest import FundingRequest, TPublication
 from coda.publication import Monograph, Publication
 
@@ -23,9 +23,12 @@ class BlockCheck:
             journal = Journal.objects.get(pk=fundingrequest.publication.journal)
             publisher = journal.publisher
 
-            journal_blocked = blocklist.is_journal_blocked(journal)
-            if journal_blocked:
-                return CheckFailed(message=f'Journal "{journal.title}" is on the blocklist')
+            blocked_journal = blocklist.get_blocked_journal(journal)
+            if blocked_journal:
+                if blocked_journal.needs_review():
+                    return self.journal_blocked_warning(journal)
+
+                return self.journal_blocked_result(journal)
 
             publisher_blocked = blocklist.is_publisher_blocked(publisher)
             if publisher_blocked:
@@ -44,6 +47,14 @@ class BlockCheck:
 
         else:
             raise ValueError("Invalid publication type")
+
+    def journal_blocked_result(self, journal: Journal) -> CheckFailed:
+        return CheckFailed(message=f'Journal "{journal.title}" is on the blocklist')
+
+    def journal_blocked_warning(self, journal: Journal) -> CheckWarning:
+        return CheckWarning(
+            message=f'Journal "{journal.title}" is on the blocklist, but needs a review'
+        )
 
     def publisher_blocked_result(self, publisher: Publisher) -> CheckFailed:
         return CheckFailed(message=f"Publisher {publisher.name} is on the blocklist")

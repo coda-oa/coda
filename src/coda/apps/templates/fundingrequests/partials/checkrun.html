@@ -3,7 +3,7 @@
         <p>Last run: {{ checks.timestamp }}</p>
         <ul class="mb-1">
             {% for checkrun in checks %}
-                <li class="fundingrequest-check {% if checkrun.result.is_successful %}check-success{% else %}check-failure{% endif %}">
+                <li class="fundingrequest-check {% if checkrun.result.is_successful %}check-success{% elif checkrun.result.is_failed %}check-failure{% else %}check-warning{% endif %}">
                     <div>
                         <p>
                             <b>{{ checkrun.check_name }}</b>

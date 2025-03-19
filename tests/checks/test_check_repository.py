@@ -7,7 +7,7 @@ import pytest
 from coda.apps.checklist import repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 import coda.checks.checkfactory
-from coda.checks.checklist import CheckFailed, CheckResult, CheckRun, CheckSuccessful
+from coda.checks.checklist import CheckFailed, CheckResult, CheckRun, CheckSuccessful, CheckWarning
 from coda.fundingrequest import (
     FundingOrganizationId,
     FundingRequest,
@@ -39,6 +39,11 @@ class CheckStub:
         check.params = {"param1": "failed_value"}
         return check
 
+    @classmethod
+    def warning(cls) -> "CheckStub":
+        check = cls(result=CheckWarning("Passed with a warning"))
+        return check
+
     def __call__(self, fundingrequest: FundingRequest[TPublication]) -> CheckResult:
         return self.result
 
@@ -52,15 +57,17 @@ def test__saving_checkrun_for_fundingrequest__get__returns_checkrun() -> None:
 
     first_run = checkrun_for(fundingrequest_id, CheckStub.successful())
     second_run = checkrun_for(fundingrequest_id, CheckStub.failed())
+    third_run = checkrun_for(fundingrequest_id, CheckStub.warning())
 
-    repository.save([first_run, second_run])
+    repository.save([first_run, second_run, third_run])
 
     checkruns = repository.get(fundingrequest_id, checkfactory)
 
     checkruns_casted = cast(list[CheckRun], list(checkruns))
-    first_actual, second_actual = checkruns_casted
+    first_actual, second_actual, third_actual = checkruns_casted
     assert_checkrun_eq(first_actual, first_run)
     assert_checkrun_eq(second_actual, second_run)
+    assert_checkrun_eq(third_actual, third_run)
 
 
 @pytest.mark.django_db

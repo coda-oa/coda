@@ -64,6 +64,10 @@ li.fundingrequest-check {
         --_check-background-color: var(--coda-validation-valid-color);
     }
 
+    &.check-warning {
+        --_check-background-color: rgb(205, 130, 10);
+    }
+
     &::before {
         content: '';
         display: inline-block;
@@ -106,6 +110,12 @@ li.fundingrequest-check {
 .label.danger {
     --label-border-color: var(--coda-validation-invalid-color);
     --label-bg-color: var(--coda-validation-invalid-color);
+}
+
+.label.warning {
+    --coda-warning-color: rgb(205, 130, 10);
+    --label-border-color: var(--coda-warning-color);
+    --label-bg-color: var(--coda-warning-color);
 }
 
 a:has(.label) {

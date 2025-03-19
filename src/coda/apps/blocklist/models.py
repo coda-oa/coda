@@ -32,6 +32,9 @@ class BlockedJournal(models.Model):
         self.confirmed_at = now or timezone.now()
         self.save()
 
+    def needs_review(self, now: datetime | None = None) -> bool:
+        return self.confirmed_at < (now or timezone.now()) - self.blocklist.recommend_review_after
+
     class Meta:
         unique_together = ("blocklist", "journal")
 
@@ -67,15 +70,16 @@ class BlockList(models.Model):
     recommend_review_after = models.DurationField(default=timedelta(days=SIX_MONTHS))
 
     def block_journal(self, journal: Journal, reason: str, now: datetime | None = None) -> None:
-        blocked_journal = BlockedJournal.objects.filter(blocklist=self, journal=journal)
+        blocked_journal_filter = BlockedJournal.objects.filter(blocklist=self, journal=journal)
         now = now or timezone.now()
-        if blocked_journal.exists():
-            blocked_journal.update(reason=reason, confirmed_at=now)
+        if blocked_journal_filter.exists():
+            blocked_journal_filter.update(reason=reason, confirmed_at=now)
             return
 
-        BlockedJournal.objects.create(
-            blocklist=self, journal=journal, reason=reason, confirmed_at=now
+        blocked_journal = BlockedJournal.objects.create(
+            blocklist=self, journal=journal, reason=reason
         )
+        blocked_journal.confirm_block(now)
 
     def unblock_journal(self, journal: Journal) -> None:
         BlockedJournal.objects.filter(blocklist=self, journal=journal).delete()
@@ -106,6 +110,9 @@ class BlockList(models.Model):
 
     def is_journal_blocked(self, journal: Journal) -> bool:
         return BlockedJournal.objects.filter(blocklist=self, journal=journal).exists()
+
+    def get_blocked_journal(self, journal: Journal) -> BlockedJournal | None:
+        return BlockedJournal.objects.filter(blocklist=self, journal=journal).first()
 
     def is_publisher_blocked(self, publisher: Publisher) -> bool:
         return BlockedPublisher.objects.filter(blocklist=self, publisher=publisher).exists()
