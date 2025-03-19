@@ -85,9 +85,13 @@ def confirm_block(request: HttpRequest, pk: int) -> HttpResponse:
     journal = get_object_or_404(Journal, pk=pk)
 
     blocklist = BlockList.objects.get()
-    blocklist.confirm_journal_block(journal)
+    blocked_journal = blocklist.confirm_journal_block(journal)
 
-    return HttpResponse()
+    return render(
+        request,
+        "blocklist/blocklist_journal_entry.html",
+        context={"blocked_journal": blocked_journal},
+    )
 
 
 @login_required

@@ -104,9 +104,12 @@ class BlockList(models.Model):
             blockedjournal__confirmed_at__lt=now or timezone.now() - self.recommend_review_after,
         )
 
-    def confirm_journal_block(self, journal: Journal, now: datetime | None = None) -> None:
+    def confirm_journal_block(
+        self, journal: Journal, now: datetime | None = None
+    ) -> BlockedJournal:
         blocked_journal = BlockedJournal.objects.get(blocklist=self, journal=journal)
         blocked_journal.confirm_block(now)
+        return blocked_journal
 
     def is_journal_blocked(self, journal: Journal) -> bool:
         return BlockedJournal.objects.filter(blocklist=self, journal=journal).exists()
