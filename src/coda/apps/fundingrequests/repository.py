@@ -43,6 +43,7 @@ def save(fundingrequest: AnyFundingRequest) -> FundingRequestId:
     if not fundingrequest.id:
         fr = FundingRequestModel()
         fr.review = FundingRequestReview.objects.create()
+        _save_review(fundingrequest._review, fr.review)
     else:
         fr = FundingRequestModel.objects.get(pk=fundingrequest.id)
 
@@ -60,6 +61,10 @@ def save(fundingrequest: AnyFundingRequest) -> FundingRequestId:
 @transaction.atomic
 def save_review(review: Review) -> None:
     review_model = FundingRequestReview.objects.filter(fundingrequest=review.fundingrequest).get()
+    _save_review(review, review_model)
+
+
+def _save_review(review: Review, review_model: FundingRequestReview) -> None:
     review_model.review_result = review.result.value
     review_model.decided_funding_amount = review.decided_funding.amount
     review_model.decided_funding_currency = review.decided_funding.currency.code
@@ -263,3 +268,7 @@ def search(
 
 def get_funding_organization(pk: int) -> FundingOrganization:
     return FundingOrganization.objects.get(pk=pk)
+
+
+def get_funding_organization_by_name(name: str) -> FundingOrganization | None:
+    return FundingOrganization.objects.filter(name=name).first()

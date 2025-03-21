@@ -240,7 +240,8 @@ def assert_contains_expected_institutions(
     assert set(actual_tuple) == expected_institution_set
 
 
-def assert_fundingrequest_eq(actual: AnyFundingRequest, expected: AnyFundingRequest) -> None:
+def assert_fundingrequest_eq(actual: AnyFundingRequest | None, expected: AnyFundingRequest) -> None:
+    assert actual is not None
     assert actual.request_date == expected.request_date
 
     assert_publication_eq(actual.publication, expected.publication)

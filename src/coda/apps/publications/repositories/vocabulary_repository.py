@@ -86,6 +86,17 @@ def first_by_name(name: str) -> VocabularyProtocol:
     return as_domain_object(v)
 
 
+def newest_base_vocabulary_by_name(name: str) -> Vocabulary:
+    vocabularies_by_name = VocabularyModel.objects.filter(name=name, is_limited=False)
+    vocabularies_by_name = vocabularies_by_name.order_by("-version")
+
+    v = vocabularies_by_name.first()
+    if not v:
+        raise EntityNotFoundError(Vocabulary, query_name="name", query_value=name)
+
+    return cast(Vocabulary, as_domain_object(v))
+
+
 def find_limited_by_base_vocabulary(base_vocabulary_id: VocabularyId) -> list[LimitedVocabulary]:
     return [
         cast(LimitedVocabulary, as_domain_object(v))

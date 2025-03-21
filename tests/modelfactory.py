@@ -79,8 +79,8 @@ def concept(vocabulary: Vocabulary | None = None) -> Concept:
     )
 
 
-def funding_organization() -> FundingOrganization:
-    return FundingOrganization.objects.create(name=_faker.company())
+def funding_organization(name: str = "") -> FundingOrganization:
+    return FundingOrganization.objects.create(name=name or _faker.company())
 
 
 def external_funding(funder_id: int | None = None) -> ExternalFunding:

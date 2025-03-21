@@ -18,6 +18,10 @@ class VocabularyProtocol(Protocol):
     name: str
     version: str
 
+    def has_concept(self, concept_id: str) -> bool:
+        """Check if a concept exists in the vocabulary"""
+        ...
+
     def get_concept(self, concept_id: str) -> "VocabularyConcept":
         """Get a concept by its concept ID unique to the vocabulary"""
         ...
@@ -84,6 +88,9 @@ class Vocabulary:
 
         raise ValueError(f"Concept ID {id} not found in vocabulary")
 
+    def has_concept(self, concept_id: str) -> bool:
+        return any(c.concept_id == concept_id for c in self._concepts)
+
     def get_concept(self, concept_id: str) -> VocabularyConcept:
         index = self._find_concept_index(concept_id)
         return self._concepts[index]
@@ -124,6 +131,9 @@ class LimitedVocabulary:
 
     def __post_init__(self) -> None:
         self._disallowed: set[str] = set()
+
+    def has_concept(self, concept_id: str) -> bool:
+        return concept_id not in self._disallowed and self.base_vocabulary.has_concept(concept_id)
 
     @property
     def concepts(self) -> Collection[VocabularyConcept]:

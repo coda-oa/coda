@@ -64,6 +64,14 @@ class OpenAccessType(enum.Enum):
 class Unpublished(NamedTuple):
     state: UnpublishedState = UnpublishedState.Unknown
 
+    @classmethod
+    def of(cls, state: str) -> "Unpublished":
+        try:
+            state_with_first_upper = state[0].upper() + state[1:]
+            return cls(UnpublishedState(state_with_first_upper))
+        except ValueError:
+            raise ValueError(f"Unknown unpublished state: {state}")
+
     def name(self) -> str:
         return self.state.name
 

@@ -26,6 +26,14 @@ def all() -> Sequence[Contract]:
     return DomainQuerySet(ContractModel.objects.all(), as_domain_object)
 
 
+def get_by_name(name: str) -> Contract | None:
+    contract = ContractModel.objects.filter(name=name).first()
+    if not contract:
+        return None
+
+    return as_domain_object(contract)
+
+
 def as_domain_object(contract_model: ContractModel) -> Contract:
     return Contract(
         id=ContractId(contract_model.pk),

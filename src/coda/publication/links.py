@@ -180,6 +180,10 @@ class Url:
 _LinkTypes = {t.type(): t for t in (Doi, Isbn, Url)}
 
 
+def link_types() -> list[str]:
+    return list(_LinkTypes.keys())
+
+
 def create_link(link_type: str, link_value: str) -> Link:
     link_constructor = _LinkTypes.get(link_type)
     if not link_constructor:

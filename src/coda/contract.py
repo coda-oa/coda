@@ -36,7 +36,7 @@ class Contract:
     def new(
         cls,
         name: NonEmptyStr,
-        publishers: Iterable[PublisherId],
+        publishers: Iterable[PublisherId] = (),
         period: DateRange = DateRange.create(),
         journals: Iterable["JournalId"] = (),
         publication_billing: PublicationBilling = PublicationBilling.Individually,
