@@ -10,8 +10,11 @@ from coda.apps.publishers.models import Publisher
 from coda.contract import Contract, PublisherId
 from coda.publication import (
     Authors,
+    BasePublication,
     JournalId,
     License,
+    Link,
+    Monograph,
     OpenAccessType,
     Publication,
     PublicationState,
@@ -74,21 +77,39 @@ class PublicationImportDto(pydantic.BaseModel):
     subject_area: ConceptImportDto
     publication_type: ConceptImportDto
 
-    def parse(self) -> Publication:
+    def parse(self) -> BasePublication:
         subject_area = self.subject_area.parse()
         publication_type = self.publication_type.parse()
+        publishing_state = self.publishing_state.parse()
+        authors = self._parse_authors()
+        links = self._parse_links()
 
-        publication = Publication.new(
-            title=NonEmptyStr(self.title),
-            journal=self._parse_journal_id(),
-            license=self.license,
-            open_access_type=self.open_access_type,
-            publication_state=self.publishing_state.parse(),
-            relevant_authors=Authors([author.parse() for author in self.authors]),
-            links={link.parse() for link in self.links},
-            subject_area=subject_area,
-            publication_type=publication_type,
-        )
+        publication: BasePublication
+        if self.kind == "article":
+            publication = Publication.new(
+                title=NonEmptyStr(self.title),
+                journal=self._parse_journal_id(),
+                license=self.license,
+                open_access_type=self.open_access_type,
+                publication_state=publishing_state,
+                relevant_authors=authors,
+                links=links,
+                subject_area=subject_area,
+                publication_type=publication_type,
+            )
+
+        elif self.kind == "monograph":
+            publication = Monograph.new(
+                title=NonEmptyStr(self.title),
+                publisher=self._parse_publisher_id(),
+                license=self.license,
+                open_access_type=self.open_access_type,
+                publication_state=publishing_state,
+                relevant_authors=authors,
+                links=links,
+                subject_area=subject_area,
+                publication_type=publication_type,
+            )
 
         publication.contracts = tuple(
             self._get_contract(contract_dto).in_year(contract_dto.year)
@@ -96,6 +117,12 @@ class PublicationImportDto(pydantic.BaseModel):
         )
 
         return publication
+
+    def _parse_links(self) -> set[Link]:
+        return {link.parse() for link in self.links}
+
+    def _parse_authors(self) -> Authors:
+        return Authors([author.parse() for author in self.authors])
 
     def _get_contract(self, contract_dto: ContractImportDto) -> Contract:
         contract = contract_repository.get_by_name(contract_dto.name)
@@ -118,3 +145,7 @@ class PublicationImportDto(pydantic.BaseModel):
             )
 
         return journal_id
+
+    def _parse_publisher_id(self) -> PublisherId:
+        publisher, _ = Publisher.objects.get_or_create(name=self.publisher_name)
+        return PublisherId(publisher.id)

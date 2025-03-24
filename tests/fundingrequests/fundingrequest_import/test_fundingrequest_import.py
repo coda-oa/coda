@@ -1,5 +1,5 @@
-from collections.abc import Generator
 import datetime
+from collections.abc import Generator
 from decimal import Decimal
 from pathlib import Path
 from typing import cast
@@ -33,7 +33,7 @@ from coda.apps.journals.models import Journal
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.publishers.models import Publisher
 from coda.author import Author, Role
-from coda.contract import Contract, PublisherId
+from coda.contract import Contract, ContractYear, PublisherId
 from coda.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -43,6 +43,7 @@ from coda.fundingrequest import (
     PaymentMethod,
     Review,
     ReviewResult,
+    TPublication,
 )
 from coda.fundingrequest.identity import PublicFundingRequestId
 from coda.issn import Issn
@@ -52,6 +53,7 @@ from coda.publication import (
     Doi,
     JournalId,
     License,
+    Monograph,
     OpenAccessType,
     Publication,
     Published,
@@ -65,7 +67,7 @@ CWD = Path(__file__).parent
 JSON_PATH = CWD / "fundingrequest_import.json"
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(autouse=True)
 def write_json() -> Generator[None]:
     with JSON_PATH.open("w") as json_file:
         json_file.write(FUNDINGREQUEST_IMPORT.model_dump_json(indent=4))
@@ -76,7 +78,9 @@ def write_json() -> Generator[None]:
 
 
 @pytest.mark.django_db
-def test__import_fundingrequest__saves_fundingrequest_and_creates_missing_entities() -> None:
+def test__import_article_fundingrequest__saves_fundingrequest_and_creates_missing_entities() -> (
+    None
+):
     with JSON_PATH.open() as json_file:
         import_fundingrequests(json_file)
 
@@ -85,7 +89,7 @@ def test__import_fundingrequest__saves_fundingrequest_and_creates_missing_entiti
     assert_new_research_funder_exists()
 
     fundingrequest = fundingrequest_repository.first()
-    assert_fundingrequest_eq(fundingrequest, expected_request())
+    assert_fundingrequest_eq(fundingrequest, expected_request(for_=expected_article()))
 
 
 def assert_new_journal_exists() -> None:
@@ -105,6 +109,30 @@ def assert_new_research_funder_exists() -> None:
 
 
 @pytest.mark.django_db
+def test__import_monograph_fundingrequest__saves_fundingrequest_and_creates_missing_entities() -> (
+    None
+):
+    requests = FUNDINGREQUEST_IMPORT.model_copy(deep=True)
+    requests.requests[0].publication.kind = "monograph"
+    JSON_PATH.write_text(requests.model_dump_json(indent=4))
+
+    with JSON_PATH.open() as json_file:
+        import_fundingrequests(json_file)
+
+    assert_no_journal_created_on_import()
+    assert_new_publisher_exists()
+    assert_new_contract_exists()
+    assert_new_research_funder_exists()
+
+    fundingrequest = fundingrequest_repository.first()
+    assert_fundingrequest_eq(fundingrequest, expected_request(for_=expected_monograph()))
+
+
+def assert_new_publisher_exists() -> None:
+    assert Publisher.objects.filter(name=IMPORT_PUBLISHER_NAME).exists()
+
+
+@pytest.mark.django_db
 def test__import_fundingrequests__saves_fundingrequests_without_creating_existing_entities() -> (
     None
 ):
@@ -121,7 +149,9 @@ def test__import_fundingrequests__saves_fundingrequests_without_creating_existin
     assert_no_publisher_created_on_import()
     assert_no_contract_created_on_import()
     assert_no_research_funder_created_on_import()
-    assert_fundingrequest_eq(fundingrequest_repository.first(), expected_request())
+
+    fundingrequest = fundingrequest_repository.first()
+    assert_fundingrequest_eq(fundingrequest, expected_request(for_=expected_article()))
 
 
 def assert_no_journal_created_on_import() -> None:
@@ -211,43 +241,11 @@ FUNDINGREQUEST_IMPORT = FundingRequestImportListDto(
 )
 
 
-def expected_request() -> FundingRequest[Publication]:
-    journal = cast(Journal, journal_services.find_by_eissn(IMPORT_JOURNAL_ISSN))
-    dfg_classification = vocabulary_repository.newest_base_vocabulary_by_name(
-        DFG_SUBJECT_CLASSIFICATION_NAME
-    )
-    coar_resource_types = vocabulary_repository.newest_base_vocabulary_by_name(
-        COAR_RESOURCE_TYPES_NAME
-    )
+def expected_article_request() -> FundingRequest[Publication]:
+    return expected_request(for_=expected_article())
 
-    expected_subject_area = find_concept_by_name(dfg_classification, "Humanities")
-    expected_publication_type = find_concept_by_name(coar_resource_types, "journal article")
-    expected_publication = Publication.new(
-        title=NonEmptyStr("My article"),
-        journal=JournalId(journal.id),
-        license=License.CC_BY,
-        open_access_type=OpenAccessType.Gold,
-        publication_state=Published(online=datetime.date(2025, 3, 19)),
-        relevant_authors=Authors(
-            [
-                Author.new(
-                    name=NonEmptyStr("Alice Doe"),
-                    email="a.doe@example.com",
-                    orcid=orcid.Orcid("0000-0002-1825-0097"),
-                    role=Role.CORRESPONDING_AUTHOR,
-                )
-            ]
-        ),
-        links={Doi("10.1234/5678")},
-        subject_area=expected_subject_area,
-        publication_type=expected_publication_type,
-    )
 
-    contract = contract_repository.get_by_name("My contract")
-    assert contract is not None
-    contract_year = contract.in_year(2025)
-    expected_publication.contracts = (contract_year,)
-
+def expected_request(*, for_: TPublication) -> FundingRequest[TPublication]:
     funding_organization = FundingOrganization.objects.get(name=IMPORT_RESEARCH_FUNDER_NAME)
     funding_org_id = FundingOrganizationId(funding_organization.id)
 
@@ -255,7 +253,7 @@ def expected_request() -> FundingRequest[Publication]:
     expected = FundingRequest(
         id=None,
         request_id=request_id,
-        publication=expected_publication,
+        publication=for_,
         estimated_cost=Payment(
             amount=Money(Decimal("1000.00"), Currency.EUR), method=PaymentMethod.Unknown
         ),
@@ -281,5 +279,73 @@ def expected_request() -> FundingRequest[Publication]:
     return expected
 
 
+def expected_article() -> Publication:
+    journal = cast(Journal, journal_services.find_by_eissn(IMPORT_JOURNAL_ISSN))
+    publication = Publication.new(
+        title=NonEmptyStr("My article"),
+        journal=JournalId(journal.id),
+        license=License.CC_BY,
+        open_access_type=OpenAccessType.Gold,
+        publication_state=Published(online=datetime.date(2025, 3, 19)),
+        relevant_authors=expected_authors(),
+        links={Doi("10.1234/5678")},
+        subject_area=expected_subject_area(),
+        publication_type=expected_publication_type(),
+    )
+    publication.contracts = expected_contracts()
+    return publication
+
+
+def expected_monograph() -> Monograph:
+    publisher = Publisher.objects.get(name=IMPORT_PUBLISHER_NAME)
+    monograph = Monograph.new(
+        title=NonEmptyStr("My article"),
+        publisher=PublisherId(publisher.id),
+        license=License.CC_BY,
+        open_access_type=OpenAccessType.Gold,
+        publication_state=Published(online=datetime.date(2025, 3, 19)),
+        relevant_authors=expected_authors(),
+        links={Doi("10.1234/5678")},
+        subject_area=expected_subject_area(),
+        publication_type=expected_publication_type(),
+    )
+    monograph.contracts = expected_contracts()
+    return monograph
+
+
+def expected_publication_type() -> VocabularyConcept:
+    coar_resource_types = vocabulary_repository.newest_base_vocabulary_by_name(
+        COAR_RESOURCE_TYPES_NAME
+    )
+    return find_concept_by_name(coar_resource_types, "journal article")
+
+
+def expected_subject_area() -> VocabularyConcept:
+    dfg_classification = vocabulary_repository.newest_base_vocabulary_by_name(
+        DFG_SUBJECT_CLASSIFICATION_NAME
+    )
+    return find_concept_by_name(dfg_classification, "Humanities")
+
+
 def find_concept_by_name(v: VocabularyProtocol, concept_name: str) -> VocabularyConcept:
     return [c for c in v.concepts if c.name == concept_name][0]
+
+
+def expected_authors() -> Authors:
+    return Authors(
+        [
+            Author.new(
+                name=NonEmptyStr("Alice Doe"),
+                email="a.doe@example.com",
+                orcid=orcid.Orcid("0000-0002-1825-0097"),
+                role=Role.CORRESPONDING_AUTHOR,
+            )
+        ]
+    )
+
+
+def expected_contracts() -> tuple[ContractYear, ...]:
+    contract = contract_repository.get_by_name("My contract")
+    assert contract is not None
+    contract_year = contract.in_year(2025)
+    return (contract_year,)
