@@ -66,4 +66,4 @@ def test__doaj_check_with_real_api__journal_in_doaj__is_successful() -> None:
 
     result = check(fundingrequest)
 
-    assert result == CheckSuccessful(data=doaj_journal_dict())
+    assert result == CheckSuccessful(message=doaj_url(), data=doaj_journal_dict())
