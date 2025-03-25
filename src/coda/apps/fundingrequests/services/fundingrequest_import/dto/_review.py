@@ -19,7 +19,7 @@ class DecidedFundingImportDto(pydantic.BaseModel):
 
 
 class ReviewImportDto(pydantic.BaseModel):
-    result: ReviewResult
+    result: ReviewResult = pydantic.Field(default=ReviewResult.Open)
     funding: DecidedFundingImportDto = pydantic.Field(
         default_factory=DecidedFundingImportDto.default
     )

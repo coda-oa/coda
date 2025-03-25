@@ -74,7 +74,7 @@ class SeperateContactImportDto(pydantic.BaseModel):
 
 class FundingRequestImportDto(pydantic.BaseModel):
     request_date: datetime.date
-    review: ReviewImportDto
+    review: ReviewImportDto = pydantic.Field(default_factory=ReviewImportDto)
     publication: PublicationImportDto
     research_funding: list[ResearchFundingImportDto] = pydantic.Field(default_factory=list)
     estimated_cost: CostEstimateImportDto = pydantic.Field(

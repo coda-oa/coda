@@ -51,7 +51,7 @@ Issn = Annotated[str, pydantic.PlainValidator(issn.Issn)]
 
 
 class PublishingStateImportDto(pydantic.BaseModel):
-    state: PublishingStateOptions
+    state: PublishingStateOptions = "unknown"
     online_date: datetime.date | None = None
     print_date: datetime.date | None = None
 
@@ -65,17 +65,19 @@ class PublishingStateImportDto(pydantic.BaseModel):
 class PublicationImportDto(pydantic.BaseModel):
     title: str
     kind: Literal["article", "monograph"]
-    authors: list[AuthorImportDto]
     eissn: str
-    journal_name: str = ""
-    publisher_name: str = ""
-    license: License
-    publishing_state: PublishingStateImportDto
+    journal_name: str = "Imported nameless journal"
+    publisher_name: str = "Imported nameless publisher"
+    authors: list[AuthorImportDto] = pydantic.Field(default_factory=list)
+    license: License = License.Unknown
+    publishing_state: PublishingStateImportDto = pydantic.Field(
+        default_factory=PublishingStateImportDto
+    )
     open_access_type: OpenAccessType
-    links: list[LinkImportDto]
-    contracts: list[ContractImportDto]
-    subject_area: ConceptImportDto
-    publication_type: ConceptImportDto
+    links: list[LinkImportDto] = pydantic.Field(default_factory=list)
+    contracts: list[ContractImportDto] = pydantic.Field(default_factory=list)
+    subject_area: ConceptImportDto = pydantic.Field(default_factory=ConceptImportDto)
+    publication_type: ConceptImportDto = pydantic.Field(default_factory=ConceptImportDto)
 
     def parse(self) -> BasePublication:
         subject_area = self.subject_area.parse()
