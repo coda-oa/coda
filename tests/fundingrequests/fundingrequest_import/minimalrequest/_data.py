@@ -1,6 +1,6 @@
 import datetime
 
-from coda.apps.fundingrequests.services.fundingrequest_import.dto import (
+from coda.apps.fundingrequests.services.importservice.dto import (
     FundingRequestImportDto,
     FundingRequestImportListDto,
     PublicationImportDto,

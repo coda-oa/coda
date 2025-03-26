@@ -8,8 +8,8 @@ import pytest
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests.models import FundingOrganization
-from coda.apps.fundingrequests.services.fundingrequest_import import import_fundingrequests
-from coda.apps.fundingrequests.services.fundingrequest_import.dto import (
+from coda.apps.fundingrequests.services.importservice import import_fundingrequests
+from coda.apps.fundingrequests.services.importservice.dto import (
     FundingRequestImportListDto,
 )
 from coda.apps.journals import services as journal_services

@@ -1,7 +1,7 @@
 import datetime
 from decimal import Decimal
 
-from coda.apps.fundingrequests.services.fundingrequest_import.dto import (
+from coda.apps.fundingrequests.services.importservice.dto import (
     AuthorImportDto,
     ConceptImportDto,
     ContractImportDto,

@@ -19,14 +19,15 @@ from coda.apps.fundingrequests.views.labels import (
     label_update_view,
 )
 from coda.apps.fundingrequests.views.listview import fundingrequest_list
+from coda.apps.fundingrequests.views.requestimport import import_fundingrequests
 from coda.apps.fundingrequests.views.wizard.create_article import ArticleRequestWizard
 from coda.apps.fundingrequests.views.wizard.create_monograph import MonographRequestWizard
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import add_linkrow, parse_authors
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import find_publisher
 from coda.apps.fundingrequests.views.wizard.update_article import (
+    UpdateExtraInformationView,
     UpdateFundingView,
     UpdatePublicationView,
-    UpdateExtraInformationView,
 )
 from coda.apps.fundingrequests.views.wizard.update_monograph import MonographUpdateMetaView
 
@@ -38,6 +39,7 @@ funding_formset = ExternalFundingFormset.get_management_view()
 urlpatterns = [
     path("", fundingrequest_home, name="home"),
     path("list/", fundingrequest_list, name="list"),
+    path("import/", import_fundingrequests, name="import"),
     path("<int:pk>/", fundingrequest_detail, name="detail"),
     path("review/<int:pk>/", review.review_page, name="review"),
     path("review/<int:pk>/submit", review.review_submit, name="review_submit"),
