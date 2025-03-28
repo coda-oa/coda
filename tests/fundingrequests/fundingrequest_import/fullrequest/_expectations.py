@@ -4,11 +4,12 @@ from typing import cast
 from coda import orcid
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests.models import FundingOrganization
+from coda.apps.institutions import repository as institution_repository
 from coda.apps.journals import services as journal_services
 from coda.apps.journals.models import Journal
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.publishers.models import Publisher
-from coda.author import Author, Role
+from coda.author import Author, InstitutionId, Role
 from coda.contract import ContractYear, PublisherId
 from coda.fundingrequest import PublicFundingRequestId, Review, ReviewResult
 from coda.fundingrequest.fundingrequest import (
@@ -144,6 +145,12 @@ def find_concept_by_name(v: VocabularyProtocol, concept_name: str) -> Vocabulary
 
 
 def expected_authors() -> Authors:
+    matches = institution_repository.search("University of Example")
+    try:
+        first_match = next(iter(matches))
+    except StopIteration:
+        raise AssertionError("Expected institution not found")
+
     return Authors(
         [
             Author.new(
@@ -151,6 +158,7 @@ def expected_authors() -> Authors:
                 email="a.doe@example.com",
                 orcid=orcid.Orcid("0000-0002-1825-0097"),
                 role=Role.CORRESPONDING_AUTHOR,
+                affiliation=InstitutionId(first_match.id),
             )
         ]
     )

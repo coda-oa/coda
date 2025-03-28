@@ -12,6 +12,8 @@ from coda.apps.fundingrequests.services.importservice import import_fundingreque
 from coda.apps.fundingrequests.services.importservice.dto import (
     FundingRequestImportListDto,
 )
+from coda.apps.institutions.models import Institution
+from coda.apps.institutions import repository as institution_repository
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers.models import Publisher
 from coda.contract import Contract, PublisherId
@@ -20,6 +22,7 @@ from coda.string import NonEmptyStr
 from tests import modelfactory
 from tests.fundingrequests.fundingrequest_import import fullrequest, minimalrequest
 from tests.fundingrequests.fundingrequest_import.entitynames import (
+    IMPORT_AUTHOR_AFFILIATION,
     IMPORT_CONTRACT_NAME,
     IMPORT_JOURNAL_ISSN,
     IMPORT_JOURNAL_NAME,
@@ -125,11 +128,13 @@ def test__import_article_fundingrequests__saves_fundingrequests_without_creating
     journal_services.create(NonEmptyStr("Another title"), IMPORT_JOURNAL_ISSN, publisher)
     contract = Contract.new(name=NonEmptyStr(IMPORT_CONTRACT_NAME))
     contract_repository.save(contract)
+    institution_repository.create(IMPORT_AUTHOR_AFFILIATION)
     modelfactory.funding_organization(IMPORT_RESEARCH_FUNDER_NAME)
 
     with JSON_PATH.open() as json_file:
         import_fundingrequests(json_file)
 
+    assert_no_institution_created_on_import()
     assert_no_journal_created_on_import()
     assert_no_publisher_created_on_import()
     assert_no_contract_created_on_import()
@@ -156,3 +161,7 @@ def assert_no_contract_created_on_import() -> None:
 
 def assert_no_research_funder_created_on_import() -> None:
     assert FundingOrganization.objects.filter(name=IMPORT_RESEARCH_FUNDER_NAME).count() == 1
+
+
+def assert_no_institution_created_on_import() -> None:
+    assert Institution.objects.filter(name=IMPORT_AUTHOR_AFFILIATION).count() == 1

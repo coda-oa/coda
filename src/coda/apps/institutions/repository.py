@@ -2,6 +2,10 @@ from collections.abc import Iterable
 from coda.apps.institutions.models import Institution
 
 
+def create(name: str, parent: Institution | None = None) -> Institution:
+    return Institution.objects.create(name=name, parent=parent)
+
+
 def get_by_id(id: int) -> Institution:
     return Institution.objects.get(pk=id)
 
@@ -13,6 +17,13 @@ def all() -> Iterable[Institution]:
 
 def non_virtuals() -> Iterable[Institution]:
     return Institution.objects.filter(virtual=False)
+
+
+def first_by_name(name: str) -> Institution | None:
+    try:
+        return Institution.objects.get(name=name)
+    except Institution.DoesNotExist:
+        return None
 
 
 def search(name: str | None = None) -> Iterable[Institution]:

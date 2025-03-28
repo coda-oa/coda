@@ -73,6 +73,7 @@ FUNDINGREQUEST_IMPORT = FundingRequestImportListDto(
                         name="Alice Doe",
                         email="a.doe@example.com",
                         orcid="0000-0002-1825-0097",
+                        affiliation="University of Example",
                         role=Role.CORRESPONDING_AUTHOR,
                     )
                 ],
