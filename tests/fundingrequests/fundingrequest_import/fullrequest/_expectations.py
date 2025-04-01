@@ -11,7 +11,7 @@ from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.publishers.models import Publisher
 from coda.author import Author, InstitutionId, Role
 from coda.contract import ContractYear, PublisherId
-from coda.fundingrequest import PublicFundingRequestId, Review, ReviewResult
+from coda.fundingrequest import FundingRequestId, PublicFundingRequestId, Review, ReviewResult
 from coda.fundingrequest.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -44,6 +44,15 @@ from tests.fundingrequests.fundingrequest_import.entitynames import (
 )
 
 
+def expected_review(id: FundingRequestId | None = None) -> Review:
+    return Review(
+        fundingrequest=id,
+        result=ReviewResult.Approved,
+        decided_funding=Money("1000.00", Currency.EUR),
+        remarks="Remarks from the reviewer",
+    )
+
+
 def expected_article_request() -> FundingRequest[Publication]:
     return expected_request(for_=expected_article())
 
@@ -63,12 +72,7 @@ def expected_request(*, for_: TPublication) -> FundingRequest[TPublication]:
         publication=for_,
         estimated_cost=Payment(amount=Money("1000.00", Currency.EUR), method=PaymentMethod.Unknown),
         request_remarks="Request remarks from the author",
-        review=Review(
-            fundingrequest=None,
-            result=ReviewResult.Approved,
-            decided_funding=Money("1000.00", Currency.EUR),
-            remarks="Remarks from the reviewer",
-        ),
+        review=expected_review(),
         external_funding=[
             ExternalFunding(
                 organization=funding_org_id,

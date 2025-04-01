@@ -23,10 +23,12 @@ class ReviewImportDto(pydantic.BaseModel):
     funding: DecidedFundingImportDto = pydantic.Field(
         default_factory=DecidedFundingImportDto.default
     )
+    remarks: str = ""
 
     def parse(self, fundingrequest: FundingRequestId) -> Review:
         return Review(
             fundingrequest=fundingrequest,
             result=self.result,
             decided_funding=self.funding.parse(),
+            remarks=self.remarks,
         )

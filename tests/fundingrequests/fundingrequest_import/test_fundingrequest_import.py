@@ -2,6 +2,7 @@ from collections.abc import Generator
 from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Callable
+from typing import cast
 
 import pytest
 
@@ -17,6 +18,7 @@ from coda.apps.institutions import repository as institution_repository
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers.models import Publisher
 from coda.contract import Contract, PublisherId
+from coda.fundingrequest import FundingRequestId, Review
 from coda.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.string import NonEmptyStr
 from tests import modelfactory
@@ -50,24 +52,29 @@ def write_json(importdata: FundingRequestImportListDto) -> None:
 class RequestVariant:
     importdata: FundingRequestImportListDto
     expected_request: Callable[[], AnyFundingRequest]
+    expected_review: Callable[[], Review]
 
 
 RequestVariants = [
     RequestVariant(
         importdata=fullrequest.full_article_request_import(),
         expected_request=fullrequest.expected_article_request,
+        expected_review=fullrequest.expected_review,
     ),
     RequestVariant(
         importdata=fullrequest.full_monograph_request_import(),
         expected_request=fullrequest.expected_monograph_request,
+        expected_review=fullrequest.expected_review,
     ),
     RequestVariant(
         importdata=minimalrequest.minimal_article_request_import(),
         expected_request=minimalrequest.expected_article_request,
+        expected_review=minimalrequest.expected_review,
     ),
     RequestVariant(
         importdata=minimalrequest.minimal_monograph_request_import(),
         expected_request=minimalrequest.expected_monograph_request,
+        expected_review=minimalrequest.expected_review,
     ),
 ]
 
@@ -83,7 +90,17 @@ def test__import_fundingrequest__saves_fundingrequest_and_creates_missing_entiti
         import_fundingrequests(json_file)
 
     fundingrequest = fundingrequest_repository.first()
+    assert fundingrequest is not None
+    id = cast(FundingRequestId, fundingrequest.id)
+    review = fundingrequest_repository.get_review(id)
     assert_fundingrequest_eq(fundingrequest, request_variant.expected_request())
+    assert_review_eq(review, request_variant.expected_review())
+
+
+def assert_review_eq(actual: Review, expected: Review) -> None:
+    assert actual.result == expected.result
+    assert actual.decided_funding == expected.decided_funding
+    assert actual.remarks == expected.remarks
 
 
 def assert_new_journal_exists() -> None:
