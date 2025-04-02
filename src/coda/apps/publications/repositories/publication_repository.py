@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import TypedDict, cast
 
 from django.db import transaction
@@ -7,6 +7,7 @@ from django.db.models import Q
 from coda.apps.authors import services as author_services
 from coda.apps.contracts import repository as contract_services
 from coda.apps.contracts.models import Contract
+from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.publications.models import AttachedContract, LinkType, PublicationAttachedConcept
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
@@ -97,6 +98,15 @@ def find_publications_by_vocabulary(vocabulary_id: VocabularyId) -> list[BasePub
         subject_area__vocabulary_id=vocabulary_id
     )
     return [as_domain_object(p) for p in PublicationModel.objects.filter(query)]
+
+
+def get_contracts_for_publication(publication_id: PublicationId) -> Sequence[ContractYear]:
+    contracts = AttachedContract.objects.filter(publication_id=publication_id)
+    return DomainQuerySet(contracts, _map_to_contract_year)  # type: ignore[type-var]
+
+
+def _map_to_contract_year(c: AttachedContract) -> ContractYear:
+    return contract_services.as_domain_object(c.contract).in_year(c.contract_year)
 
 
 def as_domain_object(model: PublicationModel) -> BasePublication:

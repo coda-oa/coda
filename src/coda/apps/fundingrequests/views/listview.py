@@ -26,6 +26,31 @@ from coda.publication.payment import (
 from coda.publication.publication import PublicationId
 
 
+_advanced_search_fields = [
+    "labels",
+    "exclude_labels",
+    "processing_status",
+    "open_access_type",
+    "payment_status",
+    "start_date",
+    "end_date",
+]
+
+_payment_status_map = {
+    "paid": PublicationPaid,
+    "unpaid": PublicationUnpaid,
+    "invoice_received": InvoiceReceived,
+    "covered_by_contract": PublicationCoveredByContract,
+}
+
+_payment_status_choices = [
+    ("paid", "Paid"),
+    ("unpaid", "Unpaid"),
+    ("invoice_received", "Invoice Received"),
+    ("covered_by_contract", "Covered by Contract"),
+]
+
+
 class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestListViewModel"]):
     template_name = "fundingrequests/fundingrequest_list.html"
     entity_name = "Funding Requests"
@@ -33,61 +58,14 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
     entity_list_item_template = "fundingrequests/fundingrequest_list_item.html"
     entity_filter_template = "fundingrequests/forms/fundingrequest_filter.html"
 
-    _advanced_search_fields = [
-        "labels",
-        "exclude_labels",
-        "processing_status",
-        "open_access_type",
-        "payment_status",
-        "start_date",
-        "end_date",
-    ]
-
-    _payment_status_map = {
-        "paid": PublicationPaid,
-        "unpaid": PublicationUnpaid,
-        "invoice_received": InvoiceReceived,
-        "covered_by_contract": PublicationCoveredByContract,
-    }
-
-    _payment_status_choices = [
-        ("paid", "Paid"),
-        ("unpaid", "Unpaid"),
-        ("invoice_received", "Invoice Received"),
-        ("covered_by_contract", "Covered by Contract"),
-    ]
-
     def get_entities(self, request: HttpRequest) -> Sequence["FundingRequestListViewModel"]:
         fundingrequests = query(request)
-        if not request.GET.get("payment_status"):
-            # NOTE: I'm not sure why mypy complains about this,
-            # as the domain model protocol only requires an id attribute.
-            return DomainQuerySet(fundingrequests, as_viewmodel)  # type: ignore
-
-        requested_payment_statuses = {
-            self._payment_status_map[status] for status in request.GET.getlist("payment_status")
-        }
-        payment_statuses = {
-            fundingrequest.publication.id: publications.get_payment_status(
-                PublicationId(fundingrequest.publication.id)
-            )
-            for fundingrequest in fundingrequests
-        }
-        payment_statuses = {
-            publication_id: payment_status
-            for publication_id, payment_status in payment_statuses.items()
-            if type(payment_status) in requested_payment_statuses
-        }
-
-        entities = fundingrequests.filter(publication__id__in=payment_statuses.keys())
-        return DomainQuerySet(entities, lambda fr: as_viewmodel(fr, get_payment_status=PaymentStatusLookup(payment_statuses)))  # type: ignore
+        return DomainQuerySet(fundingrequests, as_viewmodel)  # type: ignore
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
 
-        expand_advanced_search = any(
-            self.request.GET.get(key) for key in self._advanced_search_fields
-        )
+        expand_advanced_search = any(self.request.GET.get(key) for key in _advanced_search_fields)
 
         labels = Label.objects.all()
         return ctx | {
@@ -96,7 +74,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
             "processing_states": [rr.value for rr in ReviewResult],
             "open_access_types": [oat.value for oat in OpenAccessType],
             "expand_advanced_search": expand_advanced_search,
-            "payment_status_choices": self._payment_status_choices,
+            "payment_status_choices": _payment_status_choices,
         }
 
 
@@ -107,6 +85,9 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
     date_range = DateRange.try_fromisoformat(start=start_date, end=end_date)
+    requested_payment_statuses = [
+        _payment_status_map[status] for status in request.GET.getlist("payment_status")
+    ]
 
     return cast(
         QuerySet[FundingRequestModel],
@@ -119,6 +100,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
             open_access_types=[
                 OpenAccessType(oat) for oat in request.GET.getlist("open_access_type")
             ],
+            payment_statuses=requested_payment_statuses,
         ),
     )
 

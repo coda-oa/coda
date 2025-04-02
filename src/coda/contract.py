@@ -87,6 +87,10 @@ class ContractYear:
         return self.contract.uses_consolidated_billing()
 
     @property
+    def id(self) -> ContractId | None:
+        return self.contract.id
+
+    @property
     def contract_id(self) -> ContractId | None:
         return self.contract.id
 

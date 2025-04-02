@@ -16,7 +16,6 @@ from coda.apps.fundingrequests.models import FundingRequest as FundingRequestMod
 from coda.apps.fundingrequests.models import FundingRequestContact as FundingRequestContactModel
 from coda.apps.publications.repositories import publication_repository
 from coda.date import DateRange
-from coda.fundingrequest import Review
 from coda.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
@@ -28,12 +27,20 @@ from coda.fundingrequest import (
     NoContact,
     Payment,
     PaymentMethod,
+    Review,
     TPublication,
 )
 from coda.fundingrequest.identity import PublicFundingRequestId
 from coda.fundingrequest.review import ReviewResult
 from coda.money import Currency, Money
 from coda.publication import Monograph, OpenAccessType, Publication, PublicationId
+from coda.publication.payment import (
+    InvoiceReceived,
+    PublicationCoveredByContract,
+    PublicationPaid,
+    PublicationPaymentStatus,
+    PublicationUnpaid,
+)
 from coda.string import NonEmptyStr
 
 
@@ -222,6 +229,7 @@ def search(
     processing_states: list[ReviewResult] | None = None,
     open_access_types: list[OpenAccessType] | None = None,
     date_range: DateRange | None = None,
+    payment_statuses: list[type[PublicationPaymentStatus]] | None = None,
     labels: Iterable[int] | None = None,
     exclude_labels: Iterable[int] | None = None,
 ) -> Iterable[FundingRequestModel]:
@@ -260,10 +268,45 @@ def search(
     if exclude_labels:
         query = query & ~Q(labels__in=exclude_labels)
 
-    if date_range:
+    if date_range and not date_range.is_unbounded():
         query = query & Q(created_at__gte=date_range.start, created_at__lte=date_range.end)
 
-    return FundingRequestModel.objects.filter(query).distinct().order_by("-created_at")
+    if payment_statuses:
+        contract_query = Q()
+        if PublicationCoveredByContract in payment_statuses:
+            contract_query = Q(
+                publication__attached_contracts__contract__publication_billing="consolidated"
+            )
+
+        sub_payment_query = Q()
+        if InvoiceReceived in payment_statuses:
+            sub_payment_query = sub_payment_query | Q(publication__payment__status="received")
+
+        if PublicationPaid in payment_statuses:
+            sub_payment_query = sub_payment_query | Q(publication__payment__status="paid")
+
+        if PublicationUnpaid in payment_statuses:
+            sub_payment_query = sub_payment_query | (
+                Q(publication__payment__isnull=True) & ~contract_query
+            )
+
+        full_payment_query = contract_query | sub_payment_query
+        query = query & full_payment_query
+
+    return (
+        FundingRequestModel.objects.filter(query)
+        .distinct()
+        .select_related(
+            "review",
+            "publication__article_journal",
+            "publication__monograph_publisher",
+        )
+        .prefetch_related(
+            "labels",
+            "publication__relevant_authors",
+        )
+        .order_by("-created_at")
+    )
 
 
 def get_funding_organization(pk: int) -> FundingOrganization:

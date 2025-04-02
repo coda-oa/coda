@@ -11,6 +11,17 @@ class LazyCachedIterable(Iterable[T]):
         self._generator = generator
         self._resolved_items: list[T] = []
 
+    def __bool__(self) -> bool:
+        if self._resolved_items:
+            return True
+
+        try:
+            next(iter(self))
+        except StopIteration:
+            return False
+
+        return True
+
     def __iter__(self) -> Generator[T, None, None]:
         for item in self._resolved_items:
             yield item

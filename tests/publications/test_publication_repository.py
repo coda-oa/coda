@@ -17,7 +17,7 @@ from coda.publication import (
     Publication,
     PublicationId,
 )
-from coda.vocabulary import Vocabulary, VocabularyConcept
+from coda.vocabulary import UnknownConcept, Vocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory, test_orcid
 from tests.authors.test__author import assert_author_eq
 from tests.contracts.test_contract_repository import assert_contract_eq
@@ -184,6 +184,17 @@ def test__find_by_vocabulary__returns_publications_with_matching_vocabulary() ->
 
     actual, *_ = publication_repository.find_publications_by_vocabulary(subject_areas.id)
     assert actual.id == id
+
+
+@pytest.mark.django_db
+def test__can_save_publication_with_unknown_concept() -> None:
+    id, publication = save_publication(
+        subject_area=UnknownConcept,
+        publication_type=UnknownConcept,
+    )
+
+    actual = publication_repository.get_by_id(id)
+    assert_publication_eq(actual, publication)
 
 
 def vocabulary_with_concepts(*concepts: str) -> Vocabulary:

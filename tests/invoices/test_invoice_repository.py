@@ -105,7 +105,7 @@ def random_contract() -> Contract:
 def assert_invoice_eq(expected: Invoice, actual: Invoice) -> None:
     assert expected.number == actual.number
     assert expected.creditor == actual.creditor
-    assert expected.positions == actual.positions
+    assert list(expected.positions) == list(actual.positions)
     assert expected.status == actual.status
     assert expected.date == actual.date
     assert expected.comment == actual.comment

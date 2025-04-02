@@ -19,6 +19,7 @@ from coda.invoice import (
     Position,
     TaxRate,
 )
+from coda.lazyiterable import LazyCachedIterable
 from coda.money import Currency, Money
 from coda.publication import PublicationId
 
@@ -84,7 +85,7 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
         number=model.number,
         creditor=CreditorId(model.creditor_id),
         status=PaymentStatus(model.status),
-        positions=[
+        positions=LazyCachedIterable(
             Position(
                 item=_get_item_from_position_model(position),
                 cost=Money(position.cost_amount, Currency[position.cost_currency]),
@@ -98,7 +99,7 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
                 external_position_id=position.external_position_id,
             )
             for position in model.positions.all()
-        ],
+        ),
         comment=model.comment,
         external_invoice_id=model.external_invoice_id,
     )

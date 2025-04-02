@@ -29,6 +29,9 @@ class DateRange(NamedTuple):
         end_date = datetime.date.fromisoformat(end) if end else datetime.date.max
         return cls(start_date, end_date)
 
+    def is_unbounded(self) -> bool:
+        return self.start == datetime.date.min and self.end == datetime.date.max
+
     def __contains__(self, key: object) -> bool:
         if not isinstance(key, datetime.date):
             return False
