@@ -30,7 +30,7 @@ from ._vocabulary import ConceptImportDto
 
 
 def _valid_link_type(v: str) -> str:
-    if v not in links.link_types():
+    if not links.valid_link_type(v):
         raise ValueError(f"Link type '{v}' is not valid")
     return v
 
@@ -65,7 +65,7 @@ class PublishingStateImportDto(pydantic.BaseModel):
 class PublicationImportDto(pydantic.BaseModel):
     title: str
     kind: Literal["article", "monograph"]
-    eissn: str
+    eissn: Issn
     journal_name: str = "Imported nameless journal"
     publisher_name: str = "Imported nameless publisher"
     authors: list[AuthorImportDto] = pydantic.Field(default_factory=list)

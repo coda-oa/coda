@@ -1,3 +1,6 @@
+from typing import BinaryIO, cast
+
+import pydantic
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -22,14 +25,20 @@ def import_fundingrequests(request: HttpRequest) -> HttpResponse:
             return render_import_form(request)
 
         import_file: UploadedFile = form.cleaned_data["import_file"]
-        importservice.import_fundingrequests(import_file.read())
+        import_errors = []
+        try:
+            importservice.import_fundingrequests(cast(BinaryIO, import_file))
+        except pydantic.ValidationError as e:
+            import_errors = [f"{error['loc']}: {error['msg']}" for error in e.errors()]
 
-    return render_import_form(request)
+    return render_import_form(request, import_errors=import_errors)
 
 
-def render_import_form(request: HttpRequest) -> HttpResponse:
+def render_import_form(
+    request: HttpRequest, *, import_errors: list[str] | None = None
+) -> HttpResponse:
     return render(
         request,
-        "generic_form_view.html",
-        {"title": "Import Funding Requests", "form": FundingRequestImportForm()},
+        "fundingrequests/fundingrequest_import.html",
+        {"form": FundingRequestImportForm(), "import_errors": import_errors},
     )

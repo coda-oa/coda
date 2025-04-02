@@ -178,14 +178,19 @@ class Url:
 
 
 _LinkTypes = {t.type(): t for t in (Doi, Isbn, Url)}
+_LoweredLinkTypes = {t_name.lower(): t for t_name, t in _LinkTypes.items()}
 
 
 def link_types() -> list[str]:
     return list(_LinkTypes.keys())
 
 
+def valid_link_type(v: str) -> bool:
+    return v.lower() in _LoweredLinkTypes
+
+
 def create_link(link_type: str, link_value: str) -> Link:
-    link_constructor = _LinkTypes.get(link_type)
+    link_constructor = _LoweredLinkTypes.get(link_type.lower())
     if not link_constructor:
         return UserLink(link_type=link_type, link_value=link_value)
 
