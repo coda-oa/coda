@@ -13,7 +13,7 @@ class Publication(models.Model):
     OA_TYPES = tuple((t.name, t.value) for t in OpenAccessType)
     LICENSE_CHOICES = tuple((_l.name, _l.value) for _l in License)
 
-    title = models.CharField(max_length=255)
+    title = models.TextField()
 
     article_journal = models.ForeignKey(
         Journal, on_delete=models.CASCADE, related_name="publications", null=True

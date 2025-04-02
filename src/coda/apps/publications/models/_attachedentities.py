@@ -15,6 +15,7 @@ class PublicationAttachedConcept(models.Model):
 
     @classmethod
     def unknown(cls) -> "PublicationAttachedConcept":
+        Vocabulary.ensure_empty()
         return cls.objects.create(
             entity_id=UnknownConcept.id, vocabulary_id=UnknownConcept.vocabulary
         )

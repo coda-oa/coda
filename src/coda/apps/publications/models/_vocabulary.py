@@ -22,6 +22,11 @@ class Vocabulary(models.Model):
             )
         return v
 
+    @staticmethod
+    def ensure_empty() -> None:
+        """Ensure that the empty vocabulary exists."""
+        Vocabulary.empty()
+
     def __str__(self) -> str:
         return self.name
 
