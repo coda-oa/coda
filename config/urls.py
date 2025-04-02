@@ -67,4 +67,5 @@ if settings.DEBUG:
             ),
         ),
         path("demo/htmx/", demo_formset_view.as_view(), name=demo_formset_view.name),
+        path("silk/", include("silk.urls", namespace="silk")),
     ]

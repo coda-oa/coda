@@ -41,6 +41,7 @@ repos:
           [
             'django-stubs[compatible-mypy]',
             'django-environ',
+            'django-silk',
             'faker',
             'httpx',
             'psycopg',
