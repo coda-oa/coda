@@ -3,7 +3,7 @@ from coda.apps.checklist.services import get_checkfactory
 from coda.apps.fundingrequests import repository
 from coda.checks.checkfactory import CheckFactory
 from coda.checks.checklist import ChecklistRun
-from coda.fundingrequest import FundingRequestId
+from coda.domain.fundingrequest import FundingRequestId
 
 
 def run_checks(

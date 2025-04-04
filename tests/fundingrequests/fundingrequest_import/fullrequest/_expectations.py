@@ -1,7 +1,6 @@
 import datetime
 from typing import cast
 
-from coda import orcid
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.institutions import repository as institution_repository
@@ -9,10 +8,16 @@ from coda.apps.journals import services as journal_services
 from coda.apps.journals.models import Journal
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.publishers.models import Publisher
-from coda.author import Author, InstitutionId, Role
-from coda.contract import ContractYear, PublisherId
-from coda.fundingrequest import FundingRequestId, PublicFundingRequestId, Review, ReviewResult
-from coda.fundingrequest.fundingrequest import (
+from coda.domain import orcid
+from coda.domain.author import Author, InstitutionId, Role
+from coda.domain.contract import ContractYear, PublisherId
+from coda.domain.fundingrequest import (
+    FundingRequestId,
+    PublicFundingRequestId,
+    Review,
+    ReviewResult,
+)
+from coda.domain.fundingrequest.fundingrequest import (
     ExternalFunding,
     FilledContact,
     FundingOrganizationId,
@@ -21,8 +26,8 @@ from coda.fundingrequest.fundingrequest import (
     PaymentMethod,
     TPublication,
 )
-from coda.money import Currency, Money
-from coda.publication import (
+from coda.domain.money import Currency, Money
+from coda.domain.publication import (
     Authors,
     Doi,
     JournalId,
@@ -32,8 +37,8 @@ from coda.publication import (
     Publication,
     Published,
 )
-from coda.string import NonEmptyStr
-from coda.vocabulary import VocabularyConcept, VocabularyProtocol
+from coda.domain.string import NonEmptyStr
+from coda.domain.vocabulary import VocabularyConcept, VocabularyProtocol
 from tests.fundingrequests.fundingrequest_import.entitynames import (
     COAR_RESOURCE_TYPES_NAME,
     DFG_SUBJECT_CLASSIFICATION_NAME,

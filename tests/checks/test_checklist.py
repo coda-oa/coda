@@ -9,7 +9,7 @@ from coda.checks.checklist import (
     CheckRun,
     CheckSuccessful,
 )
-from coda.fundingrequest import FundingRequest, FundingRequestId, TPublication
+from coda.domain.fundingrequest import FundingRequest, FundingRequestId, TPublication
 from tests import domainfactory
 
 FUNDING_REQUEST_ID = FundingRequestId(1)

@@ -1,5 +1,5 @@
-from coda.fundingrequest import FundingRequestId, Review, ReviewResult
-from coda.money import Currency, Money
+from coda.domain.fundingrequest import FundingRequestId, Review, ReviewResult
+from coda.domain.money import Currency, Money
 
 
 def make_sut() -> Review:

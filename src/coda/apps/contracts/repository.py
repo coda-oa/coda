@@ -2,11 +2,11 @@ from collections.abc import Sequence
 
 from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.contract import Contract, ContractId, PublicationBilling, PublisherId
-from coda.date import DateRange
+from coda.domain.contract import Contract, ContractId, PublicationBilling, PublisherId
+from coda.domain.date import DateRange
+from coda.domain.publication import JournalId
+from coda.domain.string import NonEmptyStr
 from coda.lazyiterable import LazyCachedIterable
-from coda.publication import JournalId
-from coda.string import NonEmptyStr
 
 
 def first() -> Contract | None:

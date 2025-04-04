@@ -17,8 +17,8 @@ from coda.apps.fundingrequests.dto import (
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.contract import ContractYear
-from coda.fundingrequest import (
+from coda.domain.contract import ContractYear
+from coda.domain.fundingrequest import (
     ExternalFunding,
     FilledContact,
     FundingOrganizationId,
@@ -28,9 +28,9 @@ from coda.fundingrequest import (
     Payment,
     TPublication,
 )
-from coda.fundingrequest.identity import PublicFundingRequestId
-from coda.publication import PublicationId
-from coda.string import NonEmptyStr
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.publication import PublicationId
+from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 
 

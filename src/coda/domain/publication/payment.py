@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from coda.contract import ContractId
-from coda.invoice import InvoiceId
+from coda.domain.contract import ContractId
+from coda.domain.invoice import InvoiceId
 
 
 @dataclass(frozen=True, slots=True)

@@ -6,8 +6,8 @@ from coda import doaj
 from coda.checks.checklist import CheckFailed, CheckSuccessful
 from coda.checks.doajcheck import DoajCheck
 from coda.doaj import DoajListedJournal
-from coda.issn import Issn
-from coda.publication.publication import JournalId
+from coda.domain.issn import Issn
+from coda.domain.publication.publication import JournalId
 from tests import domainfactory
 from tests.test_doaj import DOAJ_LISTED_ISSN, EXPECTED_JOURNAL
 

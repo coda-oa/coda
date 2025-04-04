@@ -2,8 +2,8 @@ from django import forms
 
 from coda.apps.fields import currency_field
 from coda.apps.invoices.models import Creditor, FundingSource
-from coda.invoice import PaymentStatus
-from coda.money import Currency
+from coda.domain.invoice import PaymentStatus
+from coda.domain.money import Currency
 
 
 class InvoiceForm(forms.Form):

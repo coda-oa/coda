@@ -11,7 +11,12 @@ from django.views.decorators.http import require_http_methods, require_POST
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.publications.services import vocabularies
 from coda.apps.views import EntityListView
-from coda.vocabulary import LimitedVocabulary, VocabularyConcept, VocabularyId, VocabularyProtocol
+from coda.domain.vocabulary import (
+    LimitedVocabulary,
+    VocabularyConcept,
+    VocabularyId,
+    VocabularyProtocol,
+)
 
 ConceptPair = tuple[VocabularyConcept | None, VocabularyConcept | None]
 

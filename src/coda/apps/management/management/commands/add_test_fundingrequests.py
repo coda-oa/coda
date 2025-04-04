@@ -13,9 +13,9 @@ from coda.apps.journals.models import Journal
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import LinkType
 from coda.apps.publishers.models import Publisher
-from coda.author import AuthorNames
-from coda.fundingrequest import Review
-from coda.fundingrequest import (
+from coda.domain.author import AuthorNames
+from coda.domain.fundingrequest import Review
+from coda.domain.fundingrequest import (
     ExternalFunding,
     FilledContact,
     FundingOrganizationId,
@@ -24,11 +24,11 @@ from coda.fundingrequest import (
     Payment,
     PaymentMethod,
 )
-from coda.fundingrequest.review import ReviewResult
-from coda.money import Currency, Money
-from coda.publication import JournalId, License, OpenAccessType, Publication, Published
-from coda.publication.links import Doi
-from coda.string import NonEmptyStr
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import Currency, Money
+from coda.domain.publication import JournalId, License, OpenAccessType, Publication, Published
+from coda.domain.publication.links import Doi
+from coda.domain.string import NonEmptyStr
 
 faker = Faker()
 faker.add_provider(lorem)

@@ -4,7 +4,7 @@ from operator import eq, ge, gt, le, lt, ne
 
 import pytest
 
-from coda.money import Currency, Money
+from coda.domain.money import Currency, Money
 from tests.checks.test_costlimit import one2one
 
 
@@ -64,7 +64,7 @@ def test__money_cannot_be_compared_to_non_money() -> None:
 
 @pytest.mark.parametrize("compare", [eq, ne, lt, le, gt, ge])
 def test__money_in_different_currencies_cannot_be_compared(
-    compare: Callable[[object, object], bool]
+    compare: Callable[[object, object], bool],
 ) -> None:
     with pytest.raises(TypeError):
         _ = compare(Money(100, Currency.EUR), Money(100, Currency.USD))

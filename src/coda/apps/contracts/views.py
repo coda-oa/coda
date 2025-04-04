@@ -14,8 +14,8 @@ from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
 from coda.apps.views import EntityListView
-from coda.contract import Contract, ContractId, PublisherId
-from coda.publication import JournalId
+from coda.domain.contract import Contract, ContractId, PublisherId
+from coda.domain.publication import JournalId
 
 
 class ContractListView(LoginRequiredMixin, EntityListView[Contract]):

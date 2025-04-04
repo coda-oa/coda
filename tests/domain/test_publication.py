@@ -3,9 +3,9 @@ from typing import cast
 
 import pytest
 
-from coda.author import Role
-from coda.publication import JournalId, Publication, Published
-from coda.string import NonEmptyStr
+from coda.domain.author import Role
+from coda.domain.publication import JournalId, Publication, Published
+from coda.domain.string import NonEmptyStr
 from tests import domainfactory
 
 

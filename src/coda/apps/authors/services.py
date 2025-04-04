@@ -6,10 +6,10 @@ from coda.apps.authors.models import Author as AuthorModel, deserialize_role
 from coda.apps.authors.models import PersonId, serialize_role
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
-from coda.author import Author, AuthorId, InstitutionId
-from coda.orcid import Orcid
-from coda.publication import PublicationId
-from coda.string import NonEmptyStr
+from coda.domain.author import Author, AuthorId, InstitutionId
+from coda.domain.orcid import Orcid
+from coda.domain.publication import PublicationId
+from coda.domain.string import NonEmptyStr
 
 
 def first() -> Author | None:

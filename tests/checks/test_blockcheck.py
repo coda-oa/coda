@@ -7,9 +7,9 @@ from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
 from coda.checks.blockcheck import BlockCheck
 from coda.checks.checklist import CheckFailed, CheckSuccessful, CheckWarning
-from coda.contract import PublisherId
-from coda.fundingrequest import FundingRequest
-from coda.publication import JournalId, Monograph, Publication
+from coda.domain.contract import PublisherId
+from coda.domain.fundingrequest import FundingRequest
+from coda.domain.publication import JournalId, Monograph, Publication
 from tests import domainfactory, modelfactory
 
 

@@ -3,9 +3,9 @@ from coda.apps.publications.repositories import publication_repository
 from tests import domainfactory, modelfactory
 
 from coda.apps.invoices import repository
-from coda.invoice import CreditorId
-from coda.money import Currency
-from coda.publication import JournalId, PublicationId
+from coda.domain.invoice import CreditorId
+from coda.domain.money import Currency
+from coda.domain.publication import JournalId, PublicationId
 
 
 class Command(BaseCommand):

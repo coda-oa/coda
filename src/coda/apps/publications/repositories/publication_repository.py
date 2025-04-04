@@ -12,9 +12,9 @@ from coda.apps.publications.models import AttachedContract, LinkType, Publicatio
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.author import Author, AuthorId, AuthorNames
-from coda.contract import ContractId, ContractYear, PublisherId
-from coda.publication import (
+from coda.domain.author import Author, AuthorId, AuthorNames
+from coda.domain.contract import ContractId, ContractYear, PublisherId
+from coda.domain.publication import (
     Authors,
     BasePublication,
     JournalId,
@@ -30,8 +30,8 @@ from coda.publication import (
     UnpublishedState,
     links,
 )
-from coda.string import NonEmptyStr
-from coda.vocabulary import ConceptId, UnknownConcept, VocabularyConcept, VocabularyId
+from coda.domain.string import NonEmptyStr
+from coda.domain.vocabulary import ConceptId, UnknownConcept, VocabularyConcept, VocabularyId
 
 
 @transaction.atomic

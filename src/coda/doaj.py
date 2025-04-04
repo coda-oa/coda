@@ -3,9 +3,9 @@ from typing import Final
 
 import httpx
 
-from coda.issn import Issn
-from coda.money import Money
-from coda.money._currency import Currency
+from coda.domain.issn import Issn
+from coda.domain.money import Money
+from coda.domain.money._currency import Currency
 
 
 @dataclass(frozen=True, slots=True)

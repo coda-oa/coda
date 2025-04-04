@@ -6,10 +6,9 @@ import pytest
 from coda.apps.authors.services import author_create
 from coda.apps.contracts.repository import as_domain_object
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
-from coda.contract import ContractYear, PublisherId
-from coda.publication.links import Doi
-from coda.orcid import Orcid
-from coda.publication import (
+from coda.domain.contract import ContractYear, PublisherId
+from coda.domain.orcid import Orcid
+from coda.domain.publication import (
     Authors,
     BasePublication,
     JournalId,
@@ -17,7 +16,8 @@ from coda.publication import (
     Publication,
     PublicationId,
 )
-from coda.vocabulary import UnknownConcept, Vocabulary, VocabularyConcept
+from coda.domain.publication.links import Doi
+from coda.domain.vocabulary import UnknownConcept, Vocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory, test_orcid
 from tests.authors.test__author import assert_author_eq
 from tests.contracts.test_contract_repository import assert_contract_eq

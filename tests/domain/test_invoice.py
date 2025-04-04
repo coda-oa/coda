@@ -2,9 +2,9 @@ import datetime
 
 import pytest
 
-from coda.invoice import CostType, CreditorId, Invoice, Position, Positions, TaxRate
-from coda.money import Currency, Money
-from coda.publication import PublicationId
+from coda.domain.invoice import CostType, CreditorId, Invoice, Position, Positions, TaxRate
+from coda.domain.money import Currency, Money
+from coda.domain.publication import PublicationId
 
 
 def make_sut(positions: Positions) -> Invoice:

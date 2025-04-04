@@ -2,8 +2,8 @@ from django.db import models
 
 from coda.apps.publications.models import Vocabulary as VocabularyModel
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.money import Currency
-from coda.vocabulary import VocabularyProtocol
+from coda.domain.money import Currency
+from coda.domain.vocabulary import VocabularyProtocol
 
 
 # NOTE: we have to keep this function around for now,

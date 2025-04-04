@@ -4,17 +4,17 @@ from typing import Any, cast
 
 import pytest
 
+import coda.checks.checkfactory
 from coda.apps.checklist import repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-import coda.checks.checkfactory
 from coda.checks.checklist import CheckFailed, CheckResult, CheckRun, CheckSuccessful, CheckWarning
-from coda.fundingrequest import (
+from coda.domain.fundingrequest import (
     FundingOrganizationId,
     FundingRequest,
     FundingRequestId,
     TPublication,
 )
-from coda.publication import JournalId, Publication
+from coda.domain.publication import JournalId, Publication
 from tests import domainfactory, modelfactory
 
 

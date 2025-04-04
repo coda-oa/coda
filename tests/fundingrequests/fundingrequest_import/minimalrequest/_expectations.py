@@ -2,8 +2,8 @@ import datetime
 
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers.models import Publisher
-from coda.contract import PublisherId
-from coda.fundingrequest import (
+from coda.domain.contract import PublisherId
+from coda.domain.fundingrequest import (
     FundingRequest,
     FundingRequestId,
     Payment,
@@ -11,11 +11,11 @@ from coda.fundingrequest import (
     PublicFundingRequestId,
     Review,
 )
-from coda.fundingrequest.review import ReviewResult
-from coda.money import Currency, Money
-from coda.publication import JournalId, License, OpenAccessType, Publication
-from coda.publication.publication import Monograph
-from coda.string import NonEmptyStr
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import Currency, Money
+from coda.domain.publication import JournalId, License, OpenAccessType, Publication
+from coda.domain.publication.publication import Monograph
+from coda.domain.string import NonEmptyStr
 from tests.fundingrequests.fundingrequest_import.entitynames import (
     IMPORT_JOURNAL_ISSN,
     IMPORT_PUBLICATION_TITLE,

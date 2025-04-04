@@ -13,18 +13,17 @@ from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.views.detailview import payment_status_viewmodel
 from coda.apps.publications.services import publications
 from coda.apps.views import EntityListView
-from coda.date import DateRange
-from coda.fundingrequest.review import ReviewResult
-from coda.publication import OpenAccessType
-from coda.publication.payment import (
+from coda.domain.date import DateRange
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.publication import OpenAccessType
+from coda.domain.publication.payment import (
     InvoiceReceived,
     PublicationCoveredByContract,
     PublicationPaid,
     PublicationPaymentStatus,
     PublicationUnpaid,
 )
-from coda.publication.publication import PublicationId
-
+from coda.domain.publication.publication import PublicationId
 
 _advanced_search_fields = [
     "labels",

@@ -2,8 +2,8 @@ from coda.apps.blocklist.models import BlockList
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
 from coda.checks.checklist import CheckFailed, CheckResult, CheckSuccessful, CheckWarning
-from coda.fundingrequest import FundingRequest, TPublication
-from coda.publication import Monograph, Publication
+from coda.domain.fundingrequest import FundingRequest, TPublication
+from coda.domain.publication import Monograph, Publication
 
 
 class BlockCheck:

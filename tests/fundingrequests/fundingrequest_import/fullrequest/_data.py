@@ -16,10 +16,10 @@ from coda.apps.fundingrequests.services.importservice.dto import (
     ReviewImportDto,
     SeperateContactImportDto,
 )
-from coda.author import Role
-from coda.fundingrequest import PaymentMethod, ReviewResult
-from coda.money import Currency
-from coda.publication import License, OpenAccessType
+from coda.domain.author import Role
+from coda.domain.fundingrequest import PaymentMethod, ReviewResult
+from coda.domain.money import Currency
+from coda.domain.publication import License, OpenAccessType
 from tests.fundingrequests.fundingrequest_import.entitynames import (
     COAR_RESOURCE_TYPES_NAME,
     DFG_SUBJECT_CLASSIFICATION_NAME,

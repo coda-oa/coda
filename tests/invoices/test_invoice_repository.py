@@ -4,9 +4,9 @@ import pytest
 from coda.apps.contracts import repository as contract_services
 from coda.apps.invoices import repository
 from coda.apps.publications.repositories import publication_repository
-from coda.contract import Contract
-from coda.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
-from coda.publication import JournalId, PublicationId
+from coda.domain.contract import Contract
+from coda.domain.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
+from coda.domain.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
 
 _faker = faker.Faker()

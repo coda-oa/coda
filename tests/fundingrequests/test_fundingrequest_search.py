@@ -10,12 +10,12 @@ from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.fundingrequests.services.labels import label_attach
 from coda.apps.fundingrequests.services.labels import label_create
-from coda.color import Color
-from coda.fundingrequest import FundingRequestId, Review
-from coda.fundingrequest.review import ReviewResult
-from coda.money import Currency, Money
-from coda.publication import Authors
-from coda.string import NonEmptyStr
+from coda.domain.color import Color
+from coda.domain.fundingrequest import FundingRequestId, Review
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import Currency, Money
+from coda.domain.publication import Authors
+from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 
 

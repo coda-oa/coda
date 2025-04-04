@@ -1,6 +1,6 @@
 import pytest
 
-from coda.color import HUE_TOLERANCE, TOLERANCE, Color
+from coda.domain.color import HUE_TOLERANCE, TOLERANCE, Color
 
 
 def assert_close_hsl(a: tuple[float, float, float], b: tuple[float, float, float]) -> None:

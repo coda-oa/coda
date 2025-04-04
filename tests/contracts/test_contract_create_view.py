@@ -1,5 +1,5 @@
-from collections.abc import Iterable
 import datetime
+from collections.abc import Iterable
 
 import pytest
 from django.test import Client
@@ -8,10 +8,10 @@ from django.urls import reverse
 from coda.apps.contracts import repository
 from coda.apps.contracts.forms import ContractForm, EntityFormset
 from coda.apps.htmx_components.converters import to_htmx_formset_data
-from coda.contract import Contract, PublisherId
-from coda.date import DateRange
-from coda.publication import JournalId
-from coda.string import NonEmptyStr
+from coda.domain.contract import Contract, PublisherId
+from coda.domain.date import DateRange
+from coda.domain.publication import JournalId
+from coda.domain.string import NonEmptyStr
 from tests.contracts.test_contract_repository import (
     assert_contract_eq,
     make_contract,

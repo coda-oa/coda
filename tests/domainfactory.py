@@ -5,12 +5,12 @@ from typing import cast
 
 import faker
 
-from coda import orcid
-from coda.author import Author, AuthorId, AuthorNames, InstitutionId, Role
-from coda.contract import Contract, ContractId, ContractYear, PublisherId
-from coda.date import DateRange
-from coda.fundingrequest import Review
-from coda.fundingrequest import (
+from coda.domain import orcid
+from coda.domain.author import Author, AuthorId, AuthorNames, InstitutionId, Role
+from coda.domain.contract import Contract, ContractId, ContractYear, PublisherId
+from coda.domain.date import DateRange
+from coda.domain.fundingrequest import Review
+from coda.domain.fundingrequest import (
     ExternalFunding,
     FilledContact,
     FundingOrganizationId,
@@ -19,8 +19,8 @@ from coda.fundingrequest import (
     Payment,
     PaymentMethod,
 )
-from coda.fundingrequest.identity import PublicFundingRequestId
-from coda.invoice import (
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.invoice import (
     CostType,
     CreditorId,
     FundingSourceId,
@@ -31,8 +31,8 @@ from coda.invoice import (
     Positions,
     TaxRate,
 )
-from coda.money import Currency, Money
-from coda.publication import (
+from coda.domain.money import Currency, Money
+from coda.domain.publication import (
     Authors,
     JournalId,
     License,
@@ -45,9 +45,9 @@ from coda.publication import (
     Published,
     Unpublished,
 )
-from coda.publication.links import Doi, Isbn
-from coda.string import NonEmptyStr
-from coda.vocabulary import UnknownConcept, VocabularyConcept
+from coda.domain.publication.links import Doi, Isbn
+from coda.domain.string import NonEmptyStr
+from coda.domain.vocabulary import UnknownConcept, VocabularyConcept
 
 _faker = faker.Faker()
 

@@ -3,7 +3,7 @@ from typing import Any, NamedTuple, Protocol
 
 import pydantic
 
-from coda.string import NonEmptyStr
+from coda.domain.string import NonEmptyStr
 
 from pydantic_core import PydanticCustomError
 from pydantic_extra_types.isbn import ISBN

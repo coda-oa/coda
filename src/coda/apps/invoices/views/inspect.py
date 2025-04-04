@@ -13,11 +13,18 @@ from coda.apps.invoices import repository
 from coda.apps.invoices.models import Creditor
 from coda.apps.publications.models import Publication
 from coda.apps.views import EntityListView
-from coda.contract import ContractYear
-from coda.date import DateRange
-from coda.invoice import FundingSourceId, Invoice, InvoiceId, ItemType, PaymentStatus, Position
-from coda.money import Money
-from coda.publication import PublicationId
+from coda.domain.contract import ContractYear
+from coda.domain.date import DateRange
+from coda.domain.invoice import (
+    FundingSourceId,
+    Invoice,
+    InvoiceId,
+    ItemType,
+    PaymentStatus,
+    Position,
+)
+from coda.domain.money import Money
+from coda.domain.publication import PublicationId
 
 
 class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):

@@ -3,8 +3,8 @@ from collections.abc import Collection
 import pytest
 
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
-from coda.publication import JournalId, PublicationId
-from coda.vocabulary import LimitedVocabulary, VocabularyConcept
+from coda.domain.publication import JournalId, PublicationId
+from coda.domain.vocabulary import LimitedVocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory
 
 

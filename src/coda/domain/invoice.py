@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Generic, NamedTuple, NewType, Self, TypeVar
 
-from coda.contract import ContractYear
-from coda.money import Currency, Money
-from coda.publication import PublicationId
+from coda.domain.contract import ContractYear
+from coda.domain.money import Currency, Money
+from coda.domain.publication import PublicationId
 
 InvoiceId = NewType("InvoiceId", int)
 CreditorId = NewType("CreditorId", int)

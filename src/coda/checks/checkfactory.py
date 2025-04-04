@@ -4,7 +4,7 @@ from typing import Final
 from coda.checks.blockcheck import BlockCheck
 from coda.checks.checklist import Check, Checklist
 from coda.checks.doajcheck import DoajCheck
-from coda.publication import BasePublication, Monograph, Publication, PublicationKind
+from coda.domain.publication import BasePublication, Monograph, Publication, PublicationKind
 
 CheckType = type[Check]
 

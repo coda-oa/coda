@@ -1,6 +1,6 @@
 import pytest
 
-from coda.publication.links import Doi
+from coda.domain.publication.links import Doi
 
 
 def test_can_create_doi() -> None:

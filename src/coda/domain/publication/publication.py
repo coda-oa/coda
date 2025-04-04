@@ -13,15 +13,15 @@ from typing import (
     TypeVar,
 )
 
-from coda.author import Author, AuthorNames
-from coda.contract import PublisherId
-from coda.string import NonEmptyStr
-from coda.vocabulary import UnknownConcept, VocabularyConcept
+from coda.domain.author import Author, AuthorNames
+from coda.domain.contract import PublisherId
+from coda.domain.string import NonEmptyStr
+from coda.domain.vocabulary import UnknownConcept, VocabularyConcept
 
 from .links import Link
 
 if TYPE_CHECKING:
-    from coda.contract import ContractYear
+    from coda.domain.contract import ContractYear
 
 
 JournalId = NewType("JournalId", int)

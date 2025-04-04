@@ -1,7 +1,6 @@
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Callable
 from typing import cast
 
 import pytest
@@ -13,14 +12,14 @@ from coda.apps.fundingrequests.services.importservice import import_fundingreque
 from coda.apps.fundingrequests.services.importservice.dto import (
     FundingRequestImportListDto,
 )
-from coda.apps.institutions.models import Institution
 from coda.apps.institutions import repository as institution_repository
+from coda.apps.institutions.models import Institution
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers.models import Publisher
-from coda.contract import Contract, PublisherId
-from coda.fundingrequest import FundingRequestId, Review
-from coda.fundingrequest.fundingrequest import AnyFundingRequest
-from coda.string import NonEmptyStr
+from coda.domain.contract import Contract, PublisherId
+from coda.domain.fundingrequest import FundingRequestId, Review
+from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
+from coda.domain.string import NonEmptyStr
 from tests import modelfactory
 from tests.fundingrequests.fundingrequest_import import fullrequest, minimalrequest
 from tests.fundingrequests.fundingrequest_import.entitynames import (

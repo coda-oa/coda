@@ -8,7 +8,7 @@ from django.db import transaction
 from coda.apps.contracts.models import Contract
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
-from coda.contract import PublicationBilling
+from coda.domain.contract import PublicationBilling
 
 
 class Command(BaseCommand):

@@ -16,18 +16,17 @@ from coda.apps.fundingrequests.services import checks
 from coda.apps.publications.dto import LinkDto
 from coda.apps.publications.models import AttachedContract
 from coda.apps.publications.services import publications
-from coda.fundingrequest import FundingRequestId
-from coda.fundingrequest.review import ReviewResult
-from coda.money import Currency, Money
-from coda.publication import License, Link
-from coda.publication.payment import (
+from coda.domain.fundingrequest import FundingRequestId, ReviewResult
+from coda.domain.money import Currency, Money
+from coda.domain.publication import License, Link
+from coda.domain.publication.payment import (
     InvoiceReceived,
     PublicationCoveredByContract,
     PublicationPaid,
     PublicationPaymentStatus,
     PublicationUnpaid,
 )
-from coda.publication.publication import PublicationId
+from coda.domain.publication.publication import PublicationId
 
 template_name = "fundingrequests/fundingrequest_detail.html"
 

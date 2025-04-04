@@ -10,10 +10,10 @@ from coda.apps.fundingrequests.services.checks import run_checks
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import PublicationBaseDto
-from coda.author import Author
 from coda.checks.checkfactory import CheckFactory
-from coda.fundingrequest import FundingRequest, FundingRequestId
-from coda.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.author import Author
+from coda.domain.fundingrequest import FundingRequest, FundingRequestId
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
 
 
 class RequestIdGenerator(Protocol):

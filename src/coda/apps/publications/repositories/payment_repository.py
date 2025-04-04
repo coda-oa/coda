@@ -1,9 +1,9 @@
 from typing import Final
 
 from coda.apps.publications.models import PublicationPayment as PublicationPaymentModel
-from coda.invoice import InvoiceId
-from coda.publication import PublicationId
-from coda.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
+from coda.domain.invoice import InvoiceId
+from coda.domain.publication import PublicationId
+from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
 
 
 def _to_invoice_received(model: PublicationPaymentModel) -> PublicationPayment:

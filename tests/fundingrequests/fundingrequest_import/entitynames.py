@@ -1,5 +1,5 @@
-from coda.issn import Issn
-from coda.string import NonEmptyStr
+from coda.domain.issn import Issn
+from coda.domain.string import NonEmptyStr
 
 
 DFG_SUBJECT_CLASSIFICATION_NAME = "DFG Subject Classification"

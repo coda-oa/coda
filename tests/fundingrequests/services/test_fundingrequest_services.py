@@ -14,8 +14,8 @@ from coda.apps.fundingrequests.dto import (
 from coda.apps.fundingrequests.repository import get_by_id
 from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import PublicationDto
-from coda.author import InstitutionId
-from coda.fundingrequest import (
+from coda.domain.author import InstitutionId
+from coda.domain.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
     FilledContact,
@@ -23,10 +23,10 @@ from coda.fundingrequest import (
     FundingRequest,
     FundingRequestContact,
     NoContact,
+    PublicFundingRequestId,
 )
-from coda.fundingrequest.identity import PublicFundingRequestId
-from coda.publication import JournalId
-from coda.string import NonEmptyStr
+from coda.domain.publication import JournalId
+from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder

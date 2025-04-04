@@ -10,9 +10,9 @@ from pydantic_core import core_schema
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.contracts import repository as contract_services
 from coda.apps.dto import CodaBaseDto, OptionalFromStr
-from coda.author import AuthorNames
-from coda.contract import ContractId, ContractYear, PublisherId
-from coda.publication import (
+from coda.domain.author import AuthorNames
+from coda.domain.contract import ContractId, ContractYear, PublisherId
+from coda.domain.publication import (
     Authors,
     BasePublication,
     JournalId,
@@ -28,8 +28,8 @@ from coda.publication import (
     UnpublishedState,
     links,
 )
-from coda.string import NonEmptyStr
-from coda.vocabulary import ConceptId, VocabularyConcept, VocabularyId
+from coda.domain.string import NonEmptyStr
+from coda.domain.vocabulary import ConceptId, VocabularyConcept, VocabularyId
 
 
 class LinkDto(CodaBaseDto):

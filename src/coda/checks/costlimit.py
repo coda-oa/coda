@@ -1,8 +1,8 @@
 from decimal import Decimal
 from typing import Any
 from coda.checks.checklist import CheckFailed, CheckResult, CheckSuccessful
-from coda.fundingrequest import FundingRequest, TPublication
-from coda.money import Currency, CurrencyExchange, Money
+from coda.domain.fundingrequest import FundingRequest, TPublication
+from coda.domain.money import Currency, CurrencyExchange, Money
 
 
 class CostLimitCheck:

@@ -1,6 +1,6 @@
-from coda.author import Author, AuthorId, Role
-from coda.orcid import Orcid
-from coda.string import NonEmptyStr
+from coda.domain.author import Author, AuthorId, Role
+from coda.domain.orcid import Orcid
+from coda.domain.string import NonEmptyStr
 from tests.test_orcid import JOSIAH_CARBERRY
 
 

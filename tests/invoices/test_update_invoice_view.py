@@ -14,10 +14,18 @@ from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.repository import save
 from coda.apps.invoices.views.positions import ContractPosition, FreePosition, PublicationPosition
 from coda.apps.publications.repositories import publication_repository
-from coda.contract import Contract, ContractYear
-from coda.invoice import CostType, CreditorId, Invoice, InvoiceId, PaymentStatus, Position, TaxRate
-from coda.money import Currency, Money
-from coda.publication import JournalId, Publication, PublicationId
+from coda.domain.contract import Contract, ContractYear
+from coda.domain.invoice import (
+    CostType,
+    CreditorId,
+    Invoice,
+    InvoiceId,
+    PaymentStatus,
+    Position,
+    TaxRate,
+)
+from coda.domain.money import Currency, Money
+from coda.domain.publication import JournalId, Publication, PublicationId
 from tests import domainfactory, modelfactory
 from tests.invoices.test_create_invoice_view import (
     InvalidContractYear,

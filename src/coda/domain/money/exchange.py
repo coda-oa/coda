@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Callable, NamedTuple, Protocol, TypeAlias
+from typing import NamedTuple, Protocol, TypeAlias
+from collections.abc import Callable
 
-from coda.money import Currency
+from coda.domain.money import Currency
 
 Rates: TypeAlias = dict[Currency, Decimal]
 

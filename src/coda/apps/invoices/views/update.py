@@ -12,7 +12,7 @@ from coda.apps.invoices.views.position_list import (
     invoice_total_context,
 )
 from coda.apps.invoices.views.positions import to_position_dto
-from coda.invoice import InvoiceId
+from coda.domain.invoice import InvoiceId
 
 
 @login_required

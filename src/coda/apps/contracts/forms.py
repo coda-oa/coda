@@ -1,9 +1,9 @@
 from django import forms
 
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
-from coda.contract import Contract, PublicationBilling
-from coda.date import DateRange
-from coda.string import NonEmptyStr
+from coda.domain.contract import Contract, PublicationBilling
+from coda.domain.date import DateRange
+from coda.domain.string import NonEmptyStr
 
 
 class ContractForm(forms.Form):

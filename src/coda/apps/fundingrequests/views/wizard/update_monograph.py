@@ -14,7 +14,7 @@ from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
 )
 from coda.apps.publications.dto import MonographDto
 from coda.apps.wizard import SessionStore, Wizard
-from coda.fundingrequest import FundingRequestId
+from coda.domain.fundingrequest import FundingRequestId
 
 
 class MonographUpdateMetaView(Wizard):

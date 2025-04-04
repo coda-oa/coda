@@ -2,8 +2,8 @@ from decimal import Decimal
 
 import pydantic
 
-from coda.fundingrequest import FundingRequestId, Review, ReviewResult
-from coda.money import Currency, Money
+from coda.domain.fundingrequest import FundingRequestId, Review, ReviewResult
+from coda.domain.money import Currency, Money
 
 
 class DecidedFundingImportDto(pydantic.BaseModel):

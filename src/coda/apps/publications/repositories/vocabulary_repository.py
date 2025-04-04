@@ -4,8 +4,8 @@ from typing import Any, cast
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.publications.models import Vocabulary as VocabularyModel
 from coda.apps.publications.repositories import publication_repository
-from coda.publication import BasePublication
-from coda.vocabulary import (
+from coda.domain.publication import BasePublication
+from coda.domain.vocabulary import (
     ConceptId,
     LimitedVocabulary,
     Vocabulary,

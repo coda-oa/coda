@@ -3,12 +3,12 @@ from typing import Annotated, Literal
 
 import pydantic
 
-from coda import issn
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers.models import Publisher
-from coda.contract import Contract, PublisherId
-from coda.publication import (
+from coda.domain import issn
+from coda.domain.contract import Contract, PublisherId
+from coda.domain.publication import (
     Authors,
     BasePublication,
     JournalId,
@@ -22,7 +22,7 @@ from coda.publication import (
     Unpublished,
     links,
 )
-from coda.string import NonEmptyStr
+from coda.domain.string import NonEmptyStr
 
 from ._author import AuthorImportDto
 from ._contract import ContractImportDto

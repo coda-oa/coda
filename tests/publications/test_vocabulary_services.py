@@ -4,8 +4,8 @@ import pytest
 
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.apps.publications.services import vocabularies
-from coda.publication import BasePublication, PublicationId
-from coda.vocabulary import LimitedVocabulary, Vocabulary, VocabularyConcept, VocabularyId
+from coda.domain.publication import BasePublication, PublicationId
+from coda.domain.vocabulary import LimitedVocabulary, Vocabulary, VocabularyConcept, VocabularyId
 from tests.publications.test_vocabulary_repository import (
     create_publication_with_publication_type,
     create_publication_with_subject_area,

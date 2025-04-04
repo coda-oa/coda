@@ -2,10 +2,10 @@ from collections.abc import Sequence
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.journals.models import Journal
-from coda.contract import PublisherId
-from coda.issn import Issn
-from coda.publication import JournalId
-from coda.string import NonEmptyStr
+from coda.domain.contract import PublisherId
+from coda.domain.issn import Issn
+from coda.domain.publication import JournalId
+from coda.domain.string import NonEmptyStr
 
 
 def create(title: NonEmptyStr, eissn: Issn, publisher_id: PublisherId) -> JournalId:

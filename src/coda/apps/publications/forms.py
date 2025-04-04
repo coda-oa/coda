@@ -14,9 +14,9 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import ConceptDto, LinkDto, PublicationMetaDto
 from coda.apps.publications.models import Concept, LinkType, Publication, Vocabulary
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.publication import links
-from coda.publication import License, OpenAccessType, Published, UnpublishedState
-from coda.vocabulary import UnknownConcept, VocabularyConcept, VocabularyProtocol
+from coda.domain.publication import links
+from coda.domain.publication import License, OpenAccessType, Published, UnpublishedState
+from coda.domain.vocabulary import UnknownConcept, VocabularyConcept, VocabularyProtocol
 
 
 def concept_choices_from_global_settings(

@@ -4,10 +4,10 @@ import random
 import pytest
 
 from coda.apps.contracts.repository import get_by_id, save
-from coda.contract import Contract, PublicationBilling, PublisherId
-from coda.date import DateRange
-from coda.publication import JournalId
-from coda.string import NonEmptyStr
+from coda.domain.contract import Contract, PublicationBilling, PublisherId
+from coda.domain.date import DateRange
+from coda.domain.publication import JournalId
+from coda.domain.string import NonEmptyStr
 from tests import modelfactory
 
 START_DATE = datetime.date(2024, 1, 1)

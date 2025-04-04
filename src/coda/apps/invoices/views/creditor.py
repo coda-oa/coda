@@ -6,7 +6,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import CreditorForm
 from coda.apps.invoices.models import Creditor
-from coda.invoice import CreditorId
+from coda.domain.invoice import CreditorId
 
 
 class CreditorListView(LoginRequiredMixin, ListView[Creditor]):

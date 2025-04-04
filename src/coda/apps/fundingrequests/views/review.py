@@ -6,9 +6,8 @@ from django.views.decorators.http import require_POST
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.services import checks
-from coda.fundingrequest import Review
-from coda.fundingrequest import FundingRequestId
-from coda.money import Currency, Money
+from coda.domain.fundingrequest import FundingRequestId, Review
+from coda.domain.money import Currency, Money
 
 
 @login_required

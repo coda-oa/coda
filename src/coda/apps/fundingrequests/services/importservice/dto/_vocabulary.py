@@ -1,7 +1,7 @@
 import pydantic
 
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.vocabulary import UnknownConcept, VocabularyConcept
+from coda.domain.vocabulary import UnknownConcept, VocabularyConcept
 
 
 class ConceptImportDto(pydantic.BaseModel):

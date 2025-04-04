@@ -1,8 +1,8 @@
 from coda.apps.invoices import repository
 from coda.apps.publications.services import publications
-from coda.invoice import Invoice, InvoiceId
-from coda.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
-from coda.publication.publication import PublicationId
+from coda.domain.invoice import Invoice, InvoiceId
+from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
+from coda.domain.publication.publication import PublicationId
 
 
 def save(invoice: Invoice) -> InvoiceId:

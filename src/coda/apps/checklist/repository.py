@@ -5,7 +5,7 @@ from django.db.models import QuerySet
 from coda.apps.checklist.models import CheckRun as CheckRunModel
 from coda.checks.checkfactory import CheckFactory
 from coda.checks.checklist import CheckFailed, CheckResult, CheckRun, CheckSuccessful, CheckWarning
-from coda.fundingrequest import FundingRequestId
+from coda.domain.fundingrequest import FundingRequestId
 
 
 def save(checkrun: Iterable[CheckRun]) -> None:

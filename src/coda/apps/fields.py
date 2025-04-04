@@ -1,7 +1,7 @@
 from django import forms
 
 from coda.apps import widgets
-from coda.money import Currency
+from coda.domain.money import Currency
 
 
 def currency_field(label: str | None = None) -> forms.ChoiceField:

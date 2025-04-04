@@ -1,7 +1,7 @@
 from typing import Self
 
 from coda.apps.publications.dto import PublicationDto
-from coda.publication import JournalId, Publication, PublicationId
+from coda.domain.publication import JournalId, Publication, PublicationId
 from tests import domainfactory, modelfactory
 from tests.fundingrequests.wizard.databuilders._base import FundingRequestDataBuilder
 

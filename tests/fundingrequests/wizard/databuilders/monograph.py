@@ -2,8 +2,8 @@ from typing import Self
 
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import PublisherStepDto
 from coda.apps.publications.dto import MonographDto
-from coda.contract import PublisherId
-from coda.publication import Monograph, PublicationId
+from coda.domain.contract import PublisherId
+from coda.domain.publication import Monograph, PublicationId
 from tests import domainfactory, modelfactory
 from tests.fundingrequests.wizard.databuilders._base import FundingRequestDataBuilder
 

@@ -14,7 +14,7 @@ from coda.apps.publications.dto import LinkDto, PublicationMetaDto
 from coda.apps.publications.forms import LinkForm, PublicationForm
 from coda.apps.publications.models import LinkType
 from coda.apps.wizard import Step, Store
-from coda.author import AuthorNames
+from coda.domain.author import AuthorNames
 
 
 class FormLike(Protocol):

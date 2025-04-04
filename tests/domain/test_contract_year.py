@@ -2,10 +2,10 @@ import datetime
 
 import pytest
 
-from coda.contract import Contract, ContractYear, PublisherId
-from coda.date import DateRange
+from coda.domain.contract import Contract, ContractYear, PublisherId
+from coda.domain.date import DateRange
 from coda.lazyiterable import LazyCachedIterable
-from coda.string import NonEmptyStr
+from coda.domain.string import NonEmptyStr
 
 
 def test__contract_year__cannot_create_outside_active_contract_period() -> None:

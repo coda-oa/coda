@@ -1,7 +1,12 @@
 from typing import NamedTuple
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
-from coda.publication import BasePublication
-from coda.vocabulary import LimitedVocabulary, VocabularyConcept, VocabularyId, VocabularyProtocol
+from coda.domain.publication import BasePublication
+from coda.domain.vocabulary import (
+    LimitedVocabulary,
+    VocabularyConcept,
+    VocabularyId,
+    VocabularyProtocol,
+)
 
 
 def create_limited_from(vocabulary_id: VocabularyId, name: str) -> VocabularyId:

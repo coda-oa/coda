@@ -4,11 +4,11 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NewType
 
-from coda.date import DateRange
-from coda.string import NonEmptyStr
+from coda.domain.date import DateRange
+from coda.domain.string import NonEmptyStr
 
 if TYPE_CHECKING:
-    from coda.publication import JournalId
+    from coda.domain.publication import JournalId
 
 
 class ContractId(int):

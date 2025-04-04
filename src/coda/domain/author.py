@@ -4,8 +4,8 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import Any, NewType
 
-from coda.orcid import Orcid
-from coda.string import NonEmptyStr
+from coda.domain.orcid import Orcid
+from coda.domain.string import NonEmptyStr
 
 AuthorId = NewType("AuthorId", int)
 InstitutionId = NewType("InstitutionId", int)

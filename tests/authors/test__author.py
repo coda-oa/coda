@@ -10,9 +10,9 @@ from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.models import PersonId
 from coda.apps.authors.services import as_domain_object, author_create, author_update, get_by_id
 from coda.apps.institutions.models import Institution
-from coda.author import Author, InstitutionId
-from coda.orcid import Orcid
-from coda.string import NonEmptyStr
+from coda.domain.author import Author, InstitutionId
+from coda.domain.orcid import Orcid
+from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory, test_orcid
 
 JOSIAHS_DATA = Author.new(

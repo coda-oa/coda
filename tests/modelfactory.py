@@ -2,7 +2,6 @@ import random
 
 import faker
 
-from coda import issn
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.services import author_create
 from coda.apps.contracts.models import Contract
@@ -14,9 +13,10 @@ from coda.apps.invoices.models import Creditor, FundingSource
 from coda.apps.journals.models import Journal
 from coda.apps.publications.models import Concept, Publication, Vocabulary
 from coda.apps.publishers.models import Publisher
-from coda.contract import PublicationBilling
-from coda.fundingrequest import FundingOrganizationId, FundingRequest
-from coda.publication import Authors, JournalId
+from coda.domain import issn
+from coda.domain.contract import PublicationBilling
+from coda.domain.fundingrequest import FundingOrganizationId, FundingRequest
+from coda.domain.publication import Authors, JournalId
 from tests import domainfactory
 
 _faker = faker.Faker()

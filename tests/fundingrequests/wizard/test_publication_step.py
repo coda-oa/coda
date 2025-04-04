@@ -13,9 +13,9 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import LinkDto, MonographDto, PublicationDto
 from coda.apps.publications.forms import PublicationForm
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.author import AuthorNames, InstitutionId, Role
-from coda.publication import Authors
-from coda.vocabulary import Vocabulary, VocabularyConcept
+from coda.domain.author import AuthorNames, InstitutionId, Role
+from coda.domain.publication import Authors
+from coda.domain.vocabulary import Vocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
 from tests.fundingrequests.wizard.stepdata import publication_step

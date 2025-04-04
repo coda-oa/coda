@@ -1,6 +1,6 @@
 import pytest
 
-from coda.vocabulary import LimitedVocabulary, Vocabulary, VocabularyId
+from coda.domain.vocabulary import LimitedVocabulary, Vocabulary, VocabularyId
 
 
 def test__limited_vocabulary__all_concepts_are_allowed_by_default() -> None:

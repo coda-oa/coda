@@ -1,7 +1,7 @@
 import uuid
 from django.db import models
 
-from coda.vocabulary import UnknownConcept
+from coda.domain.vocabulary import UnknownConcept
 
 
 class Vocabulary(models.Model):

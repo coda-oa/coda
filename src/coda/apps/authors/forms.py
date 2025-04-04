@@ -11,9 +11,9 @@ from coda.apps.formbase import CodaFormBase
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 from coda.apps.institutions import repository
 from coda.apps.institutions.models import Institution
-from coda.author import Author, InstitutionId, Role
-from coda.orcid import Orcid
-from coda.publication import Authors
+from coda.domain.author import Author, InstitutionId, Role
+from coda.domain.orcid import Orcid
+from coda.domain.publication import Authors
 from coda.validation import as_validator
 
 

@@ -6,9 +6,9 @@ from typing_extensions import TypeIs
 from coda import doaj
 from coda.apps.journals import services
 from coda.checks.checklist import CheckFailed, CheckResult, CheckSuccessful
-from coda.fundingrequest import FundingRequest, TPublication
-from coda.issn import Issn
-from coda.publication import JournalId, Publication
+from coda.domain.fundingrequest import FundingRequest, TPublication
+from coda.domain.issn import Issn
+from coda.domain.publication import JournalId, Publication
 
 
 class DoajApi(Protocol):

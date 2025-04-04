@@ -13,7 +13,7 @@ from coda.apps.fundingrequests.dto import (
 )
 from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.wizard import Store, Wizard
-from coda.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
 
 TPublicationDto = TypeVar("TPublicationDto", PublicationDto, MonographDto)
 

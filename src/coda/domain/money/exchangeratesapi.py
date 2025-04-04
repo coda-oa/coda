@@ -3,7 +3,7 @@ from typing import TypedDict
 
 import httpx
 
-from coda.money import Currency
+from coda.domain.money import Currency
 
 
 EXCHANGERATE_API_OPEN = "https://open.er-api.com/v6/latest/{currency}"

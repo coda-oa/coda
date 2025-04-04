@@ -4,11 +4,11 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Final, Generic, NamedTuple, NewType, TypeAlias, TypeVar
 
-from coda.fundingrequest.identity import PublicFundingRequestId
-from coda.fundingrequest.review import Review, ReviewResult
-from coda.money import Money
-from coda.publication import BasePublication, Monograph, Publication
-from coda.string import NonEmptyStr
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.fundingrequest.review import Review, ReviewResult
+from coda.domain.money import Money
+from coda.domain.publication import BasePublication, Monograph, Publication
+from coda.domain.string import NonEmptyStr
 
 FundingRequestId = NewType("FundingRequestId", int)
 FundingOrganizationId = NewType("FundingOrganizationId", int)

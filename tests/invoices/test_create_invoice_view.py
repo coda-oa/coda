@@ -1,6 +1,6 @@
-from collections.abc import Callable
 import datetime
 import random
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
@@ -23,8 +23,8 @@ from coda.apps.invoices.views.positions import (
 )
 from coda.apps.publications.models import Publication
 from coda.apps.publications.services import publications
-from coda.contract import Contract, ContractId
-from coda.invoice import (
+from coda.domain.contract import Contract, ContractId
+from coda.domain.invoice import (
     CostType,
     CreditorId,
     FundingSourceId,
@@ -33,9 +33,9 @@ from coda.invoice import (
     Position,
     TaxRate,
 )
-from coda.money import Currency, Money
-from coda.publication import PublicationId
-from coda.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
+from coda.domain.money import Currency, Money
+from coda.domain.publication import PublicationId
+from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
 from tests import domainfactory, modelfactory
 from tests.invoices.test_invoice_repository import assert_invoice_eq
 

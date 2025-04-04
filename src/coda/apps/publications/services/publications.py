@@ -2,9 +2,9 @@ from collections.abc import Iterable
 from typing import cast
 
 from coda.apps.publications.repositories import payment_repository, publication_repository
-from coda.contract import ContractId, ContractYear
-from coda.publication import PublicationId
-from coda.publication.payment import (
+from coda.domain.contract import ContractId, ContractYear
+from coda.domain.publication import PublicationId
+from coda.domain.publication.payment import (
     PublicationCoveredByContract,
     PublicationPayment,
     PublicationPaymentStatus,

@@ -1,9 +1,7 @@
 from coda import doaj
 from coda.doaj import DoajListedJournal, HasApc
-from coda.issn import Issn
-from coda.money._currency import Currency
-from coda.money._money import Money
-
+from coda.domain.issn import Issn
+from coda.domain.money import Currency, Money
 
 # Data taken from https://doaj.org/toc/2950-2578
 # at March 4th, 2025

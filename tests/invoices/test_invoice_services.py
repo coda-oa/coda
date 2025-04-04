@@ -3,9 +3,9 @@ import pytest
 from coda.apps.invoices import repository, services
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
-from coda.invoice import CreditorId, Invoice
-from coda.publication.payment import InvoiceReceived, PublicationPaid, PublicationUnpaid
-from coda.publication.publication import JournalId, PublicationId
+from coda.domain.invoice import CreditorId, Invoice
+from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationUnpaid
+from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
 
 

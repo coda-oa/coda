@@ -6,15 +6,15 @@ from coda.apps.contracts import repository as contract_repository
 from coda.apps.invoices import repository as invoice_repository
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
-from coda.contract import ContractYear, PublicationBilling
-from coda.invoice import CreditorId, Invoice, InvoiceId
-from coda.publication.payment import (
+from coda.domain.contract import ContractYear, PublicationBilling
+from coda.domain.invoice import CreditorId, Invoice, InvoiceId
+from coda.domain.publication.payment import (
     InvoiceReceived,
     PublicationCoveredByContract,
     PublicationPaid,
     PublicationUnpaid,
 )
-from coda.publication.publication import JournalId, PublicationId
+from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
 
 

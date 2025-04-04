@@ -1,7 +1,7 @@
 from coda.apps.dto import CodaBaseDto, OptionalFromStr
-from coda.author import Author, AuthorId, InstitutionId, Role
-from coda.orcid import Orcid
-from coda.string import NonEmptyStr
+from coda.domain.author import Author, AuthorId, InstitutionId, Role
+from coda.domain.orcid import Orcid
+from coda.domain.string import NonEmptyStr
 
 
 class AuthorDto(CodaBaseDto):

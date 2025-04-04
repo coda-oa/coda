@@ -1,7 +1,7 @@
 from django.db import models
 
 from coda.apps.institutions.models import Institution
-from coda.author import Role
+from coda.domain.author import Role
 
 
 class PersonId(models.Model):

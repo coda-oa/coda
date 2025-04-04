@@ -3,7 +3,7 @@ from typing import Annotated
 from pydantic import AfterValidator, Field
 
 from coda.apps.dto import CodaBaseDto
-from coda.fundingrequest import (
+from coda.domain.fundingrequest import (
     ExternalFunding,
     FilledContact,
     FundingOrganizationId,
@@ -12,8 +12,8 @@ from coda.fundingrequest import (
     Payment,
     PaymentMethod,
 )
-from coda.money import Currency, Money
-from coda.string import NonEmptyStr
+from coda.domain.money import Currency, Money
+from coda.domain.string import NonEmptyStr
 
 
 class PaymentDto(CodaBaseDto):

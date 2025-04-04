@@ -10,7 +10,7 @@ from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 from coda.apps.publications.dto import ContractYearDto
-from coda.contract import ContractYear
+from coda.domain.contract import ContractYear
 
 
 class ExtraContactForm(CodaFormBase):

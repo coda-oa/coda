@@ -5,7 +5,7 @@ from coda.apps.fundingrequests.services.importservice.dto import (
     FundingRequestImportListDto,
     PublicationImportDto,
 )
-from coda.publication import License, OpenAccessType
+from coda.domain.publication import License, OpenAccessType
 from tests.fundingrequests.fundingrequest_import.entitynames import (
     IMPORT_JOURNAL_ISSN,
     IMPORT_JOURNAL_NAME,

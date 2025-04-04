@@ -9,8 +9,8 @@ from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
     PublisherStepDto,
 )
 from coda.apps.publications.dto import ContractYearDto
-from coda.contract import ContractId
-from coda.date import DateRange
+from coda.domain.contract import ContractId
+from coda.domain.date import DateRange
 from tests import domainfactory, modelfactory
 from tests.test_wizard import DictStore
 

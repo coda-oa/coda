@@ -1,6 +1,6 @@
 import pytest
 
-from coda.vocabulary import (
+from coda.domain.vocabulary import (
     ConceptId,
     DuplicateConceptError,
     Vocabulary,

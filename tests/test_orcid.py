@@ -1,9 +1,9 @@
 import string
 import unicodedata
+
 import pytest
 
-from coda import orcid
-
+from coda.domain import orcid
 
 # NOTE: ORCIDs taken from https://support.orcid.org/hc/en-us/articles/360006897674-Structure-of-the-ORCID-Identifier
 JOSIAH_CARBERRY = "0000-0002-1825-0097"

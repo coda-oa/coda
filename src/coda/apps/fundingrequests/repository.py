@@ -15,8 +15,8 @@ from coda.apps.fundingrequests.models import (
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import FundingRequestContact as FundingRequestContactModel
 from coda.apps.publications.repositories import publication_repository
-from coda.date import DateRange
-from coda.fundingrequest import (
+from coda.domain.date import DateRange
+from coda.domain.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
     FilledContact,
@@ -30,18 +30,18 @@ from coda.fundingrequest import (
     Review,
     TPublication,
 )
-from coda.fundingrequest.identity import PublicFundingRequestId
-from coda.fundingrequest.review import ReviewResult
-from coda.money import Currency, Money
-from coda.publication import Monograph, OpenAccessType, Publication, PublicationId
-from coda.publication.payment import (
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import Currency, Money
+from coda.domain.publication import Monograph, OpenAccessType, Publication, PublicationId
+from coda.domain.publication.payment import (
     InvoiceReceived,
     PublicationCoveredByContract,
     PublicationPaid,
     PublicationPaymentStatus,
     PublicationUnpaid,
 )
-from coda.string import NonEmptyStr
+from coda.domain.string import NonEmptyStr
 
 
 @transaction.atomic

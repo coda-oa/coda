@@ -6,9 +6,8 @@ import pytest
 from coda.apps.fundingrequests.services import checks, fundingrequests
 from coda.checks.checkfactory import CheckFactory
 from coda.checks.checklist import CheckResult, CheckRun, CheckSuccessful
-from coda.fundingrequest import FundingRequest, TPublication
-from coda.fundingrequest.fundingrequest import FundingRequestId
-from coda.publication import Monograph, Publication
+from coda.domain.fundingrequest import FundingRequest, FundingRequestId, TPublication
+from coda.domain.publication import Monograph, Publication
 from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
 from tests.publications.test_publication_repository import assert_publication_eq

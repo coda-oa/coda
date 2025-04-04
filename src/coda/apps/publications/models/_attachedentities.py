@@ -3,7 +3,7 @@ import uuid
 from django.db import models
 
 from coda.apps.contracts.models import Contract
-from coda.vocabulary import UnknownConcept
+from coda.domain.vocabulary import UnknownConcept
 
 from ._vocabulary import Vocabulary
 

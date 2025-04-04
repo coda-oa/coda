@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from coda.checks.checklist import CheckFailed, CheckSuccessful
 from coda.checks.costlimit import CostLimitCheck
-from coda.money import Currency, Money
+from coda.domain.money import Currency, Money
 from tests import domainfactory
 
 LIMIT = Money(Decimal(1000), currency=Currency.EUR)

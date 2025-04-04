@@ -2,10 +2,10 @@ import enum
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from coda.money import Currency, Money
+from coda.domain.money import Currency, Money
 
 if TYPE_CHECKING:
-    from coda.fundingrequest import FundingRequestId
+    from coda.domain.fundingrequest import FundingRequestId
 
 
 class ReviewResult(enum.Enum):

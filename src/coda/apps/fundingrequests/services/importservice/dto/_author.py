@@ -2,10 +2,10 @@ from typing import Annotated
 
 import pydantic
 
-from coda import orcid
 from coda.apps.institutions import repository as institution_repository
-from coda.author import Author, InstitutionId, Role
-from coda.string import NonEmptyStr
+from coda.domain import orcid
+from coda.domain.author import Author, InstitutionId, Role
+from coda.domain.string import NonEmptyStr
 
 Orcid = Annotated[str, pydantic.PlainValidator(orcid.Orcid)]
 

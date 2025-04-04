@@ -5,8 +5,8 @@ from unittest.mock import create_autospec
 
 import pytest
 
-from coda.fundingrequest import damm
-from coda.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.fundingrequest import damm
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
 
 
 def test__a_fundingrequest_id__is_consists_of_coda__date_stamp__encoded_number__and__checksum() -> (

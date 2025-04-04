@@ -5,7 +5,7 @@ from django import forms
 from coda.apps.journals import services
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
-from coda.issn import Issn
+from coda.domain.issn import Issn
 
 
 def issn_validator(value: Any) -> None:

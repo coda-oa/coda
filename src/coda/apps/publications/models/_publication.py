@@ -2,8 +2,8 @@ from django.db import models
 
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
-from coda.author import AuthorNames
-from coda.publication import License, OpenAccessType, UnpublishedState
+from coda.domain.author import AuthorNames
+from coda.domain.publication import License, OpenAccessType, UnpublishedState
 
 from ._attachedentities import PublicationAttachedConcept
 

@@ -13,8 +13,8 @@ from coda.apps.invoices.views.position_list import (
     parse_position_data,
 )
 from coda.apps.invoices.views.positions import CommonPosition
-from coda.invoice import CreditorId, Invoice, InvoiceId, ItemType, PaymentStatus
-from coda.money import Currency
+from coda.domain.invoice import CreditorId, Invoice, InvoiceId, ItemType, PaymentStatus
+from coda.domain.money import Currency
 
 _DefaultContext = {"cost_types": _CostTypes, "currencies": list(Currency)}
 

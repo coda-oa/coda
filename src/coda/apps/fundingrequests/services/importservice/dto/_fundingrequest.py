@@ -5,7 +5,7 @@ import pydantic
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingOrganization
-from coda.fundingrequest import (
+from coda.domain.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
     FilledContact,
@@ -16,9 +16,9 @@ from coda.fundingrequest import (
     Payment,
     PaymentMethod,
 )
-from coda.fundingrequest.identity import PublicFundingRequestId
-from coda.money import Currency, Money
-from coda.string import NonEmptyStr
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.money import Currency, Money
+from coda.domain.string import NonEmptyStr
 
 from ._publication import PublicationImportDto
 from ._review import ReviewImportDto

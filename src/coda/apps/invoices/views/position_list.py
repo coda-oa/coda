@@ -16,7 +16,7 @@ from coda.apps.invoices.views.positions import (
     get_position_type,
 )
 from coda.apps.publications.models import Publication
-from coda.invoice import (
+from coda.domain.invoice import (
     CostType,
     CreditorId,
     FundingSourceId,
@@ -26,7 +26,7 @@ from coda.invoice import (
     Positions,
     TaxRate,
 )
-from coda.money import Currency, Money
+from coda.domain.money import Currency, Money
 
 _CostTypes = [ct.value for ct in CostType]
 
