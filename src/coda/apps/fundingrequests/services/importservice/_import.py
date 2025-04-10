@@ -1,14 +1,24 @@
-from typing import TextIO, BinaryIO
+from typing import BinaryIO, TextIO
 
 from coda.apps.fundingrequests import repository
+from coda.apps.fundingrequests.services.fundingrequests import create_fundingrequest
 
 from .dto import FundingRequestImportListDto
+from .dtoparsers import fundingrequestdto, publicationdto, reviewdto
 
 
 def import_fundingrequests(json: TextIO | BinaryIO) -> None:
     import_request_list = FundingRequestImportListDto.model_validate_json(json.read())
     for request in import_request_list.requests:
-        fundingrequest = request.parse()
-        fundingrequest.id = repository.save(fundingrequest)
-        review = request.review.parse(fundingrequest.id)
+        fundingrequest_id = create_fundingrequest(
+            publicationdto.parse_dto(request.publication),
+            payment=fundingrequestdto.parse_cost_estimate(request.estimated_cost),
+            extra_information=fundingrequestdto.parse_extra_information(request),
+            funding=[
+                fundingrequestdto.parse_funding(funding) for funding in request.research_funding
+            ],
+            request_date=request.request_date,
+        )
+
+        review = reviewdto.parse_dto(request.review, fundingrequest_id)
         repository.save_review(review)

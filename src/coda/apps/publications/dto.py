@@ -25,7 +25,6 @@ from coda.domain.publication import (
     PublicationState,
     Published,
     Unpublished,
-    UnpublishedState,
     links,
 )
 from coda.domain.string import NonEmptyStr
@@ -181,7 +180,7 @@ class PublicationDto(PublicationBaseDto):
         return Publication(
             id=id,
             title=NonEmptyStr(self.meta.title),
-            license=License[self.meta.license],
+            license=License.of(self.meta.license),
             publication_type=self.meta.publication_type.to_concept(),
             subject_area=self.meta.subject_area.to_concept(),
             open_access_type=OpenAccessType[self.meta.open_access_type],
@@ -232,7 +231,7 @@ class MonographDto(PublicationBaseDto):
         return Monograph(
             id=id,
             title=NonEmptyStr(self.meta.title),
-            license=License[self.meta.license],
+            license=License.of(self.meta.license),
             publication_type=self.meta.publication_type.to_concept(),
             subject_area=self.meta.subject_area.to_concept(),
             open_access_type=OpenAccessType[self.meta.open_access_type],
@@ -251,10 +250,10 @@ class MonographDto(PublicationBaseDto):
 def _parse_state(publication: PublicationMetaDto) -> PublicationState:
     state = publication.publication_state
 
-    if state == Published.name():
+    if state.lower() == Published.name().lower():
         return Published(
             publication.online_publication_date,
             publication.print_publication_date,
         )
     else:
-        return Unpublished(state=UnpublishedState[state])
+        return Unpublished.of(state)

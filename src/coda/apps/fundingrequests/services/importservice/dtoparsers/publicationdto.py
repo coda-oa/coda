@@ -1,5 +1,6 @@
 from coda.apps.journals import services as journal_services
 from coda.apps.publications.dto import (
+    JournalDto,
     LinkDto,
     MonographDto,
     PublicationBaseDto,
@@ -31,7 +32,7 @@ def parse_dto(import_dto: PublicationImportDto) -> PublicationBaseDto:
         publication_state=import_dto.publishing_state.state,
         online_publication_date=import_dto.publishing_state.online_date,
         print_publication_date=import_dto.publishing_state.print_date,
-        license=import_dto.license.value,
+        license=import_dto.license.name,
         open_access_type=import_dto.open_access_type.value,
     )
 
@@ -58,15 +59,17 @@ def parse_dto(import_dto: PublicationImportDto) -> PublicationBaseDto:
         )
 
 
-def _parse_journal(import_dto: PublicationImportDto) -> JournalId:
+def _parse_journal(import_dto: PublicationImportDto) -> JournalDto:
     journal = journal_services.find_by_eissn(issn.Issn(import_dto.eissn))
     if journal:
-        return JournalId(journal.id)
+        return JournalDto(id=JournalId(journal.id))
 
-    return journal_services.create(
-        title=NonEmptyStr(import_dto.journal_name),
-        eissn=issn.Issn(import_dto.eissn),
-        publisher_id=_parse_publisher(import_dto),
+    return JournalDto(
+        id=journal_services.create(
+            title=NonEmptyStr(import_dto.journal_name),
+            eissn=issn.Issn(import_dto.eissn),
+            publisher_id=_parse_publisher(import_dto),
+        )
     )
 
 

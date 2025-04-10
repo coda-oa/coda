@@ -50,6 +50,17 @@ class License(enum.Enum):
     Proprietary = "Proprietary"
     None_ = "None"
 
+    @classmethod
+    def of(cls, name: str) -> "License":
+        try:
+            if name.lower() == "none":
+                return cls.None_
+
+            name = name.replace("-", "_").replace(" ", "_")
+            return cls[name]
+        except KeyError:
+            raise ValueError(f"Unknown license name: {name}")
+
 
 class OpenAccessType(enum.Enum):
     Gold = "Gold"

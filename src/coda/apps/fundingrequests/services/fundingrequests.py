@@ -29,13 +29,14 @@ def create_fundingrequest(
     funding: Iterable[ExternalFundingDto],
     extra_information: ExtraInformationDto,
     *,
+    request_date: datetime.date | None = None,
     request_id_generator: RequestIdGenerator = PublicFundingRequestId.create,
     checkfactory: CheckFactory | None = None,
 ) -> FundingRequestId:
     fr = FundingRequest.new(
         publication.to_publication(),
         payment.to_payment(),
-        request_id=_find_unused_request_id(request_id_generator),
+        request_id=_find_unused_request_id(request_id_generator, request_date),
         external_funding=[f.to_external_funding() for f in funding],
         extra_contact=extra_information.extra_contact.to_contact(),
         request_remarks=extra_information.request_remarks,
@@ -47,8 +48,10 @@ def create_fundingrequest(
     return fr_id
 
 
-def _find_unused_request_id(request_id_generator: RequestIdGenerator) -> PublicFundingRequestId:
-    request_id = request_id_generator()
+def _find_unused_request_id(
+    request_id_generator: RequestIdGenerator, request_date: datetime.date | None = None
+) -> PublicFundingRequestId:
+    request_id = request_id_generator(date=request_date)
     while repository.request_id_exists(request_id):
         request_id = request_id_generator()
 
