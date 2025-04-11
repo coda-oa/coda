@@ -5,13 +5,8 @@ from django.db import transaction
 from django.db.models import Q
 from typing_extensions import TypeIs
 
-from coda.apps.fundingrequests.models import (
-    ExternalFunding as ExternalFundingModel,
-)
-from coda.apps.fundingrequests.models import (
-    FundingOrganization,
-    FundingRequestReview,
-)
+from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
+from coda.apps.fundingrequests.models import FundingOrganization, FundingRequestReview
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import FundingRequestContact as FundingRequestContactModel
 from coda.apps.publications.repositories import publication_repository
@@ -259,7 +254,7 @@ def search(
         query = query & Q(review__review_result__in=review_states)
 
     if open_access_types:
-        oa_types = [t.value for t in open_access_types]
+        oa_types = [t.name for t in open_access_types]
         query = query & Q(publication__open_access_type__in=oa_types)
 
     if labels:

@@ -26,7 +26,7 @@ from coda.domain.publication.payment import (
     PublicationPaymentStatus,
     PublicationUnpaid,
 )
-from coda.domain.publication.publication import PublicationId
+from coda.domain.publication.publication import OpenAccessType, PublicationId
 
 template_name = "fundingrequests/fundingrequest_detail.html"
 
@@ -156,7 +156,7 @@ def publication_viewmodel(fundingrequest: FundingRequestModel) -> PublicationVie
         license=License[publication.license].value,
         publication_type=publication.publication_type.name,
         subject_area=publication.subject_area.name,
-        oa_type=publication.open_access_type,
+        oa_type=OpenAccessType[publication.open_access_type].value,
         references=[
             LinkDto(link_type=link.type.name, link_value=link.value).to_link()
             for link in publication.links.all()
