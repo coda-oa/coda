@@ -2,10 +2,8 @@ from typing import Annotated
 
 import pydantic
 
-from coda.apps.institutions import repository as institution_repository
 from coda.domain import orcid
-from coda.domain.author import Author, InstitutionId, Role
-from coda.domain.string import NonEmptyStr
+from coda.domain.author import Role
 
 Orcid = Annotated[str, pydantic.PlainValidator(orcid.Orcid)]
 
@@ -16,24 +14,3 @@ class AuthorImportDto(pydantic.BaseModel):
     orcid: Orcid | None = None
     affiliation: str | None = None
     role: Role = Role.CO_AUTHOR
-
-    def parse(self) -> Author:
-        affiliation = self._parse_affiliation()
-
-        return Author.new(
-            name=NonEmptyStr(self.name),
-            email=self.email,
-            orcid=orcid.Orcid(self.orcid) if self.orcid else None,
-            role=self.role,
-            affiliation=affiliation,
-        )
-
-    def _parse_affiliation(self) -> InstitutionId | None:
-        if self.affiliation is None:
-            return None
-
-        institution = institution_repository.first_by_name(self.affiliation)
-        if not institution:
-            institution = institution_repository.create(self.affiliation)
-
-        return InstitutionId(institution.id)
