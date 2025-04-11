@@ -267,26 +267,25 @@ def search(
         query = query & Q(created_at__gte=date_range.start, created_at__lte=date_range.end)
 
     if payment_statuses:
-        contract_query = Q()
+        payment_query = Q()
+
         if PublicationCoveredByContract in payment_statuses:
-            contract_query = Q(
+            payment_query |= Q(
                 publication__attached_contracts__contract__publication_billing="consolidated"
             )
 
-        sub_payment_query = Q()
         if InvoiceReceived in payment_statuses:
-            sub_payment_query = sub_payment_query | Q(publication__payment__status="received")
+            payment_query |= Q(publication__payment__status="invoice_received")
 
         if PublicationPaid in payment_statuses:
-            sub_payment_query = sub_payment_query | Q(publication__payment__status="paid")
+            payment_query |= Q(publication__payment__status="paid")
 
         if PublicationUnpaid in payment_statuses:
-            sub_payment_query = sub_payment_query | (
-                Q(publication__payment__isnull=True) & ~contract_query
+            payment_query |= Q(publication__payment__isnull=True) & ~Q(
+                publication__attached_contracts__contract__publication_billing="consolidated"
             )
 
-        full_payment_query = contract_query | sub_payment_query
-        query = query & full_payment_query
+        query = query & payment_query
 
     return (
         FundingRequestModel.objects.filter(query)
