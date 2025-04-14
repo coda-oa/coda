@@ -65,7 +65,7 @@ def find_journal(issn: Issn) -> DoajListedJournal | None:
 def _try_parse(response: httpx.Response) -> Any:
     try:
         data = response.json().get("results", [])
-    except json.decoder.JSONDecodeError:
+    except (json.decoder.JSONDecodeError, httpx.TimeoutException, httpx.NetworkError):
         data = None
 
     return data
