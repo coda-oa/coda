@@ -28,3 +28,7 @@ CACHES = {
 EMAIL_BACKEND = env(
     "DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
 )
+
+# LOCAL ADDITIONS
+DEBUG_APPS = ["silk"]
+INSTALLED_APPS += DEBUG_APPS  # noqa: F405
