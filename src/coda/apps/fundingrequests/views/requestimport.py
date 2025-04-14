@@ -18,6 +18,7 @@ class FundingRequestImportForm(forms.Form):
 
 @login_required
 def import_fundingrequests(request: HttpRequest) -> HttpResponse:
+    import_errors = []
     if request.method == "POST":
         form = FundingRequestImportForm(request.POST, request.FILES)
         if not form.is_valid():
@@ -25,7 +26,6 @@ def import_fundingrequests(request: HttpRequest) -> HttpResponse:
             return render_import_form(request)
 
         import_file: UploadedFile = form.cleaned_data["import_file"]
-        import_errors = []
         try:
             importservice.import_fundingrequests(cast(BinaryIO, import_file))
         except pydantic.ValidationError as e:

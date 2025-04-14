@@ -11,7 +11,7 @@ def import_fundingrequests(json: TextIO | BinaryIO) -> None:
     import_request_list = FundingRequestImportListDto.model_validate_json(json.read())
     for request in import_request_list.requests:
         fundingrequest_id = create_fundingrequest(
-            publicationdto.parse_dto(request.publication),
+            publication=publicationdto.parse_dto(request.publication),
             payment=fundingrequestdto.parse_cost_estimate(request.estimated_cost),
             extra_information=fundingrequestdto.parse_extra_information(request),
             funding=[
