@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Final
+import json
+from typing import Any, Final
 
 import httpx
 
@@ -37,8 +38,8 @@ DoajJournalSearchUrl: Final = "https://doaj.org/api/search/journals/issn:{issn}"
 
 def find_journal(issn: Issn) -> DoajListedJournal | None:
     url = DoajJournalSearchUrl.format(issn=issn)
-    response = httpx.get(url).raise_for_status()
-    data = response.json().get("results", [])
+    response = httpx.get(url)
+    data = _try_parse(response)
 
     if not data:
         return None
@@ -59,3 +60,12 @@ def find_journal(issn: Issn) -> DoajListedJournal | None:
         apc=apc,
         doaj_url=DoajJournalUrlBase.format(issn=issn),
     )
+
+
+def _try_parse(response: httpx.Response) -> Any:
+    try:
+        data = response.json().get("results", [])
+    except json.decoder.JSONDecodeError:
+        data = None
+
+    return data
