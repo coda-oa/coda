@@ -32,3 +32,7 @@ EMAIL_BACKEND = env(
 # LOCAL ADDITIONS
 DEBUG_APPS = ["silk"]
 INSTALLED_APPS += DEBUG_APPS  # noqa: F405
+
+
+DEBUG_MIDDLEWARES = ["silk.middleware.SilkyMiddleware"]
+MIDDLEWARE += DEBUG_MIDDLEWARES  # noqa: F405
