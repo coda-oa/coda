@@ -33,7 +33,7 @@ def parse_dto(import_dto: PublicationImportDto) -> PublicationBaseDto:
         online_publication_date=import_dto.publishing_state.online_date,
         print_publication_date=import_dto.publishing_state.print_date,
         license=import_dto.license.name,
-        open_access_type=import_dto.open_access_type.value,
+        open_access_type=import_dto.open_access_type.name,
     )
 
     authors = [authordto.parse_dto(author_dto) for author_dto in import_dto.authors]

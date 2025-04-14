@@ -23,7 +23,7 @@ MINIMAL_FUNDINGREQUEST_IMPORT = FundingRequestImportListDto(
                 eissn=str(IMPORT_JOURNAL_ISSN),
                 journal_name=IMPORT_JOURNAL_NAME,
                 publisher_name=IMPORT_PUBLISHER_NAME,
-                open_access_type=OpenAccessType.Gold,
+                open_access_type=OpenAccessType.Opt_in,
             ),
         )
     ]

@@ -36,7 +36,7 @@ def expected_article_request() -> FundingRequest[Publication]:
             title=IMPORT_PUBLICATION_TITLE,
             journal=journal_id,
             license=License.CC_BY,
-            open_access_type=OpenAccessType.Gold,
+            open_access_type=OpenAccessType.Opt_in,
         ),
         estimated_cost=Payment(
             amount=Money("0.00", currency=Currency.EUR),
@@ -60,7 +60,7 @@ def expected_monograph_request() -> FundingRequest[Monograph]:
         title=NonEmptyStr("My article"),
         publisher=PublisherId(publisher.id),
         license=License.CC_BY,
-        open_access_type=OpenAccessType.Gold,
+        open_access_type=OpenAccessType.Opt_in,
     )
 
     request_date = datetime.date(2025, 3, 19)
