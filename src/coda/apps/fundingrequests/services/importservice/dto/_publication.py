@@ -1,5 +1,5 @@
 import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
 import pydantic
 
@@ -26,7 +26,16 @@ class LinkImportDto(pydantic.BaseModel):
 
 
 PublishingStateOptions = Literal["unknown", "submitted", "accepted", "rejected", "published"]
-Issn = Annotated[str, pydantic.PlainValidator(issn.Issn)]
+
+
+def _maybe_issn(v: str) -> str:
+    if v == "":
+        return v
+
+    return issn.Issn(v)
+
+
+MaybeIssn = Annotated[str, pydantic.PlainValidator(_maybe_issn)]
 
 
 class PublishingStateImportDto(pydantic.BaseModel):
@@ -38,7 +47,7 @@ class PublishingStateImportDto(pydantic.BaseModel):
 class PublicationImportDto(pydantic.BaseModel):
     title: str
     kind: Literal["article", "monograph"]
-    eissn: Issn
+    eissn: MaybeIssn = pydantic.Field(default="")
     journal_name: str = "Imported nameless journal"
     publisher_name: str = "Imported nameless publisher"
     authors: list[AuthorImportDto] = pydantic.Field(default_factory=list)
@@ -51,3 +60,10 @@ class PublicationImportDto(pydantic.BaseModel):
     contracts: list[ContractImportDto] = pydantic.Field(default_factory=list)
     subject_area: ConceptImportDto = pydantic.Field(default_factory=ConceptImportDto)
     publication_type: ConceptImportDto = pydantic.Field(default_factory=ConceptImportDto)
+
+    @pydantic.model_validator(mode="after")
+    def verify_eissn(self) -> Self:
+        if self.kind == "article" and self.eissn == "":
+            raise pydantic.ValidationError("EISSN must be provided for articles")
+
+        return self
