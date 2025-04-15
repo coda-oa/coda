@@ -1,10 +1,11 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 from django.db import transaction
 from django.db.models import Q
 from typing_extensions import TypeIs
 
+from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequestReview
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
@@ -123,6 +124,22 @@ def first() -> AnyFundingRequest | None:
 def get_by_id(id: FundingRequestId) -> AnyFundingRequest:
     model = FundingRequestModel.objects.get(pk=id)
     return as_domain_object(model)
+
+
+def all() -> Sequence[AnyFundingRequest]:
+    return DomainQuerySet(
+        FundingRequestModel.objects.all()
+        .select_related(
+            "review",
+            "publication__article_journal",
+            "publication__monograph_publisher",
+        )
+        .prefetch_related(
+            "labels",
+            "publication__relevant_authors",
+        ),
+        as_domain_object,
+    )
 
 
 def get_article_request(id: FundingRequestId) -> FundingRequest[Publication]:

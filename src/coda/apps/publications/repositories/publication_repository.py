@@ -85,6 +85,10 @@ def get_by_id(publication_id: PublicationId) -> BasePublication:
     return as_domain_object(model)
 
 
+def all() -> Sequence[BasePublication]:
+    return DomainQuerySet(PublicationModel.objects.all(), as_domain_object)
+
+
 def first() -> BasePublication | None:
     p = PublicationModel.objects.first()
     if not p:

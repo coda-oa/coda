@@ -6,9 +6,16 @@ import pytest
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.services.labels import label_attach, label_create
 from coda.apps.journals.models import Journal
+from coda.apps.publications.repositories import publication_repository
 from coda.domain.color import Color
 from coda.domain.date import DateRange
-from coda.domain.fundingrequest import FundingOrganizationId, FundingRequestId, NoContact, Review
+from coda.domain.fundingrequest import (
+    FundingOrganizationId,
+    FundingRequest,
+    FundingRequestId,
+    NoContact,
+    Review,
+)
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import Currency, Money
 from coda.domain.publication import Authors, JournalId
@@ -33,20 +40,29 @@ def test__saving_fungingrequest__get_by_id__returns_fundingrequest() -> None:
 def test__existing_fundingrequest__save__updates_fundingrequest() -> None:
     journal = JournalId(modelfactory.journal().id)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
-    request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
-    id = repository.save(request)
+    id = repository.save(
+        domainfactory.fundingrequest(
+            journal_id=journal,
+            funding_org_id=funding_org,
+        )
+    )
+    request = repository.get_article_request(id)
 
     new_funding = FundingOrganizationId(modelfactory.funding_organization().pk)
-    expected = domainfactory.fundingrequest(
+    expected = FundingRequest(
         id=id,
         request_id=request.request_id,
-        journal_id=journal,
-        funding_org_id=new_funding,
+        publication=domainfactory.publication(journal, id=request.publication.id),
+        estimated_cost=domainfactory.payment(),
+        extra_contact=domainfactory.fundingrequest_contact(),
+        external_funding=[domainfactory.external_funding(new_funding)],
     )
     repository.save(expected)
 
     actual = repository.get_by_id(id)
     assert_fundingrequest_eq(actual, expected)
+    assert len(repository.all()) == 1
+    assert len(publication_repository.all()) == 1
 
 
 @pytest.mark.django_db

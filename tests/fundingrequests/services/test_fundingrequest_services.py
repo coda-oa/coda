@@ -14,6 +14,7 @@ from coda.apps.fundingrequests.dto import (
 from coda.apps.fundingrequests.repository import get_by_id
 from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import PublicationDto
+from coda.apps.publications.repositories import publication_repository
 from coda.domain.author import InstitutionId
 from coda.domain.fundingrequest import (
     AnyFundingRequest,
@@ -123,6 +124,7 @@ def test__fundingrequest__update_publication__updates_publication() -> None:
 
     updated = get_by_id(new_id)
     assert_publication_eq(updated.publication, new_publication)
+    assert len(publication_repository.all()) == 1, "Should not create a new publication"
 
 
 @pytest.mark.django_db

@@ -116,6 +116,7 @@ def test__existing_publication__save_with_new_data__is_saved_in_database(
     assert actual is not None
     assert existing_id == updated_id
     assert_publication_eq(actual, updated)
+    assert len(publication_repository.all()) == 1
 
 
 @pytest.mark.django_db

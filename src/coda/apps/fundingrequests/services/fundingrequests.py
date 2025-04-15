@@ -64,7 +64,7 @@ def update_publication(
     checkfactory: CheckFactory | None = None,
 ) -> None:
     fr = repository.get_by_id(fundingrequest_id)
-    fr.publication = publication.to_publication()
+    fr.publication = publication.to_publication(fr.publication.id)
     repository.save(fr)
     run_checks(fundingrequest_id, checkfactory=checkfactory)
 
