@@ -2,6 +2,7 @@ from typing import BinaryIO, TextIO
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.services.fundingrequests import create_fundingrequest
+from coda.checks.nullcheckfactory import NullCheckFactory
 
 from .dto import FundingRequestImportListDto
 from .dtoparsers import fundingrequestdto, publicationdto, reviewdto
@@ -18,6 +19,7 @@ def import_fundingrequests(json: TextIO | BinaryIO) -> None:
                 fundingrequestdto.parse_funding(funding) for funding in request.research_funding
             ],
             request_date=request.request_date,
+            checkfactory=NullCheckFactory(),
         )
 
         review = reviewdto.parse_dto(request.review, fundingrequest_id)

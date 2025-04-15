@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Final
+from typing import Final, Protocol, runtime_checkable
 
 from coda.checks.blockcheck import BlockCheck
 from coda.checks.checklist import Check, Checklist
@@ -9,8 +9,20 @@ from coda.domain.publication import BasePublication, Monograph, Publication, Pub
 CheckType = type[Check]
 
 
+@runtime_checkable
+class CheckFactory(Protocol):
+    def create(self, check_name: str) -> Check:
+        ...
+
+    def register(self, publication_kind: type[PublicationKind], check_type: CheckType) -> CheckType:
+        ...
+
+    def checks_for(self, publication_kind: type[PublicationKind]) -> Checklist:
+        ...
+
+
 @dataclass
-class CheckFactory:
+class CheckFactoryImpl:
     check_types: dict[type[BasePublication], dict[str, CheckType]] = field(default_factory=dict)
 
     def create(self, check_name: str) -> Check:
@@ -34,7 +46,7 @@ class CheckFactory:
         self.check_types.clear()
 
 
-checkfactory: Final = CheckFactory()
+checkfactory: Final = CheckFactoryImpl()
 checkfactory.register(Publication, DoajCheck)
 checkfactory.register(Publication, BlockCheck)
 

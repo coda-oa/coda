@@ -50,7 +50,7 @@ class CheckStub:
 
 @pytest.mark.django_db
 def test__saving_checkrun_for_fundingrequest__get__returns_checkrun() -> None:
-    checkfactory = coda.checks.checkfactory.CheckFactory()
+    checkfactory = coda.checks.checkfactory.CheckFactoryImpl()
     checkfactory.register(Publication, CheckStub)
 
     fundingrequest_id = create_fundingrequest()
@@ -72,7 +72,7 @@ def test__saving_checkrun_for_fundingrequest__get__returns_checkrun() -> None:
 
 @pytest.mark.django_db
 def test__given_saved_checkrun__saving_new_checkrun__overrides_old_checkrun() -> None:
-    checkfactory = coda.checks.checkfactory.CheckFactory()
+    checkfactory = coda.checks.checkfactory.CheckFactoryImpl()
     checkfactory.register(Publication, CheckStub)
 
     fundingrequest_id = create_fundingrequest()

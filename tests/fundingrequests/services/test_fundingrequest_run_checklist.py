@@ -4,7 +4,7 @@ from typing import Any, cast
 import pytest
 
 from coda.apps.fundingrequests.services import checks, fundingrequests
-from coda.checks.checkfactory import CheckFactory
+from coda.checks.checkfactory import CheckFactoryImpl
 from coda.checks.checklist import CheckResult, CheckRun, CheckSuccessful
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId, TPublication
 from coda.domain.publication import Monograph, Publication
@@ -62,7 +62,7 @@ def test__given_fundingrequest__run_checks__runs_checks_for_publication_type(
         builder.extra_information_dto(),
     )
 
-    checkfactory = CheckFactory()
+    checkfactory = CheckFactoryImpl()
     checkfactory.register(Publication, PublicationCheckSpy)
     checkfactory.register(Monograph, MonographCheckSpy)
 
@@ -77,7 +77,7 @@ def test__given_fundingrequest__run_checks__runs_checks_for_publication_type(
 
 @pytest.mark.django_db
 def test__creating_fundingrequest__runs_checks() -> None:
-    checkfactory = CheckFactory()
+    checkfactory = CheckFactoryImpl()
     checkfactory.register(Publication, PublicationCheckSpy)
     builder = ArticleRequestDataBuilder()
 
@@ -101,7 +101,7 @@ def test__creating_fundingrequest__runs_checks() -> None:
 
 @pytest.mark.django_db
 def test__updating_fundingrequest_publication__reruns_checks_with_updated_request() -> None:
-    checkfactory = CheckFactory()
+    checkfactory = CheckFactoryImpl()
     checkfactory.register(Publication, PublicationCheckSpy)
     new_id = save_request()
 
@@ -116,7 +116,7 @@ def test__updating_fundingrequest_publication__reruns_checks_with_updated_reques
 
 @pytest.mark.django_db
 def test__updating_fundingrequest_funding__reruns_checks_with_updated_request() -> None:
-    checkfactory = CheckFactory()
+    checkfactory = CheckFactoryImpl()
     checkfactory.register(Publication, PublicationCheckSpy)
     new_id = save_request()
 

@@ -8,6 +8,7 @@ import pytest
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests.models import FundingOrganization
+from coda.apps.fundingrequests.services.checks import get_checkrun
 from coda.apps.fundingrequests.services.importservice import import_fundingrequests
 from coda.apps.fundingrequests.services.importservice.dto import (
     FundingRequestImportListDto,
@@ -94,6 +95,22 @@ def test__import_fundingrequest__saves_fundingrequest_and_creates_missing_entiti
     review = fundingrequest_repository.get_review(id)
     assert_fundingrequest_eq(fundingrequest, request_variant.expected_request())
     assert_review_eq(review, request_variant.expected_review())
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("request_variant", RequestVariants)
+def test__import_fundingrequest__does_not_run_checks(request_variant: RequestVariant) -> None:
+    write_json(request_variant.importdata)
+
+    with JSON_PATH.open() as json_file:
+        import_fundingrequests(json_file)
+
+    fundingrequest = fundingrequest_repository.first()
+    assert fundingrequest is not None
+
+    id = cast(FundingRequestId, fundingrequest.id)
+    checkrun = get_checkrun(id)
+    assert checkrun is None
 
 
 def assert_review_eq(actual: Review, expected: Review) -> None:
