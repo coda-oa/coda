@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Sequence
-from typing import Any
+from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import Q
@@ -42,12 +42,14 @@ from coda.domain.string import NonEmptyStr
 
 @transaction.atomic
 def save(fundingrequest: AnyFundingRequest) -> FundingRequestId:
-    pid = publication_repository.save(fundingrequest.publication)
     if not fundingrequest.id:
+        pid = publication_repository.create(fundingrequest.publication)
         fr = FundingRequestModel()
         fr.review = FundingRequestReview.objects.create()
         _save_review(fundingrequest._review, fr.review)
     else:
+        pid = cast(PublicationId, fundingrequest.publication.id)
+        publication_repository.update(fundingrequest.publication)
         fr = FundingRequestModel.objects.get(pk=fundingrequest.id)
 
     fr.publication_id = pid

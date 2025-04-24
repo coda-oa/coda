@@ -57,7 +57,7 @@ def _migrate_publications_to_base_vocabulary(
             vocabulary,
         )
 
-        publication_repository.save(publication)
+        publication_repository.update(publication)
 
 
 def _migrate_matching_concept_to_base_vocabulary(

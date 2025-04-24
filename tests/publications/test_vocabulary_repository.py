@@ -82,10 +82,10 @@ def sorted_by_concept_id(concepts: Collection[VocabularyConcept]) -> list[Vocabu
 def create_publication_with_publication_type(concept: VocabularyConcept) -> PublicationId:
     journal = JournalId(modelfactory.journal().pk)
     p = domainfactory.publication(journal, publication_type=concept)
-    return publication_repository.save(p)
+    return publication_repository.create(p)
 
 
 def create_publication_with_subject_area(concept: VocabularyConcept) -> PublicationId:
     journal = JournalId(modelfactory.journal().pk)
     p = domainfactory.publication(journal, subject_area=concept)
-    return publication_repository.save(p)
+    return publication_repository.create(p)

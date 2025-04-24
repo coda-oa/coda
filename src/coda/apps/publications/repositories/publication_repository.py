@@ -35,7 +35,22 @@ from coda.domain.vocabulary import ConceptId, UnknownConcept, VocabularyConcept,
 
 
 @transaction.atomic
-def save(publication: BasePublication) -> PublicationId:
+def create(publication: BasePublication) -> PublicationId:
+    if publication.id:
+        raise PublicationAlreadyCreated(publication.id)
+
+    return _save(publication)
+
+
+@transaction.atomic
+def update(publication: BasePublication) -> None:
+    if not publication.id:
+        raise UnsavedPublication(publication)
+
+    _save(publication)
+
+
+def _save(publication: BasePublication) -> PublicationId:
     match publication:
         case Publication():
             p = _initial_article(publication)
@@ -221,6 +236,18 @@ def _attach_contracts(p: PublicationModel, contracts: Iterable[ContractYear]) ->
 
 def _delete_unused_attached_contracts(p: PublicationModel, contracts: Iterable[ContractId]) -> None:
     AttachedContract.objects.filter(publication_id=p.id).exclude(contract__in=contracts).delete()
+
+
+class PublicationAlreadyCreated(ValueError):
+    def __init__(self, publication_id: PublicationId) -> None:
+        super().__init__(f"Publication with ID {publication_id} already exists.")
+        self.publication_id = publication_id
+
+
+class UnsavedPublication(ValueError):
+    def __init__(self, publication: BasePublication) -> None:
+        super().__init__(f"Publication {publication.title} is not saved and has no id.")
+        self.publication = publication
 
 
 class _CommonPublicationArgs(TypedDict):

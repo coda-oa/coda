@@ -33,7 +33,7 @@ def test__publication_with_paid_invoice__mark_paid__publication_is_paid() -> Non
 def test__publication_without_invoice__publication_is_unpaid() -> None:
     journal = JournalId(modelfactory.journal().id)
     publication = domainfactory.publication(journal)
-    publication.id = publication_repository.save(publication)
+    publication.id = publication_repository.create(publication)
 
     assert publications.get_payment_status(publication.id) == PublicationUnpaid()
 
@@ -172,5 +172,5 @@ def create_publication(contract: ContractYear | None = None) -> PublicationId:
     journal = JournalId(modelfactory.journal().id)
     contracts = (contract,) if contract else ()
     publication = domainfactory.publication(journal, contracts=contracts)
-    publication.id = publication_repository.save(publication)
+    publication.id = publication_repository.create(publication)
     return publication.id

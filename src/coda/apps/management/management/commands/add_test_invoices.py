@@ -28,4 +28,4 @@ class Command(BaseCommand):
 
 def random_publication(publisher_id: int) -> PublicationId:
     journal_id = modelfactory.journal(publisher_id).id
-    return publication_repository.save(domainfactory.publication(journal=JournalId(journal_id)))
+    return publication_repository.create(domainfactory.publication(journal=JournalId(journal_id)))

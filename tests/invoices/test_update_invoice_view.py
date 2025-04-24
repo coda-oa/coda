@@ -69,7 +69,7 @@ def test__given_invoice__goto_update_view__has_invoice_head_in_form(client: Clie
 @pytest.mark.usefixtures("logged_in")
 def test__given_invoice__goto_update_view__has_invoice_positions_in_context(client: Client) -> None:
     a_publication = domainfactory.publication(JournalId(modelfactory.journal().id))
-    a_publication.id = publication_repository.save(a_publication)
+    a_publication.id = publication_repository.create(a_publication)
     _publication_position = publication_position(a_publication)
 
     a_contract = domainfactory.contract()

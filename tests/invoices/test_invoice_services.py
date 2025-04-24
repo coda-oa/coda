@@ -125,5 +125,5 @@ def unpaid_invoice(*publication_ids: PublicationId) -> Invoice:
 def create_publication() -> PublicationId:
     journal = JournalId(modelfactory.journal().id)
     publication = domainfactory.publication(journal)
-    publication.id = publication_repository.save(publication)
+    publication.id = publication_repository.create(publication)
     return publication.id

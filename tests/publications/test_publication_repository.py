@@ -29,15 +29,15 @@ class PublicationFactory(Protocol):
         subject_area: VocabularyConcept,
         publication_type: VocabularyConcept,
         publication_id: PublicationId | None = None,
-    ) -> tuple[PublicationId, BasePublication]:
+    ) -> BasePublication:
         ...
 
 
-def save_publication(
+def create_publication(
     subject_area: VocabularyConcept,
     publication_type: VocabularyConcept,
     publication_id: PublicationId | None = None,
-) -> tuple[PublicationId, Publication]:
+) -> Publication:
     journal = JournalId(modelfactory.journal().id)
     contracts = [as_domain_object(modelfactory.contract()) for _ in range(4)]
     contract_years = [domainfactory.contract_year(contract) for contract in contracts]
@@ -48,15 +48,14 @@ def save_publication(
         contracts=tuple(contract_years),
         id=publication_id,
     )
-    id = publication_repository.save(publication)
-    return id, publication
+    return publication
 
 
-def save_monograph(
+def create_monograph(
     subject_area: VocabularyConcept,
     publication_type: VocabularyConcept,
     publication_id: PublicationId | None = None,
-) -> tuple[PublicationId, Monograph]:
+) -> Monograph:
     publisher = modelfactory.publisher().id
     publication = domainfactory.monograph(
         publisher=PublisherId(publisher),
@@ -64,12 +63,11 @@ def save_monograph(
         publication_type=publication_type,
         id=publication_id,
     )
-    id = publication_repository.save(publication)
-    return id, publication
+    return publication
 
 
 def publication_factories() -> list[PublicationFactory]:
-    return [save_publication, save_monograph]
+    return [create_publication, create_monograph]
 
 
 @pytest.mark.django_db
@@ -81,42 +79,78 @@ def test__save_publication__get_by_id__returns_publication(
     subject_area_vocabulary = vocabulary_with_concepts(concept)
     publication_type_vocabulary = vocabulary_with_concepts(concept)
 
-    id, publication = publication_factory(
+    publication = publication_factory(
         subject_area_vocabulary.get_concept(concept),
         publication_type_vocabulary.get_concept(concept),
     )
+    id = publication_repository.create(publication)
 
     actual = publication_repository.get_by_id(id)
-
     assert_publication_eq(actual, publication)
 
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("publication_factory", publication_factories())
-def test__existing_publication__save_with_new_data__is_saved_in_database(
+def test__create_publication__create_again__raises_error(
+    publication_factory: PublicationFactory,
+) -> None:
+    concept = "1"
+    subject_area_vocabulary = vocabulary_with_concepts(concept)
+    publication_type_vocabulary = vocabulary_with_concepts(concept)
+
+    publication = publication_factory(
+        subject_area_vocabulary.get_concept(concept),
+        publication_type_vocabulary.get_concept(concept),
+    )
+    publication.id = publication_repository.create(publication)
+
+    with pytest.raises(publication_repository.PublicationAlreadyCreated):
+        publication_repository.create(publication)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("publication_factory", publication_factories())
+def test__existing_publication__update_with_new_data__is_saved_in_database(
     publication_factory: PublicationFactory,
 ) -> None:
     old_concept, new_concept = "old-concept", "new-concept"
     subject_area_vocabulary = vocabulary_with_concepts(old_concept, new_concept)
     publication_type_vocabulary = vocabulary_with_concepts(old_concept, new_concept)
 
-    existing_id, _ = publication_factory(
+    existing_publication = publication_factory(
         subject_area_vocabulary.get_concept(old_concept),
         publication_type_vocabulary.get_concept(old_concept),
     )
+    existing_id = publication_repository.create(existing_publication)
 
-    updated_id, updated = publication_factory(
+    updated = publication_factory(
         subject_area_vocabulary.get_concept(new_concept),
         publication_type_vocabulary.get_concept(new_concept),
         publication_id=existing_id,
     )
+    publication_repository.update(updated)
 
-    actual = publication_repository.get_by_id(updated_id)
-
-    assert actual is not None
-    assert existing_id == updated_id
+    actual = publication_repository.get_by_id(existing_id)
     assert_publication_eq(actual, updated)
     assert len(publication_repository.all()) == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("publication_factory", publication_factories())
+def test__unsaved_publication__update__raises_error(
+    publication_factory: PublicationFactory,
+) -> None:
+    concept = "1"
+    subject_area_vocabulary = vocabulary_with_concepts(concept)
+    publication_type_vocabulary = vocabulary_with_concepts(concept)
+
+    publication = publication_factory(
+        subject_area_vocabulary.get_concept(concept),
+        publication_type_vocabulary.get_concept(concept),
+    )
+
+    with pytest.raises(publication_repository.UnsavedPublication):
+        publication_repository.update(publication)
 
 
 @pytest.mark.django_db
@@ -130,7 +164,7 @@ def test__can_save_publication_with_author_that_has_existing_orcid() -> None:
     publication = domainfactory.publication(journal)
     publication.relevant_authors = Authors([author])
 
-    id = publication_repository.save(publication)
+    id = publication_repository.create(publication)
 
     assert_publication_eq(publication_repository.get_by_id(id), publication)
 
@@ -146,13 +180,13 @@ def test__save_publication_with_limited_vocabulary__get_by_id__returns_publicati
     limited.disallow("disallowed")
     vocabulary_repository.save(limited)
 
-    id, _ = save_publication(
+    publication = create_publication(
         subject_area=limited.get_concept("allowed"),
         publication_type=publication_types.get_concept("1"),
     )
+    id = publication_repository.create(publication)
 
     actual = publication_repository.get_by_id(id)
-
     assert actual.subject_area.vocabulary == limited.id
 
 
@@ -161,10 +195,10 @@ def test__existing_publication_with_links__save_without_links__links_are_removed
     journal = JournalId(modelfactory.journal().pk)
     publication = domainfactory.publication(journal)
     publication.links = {Doi("10.1234/5678")}
-    publication.id = publication_repository.save(publication)
+    publication.id = publication_repository.create(publication)
 
     publication.links.clear()
-    publication_repository.save(publication)
+    publication_repository.update(publication)
 
     actual = publication_repository.get_by_id(publication.id)
     assert actual.links == set()
@@ -175,10 +209,11 @@ def test__find_by_vocabulary__returns_publications_with_matching_vocabulary() ->
     publication_types = vocabulary_with_concepts("pub-type")
     subject_areas = vocabulary_with_concepts("sub-area")
 
-    id, _ = save_publication(
+    publication = create_publication(
         subject_area=subject_areas.get_concept("sub-area"),
         publication_type=publication_types.get_concept("pub-type"),
     )
+    id = publication_repository.create(publication)
 
     actual, *_ = publication_repository.find_publications_by_vocabulary(publication_types.id)
     assert actual.id == id
@@ -189,10 +224,11 @@ def test__find_by_vocabulary__returns_publications_with_matching_vocabulary() ->
 
 @pytest.mark.django_db
 def test__can_save_publication_with_unknown_concept() -> None:
-    id, publication = save_publication(
+    publication = create_publication(
         subject_area=UnknownConcept,
         publication_type=UnknownConcept,
     )
+    id = publication_repository.create(publication)
 
     actual = publication_repository.get_by_id(id)
     assert_publication_eq(actual, publication)
