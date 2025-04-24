@@ -41,17 +41,21 @@ from coda.domain.string import NonEmptyStr
 
 
 @transaction.atomic
-def save(fundingrequest: AnyFundingRequest) -> FundingRequestId:
-    if not fundingrequest.id:
-        pid = publication_repository.create(fundingrequest.publication)
-        fr = FundingRequestModel()
-        fr.review = FundingRequestReview.objects.create()
-        _save_review(fundingrequest._review, fr.review)
-    else:
-        pid = cast(PublicationId, fundingrequest.publication.id)
-        publication_repository.update(fundingrequest.publication)
-        fr = FundingRequestModel.objects.get(pk=fundingrequest.id)
+def create(fundingrequest: AnyFundingRequest) -> FundingRequestId:
+    if fundingrequest.id:
+        raise FundingRequestAlreadyExists(fundingrequest.id)
 
+    pid = publication_repository.create(fundingrequest.publication)
+    fr = FundingRequestModel()
+    fr.review = FundingRequestReview.objects.create()
+    _save_review(fundingrequest._review, fr.review)
+
+    return _save(fundingrequest, fr, pid)
+
+
+def _save(
+    fundingrequest: AnyFundingRequest, fr: FundingRequestModel, pid: PublicationId
+) -> FundingRequestId:
     fr.publication_id = pid
     fr.request_id = str(fundingrequest.request_id)
     fr.request_remarks = fundingrequest.request_remarks
@@ -61,6 +65,29 @@ def save(fundingrequest: AnyFundingRequest) -> FundingRequestId:
 
     fr.save()
     return FundingRequestId(fr.id)
+
+
+@transaction.atomic
+def update(fundingrequest: AnyFundingRequest) -> None:
+    if not fundingrequest.id:
+        raise UnsavedFundingRequest(fundingrequest)
+
+    pid = cast(PublicationId, fundingrequest.publication.id)
+    publication_repository.update(fundingrequest.publication)
+    fr = FundingRequestModel.objects.get(pk=fundingrequest.id)
+    _save(fundingrequest, fr, pid)
+
+
+class FundingRequestAlreadyExists(ValueError):
+    def __init__(self, fundingrequest_id: FundingRequestId) -> None:
+        super().__init__(f"Funding request with id {fundingrequest_id} already exists")
+        self.fundingrequest_id = fundingrequest_id
+
+
+class UnsavedFundingRequest(ValueError):
+    def __init__(self, fundingrequest: AnyFundingRequest) -> None:
+        super().__init__(f"Funding request {fundingrequest} is not saved")
+        self.fundingrequest = fundingrequest
 
 
 @transaction.atomic

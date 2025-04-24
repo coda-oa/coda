@@ -85,7 +85,7 @@ def test__fundingrequest_for_article_in_blocked_journal_in_need_of_review__passe
 def fundingrequest_for_article(journal: Journal) -> FundingRequest[Publication]:
     article = domainfactory.publication(journal=JournalId(journal.id))
     fundingrequest = FundingRequest.new(article, domainfactory.payment())
-    fundingrequest.id = repository.save(fundingrequest)
+    fundingrequest.id = repository.create(fundingrequest)
     return fundingrequest
 
 
@@ -106,7 +106,7 @@ def journal_of_blocked_publisher() -> Journal:
 def fundingrequest_for_monograph(publisher: Publisher) -> FundingRequest[Monograph]:
     monograph = domainfactory.monograph(publisher=PublisherId(publisher.id))
     fundingrequest = FundingRequest.new(monograph, domainfactory.payment())
-    fundingrequest.id = repository.save(fundingrequest)
+    fundingrequest.id = repository.create(fundingrequest)
     return fundingrequest
 
 

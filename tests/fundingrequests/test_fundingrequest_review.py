@@ -17,7 +17,7 @@ def test__fundingrequest__approving_with_funding_amount_and_remarks__stores_in_d
     client: Client,
 ) -> None:
     fr = fundingrequest()
-    fr_id = repository.save(fr)
+    fr_id = repository.create(fr)
     funding = Money(100, Currency.EUR)
     remarks = "Approved with funding"
 
@@ -41,7 +41,7 @@ def test__fundingrequest__approving_with_funding_amount_and_remarks__stores_in_d
 @pytest.mark.usefixtures("logged_in")
 def test__fundingrequest__rejecting_with_remark__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
-    fr_id = repository.save(fr)
+    fr_id = repository.create(fr)
     remarks = "Rejected because of reasons"
 
     client.post(
@@ -64,7 +64,7 @@ def test__fundingrequest__rejecting_with_remark__stores_in_database(client: Clie
 @pytest.mark.usefixtures("logged_in")
 def test__fundingrequest__waive_costs__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
-    fr_id = repository.save(fr)
+    fr_id = repository.create(fr)
     remarks = "Waived costs"
 
     client.post(
@@ -86,7 +86,7 @@ def test__fundingrequest__waive_costs__stores_in_database(client: Client) -> Non
 @pytest.mark.usefixtures("logged_in")
 def test__fundingrequest__close__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
-    fr_id = repository.save(fr)
+    fr_id = repository.create(fr)
     remarks = "Withdrawn"
 
     client.post(
@@ -108,7 +108,7 @@ def test__fundingrequest__close__stores_in_database(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test__closed_fundingrequest__re_opening__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
-    fr.id = repository.save(fr)
+    fr.id = repository.create(fr)
     review = Review(fr.id).closed()
     repository.save_review(review)
 

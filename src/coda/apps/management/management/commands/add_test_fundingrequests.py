@@ -87,7 +87,7 @@ class Command(BaseCommand):
             extra_contact=self.extra_contact(),
         )
 
-        request.id = repository.save(request)
+        request.id = repository.create(request)
 
         review = Review(
             request.id,

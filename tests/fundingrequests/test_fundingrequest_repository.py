@@ -29,7 +29,7 @@ def test__saving_fungingrequest__get_by_id__returns_fundingrequest() -> None:
     journal = JournalId(modelfactory.journal().id)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
     request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
-    id = repository.save(request)
+    id = repository.create(request)
 
     result = repository.get_by_id(id)
 
@@ -37,10 +37,21 @@ def test__saving_fungingrequest__get_by_id__returns_fundingrequest() -> None:
 
 
 @pytest.mark.django_db
-def test__existing_fundingrequest__save__updates_fundingrequest() -> None:
+def test__existing_fundingrequest__create_again__raises_error() -> None:
     journal = JournalId(modelfactory.journal().id)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
-    id = repository.save(
+    request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
+    request.id = repository.create(request)
+
+    with pytest.raises(repository.FundingRequestAlreadyExists):
+        repository.create(request)
+
+
+@pytest.mark.django_db
+def test__existing_fundingrequest__update__updates_fundingrequest() -> None:
+    journal = JournalId(modelfactory.journal().id)
+    funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
+    id = repository.create(
         domainfactory.fundingrequest(
             journal_id=journal,
             funding_org_id=funding_org,
@@ -57,12 +68,22 @@ def test__existing_fundingrequest__save__updates_fundingrequest() -> None:
         extra_contact=domainfactory.fundingrequest_contact(),
         external_funding=[domainfactory.external_funding(new_funding)],
     )
-    repository.save(expected)
+    repository.update(expected)
 
     actual = repository.get_by_id(id)
     assert_fundingrequest_eq(actual, expected)
     assert len(repository.all()) == 1
     assert len(publication_repository.all()) == 1
+
+
+@pytest.mark.django_db
+def test__unsaved_fundingrequest__update__raises_error() -> None:
+    journal = JournalId(modelfactory.journal().id)
+    funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
+    request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
+
+    with pytest.raises(repository.UnsavedFundingRequest):
+        repository.update(request)
 
 
 @pytest.mark.django_db
@@ -73,7 +94,7 @@ def test__fundingrequest_without_extra_contact__save__get_by_id_returns_fundingr
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
     request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
     request.extra_contact = NoContact
-    id = repository.save(request)
+    id = repository.create(request)
 
     result = repository.get_by_id(id)
 

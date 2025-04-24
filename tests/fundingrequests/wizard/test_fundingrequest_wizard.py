@@ -72,7 +72,7 @@ def test__updating_fundingrequest_extra_information__updates_funding_request_and
     get_wizard: UpdateWizardSubmitterFactory[TDataBuilder],
 ) -> None:
     builder = get_builder()
-    fr_id = repository.save(builder.expected)
+    fr_id = repository.create(builder.expected)
 
     builder = builder.with_new_contact().with_new_request_remarks()
     wizard = get_wizard(client, fr_id, builder)
@@ -92,7 +92,7 @@ def test__updating_fundingrequest_publication__updates_fundingrequest_and_shows_
     get_wizard: UpdateWizardSubmitterFactory[TDataBuilder],
 ) -> None:
     builder = get_builder()
-    id = repository.save(builder.build())
+    id = repository.create(builder.build())
 
     saved = repository.get_by_id(id)
     updated = builder.with_new_publication(saved.publication.id)
@@ -143,7 +143,7 @@ def test__updating_only_publication_page_of_update_publication_wizard__saves_ear
     update_meta: Callable[[TDataBuilder, FundingRequestId], TDataBuilder],
 ) -> None:
     builder = get_builder()
-    existing_request_id = repository.save(builder.build())
+    existing_request_id = repository.create(builder.build())
 
     builder = update_meta(builder, existing_request_id)
 
@@ -164,7 +164,7 @@ def test__updating_fundingrequest_funding__updates_funding_request_and_shows_det
     get_wizard: UpdateWizardSubmitterFactory[TDataBuilder],
 ) -> None:
     builder = get_builder()
-    fr_id = repository.save(builder.build())
+    fr_id = repository.create(builder.build())
     fr_before_update = repository.get_by_id(fr_id)
 
     builder = builder.with_payment(fr_before_update.estimated_cost)
@@ -188,7 +188,7 @@ def test__updating_fundingrequest_funding__without_external_funding__updates_fun
     get_wizard: UpdateWizardSubmitterFactory[TDataBuilder],
 ) -> None:
     builder = get_builder()
-    fr_id = repository.save(builder.build())
+    fr_id = repository.create(builder.build())
 
     builder = builder.without_external_funding()
 

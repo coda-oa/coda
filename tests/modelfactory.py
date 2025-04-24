@@ -73,7 +73,7 @@ def vocabulary() -> Vocabulary:
 def concept(vocabulary: Vocabulary | None = None) -> Concept:
     return Concept.objects.create(
         vocabulary=vocabulary or Vocabulary.objects.create(name=_faker.word(), version="1.0"),
-        concept_id=f"{_faker.word()}_{random.randint(1,1000)}",
+        concept_id=f"{_faker.word()}_{random.randint(1, 1000)}",
         name=_faker.word(),
         hint=_faker.sentence(),
     )
@@ -92,7 +92,7 @@ def external_funding(funder_id: int | None = None) -> ExternalFunding:
 
 
 def fundingrequest(title: str = "", authors: Authors | None = None) -> FundingRequestModel:
-    request_id = repository.save(
+    request_id = repository.create(
         FundingRequest.new(
             domainfactory.publication(JournalId(journal().pk), title, relevant_authors=authors),
             domainfactory.payment(),

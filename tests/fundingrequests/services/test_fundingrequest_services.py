@@ -70,7 +70,7 @@ def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data(
 @pytest.mark.django_db
 def test__create_fundingrequest__id_already_used__retries_with_new_id() -> None:
     builder = ArticleRequestDataBuilder()
-    repository.save(builder.expected)
+    repository.create(builder.expected)
 
     ids = [builder.expected.request_id, PublicFundingRequestId.create()]
     id_iter = iter(ids)
@@ -109,7 +109,7 @@ def test__create_fundingrequest__without_external_funding__creates_fundingreques
 
 @pytest.mark.django_db
 def test__fundingrequest__update_publication__updates_publication() -> None:
-    new_id = repository.save(
+    new_id = repository.create(
         FundingRequest.new(
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
             extra_contact=extra_contact(),
@@ -129,7 +129,7 @@ def test__fundingrequest__update_publication__updates_publication() -> None:
 
 @pytest.mark.django_db
 def test__fundingrequest__update_with_empty_extra_contact__fundingrequest_has_no_contact() -> None:
-    new_id = repository.save(
+    new_id = repository.create(
         FundingRequest.new(
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
             extra_contact=extra_contact(),
@@ -147,7 +147,7 @@ def test__fundingrequest__update_with_empty_extra_contact__fundingrequest_has_no
 
 @pytest.mark.django_db
 def test__fundingrequest__update_request_remarks__is_saved_to_db() -> None:
-    new_id = repository.save(
+    new_id = repository.create(
         FundingRequest.new(
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
             extra_contact=extra_contact(),
@@ -168,7 +168,7 @@ def test__fundingrequest__update_request_remarks__is_saved_to_db() -> None:
 def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_external_funding() -> (
     None
 ):
-    new_id = repository.save(
+    new_id = repository.create(
         FundingRequest.new(
             publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
             extra_contact=extra_contact(),

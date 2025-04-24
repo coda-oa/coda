@@ -103,7 +103,7 @@ def create_fundingrequest() -> FundingRequestId:
     journal_id = JournalId(modelfactory.journal().id)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().id)
     fundingrequest = domainfactory.fundingrequest(journal_id=journal_id, funding_org_id=funding_org)
-    fundingrequest.id = fundingrequest_repository.save(fundingrequest)
+    fundingrequest.id = fundingrequest_repository.create(fundingrequest)
     return fundingrequest.id
 
 

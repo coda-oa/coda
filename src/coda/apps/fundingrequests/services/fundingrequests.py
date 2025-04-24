@@ -42,7 +42,7 @@ def create_fundingrequest(
         request_remarks=extra_information.request_remarks,
     )
 
-    fr_id = repository.save(fr)
+    fr_id = repository.create(fr)
     run_checks(fr_id, checkfactory=checkfactory)
 
     return fr_id
@@ -65,7 +65,7 @@ def update_publication(
 ) -> None:
     fr = repository.get_by_id(fundingrequest_id)
     fr.publication = publication.to_publication(fr.publication.id)
-    repository.save(fr)
+    repository.update(fr)
     run_checks(fundingrequest_id, checkfactory=checkfactory)
 
 
@@ -75,7 +75,7 @@ def update_extra_information(
     fr = repository.get_by_id(fundingrequest_id)
     fr.extra_contact = extra_information.extra_contact.to_contact()
     fr.request_remarks = extra_information.request_remarks
-    repository.save(fr)
+    repository.update(fr)
 
 
 def update_funding(
