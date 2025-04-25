@@ -68,7 +68,7 @@ def test__contract_with_individual_publication_billing__unpaid_publication_witho
 ):
     contract = domainfactory.contract()
     contract.publication_billing = PublicationBilling.Individually
-    contract.id = contract_repository.save(contract)
+    contract.id = contract_repository.create(contract)
 
     publication = create_publication(contract.in_first_year())
 
@@ -83,7 +83,7 @@ def test__contract_with_individual_publication_billing__paid_publication__paymen
 ):
     contract = domainfactory.contract()
     contract.publication_billing = PublicationBilling.Individually
-    contract.id = contract_repository.save(contract)
+    contract.id = contract_repository.create(contract)
 
     publication = create_publication(contract.in_first_year())
     invoice = pay_publication(publication)
@@ -102,7 +102,7 @@ def test__contract_with_individual_publication_billing__unpaid_publication_with_
 ):
     contract = domainfactory.contract()
     contract.publication_billing = PublicationBilling.Individually
-    contract.id = contract_repository.save(contract)
+    contract.id = contract_repository.create(contract)
 
     publication = create_publication(contract.in_first_year())
     invoice = create_invoice_for_publication(publication)
@@ -122,7 +122,7 @@ def test__contract_with_consolidated_publication_billing__payment_status_is_cove
 ):
     contract = domainfactory.contract()
     contract.publication_billing = PublicationBilling.Consolidated
-    contract.id = contract_repository.save(contract)
+    contract.id = contract_repository.create(contract)
 
     contract_year = contract.in_first_year()
     publication = create_publication(contract_year)

@@ -34,7 +34,7 @@ def test__update_contract_view__url_in_context_maps_to_update_contract_view(clie
     publishers = make_publishers()
     journals = make_journals(publishers)
     contract = make_contract(publishers, journals)
-    contract.id = repository.save(contract)
+    contract.id = repository.create(contract)
 
     expected_url = reverse("contracts:update", kwargs={"pk": contract.id})
     response = client.get(expected_url)
@@ -63,7 +63,7 @@ def test__create_contract_view__can_create_contract(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test__given_saved_contract__update_contract_view__updates_contract(client: Client) -> None:
     contract = make_contract(make_publishers(), make_journals(make_publishers()))
-    contract_id = repository.save(contract)
+    contract_id = repository.create(contract)
 
     expected = Contract(
         id=contract_id,
@@ -90,7 +90,7 @@ def test__given_saved_contract__update_contract_view__updates_contract(client: C
 @pytest.mark.usefixtures("logged_in")
 def test__given_saved_contract__goto_update_contract_view__shows_contract(client: Client) -> None:
     contract = make_contract(make_publishers(), make_journals(make_publishers()))
-    contract_id = repository.save(contract)
+    contract_id = repository.create(contract)
 
     response = client.get(reverse("contracts:update", kwargs={"pk": contract_id}))
 

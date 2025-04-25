@@ -47,7 +47,10 @@ def as_domain_object(contract_model: ContractModel) -> Contract:
     )
 
 
-def save(contract: Contract) -> ContractId:
+def create(contract: Contract) -> ContractId:
+    if contract.id:
+        raise ContractAlreadyExists(contract.id)
+
     if not contract.id:
         contract_model = ContractModel.objects.create(
             name=contract.name,
@@ -62,7 +65,35 @@ def save(contract: Contract) -> ContractId:
         contract_model.end_date = contract.period.end
         contract_model.publication_billing = contract.publication_billing.value
 
-    contract_model.publishers.set(contract.publishers)
-    contract_model.journals.set(contract.journals)
+    _set_publishers_and_journals(contract, contract_model)
     contract_model.save()
     return ContractId(contract_model.pk)
+
+
+def update(contract: Contract) -> None:
+    if not contract.id:
+        raise UnsavedContract(contract)
+
+    contract_model = ContractModel.objects.get(pk=contract.id)
+    contract_model.name = contract.name
+    contract_model.start_date = contract.period.start
+    contract_model.end_date = contract.period.end
+    contract_model.publication_billing = contract.publication_billing.value
+
+    _set_publishers_and_journals(contract, contract_model)
+    contract_model.save()
+
+
+def _set_publishers_and_journals(contract: Contract, contract_model: ContractModel) -> None:
+    contract_model.publishers.set(contract.publishers)
+    contract_model.journals.set(contract.journals)
+
+
+class ContractAlreadyExists(ValueError):
+    def __init__(self, id: ContractId) -> None:
+        super().__init__(f"Contract with id {id} already exists")
+
+
+class UnsavedContract(ValueError):
+    def __init__(self, contract: Contract) -> None:
+        super().__init__(f"Contract {contract.name} is not saved")

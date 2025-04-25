@@ -98,7 +98,7 @@ def random_publication(publisher_id: int | None = None) -> PublicationId:
 
 def random_contract() -> Contract:
     contract = domainfactory.contract()
-    contract.id = contract_services.save(contract)
+    contract.id = contract_services.create(contract)
     return contract
 
 

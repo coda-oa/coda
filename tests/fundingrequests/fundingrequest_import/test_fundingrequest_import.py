@@ -160,7 +160,7 @@ def test__import_article_fundingrequests__saves_fundingrequests_without_creating
     publisher = PublisherId(modelfactory.publisher().id)
     journal_services.create(NonEmptyStr("Another title"), IMPORT_JOURNAL_ISSN, publisher)
     contract = Contract.new(name=NonEmptyStr(IMPORT_CONTRACT_NAME))
-    contract_repository.save(contract)
+    contract_repository.create(contract)
     institution_repository.create(IMPORT_AUTHOR_AFFILIATION)
     modelfactory.funding_organization(IMPORT_RESEARCH_FUNDER_NAME)
 

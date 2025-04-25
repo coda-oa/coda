@@ -18,6 +18,6 @@ def _get_contract(contract_dto: ContractImportDto) -> Contract:
     contract = contract_repository.get_by_name(contract_dto.name)
     if not contract:
         contract = Contract.new(name=NonEmptyStr(contract_dto.name))
-        contract.id = contract_repository.save(contract)
+        contract.id = contract_repository.create(contract)
 
     return contract

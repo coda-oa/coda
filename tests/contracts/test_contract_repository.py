@@ -3,7 +3,7 @@ import random
 
 import pytest
 
-from coda.apps.contracts.repository import get_by_id, save
+from coda.apps.contracts.repository import create, get_by_id, update
 from coda.domain.contract import Contract, PublicationBilling, PublisherId
 from coda.domain.date import DateRange
 from coda.domain.publication import JournalId
@@ -25,19 +25,28 @@ def test__can_create_contract() -> None:
         CONTRACT_NAME, publishers_ids, date_range(), journal_ids, PublicationBilling.Consolidated
     )
 
-    contract_id = save(expected)
+    contract_id = create(expected)
 
     actual = get_by_id(contract_id)
     assert_contract_eq(actual, expected)
 
 
 @pytest.mark.django_db
-def test__given_saved_contract__save_udpated__updates_contract() -> None:
+def test__given_saved_contract__create_again__raises_error() -> None:
+    sut = Contract.new(NonEmptyStr("Contract"))
+    sut.id = create(sut)
+
+    with pytest.raises(ValueError):
+        create(sut)
+
+
+@pytest.mark.django_db
+def test__given_saved_contract__update__updates_contract() -> None:
     publishers_ids = make_publishers()
     journal_ids = make_journals(publishers_ids)
 
     contract = Contract.new(CONTRACT_NAME, publishers_ids, date_range(), journal_ids)
-    contract_id = save(contract)
+    contract_id = create(contract)
 
     expected = get_by_id(contract_id)
     expected.name = NonEmptyStr("Updated")
@@ -45,11 +54,19 @@ def test__given_saved_contract__save_udpated__updates_contract() -> None:
     expected.journals = ()
     expected.publication_billing = PublicationBilling.Consolidated
 
-    save(expected)
+    update(expected)
 
     actual = get_by_id(contract_id)
     assert contract_id == actual.id
     assert_contract_eq(actual, expected)
+
+
+@pytest.mark.django_db
+def test__given_unsaved_contract__update__raises_error() -> None:
+    sut = Contract.new(NonEmptyStr("Contract"))
+
+    with pytest.raises(ValueError):
+        update(sut)
 
 
 def make_contract(publishers: list[PublisherId], journals: list[JournalId]) -> Contract:

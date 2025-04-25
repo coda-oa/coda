@@ -74,7 +74,7 @@ def create_contract(
     contract = Contract.new(
         form.get_name(), publishers, form.get_period(), journals, form.get_billing()
     )
-    return repository.save(contract)
+    return repository.create(contract)
 
 
 def update_contract(
@@ -91,7 +91,9 @@ def update_contract(
     contract.journals = tuple(journals)
     contract.period = form.get_period()
     contract.publication_billing = form.get_billing()
-    return repository.save(contract)
+    repository.update(contract)
+
+    return cast(ContractId, contract.id)
 
 
 def get_context(
