@@ -153,7 +153,7 @@ def test__paid_publication__invoice_deleted__publication_is_unpaid() -> None:
 def pay_publication(publication: PublicationId) -> Invoice:
     invoice = create_invoice_for_publication(publication)
     invoice.pay()
-    invoice.id = invoice_repository.save(invoice)
+    invoice_repository.update(invoice)
     return invoice
 
 
@@ -164,7 +164,7 @@ def create_invoice_for_publication(publication: PublicationId) -> Invoice:
     )
     invoice.reset_payment()
 
-    invoice.id = invoice_repository.save(invoice)
+    invoice.id = invoice_repository.create(invoice)
     return invoice
 
 

@@ -49,7 +49,7 @@ def test__invoice__pay_invoice_with_publications__all_publication_paid() -> None
     publication_1 = create_publication()
     publication_2 = create_publication()
     invoice = unpaid_invoice(publication_1, publication_2)
-    invoice.id = repository.save(invoice)
+    invoice.id = repository.create(invoice)
 
     services.pay_invoice(invoice.id)
 
@@ -61,7 +61,7 @@ def test__invoice__pay_invoice_with_publications__all_publication_paid() -> None
 @pytest.mark.django_db
 def test__paid_invoice__reset_payment__invoice_is_not_paid() -> None:
     invoice = unpaid_invoice()
-    invoice.id = repository.save(invoice)
+    invoice.id = repository.create(invoice)
 
     services.reset_payment(invoice.id)
 
@@ -76,7 +76,7 @@ def test__paid_invoice_with_publications__reset_payment__all_publication_have_in
     publication_1 = create_publication()
     publication_2 = create_publication()
     invoice = unpaid_invoice(publication_1, publication_2)
-    invoice.id = repository.save(invoice)
+    invoice.id = repository.create(invoice)
 
     services.pay_invoice(invoice.id)
     services.reset_payment(invoice.id)
@@ -89,7 +89,7 @@ def test__paid_invoice_with_publications__reset_payment__all_publication_have_in
 @pytest.mark.django_db
 def test__invoice__delete_invoice__invoice_is_deleted() -> None:
     invoice = unpaid_invoice()
-    invoice.id = repository.save(invoice)
+    invoice.id = repository.create(invoice)
 
     services.delete_invoice(invoice.id)
 
@@ -102,7 +102,7 @@ def test__invoice_with_publications__delete_invoice__publications_are_unpaid() -
     publication_1 = create_publication()
     publication_2 = create_publication()
     invoice = unpaid_invoice(publication_1, publication_2)
-    invoice.id = repository.save(invoice)
+    invoice.id = repository.create(invoice)
     services.pay_invoice(invoice.id)
 
     services.delete_invoice(invoice.id)

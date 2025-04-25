@@ -11,7 +11,7 @@ from pytest_django.asserts import assertRedirects
 from coda.apps.contracts import repository as contract_services
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.repository import save
+from coda.apps.invoices.repository import create
 from coda.apps.invoices.views.positions import ContractPosition, FreePosition, PublicationPosition
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.contract import Contract, ContractYear
@@ -50,7 +50,7 @@ def test__given_invoice__goto_update_view__has_invoice_head_in_form(client: Clie
         comment="A comment",
     )
 
-    invoice.id = save(invoice)
+    invoice.id = create(invoice)
 
     response = goto_update_view(client, invoice.id)
 
@@ -86,7 +86,7 @@ def test__given_invoice__goto_update_view__has_invoice_positions_in_context(clie
         positions=[_publication_position, _contract_position, _free_position],
     )
 
-    invoice.id = save(invoice)
+    invoice.id = create(invoice)
 
     response = goto_update_view(client, invoice.id)
 
@@ -110,7 +110,7 @@ def test__given_invoice__saving_updated_invoice__updates_invoice(client: Client)
         comment="A comment",
     )
 
-    invoice.id = save(invoice)
+    invoice.id = create(invoice)
 
     second_position = domainfactory.free_position(currency=Currency.EUR)
 
@@ -164,7 +164,7 @@ def test__given_invoice__invalid_form__does_not_save_invoice(client: Client) -> 
         comment="A comment",
     )
 
-    expected.id = save(expected)
+    expected.id = create(expected)
 
     post_data = {
         "number": "123",
@@ -192,7 +192,7 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
         positions=[],
     )
 
-    invoice.id = save(invoice)
+    invoice.id = create(invoice)
 
     contract = domainfactory.contract()
     contract.id = contract_services.create(contract)

@@ -115,36 +115,57 @@ def _get_item_from_position_model(position: PositionModel) -> ItemType:
         return position.description
 
 
-def save(invoice: Invoice) -> InvoiceId:
-    if not invoice.id:
-        m = InvoiceModel.objects.create(
-            number=invoice.number,
-            date=invoice.date,
-            creditor_id=invoice.creditor,
-            comment=invoice.comment,
-            status=invoice.status.value,
-            external_invoice_id=invoice.external_invoice_id,
-        )
-    else:
-        m = InvoiceModel.objects.get(id=invoice.id)
-        m.number = invoice.number
-        m.date = invoice.date
-        m.creditor_id = invoice.creditor
-        m.comment = invoice.comment
-        m.status = invoice.status.value
-        m.positions.all().delete()
-        m.external_invoice_id = invoice.external_invoice_id
-        m.save()
+def create(invoice: Invoice) -> InvoiceId:
+    if invoice.id:
+        raise InvoiceAlreadyExists(invoice.id)
 
-    PositionModel.objects.bulk_create(
-        [_create_position(m, position) for position in invoice.positions]
+    invoice_model = InvoiceModel.objects.create(
+        number=invoice.number,
+        date=invoice.date,
+        creditor_id=invoice.creditor,
+        comment=invoice.comment,
+        status=invoice.status.value,
+        external_invoice_id=invoice.external_invoice_id,
     )
+    _add_positions(invoice, invoice_model)
 
-    return InvoiceId(m.id)
+    return InvoiceId(invoice_model.id)
+
+
+def update(invoice: Invoice) -> None:
+    if not invoice.id:
+        raise UnsavedInvoice(invoice)
+
+    invoice_model = InvoiceModel.objects.get(id=invoice.id)
+    invoice_model.number = invoice.number
+    invoice_model.date = invoice.date
+    invoice_model.creditor_id = invoice.creditor
+    invoice_model.comment = invoice.comment
+    invoice_model.status = invoice.status.value
+    invoice_model.positions.all().delete()
+    invoice_model.external_invoice_id = invoice.external_invoice_id
+    invoice_model.save()
+    _add_positions(invoice, invoice_model)
+
+
+def _add_positions(invoice: Invoice, invoice_model: InvoiceModel) -> None:
+    PositionModel.objects.bulk_create(
+        [_create_position(invoice_model, position) for position in invoice.positions]
+    )
 
 
 def delete(invoice_id: InvoiceId) -> None:
     InvoiceModel.objects.filter(id=invoice_id).delete()
+
+
+class InvoiceAlreadyExists(ValueError):
+    def __init__(self, invoice_id: InvoiceId) -> None:
+        super().__init__(f"Invoice with ID {invoice_id} already exists.")
+
+
+class UnsavedInvoice(ValueError):
+    def __init__(self, invoice: Invoice) -> None:
+        super().__init__(f"Invoice {invoice.number} is not saved yet.")
 
 
 def _create_position(m: InvoiceModel, pos: Position[ItemType]) -> PositionModel:

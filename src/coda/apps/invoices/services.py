@@ -6,11 +6,21 @@ from coda.domain.publication.publication import PublicationId
 
 
 def save(invoice: Invoice) -> InvoiceId:
-    invoice.id = repository.save(invoice)
+    id = _save_invoice(invoice)
+
     if invoice.is_paid():
         _pay_publications(invoice)
     else:
         _invoice_received(invoice)
+
+    return id
+
+
+def _save_invoice(invoice: Invoice) -> InvoiceId:
+    if not invoice.id:
+        invoice.id = repository.create(invoice)
+    else:
+        repository.update(invoice)
 
     return invoice.id
 
@@ -18,14 +28,14 @@ def save(invoice: Invoice) -> InvoiceId:
 def pay_invoice(invoice_id: InvoiceId) -> None:
     invoice = repository.get_by_id(invoice_id)
     invoice.pay()
-    repository.save(invoice)
+    repository.update(invoice)
     _pay_publications(invoice)
 
 
 def reset_payment(invoice_id: InvoiceId) -> None:
     invoice = repository.get_by_id(invoice_id)
     invoice.reset_payment()
-    repository.save(invoice)
+    repository.update(invoice)
     _invoice_received(invoice)
 
 

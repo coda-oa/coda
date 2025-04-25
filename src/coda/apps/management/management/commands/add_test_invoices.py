@@ -23,7 +23,7 @@ class Command(BaseCommand):
             ],
         )
 
-        repository.save(invoice)
+        repository.create(invoice)
 
 
 def random_publication(publisher_id: int) -> PublicationId:

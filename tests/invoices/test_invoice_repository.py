@@ -16,10 +16,19 @@ _faker = faker.Faker()
 def test__save_new_invoice__saves_invoice_to_database() -> None:
     invoice = full_invoice()
 
-    new_id = repository.save(invoice)
+    new_id = repository.create(invoice)
 
     actual = repository.get_by_id(new_id)
     assert_invoice_eq(invoice, actual)
+
+
+@pytest.mark.django_db
+def test__given_saved_invoice__create_again__raises_error() -> None:
+    invoice = full_invoice()
+    invoice.id = repository.create(invoice)
+
+    with pytest.raises(repository.InvoiceAlreadyExists):
+        repository.create(invoice)
 
 
 @pytest.mark.django_db
@@ -27,7 +36,7 @@ def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
     invoice = full_invoice()
     invoice.status = PaymentStatus.Unpaid
 
-    new_id = repository.save(invoice)
+    new_id = repository.create(invoice)
 
     updated_invoice = repository.get_by_id(new_id)
     updated_invoice.number = "updated"
@@ -38,7 +47,7 @@ def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
     updated_invoice.comment = "updated"
     updated_invoice.external_invoice_id = "updated"
 
-    repository.save(updated_invoice)
+    repository.update(updated_invoice)
 
     actual = repository.get_by_id(new_id)
     assert actual.id == updated_invoice.id
@@ -46,10 +55,18 @@ def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
 
 
 @pytest.mark.django_db
+def test__unsaved_invoice__update__raises_error() -> None:
+    invoice = full_invoice()
+
+    with pytest.raises(repository.UnsavedInvoice):
+        repository.update(invoice)
+
+
+@pytest.mark.django_db
 def test__given_paid_invoice_with_publication__invoice_with_publication__returns_invoice() -> None:
     publication_id = random_publication()
     invoice = create_invoice_with_publication(publication_id)
-    invoice.id = repository.save(invoice)
+    invoice.id = repository.create(invoice)
 
     actual = repository.invoice_with_publication(publication_id)
 
