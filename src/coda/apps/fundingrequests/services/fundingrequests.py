@@ -5,7 +5,12 @@ from collections.abc import Iterable
 from typing import Protocol, overload
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.dto import ExternalFundingDto, ExtraInformationDto, PaymentDto
+from coda.apps.fundingrequests.dto import (
+    CreateFundingRequestDto,
+    ExternalFundingDto,
+    ExtraInformationDto,
+    PaymentDto,
+)
 from coda.apps.fundingrequests.services.checks import run_checks
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
@@ -24,28 +29,50 @@ class RequestIdGenerator(Protocol):
 
 
 def create_fundingrequest(
-    publication: PublicationBaseDto,
-    payment: PaymentDto,
-    funding: Iterable[ExternalFundingDto],
-    extra_information: ExtraInformationDto,
+    creation_dto: CreateFundingRequestDto,
     *,
-    request_date: datetime.date | None = None,
     request_id_generator: RequestIdGenerator = PublicFundingRequestId.create,
     checkfactory: CheckFactory | None = None,
 ) -> FundingRequestId:
     fr = FundingRequest.new(
-        publication.to_publication(),
-        payment.to_payment(),
-        request_id=_find_unused_request_id(request_id_generator, request_date),
-        external_funding=[f.to_external_funding() for f in funding],
-        extra_contact=extra_information.extra_contact.to_contact(),
-        request_remarks=extra_information.request_remarks,
+        creation_dto.publication.to_publication(),
+        creation_dto.payment.to_payment(),
+        request_id=_find_unused_request_id(request_id_generator, creation_dto.request_date),
+        external_funding=[f.to_external_funding() for f in creation_dto.funding],
+        extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
+        request_remarks=creation_dto.extra_information.request_remarks,
     )
 
     fr_id = repository.create(fr)
     run_checks(fr_id, checkfactory=checkfactory)
 
     return fr_id
+
+
+def bulk_create_fundingrequests(
+    creation_dtos: Iterable[CreateFundingRequestDto],
+    *,
+    request_id_generator: RequestIdGenerator = PublicFundingRequestId.create,
+    checkfactory: CheckFactory | None = None,
+) -> Iterable[FundingRequestId]:
+    ids = [
+        _find_unused_request_id(request_id_generator, creation_dto.request_date)
+        for creation_dto in creation_dtos
+    ]
+
+    funding_requests = [
+        FundingRequest.new(
+            creation_dto.publication.to_publication(),
+            creation_dto.payment.to_payment(),
+            request_id=request_id,
+            external_funding=[f.to_external_funding() for f in creation_dto.funding],
+            extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
+            request_remarks=creation_dto.extra_information.request_remarks,
+        )
+        for request_id, creation_dto in zip(ids, creation_dtos)
+    ]
+
+    return repository.create_many(funding_requests)
 
 
 def _find_unused_request_id(

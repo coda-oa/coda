@@ -78,6 +78,29 @@ def update(fundingrequest: AnyFundingRequest) -> None:
     _save(fundingrequest, fr, pid)
 
 
+@transaction.atomic
+def create_many(fundingrequests: Iterable[AnyFundingRequest]) -> Iterable[FundingRequestId]:
+    created_frs = FundingRequestModel.objects.bulk_create(
+        FundingRequestModel(
+            request_id=str(fundingrequest.request_id),
+            publication_id=publication_repository.create(fundingrequest.publication),
+            request_remarks=fundingrequest.request_remarks,
+            estimated_cost=fundingrequest.estimated_cost.amount.amount,
+            estimated_cost_currency=fundingrequest.estimated_cost.amount.currency.code,
+            payment_method=fundingrequest.estimated_cost.method.value,
+            review=FundingRequestReview.objects.create(),
+        )
+        for fundingrequest in fundingrequests
+    )
+
+    for fundingrequest, fr in zip(fundingrequests, created_frs):
+        _save_external_funding(fr, fundingrequest.external_funding)
+        _save_contact(fundingrequest.extra_contact, fr)
+        fr.save()
+
+    return tuple(FundingRequestId(fr.id) for fr in created_frs)
+
+
 class FundingRequestAlreadyExists(ValueError):
     def __init__(self, fundingrequest_id: FundingRequestId) -> None:
         super().__init__(f"Funding request with id {fundingrequest_id} already exists")
@@ -125,8 +148,11 @@ def _save_funding(
     fr.estimated_cost_currency = payment.amount.currency.code
     fr.payment_method = payment.method.value
     fr.save()
-
     fr.external_funding.all().delete()
+    _save_external_funding(fr, funding)
+
+
+def _save_external_funding(fr: FundingRequestModel, funding: Iterable[ExternalFunding]) -> None:
     ExternalFundingModel.objects.bulk_create(
         ExternalFundingModel(
             funding_request_id=fr.id,

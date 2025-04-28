@@ -9,6 +9,7 @@ from faker import Faker
 
 from coda.apps.contracts.repository import as_domain_object
 from coda.apps.fundingrequests.dto import (
+    CreateFundingRequestDto,
     ExternalFundingDto,
     ExtraContactDto,
     ExtraInformationDto,
@@ -147,3 +148,11 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
 
     def _to_external_funding_dto(self, funding: ExternalFunding) -> ExternalFundingDto:
         return ExternalFundingDto.from_external_funding(funding)
+
+    def creation_dto(self) -> CreateFundingRequestDto:
+        return CreateFundingRequestDto(
+            publication=self.publication_dto(),
+            payment=self.cost_dto(),
+            funding=self.external_funding_dto(),
+            extra_information=self.extra_information_dto(),
+        )

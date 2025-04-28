@@ -13,7 +13,6 @@ from coda.apps.fundingrequests.dto import (
 )
 from coda.apps.fundingrequests.repository import get_by_id
 from coda.apps.institutions.models import Institution
-from coda.apps.publications.dto import PublicationDto
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.author import InstitutionId
 from coda.domain.fundingrequest import (
@@ -56,12 +55,7 @@ def test__create_fundingrequest__creates_a_fundingrequest_based_on_given_data(
 ) -> None:
     builder = get_builder()
 
-    new_id = services.fundingrequests.create_fundingrequest(
-        builder.publication_dto(),
-        builder.cost_dto(),
-        builder.external_funding_dto(),
-        builder.extra_information_dto(),
-    )
+    new_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
 
     actual = get_by_id(new_id)
     assert_fundingrequest_eq(actual, builder.expected)
@@ -81,11 +75,7 @@ def test__create_fundingrequest__id_already_used__retries_with_new_id() -> None:
         return next(id_iter)
 
     new_id = services.fundingrequests.create_fundingrequest(
-        builder.publication_dto(),
-        builder.cost_dto(),
-        builder.external_funding_dto(),
-        builder.extra_information_dto(),
-        request_id_generator=generator,
+        builder.creation_dto(), request_id_generator=generator
     )
 
     actual = get_by_id(new_id)
@@ -96,12 +86,7 @@ def test__create_fundingrequest__id_already_used__retries_with_new_id() -> None:
 def test__create_fundingrequest__without_external_funding__creates_fundingrequest() -> None:
     builder = ArticleRequestDataBuilder().without_external_funding()
 
-    new_id = services.fundingrequests.create_fundingrequest(
-        builder.publication_dto(),
-        builder.cost_dto(),
-        builder.external_funding_dto(),
-        builder.extra_information_dto(),
-    )
+    new_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
 
     actual = repository.get_by_id(new_id)
     assert list(actual.external_funding) == []
@@ -109,21 +94,14 @@ def test__create_fundingrequest__without_external_funding__creates_fundingreques
 
 @pytest.mark.django_db
 def test__fundingrequest__update_publication__updates_publication() -> None:
-    new_id = repository.create(
-        FundingRequest.new(
-            publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
-            extra_contact=extra_contact(),
-            estimated_cost=domainfactory.payment(),
-        )
-    )
+    builder = ArticleRequestDataBuilder()
+    new_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
 
-    new_publication = domainfactory.publication(JournalId(modelfactory.journal().pk))
-    services.fundingrequests.update_publication(
-        new_id, PublicationDto.from_publication(new_publication)
-    )
+    builder = builder.with_new_publication()
+    services.fundingrequests.update_publication(new_id, builder.publication_dto())
 
     updated = get_by_id(new_id)
-    assert_publication_eq(updated.publication, new_publication)
+    assert_publication_eq(updated.publication, builder.publication)
     assert len(publication_repository.all()) == 1, "Should not create a new publication"
 
 

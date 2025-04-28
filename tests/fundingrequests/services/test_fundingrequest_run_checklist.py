@@ -55,12 +55,7 @@ def test__given_fundingrequest__run_checks__runs_checks_for_publication_type(
     expected_check_name: str,
 ) -> None:
     builder = get_builder()
-    fundingrequest_id = fundingrequests.create_fundingrequest(
-        builder.publication_dto(),
-        builder.cost_dto(),
-        builder.external_funding_dto(),
-        builder.extra_information_dto(),
-    )
+    fundingrequest_id = fundingrequests.create_fundingrequest(builder.creation_dto())
 
     checkfactory = CheckFactoryImpl()
     checkfactory.register(Publication, PublicationCheckSpy)
@@ -82,11 +77,7 @@ def test__creating_fundingrequest__runs_checks() -> None:
     builder = ArticleRequestDataBuilder()
 
     new_id = fundingrequests.create_fundingrequest(
-        builder.publication_dto(),
-        builder.cost_dto(),
-        builder.external_funding_dto(),
-        builder.extra_information_dto(),
-        checkfactory=checkfactory,
+        builder.creation_dto(), checkfactory=checkfactory
     )
 
     checkruns = checks.get_checkrun(new_id, checkfactory=checkfactory)
@@ -137,11 +128,6 @@ def test__updating_fundingrequest_funding__reruns_checks_with_updated_request() 
 
 def save_request() -> FundingRequestId:
     builder = ArticleRequestDataBuilder()
-    new_id = fundingrequests.create_fundingrequest(
-        builder.publication_dto(),
-        builder.cost_dto(),
-        builder.external_funding_dto(),
-        builder.extra_information_dto(),
-    )
+    new_id = fundingrequests.create_fundingrequest(builder.creation_dto())
 
     return new_id

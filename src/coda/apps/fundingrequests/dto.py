@@ -1,8 +1,11 @@
+import datetime
+from collections.abc import Iterable
 from typing import Annotated
 
 from pydantic import AfterValidator, Field
 
 from coda.apps.dto import CodaBaseDto
+from coda.apps.publications.dto import PublicationBaseDto
 from coda.domain.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -113,3 +116,11 @@ class ReviewDto(CodaBaseDto):
     decided_funding_amount: float
     decided_funding_currency: str
     reviewer_remarks: str
+
+
+class CreateFundingRequestDto(CodaBaseDto):
+    publication: PublicationBaseDto
+    payment: PaymentDto
+    extra_information: ExtraInformationDto
+    funding: Iterable[ExternalFundingDto] = ()
+    request_date: datetime.date = datetime.date.today()

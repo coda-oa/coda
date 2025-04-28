@@ -6,6 +6,7 @@ from django.urls import reverse, reverse_lazy
 
 from coda.apps.fundingrequests.services import fundingrequests
 from coda.apps.fundingrequests.dto import (
+    CreateFundingRequestDto,
     ExternalFundingDto,
     ExtraContactDto,
     ExtraInformationDto,
@@ -36,7 +37,12 @@ class FundingRequestCreationWizard(LoginRequiredMixin, Wizard, abc.ABC, Generic[
             request_remarks=store.get("request_remarks", ""),
         )
         funding_request_id = fundingrequests.create_fundingrequest(
-            publication, cost, funding, extra_information
+            CreateFundingRequestDto(
+                publication=publication,
+                payment=cost,
+                funding=funding,
+                extra_information=extra_information,
+            )
         )
         store["funding_request"] = funding_request_id
         store.save()
