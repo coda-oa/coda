@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
 from typing import Any
 
 from django import forms
@@ -17,7 +17,7 @@ class CodaFormBase(forms.Form):
         files: Mapping[str, Any] | None = None,
         auto_id: bool | str = True,
         prefix: str | None = None,
-        initial: Mapping[str, Any] | None = None,
+        initial: MutableMapping[str, Any] | None = None,
         error_class: type[ErrorList] = ErrorList,
         label_suffix: str | None = None,
         empty_permitted: bool = False,

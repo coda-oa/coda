@@ -1,8 +1,7 @@
 from collections.abc import Iterable, Sequence
 from typing import TypedDict, cast
 
-from django.db import transaction
-from django.db.models import Q
+from django.db import models, transaction
 
 from coda.apps.authors import services as author_services
 from coda.apps.contracts import repository as contract_services
@@ -113,7 +112,7 @@ def first() -> BasePublication | None:
 
 
 def find_publications_by_vocabulary(vocabulary_id: VocabularyId) -> list[BasePublication]:
-    query = Q(publication_type__vocabulary_id=vocabulary_id) | Q(
+    query = models.Q(publication_type__vocabulary_id=vocabulary_id) | models.Q(
         subject_area__vocabulary_id=vocabulary_id
     )
     return [as_domain_object(p) for p in PublicationModel.objects.filter(query)]
@@ -224,18 +223,27 @@ def _attach_authors(id: PublicationId, relevant_authors: Iterable[Author]) -> No
 def _attach_contracts(p: PublicationModel, contracts: Iterable[ContractYear]) -> None:
     contract_ids = {cy.contract.id for cy in contracts if cy.contract.id}
     model_contracts = Contract.objects.filter(id__in=contract_ids).order_by("id")
-
-    _delete_unused_attached_contracts(p, contract_ids)
+    _delete_unused_attached_contracts(p, contracts)
 
     sorted_contracts = sorted(contracts, key=lambda c: cast(ContractId, c.contract.id))
-    for model_contract, contract_year in zip(model_contracts, sorted_contracts):
+    model_contract_dict = {c.id: c for c in model_contracts}
+
+    for contract_year in sorted_contracts:
+        cid = cast(ContractId, contract_year.contract.id)
+        model_contract = model_contract_dict[cid]
         AttachedContract.objects.get_or_create(
             publication_id=p.pk, contract_id=model_contract.pk, contract_year=contract_year.year
         )
 
 
-def _delete_unused_attached_contracts(p: PublicationModel, contracts: Iterable[ContractId]) -> None:
-    AttachedContract.objects.filter(publication_id=p.id).exclude(contract__in=contracts).delete()
+def _delete_unused_attached_contracts(
+    p: PublicationModel, contracts: Iterable[ContractYear]
+) -> None:
+    existing_pairs = {(c.contract.id, c.year) for c in contracts}
+    query = models.Q()
+    for contract_id, year in existing_pairs:
+        query |= models.Q(contract_id=contract_id) & models.Q(contract_year=year)
+    AttachedContract.objects.filter(publication_id=p.id).exclude(query).delete()
 
 
 class PublicationAlreadyCreated(ValueError):

@@ -1,12 +1,14 @@
+import datetime
 from itertools import zip_longest
 from typing import Protocol
 
 import pytest
 
 from coda.apps.authors.services import author_create
-from coda.apps.contracts.repository import as_domain_object
+from coda.apps.contracts import repository as contract_repository
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.domain.contract import ContractYear, PublisherId
+from coda.domain.date import DateRange
 from coda.domain.orcid import Orcid
 from coda.domain.publication import (
     Authors,
@@ -26,20 +28,20 @@ from tests.contracts.test_contract_repository import assert_contract_eq
 class PublicationFactory(Protocol):
     def __call__(
         self,
-        subject_area: VocabularyConcept,
-        publication_type: VocabularyConcept,
+        subject_area: VocabularyConcept = UnknownConcept,
+        publication_type: VocabularyConcept = UnknownConcept,
         publication_id: PublicationId | None = None,
     ) -> BasePublication:
         ...
 
 
 def create_publication(
-    subject_area: VocabularyConcept,
-    publication_type: VocabularyConcept,
+    subject_area: VocabularyConcept = UnknownConcept,
+    publication_type: VocabularyConcept = UnknownConcept,
     publication_id: PublicationId | None = None,
 ) -> Publication:
     journal = JournalId(modelfactory.journal().id)
-    contracts = [as_domain_object(modelfactory.contract()) for _ in range(4)]
+    contracts = [contract_repository.as_domain_object(modelfactory.contract()) for _ in range(4)]
     contract_years = [domainfactory.contract_year(contract) for contract in contracts]
     publication = domainfactory.publication(
         journal=journal,
@@ -52,8 +54,8 @@ def create_publication(
 
 
 def create_monograph(
-    subject_area: VocabularyConcept,
-    publication_type: VocabularyConcept,
+    subject_area: VocabularyConcept = UnknownConcept,
+    publication_type: VocabularyConcept = UnknownConcept,
     publication_id: PublicationId | None = None,
 ) -> Monograph:
     publisher = modelfactory.publisher().id
@@ -110,6 +112,25 @@ def test__create_publication__create_again__raises_error(
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("publication_factory", publication_factories())
+def test_publication_with_same_contract_in_different_years__create__saves_with_all_contracts(
+    publication_factory: PublicationFactory,
+) -> None:
+    contract = domainfactory.contract(period=DateRange.create(start=datetime.date(2023, 1, 1)))
+    contract.id = contract_repository.create(contract)
+    first = contract.in_year(2023)
+    second = contract.in_year(2024)
+
+    publication = publication_factory()
+    publication.contracts = (first, second)
+
+    id = publication_repository.create(publication)
+
+    actual = publication_repository.get_by_id(id)
+    assert_publication_eq(actual, publication)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("publication_factory", publication_factories())
 def test__existing_publication__update_with_new_data__is_saved_in_database(
     publication_factory: PublicationFactory,
 ) -> None:
@@ -151,6 +172,29 @@ def test__unsaved_publication__update__raises_error(
 
     with pytest.raises(publication_repository.UnsavedPublication):
         publication_repository.update(publication)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("publication_factory", publication_factories())
+def test__publication_with_same_contract_in_different_years__update_with_one_contract_removed__removes_one_contract(
+    publication_factory: PublicationFactory,
+) -> None:
+    contract = domainfactory.contract(period=DateRange.create(start=datetime.date(2023, 1, 1)))
+    contract.id = contract_repository.create(contract)
+    first = contract.in_year(2023)
+    second = contract.in_year(2024)
+
+    publication = publication_factory()
+    publication.contracts = (first, second)
+    id = publication_repository.create(publication)
+
+    updated = publication_factory(publication_id=id)
+    updated.contracts = (first,)
+
+    publication_repository.update(updated)
+
+    actual = publication_repository.get_by_id(id)
+    assert_publication_eq(actual, updated)
 
 
 @pytest.mark.django_db

@@ -4,6 +4,7 @@ from collections.abc import Callable, Iterable
 
 import pytest
 
+from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository, services
 from coda.apps.fundingrequests.dto import (
     ExternalFundingDto,
@@ -15,6 +16,7 @@ from coda.apps.fundingrequests.repository import get_by_id
 from coda.apps.institutions.models import Institution
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.author import InstitutionId
+from coda.domain.date import DateRange
 from coda.domain.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
@@ -83,6 +85,23 @@ def test__create_fundingrequest__id_already_used__retries_with_new_id() -> None:
 
 
 @pytest.mark.django_db
+def test__fundingrequest__publication_with_same_contract_in_different_years__create_fundingrequest__creates_fundingrequest_with_both_contracts() -> (
+    None
+):
+    contract = domainfactory.contract(period=DateRange.create(start=datetime.date(2023, 1, 1)))
+    contract.id = contract_repository.create(contract)
+
+    first = contract.in_year(2023)
+    second = contract.in_year(2024)
+
+    builder = ArticleRequestDataBuilder().with_contracts([first, second])
+    new_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
+
+    actual = get_by_id(new_id)
+    assert_fundingrequest_eq(actual, builder.expected)
+
+
+@pytest.mark.django_db
 def test__create_fundingrequest__without_external_funding__creates_fundingrequest() -> None:
     builder = ArticleRequestDataBuilder().without_external_funding()
 
@@ -103,6 +122,26 @@ def test__fundingrequest__update_publication__updates_publication() -> None:
     updated = get_by_id(new_id)
     assert_publication_eq(updated.publication, builder.publication)
     assert len(publication_repository.all()) == 1, "Should not create a new publication"
+
+
+@pytest.mark.django_db
+def test__fundingrequest__publication_with_same_contract_in_different_years__update_with_one_contract_removed__removes_contract_from_publication() -> (
+    None
+):
+    contract = domainfactory.contract(period=DateRange.create(start=datetime.date(2023, 1, 1)))
+    contract.id = contract_repository.create(contract)
+
+    first = contract.in_year(2023)
+    second = contract.in_year(2024)
+
+    builder = ArticleRequestDataBuilder().with_contracts([first, second])
+    new_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
+
+    builder = builder.with_contracts([first])
+    services.fundingrequests.update_publication(new_id, builder.publication_dto())
+
+    updated = get_by_id(new_id)
+    assert_publication_eq(updated.publication, builder.publication)
 
 
 @pytest.mark.django_db

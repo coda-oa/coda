@@ -1,5 +1,6 @@
 import datetime
 import itertools
+import logging
 import random
 from collections.abc import Iterable
 from typing import Protocol, overload
@@ -92,6 +93,7 @@ def update_publication(
 ) -> None:
     fr = repository.get_by_id(fundingrequest_id)
     fr.publication = publication.to_publication(fr.publication.id)
+    logging.info(fr.publication)
     repository.update(fr)
     run_checks(fundingrequest_id, checkfactory=checkfactory)
 

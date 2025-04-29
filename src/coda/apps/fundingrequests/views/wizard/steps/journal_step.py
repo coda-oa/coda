@@ -1,3 +1,4 @@
+import logging
 from coda.apps.fundingrequests.forms import ContractFormset
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.journals.models import Journal
@@ -51,5 +52,9 @@ class JournalStep(Step):
             ContractYearDto.from_contract_year(c).to_post_data()
             for c in contract_formset.contract_years()
         ]
+
+        logging.info(
+            f"Journal step done. Journal: {store['journal']}, Contracts: {store['contracts']}"
+        )
 
         store.save()
