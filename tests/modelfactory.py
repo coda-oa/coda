@@ -9,7 +9,7 @@ from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganization
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.institutions.models import Institution
-from coda.apps.invoices.models import Creditor, FundingSource
+from coda.apps.invoices.models import Creditor, FundingSource, Invoice
 from coda.apps.journals.models import Journal
 from coda.apps.publications.models import Concept, Publication, Vocabulary
 from coda.apps.publishers.models import Publisher
@@ -103,6 +103,14 @@ def fundingrequest(title: str = "", authors: Authors | None = None) -> FundingRe
         )
     )
     return FundingRequestModel.objects.get(pk=request_id)
+
+
+def invoice() -> Invoice:
+    return Invoice.objects.create(
+        creditor=creditor(),
+        date=_faker.date_this_decade(before_today=False, after_today=True),
+        number=_faker.word(),
+    )
 
 
 def creditor() -> Creditor:
