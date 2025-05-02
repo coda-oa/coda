@@ -1,5 +1,5 @@
 import datetime
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from typing import Any, NamedTuple, cast
 
 import pydantic
@@ -14,8 +14,7 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import ConceptDto, LinkDto, PublicationMetaDto
 from coda.apps.publications.models import Concept, LinkType, Publication, Vocabulary
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.domain.publication import links
-from coda.domain.publication import License, OpenAccessType, Published, UnpublishedState
+from coda.domain.publication import License, OpenAccessType, Published, UnpublishedState, links
 from coda.domain.vocabulary import UnknownConcept, VocabularyConcept, VocabularyProtocol
 
 
@@ -133,7 +132,7 @@ class PublicationForm(CodaFormBase):
         files: Mapping[str, Any] | None = None,
         auto_id: bool | str = True,
         prefix: str | None = None,
-        initial: Mapping[str, Any] | None = None,
+        initial: MutableMapping[str, Any] | None = None,
         error_class: type[ErrorList] = ErrorList,
         label_suffix: str | None = None,
         empty_permitted: bool = False,
