@@ -1,6 +1,7 @@
 import pytest
 
-from coda.apps.publications.models import PublicationPayment
+from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.publications.models import Publication, PublicationPayment
 from tests import modelfactory
 
 
@@ -23,3 +24,23 @@ def test__publication_with_invoice__delete_publication__deletes_position() -> No
     p.delete()
 
     assert not invoice.positions.filter(id=position.id).exists()
+
+
+@pytest.mark.django_db
+def test__publication__delete_publication__deletes_fundingrequest() -> None:
+    fundingrequest = modelfactory.fundingrequest()
+    publication = fundingrequest.publication
+
+    publication.delete()
+
+    assert not FundingRequest.objects.filter(id=fundingrequest.id).exists()
+
+
+@pytest.mark.django_db
+def test__fundingrequest__delete_fundingrequest__deletes_publication() -> None:
+    fundingrequest = modelfactory.fundingrequest()
+    publication_id = fundingrequest.publication.id
+
+    fundingrequest.delete()
+
+    assert not Publication.objects.filter(id=publication_id).exists()

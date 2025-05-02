@@ -1,3 +1,4 @@
+from typing import Any
 from django.core.validators import RegexValidator
 from django.db import models
 from django.urls import reverse
@@ -77,7 +78,9 @@ class FundingRequest(models.Model):
     extra_contact = models.OneToOneField(
         FundingRequestContact, related_name="funding_request", on_delete=models.SET_NULL, null=True
     )
-    publication = models.OneToOneField(Publication, on_delete=models.CASCADE)
+    publication = models.OneToOneField(
+        Publication, on_delete=models.CASCADE, related_name="fundingrequest"
+    )
 
     request_remarks = models.TextField(blank=True)
 
@@ -87,3 +90,10 @@ class FundingRequest(models.Model):
 
     def get_absolute_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.pk})
+
+    def delete(
+        self, using: Any | None = None, keep_parents: bool = False
+    ) -> tuple[int, dict[str, int]]:
+        if self.publication:
+            self.publication.delete()
+        return super().delete(using, keep_parents)
