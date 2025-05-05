@@ -28,6 +28,7 @@ def import_fundingrequests(request: HttpRequest) -> HttpResponse:
         import_file: UploadedFile = form.cleaned_data["import_file"]
         try:
             importservice.import_fundingrequests(cast(BinaryIO, import_file))
+            messages.success(request, "Funding requests imported successfully.")
         except pydantic.ValidationError as e:
             import_errors = [f"{error['loc']}: {error['msg']}" for error in e.errors()]
 

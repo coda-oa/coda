@@ -80,23 +80,62 @@ def update(fundingrequest: AnyFundingRequest) -> None:
 
 @transaction.atomic
 def create_many(fundingrequests: Iterable[AnyFundingRequest]) -> Iterable[FundingRequestId]:
-    created_frs = FundingRequestModel.objects.bulk_create(
+    fundingrequests = list(fundingrequests)
+    reviews = FundingRequestReview.objects.bulk_create(
+        [FundingRequestReview() for _ in fundingrequests]
+    )
+    publication_ids = [
+        publication_repository.create(fundingrequest.publication)
+        for fundingrequest in fundingrequests
+    ]
+    fr_models = [
         FundingRequestModel(
             request_id=str(fundingrequest.request_id),
-            publication_id=publication_repository.create(fundingrequest.publication),
+            publication_id=pid,
             request_remarks=fundingrequest.request_remarks,
             estimated_cost=fundingrequest.estimated_cost.amount.amount,
             estimated_cost_currency=fundingrequest.estimated_cost.amount.currency.code,
             payment_method=fundingrequest.estimated_cost.method.value,
-            review=FundingRequestReview.objects.create(),
+            review=review,
         )
-        for fundingrequest in fundingrequests
-    )
+        for fundingrequest, pid, review in zip(fundingrequests, publication_ids, reviews)
+    ]
+    created_frs = FundingRequestModel.objects.bulk_create(fr_models)
+    external_funding_objs = []
+    contact_objs = []
+    contact_map = {}  # Map FundingRequestModel.id to FundingRequestContactModel
 
     for fundingrequest, fr in zip(fundingrequests, created_frs):
-        _save_external_funding(fr, fundingrequest.external_funding)
-        _save_contact(fundingrequest.extra_contact, fr)
-        fr.save()
+        for ef in fundingrequest.external_funding:
+            external_funding_objs.append(
+                ExternalFundingModel(
+                    funding_request_id=fr.id,
+                    organization_id=ef.organization,
+                    project_id=ef.project_id,
+                    project_name=ef.project_name,
+                )
+            )
+        contact = fundingrequest.extra_contact
+        if contact:
+            contact_obj = FundingRequestContactModel(
+                funding_request=fr,
+                name=contact.name,
+                email=contact.email,
+            )  # type: ignore[misc]
+            contact_objs.append(contact_obj)
+            contact_map[fr.id] = contact_obj
+
+    if external_funding_objs:
+        ExternalFundingModel.objects.bulk_create(external_funding_objs)
+
+    if contact_objs:
+        FundingRequestContactModel.objects.bulk_create(contact_objs)
+        # Now update the extra_contact field on each FundingRequestModel
+        for fr in created_frs:
+            model_contact = contact_map.get(fr.id)
+            if model_contact:
+                fr.extra_contact = model_contact
+                fr.save(update_fields=["extra_contact"])
 
     return tuple(FundingRequestId(fr.id) for fr in created_frs)
 
