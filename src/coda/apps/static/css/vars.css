@@ -1,6 +1,9 @@
 :root,
+:root:not([data-theme]),
 :root[data-theme="light"],
-:host {
+:host,
+:host:not([data-theme]),
+:host([data-theme="light"]) {
   /* CODA Variables */
   --coda-line-height: 1;
   --coda-font-size: 100%;
@@ -20,8 +23,11 @@
 
   --coda-secondary-inverse: var(--pico-secondary-inverse);
 
+  --coda-form-element-background-color: var(--pico-form-element-background-color);
   --coda-form-element-spacing-vertical: var(--pico-form-element-spacing-vertical);
   --coda-form-element-spacing-horizontal: var(--pico-form-element-spacing-horizontal);
+
+  --coda-card-header-background-color: var(--pico-card-sectioning-background-color);
 
   --coda-border-color: var(--pico-form-element-border-color);
   --coda-muted-border-color: var(--pico-muted-border-color);
@@ -43,27 +49,11 @@
   --coda-spacing: var(--pico-spacing);
   --coda-gap: var(--coda-spacing);
 
-  /*
-  Pico Variables.
-  NOTE: We avoid referencing Pico variables directly in Coda.
-  Instead we define Coda variables that reference Pico variables to minimize the dependency on Pico.
-  */
-
-  --pico-primary: var(--coda-primary);
-  --pico-primary-hover: var(--coda-primary-hover);
-
-  --pico-background-color: var(--coda-background-color);
-  --pico-line-height: var(--coda-line-height);
-  --pico-font-size: var(--coda-font-size);
-
-  --pico-primary-background: var(--coda-primary-background);
-  --pico-primary-hover-background: var(--coda-primary-background-hover);
-  --pico-secondary-background: var(--coda-secondary-background);
-  --pico-secondary-hover-background: var(--coda-secondary-background-hover);
 }
 
 @media screen and (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
+
+  :root:not([data-theme]), :host:not([data-theme]) {
     --coda-background-color: rgb(13, 13, 13);
     --coda-card-background-color: rgb(18, 18, 18);
     --coda-form-element-background-color: rgb(24, 24, 24);
@@ -71,20 +61,10 @@
 
     --coda-primary: hsl(218, 85%, 65%);
     --coda-primary-hover: hsl(218, 85%, 80%);
-
-    --pico-background-color: var(--coda-background-color);
-    --pico-form-element-background-color: var(--coda-form-element-background-color);
-    --pico-card-background-color: var(--coda-card-background-color);
-    --pico-card-sectioning-background-color: var(--coda-card-header-background-color);
-
-    --pico-primary-background: var(--coda-primary-background);
-    --pico-primary-hover-background: var(--coda-primary-background-hover);
-    --pico-secondary-background: var(--coda-secondary-background);
-    --pico-secondary-hover-background: var(--coda-secondary-background-hover);
   }
 }
 
-:root[data-theme="dark"] {
+:root[data-theme="dark"], :host([data-theme="dark"]) {
   --coda-background-color: rgb(13, 13, 13);
   --coda-card-background-color: rgb(18, 18, 18);
   --coda-form-element-background-color: rgb(24, 24, 24);
@@ -92,6 +72,19 @@
 
   --coda-primary: hsl(218, 85%, 65%);
   --coda-primary-hover: hsl(218, 85%, 80%);
+}
+
+
+:root,
+:host {
+  /*
+  Pico Variables.
+  NOTE: We avoid referencing Pico variables directly in Coda.
+  Instead we define Coda variables that reference Pico variables to minimize the dependency on Pico.
+  */
+
+  --pico-font-size: var(--coda-font-size);
+  --pico-line-height: var(--coda-line-height);
 
   --pico-background-color: var(--coda-background-color);
   --pico-form-element-background-color: var(--coda-form-element-background-color);
