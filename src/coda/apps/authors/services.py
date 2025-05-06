@@ -81,7 +81,6 @@ def _assign_person_ids_for_authors(authors: list[Author]) -> list[PersonId]:
     orcid_personids = _get_or_create_personids_by_orcid([orcid for orcid in orcids])
     no_orcid_personids = _bulk_create_personids_without_orcid(len(authors_without_orcid))
 
-    # Assign PersonIds in order
     person_ids = []
     no_orcid_iter = iter(no_orcid_personids)
     for a in authors:
