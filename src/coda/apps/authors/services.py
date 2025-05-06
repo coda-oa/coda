@@ -56,6 +56,64 @@ def author_create(author: Author, publication: PublicationId | None = None) -> A
     return AuthorId(_author.id)
 
 
+def create_many(authors: list[Author], publication: PublicationId | None = None) -> list[AuthorId]:
+    person_ids = _assign_person_ids_for_authors(authors)
+    affiliations = [_find_affiliation(a.affiliation) for a in authors]
+    author_models = [
+        AuthorModel(
+            name=a.name,
+            email=a.email,
+            identifier=pid,
+            affiliation=aff,
+            roles=serialize_role(a.role),
+            publication_id=publication,
+        )
+        for a, pid, aff in zip(authors, person_ids, affiliations)
+    ]
+    created = AuthorModel.objects.bulk_create(author_models)
+    return [AuthorId(a.id) for a in created]
+
+
+def _assign_person_ids_for_authors(authors: list[Author]) -> list[PersonId]:
+    orcids = [a.orcid for a in authors if a.orcid]
+    authors_without_orcid = [a for a in authors if not a.orcid]
+
+    orcid_personids = _get_or_create_personids_by_orcid([orcid for orcid in orcids])
+    no_orcid_personids = _bulk_create_personids_without_orcid(len(authors_without_orcid))
+
+    # Assign PersonIds in order
+    person_ids = []
+    no_orcid_iter = iter(no_orcid_personids)
+    for a in authors:
+        if a.orcid:
+            person_ids.append(orcid_personids[a.orcid])
+        else:
+            person_ids.append(next(no_orcid_iter))
+    return person_ids
+
+
+def _get_or_create_personids_by_orcid(authors_with_orcid: list[Orcid]) -> dict[Orcid, PersonId]:
+    orcids = [orcid for orcid in authors_with_orcid]
+    existing = {cast(Orcid, p.orcid): p for p in PersonId.objects.filter(orcid__in=orcids)}
+    new_orcids = [o for o in orcids if o not in existing]
+    if new_orcids:
+        PersonId.objects.bulk_create([PersonId(orcid=o) for o in new_orcids], ignore_conflicts=True)
+        existing.update(
+            {cast(Orcid, p.orcid): p for p in PersonId.objects.filter(orcid__in=new_orcids)}
+        )
+
+    return existing
+
+
+def _bulk_create_personids_without_orcid(count: int) -> list[PersonId]:
+    if count == 0:
+        return []
+    PersonId.objects.bulk_create([PersonId() for _ in range(count)])
+    objs = list(PersonId.objects.filter(orcid__isnull=True).order_by("-id")[:count])
+    objs.reverse()
+    return objs
+
+
 def author_update(author: Author) -> Author:
     if not author.id:
         raise ValidationError("Author ID is required")

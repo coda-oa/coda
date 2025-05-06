@@ -84,10 +84,9 @@ def create_many(fundingrequests: Iterable[AnyFundingRequest]) -> Iterable[Fundin
     reviews = FundingRequestReview.objects.bulk_create(
         [FundingRequestReview() for _ in fundingrequests]
     )
-    publication_ids = [
-        publication_repository.create(fundingrequest.publication)
-        for fundingrequest in fundingrequests
-    ]
+
+    publications = [fundingrequest.publication for fundingrequest in fundingrequests]
+    publication_ids = publication_repository.create_many(publications)
     fr_models = [
         FundingRequestModel(
             request_id=str(fundingrequest.request_id),

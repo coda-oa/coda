@@ -49,6 +49,56 @@ def update(publication: BasePublication) -> None:
     _save(publication)
 
 
+@transaction.atomic
+def create_many(publications: Iterable[BasePublication]) -> list[PublicationId]:
+    pubs = tuple(publications)
+    for pub in pubs:
+        if pub.id:
+            raise PublicationAlreadyCreated(pub.id)
+
+    def to_model(pub: BasePublication) -> PublicationModel:
+        match pub:
+            case Publication():
+                model = PublicationModel(
+                    title=pub.title,
+                    license=pub.license.name,
+                    open_access_type=pub.open_access_type.name,
+                    author_list=str(pub.other_authors),
+                    publication_state=pub.publication_state.name(),
+                    article_journal_id=pub.journal,
+                )
+            case Monograph():
+                model = PublicationModel(
+                    title=pub.title,
+                    license=pub.license.name,
+                    open_access_type=pub.open_access_type.name,
+                    author_list=str(pub.other_authors),
+                    publication_state=pub.publication_state.name(),
+                    monograph_publisher_id=pub.publisher,
+                )
+            case _:
+                raise ValueError("Unknown publication type")
+
+        if pub.is_published():
+            publication_state = cast(Published, pub.publication_state)
+            model.online_publication_date = publication_state.online
+            model.print_publication_date = publication_state.print
+
+        return model
+
+    to_create = [to_model(pub) for pub in pubs]
+    PublicationModel.objects.bulk_create(to_create)
+
+    for model, pub in zip(to_create, pubs):
+        _save_model_concept(model.publication_type, pub.publication_type)
+        _save_model_concept(model.subject_area, pub.subject_area)
+        _attach_contracts(model, pub.contracts)
+        _attach_links(PublicationId(model.pk), pub.links)
+        author_services.create_many(list(pub.relevant_authors), PublicationId(model.pk))
+
+    return [PublicationId(obj.pk) for obj in to_create]
+
+
 def _save(publication: BasePublication) -> PublicationId:
     match publication:
         case Publication():
