@@ -44,3 +44,13 @@ def test__fundingrequest__delete_fundingrequest__deletes_publication() -> None:
     fundingrequest.delete()
 
     assert not Publication.objects.filter(id=publication_id).exists()
+
+
+@pytest.mark.django_db
+def test__fundingrequest_manager__delete__deletes_publication() -> None:
+    fundingrequest = modelfactory.fundingrequest()
+    publication_id = fundingrequest.publication.id
+
+    FundingRequest.objects.all().delete()
+
+    assert not Publication.objects.filter(id=publication_id).exists()
