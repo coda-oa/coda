@@ -193,7 +193,7 @@
                 </table>
             </article>
         </div>
-        <aside class="vh-100 sticky">
+        <aside class="vh-100 sticky fundingrequest__review-panel">
             <h2 class="my-1">
                 <span class="mr-1">Review</span>
                 {% if funding_request.is_open %}
@@ -210,10 +210,8 @@
             </h2>
             <hr>
             {% if checks %}
-                <div class="mb-2">
-                    <h3>Checks</h3>
-                    {% include "fundingrequests/partials/checkrun.html" %}
-                </div>
+                <h3>Checks</h3>
+                {% include "fundingrequests/partials/checkrun.html" %}
             {% endif %}
             <div class="mb-2">
                 {% if funding_request.is_approved %}
@@ -226,7 +224,7 @@
                         <p>
                             <b>Remarks</b>
                         </p>
-                        <p>{{ funding_request.review_remarks }}</p>
+                        <p class="text-clamp">{{ funding_request.review_remarks }}</p>
                     </div>
                 {% endif %}
                 <a href="{% url 'fundingrequests:review' pk=funding_request.id %}"

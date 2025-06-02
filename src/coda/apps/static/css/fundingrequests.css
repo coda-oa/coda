@@ -18,6 +18,10 @@
     table-layout: fixed;
 }
 
+.fundingrequest__review-panel {
+    height: 100%;
+}
+
 .status-label {
     --_status-text-color: var(--coda-validation-text-color);
     background-color: var(--_status-color, transparent);
