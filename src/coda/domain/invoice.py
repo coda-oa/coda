@@ -3,7 +3,7 @@ import enum
 from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Generic, NamedTuple, NewType, Self, TypeVar
+from typing import Generic, NewType, Self, TypeVar
 
 from coda.domain.contract import ContractYear
 from coda.domain.money import Currency, Money
@@ -61,7 +61,8 @@ class PaymentStatus(enum.Enum):
     Rejected = "rejected"
 
 
-class Position(NamedTuple, Generic[T]):
+@dataclass(slots=True, frozen=True)
+class Position(Generic[T]):
     item: T
     cost: Money
     cost_type: CostType

@@ -6,6 +6,7 @@ from coda.domain.publication.publication import PublicationId
 
 
 def save(invoice: Invoice) -> InvoiceId:
+    _unpay_deleted_publication_positions(invoice)
     id = _save_invoice(invoice)
 
     if invoice.is_paid():
@@ -14,6 +15,18 @@ def save(invoice: Invoice) -> InvoiceId:
         _invoice_received(invoice)
 
     return id
+
+
+def _unpay_deleted_publication_positions(invoice: Invoice) -> None:
+    if not invoice.id:
+        return
+
+    saved_invoice = repository.get_by_id(invoice.id)
+    saved_publication_positions = set(_publication_positions(saved_invoice))
+    new_publication_positions = set(_publication_positions(invoice))
+    deleted = saved_publication_positions.difference(new_publication_positions)
+    for publication in deleted:
+        publications.invoice_deleted(publication)
 
 
 def _save_invoice(invoice: Invoice) -> InvoiceId:
