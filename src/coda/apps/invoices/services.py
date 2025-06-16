@@ -1,3 +1,4 @@
+from typing import cast
 from coda.apps.invoices import repository
 from coda.apps.publications.services import publications
 from coda.domain.invoice import Invoice, InvoiceId
@@ -24,9 +25,27 @@ def _unpay_deleted_publication_positions(invoice: Invoice) -> None:
     saved_invoice = repository.get_by_id(invoice.id)
     saved_publication_positions = set(_publication_positions(saved_invoice))
     new_publication_positions = set(_publication_positions(invoice))
-    deleted = saved_publication_positions.difference(new_publication_positions)
-    for publication in deleted:
-        publications.invoice_deleted(publication)
+    deleted_publication_ids = saved_publication_positions.difference(new_publication_positions)
+    for publication in deleted_publication_ids:
+        _update_or_delete_payment_of_deleted_position(invoice, publication)
+
+
+def _update_or_delete_payment_of_deleted_position(
+    invoice: Invoice, deleted_publication: PublicationId
+) -> None:
+    other_invoice = repository.get_other_paid_invoice_with_publication(invoice, deleted_publication)
+
+    if other_invoice is None:
+        publications.invoice_deleted(deleted_publication)
+        return
+
+    publications.update_payment(
+        deleted_publication,
+        PublicationPaid(
+            invoice_id=cast(InvoiceId, other_invoice.id),
+            invoice_number=other_invoice.number,
+        ),
+    )
 
 
 def _save_invoice(invoice: Invoice) -> InvoiceId:

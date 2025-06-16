@@ -55,6 +55,27 @@ def invoice_with_publication(publication_id: PublicationId) -> Invoice | None:
     return as_domain_object(invoice)
 
 
+def get_other_paid_invoice_with_publication(
+    original_invoice: Invoice, publication_id: PublicationId
+) -> Invoice | None:
+    if not original_invoice.id:
+        raise UnsavedInvoice(original_invoice)
+
+    invoice = (
+        InvoiceModel.objects.filter(
+            positions__publication_id=publication_id,
+            status=PaymentStatus.Paid.value,
+        )
+        .exclude(id=original_invoice.id)
+        .first()
+    )
+
+    if not invoice:
+        return None
+
+    return as_domain_object(invoice)
+
+
 def search(
     *,
     invoice_number: str | None = None,
