@@ -6,6 +6,7 @@ from coda.apps.invoices import repository
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.contract import Contract
 from coda.domain.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
+from coda.domain.money._currency import Currency
 from coda.domain.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
 
@@ -93,15 +94,21 @@ def full_invoice() -> Invoice:
         positions=[
             *[
                 domainfactory.publication_position(
-                    publication=publication, funding_source=funding_source_id
+                    publication=publication,
+                    funding_source=funding_source_id,
+                    currency=Currency.FJD,
                 )
                 for publication in publications
             ],
             *[
-                domainfactory.contract_position(contract=contract, funding_source=funding_source_id)
+                domainfactory.contract_position(
+                    contract=contract,
+                    funding_source=funding_source_id,
+                    currency=Currency.FJD,
+                )
                 for contract in contracts
             ],
-            *[domainfactory.free_position() for _ in range(3)],
+            *[domainfactory.free_position(currency=Currency.FJD) for _ in range(3)],
         ],
     )
 
@@ -127,3 +134,8 @@ def assert_invoice_eq(expected: Invoice, actual: Invoice) -> None:
     assert expected.date == actual.date
     assert expected.comment == actual.comment
     assert expected.external_invoice_id == actual.external_invoice_id
+    assert expected.currency() == actual.currency()
+    assert expected.total() == actual.total()
+    assert expected.tax() == actual.tax()
+
+    assert expected.conversions() == actual.conversions()

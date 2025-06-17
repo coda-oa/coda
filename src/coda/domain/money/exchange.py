@@ -35,13 +35,16 @@ class CachingCurrencyExchange:
         self.exchange_provider = exchange_provider
         self.calendar = calendar
 
-    def rate(self, from_currency: Currency, to_currency: Currency) -> Decimal:
+    def __call__(self, origin: Currency, target: Currency) -> Decimal:
+        return self.rate(origin, target)
+
+    def rate(self, origin: Currency, target: Currency) -> Decimal:
         try:
-            return self._rate_from_cache(from_currency).rates[to_currency]
+            return self._rate_from_cache(origin).rates[target]
         except KeyError:
-            rates = self.exchange_provider(from_currency)
-            self._store(from_currency, rates)
-            return rates[to_currency]
+            rates = self.exchange_provider(origin)
+            self._store(origin, rates)
+            return rates[target]
 
     def _rate_from_cache(self, from_currency: Currency) -> RatesSnapshot:
         cached = self.cache[from_currency]

@@ -1,12 +1,14 @@
+import dataclasses
 import datetime
 import enum
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Generic, NewType, Self, TypeVar
 
 from coda.domain.contract import ContractYear
 from coda.domain.money import Currency, Money
+from coda.domain.money._money import CurrencyExchange
 from coda.domain.publication import PublicationId
 
 InvoiceId = NewType("InvoiceId", int)
@@ -80,6 +82,15 @@ class Position(Generic[T]):
         return self.net() + self.tax()
 
 
+def _internal_exchange(exchange_rates: dict[Currency, Decimal]) -> CurrencyExchange:
+    def _exchange(origin: Currency, target: Currency) -> Decimal:
+        if origin == target:
+            return Decimal("1.0")
+        return exchange_rates[target]
+
+    return _exchange
+
+
 @dataclass(slots=True)
 class Invoice:
     id: InvoiceId | None
@@ -90,6 +101,8 @@ class Invoice:
     status: PaymentStatus = PaymentStatus.Unpaid
     comment: str = ""
     external_invoice_id: str = ""
+
+    _conversions: dict[Currency, Decimal] = field(default_factory=dict, init=False)
 
     @classmethod
     def new(
@@ -126,3 +139,66 @@ class Invoice:
 
     def reset_payment(self) -> None:
         self.status = PaymentStatus.Unpaid
+
+    def add_conversion(self, rate: Decimal, to_currency: Currency) -> None:
+        """
+        Adds a conversion rate for the invoice.
+        """
+
+        self._conversions[to_currency] = rate
+
+    def conversions(self) -> dict[Currency, Decimal]:
+        """
+        Returns a dictionary of currency conversions.
+        The keys are the target currencies, and the values are the conversion rates.
+        """
+        return dict(self._conversions)
+
+    def positions_in(self, currency: Currency) -> list[Position[ItemType]]:
+        """
+        Returns a list of positions converted to the specified currency.
+        """
+        exchange = _internal_exchange(self.conversions())
+
+        return [
+            dataclasses.replace(pos, cost=pos.cost.convert_to(currency, exchange))
+            for pos in self.positions
+        ]
+
+    def convert(self, to: Currency) -> "Invoice":
+        """
+        Returns a new Invoice with all positions converted to the specified currency.
+        """
+        if to == self.currency():
+            return self
+
+        if to not in self._conversions:
+            raise NoSuchConversion(to)
+
+        exchange = _internal_exchange(self.conversions())
+        converted_positions = [
+            dataclasses.replace(pos, cost=pos.cost.convert_to(to, exchange))
+            for pos in self.positions
+        ]
+        converted = dataclasses.replace(self, positions=converted_positions)
+        converted._conversions = self._convert_exchange_rates(to)
+
+        return converted
+
+    def _convert_exchange_rates(self, to: Currency) -> dict[Currency, Decimal]:
+        reverse_self_conversion = {self.currency(): 1 / self._conversions[to]}
+        converted_exchange_rates = {
+            k: v / self._conversions[to] for k, v in self._conversions.items() if k != to
+        }
+
+        return reverse_self_conversion | converted_exchange_rates
+
+
+class NoSuchConversion(Exception):
+    """
+    Exception raised when a conversion to a specific currency is not available.
+    """
+
+    def __init__(self, currency: Currency) -> None:
+        super().__init__(f"No conversion available for {currency.value}")
+        self.currency = currency
