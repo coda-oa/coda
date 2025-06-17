@@ -95,6 +95,9 @@ class FundingRequest(models.Model):
     ]
 
     request_id = models.CharField(max_length=26, unique=True)
+    request_date = models.DateField()
+    request_number = models.CharField(max_length=20)
+
     estimated_cost = models.DecimalField(max_digits=10, decimal_places=4)
     estimated_cost_currency = models.CharField(max_length=3)
     payment_method = models.CharField(

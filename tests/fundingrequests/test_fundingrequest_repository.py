@@ -177,11 +177,11 @@ def test__searching_for_funding_requests_by_publisher__returns_matching_funding_
 @pytest.mark.django_db
 def test__searching_with_start_and_end_date__returns_matching_funding_requests() -> None:
     matching_request = modelfactory.fundingrequest()
-    matching_request.created_at = date(2021, 3, 1)
+    matching_request.request_date = date(2021, 3, 1)
     matching_request.save()
 
     no_match = modelfactory.fundingrequest("No match")
-    no_match.created_at = date(2021, 6, 1)
+    no_match.request_date = date(2021, 6, 1)
     no_match.save()
 
     start_date = date(2021, 1, 1)
@@ -196,11 +196,11 @@ def test__searching_with_start_and_end_date__returns_matching_funding_requests()
 @pytest.mark.django_db
 def test__searching_with_no_start_date__returns_matching_funding_requests() -> None:
     matching_request = modelfactory.fundingrequest()
-    matching_request.created_at = date(2021, 3, 1)
+    matching_request.request_date = date(2021, 3, 1)
     matching_request.save()
 
     no_match = modelfactory.fundingrequest("No match")
-    no_match.created_at = date(2021, 6, 1)
+    no_match.request_date = date(2021, 6, 1)
     no_match.save()
 
     date_range = DateRange.create(end=date(2021, 5, 1))
@@ -213,11 +213,11 @@ def test__searching_with_no_start_date__returns_matching_funding_requests() -> N
 @pytest.mark.django_db
 def test__searching_with_no_end_date__returns_matching_funding_requests() -> None:
     matching_request = modelfactory.fundingrequest()
-    matching_request.created_at = date(2021, 3, 1)
+    matching_request.request_date = date(2021, 3, 1)
     matching_request.save()
 
     no_match = modelfactory.fundingrequest("No match")
-    no_match.created_at = date(2020, 12, 31)
+    no_match.request_date = date(2020, 12, 31)
     no_match.save()
 
     date_range = DateRange.create(start=date(2021, 1, 1))

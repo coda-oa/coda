@@ -58,6 +58,8 @@ def _save(
 ) -> FundingRequestId:
     fr.publication_id = pid
     fr.request_id = str(fundingrequest.request_id)
+    fr.request_date = fundingrequest.request_id.date()
+    fr.request_number = fundingrequest.request_id.id_without_checksum()
     fr.request_remarks = fundingrequest.request_remarks
 
     _save_contact(fundingrequest.extra_contact, fr)
@@ -90,6 +92,8 @@ def create_many(fundingrequests: Iterable[AnyFundingRequest]) -> Iterable[Fundin
     fr_models = [
         FundingRequestModel(
             request_id=str(fundingrequest.request_id),
+            request_date=fundingrequest.request_id.date(),
+            request_number=fundingrequest.request_id.id_without_checksum(),
             publication_id=pid,
             request_remarks=fundingrequest.request_remarks,
             estimated_cost=fundingrequest.estimated_cost.amount.amount,
@@ -374,7 +378,7 @@ def search(
         query = query & ~Q(labels__in=exclude_labels)
 
     if date_range and not date_range.is_unbounded():
-        query = query & Q(created_at__gte=date_range.start, created_at__lte=date_range.end)
+        query = query & Q(request_date__gte=date_range.start, request_date__lte=date_range.end)
 
     if payment_statuses:
         payment_query = Q()
@@ -409,7 +413,7 @@ def search(
             "labels",
             "publication__relevant_authors",
         )
-        .order_by("-created_at")
+        .order_by("-request_date")
     )
 
 

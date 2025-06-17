@@ -77,6 +77,9 @@ class PublicFundingRequestId:
     def id(self) -> str:
         return f"{self._id}{damm.checksum(_decode_base64_id(self._id))}"
 
+    def id_without_checksum(self) -> str:
+        return self._id
+
     def date(self) -> datetime.date:
         return self._date
 

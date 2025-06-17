@@ -29,6 +29,7 @@ def test__a_fundingrequest_id__is_consists_of_coda__date_stamp__encoded_number__
     assert sut.id() == f"{unpadded_url_encoded_number}{damm_checksum}"
     assert sut.date() == date
     assert actual == f"coda-{date_str}-{unpadded_url_encoded_number}{damm_checksum}"
+    assert sut.id_without_checksum() == unpadded_url_encoded_number
 
 
 @pytest.mark.parametrize(

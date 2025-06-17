@@ -35,7 +35,7 @@ class RequestViewModel(NamedTuple):
     id: int
     request_id: str
     labels: Iterable[Label]
-    created_at: datetime.date
+    request_date: datetime.date
     updated_at: datetime.date
     estimated_cost: Money
     review_status: str
@@ -96,7 +96,7 @@ def request_viewmodel(fr: FundingRequestModel) -> RequestViewModel:
         id=fr.id,
         request_id=fr.request_id,
         labels=fr.labels.all(),
-        created_at=fr.created_at,
+        request_date=fr.request_date,
         updated_at=fr.updated_at,
         estimated_cost=Money(fr.estimated_cost, Currency[fr.estimated_cost_currency]),
         review_status=ReviewResult.of(fr.review.review_result).value,
