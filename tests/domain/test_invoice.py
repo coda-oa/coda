@@ -152,12 +152,28 @@ def test__converted_invoice__can_be_coverted_to_same_currencies_as_original() ->
 
 
 def test__invoice_without_conversions__cannot_convert() -> None:
-    first = position(Money(100, Currency.EUR))
-    second = position(Money(200, Currency.EUR))
-    sut = make_sut([first, second])
+    sut = make_sut([])
 
     with pytest.raises(NoSuchConversion):
         sut.convert(Currency.JPY)
+
+
+def test__invoice_has_currency_conversion__removing_conversion__conversion_is_deleted() -> None:
+    sut = make_sut([])
+
+    sut.add_conversion(Decimal("2.0"), Currency.JPY)
+    sut.add_conversion(Decimal("3.0"), Currency.AUD)
+
+    sut.remove_conversion(Currency.AUD)
+
+    assert sut.conversions() == {Currency.JPY: Decimal("2.0")}
+
+
+def test__invoice_has_no_currency_conversion__removing_conversion__raises_error() -> None:
+    sut = make_sut([])
+
+    with pytest.raises(NoSuchConversion):
+        sut.remove_conversion(Currency.JPY)
 
 
 def test__tax_rate__limits_to_four_decimal_places() -> None:

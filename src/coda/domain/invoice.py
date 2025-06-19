@@ -147,23 +147,21 @@ class Invoice:
 
         self._conversions[to_currency] = rate
 
+    def remove_conversion(self, currency: Currency) -> None:
+        """
+        Removes a conversion rate for the invoice.
+        """
+        if currency not in self._conversions:
+            raise NoSuchConversion(currency)
+
+        del self._conversions[currency]
+
     def conversions(self) -> dict[Currency, Decimal]:
         """
         Returns a dictionary of currency conversions.
         The keys are the target currencies, and the values are the conversion rates.
         """
         return dict(self._conversions)
-
-    def positions_in(self, currency: Currency) -> list[Position[ItemType]]:
-        """
-        Returns a list of positions converted to the specified currency.
-        """
-        exchange = _internal_exchange(self.conversions())
-
-        return [
-            dataclasses.replace(pos, cost=pos.cost.convert_to(currency, exchange))
-            for pos in self.positions
-        ]
 
     def convert(self, to: Currency) -> "Invoice":
         """

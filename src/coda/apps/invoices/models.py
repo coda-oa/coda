@@ -44,3 +44,14 @@ class Position(models.Model):
     funding_source = models.ForeignKey(FundingSource, on_delete=models.CASCADE, null=True)
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="positions")
     external_position_id = models.CharField(max_length=255, blank=True)
+
+
+class CurrencyConversion(models.Model):
+    target_currency = models.CharField(max_length=3)
+    exchange_rate = models.DecimalField(max_digits=11, decimal_places=4)
+
+    invoice = models.ForeignKey(
+        Invoice,
+        on_delete=models.CASCADE,
+        related_name="currency_conversions",
+    )

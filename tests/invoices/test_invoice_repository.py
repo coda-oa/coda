@@ -1,3 +1,4 @@
+from decimal import Decimal
 import faker
 import pytest
 
@@ -47,6 +48,10 @@ def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
     updated_invoice.positions = [domainfactory.free_position()]
     updated_invoice.comment = "updated"
     updated_invoice.external_invoice_id = "updated"
+
+    updated_invoice.remove_conversion(Currency.BBD)
+    updated_invoice.add_conversion(Decimal(10), Currency.SYP)
+    updated_invoice.add_conversion(Decimal(8), Currency.IRR)
 
     repository.update(updated_invoice)
 
@@ -111,6 +116,9 @@ def full_invoice() -> Invoice:
             *[domainfactory.free_position(currency=Currency.FJD) for _ in range(3)],
         ],
     )
+
+    invoice.add_conversion(Decimal(5), Currency.BBD)
+    invoice.add_conversion(Decimal(2), Currency.SYP)
 
     return invoice
 
