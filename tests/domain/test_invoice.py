@@ -136,7 +136,7 @@ def test__converted_invoice__convert_back__returns_original_invoice() -> None:
     assert_invoice_eq(sut, actual)
 
 
-def test__converted_invoice__can_be_coverted_to_same_currencies_as_original() -> None:
+def test__converted_invoice__can_be_converted_to_same_currencies_as_original() -> None:
     first = position(Money(100, Currency.EUR))
     second = position(Money(200, Currency.EUR))
 
