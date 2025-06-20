@@ -36,18 +36,34 @@
     </article>
     <article>
         <h2>Positions</h2>
+        <fieldset class="form-row">
+            <label for="display_currency">Display as currency</label>
+            <select name="display_currency"
+                    id="display_currency"
+                    hx-get="{% url 'invoices:detail' pk=invoice.id %}"
+                    hx-target="body"
+                    hx-boost="true">
+                <option value="{{ invoice.currency.code }}">{{ invoice.currency.code }}</option>
+                {% for currency in conversions %}
+                    <option value="{{ currency.code }}"
+                            {% if display_currency.code == currency.code %}selected{% endif %}>
+                        {{ currency.code }}
+                    </option>
+                {% endfor %}
+            </select>
+        </fieldset>
         <table>
             <thead>
                 <tr>
                     <th>#</th>
                     <th>Position</th>
                     <th>Related Funding Request</th>
-                    <th>Cost</th>
+                    <th>Cost ({{ display_currency.code }})</th>
                     <th>Cost Type</th>
                 </tr>
             </thead>
             <tbody>
-                {% for position in invoice.positions %}
+                {% for position in display_invoice.positions %}
                     <tr>
                         <td>{{ position.number }}</td>
                         <td>{{ position.name }}</td>
@@ -64,7 +80,7 @@
                     <td></td>
                     <td>Tax</td>
                     <td></td>
-                    <td>{{ invoice.tax.amount }} {{ invoice.tax.currency.code }}</td>
+                    <td>{{ display_invoice.tax.amount }} {{ display_invoice.tax.currency.code }}</td>
                     <td>vat</td>
                 </tr>
                 <tr>
@@ -74,11 +90,12 @@
                     </td>
                     <td></td>
                     <td>
-                        <strong>{{ invoice.total.amount }} {{ invoice.total.currency.code }}</strong>
+                        <strong>{{ display_invoice.total.amount }} {{ display_invoice.total.currency.code }}</strong>
                     </td>
                     <td></td>
                 </tr>
             </tbody>
         </table>
     </article>
+    {% include "invoices/detail_conversions.html" %}
 {% endblock content %}
