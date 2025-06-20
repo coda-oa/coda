@@ -8,6 +8,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
+from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository
@@ -67,6 +68,7 @@ invoice_list = InvoiceListView.as_view()
 
 
 @login_required
+@require_GET
 def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
     display_currency = Currency.from_code(
@@ -86,6 +88,7 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def add_conversion_dialog(request: HttpRequest, pk: int) -> HttpResponse:
     return render(
         request,
@@ -95,6 +98,7 @@ def add_conversion_dialog(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def add_conversion(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
     currency = Currency.from_code(request.POST["currency"])
@@ -109,6 +113,7 @@ def add_conversion(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def edit_conversion_row(request: HttpRequest, pk: int) -> HttpResponse:
     currency = Currency.from_code(request.POST["currency"])
     exchange_rate = Decimal(request.POST["exchange_rate"] or 0)
@@ -127,6 +132,7 @@ def edit_conversion_row(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def update_conversion(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
     currency = Currency.from_code(request.POST["currency"])
@@ -148,6 +154,7 @@ def update_conversion(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def delete_conversion(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
     currency = Currency.from_code(request.POST["currency"])
