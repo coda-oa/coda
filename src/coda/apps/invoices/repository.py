@@ -4,7 +4,7 @@ from django.db.models import Q, QuerySet
 
 from coda.apps.contracts import repository as contract_services
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.invoices.models import Invoice as InvoiceModel
+from coda.apps.invoices.models import CurrencyConversion, Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
@@ -100,7 +100,7 @@ def search(
 
 
 def as_domain_object(model: InvoiceModel) -> Invoice:
-    return Invoice(
+    invoice = Invoice(
         id=InvoiceId(model.id),
         date=model.date,
         number=model.number,
@@ -124,6 +124,14 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
         comment=model.comment,
         external_invoice_id=model.external_invoice_id,
     )
+
+    conversions = model.currency_conversions.all()
+    for conversion in conversions:
+        invoice.add_conversion(
+            conversion.exchange_rate, Currency.from_code(conversion.target_currency)
+        )
+
+    return invoice
 
 
 def _get_item_from_position_model(position: PositionModel) -> ItemType:
@@ -149,8 +157,20 @@ def create(invoice: Invoice) -> InvoiceId:
         external_invoice_id=invoice.external_invoice_id,
     )
     _add_positions(invoice, invoice_model)
+    _add_conversions(invoice, invoice_model)
 
     return InvoiceId(invoice_model.id)
+
+
+def _add_conversions(invoice: Invoice, invoice_model: InvoiceModel) -> None:
+    CurrencyConversion.objects.bulk_create(
+        CurrencyConversion(
+            invoice=invoice_model,
+            target_currency=target_currency.code,
+            exchange_rate=exchange_rate,
+        )
+        for target_currency, exchange_rate in invoice.conversions().items()
+    )
 
 
 def update(invoice: Invoice) -> None:
@@ -163,10 +183,12 @@ def update(invoice: Invoice) -> None:
     invoice_model.creditor_id = invoice.creditor
     invoice_model.comment = invoice.comment
     invoice_model.status = invoice.status.value
-    invoice_model.positions.all().delete()
     invoice_model.external_invoice_id = invoice.external_invoice_id
     invoice_model.save()
+    invoice_model.positions.all().delete()
+    invoice_model.currency_conversions.all().delete()
     _add_positions(invoice, invoice_model)
+    _add_conversions(invoice, invoice_model)
 
 
 def _add_positions(invoice: Invoice, invoice_model: InvoiceModel) -> None:

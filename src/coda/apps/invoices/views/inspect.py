@@ -1,5 +1,6 @@
 import datetime
 from collections.abc import Sequence
+from decimal import Decimal
 from typing import Any, NamedTuple, cast
 
 from django.contrib.auth.decorators import login_required
@@ -7,6 +8,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
+from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository
@@ -24,6 +26,7 @@ from coda.domain.invoice import (
     Position,
 )
 from coda.domain.money import Money
+from coda.domain.money._currency import Currency
 from coda.domain.publication import PublicationId
 
 
@@ -65,9 +68,99 @@ invoice_list = InvoiceListView.as_view()
 
 
 @login_required
+@require_GET
 def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
-    return render(request, "invoices/detail.html", {"invoice": invoice_viewmodel(invoice)})
+    display_currency = Currency.from_code(
+        request.GET.get("display_currency", invoice.currency().code)
+    )
+    display_invoice = invoice.convert(display_currency)
+    return render(
+        request,
+        "invoices/detail.html",
+        {
+            "invoice": invoice_viewmodel(invoice),
+            "conversions": invoice.conversions(),
+            "display_currency": display_currency,
+            "display_invoice": invoice_viewmodel(display_invoice),
+        },
+    )
+
+
+@login_required
+@require_POST
+def add_conversion_dialog(request: HttpRequest, pk: int) -> HttpResponse:
+    return render(
+        request,
+        "invoices/add_conversion_dialog.html",
+        {"currencies": list(Currency), "invoice_id": pk},
+    )
+
+
+@login_required
+@require_POST
+def add_conversion(request: HttpRequest, pk: int) -> HttpResponse:
+    invoice = repository.get_by_id(InvoiceId(pk))
+    currency = Currency.from_code(request.POST["currency"])
+    exchange_rate = Decimal(request.POST["exchange_rate"])
+    invoice.add_conversion(exchange_rate, currency)
+    repository.update(invoice)
+    return render(
+        request,
+        "invoices/detail_conversions.html",
+        {"invoice": invoice_viewmodel(invoice), "conversions": invoice.conversions()},
+    )
+
+
+@login_required
+@require_POST
+def edit_conversion_row(request: HttpRequest, pk: int) -> HttpResponse:
+    currency = Currency.from_code(request.POST["currency"])
+    exchange_rate = Decimal(request.POST["exchange_rate"] or 0)
+    row = request.POST["row"]
+    return render(
+        request,
+        "invoices/detail_conversion_row.html",
+        {
+            "edit": True,
+            "row": row,
+            "invoice_id": pk,
+            "currency": currency,
+            "exchange_rate": exchange_rate,
+        },
+    )
+
+
+@login_required
+@require_POST
+def update_conversion(request: HttpRequest, pk: int) -> HttpResponse:
+    invoice = repository.get_by_id(InvoiceId(pk))
+    currency = Currency.from_code(request.POST["currency"])
+    exchange_rate = Decimal(request.POST["exchange_rate"])
+    invoice.add_conversion(exchange_rate, currency)
+    repository.update(invoice)
+    row = int(request.POST["row"])
+    return render(
+        request,
+        "invoices/detail_conversion_row.html",
+        {
+            "row": row,
+            "edit": False,
+            "invoice_id": pk,
+            "currency": currency,
+            "exchange_rate": exchange_rate,
+        },
+    )
+
+
+@login_required
+@require_POST
+def delete_conversion(request: HttpRequest, pk: int) -> HttpResponse:
+    invoice = repository.get_by_id(InvoiceId(pk))
+    currency = Currency.from_code(request.POST["currency"])
+    invoice.remove_conversion(currency)
+    repository.update(invoice)
+    return HttpResponse()
 
 
 def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
@@ -82,6 +175,7 @@ def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
         date=invoice.date,
         creditor=invoice.creditor,
         creditor_name=creditor_name,
+        currency=invoice.currency(),
         positions=[
             position_viewmodel(position, i) for i, position in enumerate(invoice.positions, start=1)
         ],
@@ -142,6 +236,7 @@ class InvoiceViewModel(NamedTuple):
     date: datetime.date
     creditor: int
     creditor_name: str
+    currency: Currency
     positions: list[PositionViewModel]
     tax: Money
     total: Money

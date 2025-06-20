@@ -1,3 +1,4 @@
+from decimal import Decimal
 import faker
 import pytest
 
@@ -6,6 +7,7 @@ from coda.apps.invoices import repository
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.contract import Contract
 from coda.domain.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
+from coda.domain.money._currency import Currency
 from coda.domain.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
 
@@ -46,6 +48,10 @@ def test__given_updated_invoice__save__updates_invoice_in_database() -> None:
     updated_invoice.positions = [domainfactory.free_position()]
     updated_invoice.comment = "updated"
     updated_invoice.external_invoice_id = "updated"
+
+    updated_invoice.remove_conversion(Currency.BBD)
+    updated_invoice.add_conversion(Decimal(10), Currency.SYP)
+    updated_invoice.add_conversion(Decimal(8), Currency.IRR)
 
     repository.update(updated_invoice)
 
@@ -93,17 +99,26 @@ def full_invoice() -> Invoice:
         positions=[
             *[
                 domainfactory.publication_position(
-                    publication=publication, funding_source=funding_source_id
+                    publication=publication,
+                    funding_source=funding_source_id,
+                    currency=Currency.FJD,
                 )
                 for publication in publications
             ],
             *[
-                domainfactory.contract_position(contract=contract, funding_source=funding_source_id)
+                domainfactory.contract_position(
+                    contract=contract,
+                    funding_source=funding_source_id,
+                    currency=Currency.FJD,
+                )
                 for contract in contracts
             ],
-            *[domainfactory.free_position() for _ in range(3)],
+            *[domainfactory.free_position(currency=Currency.FJD) for _ in range(3)],
         ],
     )
+
+    invoice.add_conversion(Decimal(5), Currency.BBD)
+    invoice.add_conversion(Decimal(2), Currency.SYP)
 
     return invoice
 
@@ -127,3 +142,8 @@ def assert_invoice_eq(expected: Invoice, actual: Invoice) -> None:
     assert expected.date == actual.date
     assert expected.comment == actual.comment
     assert expected.external_invoice_id == actual.external_invoice_id
+    assert expected.currency() == actual.currency()
+    assert expected.total() == actual.total()
+    assert expected.tax() == actual.tax()
+
+    assert expected.conversions() == actual.conversions()
