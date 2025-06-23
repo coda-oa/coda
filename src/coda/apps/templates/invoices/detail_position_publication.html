@@ -1,0 +1,19 @@
+{% extends "invoices/detail_position_base.html" %}
+{% block position_type %}
+    Publication
+{% endblock position_type %}
+{% block position_type_specifics %}
+    <h4>Publication Title: {{ position.title }}</h4>
+    <p>
+        {% if position.funding_request.url %}
+            <a href="{{ position.funding_request.url }}"
+               target="_blank"
+               class="outline secondary">Related Funding Request ↗</a>
+            <input type="hidden" name="position-{{ counter }}-fundingrequest-id" value={{ position.funding_request.request_id }}>
+            <input type="hidden" name="position-{{ counter }}-fundingrequest-url" value={{ position.funding_request.url }}>
+        {% endif %}
+    </p>
+    <input type="hidden"
+           name="position-{{ counter }}-title"
+           value="{{ position.title }}">
+{% endblock position_type_specifics %}

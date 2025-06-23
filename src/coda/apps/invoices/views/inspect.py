@@ -13,6 +13,17 @@ from django.views.decorators.http import require_GET, require_POST
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository
 from coda.apps.invoices.models import Creditor
+
+from coda.apps.invoices.views.positions import (
+    to_position_dto,
+)
+
+from coda.apps.invoices.views.create import _DefaultContext
+
+from coda.apps.invoices.views.position_list import (
+    funding_sources_context,
+)
+
 from coda.apps.publications.models import Publication
 from coda.apps.views import EntityListView
 from coda.domain.contract import ContractYear
@@ -75,14 +86,18 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
         request.GET.get("display_currency", invoice.currency().code)
     )
     display_invoice = invoice.convert(display_currency)
+    position_list = [to_position_dto(position) for position in display_invoice.positions]
     return render(
         request,
         "invoices/detail.html",
-        {
+        _DefaultContext
+        | funding_sources_context()
+        | {
             "invoice": invoice_viewmodel(invoice),
             "conversions": invoice.conversions(),
             "display_currency": display_currency,
             "display_invoice": invoice_viewmodel(display_invoice),
+            "positions": position_list,
         },
     )
 

@@ -52,6 +52,17 @@
                 {% endfor %}
             </select>
         </fieldset>
+        {% for position in positions %}
+            {% if position.type == "publication" %}
+                {% include "invoices/detail_position_publication.html" with counter=forloop.counter %}
+            {% elif position.type == "contract" %}
+                {% include "invoices/detail_position_contract.html" with counter=forloop.counter %}
+            {% else %}
+                {% include "invoices/detail_position_free.html" with counter=forloop.counter %}
+            {% endif %}
+            <hr>
+        {% endfor %}
+        <h2>Summary</h2>
         <table>
             <thead>
                 <tr>
