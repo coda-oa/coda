@@ -20,16 +20,85 @@
         <table>
             <tbody>
                 <tr>
-                    <th>Invoice Number</th>
-                    <td>{{ invoice.number }}</td>
+                    <th>
+                        <label for="id-head-invoice-number" class="form-row-item-sm">Invoice Number:</label>
+                    </th>
+                    <td>
+                        <input disabled
+                               type="number"
+                               id="id-head-invoice-number"
+                               name="id-head-invoice-number"
+                               value="{{ invoice.number }}">
+                    </td>
                 </tr>
                 <tr>
-                    <th>Invoice Date</th>
-                    <td>{{ invoice.date }}</td>
+                    <th>
+                        <label for="id-head-invoice-date" class="form-row-item-sm">Invoice Date:</label>
+                    </th>
+                    <td>
+                        <input disabled
+                               type="text"
+                               id="id-head-invoice-date"
+                               name="id-head-invoice-date"
+                               value="{{ invoice.date }}" />
+                    </td>
                 </tr>
                 <tr>
-                    <th>Creditor</th>
-                    <td>{{ invoice.creditor_name }}</td>
+                    <th>
+                        <label for="id-head-creditor_name" class="form-row-item-sm">Creditor:</label>
+                    </th>
+                    <td>
+                        <input disabled
+                               type="text"
+                               id="id-head-creditor_name"
+                               name="id-head-creditor_name"
+                               value="{{ invoice.creditor_name }}">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-currency" class="form-row-item-sm">Currency:</label>
+                    </th>
+                    <td>
+                        <input disabled
+                               type="text"
+                               id="id-head-currency"
+                               name="id-head-currency"
+                               value="{{ invoice.currency.code }}">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-status" class="form-row-item-sm">Status:</label>
+                    </th>
+                    <td>
+                        <input disabled
+                               type="text"
+                               id="id-head-status"
+                               name="id-head-status"
+                               value="{{ invoice.status }}">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-external-id" class="form-row-item-sm">External Invoice ID:</label>
+                    </th>
+                    <td>
+                        <input disabled
+                               type="text"
+                               id="id-head-external-id"
+                               name="id-head-external-id"
+                               value="{{ external_invoice_id }}">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-comment" class="form-row-item-sm">Comment:</label>
+                    </th>
+                    <td>
+                        <textarea disabled name="id-head-comment" cols="40" rows="10" id="id-head-comment"> {{ invoice_comment }}
+</textarea>
+                    </td>
                 </tr>
             </tbody>
         </table>

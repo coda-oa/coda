@@ -87,6 +87,8 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
     )
     display_invoice = invoice.convert(display_currency)
     position_list = [to_position_dto(position) for position in display_invoice.positions]
+    ext_inv_id = invoice.external_invoice_id
+    comment = invoice.comment
     return render(
         request,
         "invoices/detail.html",
@@ -98,6 +100,8 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
             "display_currency": display_currency,
             "display_invoice": invoice_viewmodel(display_invoice),
             "positions": position_list,
+            "external_invoice_id": ext_inv_id,
+            "invoice_comment": comment,
         },
     )
 
