@@ -10,18 +10,20 @@
         <label for="invoice_currency">Invoice currency</label>
         <input type="text" readonly value="{{ invoice.currency.code }}">
     </div>
-    <table>
-        <thead>
-            <tr>
-                <th>Currency</th>
-                <th>Exchange Rate</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for currency, exchange_rate in conversions.items %}
-                {% include "invoices/detail_conversion_row.html" with row=forloop.counter invoice_id=invoice.id %}
-            {% endfor %}
-        </tbody>
-    </table>
+    {% if conversions %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Currency</th>
+                    <th>Exchange Rate</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for currency, exchange_rate in conversions.items %}
+                    {% include "invoices/detail_conversion_row.html" with row=forloop.counter invoice_id=invoice.id %}
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
 </article>
