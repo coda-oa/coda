@@ -233,6 +233,22 @@ def position_viewmodel(position: Position[ItemType], number: int) -> "PositionVi
     )
 
 
+@login_required
+@require_POST
+def pay_invoice(request: HttpRequest, pk: int) -> HttpResponse:
+    invoice = repository.get_by_id(InvoiceId(pk))
+    invoice.pay()
+    repository.update(invoice)
+    response = (
+        "<input disabled type='text' id='id-head-status' hx-swap-oob='true' value='"
+        + str(invoice.status.name)
+        + "' >"
+    )
+    response2 = "<small class='pill status-label approved'>" + str(invoice.status.name) + "</small>"
+    full_response = response + response2
+    return HttpResponse(full_response)
+
+
 class FundingRequestViewModel(NamedTuple):
     url: str
     request_id: str

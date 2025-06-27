@@ -11,9 +11,17 @@
                 <small class="pill status-label rejected">{{ invoice.status }}</small>
             {% endif %}
         </h1>
-        <a href="{% url "invoices:update" pk=invoice.id %}"
-           role="button"
-           class="secondary">Edit</a>
+        <div>
+            <button hx-post="{% url 'invoices:pay_invoice' pk=invoice.id %}"
+                    hx-trigger="click"
+                    hx-swap="outerHTML"
+                    hx-target=".pill"
+                    hx-on="htmx:afterRequest: window.location.reload()"
+                    class="secondary">Pay Invoice</button>
+            <a href="{% url "invoices:update" pk=invoice.id %}"
+               role="button"
+               class="secondary">Edit</a>
+        </div>
     </div>
     <article>
         <h2>Head</h2>
