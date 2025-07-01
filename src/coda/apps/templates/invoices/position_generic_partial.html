@@ -8,21 +8,32 @@
     <div class="form-row">
         <label for="id-position-{{ counter }}-funding-source"
                class="form-row-item-sm">Funding Source</label>
-        <select name="position-{{ counter }}-funding-source"
-                id="id-position-{{ counter }}-funding-source">
-            <option value>-------</option>
-            {% for fs in funding_sources %}
-                <option value="{{ fs.id }}"
-                        {% if position.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
-            {% endfor %}
-        </select>
+        {% if editable != None %}
+            <input type="text"
+                   id="id-position-external-position-id"
+                   name="position-{{ counter }}-external-position-id"
+                   {% for fs in funding_sources %} {% if position.funding_source == fs.id %}value="{{ fs.name }}"{% endif %}
+                   {% endfor %}
+                   readonly>
+        {% else %}
+            <select name="position-{{ counter }}-funding-source"
+                    id="id-position-{{ counter }}-funding-source"
+                    {% if editable != None %}readonly{% endif %}>
+                <option value>-------</option>
+                {% for fs in funding_sources %}
+                    <option value="{{ fs.id }}"
+                            {% if position.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
+                {% endfor %}
+            </select>
+        {% endif %}
     </div>
     <div class="form-row">
         <label for="id-position-{{ counter }}-external-position-id">External Position ID</label>
         <input type="text"
                id="id-position-external-position-id"
                name="position-{{ counter }}-external-position-id"
-               value="{{ position.external_position_id }}">
+               value="{{ position.external_position_id }}"
+               {% if editable != None %}readonly{% endif %}>
     </div>
 </div>
 <div class="common-position-grid">
@@ -34,7 +45,8 @@
                min="0"
                max="1000000000000000"
                step="0.0001"
-               value="{{ position.cost_amount }}">
+               value="{{ position.cost_amount }}"
+               {% if editable != None %}readonly{% endif %}>
     </div>
     <div class="form-row tax-rate">
         <label for="id-position-{{ counter }}-tax-rate" class="form-row-item-sm">Tax Rate</label>
@@ -44,16 +56,25 @@
                min="0"
                max="100"
                step="1"
-               value="{{ position.tax_rate }}">
+               value="{{ position.tax_rate }}"
+               {% if editable != None %}readonly{% endif %}>
     </div>
     <div class="form-row cost-type">
         <label for="id-position-{{ counter }}-cost-type" class="form-row-item-sm">Cost Type</label>
-        <select id="id-position-{{ counter }}-cost-type"
-                name="position-{{ counter }}-cost-type">
-            {% for type in cost_types %}
-                <option value="{{ type }}"
-                        {% if type == position.cost_type %}selected{% endif %}>{{ type }}</option>
-            {% endfor %}
+        {% if editable != None %}
+            <input type="text"
+                   readonly
+                   id="id-position-{{ counter }}-cost-type"
+                   name="position-{{ counter }}-cost-type"
+                   value="{{ position.cost_type }}">
+        {% else %}
+            <select id="id-position-{{ counter }}-cost-type"
+                    name="position-{{ counter }}-cost-type">
+                {% for type in cost_types %}
+                    <option value="{{ type }}"
+                            {% if type == position.cost_type %}selected{% endif %}>{{ type }}</option>
+                {% endfor %}
+            {% endif %}
         </select>
     </div>
 </div>

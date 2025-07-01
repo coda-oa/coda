@@ -6,23 +6,19 @@ from typing import Any, NamedTuple, cast
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository
 from coda.apps.invoices.models import Creditor
+from coda.apps.invoices import services
 
-from coda.apps.invoices.views.positions import (
-    to_position_dto,
-)
+from coda.apps.invoices.views.positions import to_position_dto
+from coda.apps.invoices.views.position_list import funding_sources_context
 
 from coda.apps.invoices.views.create import _DefaultContext
-
-from coda.apps.invoices.views.position_list import (
-    funding_sources_context,
-)
 
 from coda.apps.publications.models import Publication
 from coda.apps.views import EntityListView
@@ -89,6 +85,7 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
     position_list = [to_position_dto(position) for position in display_invoice.positions]
     ext_inv_id = invoice.external_invoice_id
     comment = invoice.comment
+    editable = False
     return render(
         request,
         "invoices/detail.html",
@@ -102,6 +99,7 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
             "positions": position_list,
             "external_invoice_id": ext_inv_id,
             "invoice_comment": comment,
+            "editable": editable,
         },
     )
 
@@ -238,15 +236,17 @@ def position_viewmodel(position: Position[ItemType], number: int) -> "PositionVi
 def pay_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
     invoice.pay()
-    repository.update(invoice)
-    response = (
-        "<input disabled type='text' id='id-head-status' hx-swap-oob='true' value='"
-        + str(invoice.status.name)
-        + "' >"
-    )
-    response2 = "<small class='pill status-label approved'>" + str(invoice.status.name) + "</small>"
-    full_response = response + response2
-    return HttpResponse(full_response)
+    services.save(invoice)
+    return redirect("invoices:detail", pk=invoice.id)
+
+
+@login_required
+@require_POST
+def reset_payment_status(request: HttpRequest, pk: int) -> HttpResponse:
+    invoice = repository.get_by_id(InvoiceId(pk))
+    invoice.reset_payment()
+    services.save(invoice)
+    return redirect("invoices:detail", pk=invoice.id)
 
 
 class FundingRequestViewModel(NamedTuple):

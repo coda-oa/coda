@@ -23,6 +23,7 @@ from coda.apps.invoices.views.inspect import (
     invoice_list,
     update_conversion,
     pay_invoice,
+    reset_payment_status,
 )
 from coda.apps.invoices.views.position_list import (
     add_position,
@@ -60,5 +61,6 @@ urlpatterns = [
     path("conversions/<int:pk>/edit/", edit_conversion_row, name="edit_conversion"),
     path("conversions/<int:pk>/update/", update_conversion, name="update_conversion"),
     path("conversions/<int:pk>/delete/", delete_conversion, name="delete_conversion"),
-    path("<int:pk>/pay_invoice/", pay_invoice, name="pay_invoice"),
+    path("<int:pk>/pay/", pay_invoice, name="pay_invoice"),
+    path("<int:pk>/unpay/", reset_payment_status, name="reset_payment_status"),
 ]

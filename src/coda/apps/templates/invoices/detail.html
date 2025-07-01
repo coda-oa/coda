@@ -12,12 +12,19 @@
             {% endif %}
         </h1>
         <div>
-            <button hx-post="{% url 'invoices:pay_invoice' pk=invoice.id %}"
-                    hx-trigger="click"
-                    hx-swap="outerHTML"
-                    hx-target=".pill"
-                    hx-on="htmx:afterRequest: window.location.reload()"
-                    class="secondary">Pay Invoice</button>
+            {% if invoice.status == "Unpaid" %}
+                <button hx-post="{% url 'invoices:pay_invoice' pk=invoice.id %}"
+                        hx-trigger="click"
+                        hx-swap="innerHTML"
+                        hx-target="closest body"
+                        class="secondary">Pay Invoice</button>
+            {% else %}
+                <button hx-post="{% url 'invoices:reset_payment_status' pk=invoice.id %}"
+                        hx-trigger="click"
+                        hx-swap="innerHTML"
+                        hx-target="closest body"
+                        class="secondary">Reset Payment</button>
+            {% endif %}
             <a href="{% url "invoices:update" pk=invoice.id %}"
                role="button"
                class="secondary">Edit</a>
@@ -32,7 +39,7 @@
                         <label for="id-head-invoice-number" class="form-row-item-sm">Invoice Number:</label>
                     </th>
                     <td>
-                        <input disabled
+                        <input readonly
                                type="number"
                                id="id-head-invoice-number"
                                name="id-head-invoice-number"
@@ -44,7 +51,7 @@
                         <label for="id-head-invoice-date" class="form-row-item-sm">Invoice Date:</label>
                     </th>
                     <td>
-                        <input disabled
+                        <input readonly
                                type="text"
                                id="id-head-invoice-date"
                                name="id-head-invoice-date"
@@ -56,7 +63,7 @@
                         <label for="id-head-creditor_name" class="form-row-item-sm">Creditor:</label>
                     </th>
                     <td>
-                        <input disabled
+                        <input readonly
                                type="text"
                                id="id-head-creditor_name"
                                name="id-head-creditor_name"
@@ -68,7 +75,7 @@
                         <label for="id-head-currency" class="form-row-item-sm">Currency:</label>
                     </th>
                     <td>
-                        <input disabled
+                        <input readonly
                                type="text"
                                id="id-head-currency"
                                name="id-head-currency"
@@ -80,7 +87,7 @@
                         <label for="id-head-status" class="form-row-item-sm">Status:</label>
                     </th>
                     <td>
-                        <input disabled
+                        <input readonly
                                type="text"
                                id="id-head-status"
                                name="id-head-status"
@@ -92,7 +99,7 @@
                         <label for="id-head-external-id" class="form-row-item-sm">External Invoice ID:</label>
                     </th>
                     <td>
-                        <input disabled
+                        <input readonly
                                type="text"
                                id="id-head-external-id"
                                name="id-head-external-id"
@@ -104,8 +111,11 @@
                         <label for="id-head-comment" class="form-row-item-sm">Comment:</label>
                     </th>
                     <td>
-                        <textarea disabled name="id-head-comment" cols="40" rows="10" id="id-head-comment"> {{ invoice_comment }}
-</textarea>
+                        <textarea readonly
+                                  name="id-head-comment"
+                                  cols="40"
+                                  rows="10"
+                                  id="id-head-comment"> {{ invoice_comment }}</textarea>
                     </td>
                 </tr>
             </tbody>
@@ -131,11 +141,11 @@
         </fieldset>
         {% for position in positions %}
             {% if position.type == "publication" %}
-                {% include "invoices/detail_position_publication.html" with counter=forloop.counter %}
+                {% include "invoices/position_publication.html" with counter=forloop.counter %}
             {% elif position.type == "contract" %}
-                {% include "invoices/detail_position_contract.html" with counter=forloop.counter %}
+                {% include "invoices/position_contract.html" with counter=forloop.counter %}
             {% else %}
-                {% include "invoices/detail_position_free.html" with counter=forloop.counter %}
+                {% include "invoices/position_free.html" with counter=forloop.counter %}
             {% endif %}
             <hr>
         {% endfor %}
