@@ -1,11 +1,11 @@
-from typing import Annotated
-from pydantic import BaseModel, Field, StringConstraints
-from decimal import Decimal
 from enum import Enum
 
-NonEmptyString = Annotated[str, StringConstraints(min_length=1)]
-Currency = Annotated[str, StringConstraints(pattern=r"[A-Z]{3}")]
-DateFormat = Annotated[str, StringConstraints(pattern=r"[0-9]{4}(-[0-9]{2}){0,2}")]
+from pydantic import BaseModel
+
+from ._common import NonEmptyString
+from ._contract import ContractPrimaryIdentifier
+from ._institution import InstitutionType
+from ._invoice import PublicationInvoiceType
 
 
 class CoarPublicationType(Enum):
@@ -119,33 +119,6 @@ class PublicationCostType(Enum):
     payment_fee = "payment fee"
 
 
-class ContractCostType(Enum):
-    publish = "publish"
-    read = "read"
-    vat = "vat"
-
-
-class InstitutionNameType(Enum):
-    full = "full"
-    short = "short"
-
-
-class InstitutionIdType(Enum):
-    ror = "ror"
-    isni = "isni"
-    ringold = "ringold"
-
-
-class ContractPrimaryIdentifierType(Enum):
-    ESAC = "ESAC"
-
-
-class ContractSecondaryIdTypeEnum(Enum):
-    oai = "oai"
-    ezb = "ezb"
-    local = "local"
-
-
 class PublicationSecondaryIdTypeEnum(Enum):
     doi = "doi"
     handle = "handle"
@@ -167,69 +140,6 @@ class PublicationSecondaryIdentifiers(BaseModel):
     id: list[PublicationSecondaryIdType]
 
 
-class ContractPrimaryIdentifier(BaseModel):
-    value: NonEmptyString
-    type: ContractPrimaryIdentifierType
-
-
-class ContractSecondaryIdType(BaseModel):
-    value: NonEmptyString
-    type: ContractSecondaryIdTypeEnum
-
-
-class ContractSecondaryIdentifiersType(BaseModel):
-    id: list[ContractSecondaryIdType]
-
-
-class ParticipationType(BaseModel):
-    to: DateFormat
-    from_: DateFormat = Field(..., alias="from")
-
-
-class ContractInvoicePeriodType(BaseModel):
-    from_: DateFormat = Field(..., alias="from")
-    to: DateFormat
-
-
-class AmountInvoice(BaseModel):
-    currency: Currency
-    amount: Decimal
-
-
-class PublicationAmountPaidType(BaseModel):
-    currency: Currency
-    amount: Decimal
-    cost_type: PublicationCostType
-    vat: Decimal | None = None
-
-
-class ContractAmountPaidType(BaseModel):
-    currency: Currency
-    amount: Decimal
-    cost_type: ContractCostType
-    vat: Decimal | None = None
-
-
-class Dates(BaseModel):
-    invoice: DateFormat | None = None
-    paid: DateFormat | None = None
-
-
-class InstitutionName(BaseModel):
-    value: NonEmptyString
-    type: InstitutionNameType
-
-
-class InstitutionId(BaseModel):
-    value: NonEmptyString
-    type: InstitutionIdType
-
-
-class InstitutionType(BaseModel):
-    name: list[InstitutionName] | None = None
-    id: list[InstitutionId] | None = None
-
-
 class BibliographicInformation(BaseModel):
     Title: NonEmptyString
     Publisher: NonEmptyString
@@ -246,32 +156,6 @@ class PartOfContractType(BaseModel):
     primary_identifier: ContractPrimaryIdentifier
 
 
-class PublicationInvoiceType(BaseModel):
-    amount_invoice: AmountInvoice | None = None
-    invoice_number: NonEmptyString | None = None
-    amounts_paid: list[PublicationAmountPaidType]
-    dates: Dates
-    creditor: NonEmptyString | None = None
-
-
-class ContractInvoiceType(BaseModel):
-    amount_invoice: AmountInvoice | None = None
-    invoice_number: NonEmptyString | None = None
-    creditor: NonEmptyString | None = None
-    dates: Dates
-    amounts_paid: list[ContractAmountPaidType]
-
-
-class ContractInvoiceGroupType(BaseModel):
-    group_id: NonEmptyString | None = None
-    invoices_period: ContractInvoicePeriodType | None = None
-    invoice: list[ContractInvoiceType] | None = None
-
-
-class ContractCostDataType(BaseModel):
-    invoice_group: list[ContractInvoiceGroupType]
-
-
 class PublicationCostDataType(BaseModel):
     invoice: list[PublicationInvoiceType] | None = None
     part_of_contract: PartOfContractType | None = None
@@ -284,17 +168,3 @@ class PublicationType(BaseModel):
     publication_type: CoarPublicationType
     external_costsplitting: bool | None = None
     cost_data: PublicationCostDataType
-
-
-class ContractType(BaseModel):
-    contract_name: NonEmptyString
-    institution: InstitutionType
-    participation: ParticipationType
-    primary_identifier: ContractPrimaryIdentifier
-    secondary_identifiers: ContractSecondaryIdentifiersType | None = None
-    cost_data: ContractCostDataType
-
-
-class Data(BaseModel):
-    publication: list[PublicationType] | None = None
-    contract: list[ContractType] | None = None
