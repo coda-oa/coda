@@ -235,16 +235,10 @@ def position_viewmodel(position: Position[ItemType], number: int) -> "PositionVi
 @require_POST
 def pay_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
-    invoice.pay()
-    services.save(invoice)
-    return redirect("invoices:detail", pk=invoice.id)
-
-
-@login_required
-@require_POST
-def reset_payment_status(request: HttpRequest, pk: int) -> HttpResponse:
-    invoice = repository.get_by_id(InvoiceId(pk))
-    invoice.reset_payment()
+    if request.POST.get("action") == "pay":
+        invoice.pay()
+    elif request.POST.get("action") == "reset_payment":
+        invoice.reset_payment()
     services.save(invoice)
     return redirect("invoices:detail", pk=invoice.id)
 

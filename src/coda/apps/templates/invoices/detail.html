@@ -11,20 +11,15 @@
                 <small class="pill status-label rejected">{{ invoice.status }}</small>
             {% endif %}
         </h1>
-        <div>
-            {% if invoice.status == "Unpaid" %}
-                <button hx-post="{% url 'invoices:pay_invoice' pk=invoice.id %}"
-                        hx-trigger="click"
-                        hx-swap="innerHTML"
-                        hx-target="closest body"
-                        class="secondary">Pay Invoice</button>
-            {% else %}
-                <button hx-post="{% url 'invoices:reset_payment_status' pk=invoice.id %}"
-                        hx-trigger="click"
-                        hx-swap="innerHTML"
-                        hx-target="closest body"
-                        class="secondary">Reset Payment</button>
-            {% endif %}
+        <div class="flex">
+            <form action="{% url 'invoices:pay_invoice' pk=invoice.id %}" method="post">
+                {% csrf_token %}
+                {% if invoice.status == "Unpaid" %}
+                    <button name="action" value="pay" class="secondary">Pay Invoice</button>
+                {% else %}
+                    <button name="action" value="reset_payment" class="secondary">Reset Payment</button>
+                {% endif %}
+            </form>
             <a href="{% url "invoices:update" pk=invoice.id %}"
                role="button"
                class="secondary">Edit</a>
