@@ -1,38 +1,42 @@
 {% extends "forms/wizardform.html" %}
 {% block wizard_step %}
     <h1>Publication Details</h1>
-    <table>
-        <tbody>
-            {{ publication_form.as_table }}
-        </tbody>
-    </table>
-    <h2>Authors</h2>
-    {% comment %}
-NOTE: do not change the formatting of the authors textarea, as it will lead to unwanted whitespace in the rendered result.
-    {% endcomment %}
-    {% spaceless %}
-        <textarea name="authors" rows="5">
-{% for author in authors %}{{ author }}
-{% endfor %}
-    </textarea>
-    {% endspaceless %}
-    <button type="submit" class="secondary" name="action" value="parse_authors">Preview parsed authors</button>
-    <h2>Links</h2>
-    <table>
-        <thead>
-            <td>Link Type</td>
-            <td>Link</td>
-            <td>
-                <button type="button"
-                        hx-post="{% url 'fundingrequests:partial_add_linkrow' %}"
-                        hx-target="#linktable"
-                        hx-swap="beforeend">Add</button>
-            </td>
-        </thead>
-        <tbody id="linktable">
-            {% for link_data in links %}
-                {% include "fundingrequests/partials/linkrow.html" with link=link_data.link errors=link_data.errors %}
-            {% endfor %}
-        </tbody>
-    </table>
+    <article>
+        <h2 class="my-0">Authors</h2>
+        <h3 class="mt-2">Relevant authors</h3>
+        {{ author_formset.as_inline }}
+        <h3 class="my-2">Other Authors</h3>
+        <p>
+            Paste a list of names into the textarea and press <i>Preview parsed authors</i>. CODA will attempt to parse individual names from the given list.
+        </p>
+        {% include "fundingrequests/partials/preview_authors.html" %}
+    </article>
+    <article>
+        <h2>Publication Meta Data</h2>
+        <table>
+            <tbody>
+                {{ publication_form.as_table }}
+            </tbody>
+        </table>
+    </article>
+    <article>
+        <h2>Links</h2>
+        <table>
+            <thead>
+                <td>Link Type</td>
+                <td>Link</td>
+                <td>
+                    <button type="button"
+                            hx-post="{% url 'fundingrequests:partial_add_linkrow' %}"
+                            hx-target="#linktable"
+                            hx-swap="beforeend">Add</button>
+                </td>
+            </thead>
+            <tbody id="linktable">
+                {% for link_data in links %}
+                    {% include "fundingrequests/partials/linkrow.html" with link=link_data.link errors=link_data.errors %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </article>
 {% endblock wizard_step %}

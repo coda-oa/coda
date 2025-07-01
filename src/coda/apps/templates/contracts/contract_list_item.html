@@ -1,0 +1,9 @@
+<article class="flex justify-between align-center">
+    <div>
+        <span class="mr-1">{{ entity.name }}</span>
+        <small>{% include "contracts/contract_active_status.html" %}</small>
+    </div>
+    <a href="{% url "contracts:detail" pk=entity.id %}"
+       role="button"
+       class="outline contrast">View</a>
+</article>

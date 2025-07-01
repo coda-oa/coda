@@ -1,0 +1,61 @@
+<div id="contract-search">
+    <h3>Search Contracts</h3>
+    <div class="form-row pill">
+        <input type="search"
+               id="contract_query"
+               name="contract_query"
+               placeholder="Search contracts"
+               value="{{ request.POST.contract_query }}">
+        <button type="button"
+                name="action"
+                value="search"
+                class="form-row-item-sm"
+                hx-include="#contract_query"
+                hx-post="{% url 'invoices:contract_search' %}"
+                hx-target="#contract-search"
+                hx-swap="outerHTML">Search</button>
+    </div>
+    {% if contracts %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Year</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for contract in contracts %}
+                    <tr>
+                        <td>
+                            <a href="{{ contract.url }}">{{ contract.name }}</a>
+                        </td>
+                        <td>
+                            <input type="number"
+                                   id="contract-{{ forloop.counter }}-year"
+                                   name="contract-year">
+                        </td>
+                        <td>
+                            <input type="hidden"
+                                   id="contract-{{ forloop.counter }}-id"
+                                   name="contract-id"
+                                   value="{{ contract.id }}">
+                            <input type="hidden"
+                                   id="contract-{{ forloop.counter }}-name"
+                                   name="contract-name"
+                                   value="{{ contract.name }}">
+                            <button type="button"
+                                    class="outline secondary"
+                                    name="action"
+                                    value="add-contract-position"
+                                    hx-include="#invoice-form, #contract-{{ forloop.counter }}-id, #contract-{{ forloop.counter }}-name, #contract-{{ forloop.counter }}-year"
+                                    hx-post="{% url 'invoices:add_position' %}"
+                                    hx-target="#positions"
+                                    hx-swap="outerHTML">Add</button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</div>

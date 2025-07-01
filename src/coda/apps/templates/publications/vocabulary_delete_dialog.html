@@ -1,0 +1,18 @@
+<dialog open>
+    <article>
+        <p>
+            The vocabulary <i>{{ vocabulary.name }}</i> is in use by publications. The publications will be migrated to the base vocabulary.
+        </p>
+        <p>
+            <strong>Are you sure you want to delete the vocabulary?</strong>
+        </p>
+        <footer>
+            <form method="dialog">
+                <button class="danger"
+                        hx-delete="{% url "publications:vocabulary_delete" pk=vocabulary.id %}"
+                        hx-target="closest dialog">Delete</button>
+                <button class="secondary">Cancel</button>
+            </form>
+        </footer>
+    </article>
+</dialog>

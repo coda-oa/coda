@@ -4,9 +4,13 @@ import pytest
 from django.http import HttpRequest
 from django.test import RequestFactory
 
-from coda.apps.fundingrequests.views.wizard.wizardsteps import JournalStep
+from coda.apps.contracts.models import Contract
+from coda.apps.contracts.repository import as_domain_object
+from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalStep
+from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.journals.models import Journal
-from tests import modelfactory
+from coda.apps.publications.dto import ContractYearDto
+from tests import domainfactory, modelfactory
 from tests.test_wizard import DictStore
 
 
@@ -18,6 +22,11 @@ def store() -> DictStore:
 @pytest.fixture
 def journals() -> list[Journal]:
     return [modelfactory.journal() for _ in range(3)]
+
+
+@pytest.fixture
+def contracts() -> list[Contract]:
+    return [modelfactory.contract() for _ in range(3)]
 
 
 @pytest.mark.django_db
@@ -42,6 +51,38 @@ def test__journal_step__journal_is_selected__is_valid(
     request = post({"journal": first_journal.pk})
 
     assert sut.is_valid(request, store) is True
+
+
+@pytest.mark.django_db
+def test__journal_step__journal_and_contracts_selected__is_valid(
+    store: DictStore, journals: list[Journal], contracts: list[Contract]
+) -> None:
+    first_journal = journals[0]
+    sut = JournalStep()
+
+    contract_years = to_htmx_formset_data(
+        [contract_year_dto(c).to_post_data() for c in contracts], prefix="contracts"
+    )
+    request = post({"journal": first_journal.pk} | contract_years)
+
+    assert sut.is_valid(request, store) is True
+
+
+@pytest.mark.django_db
+def test__journal_step__invalid_contract_year__is_invalid(
+    store: DictStore, journals: list[Journal], contracts: list[Contract]
+) -> None:
+    first_journal = journals[0]
+    contract = contracts[0]
+
+    sut = JournalStep()
+
+    contract_years = to_htmx_formset_data(
+        [{"contract": contract.pk, "year": 1800}], prefix="contracts"
+    )
+    request = post({"journal": first_journal.pk} | contract_years)
+
+    assert sut.is_valid(request, store) is False
 
 
 @pytest.mark.django_db
@@ -77,6 +118,7 @@ def test__journal_step__journal_in_store__get_context_data__finds_selected_journ
 ) -> None:
     first_journal = journals[0]
     store["journal"] = first_journal.pk
+    store.save()
 
     sut = JournalStep()
 
@@ -95,6 +137,7 @@ def test__journal_step__journal_data_in_post_and_store__get_context_data__prefer
     first_journal = journals[0]
     second_journal = journals[1]
     store["selected_journal"] = first_journal.pk
+    store.save()
 
     sut = JournalStep()
 
@@ -105,8 +148,83 @@ def test__journal_step__journal_data_in_post_and_store__get_context_data__prefer
     assert ctx["journal_title"] == second_journal.title
 
 
+@pytest.mark.django_db
+def test__journal_step__post_contracts__get_context_data__formset_contains_contracts(
+    store: DictStore,
+    journals: list[Journal],
+    contracts: list[Contract],
+) -> None:
+    first_journal = journals[0]
+    sut = JournalStep()
+
+    contract_years = to_htmx_formset_data(
+        [contract_year_dto(c).to_post_data() for c in contracts], prefix="contracts"
+    )
+    request = post({"journal": first_journal.pk} | contract_years)
+
+    ctx = sut.get_context_data(request, store)
+
+    contract_formset = ctx["contract_formset"]
+    assert [d["contract"] for d in contract_formset.data] == contracts
+
+
+@pytest.mark.django_db
+def test__journal_step__same_contract_in_different_years__done__both_contract_years_in_store(
+    store: DictStore,
+    journals: list[Journal],
+    contracts: list[Contract],
+) -> None:
+    first_journal = journals[0]
+    sut = JournalStep()
+
+    first_contract = contracts[0]
+    domain_contract = as_domain_object(first_contract)
+    first_contract_year = domain_contract.in_first_year()
+    second_contract_year = domain_contract.in_year(first_contract_year.year + 1)
+    contract_years = to_htmx_formset_data(
+        [
+            {"contract": first_contract_year.contract_id, "year": first_contract_year.year},
+            {"contract": second_contract_year.contract_id, "year": second_contract_year.year},
+        ],
+        prefix="contracts",
+    )
+    request = post({"journal": first_journal.pk} | contract_years)
+
+    sut.done(request, store)
+
+    assert len(store["contracts"]) == 2
+    assert {c["year"] for c in store["contracts"]} == {
+        first_contract_year.year,
+        second_contract_year.year,
+    }
+
+
+@pytest.mark.django_db
+def test__journal_step__contracts_in_store__get_context_data__formset_contains_contracts(
+    store: DictStore,
+    journals: list[Journal],
+    contracts: list[Contract],
+) -> None:
+    store["selected_journal"] = journals[0].pk
+    store["contracts"] = [contract_year_dto(c).to_post_data() for c in contracts]
+
+    store.save()
+
+    sut = JournalStep()
+
+    request = post()
+    ctx = sut.get_context_data(request, store)
+
+    contract_formset = ctx["contract_formset"]
+    assert [d["contract"] for d in contract_formset.data] == contracts
+
+
 _request_factory = RequestFactory()
 
 
 def post(data: dict[str, Any] | None = None) -> HttpRequest:
     return _request_factory.post("/", data)
+
+
+def contract_year_dto(c: Contract) -> ContractYearDto:
+    return ContractYearDto.from_contract_year(domainfactory.contract_year(as_domain_object(c)))

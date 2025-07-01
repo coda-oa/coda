@@ -1,0 +1,29 @@
+<article id="conversions">
+    <div class="flex justify-between">
+        <h2>Conversions</h2>
+        <button hx-post="{% url 'invoices:add_conversion_dialog' pk=invoice.id %}"
+                hx-swap="beforeend"
+                hx-target="#conversions"
+                class="secondary">Add conversion</button>
+    </div>
+    <div class="form-row mt-1 mb-2">
+        <label for="invoice_currency">Invoice currency</label>
+        <input type="text" readonly value="{{ invoice.currency.code }}">
+    </div>
+    {% if conversions %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Currency</th>
+                    <th>Exchange Rate</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for currency, exchange_rate in conversions.items %}
+                    {% include "invoices/detail_conversion_row.html" with row=forloop.counter invoice_id=invoice.id %}
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</article>

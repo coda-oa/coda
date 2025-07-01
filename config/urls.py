@@ -9,6 +9,7 @@ from django.urls import include, path
 from django.views import defaults as default_views
 
 from coda.apps import home
+from coda.apps.htmx_components.forms import DemoFormset
 
 urlpatterns = [
     # Django Admin, use {% url 'admin:index' %}
@@ -19,19 +20,22 @@ urlpatterns = [
     path("logout/", view=LogoutView.as_view(), name="logout"),
     path("users/", include("coda.apps.users.urls", namespace="users")),
     path("contracts/", include("coda.apps.contracts.urls", namespace="contracts")),
-    path("journals/", include("coda.apps.journals.urls", namespace="journals")),
-    path("publishers/", include("coda.apps.publishers.urls", namespace="publishers")),
+    path("publishing/", include("coda.apps.publishing.urls", namespace="publishing")),
     path("authors/", include("coda.apps.authors.urls", namespace="authors")),
+    path("institutions/", include("coda.apps.institutions.urls", namespace="institutions")),
     path(
         "fundingrequests/", include("coda.apps.fundingrequests.urls", namespace="fundingrequests")
     ),
+    path("publications/", include("coda.apps.publications.urls", namespace="publications")),
     path("invoices/", include("coda.apps.invoices.urls", namespace="invoices")),
     path("preferences/", include("coda.apps.preferences.urls", namespace="preferences")),
+    path("blocklist/", include("coda.apps.blocklist.urls", namespace="blocklist")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
     # This allows the error pages to be debugged during development, just visit
     # these url in browser to see how these error pages look like.
+    demo_formset_view = DemoFormset.get_management_view()
     urlpatterns += [
         path(
             "400/",
@@ -54,5 +58,14 @@ if settings.DEBUG:
             "500/",
             functools.partial(default_views.server_error, template_name="pages/error_page.html"),
         ),
-        path("demo/", lambda req: render(req, "demo.html")),
+        path(
+            "demo/",
+            lambda req: render(
+                req,
+                "demo.html",
+                {"formset": DemoFormset(prefix="f1"), "formset2": DemoFormset(prefix="f2")},
+            ),
+        ),
+        path("demo/htmx/", demo_formset_view.as_view(), name=demo_formset_view.name),
+        path("silk/", include("silk.urls", namespace="silk")),
     ]

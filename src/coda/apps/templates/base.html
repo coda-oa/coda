@@ -11,14 +11,48 @@
                 integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw"
                 crossorigin="anonymous"></script>
         {% load static %}
+        <script>
+                  const root = document.documentElement;
+                  const theme = localStorage.getItem('theme');
+                  if (theme) root.setAttribute('data-theme', theme);
+        </script>
+        <script src="{% static 'js/theme-toggle.js' %}"
+                type="module"
+                crossorigin="anonymous"></script>
         <link rel="stylesheet"
               type="text/css"
               href="{% static 'css/vars.css' %}"
               crossorigin="anonymous" />
         <link rel="stylesheet"
               type="text/css"
+              href="{% static 'css/text.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/flex.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
               href="{% static 'css/components.css' %}"
               crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/article.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/button.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/forms.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              href="{% static 'css/lists.css' %}"
+              crossorigin="anonymous">
+        <link rel="stylesheet"
+              href="{% static 'css/status.css' %}"
+              crossorigin="anonymous">
         <link rel="stylesheet"
               type="text/css"
               href="{% static 'css/layout.css' %}"
@@ -33,28 +67,36 @@
         <link rel="stylesheet"
               href="{% static 'css/nav.css' %}"
               crossorigin="anonymous">
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/fundingrequests.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              href="{% static 'css/invoices.css' %}"
+              crossorigin="anonymous">
         <script src="{% static 'js/global-styles.js' %}"
                 type="module"
                 crossorigin="anonymous"></script>
         <script src="{% static 'js/search-select.js' %}"
                 type="module"
                 crossorigin="anonymous"></script>
+        <script src="{% static 'js/search-select-multi.js' %}"
+                type="module"
+                crossorigin="anonymous"></script>
     </head>
-    <body>
-        <div class="flex">
-            {% include "partials/nav.html" %}
-            <main class="container">
-                {% if messages %}
-                    {% regroup messages by tags as messages %}
-                    {% for level in messages %}
-                        <ul class="messages {{ level.grouper }} no-decoration">
-                            {% for message in level.list %}<li>{{ message }}</li>{% endfor %}
-                        </ul>
-                    {% endfor %}
-                {% endif %}
-                {% block content %}
-                {% endblock content %}
-            </main>
-        </div>
+    <body class="main-grid" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+        {% include "partials/nav.html" %}
+        <main class="container">
+            {% if messages %}
+                {% regroup messages by tags as messages %}
+                {% for level in messages %}
+                    <ul class="messages {{ level.grouper }} undecorated">
+                        {% for message in level.list %}<li>{{ message }}</li>{% endfor %}
+                    </ul>
+                {% endfor %}
+            {% endif %}
+            {% block content %}
+            {% endblock content %}
+        </main>
     </body>
 </html>

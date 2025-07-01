@@ -1,0 +1,27 @@
+.info {
+    --_background-color: var(--coda-primary-border);
+}
+
+.success {
+    --_background-color: var(--coda-validation-valid-color);
+}
+
+.error,
+.danger {
+    --_background-color: var(--coda-validation-invalid-color);
+}
+
+.warning {
+    --_background-color: rgb(205, 130, 10);
+}
+
+.info,
+.success,
+.error,
+.danger,
+.warning {
+    --_color: var(--coda-validation-text-color);
+    background-color: var(--_background-color);
+    border-color: var(--_background-color);
+    color: var(--_color);
+}

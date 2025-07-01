@@ -1,14 +1,14 @@
 <details class="dropdown">
     <summary>Processing Status</summary>
-    <ul class="no-decoration">
+    <ul class="undecorated">
         {% for status in processing_states %}
             <li>
                 <input type="checkbox"
-                       id="status-{{ status.0 }}"
+                       id="status-{{ status }}"
                        name="processing_status"
-                       value="{{ status.0 }}"
-                       {% if status.0 in request.GET.processing_status %}checked{% endif %}>
-                <label for="status-{{ status.0 }}">{{ status.1 }}</label>
+                       value="{{ status }}"
+                       {% if status in request.GET.processing_status %}checked{% endif %}>
+                <label for="status-{{ status }}">{{ status }}</label>
             </li>
         {% endfor %}
     </ul>

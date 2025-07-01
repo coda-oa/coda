@@ -1,12 +1,19 @@
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models.query import QuerySet
-from django.forms.utils import ErrorList
-from django.http import HttpResponse
-from django.views.generic import CreateView, DetailView, ListView
+from collections.abc import Sequence
+from typing import Any, cast
 
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import QuerySet
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404
+from django.urls import reverse_lazy
+from django.views.generic import CreateView, DetailView, UpdateView
+
+from coda.apps.blocklist.models import BlockList
+from coda.apps.journals import services
 from coda.apps.journals.forms import JournalForm
 from coda.apps.journals.models import Journal
-from coda.apps.journals.services import find_by_title
+from coda.apps.views import EntityListView
 
 
 class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
@@ -14,20 +21,28 @@ class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
     slug_field = "eissn"
     slug_url_kwarg = "eissn"
 
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        ctx["is_blocked"] = BlockList.objects.get().is_journal_blocked(self.object)
+        return ctx
+
 
 journal_detail_view = JournalDetailView.as_view()
 
 
-class JournalListView(LoginRequiredMixin, ListView[Journal]):
-    model = Journal
+class JournalListView(LoginRequiredMixin, EntityListView[Journal]):
     paginate_by = 20
+    entity_name = "Journals"
+    entity_create_url = "publishing:journals:create"
+    entity_list_item_template = "journals/journal_list_item.html"
+    entity_filter_template = "journals/journal_filter.html"
 
-    def get_queryset(self) -> QuerySet[Journal]:
+    def get_entities(self, request: HttpRequest) -> Sequence[Journal]:
         search_term = self.request.GET.get("search_term", "")
         if search_term:
-            return find_by_title(search_term)
+            return services.find_by_title(search_term)
 
-        return Journal.objects.all()
+        return services.all()
 
 
 journal_list_view = JournalListView.as_view()
@@ -36,14 +51,42 @@ journal_list_view = JournalListView.as_view()
 class JournalCreateView(LoginRequiredMixin, CreateView[Journal, JournalForm]):
     form_class = JournalForm
     template_name = "generic_form_view.html"
+    success_url = reverse_lazy("publishing:journals:list")
 
-    def form_valid(self, form: JournalForm) -> HttpResponse:
-        existing = Journal.objects.filter(eissn=form.instance.eissn).first()
-        form.errors["eissn"] = ErrorList(["Journal with this E-ISSN already exists."])
-        if existing:
-            return self.form_invalid(form)
-
-        return super().form_valid(form)
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Create Journal"
+        return context
 
 
 journal_create_view = JournalCreateView.as_view()
+
+
+class JournalUpdateView(LoginRequiredMixin, UpdateView[Journal, JournalForm]):
+    form_class = JournalForm
+    template_name = "generic_form_view.html"
+    slug_field = "eissn"
+    slug_url_kwarg = "eissn"
+    success_url = reverse_lazy("publishing:journals:list")
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Update Journal"
+        return context
+
+    def get_object(self, queryset: QuerySet[Journal] | None = None) -> Journal:
+        return Journal.objects.get(eissn=self.kwargs["eissn"])
+
+
+journal_update_view = JournalUpdateView.as_view()
+
+
+@login_required
+def block_journal(request: HttpRequest, pk: int) -> HttpResponse:
+    reason = request.POST.get("reason", "PREDATORY")
+    journal = get_object_or_404(Journal, pk=pk)
+
+    blocklist = BlockList.objects.get()
+    blocklist.block_journal(journal, reason)
+
+    return cast(HttpResponse, journal_detail_view(request, eissn=journal.eissn))

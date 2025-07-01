@@ -1,0 +1,18 @@
+{% if checks %}
+    <div>
+        <p>Last run: {{ checks.timestamp }}</p>
+        <ul class="mb-1">
+            {% for checkrun in checks %}
+                <li class="fundingrequest-check {% if checkrun.result.is_successful %}check-success{% elif checkrun.result.is_failed %}check-failure{% else %}check-warning{% endif %}">
+                    <div>
+                        <p>
+                            <b>{{ checkrun.check_name }}</b>
+                        </p>
+                        {% if checkrun.result.message %}<p>{{ checkrun.result.message|safe }}</p>{% endif %}
+                        {% for k, v in checkrun.result.data.items %}<p>{{ k }}: {{ v }}</p>{% endfor %}
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}

@@ -1,82 +1,6 @@
-.flex {
-  --coda-gap: 1rem;
-  display: flex;
-  flex-direction: row;
-  gap: var(--coda-gap);
-}
-
-.gap-0 {
-  --coda-gap: 0;
-}
-
-.flex-col {
-  flex-direction: column;
-}
-
-.flex-0 {
-  flex: 0 !important;
-}
-
-.flex-1 {
-  flex: 1 !important;
-}
-
-.flex-2 {
-  flex: 2 !important;
-}
-
-.flex-3 {
-  flex: 3 !important;
-}
-
-.flex-4 {
-  flex: 4 !important;
-}
-
-.flex-5 {
-  flex: 5 !important;
-}
-
-.flex-6 {
-  flex: 6 !important;
-}
-
-.justify-around {
-  justify-content: space-around;
-}
-
-.justify-between {
-  justify-content: space-between;
-}
-
-.justify-end {
-  justify-content: flex-end;
-}
-
-.align-center {
-  align-items: center;
-}
-
-.align-start {
-  align-items: flex-start;
-}
-
-.align-end {
-  align-items: flex-end;
-}
-
-.wrap {
-  flex-wrap: wrap;
-}
-
 .sticky {
   position: sticky;
   top: 0;
-}
-
-.col-2 {
-  grid-template-columns: auto 35ch;
-  gap: var(--coda-gap);
 }
 
 .grid-container {
@@ -93,10 +17,20 @@
 }
 
 .scroll-container {
+  position: relative;
   overflow-y: auto;
 
   &.max-h-30 {
     max-height: 30rem;
+  }
+
+  &.max-h-80 {
+    max-height: 80rem;
+  }
+
+  & thead th {
+    position: sticky;
+    top: 0;
   }
 }
 
@@ -106,9 +40,4 @@
 
 .overflow-scroll {
   overflow: auto;
-}
-
-.text-nowrap {
-  white-space: nowrap;
-  text-wrap: nowrap;
 }

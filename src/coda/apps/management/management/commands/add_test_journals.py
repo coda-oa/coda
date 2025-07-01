@@ -8,6 +8,7 @@ from django.db import transaction
 from coda.apps.contracts.models import Contract
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
+from coda.domain.contract import PublicationBilling
 
 
 class Command(BaseCommand):
@@ -91,6 +92,11 @@ class Command(BaseCommand):
                 self.stdout.write(f"Created contract {contract_name}")
                 contract.start_date = datetime.date(2024, 1, 1)
                 contract.end_date = datetime.date(2028, 12, 31)
+                contract.publication_billing = PublicationBilling.Consolidated.value
+            elif contract.publication_billing != PublicationBilling.Consolidated.value:
+                contract.publication_billing = PublicationBilling.Consolidated.value
+                contract.save()
+                self.stdout.write(f"Updated contract {contract_name}")
 
             contract.publishers.add(journal.publisher)
             journal.contracts.add(contract)

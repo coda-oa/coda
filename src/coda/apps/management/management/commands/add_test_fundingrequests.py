@@ -7,24 +7,28 @@ from django.db import transaction
 from faker import Faker
 from faker.providers import lorem
 
+from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingOrganization
-from coda.apps.fundingrequests.services import fundingrequest_create, fundingrequest_perform_review
 from coda.apps.journals.models import Journal
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import LinkType
 from coda.apps.publishers.models import Publisher
-from coda.author import Author, AuthorList, Role
-from coda.doi import Doi
-from coda.fundingrequest import (
+from coda.domain.author import AuthorNames
+from coda.domain.fundingrequest import Review
+from coda.domain.fundingrequest import (
     ExternalFunding,
+    FilledContact,
     FundingOrganizationId,
     FundingRequest,
+    FundingRequestContact,
     Payment,
     PaymentMethod,
-    Review,
 )
-from coda.money import Currency, Money
-from coda.publication import JournalId, License, OpenAccessType, Publication, Published
-from coda.string import NonEmptyStr
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import Currency, Money
+from coda.domain.publication import JournalId, License, OpenAccessType, Publication, Published
+from coda.domain.publication.links import Doi
+from coda.domain.string import NonEmptyStr
 
 faker = Faker()
 faker.add_provider(lorem)
@@ -41,21 +45,26 @@ class Command(BaseCommand):
     def handle(self, *args: str, **options: str) -> None:
         number = int(options["number"])
         for _ in range(number):
-            review = random.choice([review for review in Review])
+            review = random.choice([review for review in ReviewResult])
             self.funding_request(review_status=review)
 
     def funding_request(
         self,
         /,
-        review_status: Review = Review.Open,
+        review_status: ReviewResult = ReviewResult.Open,
     ) -> None:
         journal = self.journal()
         _ = LinkType.objects.get_or_create(name="DOI")
+        subject_area_vocabulary = GlobalPreferences.get_subject_classification_vocabulary()
+        publication_types_vocabulary = GlobalPreferences.get_article_publication_type_vocabulary()
+
+        random_subject = random.choice(list(subject_area_vocabulary.concepts))
+        random_publication_type = random.choice(list(publication_types_vocabulary.concepts))
 
         request = FundingRequest.new(
             Publication.new(
                 title=NonEmptyStr(faker.sentence()),
-                authors=AuthorList(),
+                other_authors=AuthorNames(),
                 journal=JournalId(journal.pk),
                 license=License.CC0,
                 open_access_type=OpenAccessType.Gold,
@@ -63,25 +72,37 @@ class Command(BaseCommand):
                     date.fromisoformat(faker.date()),
                     date.fromisoformat(faker.date()),
                 ),
+                subject_area=random_subject,
+                publication_type=random_publication_type,
                 links={Doi("10.1234/5678")},
             ),
-            Author.new(
-                name=NonEmptyStr(faker.name()),
-                email=faker.email(),
-                orcid=None,
-                affiliation=None,
-                roles=[Role.SUBMITTER],
-            ),
             Payment(amount=Money(100, Currency.USD), method=PaymentMethod.Direct),
-            ExternalFunding(
-                organization=FundingOrganizationId(self.funding_organization().pk),
-                project_id=NonEmptyStr(str(uuid4())),
-                project_name=faker.sentence(),
-            ),
+            external_funding=[
+                ExternalFunding(
+                    organization=FundingOrganizationId(self.funding_organization().pk),
+                    project_id=NonEmptyStr(str(uuid4())),
+                    project_name=faker.sentence(),
+                )
+            ],
+            extra_contact=self.extra_contact(),
         )
 
-        id = fundingrequest_create(request)
-        fundingrequest_perform_review(id, review_status)
+        request.id = repository.create(request)
+
+        review = Review(
+            request.id,
+            decided_funding=Money(100, Currency.EUR),
+            remarks=faker.sentence(),
+            result=review_status,
+        )
+
+        repository.save_review(review)
+
+    def extra_contact(self) -> FundingRequestContact:
+        return FilledContact(
+            name=NonEmptyStr(faker.name()),
+            email=faker.email(),
+        )
 
     def publisher(self) -> Publisher:
         return Publisher.objects.first() or Publisher.objects.create(name="Test Publisher")

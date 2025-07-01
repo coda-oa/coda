@@ -1,45 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1 class="my-2">
-        <span class="mr-1">Funding Request</span>
-        <small>
-            {% if funding_request.is_open %}
-                <span class="pill status-label open">Open</span>
-            {% elif funding_request.is_approved %}
-                <span class="pill status-label approved">Approved</span>
-            {% elif funding_request.is_rejected %}
-                <span class="pill status-label rejected">Rejected</span>
-            {% endif %}
-        </small>
-    </h1>
-    <div class="grid col-2">
+    <h1 class="my-2">Funding Request</h1>
+    <div class="fundingrequest__detail-grid">
         <div>
             <article>
-                <header class="flex justify-between align-center">
+                <header>
                     <h2 class="fundingrequest__detail-title">Request Details</h2>
-                    <a href="{% url "fundingrequests:update_submitter" pk=funding_request.id %}"
-                       role="button">Edit</a>
                 </header>
-                <table class="article__table fundingrequest-table">
+                <table class="fundingrequest-table">
                     <tbody>
                         <tr>
                             <th>Request ID</th>
                             <td>{{ funding_request.request_id }}</td>
-                            <td></td>
                         </tr>
                         <tr>
-                            <th>Request Submitter</th>
-                            <td>
-                                <p>{{ submitter.name }}</p>
-                                <p>{{ submitter.affiliation }}</p>
-                                <p>
-                                    {% for role in submitter.roles %}<span>{{ role }}</span>{% endfor %}
-                                </p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Created at</th>
-                            <td>{{ funding_request.created_at }}</td>
+                            <th>Request Date</th>
+                            <td>{{ funding_request.request_date }}</td>
                         </tr>
                         <tr>
                             <th>Last updated at</th>
@@ -50,11 +26,75 @@
             </article>
             <article>
                 <header class="flex justify-between align-center">
-                    <h2 class="fundingrequest__detail-title">Publication Details</h2>
-                    <a href="{% url "fundingrequests:update_publication" pk=funding_request.id %}"
+                    <h2 class="my-0">Additional Information</h2>
+                    <a href="{% url "fundingrequests:update_submitter" pk=funding_request.id %}"
                        role="button">Edit</a>
                 </header>
-                <table class="article__table fundingrequest-table">
+                <h3>Separate Contact Information</h3>
+                {% if contact %}
+                    <table class="fundingrequest-table">
+                        <tbody>
+                            <tr>
+                                <th>Name</th>
+                                <td>{{ contact.name }}</td>
+                            </tr>
+                            <tr>
+                                <th>E-Mail</th>
+                                <td>
+                                    <a href="mailto:{{ contact.email }}">{{ contact.email }}</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>No separate contact information provided.</p>
+                    <p>Communication goes through publication authors.</p>
+                {% endif %}
+                {% if publication.request_remarks %}
+                    <h3>Remarks by Request Submitter</h3>
+                    <blockquote>
+                        {{ publication.request_remarks }}
+                    </blockquote>
+                {% endif %}
+            </article>
+            <article>
+                <header class="flex justify-between align-center">
+                    <h2 class="fundingrequest__detail-title">Publication Details</h2>
+                    <a href="{{ publication.edit_url }}" role="button">Edit</a>
+                </header>
+                {% if publication.relevant_authors %}
+                    <h3 class="mt-1">Relevant Authors</h3>
+                    <table class="fundingrequest-authors-table">
+                        <thead>
+                            <tr>
+                                <td>Author</td>
+                                <td>E-Mail</td>
+                                <td>Orcid</td>
+                                <td>Affiliation</td>
+                                <td>Role</td>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for author in publication.relevant_authors %}
+                                <tr>
+                                    <td>{{ author.name }}</td>
+                                    <td>
+                                        <a href="mailto:{{ author.email }}">{{ author.email }}</a>
+                                    </td>
+                                    <td>{{ author.orcid }}</td>
+                                    <td>{{ author.affiliation }}</td>
+                                    <td>{{ author.role }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% endif %}
+                {% if publication.authors %}
+                    <h3>Other Authors</h3>
+                    <p>{{ publication.authors|join:", " }}</p>
+                {% endif %}
+                <h3>Publication Metadata</h3>
+                <table class="fundingrequest-table">
                     <tbody>
                         <tr>
                             <th>Title</th>
@@ -65,17 +105,15 @@
                             <td>{{ publication.publication_state }}</td>
                         </tr>
                         <tr>
-                            <th>Journal Title</th>
-                            <td>{{ publication.journal_title }}</td>
+                            <th>{{ publication.publishing_entity_type }}</th>
+                            <td>{{ publication.publishing_entity_name }}</td>
                         </tr>
-                        <tr>
-                            <th>Journal EISSN</th>
-                            <td>{{ publication.journal_eissn }}</td>
-                        </tr>
-                        <tr>
-                            <th>Authors</th>
-                            <td>{{ publication.authors|join:", " }}</td>
-                        </tr>
+                        {% if publication.publishing_entity_identifier %}
+                            <tr>
+                                <th>{{ publication.publishing_entity_identifier_name }}</th>
+                                <td>{{ publication.publishing_entity_identifier }}</td>
+                            </tr>
+                        {% endif %}
                         <tr>
                             <th>License</th>
                             <td>{{ publication.license }}</td>
@@ -93,15 +131,11 @@
                             <td>{{ publication.oa_type }}</td>
                         </tr>
                         <tr>
-                            <th>Publisher</th>
-                            <td>{{ publication.publisher_name }}</td>
-                        </tr>
-                        <tr>
                             <th>Contracts</th>
                             <td>
-                                {% for contract in publication.contracts %}
+                                {% for contract_year in publication.contracts %}
                                     <p>
-                                        <a href="{% url "contracts:detail" pk=contract.pk %}">{{ contract.name }}</a>
+                                        <a href="{% url "contracts:detail" pk=contract_year.contract.pk %}">{{ contract_year.contract.name }} ({{ contract_year.contract_year }})</a>
                                     </p>
                                 {% endfor %}
                             </td>
@@ -110,7 +144,7 @@
                 </table>
                 {% if publication.references %}
                     <h3 class="mt-1">References</h3>
-                    <table class="article__table fundingrequest-table">
+                    <table class="fundingrequest-table">
                         <tbody>
                             {% for link in publication.references %}
                                 <tr>
@@ -130,7 +164,7 @@
                     <a href="{% url "fundingrequests:update_funding" pk=funding_request.id %}"
                        role="button">Edit</a>
                 </header>
-                <table class="article__table fundingrequest-table">
+                <table class="fundingrequest-table">
                     <tbody>
                         <tr>
                             <th>Estimated Cost</th>
@@ -138,58 +172,80 @@
                         </tr>
                     </tbody>
                 </table>
-                {% if external_funding %}
-                    <h3 class="mt-1_5">Third party funding</h3>
-                    <table class="article__table fundingrequest-table">
-                        <tbody>
+                <h3 class="mt-1_5">External Research Funding</h3>
+                <table class="fundingrequest-table">
+                    <thead>
+                        <tr>
+                            <td>Organization</td>
+                            <td>Project ID</td>
+                            <td>Project Name</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for funding in external_funding %}
                             <tr>
-                                <th>Organization</th>
-                                <td>{{ external_funding.organization }}</td>
+                                <td>{{ funding.organization }}</td>
+                                <td>{{ funding.project_id }}</td>
+                                <td>{{ funding.project_name }}</td>
                             </tr>
-                            <tr>
-                                <th>Project ID</th>
-                                <td>{{ external_funding.project_id }}</td>
-                            </tr>
-                            <tr>
-                                <th>Project Name</th>
-                                <td>{{ external_funding.project_name }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
             </article>
         </div>
-        <aside class="vh-100 sticky">
-            <h2 class="my-1">Review</h2>
-            <hr>
-            <div class="flex">
+        <aside class="vh-100 sticky fundingrequest__review-panel">
+            <h2 class="my-1">
+                <span class="mr-1">Review</span>
                 {% if funding_request.is_open %}
-                    <form method="post" action="{% url "fundingrequests:approve" %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                        <button type="submit" class="status-label approved">Approve</button>
-                    </form>
-                    <form method="post" action="{% url "fundingrequests:reject" %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                        <button type="submit" class="status-label rejected">Reject</button>
-                    </form>
+                    <span class="pill status-label open">Open</span>
+                {% elif funding_request.is_approved %}
+                    <span class="pill status-label approved">Approved</span>
+                {% elif funding_request.is_rejected %}
+                    <span class="pill status-label rejected">Rejected</span>
+                {% elif funding_request.costs_waived %}
+                    <span class="pill status-label waived">Costs Waived</span>
                 {% else %}
-                    <form method="post" action="{% url "fundingrequests:open" %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
-                        <button type="submit">Re-open</button>
-                    </form>
+                    <span class="pill status-label closed">Closed</span>
                 {% endif %}
+            </h2>
+            <hr>
+            {% if checks %}
+                <h3>Checks</h3>
+                {% include "fundingrequests/partials/checkrun.html" %}
+            {% endif %}
+            <div class="mb-2">
+                {% if funding_request.is_approved %}
+                    <p class="mb-2">
+                        <b>Funding amount:</b> {{ funding_request.funding_amount }}
+                    </p>
+                {% endif %}
+                {% if funding_request.review_remarks %}
+                    <div class="mb-2">
+                        <p>
+                            <b>Remarks</b>
+                        </p>
+                        <p class="text-clamp">{{ funding_request.review_remarks }}</p>
+                    </div>
+                {% endif %}
+                <a href="{% url 'fundingrequests:review' pk=funding_request.id %}"
+                   role="button"
+                   class="secondary w-100">Submit Review</a>
             </div>
-            <h2 class="my-1">Labels</h2>
-            <hr>
-            {% include "fundingrequests/forms/label_attach.html" %}
-            <hr>
-            <div class="flex wrap">
-                {% for label in funding_request.labels %}
-                    {% include "fundingrequests/forms/label.html" %}
-                {% endfor %}
+            <div class="mb-2">
+                <h2 class="my-1">Payment Status</h2>
+                <hr>
+                {% include "fundingrequests/partials/payment_status.html" with payment_status=publication.payment_status %}
+            </div>
+            <div class="mb-2">
+                <h2 class="my-1">Labels</h2>
+                <hr>
+                {% include "fundingrequests/labels/label_attach.html" %}
+                <hr>
+                <div class="flex wrap">
+                    {% for label in funding_request.labels %}
+                        {% include "fundingrequests/labels/label.html" %}
+                    {% endfor %}
+                </div>
             </div>
         </aside>
     </div>

@@ -1,6 +1,6 @@
 import pytest
 
-from coda.string import NonEmptyStr
+from coda.domain.string import NonEmptyStr
 
 
 @pytest.mark.parametrize(

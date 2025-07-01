@@ -1,0 +1,15 @@
+<p>
+    <strong>{{ payment_status.status }}</strong>
+</p>
+{% if payment_status.invoice_number %}
+    <p>
+        Invoice:
+        <a href="{{ payment_status.url }}">{{ payment_status.invoice_number }}</a>
+    </p>
+{% endif %}
+{% if payment_status.contract_name %}
+    <p>
+        Contract:
+        <a href="{{ payment_status.url }}">{{ payment_status.contract_name }} ({{ payment_status.contract_year }})</a>
+    </p>
+{% endif %}

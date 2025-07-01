@@ -1,3 +1,4 @@
+import datetime
 from typing import Any, cast
 
 import pytest
@@ -6,12 +7,19 @@ from django.template.response import TemplateResponse
 from django.test import Client
 from django.urls import reverse
 
-from coda.apps.authors.models import Author
-from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.fundingrequests.services import label_attach, label_create
-from coda.color import Color
-from coda.fundingrequest import Review
-from tests import dtofactory, modelfactory
+from coda.apps.fundingrequests import repository
+from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
+from coda.apps.fundingrequests.services.labels import label_attach, label_create
+from coda.domain.color import Color
+from coda.domain.fundingrequest import AnyFundingRequest, FundingRequestId, Review
+from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import Currency, Money
+from coda.domain.publication import Authors
+from coda.domain.publication.publication import JournalId
+from coda.domain.string import NonEmptyStr
+from tests import domainfactory, modelfactory
 
 
 @pytest.mark.django_db
@@ -41,17 +49,17 @@ def test__searching_for_funding_requests_by_title__shows_only_matching_funding_r
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__searching_funding_request_by_submitter__shows_only_matching_funding_requests(
+def test__searching_funding_request_by_author__shows_only_matching_funding_requests(
     client: Client,
 ) -> None:
-    matching_request = modelfactory.fundingrequest()
-    submitter = cast(Author, matching_request.submitter)
+    matching_author = domainfactory.author()
+    matching_request = modelfactory.fundingrequest(authors=Authors([matching_author]))
 
-    non_matching_submitter = dtofactory.author_dto()
-    non_matching_submitter["name"] = "Not the submitter"
-    _ = modelfactory.fundingrequest("No match", non_matching_submitter)
+    non_matching_author = domainfactory.author()
+    non_matching_author.name = NonEmptyStr("Not the submitter")
+    _ = modelfactory.fundingrequest("No match", authors=Authors([non_matching_author]))
 
-    response = search_fundingrequests(client, by_submitter(submitter.name))
+    response = search_fundingrequests(client, by_submitter(matching_author.name))
 
     assert_contains(response.context, {matching_request})
 
@@ -90,17 +98,43 @@ def test__searching_for_funding_requests_by_process_state__shows_only_matching_f
     client: Client,
 ) -> None:
     approved_request = modelfactory.fundingrequest()
-    approved_request.approve()
+    approved_request_id = FundingRequestId(approved_request.id)
+    repository.save_review(Review(approved_request_id).approved(Money(100, Currency.EUR)))
 
     rejected_request = modelfactory.fundingrequest()
-    rejected_request.reject()
+    rejected_request_id = FundingRequestId(rejected_request.id)
+    repository.save_review(Review(rejected_request_id).rejected())
 
     in_progress_request = modelfactory.fundingrequest()  # noqa: F841
 
-    query = {"processing_status": [Review.Approved.value, Review.Rejected.value]}
+    query = {"processing_status": [ReviewResult.Approved.value, ReviewResult.Rejected.value]}
     response = search_fundingrequests(client, query)
 
     assert_contains(response.context, {approved_request, rejected_request})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_for_funding_requests_by_date__shows_matching_funding_requests(
+    client: Client,
+) -> None:
+    journal_id = JournalId(modelfactory.journal().id)
+    funding_org_id = FundingOrganizationId(modelfactory.funding_organization().id)
+    request_date = datetime.date(2023, 10, 1)
+    request_id = PublicFundingRequestId.create(request_date)
+
+    matching_request = domainfactory.fundingrequest(
+        journal_id=journal_id,
+        request_id=request_id,
+        funding_org_id=funding_org_id,
+    )
+    matching_request.id = repository.create(matching_request)
+
+    query = {"start_date": request_date.isoformat(), "end_date": request_date.isoformat()}
+    response = search_fundingrequests(client, query)
+
+    requests: set[AnyFundingRequest] = {matching_request}
+    assert_contains(response.context, requests)
 
 
 def search_fundingrequests(client: Client, query: dict[str, Any] | None = None) -> TemplateResponse:
@@ -112,10 +146,12 @@ def by_title(title: str) -> dict[str, str]:
 
 
 def by_submitter(submitter: str) -> dict[str, str]:
-    return {"search_type": "submitter", "search_term": submitter}
+    return {"search_type": "author", "search_term": submitter}
 
 
-def assert_contains(context: RequestContext, requests: set[FundingRequest]) -> None:
-    ids = [viewmodel.id for viewmodel in context["funding_requests"]]
+def assert_contains(
+    context: RequestContext, requests: set[FundingRequestModel] | set[AnyFundingRequest]
+) -> None:
+    ids = [viewmodel.id for viewmodel in context["entities"]]
     assert len(ids) == len(requests)
     assert all(request.id in ids for request in requests)

@@ -1,0 +1,11 @@
+{% load getlist %}
+<div class="form-row">
+    <label for="open_access_type">Open Access Type</label>
+    <search-select-multi id="open_access_type" name="open_access_type" class="w-100">
+    {% for status in open_access_types %}
+        <option slot="options"
+                value="{{ status }}"
+                {% if status in request.GET|getlist:"open_access_type" %}selected{% endif %}>{{ status }}</option>
+    {% endfor %}
+    </search-select-multi>
+</div>

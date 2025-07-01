@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1 class="my-2">Request Center</h1>
+    <section class="grid">
+        <article class="flex justify-between align-center">
+            <div>
+                <h2 class="my-1">Funding Requests</h2>
+                <p class="my-1">Manage, search and review funding requests.</p>
+            </div>
+            <a href="{% url "fundingrequests:list" %}"
+               role="button"
+               class="outline contrast">View</a>
+        </article>
+        <article class="flex justify-between align-center">
+            <div>
+                <h2 class="my-1">Funders</h2>
+                <p class="my-1">Manage external Research Funding Organizations.</p>
+            </div>
+            <a href="{% url "fundingrequests:funders" %}"
+               role="button"
+               class="outline contrast">View</a>
+        </article>
+    </section>
+{% endblock content %}

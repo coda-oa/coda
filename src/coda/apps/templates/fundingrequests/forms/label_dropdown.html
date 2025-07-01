@@ -1,20 +1,25 @@
 {% load getlist %}
-<details class="dropdown">
-    <summary>Labels</summary>
-    <ul>
-        {% for label in labels %}
-            <li>
-                <input type="checkbox"
-                       id="label-{{ label.pk }}"
-                       name="labels"
-                       value="{{ label.pk }}"
-                       {% if label.pk|stringformat:"i" in request.GET|getlist:"labels" %}checked{% endif %}>
-                <label class="label"
-                       for="label-{{ label.pk }}"
-                       style="--label-bg-color: {{ label.hexcolor }};
-                              --label-border-color: {{ label.hexcolor }};
-                              display: inline">{{ label.name }}</label>
-            </li>
-        {% endfor %}
-    </ul>
-</details>
+<div class="form-row">
+    <label for="labels">Labels</label>
+    <search-select-multi name="labels" class="w-100">
+    {% for label in labels %}
+        <option slot="options"
+                value="{{ label.pk }}"
+                {% if label.pk|stringformat:"i" in request.GET|getlist:"labels" %}selected{% endif %}>
+            {{ label.name }}
+        </option>
+    {% endfor %}
+    </search-select-multi>
+</div>
+<div class="form-row">
+    <label for="exclude_labels">Exclude labels</label>
+    <search-select-multi name="exclude_labels" class="w-100">
+    {% for label in labels %}
+        <option slot="options"
+                value="{{ label.pk }}"
+                {% if label.pk|stringformat:"i" in request.GET|getlist:"exclude_labels" %}selected{% endif %}>
+            {{ label.name }}
+        </option>
+    {% endfor %}
+    </search-select-multi>
+</div>

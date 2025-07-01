@@ -1,0 +1,17 @@
+from coda.apps.fundingrequests.views.creationwizard import FundingRequestCreationWizard
+from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
+from coda.apps.fundingrequests.views.wizard.steps.extrainformation_step import ExtraInformationStep
+from coda.apps.fundingrequests.views.wizard.steps.funding_step import FundingStep
+from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalStep
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
+from coda.apps.publications.dto import PublicationDto
+from coda.apps.wizard import SessionStore, Store
+
+
+class ArticleRequestWizard(FundingRequestCreationWizard[PublicationDto]):
+    store_name = "funding_request_wizard"
+    store_factory = SessionStore
+    steps = [JournalStep(), PublicationStep.for_article(), FundingStep(), ExtraInformationStep()]
+
+    def parse_publication(self, store: Store) -> PublicationDto:
+        return publication_dto_from(store)

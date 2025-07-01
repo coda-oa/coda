@@ -1,9 +1,7 @@
-from collections.abc import Iterable
-
 from django.db import models
 
 from coda.apps.institutions.models import Institution
-from coda.author import Role
+from coda.domain.author import Role
 
 
 class PersonId(models.Model):
@@ -12,20 +10,24 @@ class PersonId(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
-ROLE_SERIALIZE_SEPARATOR = "||"
+def serialize_role(role: Role) -> str:
+    return role.name
 
 
-def serialize_roles(roles: Iterable[Role]) -> str:
-    return ROLE_SERIALIZE_SEPARATOR.join(role.name for role in roles)
-
-
-def deserialize_roles(serialized: str) -> Iterable[Role]:
-    return (Role[role] for role in serialized.split(ROLE_SERIALIZE_SEPARATOR))
+def deserialize_role(serialized: str) -> Role:
+    return Role[serialized]
 
 
 class Author(models.Model):
     name = models.CharField(max_length=255)
     email = models.EmailField(null=True)
+    publication = models.ForeignKey(
+        "publications.Publication",
+        on_delete=models.CASCADE,
+        related_name="relevant_authors",
+        null=True,
+    )
+
     affiliation = models.ForeignKey(
         Institution,
         on_delete=models.SET_NULL,
@@ -41,12 +43,3 @@ class Author(models.Model):
     )
     roles = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-
-    def get_roles(self) -> set[Role]:
-        if self.roles:
-            return set(deserialize_roles(self.roles))
-        return set()
-
-    def set_roles(self, roles: Iterable[Role]) -> None:
-        self.roles = serialize_roles(roles)
-        self.save()

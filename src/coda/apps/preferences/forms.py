@@ -1,7 +1,7 @@
 from django import forms
 
 from coda.apps.preferences.models import GlobalPreferences
-from coda.money import Currency
+from coda.domain.money import Currency
 
 
 class GlobalPreferencesForm(forms.ModelForm[GlobalPreferences]):

@@ -1,0 +1,32 @@
+.text-ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.text-nowrap {
+    white-space: nowrap;
+    text-wrap: nowrap;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-v-center {
+    vertical-align: middle;
+}
+
+a.undecorated {
+    text-decoration: none;
+}
+
+.text-clamp {
+    --_num-lines: 3;
+
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--_num-lines);
+    line-clamp: var(--_num-lines);
+    overflow: hidden;
+}

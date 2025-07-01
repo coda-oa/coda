@@ -1,0 +1,58 @@
+.flex {
+    --coda-gap: 1rem;
+    display: flex;
+    flex-direction: row;
+    gap: var(--coda-gap);
+}
+
+.flex-basis-80 {
+    flex-basis: 80%;
+}
+
+.justify-around {
+    justify-content: space-around;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.justify-start {
+    justify-content: flex-start;
+}
+
+.justify-end {
+    justify-content: flex-end;
+}
+
+.justify-self-end {
+    justify-self: end;
+}
+
+.align-center {
+    align-items: center;
+}
+
+.align-start {
+    align-items: start;
+}
+
+.align-end {
+    align-items: end;
+}
+
+.wrap {
+    flex-wrap: wrap;
+}
+
+.gap-2 {
+    gap: calc(var(--coda-spacing) * 2);
+}
+
+.summary-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-right: 1.5rem;
+    /* Adjust this value as needed */
+}

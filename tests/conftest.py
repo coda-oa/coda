@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import pytest
 from django.core.management import call_command
@@ -15,8 +16,8 @@ def logged_in(client: Client) -> None:
     client.force_login(User.objects.create_user("testuser"))
 
 
-@pytest.fixture(autouse=True, scope="module")
-def populate_database(django_db_blocker: DjangoDbBlocker) -> None:
+@pytest.fixture(autouse=True, scope="session")
+def populate_database(django_db_setup: Any, django_db_blocker: DjangoDbBlocker) -> None:
     with django_db_blocker.unblock():
         fixtures = list((BASE_DIR / "config/fixtures").glob("*.json"))
         call_command("loaddata", *fixtures)

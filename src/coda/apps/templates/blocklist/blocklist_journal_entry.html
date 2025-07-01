@@ -1,0 +1,24 @@
+<article class="flex justify-between align-center">
+    <div>
+        <p class="mb-1">{{ blocked_journal.get_title }}</p>
+        <p class="mb-2">Publisher: {{ blocked_journal.get_publisher }}</p>
+        <p class="mb-0_5">
+            <span class="label danger">{{ blocked_journal.get_reason_display }}</span>
+            {% if blocked_journal.needs_review %}<span class="label warning">Needs Review</span>{% endif %}
+        </p>
+    </div>
+    <div>
+        {% if blocked_journal.needs_review %}
+            <button type="button"
+                    class="my-0 danger"
+                    hx-post="{% url "blocklist:confirm_block" pk=blocked_journal.get_journal_id %}"
+                    hx-swap="outerHTML"
+                    hx-target="closest article">Confirm Block</button>
+        {% endif %}
+        <button type="button"
+                class="my-0 secondary"
+                hx-target="closest article"
+                hx-post="{% url "blocklist:unblock_journal" pk=blocked_journal.get_journal_id %}"
+                hx-swap="delete">Unblock</button>
+    </div>
+</article>

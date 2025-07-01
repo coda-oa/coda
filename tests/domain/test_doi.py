@@ -1,6 +1,6 @@
 import pytest
 
-from coda.doi import Doi
+from coda.domain.publication.links import Doi
 
 
 def test_can_create_doi() -> None:
@@ -40,4 +40,4 @@ def test__doi_prefix_must_start_with_10_point(invalid_doi: str) -> None:
 def test__doi__url__returns_url() -> None:
     sut = Doi("10.1234/foobar")
 
-    assert sut.url == f"https://doi.org/{sut}"
+    assert sut.url() == f"https://doi.org/{sut}"

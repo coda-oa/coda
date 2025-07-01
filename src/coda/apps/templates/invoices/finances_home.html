@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+    <h2 class="my-2">Finances</h2>
+    <div class="grid">
+        <article class="flex justify-between align-center">
+            <div>
+                <h2 class="my-1">Invoices</h2>
+                <p>Manage and search Invoices.</p>
+            </div>
+            <a href="{% url "invoices:list" %}"
+               role="button"
+               class="outline contrast">View</a>
+        </article>
+        <article class="flex justify-between align-center">
+            <div>
+                <h2 class="my-1">Creditors</h2>
+                <p>Manage Creditors.</p>
+            </div>
+            <a href="{% url "invoices:creditor_list" %}"
+               role="button"
+               class="outline contrast">View</a>
+        </article>
+        <article class="flex justify-between align-center gap-2">
+            <div>
+                <h2 class="my-1">Funding Sources</h2>
+                <p>Manage Funding Sources for Invoice positions.</p>
+            </div>
+            <a href="{% url "invoices:fundingsource_list" %}"
+               role="button"
+               class="outline contrast">View</a>
+        </article>
+    </div>
+{% endblock content %}

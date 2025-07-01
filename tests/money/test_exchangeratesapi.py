@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from coda.money import Currency
-from coda.money.exchangeratesapi import ExchangeRateApiJsonSchema, exchange_api
+from coda.domain.money import Currency
+from coda.domain.money.exchangeratesapi import ExchangeRateApiJsonSchema, exchange_api
 
 
 EXCHANGE_DATA_PATH = Path(__file__).parent / "exchangeapi_result.json"

@@ -1,32 +1,126 @@
-from typing import TypedDict
+import datetime
+from collections.abc import Iterable
+from typing import Annotated
 
-from coda.fundingrequest import ExternalFunding, FundingOrganizationId, Payment, PaymentMethod
-from coda.money import Currency, Money
-from coda.string import NonEmptyStr
+from pydantic import AfterValidator, Field
+
+from coda.apps.dto import CodaBaseDto
+from coda.apps.publications.dto import PublicationBaseDto
+from coda.domain.fundingrequest import (
+    ExternalFunding,
+    FilledContact,
+    FundingOrganizationId,
+    FundingRequestContact,
+    NoContact,
+    Payment,
+    PaymentMethod,
+)
+from coda.domain.money import Currency, Money
+from coda.domain.string import NonEmptyStr
 
 
-class CostDto(TypedDict):
-    estimated_cost: float
-    estimated_cost_currency: str
-    payment_method: str
+class PaymentDto(CodaBaseDto):
+    """
+    A serializable representation of a Payment object.
+
+    Attributes:
+        estimated_cost (float): The estimated cost of the payment.
+        currency_code: str
+        method (str): The method of payment.
+    """
+
+    amount: float
+    currency: str
+    method: str
+
+    @classmethod
+    def from_payment(cls, payment: Payment) -> "PaymentDto":
+        """Creates a CostDto instance from a Payment object."""
+        return cls(
+            amount=payment.amount.amount,
+            currency=payment.amount.currency.code,
+            method=payment.method.value,
+        )
+
+    def to_payment(self) -> Payment:
+        """Converts the CostDto instance to a Payment object."""
+        return Payment(
+            amount=Money(str(self.amount), Currency.from_code(self.currency)),
+            method=PaymentMethod(self.method.lower()),
+        )
 
 
-class ExternalFundingDto(TypedDict):
-    organization: int
-    project_id: str
+class ExternalFundingDto(CodaBaseDto):
+    """
+    Data Transfer Object (DTO) for external funding information.
+
+    Attributes:
+        organization (FundingOrganizationId): The ID of the funding organization.
+        project_id (Annotated[str, AfterValidator(NonEmptyStr)]): The ID of the project, validated to be a non-empty string.
+        project_name (str): The name of the project.
+    """
+
+    organization: FundingOrganizationId
+    project_id: Annotated[str, AfterValidator(NonEmptyStr)]
     project_name: str
 
+    @classmethod
+    def from_external_funding(cls, external_funding: ExternalFunding) -> "ExternalFundingDto":
+        """Creates an instance of ExternalFundingDto from an ExternalFunding object."""
+        return cls(
+            organization=external_funding.organization,
+            project_id=external_funding.project_id,
+            project_name=external_funding.project_name,
+        )
 
-def parse_external_funding(external_funding: ExternalFundingDto) -> ExternalFunding:
-    return ExternalFunding(
-        organization=FundingOrganizationId(external_funding["organization"]),
-        project_id=NonEmptyStr(external_funding["project_id"]),
-        project_name=external_funding["project_name"],
-    )
+    def to_external_funding(self) -> ExternalFunding:
+        """Converts the ExternalFundingDto instance to an ExternalFunding object."""
+        return ExternalFunding(
+            organization=self.organization,
+            project_id=NonEmptyStr(self.project_id),
+            project_name=self.project_name,
+        )
 
 
-def parse_payment(cost: CostDto) -> Payment:
-    return Payment(
-        amount=Money(str(cost["estimated_cost"]), Currency[cost["estimated_cost_currency"]]),
-        method=PaymentMethod(cost["payment_method"].lower()),
-    )
+class ExtraContactDto(CodaBaseDto):
+    """
+    Data Transfer Object (DTO) for extra contact information.
+
+    Attributes:
+        name (str): The name of the contact.
+        email (str): The email address of the contact.
+    """
+
+    name: str | None = None
+    email: str | None = None
+
+    @classmethod
+    def from_contact(cls, contact: FundingRequestContact) -> "ExtraContactDto":
+        """Creates an instance of ExtraContactDto from a FundingRequestContact object."""
+        return cls(name=contact.name, email=contact.email)
+
+    def to_contact(self) -> FundingRequestContact:
+        """Converts the ExtraContactDto instance to a FundingRequestContact object."""
+        if self.name and self.email:
+            return FilledContact(name=NonEmptyStr(self.name), email=self.email)
+        else:
+            return NoContact
+
+
+class ExtraInformationDto(CodaBaseDto):
+    extra_contact: ExtraContactDto = Field(default_factory=ExtraContactDto)
+    request_remarks: str = ""
+
+
+class ReviewDto(CodaBaseDto):
+    decided_funding_amount: float
+    decided_funding_currency: str
+    reviewer_remarks: str
+
+
+class CreateFundingRequestDto(CodaBaseDto):
+    publication: PublicationBaseDto
+    payment: PaymentDto
+    extra_information: ExtraInformationDto
+    funding: Iterable[ExternalFundingDto] = ()
+    request_date: datetime.date = Field(default_factory=datetime.date.today)

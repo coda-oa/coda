@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1 class="my-2">Import Funding Requests</h1>
+    <article>
+        <form action="{% url "fundingrequests:import" %}"
+              method="post"
+              enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form }}
+            <button type="submit" class="max-fit-content">Save</button>
+        </form>
+    </article>
+    {% if import_errors %}
+        <section>
+            <h2 class="my-2">Import Errors</h2>
+            <textarea rows="10" readonly>
+{{ import_errors|join:"&#10;" }}
+            </textarea>
+        </section>
+    {% endif %}
+{% endblock content %}

@@ -1,125 +1,89 @@
-import pytest
+import datetime
 
-from coda.author import Author, AuthorId
-from coda.fundingrequest import (
-    ExternalFunding,
-    FundingOrganizationId,
-    FundingRequest,
-    FundingRequestId,
-    FundingRequestLocked,
-    Payment,
-    PaymentMethod,
-    Review,
-)
-from coda.money import Currency, Money
-from coda.publication import JournalId, Publication, PublicationId
-from coda.string import NonEmptyStr
+from coda.domain.fundingrequest import Review
+from coda.domain.fundingrequest import FundingRequest
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import Currency, Money
+from coda.domain.publication import JournalId, Publication, PublicationId
+from coda.domain.string import NonEmptyStr
+from tests import domainfactory
 
 
-def make_sut() -> FundingRequest:
-    sut = FundingRequest(
-        id=FundingRequestId(8),
-        publication=Publication(
-            id=PublicationId(8),
-            title=NonEmptyStr("Publication Title"),
-            journal=JournalId(3),
-        ),
-        submitter=Author(AuthorId(1), NonEmptyStr("John Doe")),
-        estimated_cost=Payment(
-            Money(100, Currency.EUR),
-            PaymentMethod.Direct,
-        ),
-        external_funding=ExternalFunding(
-            organization=FundingOrganizationId(1),
-            project_id=NonEmptyStr("123"),
-            project_name="Project Name",
-        ),
+def make_sut(review: Review | None = None) -> FundingRequest[Publication]:
+    return domainfactory.fundingrequest(review=review)
+
+
+def test__fundingrequest__date_of_request_id__is_date_of_fundingrequest() -> None:
+    date = datetime.date(2024, 9, 6)
+    request_id = PublicFundingRequestId.create(date)
+    sut = FundingRequest.new(
+        request_id=request_id,
+        publication=domainfactory.publication(),
+        estimated_cost=domainfactory.payment(),
     )
 
-    return sut
-
-
-@pytest.fixture(params=[Review.Rejected, Review.Approved])
-def closed_request(request: pytest.FixtureRequest) -> FundingRequest:
-    status: Review = request.param
-    sut = make_sut()
-    sut.add_review(status)
-    return sut
+    assert sut.request_date == date
 
 
 def test__new_fundingrequest__has_open_review() -> None:
     sut = make_sut()
 
-    assert sut.review() == Review.Open
+    assert sut.review() == ReviewResult.Open
 
 
-def test__open_fundingrequest__add_approved_review__changes_status_to_approved() -> None:
-    sut = make_sut()
+def test__approved_fundingrequest__is_approved_and_not_open() -> None:
+    sut = make_sut(
+        Review(
+            decided_funding=Money(100, Currency.EUR),
+            result=ReviewResult.Approved,
+            remarks="Approved",
+        )
+    )
 
-    sut.add_review(Review.Approved)
-
-    assert sut.review() == Review.Approved
-
-
-def test__open_fundingrequest__reject__changes_status_to_rejected() -> None:
-    sut = make_sut()
-
-    sut.add_review(Review.Rejected)
-
-    assert sut.review() == Review.Rejected
-
-
-def test__rejected_fundingrequest__open__changes_status_to_open(
-    closed_request: FundingRequest,
-) -> None:
-    sut = closed_request
-
-    sut.open()
-
-    assert sut.review() == Review.Open
-
-
-def test__closed_fundingrequest__changing_publication__raises_error(
-    closed_request: FundingRequest,
-) -> None:
-    sut = closed_request
-    old_journal = sut.publication.journal
-
-    with pytest.raises(FundingRequestLocked):
-        sut.publication = new_publication()
-
-    assert sut.publication.journal == old_journal
-
-
-def test__closed_fundingrequest__changing_submitter__raises_error(
-    closed_request: FundingRequest,
-) -> None:
-    sut = closed_request
-
-    with pytest.raises(FundingRequestLocked):
-        sut.submitter = Author(AuthorId(2), NonEmptyStr("Jane Doe"))
-
-    assert sut.submitter.id == AuthorId(1)
-    assert sut.submitter.name == NonEmptyStr("John Doe")
-
-
-def test__closed_then_reopened_fundingrequest__can_change_publication_again(
-    closed_request: FundingRequest,
-) -> None:
-    sut = closed_request
-    sut.open()
-
-    sut.publication = new_publication()
-
-    assert sut.publication == new_publication()
-
-
-def test__closed_fundingrequest__is_open__is_false(closed_request: FundingRequest) -> None:
-    sut = closed_request
+    assert sut.is_approved()
     assert not sut.is_open()
+
+
+def test__rejected_fundingrequest__is_rejected_and_not_open() -> None:
+    sut = make_sut(Review(result=ReviewResult.Rejected, remarks="Rejected"))
+
+    assert sut.is_rejected()
+    assert not sut.is_open()
+
+
+def test__fundingrequest_with_waived_costs__is_not_open_approved_or_rejected() -> None:
+    sut = make_sut(
+        Review(
+            result=ReviewResult.Waived,
+            remarks="Waived",
+        )
+    )
+
+    assert sut.costs_waived()
+    assert not sut.is_open()
+    assert not sut.is_rejected()
+    assert not sut.is_approved()
+
+    assert sut.funding_amount == Money(0, Currency.EUR)
+
+
+def test__closed_fundingrequest__is_not_open() -> None:
+    sut = make_sut(
+        Review(
+            result=ReviewResult.Closed,
+            remarks="Closed",
+        )
+    )
+
+    assert not sut.is_open()
+    assert not sut.is_rejected()
+    assert not sut.is_approved()
 
 
 def new_publication() -> Publication:
     return Publication(
-        id=PublicationId(999), title=NonEmptyStr("Publication Title"), journal=JournalId(999)
+        id=PublicationId(999),
+        title=NonEmptyStr("Publication Title"),
+        journal=JournalId(999),
     )

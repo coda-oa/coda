@@ -1,0 +1,14 @@
+<article class="flex justify-between align-center">
+    <span class="label"
+          style="--label-bg-color: {{ entity.hexcolor }};
+                 --label-border-color: {{ entity.hexcolor }}">{{ entity.name }}</span>
+    <div>
+        <a href="{% url "fundingrequests:label_update" pk=entity.pk %}"
+           role="button"
+           class="secondary">Edit</a>
+        <button class="danger"
+                hx-delete="{% url "fundingrequests:label_delete" pk=entity.pk %}"
+                hx-target="closest article"
+                hx-swap="delete">Delete</button>
+    </div>
+</article>

@@ -1,52 +1,8 @@
 {% extends "base.html" %}
-{% load param_replace %}
 {% block content %}
-    <div class="flex justify-between align-center my-2">
-        <h1>Funding Requests</h1>
-        <a href="{% url "fundingrequests:create_wizard" %}"
-           class="secondary"
-           role="button">New</a>
-    </div>
+    {% include "fundingrequests/fundingrequest_list_title_bar.html" with entity_name="Funding Requests" entity_create_url="fundingrequests:create_wizard" entity_secondary_create_url="fundingrequests:create_monograph" %}
     <div class="my-2">{% include "fundingrequests/forms/fundingrequest_filter.html" %}</div>
-    <ul class="no-decoration">
-        {% for fr in funding_requests %}
-            <li>
-                <article class="fundingrequest">
-                    <p class="text-ellipsis mb-0_5">
-                        <a href="{% url "fundingrequests:detail" pk=fr.id %}">{{ fr.publication_title }}</a>
-                    </p>
-                    <p class="mb-1_5">
-                        <i><small>last updated at {{ fr.updated_at }}</small></i>
-                    </p>
-                    <p>Submitted by: {{ fr.submitter_name }}</p>
-                    <p class="text-ellipsis">
-                        Journal: <a href="{{ fr.journal_url }}">{{ fr.journal_title }}</a>
-                    </p>
-                    <p class="flex justify-between mt-1_5">
-                        <small>
-                            {% if fr.status == "open" %}
-                                <span class="pill open status-label">Open</span>
-                            {% elif fr.status == "approved" %}
-                                <span class="pill approved status-label">Approved</span>
-                            {% elif fr.status == "rejected" %}
-                                <span class="pill rejected status-label">Rejected</span>
-                            {% else %}
-                                <span>{{ fr.status }}</span>
-                            {% endif %}
-                        </small>
-                        <span>
-                            {% url "fundingrequests:list" as list_url %}
-                            {% for label in fr.labels %}
-                                <a href="{{ list_url }}?{% param_replace labels=label.id %}">
-                                    <small class="label pill"
-                                           style="--label-bg-color: {{ label.hexcolor }};
-                                                  --label-border-color: {{ label.hexcolor }}">{{ label.name }}</small></a>
-                            {% endfor %}
-                        </span>
-                    </p>
-                </article>
-            </li>
-        {% endfor %}
-    </ul>
+    {% include "partials/pagination_nav.html" %}
+    {% include "entity_list.html" with list_item_template="fundingrequests/fundingrequest_list_item.html" %}
     {% include "partials/pagination_nav.html" %}
 {% endblock content %}

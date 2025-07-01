@@ -1,8 +1,23 @@
-<div class="grid my-2">
-    {% if stepper.current > 1 %}<button type="submit" name="action" value="back">Back</button>{% endif %}
-    {% if stepper.current == stepper.total %}
-        <button type="submit" name="action" value="next">Save</button>
-    {% else %}
-        <button type="submit" name="action" value="next">Next</button>
+<div class="wizard-nav">
+    <div class="wizard-nav__progress">
+        {% if stepper.current > 1 %}
+            <button type="submit" name="action" value="back" class="secondary">Back</button>
+        {% else %}
+            <button type="submit" name="action" value="back" class="secondary" disabled>Back</button>
+        {% endif %}
+        {% if allow_early_complete and stepper.current != stepper.total %}
+            <button type="submit" name="action" value="complete_early" class="secondary">Save step and exit</button>
+        {% endif %}
+        {% if stepper.current == stepper.total %}
+            <button type="submit" name="action" value="next">Save</button>
+        {% else %}
+            <button type="submit" name="action" value="next">Next</button>
+        {% endif %}
+    </div>
+    {% if cancel_redirect_url %}
+        <a href="{{ cancel_redirect_url }}"
+           class="danger w-100"
+           role="button"
+           onclick="return confirm('Do you really want to cancel?')">Cancel</a>
     {% endif %}
 </div>

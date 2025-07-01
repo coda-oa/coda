@@ -1,17 +1,18 @@
+from dataclasses import asdict
 from typing import cast
 
 import pytest
 from django.core.exceptions import ValidationError
 from django.test import Client
 
-from coda.apps.authors.dto import to_author_dto
+from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.models import PersonId
 from coda.apps.authors.services import as_domain_object, author_create, author_update, get_by_id
 from coda.apps.institutions.models import Institution
-from coda.author import Author, InstitutionId
-from coda.orcid import Orcid
-from coda.string import NonEmptyStr
+from coda.domain.author import Author, InstitutionId
+from coda.domain.orcid import Orcid
+from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory, test_orcid
 
 JOSIAHS_DATA = Author.new(
@@ -58,6 +59,23 @@ def test__updating_author__saves_updated_author_to_db() -> None:
 
 
 @pytest.mark.django_db
+def test__can_update_author_with_existing_orcid() -> None:
+    existing = domainfactory.author()
+    existing.orcid = Orcid(test_orcid.JOSIAH_CARBERRY)
+    author_create(existing)
+
+    another = domainfactory.author()
+    new_id = author_create(another)
+
+    another.id = new_id
+    another.orcid = Orcid(test_orcid.JOSIAH_CARBERRY)
+
+    author_update(another)
+
+    assert get_by_id(new_id).orcid == Orcid(test_orcid.JOSIAH_CARBERRY)
+
+
+@pytest.mark.django_db
 def test__updating_author__without_id__raises_error() -> None:
     author = domainfactory.author()
     author_create(author)
@@ -71,7 +89,7 @@ def test__updating_author__without_id__raises_error() -> None:
 def test__details_already_exist__reuses_existing_person(client: Client) -> None:
     author_create(JOSIAHS_DATA)
 
-    form_data = JOSIAHS_DATA._asdict()
+    form_data = asdict(JOSIAHS_DATA)
     form_data.pop("id")
     form_data["affiliation"] = ""
     client.post("/authors/create/", form_data)
@@ -87,10 +105,10 @@ def test__given_institution_exits__when_author_is_affiliated__author_is_saved_wi
     institution.save()
 
     affiliation = institution.pk
-    josiah = to_author_dto(JOSIAHS_DATA)
-    josiah["affiliation"] = affiliation
+    josiah = AuthorDto.from_author(JOSIAHS_DATA)
+    josiah.affiliation = InstitutionId(affiliation)
 
-    client.post("/authors/create/", josiah)
+    client.post("/authors/create/", josiah.to_post_data())
 
     author = as_domain_object(cast(AuthorModel, AuthorModel.objects.first()))
     assert author.affiliation == affiliation

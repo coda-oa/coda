@@ -1,0 +1,22 @@
+<article class="grid align-center">
+    <div>
+        <p class="my-0">{{ entity.name }}</p>
+        {% if entity.parent %}
+            <p class="my-0">
+                <small><i>Part of {{ entity.parent.name }}</i></small>
+            </p>
+        {% endif %}
+    </div>
+    <div class="justify-self-end">
+        <label for="id-institution-selectable">
+            <span class="mr-1">Usable as author affiliation</span>
+            <input type="checkbox"
+                   role="switch"
+                   id="id-institution-selectable"
+                   name="institution-selectable"
+                   hx-post="{% url 'institutions:toggle_selectable' pk=entity.id %}"
+                   hx-swap="none"
+                   {% if not entity.virtual %}checked{% endif %}>
+        </label>
+    </div>
+</article>

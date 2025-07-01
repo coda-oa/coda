@@ -15,30 +15,6 @@ search-select:not(:defined) {
   text-decoration: none;
 }
 
-.login_logout_button {
-  padding: 0.5rem;
-  margin: 0;
-
-  a:hover {
-    text-decoration: none;
-  }
-}
-
-ul.no-decoration {
-  padding: 0;
-  margin: 0;
-  list-style-type: none;
-}
-
-ul.no-decoration>li {
-  list-style-type: none;
-}
-
-.inline-search-pill {
-  border-top-right-radius: var(--coda-pill-border-radius);
-  border-bottom-right-radius: var(--coda-pill-border-radius);
-}
-
 .pill {
   padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
   border-radius: var(--coda-pill-border-radius);
@@ -46,139 +22,6 @@ ul.no-decoration>li {
   white-space: nowrap;
 }
 
-.text-ellipsis {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.fundingrequest__detail-title {
-  margin-block: 0;
-}
-
-.article__table {
-  width: 100%;
-  margin-block-end: 0;
-}
-
-.article__table tr,
-.article__table th,
-.article__table td {
-  background-color: var(--coda-card-background-color);
-}
-
-.article__table tbody tr:last-child td,
-.article__table tbody tr:last-child th {
-  border-bottom: none;
-}
-
-.fundingrequest-table tbody tr>th,
-.fundingrequest-table tr>td:first-child {
-  width: 30ch;
-}
-
-.status-label {
-  background-color: var(--_status-color, transparent);
-  color: var(--coda-validation-text-color);
-
-  &.approved {
-    --_status-color: var(--coda-validation-valid-color);
-  }
-
-  &.rejected {
-    --_status-color: var(--coda-validation-invalid-color);
-  }
-
-  &.open {
-    --_status-color: var(--coda-primary-background);
-  }
-}
-
-.journal__search-results__scroll-container {
-  max-height: 70vh;
-  overflow-y: auto;
-}
-
-.journal__search-results__scroll-container thead th {
-  position: sticky;
-  top: 0;
-}
-
-.invoice-position-number-column {
-  width: 3ch;
-}
-
-.invoice-position-name-column {
-  width: 28ch;
-}
-
-.invoice-position-tax-column {
-  width: 12ch;
-}
-
-.invoice-position-cost-type-column {
-  width: 25ch;
-}
-
-.invoice-position-cost-column {
-  width: 28ch;
-}
-
-.invoice-position-request-link-column {
-  width: 10ch;
-}
-
-.invoice-position-request-link {
-  font-size: 1.5rem;
-}
-
-.invoice-position-request-link a {
-  display: inline-block;
-  margin-bottom: var(--coda-spacing);
-}
-
-.invoice-position-add-button {
-  width: 100%;
-}
-
-.invoice-add-position-name-column {
-  width: calc(31ch + var(--coda-spacing) / 2);
-}
-
-.label {
-  --label-text-color: color-mix(in srgb, var(--label-border-color) 80%, white);
-  padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
-  width: fit-content;
-  text-wrap: nowrap;
-
-  background: color-mix(in hsl, var(--label-bg-color) 25%, transparent 75%);
-  border: 1px solid var(--label-border-color);
-  border-radius: var(--coda-border-radius);
-  color: var(--label-text-color);
-}
-
-a:has(.label) {
-  text-decoration: none;
-}
-
-.label__button-remove {
-  flex: 0;
-  display: inline-block;
-  color: var(--label-text-color);
-  text-decoration: none;
-  background: none;
-  border: none;
-  margin: 0;
-  padding: 0;
-}
-
-details.dropdown>ul:has(.label) {
-  padding-block: 0.5rem;
-}
-
-details.dropdown>ul:has(.label)>li {
-  padding-block: 0.75rem;
-}
 
 .pagination__current {
   border: 1px solid var(--coda-primary-border);
@@ -192,26 +35,36 @@ details.dropdown>ul:has(.label)>li {
 }
 
 .messages {
-  --_message-background-color: none;
   padding: var(--coda-spacing) !important;
   margin-block: var(--coda-spacing) !important;
-  background-color: var(--_message-background-color);
+  background-color: var(--_background-color);
   border-radius: var(--coda-border-radius);
   color: white;
+}
 
-  &.info {
-    --_message-background-color: var(--coda-primary-border);
-  }
+.wizard-nav {
+  position: sticky;
+  bottom: var(--coda-spacing);
+  margin-block-start: calc(var(--coda-spacing) * 2);
+  margin-inline: var(--coda-spacing);
+  padding: var(--coda-spacing);
 
-  &.success {
-    --_message-background-color: var(--coda-validation-valid-color);
-  }
+  background-color: hsl(from var(--coda-card-background-color) h s l / 0.4);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--pico-box-shadow);
 
-  &.error {
-    --_message-background-color: var(--coda-validation-invalid-color);
-  }
+  border: 1px solid var(--coda-muted-border-color);
+  border-radius: var(--coda-border-radius);
+}
 
-  &.warning {
-    --_message-background-color: rgb(205, 130, 10);
-  }
+
+.wizard-nav__progress {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--coda-spacing);
+}
+
+
+.wizard-nav > button {
+  margin: 0;
 }

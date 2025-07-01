@@ -1,22 +1,38 @@
-:root {
+:root,
+:root:not([data-theme]),
+:root[data-theme="light"],
+:host,
+:host:not([data-theme]),
+:host([data-theme="light"]) {
   /* CODA Variables */
-  --coda-line-height: 1.15;
-  --coda-font-size: 110%;
+  --coda-line-height: 1;
+  --coda-font-size: 100%;
+
+  --coda-primary: hsl(216, 60%, 45%);
+  --coda-primary-hover: hsl(216, 60%, 35%);
 
   --coda-background-color: var(--pico-background-color);
 
-  --coda-primary-background: var(--pico-primary-background);
+  --coda-primary-background: rgb(40, 80, 150);
+  --coda-primary-background-hover: rgb(50, 90, 160);
+
+  --coda-secondary-background: hsl(240, 10%, 40%);
+  --coda-secondary-background-hover: hsl(240, 10%, 45%);
+
   --coda-primary-border: var(--pico-primary-border);
 
   --coda-secondary-inverse: var(--pico-secondary-inverse);
-  --coda-secondary-background: var(--pico-secondary-background);
 
-  --coda-muted-border-color: var(--pico-muted-border-color);
-
+  --coda-form-element-background-color: var(--pico-form-element-background-color);
   --coda-form-element-spacing-vertical: var(--pico-form-element-spacing-vertical);
   --coda-form-element-spacing-horizontal: var(--pico-form-element-spacing-horizontal);
 
+  --coda-card-header-background-color: var(--pico-card-sectioning-background-color);
+
+  --coda-border-color: var(--pico-form-element-border-color);
+  --coda-muted-border-color: var(--pico-muted-border-color);
   --coda-border-radius: var(--pico-border-radius);
+  --coda-border-width: var(--pico-border-width);
 
   --coda-pill-border-radius: 50px;
   --coda-pill-padding-vertical: 0.35rem;
@@ -33,27 +49,50 @@
   --coda-spacing: var(--pico-spacing);
   --coda-gap: var(--coda-spacing);
 
+}
+
+@media screen and (prefers-color-scheme: dark) {
+
+  :root:not([data-theme]), :host:not([data-theme]) {
+    --coda-background-color: rgb(13, 13, 13);
+    --coda-card-background-color: rgb(18, 18, 18);
+    --coda-form-element-background-color: rgb(24, 24, 24);
+    --coda-card-header-background-color: rgb(24, 24, 24);
+
+    --coda-primary: hsl(218, 85%, 65%);
+    --coda-primary-hover: hsl(218, 85%, 80%);
+  }
+}
+
+:root[data-theme="dark"], :host([data-theme="dark"]) {
+  --coda-background-color: rgb(13, 13, 13);
+  --coda-card-background-color: rgb(18, 18, 18);
+  --coda-form-element-background-color: rgb(24, 24, 24);
+  --coda-card-header-background-color: rgb(24, 24, 24);
+
+  --coda-primary: hsl(218, 85%, 65%);
+  --coda-primary-hover: hsl(218, 85%, 80%);
+}
+
+
+:root,
+:host {
   /*
   Pico Variables.
   NOTE: We avoid referencing Pico variables directly in Coda.
   Instead we define Coda variables that reference Pico variables to minimize the dependency on Pico.
   */
-  --pico-background-color: var(--coda-background-color);
-  --pico-line-height: var(--coda-line-height);
+
   --pico-font-size: var(--coda-font-size);
-}
+  --pico-line-height: var(--coda-line-height);
 
+  --pico-background-color: var(--coda-background-color);
+  --pico-form-element-background-color: var(--coda-form-element-background-color);
+  --pico-card-background-color: var(--coda-card-background-color);
+  --pico-card-sectioning-background-color: var(--coda-card-header-background-color);
 
-@media screen and (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    --coda-background-color: hsl(214, 16%, 6%);
-    --coda-card-background-color: hsl(214, 14%, 11%);
-    --coda-form-element-background-color: hsl(214, 18%, 15%);
-    --coda-card-header-background-color: hsl(210, 10%, 23%);
-
-    --pico-background-color: var(--coda-background-color);
-    --pico-form-element-background-color: var(--coda-form-element-background-color);
-    --pico-card-background-color: var(--coda-card-background-color);
-    --pico-card-sectioning-background-color: var(--coda-form-element-background-color);
-  }
+  --pico-primary-background: var(--coda-primary-background);
+  --pico-primary-hover-background: var(--coda-primary-background-hover);
+  --pico-secondary-background: var(--coda-secondary-background);
+  --pico-secondary-hover-background: var(--coda-secondary-background-hover);
 }

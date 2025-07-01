@@ -1,38 +1,51 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1 class="my-2">Contract: {{ contract.name }}</h1>
+    <div class="flex justify-between align-center">
+        <h1 class="my-2">Contract</h1>
+        <a href="{% url "contracts:update" pk=contract.pk %}"
+           role="button"
+           class="secondary">Edit</a>
+    </div>
     <article>
+        <header>
+            <h2 class="my-0">{{ contract.name }}</h2>
+        </header>
         {% if contract.start_date or contract.end_date %}
-            <h2>Contract Period</h2>
+            <h3>Contract Period</h3>
             {% if contract.start_date %}<p>Start: {{ contract.start_date }}</p>{% endif %}
             {% if contract.end_date %}<p>End: {{ contract.end_date }}</p>{% endif %}
         {% endif %}
-        <h2>Status</h2>
-        <form class="grid align-center"
-              action="{% url "contracts:status" pk=contract.pk %}"
-              method="post">
-            {% csrf_token %}
-            <p>{% include "contracts/contract_active_status.html" %}</p>
-            {% if contract.is_active %}
-                <button class="outline max-fit-content"
-                        type="submit"
-                        name="status"
-                        value="inactive">Make inactive</button>
-            {% else %}
-                <button class="outline" type="submit" name="status" value="active">Make active</button>
-            {% endif %}
-        </form>
+        <h3>Publication Billing</h3>
+        <p>{{ entity.publication_billing.value }}</p>
+        <h3>Status</h3>
+        <p>{% include "contracts/contract_active_status.html" with entity=entity %}</p>
     </article>
-    <section class="my-2">
-        <h2>Publishers</h2>
-        <div class="scroll-container max-h-30">
-            <ul class="no-decoration grid-container">
-                {% for pub in contract.publishers.all %}
-                    <li>
-                        <article>{{ pub.name }}</article>
-                    </li>
-                {% endfor %}
-            </ul>
-        </div>
-    </section>
+    {% if contract.publishers.all.exists %}
+        <section class="my-4">
+            <h2>Publishers</h2>
+            <div class="scroll-container max-h-30">
+                <ul class="undecorated grid-container">
+                    {% for pub in contract.publishers.all %}
+                        <li>
+                            <article>{{ pub.name }}</article>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+    {% endif %}
+    {% if contract.journals.all.exists %}
+        <section class="my-4">
+            <h2>Journals</h2>
+            <div class="scroll-container max-h-30">
+                <ul class="undecorated grid-container">
+                    {% for j in contract.journals.all %}
+                        <li>
+                            <article>{{ j.title }}</article>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+    {% endif %}
 {% endblock content %}

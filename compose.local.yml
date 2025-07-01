@@ -29,7 +29,7 @@ services:
     command: /start
 
   postgres:
-    image: postgres:13.1-alpine
+    image: postgres:13-alpine
     container_name: coda_local_postgres
 
     volumes:

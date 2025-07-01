@@ -1,0 +1,68 @@
+<table id="vocabulary-table" class="scroll-container max-h-30">
+    <thead>
+        <tr>
+            <th>Allowed</th>
+            <th>Not Allowed</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for allowed_concept, forbidden_concept in concept_pairs %}
+            <tr>
+                {% if allowed_concept %}
+                    <td>
+                        <span>
+                            <button class="undecorated"
+                                    name="disallow"
+                                    value="{{ allowed_concept.concept_id }}"
+                                    hx-post="{% url 'publications:vocabulary_move_to_forbidden' %}"
+                                    hx-include="input[type=hidden]"
+                                    hx-target="#vocabulary-table"
+                                    hx-swap="outerHTML"
+                                    data-tooltip="Disallow">
+                                <svg class="w-6 h-6 text-gray-800 dark:text-white"
+                                     aria-hidden="true"
+                                     xmlns="http://www.w3.org/2000/svg"
+                                     width="24"
+                                     height="24"
+                                     fill="none"
+                                     viewBox="0 0 24 24">
+                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 9-6 6m0-6 6 6m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                </svg>
+                            </button>
+                        </span>
+                        {{ allowed_concept.concept_id }} {{ allowed_concept.name }}
+                    </td>
+                {% else %}
+                    <td></td>
+                {% endif %}
+                {% if forbidden_concept %}
+                    <td>
+                        <span>
+                            <button class="undecorated"
+                                    name="allow"
+                                    value="{{ forbidden_concept.concept_id }}"
+                                    hx-post="{% url 'publications:vocabulary_move_to_allowed' %}"
+                                    hx-include="input[type=hidden]"
+                                    hx-target="#vocabulary-table"
+                                    hx-swap="outerHTML"
+                                    data-tooltip="Allow">
+                                <svg class="w-6 h-6 text-gray-800 dark:text-white"
+                                     aria-hidden="true"
+                                     xmlns="http://www.w3.org/2000/svg"
+                                     width="24"
+                                     height="24"
+                                     fill="none"
+                                     viewBox="0 0 24 24">
+                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.5 11.5 11 14l4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                </svg>
+                            </button>
+                        </span>
+                        {{ forbidden_concept.concept_id }} {{ forbidden_concept.name }}
+                    </td>
+                {% else %}
+                    <td></td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

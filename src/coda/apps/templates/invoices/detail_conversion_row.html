@@ -1,0 +1,43 @@
+<tr id="conversion_row_{{ row }}">
+    <td>
+        <input class="mb-0"
+               type="text"
+               id="currency_{{ row }}"
+               name="currency"
+               value="{{ currency.code }}"
+               readonly>
+    </td>
+    <td>
+        <input class="mb-0"
+               type="text"
+               id="exchange_rate_{{ row }}"
+               name="exchange_rate"
+               value="{{ exchange_rate }}"
+               {% if not edit %}readonly{% endif %}>
+    </td>
+    <td class="px-0">
+        <div class="flex justify-end">
+            {% if edit %}
+                <button class="secondary mb-0"
+                        hx-post="{% url 'invoices:update_conversion' pk=invoice_id %}"
+                        hx-include="#currency_{{ row }}, #exchange_rate_{{ row }}"
+                        hx-vars='{ "row": "{{ row }}" }'
+                        hx-swap="outerHTML"
+                        hx-target="#conversion_row_{{ row }}">Save</button>
+            {% else %}
+                <button class="secondary mb-0"
+                        hx-post="{% url 'invoices:edit_conversion' pk=invoice_id %}"
+                        hx-include="#currency_{{ row }}, #exchange_rate_{{ row }}"
+                        hx-vars='{ "row": "{{ row }}" }'
+                        hx-swap="outerHTML"
+                        hx-target="#conversion_row_{{ row }}">Edit</button>
+                <button class="danger mb-0"
+                        hx-include="#currency_{{ row }}"
+                        hx-vars='{ "row": "{{ row }}" }'
+                        hx-swap="outerHTML"
+                        hx-target="closest tr"
+                        hx-post="{% url 'invoices:delete_conversion' pk=invoice_id %}">Delete</button>
+            {% endif %}
+        </div>
+    </td>
+</tr>

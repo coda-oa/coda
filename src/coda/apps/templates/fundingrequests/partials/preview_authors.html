@@ -1,0 +1,7 @@
+{% include "fundingrequests/partials/author_textarea.html" %}
+<button type="submit"
+        class="secondary"
+        hx-post="{% url "fundingrequests:parse_authors" %}"
+        hx-target="#id_authors"
+        hx-include="#id_authors"
+        hx-swap="outerHTML">Preview parsed authors</button>

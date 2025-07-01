@@ -1,0 +1,6 @@
+<div class="flex justify-between align-center my-2">
+    <h1>{{ entity_name }}</h1>
+    {% if entity_create_url %}
+        <a href="{% url entity_create_url %}" class="secondary" role="button">New</a>
+    {% endif %}
+</div>

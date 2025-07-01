@@ -1,0 +1,11 @@
+{% load getlist %}
+<div class="form-row">
+    <label for="id_payment_status">Payment status</label>
+    <search-select-multi name="payment_status" class="w-100" id="id_payment_status">
+    {% for opt in payment_status_choices %}
+        <option value="{{ opt.0 }}"
+                slot="options"
+                {% if opt.0 in request.GET|getlist:"payment_status" %}selected{% endif %}>{{ opt.1 }}</option>
+    {% endfor %}
+    </search-select-multi>
+</div>

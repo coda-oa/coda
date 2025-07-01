@@ -1,0 +1,28 @@
+<div class="scroll-container max-h-30">
+    <table id="{{ prefix }}-search-results">
+        {% if search_results %}
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in search_results %}
+                    <tr>
+                        <td>{{ result.name }}</td>
+                        <td>
+                            <button type="button"
+                                    hx-post="{% url 'contracts:entity-formset' %}"
+                                    name="form_action_add"
+                                    value="add_form"
+                                    hx-vals='{"prefix": "{{ prefix }}", "mode": "inline", "initial-entity_id": "{{ result.id }}", "initial-name": "{{ result.name }}"}'
+                                    hx-target="#{{ prefix }}-formset"
+                                    hx-swap="outerHTML">Add</button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        {% endif %}
+    </table>
+</div>

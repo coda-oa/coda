@@ -20,10 +20,19 @@ if READ_DOT_ENV_FILE:
     env.read_env(str(BASE_DIR / ".env"))
 
 
-# GENERAL
+# CODA SETTINGS
 # ------------------------------------------------------------------------------
 # Demo mode displays a warning message on the home page.
 CODA_DEMO_MODE = env.bool("CODA_DEMO_MODE", False)
+CODA_CHECKLIST_FACTORY = "coda.checks.checkfactory"
+
+# GENERAL
+# ------------------------------------------------------------------------------
+# FORMS
+# Contracts can submit a very large number of fields
+# Until we find a better solution we will keep this value high
+# https://docs.djangoproject.com/en/dev/ref/settings/#data-upload-max-number-fields
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10_000
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
 DEBUG = env.bool("DJANGO_DEBUG", False)
@@ -91,8 +100,11 @@ LOCAL_APPS = [
     "coda.apps.publications",
     "coda.apps.fundingrequests",
     "coda.apps.invoices",
+    "coda.apps.checklist",
     "coda.apps.management",
     "coda.apps.preferences",
+    "coda.apps.htmx_components",
+    "coda.apps.blocklist",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -190,6 +202,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
             ],
             "libraries": {
+                "getitem": "coda.apps.templatetags.getitem",
                 "getlist": "coda.apps.templatetags.getlist",
                 "param_replace": "coda.apps.templatetags.param_replace",
             },

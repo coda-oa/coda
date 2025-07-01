@@ -2,21 +2,21 @@ import random
 
 import faker
 
-from coda import issn
-from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.services import author_create
+from coda.apps.contracts.models import Contract
+from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganization
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
-from coda.apps.fundingrequests.services import fundingrequest_create
 from coda.apps.institutions.models import Institution
-from coda.apps.invoices.models import Creditor
+from coda.apps.invoices.models import Creditor, FundingSource, Invoice
 from coda.apps.journals.models import Journal
 from coda.apps.publications.models import Concept, Publication, Vocabulary
 from coda.apps.publishers.models import Publisher
-from coda.author import InstitutionId
-from coda.fundingrequest import FundingOrganizationId, FundingRequest
-from coda.publication import JournalId
+from coda.domain import issn
+from coda.domain.contract import PublicationBilling
+from coda.domain.fundingrequest import FundingOrganizationId, FundingRequest
+from coda.domain.publication import Authors, JournalId
 from tests import domainfactory
 
 _faker = faker.Faker()
@@ -28,8 +28,8 @@ def _issn() -> str:
     return f"{digits[:4]}-{digits[4:]}{checksum}"
 
 
-def institution() -> Institution:
-    return Institution.objects.create(name=_faker.company())
+def institution(enabled: bool = True) -> Institution:
+    return Institution.objects.create(name=_faker.company(), virtual=not enabled)
 
 
 def publisher() -> Publisher:
@@ -50,7 +50,18 @@ def author() -> AuthorModel:
 
 def publication(title: str = "") -> Publication:
     title = title or _faker.sentence()
-    return Publication.objects.create(title=title, journal=journal(), submitting_author=author())
+    return Publication.objects.create(title=title, article_journal=journal())
+
+
+def contract() -> Contract:
+    start = _faker.date_this_decade(before_today=True, after_today=False)
+    end = _faker.date_this_decade(before_today=False, after_today=True)
+    return Contract.objects.create(
+        name=_faker.word(),
+        start_date=start,
+        end_date=end,
+        publication_billing=PublicationBilling.Individually.value,
+    )
 
 
 def vocabulary() -> Vocabulary:
@@ -59,17 +70,17 @@ def vocabulary() -> Vocabulary:
     return voc
 
 
-def concept(voc: Vocabulary | None = None) -> Concept:
+def concept(vocabulary: Vocabulary | None = None) -> Concept:
     return Concept.objects.create(
-        vocabulary=voc or Vocabulary.objects.create(name=_faker.word(), version="1.0"),
-        concept_id=f"{_faker.word()}_{random.randint(1,1000)}",
+        vocabulary=vocabulary or Vocabulary.objects.create(name=_faker.word(), version="1.0"),
+        concept_id=f"{_faker.word()}_{random.randint(1, 1000)}",
         name=_faker.word(),
         hint=_faker.sentence(),
     )
 
 
-def funding_organization() -> FundingOrganization:
-    return FundingOrganization.objects.create(name=_faker.company())
+def funding_organization(name: str = "") -> FundingOrganization:
+    return FundingOrganization.objects.create(name=name or _faker.company())
 
 
 def external_funding(funder_id: int | None = None) -> ExternalFunding:
@@ -80,17 +91,31 @@ def external_funding(funder_id: int | None = None) -> ExternalFunding:
     )
 
 
-def fundingrequest(title: str = "", _author_dto: AuthorDto | None = None) -> FundingRequestModel:
-    request_id = fundingrequest_create(
+def fundingrequest(title: str = "", authors: Authors | None = None) -> FundingRequestModel:
+    request_id = repository.create(
         FundingRequest.new(
-            domainfactory.publication(JournalId(journal().pk), title),
-            domainfactory.author(InstitutionId(institution().pk)),
+            domainfactory.publication(JournalId(journal().pk), title, relevant_authors=authors),
             domainfactory.payment(),
-            domainfactory.external_funding(FundingOrganizationId(funding_organization().pk)),
+            external_funding=[
+                domainfactory.external_funding(FundingOrganizationId(funding_organization().pk))
+            ],
+            extra_contact=domainfactory.fundingrequest_contact(),
         )
     )
     return FundingRequestModel.objects.get(pk=request_id)
 
 
+def invoice() -> Invoice:
+    return Invoice.objects.create(
+        creditor=creditor(),
+        date=_faker.date_this_decade(before_today=False, after_today=True),
+        number=_faker.word(),
+    )
+
+
 def creditor() -> Creditor:
     return Creditor.objects.create(name=_faker.company())
+
+
+def funding_source() -> FundingSource:
+    return FundingSource.objects.create(name=_faker.company())

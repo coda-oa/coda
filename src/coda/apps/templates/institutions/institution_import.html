@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}
+    Import Institutions
+{% endblock title %}
+{% block content %}
+    <h1 class="my-2">Import Institutions</h1>
+    <article>
+        <form action="{% url "institutions:import" %}"
+              method="post"
+              enctype="multipart/form-data"
+              class="flex justify-center align-center ">
+            {% csrf_token %}
+            <input type="file"
+                   name="institution-list"
+                   id="id-institution-list"
+                   class="m-0"
+                   accept=".csv">
+            <button class="m-0" type="submit">Import</button>
+        </form>
+    </article>
+{% endblock content %}

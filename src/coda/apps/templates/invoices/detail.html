@@ -1,53 +1,165 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1 class="my-2">
-        <span class="mr-1">Invoice</span>
-        {% if invoice.status == "Paid" %}
-            <small class="pill status-label approved">{{ invoice.status }}</small>
-        {% elif invoice.status == "Unpaid" %}
-            <small class="pill status-label open">{{ invoice.status }}</small>
-        {% else %}
-            <small class="pill status-label rejected">{{ invoice.status }}</small>
-        {% endif %}
-    </h1>
+    <div class="flex justify-between align-center">
+        <h1 class="my-2">
+            <span class="mr-1">Invoice</span>
+            {% if invoice.status == "Paid" %}
+                <small class="pill status-label approved">{{ invoice.status }}</small>
+            {% elif invoice.status == "Unpaid" %}
+                <small class="pill status-label open">{{ invoice.status }}</small>
+            {% else %}
+                <small class="pill status-label rejected">{{ invoice.status }}</small>
+            {% endif %}
+        </h1>
+        <div class="flex">
+            <form action="{% url 'invoices:pay_invoice' pk=invoice.id %}" method="post">
+                {% csrf_token %}
+                {% if invoice.status == "Unpaid" %}
+                    <button name="action" value="pay" class="secondary">Pay Invoice</button>
+                {% else %}
+                    <button name="action" value="reset_payment" class="secondary">Reset Payment</button>
+                {% endif %}
+            </form>
+            <a href="{% url "invoices:update" pk=invoice.id %}"
+               role="button"
+               class="secondary">Edit</a>
+        </div>
+    </div>
     <article>
         <h2>Head</h2>
-        <table class="article__table">
+        <table>
             <tbody>
                 <tr>
-                    <th>Invoice Number</th>
-                    <td>{{ invoice.number }}</td>
+                    <th>
+                        <label for="id-head-invoice-number" class="form-row-item-sm">Invoice Number:</label>
+                    </th>
+                    <td>
+                        <input readonly
+                               type="number"
+                               id="id-head-invoice-number"
+                               name="id-head-invoice-number"
+                               value="{{ invoice.number }}">
+                    </td>
                 </tr>
                 <tr>
-                    <th>Invoice Date</th>
-                    <td>{{ invoice.date }}</td>
+                    <th>
+                        <label for="id-head-invoice-date" class="form-row-item-sm">Invoice Date:</label>
+                    </th>
+                    <td>
+                        <input readonly
+                               type="text"
+                               id="id-head-invoice-date"
+                               name="id-head-invoice-date"
+                               value="{{ invoice.date }}" />
+                    </td>
                 </tr>
                 <tr>
-                    <th>Creditor</th>
-                    <td>{{ invoice.creditor_name }}</td>
+                    <th>
+                        <label for="id-head-creditor_name" class="form-row-item-sm">Creditor:</label>
+                    </th>
+                    <td>
+                        <input readonly
+                               type="text"
+                               id="id-head-creditor_name"
+                               name="id-head-creditor_name"
+                               value="{{ invoice.creditor_name }}">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-currency" class="form-row-item-sm">Currency:</label>
+                    </th>
+                    <td>
+                        <input readonly
+                               type="text"
+                               id="id-head-currency"
+                               name="id-head-currency"
+                               value="{{ invoice.currency.code }}">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-status" class="form-row-item-sm">Status:</label>
+                    </th>
+                    <td>
+                        <input readonly
+                               type="text"
+                               id="id-head-status"
+                               name="id-head-status"
+                               value="{{ invoice.status }}">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-external-id" class="form-row-item-sm">External Invoice ID:</label>
+                    </th>
+                    <td>
+                        <input readonly
+                               type="text"
+                               id="id-head-external-id"
+                               name="id-head-external-id"
+                               value="{{ external_invoice_id }}">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="id-head-comment" class="form-row-item-sm">Comment:</label>
+                    </th>
+                    <td>
+                        <textarea readonly
+                                  name="id-head-comment"
+                                  cols="40"
+                                  rows="10"
+                                  id="id-head-comment"> {{ invoice_comment }}</textarea>
+                    </td>
                 </tr>
             </tbody>
         </table>
     </article>
     <article>
         <h2>Positions</h2>
-        <table class="article__table">
+        <fieldset class="form-row">
+            <label for="display_currency">Display as currency</label>
+            <select name="display_currency"
+                    id="display_currency"
+                    hx-get="{% url 'invoices:detail' pk=invoice.id %}"
+                    hx-target="body"
+                    hx-boost="true">
+                <option value="{{ invoice.currency.code }}">{{ invoice.currency.code }}</option>
+                {% for currency in conversions %}
+                    <option value="{{ currency.code }}"
+                            {% if display_currency.code == currency.code %}selected{% endif %}>
+                        {{ currency.code }}
+                    </option>
+                {% endfor %}
+            </select>
+        </fieldset>
+        {% for position in positions %}
+            {% if position.type == "publication" %}
+                {% include "invoices/position_publication.html" with counter=forloop.counter %}
+            {% elif position.type == "contract" %}
+                {% include "invoices/position_contract.html" with counter=forloop.counter %}
+            {% else %}
+                {% include "invoices/position_free.html" with counter=forloop.counter %}
+            {% endif %}
+            <hr>
+        {% endfor %}
+        <h2>Summary</h2>
+        <table>
             <thead>
                 <tr>
                     <th>#</th>
                     <th>Position</th>
-                    <th>Publication Submitter</th>
                     <th>Related Funding Request</th>
-                    <th>Cost</th>
+                    <th>Cost ({{ display_currency.code }})</th>
                     <th>Cost Type</th>
                 </tr>
             </thead>
             <tbody>
-                {% for position in invoice.positions %}
+                {% for position in display_invoice.positions %}
                     <tr>
                         <td>{{ position.number }}</td>
                         <td>{{ position.name }}</td>
-                        <td>{{ position.publication_submitter }}</td>
                         <td>
                             {% if position.related_funding_request %}
                                 <a href="{{ position.related_funding_request.url }}">{{ position.related_funding_request.request_id }}</a>
@@ -61,8 +173,7 @@
                     <td></td>
                     <td>Tax</td>
                     <td></td>
-                    <td></td>
-                    <td>{{ invoice.tax.amount }} {{ invoice.tax.currency.code }}</td>
+                    <td>{{ display_invoice.tax.amount }} {{ display_invoice.tax.currency.code }}</td>
                     <td>vat</td>
                 </tr>
                 <tr>
@@ -71,13 +182,13 @@
                         <strong>Total</strong>
                     </td>
                     <td></td>
-                    <td></td>
                     <td>
-                        <strong>{{ invoice.total.amount }} {{ invoice.total.currency.code }}</strong>
+                        <strong>{{ display_invoice.total.amount }} {{ display_invoice.total.currency.code }}</strong>
                     </td>
                     <td></td>
                 </tr>
             </tbody>
         </table>
     </article>
+    {% include "invoices/detail_conversions.html" %}
 {% endblock content %}

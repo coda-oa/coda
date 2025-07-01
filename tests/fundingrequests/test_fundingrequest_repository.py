@@ -3,12 +3,102 @@ from typing import Any, cast
 
 import pytest
 
-from coda.apps.authors.models import Author
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.services import label_attach, label_create
-from coda.color import Color
-from coda.fundingrequest import Review
-from tests import dtofactory, modelfactory
+from coda.apps.fundingrequests.services.labels import label_attach, label_create
+from coda.apps.journals.models import Journal
+from coda.apps.publications.repositories import publication_repository
+from coda.domain.color import Color
+from coda.domain.date import DateRange
+from coda.domain.fundingrequest import (
+    FundingOrganizationId,
+    FundingRequest,
+    FundingRequestId,
+    NoContact,
+    Review,
+)
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import Currency, Money
+from coda.domain.publication import Authors, JournalId
+from coda.domain.string import NonEmptyStr
+from tests import domainfactory, modelfactory
+from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
+
+
+@pytest.mark.django_db
+def test__saving_fungingrequest__get_by_id__returns_fundingrequest() -> None:
+    journal = JournalId(modelfactory.journal().id)
+    funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
+    request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
+    id = repository.create(request)
+
+    result = repository.get_by_id(id)
+
+    assert_fundingrequest_eq(result, request)
+
+
+@pytest.mark.django_db
+def test__existing_fundingrequest__create_again__raises_error() -> None:
+    journal = JournalId(modelfactory.journal().id)
+    funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
+    request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
+    request.id = repository.create(request)
+
+    with pytest.raises(repository.FundingRequestAlreadyExists):
+        repository.create(request)
+
+
+@pytest.mark.django_db
+def test__existing_fundingrequest__update__updates_fundingrequest() -> None:
+    journal = JournalId(modelfactory.journal().id)
+    funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
+    id = repository.create(
+        domainfactory.fundingrequest(
+            journal_id=journal,
+            funding_org_id=funding_org,
+        )
+    )
+    request = repository.get_article_request(id)
+
+    new_funding = FundingOrganizationId(modelfactory.funding_organization().pk)
+    expected = FundingRequest(
+        id=id,
+        request_id=request.request_id,
+        publication=domainfactory.publication(journal, id=request.publication.id),
+        estimated_cost=domainfactory.payment(),
+        extra_contact=domainfactory.fundingrequest_contact(),
+        external_funding=[domainfactory.external_funding(new_funding)],
+    )
+    repository.update(expected)
+
+    actual = repository.get_by_id(id)
+    assert_fundingrequest_eq(actual, expected)
+    assert len(repository.all()) == 1
+    assert len(publication_repository.all()) == 1
+
+
+@pytest.mark.django_db
+def test__unsaved_fundingrequest__update__raises_error() -> None:
+    journal = JournalId(modelfactory.journal().id)
+    funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
+    request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
+
+    with pytest.raises(repository.UnsavedFundingRequest):
+        repository.update(request)
+
+
+@pytest.mark.django_db
+def test__fundingrequest_without_extra_contact__save__get_by_id_returns_fundingrequest_without_contact() -> (
+    None
+):
+    journal = JournalId(modelfactory.journal().id)
+    funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
+    request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
+    request.extra_contact = NoContact
+    id = repository.create(request)
+
+    result = repository.get_by_id(id)
+
+    assert result.extra_contact == NoContact
 
 
 @pytest.mark.django_db
@@ -24,15 +114,15 @@ def test__searching_for_funding_requests_by_title__returns_matching_funding_requ
 
 
 @pytest.mark.django_db
-def test__searching_for_funding_requests_by_submitter__returns_matching_funding_requests() -> None:
-    matching_request = modelfactory.fundingrequest()
-    submitter = cast(Author, matching_request.submitter)
+def test__searching_for_funding_requests_by_author__returns_matching_funding_requests() -> None:
+    matching_author = domainfactory.author()
+    matching_request = modelfactory.fundingrequest(authors=Authors([matching_author]))
 
-    non_matching_submitter = dtofactory.author_dto()
-    non_matching_submitter["name"] = "Not the submitter"
-    _ = modelfactory.fundingrequest("No match", non_matching_submitter)
+    non_matching_author = domainfactory.author()
+    non_matching_author.name = NonEmptyStr("Not the submitter")
+    _ = modelfactory.fundingrequest("No match", authors=Authors([non_matching_author]))
 
-    results = repository.search(submitter=submitter.name)
+    results = repository.search(author=matching_author.name)
 
     assert list(results) == [matching_request]
 
@@ -57,14 +147,16 @@ def test__searching_for_funding_requests_by_process_state__returns_matching_fund
     None
 ):
     approved_request = modelfactory.fundingrequest()
-    approved_request.approve()
+    approved_request_id = FundingRequestId(approved_request.id)
+    repository.save_review(Review(approved_request_id).approved(Money(100, Currency.EUR)))
 
     rejected_request = modelfactory.fundingrequest()
-    rejected_request.reject()
+    rejected_request_id = FundingRequestId(rejected_request.id)
+    repository.save_review(Review(rejected_request_id).rejected())
 
     in_progress_request = modelfactory.fundingrequest()  # noqa: F841
 
-    results = repository.search(processing_states=[Review.Approved.value, Review.Rejected.value])
+    results = repository.search(processing_states=[ReviewResult.Approved, ReviewResult.Rejected])
 
     assert_contains_all(list(results), [approved_request, rejected_request])
 
@@ -72,7 +164,8 @@ def test__searching_for_funding_requests_by_process_state__returns_matching_fund
 @pytest.mark.django_db
 def test__searching_for_funding_requests_by_publisher__returns_matching_funding_requests() -> None:
     matching_request = modelfactory.fundingrequest()
-    matching_publisher = matching_request.publication.journal.publisher
+    journal = cast(Journal, matching_request.publication.article_journal)
+    matching_publisher = journal.publisher
 
     _ = modelfactory.fundingrequest("No match")
 
@@ -84,16 +177,16 @@ def test__searching_for_funding_requests_by_publisher__returns_matching_funding_
 @pytest.mark.django_db
 def test__searching_with_start_and_end_date__returns_matching_funding_requests() -> None:
     matching_request = modelfactory.fundingrequest()
-    matching_request.created_at = date(2021, 3, 1)
+    matching_request.request_date = date(2021, 3, 1)
     matching_request.save()
 
     no_match = modelfactory.fundingrequest("No match")
-    no_match.created_at = date(2021, 6, 1)
+    no_match.request_date = date(2021, 6, 1)
     no_match.save()
 
     start_date = date(2021, 1, 1)
     end_date = date(2021, 5, 1)
-    date_range = repository.DateRange(start_date, end_date)
+    date_range = DateRange(start_date, end_date)
 
     results = repository.search(date_range=date_range)
 
@@ -103,14 +196,14 @@ def test__searching_with_start_and_end_date__returns_matching_funding_requests()
 @pytest.mark.django_db
 def test__searching_with_no_start_date__returns_matching_funding_requests() -> None:
     matching_request = modelfactory.fundingrequest()
-    matching_request.created_at = date(2021, 3, 1)
+    matching_request.request_date = date(2021, 3, 1)
     matching_request.save()
 
     no_match = modelfactory.fundingrequest("No match")
-    no_match.created_at = date(2021, 6, 1)
+    no_match.request_date = date(2021, 6, 1)
     no_match.save()
 
-    date_range = repository.DateRange.create(end=date(2021, 5, 1))
+    date_range = DateRange.create(end=date(2021, 5, 1))
 
     results = repository.search(date_range=date_range)
 
@@ -120,14 +213,14 @@ def test__searching_with_no_start_date__returns_matching_funding_requests() -> N
 @pytest.mark.django_db
 def test__searching_with_no_end_date__returns_matching_funding_requests() -> None:
     matching_request = modelfactory.fundingrequest()
-    matching_request.created_at = date(2021, 3, 1)
+    matching_request.request_date = date(2021, 3, 1)
     matching_request.save()
 
     no_match = modelfactory.fundingrequest("No match")
-    no_match.created_at = date(2020, 12, 31)
+    no_match.request_date = date(2020, 12, 31)
     no_match.save()
 
-    date_range = repository.DateRange.create(start=date(2021, 1, 1))
+    date_range = DateRange.create(start=date(2021, 1, 1))
 
     results = repository.search(date_range=date_range)
 

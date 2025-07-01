@@ -1,0 +1,146 @@
+.fundingrequest__detail-grid {
+    display: grid;
+    grid-template-columns: auto 35ch;
+    gap: var(--coda-gap);
+}
+
+.fundingrequest__detail-title {
+    margin-block: 0;
+}
+
+.fundingrequest-table tbody tr > th,
+.fundingrequest-table tr > td:first-child {
+    width: 30ch;
+}
+
+.fundingrequest-authors-table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.fundingrequest__review-panel {
+    height: 100%;
+}
+
+.status-label {
+    --_status-text-color: var(--coda-validation-text-color);
+    background-color: var(--_status-color, transparent);
+    color: var(--_status-text-color);
+
+    &.approved {
+        --_status-color: var(--coda-validation-valid-color);
+    }
+
+    &.rejected {
+        --_status-color: var(--coda-validation-invalid-color);
+    }
+
+    &.open {
+        --_status-color: var(--coda-primary-background);
+    }
+
+    &.waived {
+        --_status-color: rgb(163, 100, 0);
+    }
+
+    &.closed {
+        --_status-color: rgb(73, 73, 73);
+    }
+}
+
+ul:has(.fundingrequest-check) {
+    padding: 0;
+    margin: 0;
+    list-style-type: none;
+}
+
+li.fundingrequest-check {
+    padding-inline: 0;
+    margin-inline: 0;
+    list-style-type: none;
+    display: flex;
+
+    &.check-failure {
+        --_check-background-color: var(--coda-validation-invalid-color);
+    }
+
+    &.check-success {
+        --_check-background-color: var(--coda-validation-valid-color);
+    }
+
+    &.check-warning {
+        --_check-background-color: rgb(205, 130, 10);
+    }
+
+    &::before {
+        content: '';
+        display: inline-block;
+
+        min-width: 1rem;
+        height: 1rem;
+        margin-inline-end: 0.5rem;
+
+        border-radius: 50%;
+
+        background-color: var(--_check-background-color);
+    }
+}
+
+.fundingrequest-waive-button {
+    --_waive-button-color: rgb(163, 100, 0);
+    --_waive-button-hover-color: color-mix(in hsl, var(--_waive-button-color) 90%, white 10%);
+    background-color: var(--_waive-button-color);
+    border-color: var(--_waive-button-color);
+}
+
+.fundingrequest-waive-button:hover {
+    background-color: var(--_waive-button-hover-color);
+    border-color: var(--_waive-button-hover-color);
+}
+
+.label {
+    --label-text-color: color-mix(in srgb, var(--label-border-color) 80%, white);
+    box-sizing: border-box;
+    padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
+    width: fit-content;
+    text-wrap: nowrap;
+
+    background: color-mix(in hsl, var(--label-bg-color) 25%, transparent 75%);
+    border: 1px solid var(--label-border-color);
+    border-radius: var(--coda-border-radius);
+    color: var(--label-text-color);
+}
+
+.label.danger {
+    --label-border-color: var(--coda-validation-invalid-color);
+    --label-bg-color: var(--coda-validation-invalid-color);
+}
+
+.label.warning {
+    --coda-warning-color: rgb(205, 130, 10);
+    --label-border-color: var(--coda-warning-color);
+    --label-bg-color: var(--coda-warning-color);
+}
+
+a:has(.label) {
+    text-decoration: none;
+}
+
+.label__button-remove {
+    flex: 0;
+    display: inline-block;
+    color: var(--label-text-color);
+    text-decoration: none;
+    background: none;
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+details.dropdown > ul:has(.label) {
+    padding-block: 0.5rem;
+}
+
+details.dropdown > ul:has(.label) > li {
+    padding-block: 0.75rem;
+}

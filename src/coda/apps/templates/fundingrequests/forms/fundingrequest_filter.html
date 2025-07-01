@@ -1,44 +1,39 @@
 <form method="get" id="search-form">
-    <div class="mb-2" role="group">
-        <select name="search_type" id="id_search-type" class="flex-1">
-            <option value="submitter"
-                    {% if not request.GET.search_type or "submitter" == request.GET.search_type %}selected{% endif %}>
-                Submitter
-            </option>
-            <option value="title"
-                    {% if "title" == request.GET.search_type %}selected{% endif %}>Publication Title</option>
-            <option value="publisher">Publisher</option>
-        </select>
-        <input type="text"
-               name="search_term"
-               class="flex-4"
-               value="{{ request.GET.search_term }}"
-               placeholder="Search">
-    </div>
-    <div class="grid">
-        <div>
-            <label for="id_start_date">Start Date</label>
-            <input type="date"
-                   id="id_start_date"
-                   name="start_date"
-                   value="{{ request.GET.start_date }}">
-        </div>
-        <div>
-            <label for="id_end_date">End Date</label>
-            <input type="date"
-                   id="id_end_date"
-                   name="end_date"
-                   value="{{ request.GET.end_date }}">
-        </div>
-    </div>
-    <div class="grid">
-        {% include "fundingrequests/forms/status_dropdown.html" %}
-        {% include "fundingrequests/forms/label_dropdown.html" %}
-    </div>
+    <input type="search"
+           name="search_term"
+           value="{{ request.GET.search_term }}"
+           placeholder="Search by title, author, or ID">
+    <details {% if expand_advanced_search %}open{% endif %}>
+        <summary role="button" class="outline muted">
+            <span class="m-0">Advanced search</span>
+        </summary>
+        <p>
+            <div class="grid">
+                <div class="form-row">
+                    <label for="id_start_date" class="form-row-item-sm">Start Date</label>
+                    <input type="date"
+                           id="id_start_date"
+                           name="start_date"
+                           value="{{ request.GET.start_date }}">
+                </div>
+                <div class="form-row">
+                    <label for="id_end_date" class="form-row-item-sm">End Date</label>
+                    <input type="date"
+                           id="id_end_date"
+                           name="end_date"
+                           value="{{ request.GET.end_date }}">
+                </div>
+            </div>
+            {% include "fundingrequests/forms/status_dropdown.html" %}
+            {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
+            {% include "fundingrequests/forms/payment_status.html" %}
+            {% include "fundingrequests/forms/label_dropdown.html" %}
+        </p>
+    </details>
     <div class="grid align-center">
         <button type="submit" class="my-0">Search</button>
         <a href="{% url "fundingrequests:list" %}"
            class="secondary"
-           role="button">Clear Filters</a>
+           role="button">Clear</a>
     </div>
 </form>

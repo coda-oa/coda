@@ -1,22 +1,33 @@
 'use strict';
 
-import {
-    addGlobalStylesToShadowRoot
-} from "./global-styles.js"
 
 const htmlTemplate = /*html*/ `
 <div id="search-results-wrapper">
     <input type="text" id="search-box" autocomplete="off" required>
-    <ul id="search-results" class="no-decoration">
+    <ul id="search-results" class="undecorated">
         <slot>
     </ul>
 </div>
 
 <style>
+    :host {
+        display: block;
+        line-height: var(--coda-line-height);
+        font-size: var(--coda-font-size);
+    }
+
     #search-box {
         display: block;
         position: relative;
+
         width: 100%;
+        max-width: 100%;
+
+        padding: var(--coda-form-element-spacing-vertical) var(--coda-form-element-spacing-horizontal);
+        border: 1px solid var(--coda-border-color);
+        border-radius: var(--coda-border-radius);
+        background-color: var(--coda-form-element-background-color);
+        height: calc(1rem* var(--coda-line-height) + var(--coda-form-element-spacing-vertical)* 2 + var(--coda-border-width)* 2);
     }
 
     #search-results-wrapper::after {
@@ -46,6 +57,17 @@ const htmlTemplate = /*html*/ `
     #search-results-wrapper {
         display: block;
         position: relative;
+
+        max-width: 100%;
+        width: 100%;
+
+        line-height: var(--coda-line-height);
+    }
+
+    #search-results-wrapper > * {
+        line-height: var(--coda-line-height);
+        font-size: 1rem;
+        box-sizing: border-box;
     }
 
     #search-results {
@@ -60,7 +82,7 @@ const htmlTemplate = /*html*/ `
 
         border: 1px solid var(--coda-muted-border-color);
         border-radius: var(--coda-border-radius);
-        background-color: var(--coda-card-background-color);
+        background-color: var(--coda-form-element-background-color);
 
         visibility: hidden;
         opacity: 0;
@@ -110,7 +132,6 @@ class SearchSelect extends HTMLElement {
         const template = document.createElement("template")
         template.innerHTML = htmlTemplate
         this.shadowRoot.appendChild(template.content.cloneNode(template))
-        addGlobalStylesToShadowRoot(this.shadowRoot)
     }
 
     connectedCallback() {
@@ -235,7 +256,7 @@ class SearchSelect extends HTMLElement {
 
     matches(li) {
         const searchTerm = this.searchBox.value
-        return searchTerm.length == 0 || li.textContent.includes(searchTerm)
+        return searchTerm.length == 0 || li.textContent.toLowerCase().includes(searchTerm.toLowerCase())
     }
 
     set value(value) {

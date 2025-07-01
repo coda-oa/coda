@@ -1,0 +1,14 @@
+<article class="flex justify-between align-center">
+    <div>
+        <p>
+            <a href="{{ entity.get_absolute_url }}">{{ entity.title }}</a>
+        </p>
+        <p>EISSN: {{ entity.eissn }}</p>
+        <p>Publisher: {{ entity.publisher.name }}</p>
+    </div>
+    <div>
+        <a href="{% url "publishing:journals:update" eissn=entity.eissn %}"
+           role="button"
+           class="secondary">Edit</a>
+    </div>
+</article>

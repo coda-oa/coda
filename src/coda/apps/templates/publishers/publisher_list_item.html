@@ -1,0 +1,20 @@
+<article class="flex justify-between align-center">
+    <p class="my-0">{{ entity.name }}</p>
+    <div>
+        {% if entity.is_blocked %}
+            <button type="button"
+                    class="my-0 outline success"
+                    hx-post="{% url "blocklist:unblock_publisher" pk=entity.id %}"
+                    hx-vals='{"redirect_url": "{% url "publishing:publishers:list" %}"}'>Unblock</button>
+        {% else %}
+            <button type="button"
+                    class="my-0 outline danger"
+                    hx-target="body"
+                    hx-swap="beforeend"
+                    hx-get="{% url "blocklist:request_block_publisher" pk=entity.id %}">Block</button>
+        {% endif %}
+        <a href="{% url 'publishing:publishers:update' pk=entity.id %}"
+           role="button"
+           class="secondary">Edit</a>
+    </div>
+</article>

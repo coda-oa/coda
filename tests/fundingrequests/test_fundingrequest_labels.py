@@ -4,8 +4,9 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.fundingrequests.models import Label
-from coda.apps.fundingrequests.services import label_attach, label_create, label_detach
-from coda.color import Color
+from coda.apps.fundingrequests.services.labels import label_detach
+from coda.apps.fundingrequests.services.labels import label_attach, label_create
+from coda.domain.color import Color
 from tests import modelfactory
 
 

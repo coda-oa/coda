@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}
+    {{ title }}
+{% endblock title %}
+{% block content %}
+    <h1 class="my-2">{{ title }}</h1>
+    <form action="{{ url }}" method="post">
+        {% csrf_token %}
+        <article>
+            <h2>Base information</h2>
+            {{ contract_form }}
+            <article class="mb-0">
+                <header>
+                    <h3 class="my-0">Publication Billing Types</h3>
+                </header>
+                <p>
+                    <strong>Individually</strong>: Publications appear as individual positions on invoices.
+                </p>
+                <p class="mb-0">
+                    <strong>Consolidated</strong>: The entire contract will be invoiced as a whole instead of individual publications.
+                </p>
+            </article>
+        </article>
+        {% include "contracts/contract_search_add_entity.html" with entity_title="Publishers" formset=publisher_formset url="contracts:search_publisher" %}
+        {% include "contracts/contract_search_add_entity.html" with entity_title="Journals" formset=journal_formset url="contracts:search_journal" %}
+        <button type="submit">Save</button>
+    </form>
+{% endblock content %}

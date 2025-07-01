@@ -7,6 +7,8 @@ from django.test import RequestFactory
 
 from coda.apps.wizard import Step, Store, StoreFactory, SupportsKeysAndGetItem, Wizard
 
+DummyName = "Test"
+
 
 class SimpleStep(Step):
     template_name: str = "simple_template.html"
@@ -22,7 +24,7 @@ class InvalidStep(Step):
 
 class StepWithContext(SimpleStep):
     template_name: str = "template_with_data.html"
-    context: dict[str, str] = {"name": "Steven"}
+    context: dict[str, str] = {"name": DummyName}
 
 
 class StepperStep(Step):
@@ -34,16 +36,23 @@ class StepWithDone(SimpleStep):
         store["done_called"] = True
 
 
-class DictStore(dict[str, Any], Store):
+class DictStore(Store):
     def __init__(self) -> None:
-        super().__init__()
-        self.save_state: dict[str, Any] = {}
+        self.saved_state: dict[str, Any] = {}
+        self.current_state: dict[str, Any] = {}
+        self._clear_on_save = False
 
     def save(self) -> None:
-        self.save_state = self.copy()
+        self.saved_state.update(self.current_state.copy())
+        if self._clear_on_save:
+            self.saved_state.clear()
+            self._clear_on_save = False
+
+    def keys(self) -> Iterable[str]:
+        return self.current_state.keys()
 
     def get(self, key: str, __default: Any = None) -> Any:
-        return super().get(key, __default)
+        return self.saved_state.get(key, __default)
 
     def update(
         self,
@@ -51,19 +60,32 @@ class DictStore(dict[str, Any], Store):
         /,
         **kwargs: Any,
     ) -> None:
-        super().update(__m, **kwargs)
+        self.current_state.update(__m, **kwargs)
+
+    def clear(self) -> None:
+        self.current_state.clear()
+        self._clear_on_save = True
+
+    def reset_save_state(self) -> None:
+        self.saved_state.clear()
 
     def was_saved_with(self, expected: dict[str, Any]) -> bool:
         return all(
-            key in self.save_state and self.save_state[key] == value
+            key in self.saved_state and self.saved_state[key] == value
             for key, value in expected.items()
-        ) and len(self.save_state) == len(expected)
+        ) and len(self.saved_state) == len(expected)
 
-    def clear(self) -> None:
-        super().clear()
+    def __getitem__(self, key: str) -> Any:
+        return self.current_state[key]
 
-    def reset_save_state(self) -> None:
-        self.save_state = {}
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.current_state[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.current_state[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.current_state
 
 
 class SingletonDictStoreFactory:
@@ -80,6 +102,7 @@ class SingletonDictStoreFactory:
         SingletonDictStoreFactory.store_name = ""
         SingletonDictStoreFactory.store.clear()
         SingletonDictStoreFactory.store.reset_save_state()
+        SingletonDictStoreFactory.store.save()
 
 
 class WizardTestImpl(Wizard):
@@ -90,6 +113,7 @@ class WizardTestImpl(Wizard):
 
 class CompletingWizardSpy(WizardTestImpl):
     completed_state: dict[str, Any] = {}
+    allow_early_complete: bool = True
 
     def __init__(self, completed_state: dict[str, Any], **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -101,8 +125,8 @@ class CompletingWizardSpy(WizardTestImpl):
         return super().get_success_url()
 
     def complete(self, **kwargs: Any) -> None:
-        store = cast(DictStore, self.get_store())
-        self.completed_state["completed"] = store.get("completed")
+        self.completed_state["store_state"] = dict(**self.get_store())
+        self.completed_state["completed"] = True
         self.completed_state |= kwargs
 
 
@@ -175,7 +199,9 @@ def test__wizard__get__calls_prepare_before_rendering() -> None:
 
     class PreparingWizard(WizardTestImpl):
         def prepare(self, request: HttpRequest) -> None:
-            self.get_store()["prepared"] = "prepared called"
+            store = self.get_store()
+            store["prepared"] = "prepared called"
+            store.save()
 
     sut = make_sut(PreparingWizard, steps=[StoreReadingStep()])
 
@@ -203,7 +229,7 @@ def test__wizard__get__clears_store() -> None:
 
     _ = get(sut)
 
-    assert store.was_saved_with({})
+    assert store.saved_state == {}
 
 
 def test__wizard_with_step__post_next__renders_second_step() -> None:
@@ -240,7 +266,7 @@ def test__wizard__post_next__calls_done_on_current_step() -> None:
     _ = post(sut, next())
 
     store = SingletonDictStoreFactory.store
-    assert "done_called" in store.save_state
+    assert "done_called" in store
 
 
 def test__wizard__post_no_action__does_not_call_done_on_current_step() -> None:
@@ -249,7 +275,7 @@ def test__wizard__post_no_action__does_not_call_done_on_current_step() -> None:
     _ = post(sut)
 
     store = SingletonDictStoreFactory.store
-    assert "done_called" not in store.save_state
+    assert "done_called" not in store
 
 
 def test__wizard_with_step_and_context__get_renders_first_step_with_context() -> None:
@@ -333,7 +359,7 @@ def test__wizard__post_to_invalid_step__does_not_call_done_on_step() -> None:
     _ = post(sut, next())
 
     store = SingletonDictStoreFactory.store
-    assert "done_called" not in store.save_state
+    assert "done_called" not in store
 
 
 def test__wizard__post_to_last_step_invalid__rerenders_last_step() -> None:
@@ -389,18 +415,22 @@ def test__wizard__get_and_post__pass_store_to_step() -> None:
 def test__wizard__on_completion__calls_complete_on_self_before_clearing_store() -> None:
     completed_state: dict[str, Any] = {}
     store = SingletonDictStoreFactory.store
-    store["completed"] = "completed called"
+    expected_state = "state before completed called"
+    store["store_state"] = expected_state
+    store.save()
 
     sut = make_sut(CompletingWizardSpy, steps=[SimpleStep()], completed_state=completed_state)
     _ = post(sut, next())
 
     assert store.was_saved_with({})
-    assert completed_state["completed"] == "completed called"
+    assert completed_state["completed"] is True
+    assert completed_state["store_state"] == {"store_state": expected_state}
 
 
 def test__wizard__on_completion__gets_success_url_before_clearing_store() -> None:
     store = SingletonDictStoreFactory.store
     store["success_url"] = "get_success_url called"
+    store.save()
     completed_state: dict[str, Any] = {}
 
     sut = make_sut(CompletingWizardSpy, steps=[SimpleStep()], completed_state=completed_state)
@@ -424,6 +454,34 @@ def test__wizard_not_completed__post_next__does_not_call_complete() -> None:
     assert "completed" not in completed_state
 
 
+def test__wizard__post_complete_early__calls_done_and_complete() -> None:
+    store = SingletonDictStoreFactory.store
+    completed_state: dict[str, Any] = {}
+
+    sut = make_sut(
+        CompletingWizardSpy, steps=[StepWithDone(), SimpleStep()], completed_state=completed_state
+    )
+    _ = post(sut, complete_early())
+
+    assert "done_called" in completed_state["store_state"]
+    assert completed_state["completed"] is True
+    assert store.was_saved_with({})
+
+
+def test__wizard__early_complete_not_allowed__post_complete_early__does_not_call_complete() -> None:
+    completed_state: dict[str, Any] = {}
+
+    sut = make_sut(
+        CompletingWizardSpy,
+        steps=[SimpleStep(), SimpleStep()],
+        completed_state=completed_state,
+        allow_early_complete=False,
+    )
+    _ = post(sut, complete_early())
+
+    assert "completed" not in completed_state
+
+
 def test__wizard__initializes_store_with_id() -> None:
     sut = make_sut(steps=[SimpleStep()])
 
@@ -440,11 +498,15 @@ def back() -> dict[str, str]:
     return {"action": "back"}
 
 
+def complete_early() -> dict[str, str]:
+    return {"action": "complete_early"}
+
+
 def step(s: int) -> dict[str, Any]:
     return {"step": s}
 
 
-def assert_rendered_with_context(response: HttpResponse, expected: str = "Steven") -> None:
+def assert_rendered_with_context(response: HttpResponse, expected: str = DummyName) -> None:
     assert response.content.strip() == f"{expected}".encode()
 
 

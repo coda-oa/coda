@@ -2,18 +2,26 @@
 <aside class="nav-container">
     <nav class="nav">
         <ul>
-            <li>
-                <a href="{% url "home" %}"><strong>CODA</strong></a>
+            <li class="coda-logo text-ellipsis">
+                <a href="{% url "home" %}"><strong>C<span>ODA</span></strong></a>
             </li>
         </ul>
-        <ul>
+        <ul class="nav__link-list">
             <li>
-                {% include "partials/nav_link.html" with link="fundingrequests:list" image="assets/fundingrequest.svg" text="Funding Requests" %}
+                {% include "partials/nav_link.html" with link="fundingrequests:home" image="assets/fundingrequest.svg" text="Request Center" %}
             </li>
-            <li>{% include "partials/nav_link.html" with link="journals:list" image="assets/journal.svg" text="Journals" %}</li>
-            <li>{% include "partials/nav_link.html" with link="invoices:list" image="assets/receipt.svg" text="Invoices" %}</li>
+            <li>
+                {% include "partials/nav_link.html" with link="publishing:home" image="assets/journal.svg" text="Journals & Publishers" %}
+            </li>
+            <li>{% include "partials/nav_link.html" with link="invoices:home" image="assets/cash.svg" text="Finances" %}</li>
             <li>
                 {% include "partials/nav_link.html" with link="contracts:list" image="assets/briefcase.svg" text="Contracts" %}
+            </li>
+            <li>
+                {% include "partials/nav_link.html" with link="publications:vocabularies" image="assets/font-family.svg" text="Vocabularies" %}
+            </li>
+            <li>
+                {% include "partials/nav_link.html" with link="institutions:list" image="assets/organization.svg" text="Organization" %}
             </li>
             <li>
                 {% include "partials/nav_link.html" with link="preferences:global_preferences" image="assets/settings.svg" text="Preferences" %}
@@ -22,7 +30,7 @@
                 <li>
                     <form action="{% url "logout" %}" method="post">
                         {% csrf_token %}
-                        <button type="submit" class="login_logout_button outline secondary">
+                        <button type="submit" class="login_logout_button outline contrast">
                             <img src="{% static "assets/logout.svg" %}" class="nav-link-icon" alt="logout" width="auto" height="auto">
                             <span>Logout</span>
                         </button>
@@ -31,12 +39,19 @@
             {% else %}
                 <li>
                     <a role="button"
-                       class="login_logout_button outline secondary"
+                       class="login_logout_button outline contrast"
                        href="{% url "login" %}">
                         <img src="{% static "assets/login.svg" %}" class="nav-link-icon" alt="login" width="auto" height="auto">
                         <span>Login</span></a>
                 </li>
             {% endif %}
+        </ul>
+        <ul class="theme-switch-wrapper">
+            <li>
+                <input type="checkbox"
+                       id="theme-switch"
+                       aria-label="Toggle light and dark theme">
+            </li>
         </ul>
     </nav>
 </aside>

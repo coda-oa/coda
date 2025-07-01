@@ -1,7 +1,8 @@
 {% load param_replace %}
 <div class="my-2">
     {% if page_obj.number > 1 %}
-        <a class="mr-1" href="?page=1">«</a>
+        {% comment %} <a class="mr-1" href="?page=1">«</a> {% endcomment %}
+        <a class="mr-1" href="?{% param_replace page=1 %}">«</a>
     {% else %}
         <a class="mr-1 pagination__disabled" disabled>«</a>
     {% endif %}

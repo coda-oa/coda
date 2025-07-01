@@ -1,16 +1,24 @@
-from coda.apps.publications.dto import JournalDto, LinkDto, PublicationDto, PublicationMetaDto
+from coda.apps.fundingrequests.views.wizard.steps.publisher_step import PublisherStepDto
+from coda.apps.publications.dto import JournalDto, MonographDto, PublicationDto
 from coda.apps.wizard import Store
 
 
 def publication_dto_from(store: Store) -> PublicationDto:
-    publication_meta: PublicationMetaDto = store["publication"]
-    link_form_data: list[LinkDto] = store["links"]
-    journal = JournalDto(journal_id=store["journal"])
     publication_dto = PublicationDto(
-        meta=publication_meta,
-        links=link_form_data,
-        authors=store["authors"],
-        journal=journal,
+        **store["publication_step"],
+        journal=JournalDto(id=store["journal"]),
+        contracts=store["contracts"],
     )
 
     return publication_dto
+
+
+def monograph_dto_from(store: Store) -> MonographDto:
+    publisher_step = PublisherStepDto(**store["publisher_step"])
+    monograph_dto = MonographDto(
+        **store["publication_step"],
+        publisher=publisher_step.publisher,
+        contracts=publisher_step.contracts,
+    )
+
+    return monograph_dto

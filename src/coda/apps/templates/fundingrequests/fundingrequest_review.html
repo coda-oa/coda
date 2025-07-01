@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}
+    Review
+{% endblock title %}
+{% block content %}
+    <h1 class="my-2">Review</h1>
+    <div class="my-2">
+        <h2>Checks</h2>
+        {% include "fundingrequests/partials/checkrun.html" %}
+    </div>
+    <article>
+        <form action="{% url 'fundingrequests:review_submit' pk=fundingrequest.id %}"
+              method="post">
+            {% csrf_token %}
+            <label for="decided_funding_amount">Decided funding amount</label>
+            <div class="flex">
+                <input type="number"
+                       min="0"
+                       step="0.01"
+                       name="decided_funding_amount"
+                       id="decided_funding_amount"
+                       value="{{ fundingrequest.funding_amount.amount }}"
+                       required>
+                <search-select name="decided_funding_currency" id="decided_funding_currency" required>
+                {% for c in currencies %}
+                    <li value="{{ c.code }}"
+                        {% if c == selected_currency %}selected{% endif %}>{{ c.code }}</li>
+                {% endfor %}
+                </search-select>
+            </div>
+            <label for="reviewer_remarks" class="my-2">
+                Reviewer Remarks
+                <textarea name="reviewer_remarks" id="reviewer_remarks" rows="5">{{ fundingrequest.review_remarks }}</textarea>
+            </label>
+            <div class="grid my-2">
+                {% if fundingrequest.is_open %}
+                    <button class="success" type="submit" name="action" value="approve">Approve</button>
+                    <button class="secondary" type="submit" name="action" value="close">Close</button>
+                    <button class="fundingrequest-waive-button"
+                            type="submit"
+                            name="action"
+                            value="waive">Costs waived</button>
+                    <button class="danger" type="submit" name="action" value="reject">Reject</button>
+                    <button class="secondary outline" type="submit" name="action" value="return">Save and return</button>
+                {% else %}
+                    <button type="submit" name="action" value="open">Open</button>
+                    <button class="secondary" type="submit" name="action" value="return">Save and return</button>
+                {% endif %}
+            </div>
+        </form>
+    </article>
+{% endblock content %}

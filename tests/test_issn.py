@@ -1,5 +1,6 @@
 import pytest
-from coda import issn
+
+from coda.domain import issn
 
 
 @pytest.mark.parametrize(

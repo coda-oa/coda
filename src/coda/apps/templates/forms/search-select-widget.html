@@ -1,4 +1,4 @@
-<search-select name="{{ widget.name }}" class="w-100">
+<search-select name="{{ widget.name }}">
 {% for group_name, group_choices, group_index in widget.optgroups %}
     {% if group_name %}<optgroup label="{{ group_name }}">{% endif %}
         {% for widget in group_choices %}

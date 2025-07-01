@@ -1,0 +1,16 @@
+<article class="flex align-center justify-between">
+    <p class="m-0">{{ entity.name }} {{ entity.version }}</p>
+    <div>
+        {% if entity.base_vocabulary %}
+            <a href="{% url 'publications:vocabulary_edit_limited' pk=entity.id %}"
+               role="button">Edit</a>
+        {% endif %}
+        <a href="{% url 'publications:vocabulary_create_limited' pk=entity.id %}"
+           role="button"
+           class="secondary">Create Limited</a>
+        <button hx-post="{% url "publications:vocabulary_request_delete" pk=entity.id %}"
+                hx-target="body"
+                hx-swap="beforeend"
+                class="danger">Delete</button>
+    </div>
+</article>

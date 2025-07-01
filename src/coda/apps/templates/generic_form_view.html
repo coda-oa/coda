@@ -6,11 +6,13 @@
     <section class="my-2">
         {% if title %}<h1>{{ title }}</h1>{% endif %}
         <form method="post">
-            {% csrf_token %}
-            <table>
-                {{ form.as_table }}
-            </table>
-            <button type="submit">Save</button>
+            <article>
+                {% csrf_token %}
+                <table>
+                    {{ form.as_div }}
+                </table>
+                <button type="submit" class="max-fit-content">Save</button>
+            </article>
         </form>
     </section>
 {% endblock content %}

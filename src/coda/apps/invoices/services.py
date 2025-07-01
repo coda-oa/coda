@@ -1,89 +1,100 @@
-from coda.apps.invoices.models import Invoice as InvoiceModel
-from coda.apps.invoices.models import Position as PositionModel
-from coda.invoice import (
-    CostType,
-    CreditorId,
-    FundingSourceId,
-    Invoice,
-    InvoiceId,
-    ItemType,
-    PaymentStatus,
-    Position,
-    TaxRate,
-)
-from coda.money import Currency, Money
-from coda.publication import PublicationId
+from typing import cast
+from coda.apps.invoices import repository
+from coda.apps.publications.services import publications
+from coda.domain.invoice import Invoice, InvoiceId
+from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
+from coda.domain.publication.publication import PublicationId
 
 
-def get_by_id(invoice_id: InvoiceId) -> Invoice:
-    return as_domain_object(InvoiceModel.objects.get(id=invoice_id))
+def save(invoice: Invoice) -> InvoiceId:
+    _unpay_deleted_publication_positions(invoice)
+    id = _save_invoice(invoice)
+
+    if invoice.is_paid():
+        _pay_publications(invoice)
+    else:
+        _invoice_received(invoice)
+
+    return id
 
 
-def as_domain_object(model: InvoiceModel) -> Invoice:
-    return Invoice(
-        id=InvoiceId(model.id),
-        date=model.date,
-        number=model.number,
-        creditor=CreditorId(model.creditor_id),
-        status=PaymentStatus(model.status),
-        positions=[
-            Position(
-                item=(
-                    PublicationId(position.publication_id)
-                    if position.publication_id
-                    else position.description
-                ),
-                cost=Money(position.cost_amount, Currency[position.cost_currency]),
-                cost_type=CostType(position.cost_type),
-                tax_rate=TaxRate(position.tax_rate),
-                funding_source=(
-                    FundingSourceId(position.funding_source_id)
-                    if position.funding_source_id
-                    else None
-                ),
-            )
-            for position in model.positions.all()
-        ],
-        comment=model.comment,
+def _unpay_deleted_publication_positions(invoice: Invoice) -> None:
+    if not invoice.id:
+        return
+
+    saved_invoice = repository.get_by_id(invoice.id)
+    saved_publication_positions = set(_publication_positions(saved_invoice))
+    new_publication_positions = set(_publication_positions(invoice))
+    deleted_publication_ids = saved_publication_positions.difference(new_publication_positions)
+    for publication in deleted_publication_ids:
+        _update_or_delete_payment_of_deleted_position(invoice, publication)
+
+
+def _update_or_delete_payment_of_deleted_position(
+    invoice: Invoice, deleted_publication: PublicationId
+) -> None:
+    other_invoice = repository.get_other_paid_invoice_with_publication(invoice, deleted_publication)
+
+    if other_invoice is None:
+        publications.invoice_deleted(deleted_publication)
+        return
+
+    publications.update_payment(
+        deleted_publication,
+        PublicationPaid(
+            invoice_id=cast(InvoiceId, other_invoice.id),
+            invoice_number=other_invoice.number,
+        ),
     )
 
 
-def invoice_create(invoice: Invoice) -> InvoiceId:
-    m = InvoiceModel.objects.create(
-        number=invoice.number,
-        date=invoice.date,
-        creditor_id=invoice.creditor,
-        comment=invoice.comment,
-        status=invoice.status.value,
-    )
+def _save_invoice(invoice: Invoice) -> InvoiceId:
+    if not invoice.id:
+        invoice.id = repository.create(invoice)
+    else:
+        repository.update(invoice)
 
-    def _create_position(pos: Position[ItemType]) -> PositionModel:
-        match pos.item:
-            case int(pub_id):
-                return PositionModel(
-                    publication_id=pub_id,
-                    cost_amount=pos.cost.amount,
-                    cost_currency=pos.cost.currency.code,
-                    cost_type=pos.cost_type.value,
-                    tax_rate=pos.tax_rate,
-                    funding_source_id=pos.funding_source,
-                    invoice_id=m.id,
-                )
-            case str(description):
-                return PositionModel(
-                    description=description,
-                    cost_amount=pos.cost.amount,
-                    cost_currency=pos.cost.currency.code,
-                    cost_type=pos.cost_type.value,
-                    tax_rate=pos.tax_rate,
-                    funding_source_id=pos.funding_source,
-                    invoice_id=m.id,
-                )
-            case _:
-                raise ValueError("Invalid position item")
+    return invoice.id
 
-    PositionModel.objects.bulk_create(
-        [_create_position(position) for position in invoice.positions]
-    )
 
-    return InvoiceId(m.id)
+def pay_invoice(invoice_id: InvoiceId) -> None:
+    invoice = repository.get_by_id(invoice_id)
+    invoice.pay()
+    repository.update(invoice)
+    _pay_publications(invoice)
+
+
+def reset_payment(invoice_id: InvoiceId) -> None:
+    invoice = repository.get_by_id(invoice_id)
+    invoice.reset_payment()
+    repository.update(invoice)
+    _invoice_received(invoice)
+
+
+def delete_invoice(invoice_id: InvoiceId) -> None:
+    invoice = repository.get_by_id(invoice_id)
+    for p in _publication_positions(invoice):
+        publications.invoice_deleted(p)
+
+    repository.delete(invoice_id)
+
+
+def _pay_publications(invoice: Invoice) -> None:
+    assert invoice.id is not None, "Only saved invoices can be paid"
+    paid = PublicationPaid(invoice_id=invoice.id, invoice_number=invoice.number)
+    _update_payments(invoice, paid)
+
+
+def _invoice_received(invoice: Invoice) -> None:
+    assert invoice.id is not None, "Only saved invoices can be paid"
+    invoice_received = InvoiceReceived(invoice_id=invoice.id, invoice_number=invoice.number)
+    _update_payments(invoice, invoice_received)
+
+
+def _update_payments(invoice: Invoice, paid: PublicationPayment) -> None:
+    for p in _publication_positions(invoice):
+        publications.update_payment(p, paid)
+
+
+def _publication_positions(invoice: Invoice) -> list[PublicationId]:
+    return [p.item for p in invoice.positions if isinstance(p.item, PublicationId)]

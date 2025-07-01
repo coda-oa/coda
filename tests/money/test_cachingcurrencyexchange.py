@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from coda.money import Currency
-from coda.money.exchange import (
+from coda.domain.money import Currency
+from coda.domain.money.exchange import (
     CachingCurrencyExchange,
     Calendar,
     Rates,
