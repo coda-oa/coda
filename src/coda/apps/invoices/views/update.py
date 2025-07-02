@@ -48,5 +48,5 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
         | funding_sources_context()
         | invoice_total_context(positions, invoice.currency().code)
         | errors
-        | {"mode_name": "Edit", "form": form, "positions": positions},
+        | {"mode_name": "Edit", "form": form, "positions": positions, "invoice_id": invoice.id},
     )
