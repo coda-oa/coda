@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1 class="my-2">{{ mode_name }} Invoice</h1>
+    <div class="flex justify-between align-center my-2">
+        <h1 class="my-2">{{ mode_name }} Invoice</h1>
+        {% if mode_name == "Edit" %}
+            <a href="{% url "invoices:detail" pk=invoice_id %}"
+               role="button"
+               class="danger">Cancel</a>
+        {% elif mode_name == "Create" %}
+            <a href="{% url "invoices:list" %}" role="button" class="danger">Cancel</a>
+        {% endif %}
+    </div>
     <form id="invoice-form" method="post">
         {% csrf_token %}
         <article>
