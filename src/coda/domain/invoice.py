@@ -16,7 +16,7 @@ CreditorId = NewType("CreditorId", int)
 FundingSourceId = NewType("FundingSourceId", int)
 
 
-class CostType(enum.Enum):
+class PublicationCostType(enum.Enum):
     """
     Enum representing the cost type based on the OpenCost schema.
     """
@@ -32,6 +32,16 @@ class CostType(enum.Enum):
     Submission_Fee = "submission fee"
     Payment_Fee = "payment fee"
     Other = "other"
+
+
+class ContractCostType(enum.Enum):
+    """
+    Enum representing the cost type for contracts based on the OpenCost schema.
+    """
+
+    Publish = "publish"
+    Read = "read"
+    Vat = "vat"
 
 
 class TaxRate(Decimal):
@@ -67,7 +77,7 @@ class PaymentStatus(enum.Enum):
 class Position(Generic[T]):
     item: T
     cost: Money
-    cost_type: CostType
+    cost_type: PublicationCostType
     tax_rate: TaxRate = TaxRate(0)
     funding_source: FundingSourceId | None = None
     external_position_id: str = ""

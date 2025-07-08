@@ -25,7 +25,7 @@ from coda.apps.publications.models import Publication
 from coda.apps.publications.services import publications
 from coda.domain.contract import Contract, ContractId
 from coda.domain.invoice import (
-    CostType,
+    PublicationCostType,
     CreditorId,
     FundingSourceId,
     Invoice,
@@ -251,7 +251,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                     post_data["position-1-cost-amount"],
                     Currency[post_data["currency"]],
                 ),
-                CostType(post_data["position-1-cost-type"]),
+                PublicationCostType(post_data["position-1-cost-type"]),
                 TaxRate(int(post_data["position-1-tax-rate"]) / 100),
                 FundingSourceId(int(post_data["position-1-funding-source"])),
                 external_position_id=post_data["position-1-external-position-id"],
@@ -262,7 +262,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                     post_data["position-2-cost-amount"],
                     Currency[post_data["currency"]],
                 ),
-                CostType(post_data["position-2-cost-type"]),
+                PublicationCostType(post_data["position-2-cost-type"]),
                 TaxRate(int(post_data["position-2-tax-rate"]) / 100),
                 FundingSourceId(int(post_data["position-2-funding-source"])),
                 external_position_id=post_data["position-2-external-position-id"],
@@ -273,7 +273,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                     post_data["position-3-cost-amount"],
                     Currency[post_data["currency"]],
                 ),
-                CostType(post_data["position-3-cost-type"]),
+                PublicationCostType(post_data["position-3-cost-type"]),
                 TaxRate(int(post_data["position-3-tax-rate"]) / 100),
                 FundingSourceId(int(post_data["position-3-funding-source"])),
                 external_position_id=post_data["position-3-external-position-id"],
@@ -373,7 +373,7 @@ def create_contract_position_input(contract: "ContractYearLike", index: int = 1)
 
 
 def _random_cost_type() -> str:
-    return random.choice([ct.value for ct in CostType])
+    return random.choice([ct.value for ct in PublicationCostType])
 
 
 def _random_tax_rate() -> str:
@@ -407,7 +407,7 @@ def expect_new_contract_position(contract_year: "ContractYearLike") -> ContractP
         name=contract_name,
         year=year,
         cost_amount="0.00",
-        cost_type=CostType.Publication_Charge.value,
+        cost_type=PublicationCostType.Publication_Charge.value,
         tax_rate=str(DEFAULT_TAX_RATE_PERCENTAGE),
     )
 
@@ -436,7 +436,7 @@ def expect_new_publication_position(publication: Publication) -> PublicationPosi
             else RelatedFundingRequest()
         ),
         cost_amount="0.00",
-        cost_type=CostType.Publication_Charge.value,
+        cost_type=PublicationCostType.Publication_Charge.value,
         tax_rate=str(DEFAULT_TAX_RATE_PERCENTAGE),
     )
 

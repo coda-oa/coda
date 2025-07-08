@@ -17,7 +17,7 @@ from coda.apps.invoices.views.positions import (
 )
 from coda.apps.publications.models import Publication
 from coda.domain.invoice import (
-    CostType,
+    PublicationCostType,
     CreditorId,
     FundingSourceId,
     Invoice,
@@ -28,7 +28,7 @@ from coda.domain.invoice import (
 )
 from coda.domain.money import Currency, Money
 
-_CostTypes = [ct.value for ct in CostType]
+_CostTypes = [ct.value for ct in PublicationCostType]
 
 
 class ErrorDict(TypedDict):
@@ -93,7 +93,7 @@ def parse_position(
         return Position(
             item=item_parser(position),
             cost=Money(position.cost_amount, currency),
-            cost_type=CostType(position.cost_type),
+            cost_type=PublicationCostType(position.cost_type),
             tax_rate=TaxRate.from_percentage(position.tax_rate),
             funding_source=(
                 FundingSourceId(position.funding_source) if position.funding_source else None

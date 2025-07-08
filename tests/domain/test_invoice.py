@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from coda.domain.invoice import (
-    CostType,
+    PublicationCostType,
     CreditorId,
     Invoice,
     NoSuchConversion,
@@ -23,7 +23,7 @@ def make_sut(positions: Positions) -> Invoice:
 
 
 def position(cost: Money, tax_rate: TaxRate = TaxRate(0)) -> Position[PublicationId]:
-    return Position(PublicationId(1), cost, CostType.Gold_OA, tax_rate=tax_rate)
+    return Position(PublicationId(1), cost, PublicationCostType.Gold_OA, tax_rate=tax_rate)
 
 
 def test__invoice__with_no_positions__has_eur_currency() -> None:

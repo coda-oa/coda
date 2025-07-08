@@ -9,7 +9,7 @@ from coda.apps.invoices.models import Position as PositionModel
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
 from coda.domain.invoice import (
-    CostType,
+    PublicationCostType,
     CreditorId,
     FundingSourceId,
     Invoice,
@@ -110,7 +110,7 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
             Position(
                 item=_get_item_from_position_model(position),
                 cost=Money(position.cost_amount, Currency[position.cost_currency]),
-                cost_type=CostType(position.cost_type),
+                cost_type=PublicationCostType(position.cost_type),
                 tax_rate=TaxRate(position.tax_rate),
                 funding_source=(
                     FundingSourceId(position.funding_source_id)

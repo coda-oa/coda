@@ -16,7 +16,7 @@ from coda.apps.invoices.views.positions import ContractPosition, FreePosition, P
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.contract import Contract, ContractYear
 from coda.domain.invoice import (
-    CostType,
+    PublicationCostType,
     CreditorId,
     Invoice,
     InvoiceId,
@@ -229,7 +229,7 @@ def save_invoice_view(
 
 
 def publication_position(a_publication: Publication) -> Position[PublicationId]:
-    cost_type = random.choice(list(CostType))
+    cost_type = random.choice(list(PublicationCostType))
     return Position(
         item=cast(PublicationId, a_publication.id),
         funding_source=_random_funding_source(),
@@ -245,7 +245,7 @@ def contract_position(a_contract: Contract) -> Position[ContractYear]:
         item=a_contract.in_first_year(),
         funding_source=_random_funding_source(),
         cost=Money(100, Currency.EUR),
-        cost_type=CostType.Publication_Charge,
+        cost_type=PublicationCostType.Publication_Charge,
         tax_rate=TaxRate.from_percentage(19),
         external_position_id=f"external-contract-{a_contract.id}",
     )
@@ -256,7 +256,7 @@ def free_position() -> Position[str]:
         item="Free position",
         funding_source=_random_funding_source(),
         cost=Money(50, Currency.EUR),
-        cost_type=CostType.Other,
+        cost_type=PublicationCostType.Other,
         tax_rate=TaxRate.from_percentage(7),
         external_position_id="external-free",
     )

@@ -21,7 +21,7 @@ from coda.domain.fundingrequest import (
 )
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.invoice import (
-    CostType,
+    PublicationCostType,
     CreditorId,
     FundingSourceId,
     Invoice,
@@ -141,7 +141,7 @@ def publication_position(
     return Position(
         item=publication or PublicationId(random.randint(1, 1000)),
         cost=random_money(currency),
-        cost_type=random.choice(list(CostType)),
+        cost_type=random.choice(list(PublicationCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),
@@ -156,7 +156,7 @@ def contract_position(
     return Position(
         item=contract,
         cost=random_money(currency),
-        cost_type=random.choice(list(CostType)),
+        cost_type=random.choice(list(PublicationCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),
@@ -167,7 +167,7 @@ def free_position(currency: Currency | None = None) -> Position[str]:
     return Position(
         item=_faker.sentence(),
         cost=random_money(currency),
-        cost_type=random.choice(list(CostType)),
+        cost_type=random.choice(list(PublicationCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         external_position_id=str(_faker.uuid4()),
     )

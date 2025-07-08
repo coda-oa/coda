@@ -8,7 +8,7 @@ from coda.apps.contracts import repository as contract_services
 from coda.apps.dto import CodaBaseDto
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.contract import ContractId, ContractYear
-from coda.domain.invoice import CostType, ItemType, Position
+from coda.domain.invoice import PublicationCostType, ItemType, Position
 from coda.domain.publication import PublicationId
 
 T = TypeVar("T", bound=ItemType, covariant=True)
@@ -30,7 +30,7 @@ IntOrNone = Annotated[int | None, BeforeValidator(try_int)]
 class CommonPosition(abc.ABC, CodaBaseDto, Generic[T]):
     type: str
     funding_source: IntOrNone = None
-    cost_type: str = CostType.Publication_Charge.value
+    cost_type: str = PublicationCostType.Publication_Charge.value
     cost_amount: Decimal = Decimal("0.00")
     tax_rate: Decimal = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
     external_position_id: str = ""
