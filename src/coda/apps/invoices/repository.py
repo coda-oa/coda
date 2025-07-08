@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+import logging
 from typing import TypedDict
 
 from django.db.models import Q, QuerySet
@@ -143,6 +144,13 @@ def _as_position_domain_object(position: PositionModel) -> AnyPosition:
         cost_type = ContractCostType(position.cost_type)
         return ContractPosition(item=item, cost_type=cost_type, **common_args)
 
+    logging.info(
+        "Restoring Position %s from DB. Item is %s of type %s. Cost type is %s",
+        str(position.id),
+        str(item),
+        type(item),
+        position.cost_type,
+    )
     cost_type = PublicationCostType(position.cost_type)
     return Position(item=item, cost_type=cost_type, **common_args)
 

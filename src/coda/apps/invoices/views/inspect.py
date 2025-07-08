@@ -13,7 +13,7 @@ from django.views.decorators.http import require_GET, require_POST
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository, services
 from coda.apps.invoices.models import Creditor
-from coda.apps.invoices.views.create import _DefaultContext
+from coda.apps.invoices.views.position_list import _DefaultContext
 from coda.apps.invoices.views.position_list import funding_sources_context
 from coda.apps.invoices.views.positions import to_position_dto
 from coda.apps.publications.models import Publication

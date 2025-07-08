@@ -17,6 +17,7 @@ from coda.apps.invoices.views.positions import (
 from coda.apps.publications.models import Publication
 from coda.domain.invoice import (
     AnyPosition,
+    ContractCostType,
     CreditorId,
     Invoice,
     Positions,
@@ -24,7 +25,8 @@ from coda.domain.invoice import (
 )
 from coda.domain.money import Currency
 
-_CostTypes = [ct.value for ct in PublicationCostType]
+_PublicationCostTypes = [ct.value for ct in PublicationCostType]
+_ContractCostTypes = [ct.value for ct in ContractCostType]
 
 
 class ErrorDict(TypedDict):
@@ -34,7 +36,15 @@ class ErrorDict(TypedDict):
 @login_required
 def switch_position_tab(request: HttpRequest) -> HttpResponse:
     tab = request.GET["tab"]
-    return render(request, "invoices/add_positions.html", {"tab": tab, "cost_types": _CostTypes})
+    return render(
+        request,
+        "invoices/add_positions.html",
+        {
+            "tab": tab,
+            "publication_cost_types": _PublicationCostTypes,
+            "contract_cost_types": _ContractCostTypes,
+        },
+    )
 
 
 @login_required
@@ -155,7 +165,8 @@ def render_positions(request: HttpRequest, positions: list[AnyPositionDto]) -> H
     return render(
         request,
         "invoices/invoice_positions.html",
-        {"positions": positions, "cost_types": _CostTypes}
+        {"positions": positions}
+        | _DefaultContext
         | funding_sources_context()
         | invoice_total_context(positions, request.POST.get("currency", "EUR")),
     )
@@ -189,3 +200,10 @@ class PositionError(Exception):
 
     def message(self) -> str:
         return str(self.inner)
+
+
+_DefaultContext = {
+    "publication_cost_types": _PublicationCostTypes,
+    "contract_cost_types": _ContractCostTypes,
+    "currencies": list(Currency),
+}

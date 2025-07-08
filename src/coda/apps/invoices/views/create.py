@@ -7,16 +7,13 @@ from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.views.position_list import (
     ErrorDict,
     PositionError,
-    _CostTypes,
+    _DefaultContext,
     existing_positions,
     parse_into_position_list,
     parse_position_data,
 )
 from coda.apps.invoices.views.positions import AnyPositionDto
 from coda.domain.invoice import CreditorId, Invoice, InvoiceId, PaymentStatus
-from coda.domain.money import Currency
-
-_DefaultContext = {"cost_types": _CostTypes, "currencies": list(Currency)}
 
 
 @login_required

@@ -70,11 +70,18 @@
         {% else %}
             <select id="id-position-{{ counter }}-cost-type"
                     name="position-{{ counter }}-cost-type">
-                {% for type in cost_types %}
-                    <option value="{{ type }}"
-                            {% if type == position.cost_type %}selected{% endif %}>{{ type }}</option>
-                {% endfor %}
-            {% endif %}
-        </select>
+                {% if position.type == "contract" %}
+                    {% for type in contract_cost_types %}
+                        <option value="{{ type }}"
+                                {% if type == position.cost_type %}selected{% endif %}>{{ type }}</option>
+                    {% endfor %}
+                {% else %}
+                    {% for type in publication_cost_types %}
+                        <option value="{{ type }}"
+                                {% if type == position.cost_type %}selected{% endif %}>{{ type }}</option>
+                    {% endfor %}
+                {% endif %}
+            </select>
+        {% endif %}
     </div>
 </div>
