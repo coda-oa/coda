@@ -12,16 +12,22 @@ from coda.apps.contracts import repository as contract_services
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.repository import create
-from coda.apps.invoices.views.positions import ContractPosition, FreePosition, PublicationPosition
+from coda.apps.invoices.views.positions import (
+    ContractPositionDto,
+    FreePositionDto,
+    PublicationPositionDto,
+)
 from coda.apps.publications.repositories import publication_repository
-from coda.domain.contract import Contract, ContractYear
+from coda.domain.contract import Contract
 from coda.domain.invoice import (
-    PublicationCostType,
+    ContractCostType,
+    ContractPosition,
     CreditorId,
     Invoice,
     InvoiceId,
     PaymentStatus,
     Position,
+    PublicationCostType,
     TaxRate,
 )
 from coda.domain.money import Currency, Money
@@ -240,12 +246,12 @@ def publication_position(a_publication: Publication) -> Position[PublicationId]:
     )
 
 
-def contract_position(a_contract: Contract) -> Position[ContractYear]:
-    return Position(
+def contract_position(a_contract: Contract) -> ContractPosition:
+    return ContractPosition(
         item=a_contract.in_first_year(),
         funding_source=_random_funding_source(),
         cost=Money(100, Currency.EUR),
-        cost_type=PublicationCostType.Publication_Charge,
+        cost_type=ContractCostType.Publish,
         tax_rate=TaxRate.from_percentage(19),
         external_position_id=f"external-contract-{a_contract.id}",
     )
@@ -264,10 +270,10 @@ def free_position() -> Position[str]:
 
 def expect_publication_position(
     publication_position: Position[PublicationId],
-) -> PublicationPosition:
+) -> PublicationPositionDto:
     publication = publication_repository.get_by_id(publication_position.item)
 
-    return PublicationPosition(
+    return PublicationPositionDto(
         id=publication.id,
         title=publication.title,
         funding_source=publication_position.funding_source,
@@ -278,10 +284,10 @@ def expect_publication_position(
     )
 
 
-def expect_contract_position(contract_position: Position[ContractYear]) -> ContractPosition:
+def expect_contract_position(contract_position: ContractPosition) -> ContractPositionDto:
     contract = contract_position.item.contract
 
-    return ContractPosition(
+    return ContractPositionDto(
         id=contract.id,
         name=contract.name,
         year=contract_position.item.year,
@@ -293,8 +299,8 @@ def expect_contract_position(contract_position: Position[ContractYear]) -> Contr
     )
 
 
-def expect_free_position(free_position: Position[str]) -> FreePosition:
-    return FreePosition(
+def expect_free_position(free_position: Position[str]) -> FreePositionDto:
+    return FreePositionDto(
         description=free_position.item,
         funding_source=free_position.funding_source,
         cost_amount=free_position.cost.amount,

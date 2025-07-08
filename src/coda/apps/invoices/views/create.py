@@ -12,8 +12,8 @@ from coda.apps.invoices.views.position_list import (
     parse_into_position_list,
     parse_position_data,
 )
-from coda.apps.invoices.views.positions import CommonPosition
-from coda.domain.invoice import CreditorId, Invoice, InvoiceId, ItemType, PaymentStatus
+from coda.apps.invoices.views.positions import AnyPositionDto
+from coda.domain.invoice import CreditorId, Invoice, InvoiceId, PaymentStatus
 from coda.domain.money import Currency
 
 _DefaultContext = {"cost_types": _CostTypes, "currencies": list(Currency)}
@@ -61,7 +61,7 @@ def save_invoice(
 
 def parse_invoice(
     form: InvoiceForm,
-    positions: list[CommonPosition[ItemType]],
+    positions: list[AnyPositionDto],
     invoice_id: InvoiceId | None = None,
 ) -> Invoice:
     return Invoice(
@@ -70,7 +70,7 @@ def parse_invoice(
         date=form.cleaned_data["date"],
         status=PaymentStatus(form.cleaned_data["status"]),
         creditor=CreditorId(form.cleaned_data["creditor"].id),
-        positions=parse_into_position_list(positions, form.get_currency(), lambda p: p.parse()),
+        positions=parse_into_position_list(positions, form.get_currency(), parse_safe=False),
         comment=form.cleaned_data["comment"],
         external_invoice_id=form.cleaned_data["external_invoice_id"],
     )

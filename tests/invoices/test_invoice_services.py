@@ -6,7 +6,7 @@ import pytest
 from coda.apps.invoices import repository, services
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
-from coda.domain.invoice import CreditorId, Invoice, InvoiceId, ItemType, Position
+from coda.domain.invoice import AnyPosition, CreditorId, Invoice, InvoiceId
 from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationUnpaid
 from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
@@ -221,7 +221,7 @@ def paid_invoice_for_publication(publication: PublicationId) -> Invoice:
     return paid_invoice(position)
 
 
-def paid_invoice(*positions: Position[ItemType]) -> Invoice:
+def paid_invoice(*positions: AnyPosition) -> Invoice:
     creditor = CreditorId(modelfactory.creditor().id)
     invoice = domainfactory.invoice(positions=tuple(positions), creditor=creditor)
     invoice.pay()

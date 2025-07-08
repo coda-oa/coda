@@ -1,15 +1,19 @@
 from collections.abc import Sequence
+from typing import TypedDict
 
 from django.db.models import Q, QuerySet
 
 from coda.apps.contracts import repository as contract_services
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.invoices.models import CurrencyConversion, Invoice as InvoiceModel
+from coda.apps.invoices.models import CurrencyConversion
+from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
 from coda.domain.invoice import (
-    PublicationCostType,
+    AnyPosition,
+    ContractCostType,
+    ContractPosition,
     CreditorId,
     FundingSourceId,
     Invoice,
@@ -17,11 +21,12 @@ from coda.domain.invoice import (
     ItemType,
     PaymentStatus,
     Position,
+    PublicationCostType,
     TaxRate,
 )
-from coda.lazyiterable import LazyCachedIterable
 from coda.domain.money import Currency, Money
 from coda.domain.publication import PublicationId
+from coda.lazyiterable import LazyCachedIterable
 
 
 def first() -> Invoice | None:
@@ -107,19 +112,7 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
         creditor=CreditorId(model.creditor_id),
         status=PaymentStatus(model.status),
         positions=LazyCachedIterable(
-            Position(
-                item=_get_item_from_position_model(position),
-                cost=Money(position.cost_amount, Currency[position.cost_currency]),
-                cost_type=PublicationCostType(position.cost_type),
-                tax_rate=TaxRate(position.tax_rate),
-                funding_source=(
-                    FundingSourceId(position.funding_source_id)
-                    if position.funding_source_id
-                    else None
-                ),
-                external_position_id=position.external_position_id,
-            )
-            for position in model.positions.all()
+            _as_position_domain_object(position) for position in model.positions.all()
         ),
         comment=model.comment,
         external_invoice_id=model.external_invoice_id,
@@ -132,6 +125,37 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
         )
 
     return invoice
+
+
+class _CommonPositionArgs(TypedDict):
+    cost: Money
+    tax_rate: TaxRate
+    funding_source: FundingSourceId | None
+    external_position_id: str
+
+
+def _as_position_domain_object(position: PositionModel) -> AnyPosition:
+    item = _get_item_from_position_model(position)
+    common_args = _extract_common_position_args(position)
+
+    cost_type: PublicationCostType | ContractCostType
+    if isinstance(item, ContractYear):
+        cost_type = ContractCostType(position.cost_type)
+        return ContractPosition(item=item, cost_type=cost_type, **common_args)
+
+    cost_type = PublicationCostType(position.cost_type)
+    return Position(item=item, cost_type=cost_type, **common_args)
+
+
+def _extract_common_position_args(position: PositionModel) -> _CommonPositionArgs:
+    return {
+        "cost": Money(position.cost_amount, Currency[position.cost_currency]),
+        "tax_rate": TaxRate(position.tax_rate),
+        "funding_source": (
+            FundingSourceId(position.funding_source_id) if position.funding_source_id else None
+        ),
+        "external_position_id": position.external_position_id,
+    }
 
 
 def _get_item_from_position_model(position: PositionModel) -> ItemType:
@@ -211,7 +235,7 @@ class UnsavedInvoice(ValueError):
         super().__init__(f"Invoice {invoice.number} is not saved yet.")
 
 
-def _create_position(m: InvoiceModel, pos: Position[ItemType]) -> PositionModel:
+def _create_position(m: InvoiceModel, pos: AnyPosition) -> PositionModel:
     match pos.item:
         case ContractYear() as contract_year:
             return PositionModel(

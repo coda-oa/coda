@@ -9,7 +9,6 @@ from coda.domain import orcid
 from coda.domain.author import Author, AuthorId, AuthorNames, InstitutionId, Role
 from coda.domain.contract import Contract, ContractId, ContractYear, PublisherId
 from coda.domain.date import DateRange
-from coda.domain.fundingrequest import Review
 from coda.domain.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -18,10 +17,12 @@ from coda.domain.fundingrequest import (
     FundingRequestId,
     Payment,
     PaymentMethod,
+    Review,
 )
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.invoice import (
-    PublicationCostType,
+    ContractCostType,
+    ContractPosition,
     CreditorId,
     FundingSourceId,
     Invoice,
@@ -29,6 +30,7 @@ from coda.domain.invoice import (
     PaymentStatus,
     Position,
     Positions,
+    PublicationCostType,
     TaxRate,
 )
 from coda.domain.money import Currency, Money
@@ -152,11 +154,11 @@ def contract_position(
     contract: ContractYear,
     currency: Currency | None = None,
     funding_source: FundingSourceId | None = None,
-) -> Position[ContractYear]:
-    return Position(
+) -> ContractPosition:
+    return ContractPosition(
         item=contract,
         cost=random_money(currency),
-        cost_type=random.choice(list(PublicationCostType)),
+        cost_type=random.choice(list(ContractCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),

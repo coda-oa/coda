@@ -1,6 +1,7 @@
 import dataclasses
 import datetime
 import enum
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -63,8 +64,12 @@ class TaxRate(Decimal):
 
 
 ItemType = PublicationId | ContractYear | str
-T = TypeVar("T", bound=ItemType, covariant=True)
-Positions = Iterable["Position[ItemType]"]
+CostType = PublicationCostType | ContractCostType
+BaseItemT = TypeVar("BaseItemT", covariant=True)
+BaseCostTypeT = TypeVar("BaseCostTypeT", covariant=True)
+PublicationItemType = TypeVar("PublicationItemType", bound=PublicationId | str, covariant=True)
+type AnyPosition = "CommonPosition[ItemType, CostType]"
+Positions = Iterable[AnyPosition]
 
 
 class PaymentStatus(enum.Enum):
@@ -73,14 +78,22 @@ class PaymentStatus(enum.Enum):
     Rejected = "rejected"
 
 
-@dataclass(slots=True, frozen=True)
-class Position(Generic[T]):
-    item: T
+@dataclass(slots=True, frozen=True, kw_only=True)
+class CommonPosition(ABC, Generic[BaseItemT, BaseCostTypeT]):
     cost: Money
-    cost_type: PublicationCostType
     tax_rate: TaxRate = TaxRate(0)
     funding_source: FundingSourceId | None = None
     external_position_id: str = ""
+
+    @property
+    @abstractmethod
+    def item(self) -> BaseItemT:
+        ...
+
+    @property
+    @abstractmethod
+    def cost_type(self) -> BaseCostTypeT:
+        ...
 
     def net(self) -> Money:
         return self.cost
@@ -90,6 +103,18 @@ class Position(Generic[T]):
 
     def total(self) -> Money:
         return self.net() + self.tax()
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class Position(CommonPosition[PublicationItemType, PublicationCostType]):
+    item: PublicationItemType
+    cost_type: PublicationCostType
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class ContractPosition(CommonPosition[ContractYear, ContractCostType]):
+    item: ContractYear
+    cost_type: ContractCostType
 
 
 def _internal_exchange(exchange_rates: dict[Currency, Decimal]) -> CurrencyExchange:

@@ -16,21 +16,23 @@ from coda.apps.invoices import repository
 from coda.apps.invoices.models import FundingSource
 from coda.apps.invoices.views.positions import (
     DEFAULT_TAX_RATE_PERCENTAGE,
-    ContractPosition,
-    FreePosition,
-    PublicationPosition,
+    ContractPositionDto,
+    FreePositionDto,
+    PublicationPositionDto,
     RelatedFundingRequest,
 )
 from coda.apps.publications.models import Publication
 from coda.apps.publications.services import publications
 from coda.domain.contract import Contract, ContractId
 from coda.domain.invoice import (
-    PublicationCostType,
+    ContractCostType,
+    ContractPosition,
     CreditorId,
     FundingSourceId,
     Invoice,
     PaymentStatus,
     Position,
+    PublicationCostType,
     TaxRate,
 )
 from coda.domain.money import Currency, Money
@@ -246,36 +248,36 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
         CreditorId(int(post_data["creditor"])),
         [
             Position(
-                PublicationId(int(post_data["position-1-id"])),
-                Money(
+                item=PublicationId(int(post_data["position-1-id"])),
+                cost=Money(
                     post_data["position-1-cost-amount"],
                     Currency[post_data["currency"]],
                 ),
-                PublicationCostType(post_data["position-1-cost-type"]),
-                TaxRate(int(post_data["position-1-tax-rate"]) / 100),
-                FundingSourceId(int(post_data["position-1-funding-source"])),
+                cost_type=PublicationCostType(post_data["position-1-cost-type"]),
+                tax_rate=TaxRate(int(post_data["position-1-tax-rate"]) / 100),
+                funding_source=FundingSourceId(int(post_data["position-1-funding-source"])),
                 external_position_id=post_data["position-1-external-position-id"],
             ),
             Position(
-                post_data["position-2-description"],
-                Money(
+                item=post_data["position-2-description"],
+                cost=Money(
                     post_data["position-2-cost-amount"],
                     Currency[post_data["currency"]],
                 ),
-                PublicationCostType(post_data["position-2-cost-type"]),
-                TaxRate(int(post_data["position-2-tax-rate"]) / 100),
-                FundingSourceId(int(post_data["position-2-funding-source"])),
+                cost_type=PublicationCostType(post_data["position-2-cost-type"]),
+                tax_rate=TaxRate(int(post_data["position-2-tax-rate"]) / 100),
+                funding_source=FundingSourceId(int(post_data["position-2-funding-source"])),
                 external_position_id=post_data["position-2-external-position-id"],
             ),
-            Position(
-                contract_year,
-                Money(
+            ContractPosition(
+                item=contract_year,
+                cost=Money(
                     post_data["position-3-cost-amount"],
                     Currency[post_data["currency"]],
                 ),
-                PublicationCostType(post_data["position-3-cost-type"]),
-                TaxRate(int(post_data["position-3-tax-rate"]) / 100),
-                FundingSourceId(int(post_data["position-3-funding-source"])),
+                cost_type=ContractCostType(post_data["position-3-cost-type"]),
+                tax_rate=TaxRate(int(post_data["position-3-tax-rate"]) / 100),
+                funding_source=FundingSourceId(int(post_data["position-3-funding-source"])),
                 external_position_id=post_data["position-3-external-position-id"],
             ),
         ],
@@ -305,7 +307,7 @@ def add_publication_position(
 
 def add_contract_position(
     client: Client,
-    contract_position: ContractPosition,
+    contract_position: ContractPositionDto,
     /,
     other_post_data: dict[str, Any] | None = None,
 ) -> TemplateResponse:
@@ -331,7 +333,7 @@ def create_free_position_input(index: int = 1) -> dict[str, str]:
         f"position-{index}-funding-source": str(_random_funding_source()),
         f"position-{index}-cost-amount": _random_cost(),
         f"position-{index}-tax-rate": _random_tax_rate(),
-        f"position-{index}-cost-type": _random_cost_type(),
+        f"position-{index}-cost-type": _random_publication_cost_type(),
         f"position-{index}-external-position-id": str(_faker.uuid4()),
     }
 
@@ -350,7 +352,7 @@ def create_publication_position_input(publication: Publication, index: int = 1) 
         f"position-{index}-title": publication.title,
         f"position-{index}-cost-amount": _random_cost(),
         f"position-{index}-tax-rate": _random_tax_rate(),
-        f"position-{index}-cost-type": _random_cost_type(),
+        f"position-{index}-cost-type": _random_publication_cost_type(),
         f"position-{index}-funding-source": str(_random_funding_source()),
         f"position-{index}-fundingrequest-id": request_id,
         f"position-{index}-fundingrequest-url": url,
@@ -367,13 +369,17 @@ def create_contract_position_input(contract: "ContractYearLike", index: int = 1)
         f"position-{index}-funding-source": str(_random_funding_source()),
         f"position-{index}-cost-amount": _random_cost(),
         f"position-{index}-tax-rate": _random_tax_rate(),
-        f"position-{index}-cost-type": _random_cost_type(),
+        f"position-{index}-cost-type": _random_contract_cost_type(),
         f"position-{index}-external-position-id": str(_faker.uuid4()),
     }
 
 
-def _random_cost_type() -> str:
+def _random_publication_cost_type() -> str:
     return random.choice([ct.value for ct in PublicationCostType])
+
+
+def _random_contract_cost_type() -> str:
+    return random.choice([ct.value for ct in ContractCostType])
 
 
 def _random_tax_rate() -> str:
@@ -389,31 +395,31 @@ def _random_funding_source() -> FundingSourceId:
     return FundingSourceId(fs.id)
 
 
-def expect_new_free_position() -> FreePosition:
-    return FreePosition(
+def expect_new_free_position() -> FreePositionDto:
+    return FreePositionDto(
         description=_faker.sentence(),
         cost_amount=_random_cost(),
-        cost_type=_random_cost_type(),
+        cost_type=_random_publication_cost_type(),
         tax_rate=_random_tax_rate(),
     )
 
 
-def expect_new_contract_position(contract_year: "ContractYearLike") -> ContractPosition:
+def expect_new_contract_position(contract_year: "ContractYearLike") -> ContractPositionDto:
     contract_id = contract_year.contract_id
     year = contract_year.year
     contract_name = contract_year.name
-    return ContractPosition(
+    return ContractPositionDto(
         id=contract_id,
         name=contract_name,
         year=year,
         cost_amount="0.00",
-        cost_type=PublicationCostType.Publication_Charge.value,
+        cost_type=ContractCostType.Publish.value,
         tax_rate=str(DEFAULT_TAX_RATE_PERCENTAGE),
     )
 
 
-def expect_existing_free_position(position_data: dict[str, str], index: int = 1) -> FreePosition:
-    return FreePosition(
+def expect_existing_free_position(position_data: dict[str, str], index: int = 1) -> FreePositionDto:
+    return FreePositionDto(
         description=position_data[f"position-{index}-description"],
         funding_source=position_data[f"position-{index}-funding-source"],
         cost_amount=position_data[f"position-{index}-cost-amount"],
@@ -423,8 +429,8 @@ def expect_existing_free_position(position_data: dict[str, str], index: int = 1)
     )
 
 
-def expect_new_publication_position(publication: Publication) -> PublicationPosition:
-    return PublicationPosition(
+def expect_new_publication_position(publication: Publication) -> PublicationPositionDto:
+    return PublicationPositionDto(
         id=publication.id,
         title=publication.title,
         funding_request=(
@@ -443,8 +449,8 @@ def expect_new_publication_position(publication: Publication) -> PublicationPosi
 
 def expect_existing_publication_position(
     position_data: dict[str, str], i: int = 1
-) -> PublicationPosition:
-    return PublicationPosition(
+) -> PublicationPositionDto:
+    return PublicationPositionDto(
         id=int(position_data[f"position-{i}-id"]),
         title=position_data[f"position-{i}-title"],
         funding_request=RelatedFundingRequest(
@@ -461,8 +467,8 @@ def expect_existing_publication_position(
 
 def expect_existing_contract_position(
     position_data: dict[str, str], i: int = 1
-) -> ContractPosition:
-    return ContractPosition(
+) -> ContractPositionDto:
+    return ContractPositionDto(
         id=int(position_data[f"position-{i}-id"]),
         name=position_data[f"position-{i}-name"],
         year=int(position_data[f"position-{i}-year"]),

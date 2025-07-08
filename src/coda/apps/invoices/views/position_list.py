@@ -1,5 +1,4 @@
 import datetime
-from collections.abc import Callable
 from typing import Any, TypedDict
 
 from django.contrib.auth.decorators import login_required
@@ -8,25 +7,22 @@ from django.shortcuts import render
 
 from coda.apps.invoices.models import FundingSource
 from coda.apps.invoices.views.positions import (
-    CommonPosition,
-    ContractPosition,
-    FreePosition,
-    PublicationPosition,
+    AnyPositionDto,
+    ContractPositionDto,
+    FreePositionDto,
+    PublicationPositionDto,
     RelatedFundingRequest,
     get_position_type,
 )
 from coda.apps.publications.models import Publication
 from coda.domain.invoice import (
-    PublicationCostType,
+    AnyPosition,
     CreditorId,
-    FundingSourceId,
     Invoice,
-    ItemType,
-    Position,
     Positions,
-    TaxRate,
+    PublicationCostType,
 )
-from coda.domain.money import Currency, Money
+from coda.domain.money import Currency
 
 _CostTypes = [ct.value for ct in PublicationCostType]
 
@@ -62,61 +58,54 @@ def invoice_total(request: HttpRequest) -> HttpResponse:
     return render_positions(request, positions)
 
 
-def temp_invoice(positions: list[CommonPosition[ItemType]], currency: Currency) -> Invoice:
+def temp_invoice(positions: list[AnyPositionDto], currency: Currency) -> Invoice:
     return Invoice.new(
         number="",
         date=datetime.date.today(),
         creditor=CreditorId(1),
-        positions=parse_into_position_list(positions, currency, lambda p: p.parse_safe()),
+        positions=parse_into_position_list(positions, currency, parse_safe=True),
         comment="",
     )
 
 
 def parse_into_position_list(
-    positions: list[CommonPosition[ItemType]],
+    positions: list[AnyPositionDto],
     currency: Currency,
-    item_parser: Callable[[CommonPosition[ItemType]], ItemType],
+    *,
+    parse_safe: bool = False,
 ) -> Positions:
     return [
-        parse_position(index, position, currency, item_parser)
+        parse_position(index, position, currency, parse_safe=parse_safe)
         for index, position in enumerate(positions, start=1)
     ]
 
 
 def parse_position(
     index: int,
-    position: CommonPosition[ItemType],
+    position: AnyPositionDto,
     currency: Currency,
-    item_parser: Callable[[CommonPosition[ItemType]], ItemType],
-) -> Position[ItemType]:
+    *,
+    parse_safe: bool = False,
+) -> AnyPosition:
     try:
-        return Position(
-            item=item_parser(position),
-            cost=Money(position.cost_amount, currency),
-            cost_type=PublicationCostType(position.cost_type),
-            tax_rate=TaxRate.from_percentage(position.tax_rate),
-            funding_source=(
-                FundingSourceId(position.funding_source) if position.funding_source else None
-            ),
-            external_position_id=position.external_position_id,
-        )
+        return position.to_position(currency, parse_safe=parse_safe)
     except Exception as e:
         raise PositionError(index, e)
 
 
-def added_positions(request: HttpRequest) -> list[CommonPosition[ItemType]]:
+def added_positions(request: HttpRequest) -> list[AnyPositionDto]:
     _positions = [parser(request) for parser in _ADD_POSITION_PARSERS.values()]
     return [p for p in _positions if p is not None]
 
 
-def existing_positions(request: HttpRequest) -> list[CommonPosition[ItemType]]:
+def existing_positions(request: HttpRequest) -> list[AnyPositionDto]:
     number_of_positions = int(request.POST.get("number-of-positions", 0))
     _positions = [parse_position_data(request, i) for i in range(1, number_of_positions + 1)]
     positions = [p for p in _positions if p is not None]
     return positions
 
 
-def parse_position_data(request: HttpRequest, index: int) -> CommonPosition[ItemType] | None:
+def parse_position_data(request: HttpRequest, index: int) -> AnyPositionDto | None:
     position_type_str = request.POST.get(f"position-{index}-type")
     if not position_type_str:
         return None
@@ -125,13 +114,13 @@ def parse_position_data(request: HttpRequest, index: int) -> CommonPosition[Item
     return position_type.from_request(request.POST, f"position-{index}-")
 
 
-def parse_added_publication_position(request: HttpRequest) -> PublicationPosition | None:
+def parse_added_publication_position(request: HttpRequest) -> PublicationPositionDto | None:
     publication_id = request.POST.get("add-publication-position")
     if publication_id is None:
         return None
 
     publication = Publication.objects.get(pk=publication_id)
-    return PublicationPosition(
+    return PublicationPositionDto(
         id=publication.id,
         title=publication.title,
         funding_request=maybe_request_context(publication),
@@ -148,23 +137,21 @@ def maybe_request_context(publication: Publication) -> RelatedFundingRequest:
         return RelatedFundingRequest(request_id=None)
 
 
-def parse_added_contract_position(request: HttpRequest) -> ContractPosition | None:
+def parse_added_contract_position(request: HttpRequest) -> ContractPositionDto | None:
     if request.POST.get("action") != "add-contract-position":
         return None
 
-    return ContractPosition.from_request(request.POST, prefix="contract-")
+    return ContractPositionDto.from_request(request.POST, prefix="contract-")
 
 
-def parse_added_free_position(request: HttpRequest) -> FreePosition | None:
+def parse_added_free_position(request: HttpRequest) -> FreePositionDto | None:
     if request.POST.get("action") != "add-free-position":
         return None
 
-    return FreePosition.from_request(request.POST, prefix="free-position-")
+    return FreePositionDto.from_request(request.POST, prefix="free-position-")
 
 
-def render_positions(
-    request: HttpRequest, positions: list[CommonPosition[ItemType]]
-) -> HttpResponse:
+def render_positions(request: HttpRequest, positions: list[AnyPositionDto]) -> HttpResponse:
     return render(
         request,
         "invoices/invoice_positions.html",
@@ -178,9 +165,7 @@ def funding_sources_context() -> dict[str, Any]:
     return {"funding_sources": FundingSource.objects.all()}
 
 
-def invoice_total_context(
-    positions: list[CommonPosition[ItemType]], currency: str
-) -> dict[str, Any]:
+def invoice_total_context(positions: list[AnyPositionDto], currency: str) -> dict[str, Any]:
     _currency = Currency.from_code(currency)
     _tmp_invoice = temp_invoice(positions, _currency)
     return {

@@ -6,31 +6,26 @@ from typing import Any, NamedTuple, cast
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, render, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.invoices import repository
+from coda.apps.invoices import repository, services
 from coda.apps.invoices.models import Creditor
-from coda.apps.invoices import services
-
-from coda.apps.invoices.views.positions import to_position_dto
-from coda.apps.invoices.views.position_list import funding_sources_context
-
 from coda.apps.invoices.views.create import _DefaultContext
-
+from coda.apps.invoices.views.position_list import funding_sources_context
+from coda.apps.invoices.views.positions import to_position_dto
 from coda.apps.publications.models import Publication
 from coda.apps.views import EntityListView
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
 from coda.domain.invoice import (
+    AnyPosition,
     FundingSourceId,
     Invoice,
     InvoiceId,
-    ItemType,
     PaymentStatus,
-    Position,
 )
 from coda.domain.money import Money
 from coda.domain.money._currency import Currency
@@ -201,7 +196,7 @@ def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
     )
 
 
-def position_viewmodel(position: Position[ItemType], number: int) -> "PositionViewModel":
+def position_viewmodel(position: AnyPosition, number: int) -> "PositionViewModel":
     match position.item:
         case ContractYear() as contract_year:
             contract = contract_year.contract

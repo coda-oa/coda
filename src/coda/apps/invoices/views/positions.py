@@ -1,4 +1,5 @@
 import abc
+from collections.abc import Iterable
 from decimal import Decimal
 from typing import Annotated, Generic, Self, TypeVar
 
@@ -8,10 +9,26 @@ from coda.apps.contracts import repository as contract_services
 from coda.apps.dto import CodaBaseDto
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.contract import ContractId, ContractYear
-from coda.domain.invoice import PublicationCostType, ItemType, Position
+from coda.domain.invoice import (
+    AnyPosition,
+    CommonPosition,
+    ContractCostType,
+    ContractPosition,
+    CostType,
+    FundingSourceId,
+    ItemType,
+    Position,
+    PublicationCostType,
+    TaxRate,
+)
+from coda.domain.money._currency import Currency
+from coda.domain.money._money import Money
 from coda.domain.publication import PublicationId
 
-T = TypeVar("T", bound=ItemType, covariant=True)
+ItemT = TypeVar("ItemT", bound=ItemType, covariant=True)
+CostT = TypeVar("CostT", bound=CostType, covariant=True)
+type AnyPositionDto = "CommonPositionDto[ItemType, CostType]"
+type PositionDtos = Iterable["CommonPositionDto[ItemType, CostType]"]
 
 DEFAULT_TAX_RATE_PERCENTAGE = 19
 
@@ -27,7 +44,7 @@ Int = Annotated[int, BeforeValidator(int)]
 IntOrNone = Annotated[int | None, BeforeValidator(try_int)]
 
 
-class CommonPosition(abc.ABC, CodaBaseDto, Generic[T]):
+class CommonPositionDto(abc.ABC, CodaBaseDto, Generic[ItemT, CostT]):
     type: str
     funding_source: IntOrNone = None
     cost_type: str = PublicationCostType.Publication_Charge.value
@@ -37,7 +54,9 @@ class CommonPosition(abc.ABC, CodaBaseDto, Generic[T]):
 
     @classmethod
     @abc.abstractmethod
-    def from_position(cls, position: Position[T]) -> "CommonPosition[T]":
+    def from_position(
+        cls, position: CommonPosition[ItemT, CostT]
+    ) -> "CommonPositionDto[ItemT, CostT]":
         ...
 
     @classmethod
@@ -52,11 +71,17 @@ class CommonPosition(abc.ABC, CodaBaseDto, Generic[T]):
         return cls(**post_data)
 
     @abc.abstractmethod
-    def parse(self) -> T:
+    def parse(self) -> ItemT:
         ...
 
     @abc.abstractmethod
-    def parse_safe(self) -> T:
+    def parse_safe(self) -> ItemT:
+        ...
+
+    @abc.abstractmethod
+    def to_position(
+        self, currency: Currency, *, parse_safe: bool = False
+    ) -> CommonPosition[ItemT, CostT]:
         ...
 
 
@@ -65,14 +90,16 @@ class RelatedFundingRequest(CodaBaseDto):
     url: str = ""
 
 
-class PublicationPosition(CommonPosition[PublicationId]):
+class PublicationPositionDto(CommonPositionDto[PublicationId, PublicationCostType]):
     type: str = "publication"
     id: Int
     title: str
     funding_request: RelatedFundingRequest = RelatedFundingRequest()
 
     @classmethod
-    def from_position(cls, position: Position[PublicationId]) -> "PublicationPosition":
+    def from_position(
+        cls, position: CommonPosition[PublicationId, PublicationCostType]
+    ) -> "PublicationPositionDto":
         publication = publication_repository.get_by_id(position.item)
 
         return cls(
@@ -91,13 +118,25 @@ class PublicationPosition(CommonPosition[PublicationId]):
     def parse_safe(self) -> PublicationId:
         return self.parse()
 
+    def to_position(
+        self, currency: Currency, *, parse_safe: bool = False
+    ) -> Position[PublicationId]:
+        return Position(
+            item=self.parse(),
+            cost_type=PublicationCostType(self.cost_type),
+            cost=Money(self.cost_amount, currency),
+            tax_rate=TaxRate.from_percentage(self.tax_rate),
+            funding_source=FundingSourceId(self.funding_source) if self.funding_source else None,
+            external_position_id=self.external_position_id,
+        )
 
-class FreePosition(CommonPosition[str]):
+
+class FreePositionDto(CommonPositionDto[str, PublicationCostType]):
     type: str = "free"
     description: str
 
     @classmethod
-    def from_position(cls, position: Position[str]) -> "FreePosition":
+    def from_position(cls, position: CommonPosition[str, PublicationCostType]) -> "FreePositionDto":
         return cls(
             description=position.item,
             funding_source=position.funding_source,
@@ -113,8 +152,18 @@ class FreePosition(CommonPosition[str]):
     def parse_safe(self) -> str:
         return self.description
 
+    def to_position(self, currency: Currency, *, parse_safe: bool = False) -> Position[str]:
+        return Position(
+            item=self.parse(),
+            cost_type=PublicationCostType(self.cost_type),
+            cost=Money(self.cost_amount, currency),
+            tax_rate=TaxRate.from_percentage(self.tax_rate),
+            funding_source=FundingSourceId(self.funding_source) if self.funding_source else None,
+            external_position_id=self.external_position_id,
+        )
 
-class ContractPosition(CommonPosition[ContractYear]):
+
+class ContractPositionDto(CommonPositionDto[ContractYear, ContractCostType]):
     """DTO for a contract position already added to an invoice."""
 
     type: str = "contract"
@@ -123,7 +172,9 @@ class ContractPosition(CommonPosition[ContractYear]):
     year: int
 
     @classmethod
-    def from_position(cls, position: Position[ContractYear]) -> "ContractPosition":
+    def from_position(
+        cls, position: CommonPosition[ContractYear, ContractCostType]
+    ) -> "ContractPositionDto":
         if not position.item.contract_id:
             raise ValueError("Contract ID is required for ContractPosition")
 
@@ -148,17 +199,32 @@ class ContractPosition(CommonPosition[ContractYear]):
         contract = contract_services.get_by_id(ContractId(self.id))
         return contract.in_year_or_first(self.year)
 
+    def to_position(self, currency: Currency, *, parse_safe: bool = False) -> ContractPosition:
+        if parse_safe:
+            item = self.parse_safe()
+        else:
+            item = self.parse()
 
-_position_type_registry: dict[str, type[CommonPosition[ItemType]]] = {
-    "publication": PublicationPosition,
-    "free": FreePosition,
-    "contract": ContractPosition,
+        return ContractPosition(
+            item=item,
+            cost_type=ContractCostType(self.cost_type),
+            cost=Money(self.cost_amount, currency),
+            tax_rate=TaxRate.from_percentage(self.tax_rate),
+            funding_source=FundingSourceId(self.funding_source) if self.funding_source else None,
+            external_position_id=self.external_position_id,
+        )
+
+
+_position_type_registry: dict[str, type[CommonPositionDto[ItemType, CostType]]] = {
+    "publication": PublicationPositionDto,
+    "free": FreePositionDto,
+    "contract": ContractPositionDto,
 }
 
-_item_type_to_position: dict[type[ItemType], type[CommonPosition[ItemType]]] = {
-    PublicationId: PublicationPosition,
-    ContractYear: ContractPosition,
-    str: FreePosition,
+_item_type_to_position: dict[type[ItemType], type[CommonPositionDto[ItemType, CostType]]] = {
+    PublicationId: PublicationPositionDto,
+    ContractYear: ContractPositionDto,
+    str: FreePositionDto,
 }
 
 
@@ -166,9 +232,9 @@ def position_type_names() -> list[str]:
     return list(_position_type_registry.keys())
 
 
-def get_position_type(type_name: str) -> type[CommonPosition[ItemType]]:
+def get_position_type(type_name: str) -> type[AnyPositionDto]:
     return _position_type_registry[type_name]
 
 
-def to_position_dto(p: Position[ItemType]) -> CommonPosition[ItemType]:
+def to_position_dto(p: AnyPosition) -> AnyPositionDto:
     return _item_type_to_position[type(p.item)].from_position(p)
