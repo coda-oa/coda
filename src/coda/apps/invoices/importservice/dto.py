@@ -1,7 +1,7 @@
 import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError, model_validator
 
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.invoice import CostType, PaymentStatus
@@ -18,9 +18,17 @@ class CommonPositionImportDto(BaseModel):
     external_id: str = ""
 
 
-class PublicationPositionDto(CommonPositionImportDto):
-    request_id: PublicFundingRequestId
+class PublicationPositionImportDto(CommonPositionImportDto):
+    request_id: PublicFundingRequestId | None = None
+    legacy_request_id: str | None = None
     cost_type: CostType = CostType.Publication_Charge
+
+    @model_validator(mode="after")
+    def validate_request_id(self) -> "PublicationPositionImportDto":
+        if not self.request_id and not self.legacy_request_id:
+            raise ValidationError("Either request_id or legacy_request_id must be provided.")
+
+        return self
 
 
 class ContractPositionImportDto(CommonPositionImportDto):
