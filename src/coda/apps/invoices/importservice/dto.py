@@ -4,7 +4,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ValidationError, model_validator
 
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
-from coda.domain.invoice import CostType, PaymentStatus
+from coda.domain.invoice import ContractCostType, PaymentStatus, PublicationCostType
 from coda.domain.money import Currency
 
 DEFAULT_TAX_RATE = Decimal("19.00")
@@ -13,7 +13,6 @@ DEFAULT_TAX_RATE = Decimal("19.00")
 class CommonPositionImportDto(BaseModel):
     amount: Decimal
     tax_rate: Decimal = DEFAULT_TAX_RATE
-    cost_type: CostType
     funding_source: str = ""
     external_id: str = ""
 
@@ -21,7 +20,7 @@ class CommonPositionImportDto(BaseModel):
 class PublicationPositionImportDto(CommonPositionImportDto):
     request_id: PublicFundingRequestId | None = None
     legacy_request_id: str | None = None
-    cost_type: CostType = CostType.Publication_Charge
+    cost_type: PublicationCostType = PublicationCostType.Publication_Charge
 
     @model_validator(mode="after")
     def validate_request_id(self) -> "PublicationPositionImportDto":
@@ -34,11 +33,12 @@ class PublicationPositionImportDto(CommonPositionImportDto):
 class ContractPositionImportDto(CommonPositionImportDto):
     contract_name: str
     contract_year: int
+    cost_type: ContractCostType
 
 
 class FreePositionImportDto(CommonPositionImportDto):
     description: str = ""
-    cost_type: CostType = CostType.Other
+    cost_type: PublicationCostType = PublicationCostType.Other
 
 
 class ConversionImportDto(BaseModel):
