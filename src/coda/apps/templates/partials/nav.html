@@ -26,6 +26,9 @@
             <li>
                 {% include "partials/nav_link.html" with link="preferences:global_preferences" image="assets/settings.svg" text="Preferences" %}
             </li>
+            <li>
+                {% include "partials/nav_link.html" with link="infopage:index" image="assets/information.svg" text="Information" %}
+            </li>
             {% if user.is_authenticated %}
                 <li>
                     <form action="{% url "logout" %}" method="post">
@@ -47,7 +50,6 @@
             {% endif %}
         </ul>
         <div>
-            <img src="{% static "assets/funding_information_BMFTR.jpg" %}" class="bmftr-logo" alt="CODA was funded by the Federal Ministry of Research, Technology and Space" width="auto" height="auto" />
             <ul class="theme-switch-wrapper">
                 <li>
                     <input type="checkbox"

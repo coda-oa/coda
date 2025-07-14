@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+    <div class="my-2 vh-100">
+        <h1>Information on CODA</h1>
+        <div>
+            <article>
+                <div class="grid justify-between text-center">
+                    <div>
+                        <img src="{% static "assets/CODA-Logo-5.png" %}" class="vertical-align-img" alt="Customizable Open Access Database Application (CODA) " width="auto" height="auto" />
+                    </div>
+                    <div>
+                        <img src="{% static "assets/TUBraunschweig_SVG_Siegel.svg" %}" class="vertical-align-img" alt="CODA is developed at Technical University Braunschweig" width="auto" height="auto" />
+                    </div>
+                    <div>
+                        <img src="{% static "assets/funding_information_BMFTR.jpg" %}" class="vertical-align-img" alt="CODA was funded by the Federal Ministry of Research, Technology and Space" width="auto" height="auto" />
+                    </div>
+                </div>
+                <hr>
+                <div>
+                    <div>
+                        <h2>About CODA</h2>
+                        <p>
+                            CODA (Customizable Open Access Database Application) is a database-based Open Access workflow tool developed at the University Library of Technische Universität Braunschweig as part of the project ADoRe-OA (Analysis and Development of Reusable OA-Applications).  
+                        </p>
+                        <p>The project was funded by the Federal Ministry of Research, Technology and Space. </p>
+                    </div>
+                    <div>
+                        <h2>Get in touch!</h2>
+                        <p>If you have questions, feedback or suggestions, feel free to get in touch with us in our matrix space:</p>
+                        <a class="matrix-link" href="https://matrix.to/#/#coda:matrix.tu-bs.de" title="Get in touch with us by joining are matrix space" target="blank">[matrix]</a>
+                    </div>
+                </div>
+            </article>
+            <div class="grid">
+                <article class="flex justify-between align-center">
+                    <div>
+                        <h2>Documentation</h2>
+                        <p>Read the CODA documentation</p>
+                    </div>
+                    <a href="https://coda-oa.github.io/coda/" role="button" class="outline contrast" title="Read the CODA documentary" target="blank">View</a>
+                </article>
+                <article class="flex justify-between align-center">
+                    <div>
+                        <h2>Project Website</h2>
+                        <p>Visit the CODA project website</p>
+                    </div>
+                    <a href="https://www.tu-braunschweig.de/en/ub/about-us/projects-overview/adore-oa" role="button" class="outline contrast" title="Go to the CODA project website" target="blank">View</a>
+                </article>
+                <article class="flex justify-between align-center">
+                    <div>
+                        <h2>Github</h2>
+                        <p>Check out CODA on GitHub</p>
+                    </div>
+                    <a href="https://github.com/coda-oa/coda" role="button" class="outline contrast" title="Check out CODA on GitHub" target="blank"><img class="github-logo" src="{% static "assets/github.svg" %}" alt="github">View</a>
+                </article>
+            </div>
+        </div>
+    </div>
+{% endblock content %}
