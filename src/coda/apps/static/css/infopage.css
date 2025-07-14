@@ -1,0 +1,6 @@
+.vertical-align-img {
+    display: inline-block;
+    height: 100%;
+    vertical-align: middle;
+    max-width: 50%;
+}

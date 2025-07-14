@@ -30,6 +30,7 @@ urlpatterns = [
     path("invoices/", include("coda.apps.invoices.urls", namespace="invoices")),
     path("preferences/", include("coda.apps.preferences.urls", namespace="preferences")),
     path("blocklist/", include("coda.apps.blocklist.urls", namespace="blocklist")),
+    path("infopage/", include("coda.apps.infopage.urls", namespace="infopage")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
