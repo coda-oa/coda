@@ -77,7 +77,8 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
         request.GET.get("display_currency", invoice.currency().code)
     )
     display_invoice = invoice.convert(display_currency)
-    position_list = [to_position_dto(position) for position in display_invoice.positions]
+    position_list = [to_position_dto(position) for position in display_invoice.positions] 
+    total_net = sum(position.cost_amount for position in position_list)
     ext_inv_id = invoice.external_invoice_id
     comment = invoice.comment
     editable = False
@@ -95,6 +96,7 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
             "external_invoice_id": ext_inv_id,
             "invoice_comment": comment,
             "editable": editable,
+            "total_net": total_net
         },
     )
 

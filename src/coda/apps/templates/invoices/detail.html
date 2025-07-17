@@ -79,18 +79,6 @@
                 </tr>
                 <tr>
                     <th>
-                        <label for="id-head-status" class="form-row-item-sm">Status:</label>
-                    </th>
-                    <td>
-                        <input readonly
-                               type="text"
-                               id="id-head-status"
-                               name="id-head-status"
-                               value="{{ invoice.status }}">
-                    </td>
-                </tr>
-                <tr>
-                    <th>
                         <label for="id-head-external-id" class="form-row-item-sm">External Invoice ID:</label>
                     </th>
                     <td>
@@ -117,7 +105,7 @@
         </table>
     </article>
     <article>
-        <h2>Positions</h2>
+        <h2>Invoice Positions</h2>
         <fieldset class="form-row">
             <label for="display_currency">Display as currency</label>
             <select name="display_currency"
@@ -134,60 +122,80 @@
                 {% endfor %}
             </select>
         </fieldset>
-        {% for position in positions %}
-            {% if position.type == "publication" %}
-                {% include "invoices/position_publication.html" with counter=forloop.counter %}
-            {% elif position.type == "contract" %}
-                {% include "invoices/position_contract.html" with counter=forloop.counter %}
-            {% else %}
-                {% include "invoices/position_free.html" with counter=forloop.counter %}
-            {% endif %}
-            <hr>
-        {% endfor %}
-        <h2>Summary</h2>
         <table>
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th>Type</th>
                     <th>Position</th>
-                    <th>Related Funding Request</th>
-                    <th>Cost ({{ display_currency.code }})</th>
+                    <th>Funding Source</th>
                     <th>Cost Type</th>
+                    <th>Tax</th>
+                    <th>Net Cost ({{ display_currency.code }})</th>
                 </tr>
             </thead>
             <tbody>
-                {% for position in display_invoice.positions %}
+                {% for position in positions %}
                     <tr>
-                        <td>{{ position.number }}</td>
-                        <td>{{ position.name }}</td>
                         <td>
-                            {% if position.related_funding_request %}
-                                <a href="{{ position.related_funding_request.url }}">{{ position.related_funding_request.request_id }}</a>
+                            {% if position.type == "publication" %}
+                                Publication
+                            {% elif position.type == "contract" %}
+                                Contract
+                            {% else %}
+                                Free Position
                             {% endif %}
                         </td>
-                        <td>{{ position.cost.amount }} {{ position.cost.currency.code }}</td>
-                        <td>{{ position.cost_type }}</td>
+                        <td>
+                            {% if position.type == "publication" %}
+                                {% if position.related_funding_request %}
+                                    <a href="{{ position.related_funding_request.url }}">{{ position.title }}</a>
+                                {% else %}
+                                    {{ position.title }}
+                                {% endif %}
+                            {% elif position.type == "contract" %}
+                                {{ position.name }}
+                            {% else %}
+                                {{ position.description }}
+                            {% endif %}
+                            {% if position.related_funding_request %}
+                                <a href="{{ position.related_funding_request.url }}">{{ position.name }}</a>
+                            {% else %}
+                                {{ position.name }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% for fs in funding_sources %}
+                                {% if position.funding_source == fs.id %} {{ fs.name }} 
+                                {% else %}
+                                    None
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {{ position.cost_type }}
+                        </td>
+                        <td>
+                            {{ position.tax_rate }}
+                        </td>
+                        <td>{{ position.cost_amount }}</td>
                     </tr>
                 {% endfor %}
-                <tr>
-                    <td></td>
-                    <td>Tax</td>
-                    <td></td>
-                    <td>{{ display_invoice.tax.amount }} {{ display_invoice.tax.currency.code }}</td>
-                    <td>vat</td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td>
-                        <strong>Total</strong>
-                    </td>
-                    <td></td>
-                    <td>
-                        <strong>{{ display_invoice.total.amount }} {{ display_invoice.total.currency.code }}</strong>
-                    </td>
-                    <td></td>
-                </tr>
             </tbody>
+        </table>
+        <h2>Costs</h2>
+        <table>
+            <tr>
+                <th>Total net</th>
+                <td>{{ total_net }} {{ display_invoice.total.currency.code }}</td>
+            </tr>
+            <tr>
+                <th>Total tax</th>
+                <td>{{ display_invoice.tax.amount }} {{ display_invoice.tax.currency.code }}</td>
+            </tr>
+            <tr>
+                <th>Gross costs </th>  
+                <td><strong>{{ display_invoice.total.amount }} {{ display_invoice.total.currency.code }}</strong></td>
+            </tr>
         </table>
     </article>
     {% include "invoices/detail_conversions.html" %}
