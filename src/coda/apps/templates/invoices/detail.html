@@ -134,7 +134,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for position in positions %}
+                {% for position in display_invoice.positions %}
                     <tr>
                         <td>
                             {% if position.type == "publication" %}
@@ -147,36 +147,28 @@
                         </td>
                         <td>
                             {% if position.type == "publication" %}
-                                {% if position.related_funding_request %}
-                                    <a href="{{ position.related_funding_request.url }}">{{ position.title }}</a>
+                                {% if position.funding_request %}
+                                    <a href="{{ position.funding_request.url }}">{{ position.title }}</a>
                                 {% else %}
                                     {{ position.title }}
                                 {% endif %}
                             {% elif position.type == "contract" %}
-                                {{ position.name }}
+                                <a href="{{ position.contract_url }}">{{ position.name }}</a>
                             {% else %}
                                 {{ position.description }}
-                            {% endif %}
-                            {% if position.related_funding_request %}
-                                <a href="{{ position.related_funding_request.url }}">{{ position.name }}</a>
-                            {% else %}
-                                {{ position.name }}
                             {% endif %}
                         </td>
                         <td>
                             {% for fs in funding_sources %}
-                                {% if position.funding_source == fs.id %} {{ fs.name }} 
+                                {% if position.funding_source == fs.id %}
+                                    {{ fs.name }}
                                 {% else %}
                                     None
                                 {% endif %}
                             {% endfor %}
                         </td>
-                        <td>
-                            {{ position.cost_type }}
-                        </td>
-                        <td>
-                            {{ position.tax_rate }}
-                        </td>
+                        <td>{{ position.cost_type }}</td>
+                        <td>{{ position.tax_rate }}</td>
                         <td>{{ position.cost_amount }}</td>
                     </tr>
                 {% endfor %}
@@ -186,15 +178,17 @@
         <table>
             <tr>
                 <th>Total net</th>
-                <td>{{ total_net }} {{ display_invoice.total.currency.code }}</td>
+                <td>{{ display_invoice.net }}</td>
             </tr>
             <tr>
                 <th>Total tax</th>
                 <td>{{ display_invoice.tax.amount }} {{ display_invoice.tax.currency.code }}</td>
             </tr>
             <tr>
-                <th>Gross costs </th>  
-                <td><strong>{{ display_invoice.total.amount }} {{ display_invoice.total.currency.code }}</strong></td>
+                <th>Gross costs</th>
+                <td>
+                    <strong>{{ display_invoice.total.amount }} {{ display_invoice.total.currency.code }}</strong>
+                </td>
             </tr>
         </table>
     </article>

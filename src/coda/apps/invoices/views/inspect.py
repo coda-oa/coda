@@ -6,30 +6,20 @@ from typing import Any, NamedTuple, cast
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
-from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository, services
 from coda.apps.invoices.models import Creditor
 from coda.apps.invoices.views.position_list import _DefaultContext
 from coda.apps.invoices.views.position_list import funding_sources_context
-from coda.apps.invoices.views.positions import to_position_dto
-from coda.apps.publications.models import Publication
+from coda.apps.invoices.views.positions import AnyPositionDto, to_position_dto
 from coda.apps.views import EntityListView
-from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
-from coda.domain.invoice import (
-    AnyPosition,
-    FundingSourceId,
-    Invoice,
-    InvoiceId,
-    PaymentStatus,
-)
+from coda.domain.invoice import Invoice, InvoiceId, PaymentStatus
 from coda.domain.money import Money
 from coda.domain.money._currency import Currency
-from coda.domain.publication import PublicationId
 
 
 class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
@@ -77,10 +67,6 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
         request.GET.get("display_currency", invoice.currency().code)
     )
     display_invoice = invoice.convert(display_currency)
-    position_list = [to_position_dto(position) for position in display_invoice.positions] 
-    total_net = sum(position.cost_amount for position in position_list)
-    ext_inv_id = invoice.external_invoice_id
-    comment = invoice.comment
     editable = False
     return render(
         request,
@@ -92,11 +78,7 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
             "conversions": invoice.conversions(),
             "display_currency": display_currency,
             "display_invoice": invoice_viewmodel(display_invoice),
-            "positions": position_list,
-            "external_invoice_id": ext_inv_id,
-            "invoice_comment": comment,
             "editable": editable,
-            "total_net": total_net
         },
     )
 
@@ -190,41 +172,12 @@ def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
         creditor=invoice.creditor,
         creditor_name=creditor_name,
         currency=invoice.currency(),
-        positions=[
-            position_viewmodel(position, i) for i, position in enumerate(invoice.positions, start=1)
-        ],
+        positions=[to_position_dto(position) for position in invoice.positions],
         tax=invoice.tax(),
         total=invoice.total(),
-    )
-
-
-def position_viewmodel(position: AnyPosition, number: int) -> "PositionViewModel":
-    match position.item:
-        case ContractYear() as contract_year:
-            contract = contract_year.contract
-            position_name = str(contract.name)
-            related_funding_request = None
-        case PublicationId(pub_id):
-            publication = get_object_or_404(Publication, pk=pub_id)
-            position_name = publication.title
-            related_request = FundingRequest.objects.filter(publication_id=position.item).first()
-            related_funding_request = None
-            if related_request:
-                related_funding_request = FundingRequestViewModel(
-                    url=related_request.get_absolute_url(),
-                    request_id=related_request.request_id,
-                )
-        case str(description):
-            position_name = description
-            related_funding_request = None
-
-    return PositionViewModel(
-        number=str(number),
-        name=position_name,
-        cost=position.cost,
-        cost_type=position.cost_type.value,
-        related_funding_request=related_funding_request,
-        funding_source_id=position.funding_source,
+        net=invoice.net(),
+        comment=invoice.comment,
+        external_invoice_id=invoice.external_invoice_id,
     )
 
 
@@ -240,20 +193,6 @@ def pay_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     return redirect("invoices:detail", pk=invoice.id)
 
 
-class FundingRequestViewModel(NamedTuple):
-    url: str
-    request_id: str
-
-
-class PositionViewModel(NamedTuple):
-    number: str
-    name: str
-    cost: Money
-    cost_type: str
-    related_funding_request: FundingRequestViewModel | None
-    funding_source_id: FundingSourceId | None
-
-
 class InvoiceViewModel(NamedTuple):
     id: int
     url: str
@@ -263,6 +202,9 @@ class InvoiceViewModel(NamedTuple):
     creditor: int
     creditor_name: str
     currency: Currency
-    positions: list[PositionViewModel]
+    positions: list[AnyPositionDto]
     tax: Money
     total: Money
+    net: Money
+    comment: str
+    external_invoice_id: str

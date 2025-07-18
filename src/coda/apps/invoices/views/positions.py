@@ -3,6 +3,7 @@ from collections.abc import Iterable
 from decimal import Decimal
 from typing import Annotated, Generic, Self, TypeVar
 
+from django.urls import reverse
 from pydantic import BeforeValidator
 
 from coda.apps.contracts import repository as contract_services
@@ -24,6 +25,8 @@ from coda.domain.invoice import (
 from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
 from coda.domain.publication import PublicationId
+
+from coda.apps.fundingrequests.models import FundingRequest
 
 ItemT = TypeVar("ItemT", bound=ItemType, covariant=True)
 CostT = TypeVar("CostT", bound=CostType, covariant=True)
@@ -56,8 +59,7 @@ class CommonPositionDto(abc.ABC, CodaBaseDto, Generic[ItemT, CostT]):
     @abc.abstractmethod
     def from_position(
         cls, position: CommonPosition[ItemT, CostT]
-    ) -> "CommonPositionDto[ItemT, CostT]":
-        ...
+    ) -> "CommonPositionDto[ItemT, CostT]": ...
 
     @classmethod
     def from_request(cls, post_data: dict[str, str], prefix: str = "") -> Self:
@@ -71,18 +73,15 @@ class CommonPositionDto(abc.ABC, CodaBaseDto, Generic[ItemT, CostT]):
         return cls(**post_data)
 
     @abc.abstractmethod
-    def parse(self) -> ItemT:
-        ...
+    def parse(self) -> ItemT: ...
 
     @abc.abstractmethod
-    def parse_safe(self) -> ItemT:
-        ...
+    def parse_safe(self) -> ItemT: ...
 
     @abc.abstractmethod
     def to_position(
         self, currency: Currency, *, parse_safe: bool = False
-    ) -> CommonPosition[ItemT, CostT]:
-        ...
+    ) -> CommonPosition[ItemT, CostT]: ...
 
 
 class RelatedFundingRequest(CodaBaseDto):
@@ -102,6 +101,14 @@ class PublicationPositionDto(CommonPositionDto[PublicationId, PublicationCostTyp
     ) -> "PublicationPositionDto":
         publication = publication_repository.get_by_id(position.item)
 
+        related_request = FundingRequest.objects.filter(publication_id=position.item).first()
+        funding_request = RelatedFundingRequest()
+        if related_request:
+            funding_request = RelatedFundingRequest(
+                url=related_request.get_absolute_url(),
+                request_id=related_request.request_id,
+            )
+
         return cls(
             id=publication.id,
             title=publication.title,
@@ -110,6 +117,7 @@ class PublicationPositionDto(CommonPositionDto[PublicationId, PublicationCostTyp
             cost_amount=position.cost.amount,
             tax_rate=position.tax_rate.percentage(),
             external_position_id=position.external_position_id,
+            funding_request=funding_request,
         )
 
     def parse(self) -> PublicationId:
@@ -213,6 +221,10 @@ class ContractPositionDto(CommonPositionDto[ContractYear, ContractCostType]):
             funding_source=FundingSourceId(self.funding_source) if self.funding_source else None,
             external_position_id=self.external_position_id,
         )
+
+    def contract_url(self) -> str:
+        url = reverse("contracts:detail", kwargs={"pk": self.id})
+        return url
 
 
 _position_type_registry: dict[str, type[CommonPositionDto[ItemType, CostType]]] = {

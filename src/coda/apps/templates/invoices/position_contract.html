@@ -4,7 +4,12 @@
     Contract
 {% endblock position_type %}
 {% block position_type_specifics %}
-    <h4>Contract Name: {{ position.name }}</h4>
+    <h4>
+        Contract Name:
+        <a href="{{ position.contract_url }}"
+           target="_blank"
+           class="outline secondary">{{ position.name }} ↗</a>
+    </h4>
     {% with index=counter|stringformat:"s" %}
         {% with error_key="position-"|add:index|add:"-error" %}
             {% if error_key in errors %}<p class="messages error">{{ errors|getitem:error_key }}</p>{% endif %}

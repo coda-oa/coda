@@ -1,0 +1,96 @@
+import datetime
+from typing import cast
+from django.urls import reverse
+import pytest
+from django.template.response import TemplateResponse
+from django.test import Client
+from coda.apps.fundingrequests import repository as fundingrequest_repository
+
+from coda.apps.fundingrequests.dto import (
+    CreateFundingRequestDto,
+    ExternalFundingDto,
+    ExtraContactDto,
+    ExtraInformationDto,
+    PaymentDto,
+)
+from coda.apps.fundingrequests.services import fundingrequests
+from coda.apps.invoices.repository import create
+from coda.apps.invoices.views.positions import (
+    PublicationPositionDto,
+)
+from coda.apps.publications.dto import PublicationDto
+from coda.domain.fundingrequest.fundingrequest import (
+    AnyFundingRequest,
+    FundingOrganizationId,
+    FundingRequest,
+)
+from coda.domain.publication.publication import JournalId, Publication
+from tests import domainfactory, modelfactory
+from coda.domain.invoice import (
+    AnyPosition,
+    CreditorId,
+    Invoice,
+    InvoiceId,
+)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invoice_with_publication_position__viewing_invoice_details__publication_position_has_funding_request_info(
+    client: Client,
+) -> None:
+    fr = funding_request()
+    publication_position = domainfactory.publication_position(fr.publication.id)
+    invoice_id = invoice_with_position(publication_position)
+
+    response = goto_invoice_detail_view(client, invoice_id)
+
+    actual_invoice = response.context["display_invoice"]
+    first_position: PublicationPositionDto = actual_invoice.positions[0]
+    assert_publication_position_has_fundingrequest_info(fr, first_position)
+
+
+def funding_request() -> FundingRequest[Publication]:
+    journal = JournalId(modelfactory.journal().id)
+    funding_org = FundingOrganizationId(modelfactory.funding_organization().id)
+    fr = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
+    fr.id = fundingrequests.create_fundingrequest(
+        CreateFundingRequestDto(
+            publication=PublicationDto.from_publication(fr.publication),
+            payment=PaymentDto.from_payment(fr.estimated_cost),
+            extra_information=ExtraInformationDto(
+                extra_contact=ExtraContactDto.from_contact(fr.extra_contact),
+                request_remarks=fr.request_remarks,
+            ),
+            funding=[
+                ExternalFundingDto.from_external_funding(funding) for funding in fr.external_funding
+            ],
+            request_date=fr.request_date,
+        )
+    )
+    return fundingrequest_repository.get_article_request(fr.id)
+
+
+def invoice_with_position(position: AnyPosition) -> InvoiceId:
+    creditor = modelfactory.creditor()
+    invoice = Invoice.new(
+        number="123",
+        creditor=CreditorId(creditor.id),
+        date=datetime.date.today(),
+        positions=[position],
+        comment="A comment",
+    )
+    return create(invoice)
+
+
+def goto_invoice_detail_view(client: Client, invoice_id: int) -> TemplateResponse:
+    return cast(TemplateResponse, client.get(reverse("invoices:detail", kwargs={"pk": invoice_id})))
+
+
+def assert_publication_position_has_fundingrequest_info(
+    fr: AnyFundingRequest, first_position: PublicationPositionDto
+) -> None:
+    assert first_position.funding_request.url == reverse(
+        "fundingrequests:detail", kwargs={"pk": fr.id}
+    )
+    assert first_position.funding_request.request_id == str(fr.request_id)
