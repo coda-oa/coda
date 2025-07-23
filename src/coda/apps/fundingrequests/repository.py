@@ -46,6 +46,7 @@ def create(fundingrequest: AnyFundingRequest) -> FundingRequestId:
         raise FundingRequestAlreadyExists(fundingrequest.id)
 
     pid = publication_repository.create(fundingrequest.publication)
+    fundingrequest.publication.id = pid
     fr = FundingRequestModel()
     fr.review = FundingRequestReview.objects.create()
     _save_review(fundingrequest._review, fr.review)
@@ -253,6 +254,16 @@ def get_monograph_request(id: FundingRequestId) -> FundingRequest[Monograph]:
         raise ValueError(f"Funding request with id {id} is not a monograph request")
 
     return fr
+
+
+def get_by_request_id(request_id: PublicFundingRequestId) -> AnyFundingRequest:
+    model = FundingRequestModel.objects.get(request_id=str(request_id))
+    return as_domain_object(model)
+
+
+def get_by_publication_id(publication_id: PublicationId) -> AnyFundingRequest:
+    model = FundingRequestModel.objects.get(publication_id=publication_id)
+    return as_domain_object(model)
 
 
 def _is_publication_type(

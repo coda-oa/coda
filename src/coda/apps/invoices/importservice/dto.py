@@ -1,24 +1,45 @@
 import datetime
+from abc import ABC
 from decimal import Decimal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ValidationError, model_validator
+from pydantic import BaseModel, PlainValidator, ValidationError, model_validator
 
-from coda.domain.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.fundingrequest.identity import InvalidFundingRequestId, PublicFundingRequestId
 from coda.domain.invoice import ContractCostType, PaymentStatus, PublicationCostType
 from coda.domain.money import Currency
 
 DEFAULT_TAX_RATE = Decimal("19.00")
 
 
-class CommonPositionImportDto(BaseModel):
+type PositionType = Literal["publication", "contract", "free"]
+
+
+class CommonPositionImportDto(BaseModel, ABC):
+    type: PositionType
     amount: Decimal
     tax_rate: Decimal = DEFAULT_TAX_RATE
     funding_source: str = ""
     external_id: str = ""
 
 
+def _validate_request_id(value: str | None) -> str | None:
+    if value is None:
+        return None
+
+    try:
+        id_ = PublicFundingRequestId.from_str(value)
+        return str(id_)
+    except InvalidFundingRequestId:
+        raise ValidationError(f"Invalid request ID: {value}")
+
+
+type FundingRequestId = Annotated[str | None, PlainValidator(_validate_request_id)]
+
+
 class PublicationPositionImportDto(CommonPositionImportDto):
-    request_id: PublicFundingRequestId | None = None
+    type: Literal["publication"] = "publication"
+    request_id: FundingRequestId = None
     legacy_request_id: str | None = None
     cost_type: PublicationCostType = PublicationCostType.Publication_Charge
 
@@ -31,12 +52,14 @@ class PublicationPositionImportDto(CommonPositionImportDto):
 
 
 class ContractPositionImportDto(CommonPositionImportDto):
+    type: Literal["contract"] = "contract"
     contract_name: str
     contract_year: int
     cost_type: ContractCostType
 
 
 class FreePositionImportDto(CommonPositionImportDto):
+    type: Literal["free"] = "free"
     description: str = ""
     cost_type: PublicationCostType = PublicationCostType.Other
 
@@ -56,3 +79,7 @@ class InvoiceImportDto(BaseModel):
     comment: str = ""
     conversion: ConversionImportDto | None = None
     positions: list[CommonPositionImportDto]
+
+
+class InvoiceListImportDto(BaseModel):
+    invoices: list[InvoiceImportDto]

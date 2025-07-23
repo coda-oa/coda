@@ -1,11 +1,14 @@
 from decimal import Decimal
+from typing import cast
+
 import faker
 import pytest
 
 from coda.apps.contracts import repository as contract_services
+from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.invoices import repository
-from coda.apps.publications.repositories import publication_repository
 from coda.domain.contract import Contract
+from coda.domain.fundingrequest import FundingOrganizationId
 from coda.domain.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
 from coda.domain.money._currency import Currency
 from coda.domain.publication import JournalId, PublicationId
@@ -124,8 +127,13 @@ def full_invoice() -> Invoice:
 
 
 def random_publication(publisher_id: int | None = None) -> PublicationId:
-    journal_id = modelfactory.journal(publisher_id).id
-    return publication_repository.create(domainfactory.publication(journal=JournalId(journal_id)))
+    journal_id = JournalId(modelfactory.journal(publisher_id).id)
+    funding_organization_id = FundingOrganizationId(modelfactory.funding_organization().id)
+    fundingrequest = domainfactory.fundingrequest(
+        journal_id=journal_id, funding_org_id=funding_organization_id
+    )
+    fundingrequest.id = fundingrequest_repository.create(fundingrequest)
+    return cast(PublicationId, fundingrequest.publication.id)
 
 
 def random_contract() -> Contract:

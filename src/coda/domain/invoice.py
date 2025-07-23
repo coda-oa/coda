@@ -148,8 +148,9 @@ class Invoice:
         positions: Positions,
         status: PaymentStatus = PaymentStatus.Unpaid,
         comment: str = "",
+        external_invoice_id: str = "",
     ) -> Self:
-        return cls(None, number, date, creditor, positions, status, comment)
+        return cls(None, number, date, creditor, positions, status, comment, external_invoice_id)
 
     def currency(self) -> Currency:
         if not self.positions:

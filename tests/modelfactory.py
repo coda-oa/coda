@@ -117,5 +117,5 @@ def creditor() -> Creditor:
     return Creditor.objects.create(name=_faker.company())
 
 
-def funding_source() -> FundingSource:
-    return FundingSource.objects.create(name=_faker.company())
+def funding_source(name: str = "") -> FundingSource:
+    return FundingSource.objects.create(name=name or _faker.company())
