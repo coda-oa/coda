@@ -1,16 +1,22 @@
+import logging
 from typing import Any
 
 from django import forms
 
 from coda.apps import fields
 from coda.apps.contracts.models import Contract
-from coda.apps.contracts.repository import as_domain_object
+from coda.apps.contracts import repository
 from coda.apps.formbase import CodaFormBase
 from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label
+from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 from coda.apps.publications.dto import ContractYearDto
-from coda.domain.contract import ContractYear
+from coda.domain.contract import ContractId, ContractYear
+from django.contrib.auth.decorators import login_required
+from django.http import HttpRequest, HttpResponse
+from django.views.decorators.http import require_GET, require_POST
+from django.shortcuts import redirect, render
 
 
 class ExtraContactForm(CodaFormBase):
@@ -27,15 +33,20 @@ class ExtraContactForm(CodaFormBase):
 
 
 class ContractForm(CodaFormBase):
-    contract = forms.ModelChoiceField[Contract](queryset=Contract.objects.all())
+    contract = forms.ChoiceField(
+        choices=lambda: (
+            (contract.id, contract.name) for contract in repository.get_active_contracts()
+        )
+    )
     year = forms.IntegerField()
 
     def contract_year(self) -> ContractYear:
-        return as_domain_object(self.cleaned_data["contract"]).in_year(self.cleaned_data["year"])
+        contract = repository.get_by_id(ContractId(self.cleaned_data["contract"]))
+        return contract.in_year(self.cleaned_data["year"])
 
     def to_dto(self) -> ContractYearDto:
         return ContractYearDto(
-            contract=self.cleaned_data["contract"].pk, year=self.cleaned_data["year"]
+            contract=self.cleaned_data["contract"], year=self.cleaned_data["year"]
         )
 
     def is_valid(self) -> bool:
@@ -55,11 +66,26 @@ class ContractFormset(HtmxDynamicFormset[ContractForm]):
     form_class = ContractForm
     min_forms = 0
 
+    def include_inactive_contracts(self) -> None:
+        for form in self.forms:
+            form.include_inactive_contracts()
+
     def contract_years(self) -> list[ContractYear]:
         return [form.contract_year() for form in self.forms]
 
     def to_dto_list(self) -> list[ContractYearDto]:
         return [form.to_dto() for form in self.forms]
+
+
+class ContractFormWithInactive(ContractForm):
+    contract = forms.ChoiceField(
+        choices=lambda: ((contract.id, contract.name) for contract in repository.all()),
+        label="Contract",
+    )
+
+
+class ContractFormsetWithInactive(ContractFormset):
+    form_class = ContractFormWithInactive
 
 
 class PaymentForm(CodaFormBase):
@@ -157,3 +183,24 @@ class ReviewForm(forms.Form):
     )
     funding_currency = fields.currency_field(label="Currency")
     reviewer_comments = forms.CharField(widget=forms.Textarea, required=False)
+
+
+@login_required
+@require_POST
+def include_inactive_contracts(request: HttpRequest) -> HttpResponse:
+    logging.info("Include inactive is %s", request.POST.get("include-inactive"))
+    include_inactive = True if request.POST.get("include-inactive") == "false" else False
+
+    contract_dtos = [
+        ContractYearDto(**c).to_post_data() for c in request.session.get("contracts", [])
+    ]
+    formset_class = ContractFormsetWithInactive if include_inactive else ContractFormset
+    contract_formset = restore_formset(
+        formset_class, request, store_data=contract_dtos, prefix="contracts"
+    )
+
+    return render(
+        request,
+        "fundingrequests/forms/filtered_contract_formset.html",
+        {"include_inactive": include_inactive, "contract_formset": contract_formset},
+    )

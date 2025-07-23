@@ -1,6 +1,10 @@
 from django.urls import path
 
-from coda.apps.fundingrequests.forms import ContractFormset, ExternalFundingFormset
+from coda.apps.fundingrequests.forms import (
+    ContractFormset,
+    ExternalFundingFormset,
+    include_inactive_contracts,
+)
 from coda.apps.fundingrequests.views import review
 from coda.apps.fundingrequests.views.detailview import fundingrequest_detail
 from coda.apps.fundingrequests.views.funders import (
@@ -83,4 +87,5 @@ urlpatterns = [
         name=funding_formset.name.removeprefix("fundingrequests:"),
     ),
     path("partial/search-publisher/", find_publisher, name="wizard_find_publisher"),
+    path("contract/inactive", include_inactive_contracts, name="include_inactive_contracts"),
 ]

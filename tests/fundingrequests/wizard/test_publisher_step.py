@@ -118,4 +118,4 @@ def test__publisher_step_data_in_store__when_posting_invalid_data__returns_conte
 
     assert context["selected_publisher"] == publisher
     assert context["publishers"] == [publisher]
-    assert [d["contract"].id for d in context["contract_formset"].data] == [contract.id]
+    assert [int(d["contract"]) for d in context["contract_formset"].data] == [contract.id]

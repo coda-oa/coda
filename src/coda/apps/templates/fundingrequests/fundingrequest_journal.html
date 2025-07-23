@@ -40,6 +40,6 @@
     </article>
     <article>
         <h2>Contracts</h2>
-        {{ contract_formset.as_inline }}
+        {% include "fundingrequests/forms/filtered_contract_formset.html" %}
     </article>
 {% endblock wizard_step %}

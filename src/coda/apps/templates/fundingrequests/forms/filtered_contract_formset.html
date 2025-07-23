@@ -1,0 +1,11 @@
+<div class="contract-formset-container">
+       <input type="checkbox"
+              id="include-inactive"
+              name="include-inactive"
+              hx-post="{% url 'fundingrequests:include_inactive_contracts' %}"
+              hx-target="closest .contract-formset-container"
+              hx-swap="outerHTML"
+              {% if include_inactive %}value="true" checked {% else %} value="false" {% endif %}>
+       <label for="include_inactive">Include inactive contracts</label>
+       {{ contract_formset.as_inline }}
+</div>

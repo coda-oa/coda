@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.domainqueryset import DomainQuerySet
@@ -7,6 +7,7 @@ from coda.domain.date import DateRange
 from coda.domain.publication import JournalId
 from coda.domain.string import NonEmptyStr
 from coda.lazyiterable import LazyCachedIterable
+from django.db import models
 
 
 def first() -> Contract | None:
@@ -32,6 +33,15 @@ def get_by_name(name: str) -> Contract | None:
         return None
 
     return as_domain_object(contract)
+
+
+def get_active_contracts() -> Iterable[Contract]:
+    all_contracts = DomainQuerySet(ContractModel.objects.all(), as_domain_object)
+    all_active_contracts = LazyCachedIterable(
+        contract for contract in all_contracts if contract.is_active()
+    )
+
+    return all_active_contracts
 
 
 def as_domain_object(contract_model: ContractModel) -> Contract:

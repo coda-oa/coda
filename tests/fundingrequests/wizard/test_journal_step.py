@@ -165,7 +165,7 @@ def test__journal_step__post_contracts__get_context_data__formset_contains_contr
     ctx = sut.get_context_data(request, store)
 
     contract_formset = ctx["contract_formset"]
-    assert [d["contract"] for d in contract_formset.data] == contracts
+    assert [d["contract"] for d in contract_formset.data] == [str(c.id) for c in contracts]
 
 
 @pytest.mark.django_db
@@ -216,7 +216,7 @@ def test__journal_step__contracts_in_store__get_context_data__formset_contains_c
     ctx = sut.get_context_data(request, store)
 
     contract_formset = ctx["contract_formset"]
-    assert [d["contract"] for d in contract_formset.data] == contracts
+    assert [d["contract"] for d in contract_formset.data] == [str(c.id) for c in contracts]
 
 
 _request_factory = RequestFactory()
