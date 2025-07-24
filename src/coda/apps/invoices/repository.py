@@ -88,6 +88,7 @@ def search(
     creditor: str | None = None,
     status: PaymentStatus | None = None,
     date_range: DateRange | None = None,
+    has_external_id: bool | None = None,
 ) -> Sequence[Invoice]:
     query = Q()
     if invoice_number:
@@ -101,6 +102,11 @@ def search(
 
     if date_range:
         query &= Q(date__range=(date_range.start, date_range.end))
+
+    if has_external_id is True:
+        query &= ~Q(external_invoice_id__isnull=True) & ~Q(external_invoice_id__exact="")
+    elif has_external_id is False:
+        query &= Q(external_invoice_id__isnull=True) | Q(external_invoice_id__exact="")
 
     return DomainQuerySet(_ordered(InvoiceModel.objects.filter(query)), as_domain_object)
 

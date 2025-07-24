@@ -23,6 +23,17 @@
             {% endfor %}
         </select>
     </div>
+    <div class="form-row">
+        <label for="has_external_id" class="form-row-item-sm">Has External ID</label>
+        <select id="has_external_id" name="has_external_id">
+            <option value=""
+                    {% if request.GET.has_external_id == "" %}selected{% endif %}>-------</option>
+            <option value="true"
+                    {% if request.GET.has_external_id == "true" %}selected{% endif %}>Yes</option>
+            <option value="false"
+                    {% if request.GET.has_external_id == "false" %}selected{% endif %}>No</option>
+        </select>
+    </div>
     <div class="grid">
         <div class="form-row">
             <label for="date_start" class="form-row-item-sm">Date start</label>

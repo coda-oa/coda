@@ -47,6 +47,12 @@ class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
             end=request.GET.get("date_end"),
         )
 
+        has_external_id = request.GET.get("has_external_id")
+        if has_external_id == "true":
+            query["has_external_id"] = True
+        elif has_external_id == "false":
+            query["has_external_id"] = False
+
         return list(invoice_viewmodel(i) for i in repository.search(**query))
 
     def try_into_paymentstatus(self, status: str) -> PaymentStatus | None:
