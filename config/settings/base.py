@@ -205,6 +205,7 @@ TEMPLATES = [
                 "getitem": "coda.apps.templatetags.getitem",
                 "getlist": "coda.apps.templatetags.getlist",
                 "param_replace": "coda.apps.templatetags.param_replace",
+                "formset_tags": "coda.apps.templatetags.formset_tags",
             },
         },
     }

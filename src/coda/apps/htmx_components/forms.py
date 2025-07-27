@@ -1,11 +1,15 @@
+import json
+import logging
+from collections.abc import Callable, Mapping
 from functools import cache, cached_property
 from typing import Any, Generic, Self, TypeVar
 
+import pydantic
 from django import forms
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.utils.datastructures import MultiValueDict
+from django.utils.safestring import mark_safe
 from django.views import View
 
 from coda.apps.htmx_components.converters import to_htmx_formset_data
@@ -77,6 +81,70 @@ def _context(
     }
 
 
+class HxVals(pydantic.BaseModel):
+    prefix: str
+    mode: str = _DEFAULT_RENDER_MODE
+    hx_include: str = ""
+    extras: dict[str, Any] = pydantic.Field(default_factory=dict)
+
+    @staticmethod
+    def from_mapping(mapping: Mapping[str, Any]) -> "HxVals":
+        logging.info(f"Creating HxVals from mapping: {mapping}")
+        mode = mapping.get("mode", _DEFAULT_RENDER_MODE)
+        prefix = mapping.get("prefix", "")
+
+        extras = {}
+        if extras_json := mapping.get("extras", ""):
+            try:
+                extras = json.loads(extras_json)
+            except (json.JSONDecodeError, TypeError):
+                extras = {}
+
+        return HxVals(
+            prefix=prefix,
+            mode=mode,
+            hx_include=mapping.get("hx_include", ""),
+            extras=extras,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "prefix": self.prefix,
+            "mode": self.mode,
+            "hx_include": self.hx_include,
+            "extras": self.extras,
+        }
+
+
+def render_formset_to_string(
+    template_name: str,
+    forms: list[FormType],
+    name: str,
+    form_id: str,
+    add_button: bool,
+    table_classes: str,
+    hxvals: HxVals,
+    request: HttpRequest | None = None,
+) -> str:
+    return mark_safe(
+        render_to_string(
+            template_name,
+            _context(
+                forms,
+                name=name,
+                form_id=form_id,
+                mode=hxvals.mode,
+                prefix=hxvals.prefix,
+                add_button=add_button,
+                table_classes=table_classes,
+            )
+            | {"hx_include": hxvals.hx_include, "hx_vals": json.dumps(hxvals.to_dict())}
+            | hxvals.extras,
+            request=request,
+        )
+    )
+
+
 class HtmxDynamicFormset(Generic[FormType]):
     name: str
     form_class: type[FormType]
@@ -95,6 +163,7 @@ class HtmxDynamicFormset(Generic[FormType]):
             add_button = cls.add_button
             template_name = cls.template_name
             table_classes = cls.table_classes
+            prerender_forms = cls.prerender_forms
 
         return _ManagementView
 
@@ -127,8 +196,12 @@ class HtmxDynamicFormset(Generic[FormType]):
 
     @cached_property
     def forms(self) -> list[FormType]:
+        prerender_hook = self.__class__.prerender_forms
         total_forms = _total_forms(self._data, self.prefix, self.min_forms)
-        forms = _forms(self._data, total_forms, self.form_class, self.prefix)
+        forms = prerender_hook(
+            _forms(self._data, total_forms, self.form_class, self.prefix),
+            self._data,
+        )
         self._full_clean(forms)
 
         return forms
@@ -155,28 +228,37 @@ class HtmxDynamicFormset(Generic[FormType]):
 
         return valid
 
-    def render(self, mode: str = _DEFAULT_RENDER_MODE) -> str:
-        return render_to_string(
+    def render(self, mode: str = _DEFAULT_RENDER_MODE, hx_include: str = "", **kwargs: Any) -> str:
+        return render_formset_to_string(
             self.template_name,
-            _context(
-                self.forms,
-                name=self.name,
-                mode=mode,
-                form_id=self.form_id,
+            self.forms,
+            self.name,
+            self.form_id,
+            self.add_button,
+            self.table_classes,
+            HxVals(
                 prefix=self.prefix,
-                add_button=self.add_button,
-                table_classes=self.table_classes,
+                mode=mode,
+                hx_include=hx_include,
+                extras=kwargs,
             ),
         )
 
-    def as_p(self) -> str:
-        return self.render("paragraph")
+    @staticmethod
+    def prerender_forms(
+        forms: list[FormType], data: Mapping[str, Any] | None = None
+    ) -> list[FormType]:
+        """Hook for subclasses to perform any pre-rendering logic on the forms."""
+        return forms
 
-    def as_div(self) -> str:
-        return self.render("div")
+    def as_p(self, **kwargs: Any) -> str:
+        return self.render("paragraph", **kwargs)
 
-    def as_inline(self) -> str:
-        return self.render("inline")
+    def as_div(self, **kwargs: Any) -> str:
+        return self.render("div", **kwargs)
+
+    def as_inline(self, **kwargs: Any) -> str:
+        return self.render("inline", **kwargs)
 
     def __str__(self) -> str:
         return self.render()
@@ -190,6 +272,7 @@ class ManagementView(View, Generic[FormType]):
 
     table_classes: str
     template_name: str
+    prerender_forms: Callable[[list[FormType], Mapping[str, Any] | None], list[FormType]]
 
     def post(self, request: HttpRequest) -> HttpResponse:
         if request.POST.get("form_action_add") is not None:
@@ -216,22 +299,22 @@ class ManagementView(View, Generic[FormType]):
         return forms
 
     def _get_response(self, request: HttpRequest, forms: list[FormType]) -> HttpResponse:
-        mode = request.POST.get("mode")
-        prefix = request.POST.get("prefix")
-        form_id = _form_id(request.POST, prefix)
-        return render(
-            request,
+        hx_vals = HxVals.from_mapping(request.POST)
+        logging.info(f"ManagementView: {self.name}, hx_vals: {hx_vals}")
+        form_id = _form_id(request.POST, hx_vals.prefix)
+
+        content = render_formset_to_string(
             self.template_name,
-            _context(
-                forms,
-                name=self.name,
-                mode=mode,
-                form_id=form_id,
-                prefix=prefix,
-                add_button=self.add_button,
-                table_classes=self.table_classes,
-            ),
+            self.__class__.prerender_forms(forms, request.POST),
+            self.name,
+            form_id,
+            self.add_button,
+            self.table_classes,
+            hx_vals,
+            request=request,
         )
+
+        return HttpResponse(content=content)
 
     def _data_with_form_removed(self, request: HttpRequest, form_index: int) -> dict[str, Any]:
         post_data = request.POST.dict()

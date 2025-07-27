@@ -1,3 +1,6 @@
+from collections.abc import Mapping
+from typing import Any
+
 from django import forms
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -9,9 +12,29 @@ class _TestForm(forms.Form):
     field = forms.CharField()
 
 
+class _AlwaysValidTestForm(_TestForm):
+    extra_field = forms.CharField()
+
+    def is_valid(self) -> bool:
+        return True
+
+
 class _TestFormset(HtmxDynamicFormset[_TestForm]):
     name = "test_formset"
     form_class = _TestForm
+
+
+class _TestFormsetWithHook(_TestFormset):
+    name = "test_formset_with_hook"
+
+    @staticmethod
+    def prerender_forms(
+        forms: list[_TestForm], data: Mapping[str, Any] | None = None
+    ) -> list[_TestForm]:
+        if data and data.get("make-valid"):
+            return [_AlwaysValidTestForm(form.data, prefix=form.prefix) for form in forms]
+
+        return forms
 
 
 class _ZeroFormsFormset(HtmxDynamicFormset[_TestForm]):
@@ -27,6 +50,14 @@ def formset_view(request: HttpRequest) -> HttpResponse:
 def zero_formset_view(request: HttpRequest) -> HttpResponse:
     return render(
         request, "htmx_formset_template.html", {"formset": _ZeroFormsFormset(request.POST)}
+    )
+
+
+def modify_form_hook_view(request: HttpRequest) -> HttpResponse:
+    return render(
+        request,
+        "htmx_formset_template.html",
+        {"formset": _TestFormsetWithHook(request.POST)},
     )
 
 

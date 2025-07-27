@@ -1,9 +1,16 @@
+import json
 import pytest
 from django.test.client import Client
 from django.utils.datastructures import MultiValueDict
 from pytest_django.fixtures import SettingsWrapper
 
-from tests.htmx.views import _TestForm, _TestFormset, _ZeroFormsFormset
+from tests.htmx.views import (
+    _AlwaysValidTestForm,
+    _TestForm,
+    _TestFormset,
+    _TestFormsetWithHook,
+    _ZeroFormsFormset,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -209,3 +216,68 @@ def test__three_forms__removing_second_form__renders_remaining_two_forms(client:
     assert len(forms) == 2
     assert forms[0].cleaned_data["field"] == "field-1"
     assert forms[1].cleaned_data["field"] == "field-3"
+
+
+@pytest.mark.django_db
+def test__formset_with_hx_include_and_extras__management_view_keeps_hx_include_and_extras(
+    client: Client,
+) -> None:
+    response = client.post(
+        "/zero-formset/",
+        {
+            "prefix": "zero-formset",
+            "hx_include": "#some-element",
+            "mode": "inline",
+            "extras": json.dumps(
+                {
+                    "custom_class": "my-class",
+                    "show_header": "true",
+                }
+            ),
+        },
+    )
+
+    hx_vals = json.loads(response.context["hx_vals"])
+    assert hx_vals["prefix"] == "zero-formset"
+    assert hx_vals["hx_include"] == "#some-element"
+    assert hx_vals["mode"] == "inline"
+    assert hx_vals["extras"]["custom_class"] == "my-class"
+    assert hx_vals["extras"]["show_header"] == "true"
+
+
+@pytest.mark.django_db
+def test__formset_with_prerender_hook__modifies_forms_in_prerender__is_valid(
+    client: Client,
+) -> None:
+    formdata = MultiValueDict({"make-valid": ["true"]})
+    sut = _TestFormsetWithHook(formdata)
+    assert sut.is_valid() is True
+
+    sut = _TestFormsetWithHook(MultiValueDict())
+    assert sut.is_valid() is False
+
+
+@pytest.mark.django_db
+def test__formset_with_prerender_hook__forms__get_modified_by_hook() -> None:
+    cleaned_formdata = {"field": "field-1", "extra_field": "extra-value"}
+    formdata = MultiValueDict(
+        {"make-valid": ["true"], "total_forms": ["1"]}
+        | {f"form-1-{key}": [value] for key, value in cleaned_formdata.items()},
+    )
+    sut = _TestFormsetWithHook(formdata)
+
+    assert len(sut.forms) == 1
+    assert isinstance(sut.forms[0], _AlwaysValidTestForm)
+    assert sut.data == [cleaned_formdata]
+
+
+@pytest.mark.django_db
+def test__formset_with_prerender_hook__add_form__modifies_forms_in_prerender(
+    client: Client,
+) -> None:
+    formdata = {"make-valid": ["true"], "form_action_add": "add_form"}
+
+    response = client.post("/modify-hook/", formdata)
+
+    modified_form = response.context["formset"][0]
+    assert isinstance(modified_form, _AlwaysValidTestForm)
