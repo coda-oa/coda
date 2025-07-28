@@ -24,15 +24,64 @@
         </select>
     </div>
     <div class="form-row">
-        <label for="has_external_id" class="form-row-item-sm">Has External ID</label>
-        <select id="has_external_id" name="has_external_id">
-            <option value=""
-                    {% if request.GET.has_external_id == "" %}selected{% endif %}>-------</option>
-            <option value="true"
-                    {% if request.GET.has_external_id == "true" %}selected{% endif %}>Yes</option>
-            <option value="false"
-                    {% if request.GET.has_external_id == "false" %}selected{% endif %}>No</option>
+        <label for="funding_source" class="form-row-item-sm">Funding Source</label>
+        <select id="funding_source" name="funding_source">
+            <option {% if not request.GET.funding_source %}selected{% endif %} value>-------</option>
+            {% for fs in funding_sources %}
+                <option value="{{ fs.id }}"
+                        {% if fs.id|stringformat:"s" == request.GET.funding_source %}selected{% endif %}>
+                    {{ fs.name }}
+                </option>
+            {% endfor %}
         </select>
+    </div>
+    <div class="grid">
+        <div class="form-row">
+            <label for="has_external_id" class="form-row-item-sm">Invoice has external ID</label>
+            <select id="has_external_id" name="has_external_id">
+                <option value=""
+                        {% if request.GET.has_external_id == "" %}selected{% endif %}>-------</option>
+                <option value="true"
+                        {% if request.GET.has_external_id == "true" %}selected{% endif %}>Yes</option>
+                <option value="false"
+                        {% if request.GET.has_external_id == "false" %}selected{% endif %}>No</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="pos_has_external_id" class="form-row-item-sm">Position has external ID</label>
+            <select id="pos_has_external_id" name="pos_has_external_id">
+                <option value=""
+                        {% if request.GET.pos_has_external_id == "" %}selected{% endif %}>-------</option>
+                <option value="true"
+                        {% if request.GET.pos_has_external_id == "true" %}selected{% endif %}>Yes</option>
+                <option value="false"
+                        {% if request.GET.pos_has_external_id == "false" %}selected{% endif %}>No</option>
+            </select>
+        </div>
+    </div>
+    <div class="grid">
+        <div class="form-row">
+            <label for="has_foreign_currency" class="form-row-item-sm">Invoice has foreign currency</label>
+            <select id="has_foreign_currency" name="has_foreign_currency">
+                <option value=""
+                        {% if request.GET.has_foreign_currency == "" %}selected{% endif %}>-------</option>
+                <option value="true"
+                        {% if request.GET.has_foreign_currency == "true" %}selected{% endif %}>Yes</option>
+                <option value="false"
+                        {% if request.GET.has_foreign_currency == "false" %}selected{% endif %}>No</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="invoice_has_conversion" class="form-row-item-sm">Invoice has conversion</label>
+            <select id="invoice_has_conversion" name="invoice_has_conversion">
+                <option value=""
+                        {% if request.GET.invoice_has_conversion == "" %}selected{% endif %}>-------</option>
+                <option value="true"
+                        {% if request.GET.invoice_has_conversion == "true" %}selected{% endif %}>Yes</option>
+                <option value="false"
+                        {% if request.GET.invoice_has_conversion == "false" %}selected{% endif %}>No</option>
+            </select>
+        </div>
     </div>
     <div class="grid">
         <div class="form-row">
@@ -49,6 +98,17 @@
                    name="date_end"
                    value="{{ request.GET.date_end }}">
         </div>
+    </div>
+    <div class="form-row">
+        <label for="sort_by" class="form-row-item-sm">Sort by</label>
+        <select id="sort_by" name="sort_by">
+            <option value="alphabetical"
+                    {% if request.GET.sort_by == "alphabetical" %}selected{% endif %}>Alphabet</option>
+            <option value="date_asc"
+                    {% if request.GET.sort_by == "date_asc" %}selected{% endif %}>Date ascending</option>
+            <option value="date_desc"
+                    {% if request.GET.sort_by == "date_desc" %}selected{% endif %}>Date descending</option>
+        </select>
     </div>
     <div class="grid align-center">
         <button type="submit" class="m-0">Search</button>

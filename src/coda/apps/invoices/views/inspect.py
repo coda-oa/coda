@@ -32,6 +32,7 @@ class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
         ctx["payment_statuses"] = [p.value for p in PaymentStatus]
+        ctx.update(funding_sources_context())
         return ctx
 
     def get_entities(self, request: HttpRequest) -> Sequence["InvoiceViewModel"]:
@@ -47,11 +48,24 @@ class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
             end=request.GET.get("date_end"),
         )
 
-        has_external_id = request.GET.get("has_external_id")
-        if has_external_id == "true":
-            query["has_external_id"] = True
-        elif has_external_id == "false":
-            query["has_external_id"] = False
+        query["funding_source"] = request.GET.get("funding_source")
+
+        if (has_external_id := request.GET.get("has_external_id")) in ("true", "false"):
+            query["has_external_id"] = has_external_id == "true"
+
+        if (pos_has_external_id := request.GET.get("pos_has_external_id")) in ("true", "false"):
+            query["pos_has_external_id"] = pos_has_external_id == "true"
+
+        if (has_foreign_currency := request.GET.get("has_foreign_currency")) in ("true", "false"):
+            query["has_foreign_currency"] = has_foreign_currency == "true"
+
+        if (invoice_has_conversion := request.GET.get("invoice_has_conversion")) in (
+            "true",
+            "false",
+        ):
+            query["invoice_has_conversion"] = invoice_has_conversion == "true"
+
+        query["sort_by"] = request.GET.get("sort_by")
 
         return list(invoice_viewmodel(i) for i in repository.search(**query))
 

@@ -9,6 +9,7 @@ from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.models import CurrencyConversion
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
+from coda.apps.preferences.models import GlobalPreferences
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
 from coda.domain.invoice import (
@@ -44,12 +45,12 @@ def get_by_id(invoice_id: InvoiceId) -> Invoice:
 
 def get_by_creditor(creditor_id: CreditorId) -> Sequence[Invoice]:
     return DomainQuerySet(
-        _ordered(InvoiceModel.objects.filter(creditor_id=creditor_id)), as_domain_object
+        _ordered_date_desc(InvoiceModel.objects.filter(creditor_id=creditor_id)), as_domain_object
     )
 
 
 def all() -> Sequence[Invoice]:
-    return DomainQuerySet(_ordered(InvoiceModel.objects.all()), as_domain_object)
+    return DomainQuerySet(_ordered_date_desc(InvoiceModel.objects.all()), as_domain_object)
 
 
 def invoice_with_publication(publication_id: PublicationId) -> Invoice | None:
@@ -88,7 +89,12 @@ def search(
     creditor: str | None = None,
     status: PaymentStatus | None = None,
     date_range: DateRange | None = None,
+    funding_source: FundingSourceId | None = None,
     has_external_id: bool | None = None,
+    pos_has_external_id: bool | None = None,
+    has_foreign_currency: bool | None = None,
+    invoice_has_conversion: bool | None = None,
+    sort_by: str | None = None,
 ) -> Sequence[Invoice]:
     query = Q()
     if invoice_number:
@@ -103,12 +109,42 @@ def search(
     if date_range:
         query &= Q(date__range=(date_range.start, date_range.end))
 
-    if has_external_id is True:
-        query &= ~Q(external_invoice_id__isnull=True) & ~Q(external_invoice_id__exact="")
-    elif has_external_id is False:
-        query &= Q(external_invoice_id__isnull=True) | Q(external_invoice_id__exact="")
+    if funding_source:
+        query &= Q(positions__funding_source__exact=funding_source)
 
-    return DomainQuerySet(_ordered(InvoiceModel.objects.filter(query)), as_domain_object)
+    if has_external_id is not None:
+        empty_q = Q(external_invoice_id__isnull=True) | Q(external_invoice_id__exact="")
+        query &= ~empty_q if has_external_id else empty_q
+
+    if pos_has_external_id is not None:
+        empty_q = Q(positions__external_position_id__isnull=True) | Q(
+            positions__external_position_id__exact=""
+        )
+        query &= ~empty_q if pos_has_external_id else empty_q
+
+    qs = InvoiceModel.objects.filter(query).distinct()
+
+    if sort_by == "alphabetical":
+        qs = _ordered_alphabetically(qs)
+    elif sort_by == "date_asc":
+        qs = _ordered_date_asc(qs)
+    elif sort_by == "date_desc":
+        qs = _ordered_date_desc(qs)
+    else:
+        qs = _ordered_date_desc(qs)
+
+    invoices = list(DomainQuerySet(qs, as_domain_object))
+
+    home_currency = GlobalPreferences.get_home_currency()
+    if has_foreign_currency in (True, False):
+        invoices = [
+            item for item in invoices if (item.currency() != home_currency) == has_foreign_currency
+        ]
+
+    if invoice_has_conversion in (True, False):
+        invoices = [item for item in invoices if bool(item.conversions()) == invoice_has_conversion]
+
+    return invoices
 
 
 def as_domain_object(model: InvoiceModel) -> Invoice:
@@ -289,5 +325,13 @@ def _create_position(m: InvoiceModel, pos: AnyPosition) -> PositionModel:
             raise ValueError("Invalid position item")
 
 
-def _ordered(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
+def _ordered_alphabetically(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
+    return invoices.order_by("number")
+
+
+def _ordered_date_asc(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
+    return invoices.order_by("date")
+
+
+def _ordered_date_desc(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
     return invoices.order_by("-date")
