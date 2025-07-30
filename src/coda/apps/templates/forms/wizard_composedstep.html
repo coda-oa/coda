@@ -1,0 +1,4 @@
+{% extends "forms/wizardform.html" %}
+{% block wizard_step %}
+    {% for step in steps %}{{ step }}{% endfor %}
+{% endblock wizard_step %}

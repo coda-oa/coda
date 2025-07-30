@@ -13,7 +13,7 @@ from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.publications.dto import LinkDto, PublicationMetaDto
 from coda.apps.publications.forms import LinkForm, PublicationForm
 from coda.apps.publications.models import LinkType
-from coda.apps.wizard import Step, Store
+from coda.apps.wizard import TemplateStep, Store
 from coda.domain.author import AuthorNames
 
 
@@ -32,7 +32,7 @@ class PublicationStepDto(CodaBaseDto):
     links: list[LinkDto]
 
 
-class PublicationStep(Step):
+class PublicationStep(TemplateStep):
     template_name: str = "fundingrequests/fundingrequest_publication.html"
     publication_kind: str
     form_constructors = {

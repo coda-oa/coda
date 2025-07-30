@@ -9,7 +9,7 @@ from coda.apps.fundingrequests.forms import ContractFormset
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.publications.dto import ContractYearDto
 from coda.apps.publishers.models import Publisher
-from coda.apps.wizard import Step, Store
+from coda.apps.wizard import TemplateStep, Store
 from coda.domain.publication import Monograph
 
 
@@ -31,7 +31,7 @@ class PublisherStepDto(CodaBaseDto):
         }
 
 
-class PublisherStep(Step):
+class PublisherStep(TemplateStep):
     template_name = "fundingrequests/fundingrequest_monograph_publisher_and_contract.html"
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:

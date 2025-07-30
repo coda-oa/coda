@@ -3,7 +3,7 @@ from coda.apps.fundingrequests.views.wizard.formrestore import (
     restore_form,
     restore_formset,
 )
-from coda.apps.wizard import Step, Store
+from coda.apps.wizard import TemplateStep, Store
 
 
 from django.http import HttpRequest
@@ -12,7 +12,7 @@ from django.http import HttpRequest
 from typing import Any
 
 
-class FundingStep(Step):
+class FundingStep(TemplateStep):
     template_name: str = "fundingrequests/fundingrequest_funding.html"
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:

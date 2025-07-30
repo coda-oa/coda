@@ -17,7 +17,7 @@ from coda.apps.fundingrequests.views.wizard.steps.extrainformation_step import (
     ExtraInformationStep,
 )
 from coda.apps.fundingrequests.views.wizard.steps.funding_step import FundingStep
-from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalStep
+from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalContractStep
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.wizard import SessionStore, Wizard
@@ -55,7 +55,7 @@ class UpdateExtraInformationView(LoginRequiredMixin, Wizard):
 class UpdatePublicationView(LoginRequiredMixin, Wizard):
     store_name = "update_publication_wizard"
     store_factory = SessionStore
-    steps = [PublicationStep.for_article(), JournalStep()]
+    steps = [PublicationStep.for_article(), JournalContractStep()]
     allow_early_complete = True
 
     def get_cancel_url(self) -> str:

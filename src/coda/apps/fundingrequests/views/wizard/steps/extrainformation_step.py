@@ -1,12 +1,10 @@
-from coda.apps.fundingrequests.forms import ExtraContactForm
-from coda.apps.fundingrequests.views.wizard.formrestore import restore_form
-from coda.apps.wizard import FormStep, Store
-
+from typing import Any
 
 from django.http import HttpRequest
 
-
-from typing import Any
+from coda.apps.fundingrequests.forms import ExtraContactForm
+from coda.apps.fundingrequests.views.wizard.formrestore import restore_form
+from coda.apps.wizard import FormStep, Store
 
 
 class ExtraInformationStep(FormStep):

@@ -5,16 +5,23 @@ import pytest
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.test import RequestFactory
 
-from coda.apps.wizard import Step, Store, StoreFactory, SupportsKeysAndGetItem, Wizard
+from coda.apps.wizard import (
+    StepLike,
+    Store,
+    StoreFactory,
+    SupportsKeysAndGetItem,
+    TemplateStep,
+    Wizard,
+)
 
 DummyName = "Test"
 
 
-class SimpleStep(Step):
+class SimpleStep(TemplateStep):
     template_name: str = "simple_template.html"
 
 
-class InvalidStep(Step):
+class InvalidStep(TemplateStep):
     template_name: str = "template_with_data.html"
     context: dict[str, str] = {"name": "Invalid"}
 
@@ -27,13 +34,14 @@ class StepWithContext(SimpleStep):
     context: dict[str, str] = {"name": DummyName}
 
 
-class StepperStep(Step):
+class StepperStep(TemplateStep):
     template_name: str = "stepper_template.html"
 
 
 class StepWithDone(SimpleStep):
     def done(self, request: HttpRequest, store: Store) -> None:
         store["done_called"] = True
+        store.save()
 
 
 class DictStore(Store):
@@ -41,12 +49,18 @@ class DictStore(Store):
         self.saved_state: dict[str, Any] = {}
         self.current_state: dict[str, Any] = {}
         self._clear_on_save = False
+        self._keys_marked_for_deletion: set[str] = set()
 
     def save(self) -> None:
         self.saved_state.update(self.current_state.copy())
         if self._clear_on_save:
             self.saved_state.clear()
             self._clear_on_save = False
+
+        for key in self._keys_marked_for_deletion:
+            if key in self.saved_state:
+                del self.saved_state[key]
+        self._keys_marked_for_deletion.clear()
 
     def keys(self) -> Iterable[str]:
         return self.current_state.keys()
@@ -76,16 +90,19 @@ class DictStore(Store):
         ) and len(self.saved_state) == len(expected)
 
     def __getitem__(self, key: str) -> Any:
-        return self.current_state[key]
+        return self.saved_state[key]
 
     def __setitem__(self, key: str, value: Any) -> None:
         self.current_state[key] = value
+        if key in self._keys_marked_for_deletion:
+            self._keys_marked_for_deletion.remove(key)
 
     def __delitem__(self, key: str) -> None:
         del self.current_state[key]
+        self._keys_marked_for_deletion.add(key)
 
     def __contains__(self, key: str) -> bool:
-        return key in self.current_state
+        return key in self.saved_state
 
 
 class SingletonDictStoreFactory:
@@ -125,7 +142,8 @@ class CompletingWizardSpy(WizardTestImpl):
         return super().get_success_url()
 
     def complete(self, **kwargs: Any) -> None:
-        self.completed_state["store_state"] = dict(**self.get_store())
+        store = cast(DictStore, self.get_store())
+        self.completed_state["store_state"] = dict(store)
         self.completed_state["completed"] = True
         self.completed_state |= kwargs
 
@@ -138,7 +156,7 @@ def reset_store() -> None:
 def make_sut(
     cls: type[Wizard] = WizardTestImpl,
     /,
-    steps: Iterable[Step] = (),
+    steps: Iterable[StepLike] = (),
     **kwargs: Any,
 ) -> Callable[..., HttpResponse]:
     return cast(Callable[..., HttpResponse], cls.as_view(steps=list(steps), **kwargs))
@@ -157,7 +175,7 @@ def post(view: Callable[..., HttpResponse], data: dict[str, str] | None = None) 
 
 
 def test__cannot_instantiate_step_without_template_name() -> None:
-    class StepWithoutTemplateName(Step):
+    class StepWithoutTemplateName(TemplateStep):
         pass
 
     with pytest.raises(AttributeError):
@@ -390,7 +408,7 @@ def test__wizard__at_first_step__back_action__renders_first_step() -> None:
 def test__wizard__get_and_post__pass_store_to_step() -> None:
     store = SingletonDictStoreFactory.store
 
-    class StoringStep(Step):
+    class StoringStep(TemplateStep):
         template_name: str = "template_with_data.html"
 
         def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:

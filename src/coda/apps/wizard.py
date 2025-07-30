@@ -1,3 +1,4 @@
+import abc
 import logging
 from abc import ABC
 from collections.abc import Callable, Iterable
@@ -5,7 +6,8 @@ from typing import Any, Generic, NamedTuple, Protocol, TypeVar, cast, overload
 
 from django.forms import Form
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
+from django.template.loader import render_to_string
 from django.views import View
 
 KT = TypeVar("KT")
@@ -107,7 +109,18 @@ class SessionStore(Store):
         return self.data.keys()
 
 
-class Step(ABC):
+class StepLike(Protocol):
+    def is_valid(self, request: HttpRequest, store: Store) -> bool:
+        ...
+
+    def done(self, request: HttpRequest, store: Store) -> None:
+        ...
+
+    def render(self, request: HttpRequest, store: Store, extras: dict[str, Any]) -> str:
+        ...
+
+
+class TemplateStep(ABC):
     template_name: str
     context: dict[str, str]
 
@@ -126,8 +139,13 @@ class Step(ABC):
     def done(self, request: HttpRequest, store: Store) -> None:
         pass
 
+    def render(self, request: HttpRequest, store: Store, extras: dict[str, Any]) -> str:
+        context = self.get_context_data(request, store)
+        context.update(extras)
+        return render_to_string(self.template_name, context, request=request)
 
-class FormStep(Step, ABC):
+
+class FormStep(TemplateStep, ABC):
     form_class: type[Form]
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
@@ -147,13 +165,17 @@ class Stepper(NamedTuple):
     total: int
 
 
-class Wizard(View):
-    steps: list[Step] = []
+class Wizard(View, abc.ABC):
+    steps: list[StepLike] = []
     success_url: str = ""
     cancel_url: str = ""
     store_name: str = ""
     allow_early_complete: bool = False
-    store_factory: StoreFactory = None  # type: ignore
+
+    @property
+    @abc.abstractmethod
+    def store_factory(self) -> StoreFactory:
+        ...
 
     def get_success_url(self) -> str:
         return self.success_url
@@ -240,8 +262,9 @@ class Wizard(View):
 
     def _render_step(self, request: HttpRequest, index: int) -> HttpResponse:
         step = self.steps[index]
-        context = step.get_context_data(request, self.get_store())
-        context["stepper"] = Stepper(index + 1, len(self.steps))
-        context["cancel_redirect_url"] = self.get_cancel_url()
-        context["allow_early_complete"] = self.allow_early_complete
-        return render(request, step.template_name, context)
+        extras: dict[str, Any] = {}
+        extras["stepper"] = Stepper(index + 1, len(self.steps))
+        extras["cancel_redirect_url"] = self.get_cancel_url()
+        extras["allow_early_complete"] = self.allow_early_complete
+        rendered_step = step.render(request, self.get_store(), extras)
+        return HttpResponse(rendered_step)

@@ -1,23 +1,23 @@
 import datetime
 from typing import Any
-from django.http import HttpRequest
+
+import pytest
 from django.test import Client, RequestFactory
 from django.urls import reverse
-import pytest
 
 from coda.apps.contracts import repository
 from coda.apps.fundingrequests.forms import ContractForm, ContractFormset
+from coda.apps.fundingrequests.views.wizard.steps.contract_step import ContractStep
+from coda.apps.htmx_components.converters import to_htmx_formset_data
+from coda.apps.publications.dto import ContractYearDto
+from coda.apps.wizard import Store
 from coda.domain.contract import Contract
 from coda.domain.date import DateRange
 from coda.domain.string import NonEmptyStr
 from tests import domainfactory
+from tests.test_wizard import DictStore
 
 contract_formset_url = reverse(ContractFormset.name)
-
-
-class ContractStep:
-    def get_context_data(self, request: HttpRequest) -> dict[str, Any]:
-        return {"formset": ContractFormset(request.POST, prefix="contracts")}
 
 
 _request_factory = RequestFactory()
@@ -31,9 +31,9 @@ def test__contract_step__get_context_data__formset_choices_contain_contracts() -
     sut = ContractStep()
 
     request = _request_factory.post("/", {"contracts-total_forms": "1"})
-    context = sut.get_context_data(request)
+    context = sut.get_context_data(request, DictStore())
 
-    formset: ContractFormset = context["formset"]
+    formset: ContractFormset = context["contract_formset"]
     form = formset.forms[0]
     assert contract_choices(form) == [(c.id, c.name) for c in contracts]
 
@@ -45,24 +45,112 @@ def test__contract_step__post_contracts__formset_contains_contracts() -> None:
 
     sut = ContractStep()
 
-    request = _request_factory.post(
-        contract_formset_url,
-        {
-            "contracts-total_forms": "3",
-            "contracts-form-1-contract": contracts[0].id,
-            "contracts-form-1-year": contracts[0].in_first_year().year,
-            "contracts-form-2-contract": contracts[1].id,
-            "contracts-form-2-year": contracts[1].in_first_year().year,
-            "contracts-form-3-contract": contracts[2].id,
-            "contracts-form-3-year": contracts[2].in_first_year().year,
-        },
-    )
-    context = sut.get_context_data(request)
+    post_data = contract_formset_post_data(contracts)
+    request = _request_factory.post(contract_formset_url, post_data)
+    context = sut.get_context_data(request, DictStore())
 
-    formset: ContractFormset = context["formset"]
-    actual = [int(form.cleaned_data["contract"]) for form in formset.forms]
-    expected = [c.id for c in contracts]
-    assert actual == expected
+    formset: ContractFormset = context["contract_formset"]
+    assert_contracts_selected_in_formset(contracts, formset)
+
+
+@pytest.mark.django_db
+def test__contract_step__contracts_in_store__formset_contains_contracts() -> None:
+    contracts = [domainfactory.contract() for _ in range(3)]
+    save_all(contracts)
+    store = store_with_contracts(contracts)
+
+    sut = ContractStep()
+
+    request = _request_factory.get(contract_formset_url)
+    context = sut.get_context_data(request, store)
+
+    formset: ContractFormset = context["contract_formset"]
+    assert_contracts_selected_in_formset(contracts, formset)
+
+
+@pytest.mark.django_db
+def test__contract_step__contracts_in_store_and_post_data__prefers_post_data() -> None:
+    post_contracts = [domainfactory.contract() for _ in range(2)]
+    store_contracts = [domainfactory.contract() for _ in range(3)]
+    save_all(post_contracts + store_contracts)
+
+    store = store_with_contracts(store_contracts)
+    post_data = contract_formset_post_data(post_contracts)
+    sut = ContractStep()
+
+    request = _request_factory.post(contract_formset_url, post_data)
+    context = sut.get_context_data(request, store)
+
+    formset: ContractFormset = context["contract_formset"]
+    assert_contracts_selected_in_formset(post_contracts, formset)
+
+
+@pytest.mark.django_db
+def test__contract_step__done__stores_contracts_in_store() -> None:
+    contracts = [domainfactory.contract() for _ in range(3)]
+    save_all(contracts)
+
+    sut = ContractStep()
+    store = DictStore()
+
+    post_data = contract_formset_post_data(contracts)
+    request = _request_factory.post("", post_data)
+
+    sut.done(request, store)
+
+    assert store["contracts"] == [
+        ContractYearDto.from_contract_year(c.in_first_year()).to_post_data() for c in contracts
+    ]
+
+
+@pytest.mark.django_db
+def test__contract_step__same_contract_in_different_years__done__both_contract_years_in_store() -> (
+    None
+):
+    store = DictStore()
+    contracts = [domainfactory.contract() for _ in range(3)]
+    save_all(contracts)
+    sut = ContractStep()
+
+    first_contract = contracts[0]
+    first_contract_year = first_contract.in_first_year()
+    second_contract_year = first_contract.in_year(first_contract_year.year + 1)
+    contract_years = to_htmx_formset_data(
+        [
+            {"contract": first_contract_year.contract_id, "year": first_contract_year.year},
+            {"contract": second_contract_year.contract_id, "year": second_contract_year.year},
+        ],
+        prefix="contracts",
+    )
+    request = _request_factory.post("", contract_years)
+
+    sut.done(request, store)
+
+    assert len(store["contracts"]) == 2
+    assert {c["year"] for c in store["contracts"]} == {
+        first_contract_year.year,
+        second_contract_year.year,
+    }
+
+
+def contract_formset_post_data(contracts: list[Contract]) -> dict[str, Any]:
+    return to_htmx_formset_data(
+        [{"contract": str(c.id), "year": c.in_first_year().year} for c in contracts],
+        prefix="contracts",
+    )
+
+
+def store_with_contracts(contracts: list[Contract]) -> Store:
+    store = DictStore()
+    store["contracts"] = [
+        ContractYearDto.from_contract_year(c.in_first_year()).to_post_data() for c in contracts
+    ]
+    store.save()
+    return store
+
+
+def selected_contract_ids(formset: ContractFormset) -> list[int]:
+    return [int(form.cleaned_data["contract"]) for form in formset.forms]
 
 
 def contract_choices(form: ContractForm) -> list[tuple[int, str]]:
@@ -72,6 +160,12 @@ def contract_choices(form: ContractForm) -> list[tuple[int, str]]:
 def save_all(contracts: list[Contract]) -> None:
     for contract in contracts:
         contract.id = repository.create(contract)
+
+
+def assert_contracts_selected_in_formset(
+    contracts: list[Contract], formset: ContractFormset
+) -> None:
+    assert selected_contract_ids(formset) == [c.id for c in contracts]
 
 
 @pytest.mark.django_db
