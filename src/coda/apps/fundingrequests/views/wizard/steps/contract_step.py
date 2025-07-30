@@ -12,8 +12,11 @@ class ContractStep(TemplateStep):
     template_name: str = "fundingrequests/fundingrequest_contract_step.html"
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
-        ctx: dict[str, Any] = {"contract_formset": self.get_contract_formset(request, store)}
-        if "include_inactive" in request.POST:
+        contract_formset = self.get_contract_formset(request, store)
+        inactive_contracts_selected = contract_formset.any_inactive_contracts_selected()
+        ctx: dict[str, Any] = {"contract_formset": contract_formset}
+
+        if "include_inactive" in request.POST or inactive_contracts_selected:
             ctx["include_inactive"] = "true"
 
         return ctx

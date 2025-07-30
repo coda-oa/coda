@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+import datetime
 from typing import Any, cast
 
 from django import forms
@@ -38,6 +39,15 @@ class ContractForm(CodaFormBase):
         )
     )
     year = forms.IntegerField()
+
+    def inactive_contract_selected(self) -> bool:
+        prefix = f"{self.prefix}-" if self.prefix else ""
+        if not self.data.get(f"{prefix}contract"):
+            return False
+
+        contract_id = int(self.data[f"{prefix}contract"])
+        contract = repository.get_by_id(ContractId(contract_id))
+        return not contract.is_active(datetime.date.today())
 
     def include_inactive_contracts(self) -> None:
         self.fields["contract"].widget.choices = (
@@ -83,10 +93,20 @@ class ContractFormset(HtmxDynamicFormset[ContractForm]):
         if not mapping:
             return forms
 
-        if "include_inactive" in mapping:
+        if ContractFormset.use_inactive_contract_forms(forms, mapping):
             return [ContractFormWithInactive(form.data, prefix=form.prefix) for form in forms]
 
         return forms
+
+    @staticmethod
+    def use_inactive_contract_forms(forms: list[ContractForm], mapping: Mapping[str, Any]) -> bool:
+        inactive_contracts_selected = any(form.inactive_contract_selected() for form in forms)
+        include_inactive_checked = "include_inactive" in mapping
+        use_inactive_contract_forms = inactive_contracts_selected or include_inactive_checked
+        return use_inactive_contract_forms
+
+    def any_inactive_contracts_selected(self) -> bool:
+        return any(form.inactive_contract_selected() for form in self.forms)
 
     def contract_years(self) -> list[ContractYear]:
         return [form.contract_year() for form in self.forms]
@@ -208,5 +228,8 @@ def include_inactive_contracts(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "fundingrequests/forms/filtered_contract_formset.html",
-        {"include_inactive": include_inactive, "contract_formset": contract_formset},
+        {
+            "include_inactive": include_inactive,
+            "contract_formset": contract_formset,
+        },
     )

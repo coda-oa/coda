@@ -69,6 +69,21 @@ def test__contract_step__contracts_in_store__formset_contains_contracts() -> Non
 
 
 @pytest.mark.django_db
+def test__contract_step__inactive_contracts_in_store__formset_includes_inactive_contracts() -> None:
+    contracts = [domainfactory.contract(period=DateRange.create(end=datetime.date.min))]
+    save_all(contracts)
+    store = store_with_contracts(contracts)
+
+    sut = ContractStep()
+
+    request = _request_factory.post(contract_formset_url)
+    context = sut.get_context_data(request, store)
+
+    formset: ContractFormset = context["contract_formset"]
+    assert_contracts_selected_in_formset(contracts, formset)
+
+
+@pytest.mark.django_db
 def test__contract_step__contracts_in_store_and_post_data__prefers_post_data() -> None:
     post_contracts = [domainfactory.contract() for _ in range(2)]
     store_contracts = [domainfactory.contract() for _ in range(3)]
