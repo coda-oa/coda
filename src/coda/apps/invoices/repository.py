@@ -1,6 +1,6 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 import logging
-from typing import TypedDict
+from typing import TypeVar, TypedDict
 
 from django.db.models import Q, QuerySet
 
@@ -9,7 +9,6 @@ from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.models import CurrencyConversion
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
-from coda.apps.preferences.models import GlobalPreferences
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
 from coda.domain.invoice import (
@@ -91,60 +90,91 @@ def search(
     date_range: DateRange | None = None,
     funding_source: FundingSourceId | None = None,
     has_external_id: bool | None = None,
-    pos_has_external_id: bool | None = None,
+    home_currency: Currency | None = None,
     has_foreign_currency: bool | None = None,
-    invoice_has_conversion: bool | None = None,
-    sort_by: str | None = None,
+    sort_by: str = "date_desc",
 ) -> Sequence[Invoice]:
-    query = Q()
-    if invoice_number:
-        query &= Q(number__icontains=invoice_number)
-
-    if creditor:
-        query &= Q(creditor__name__icontains=creditor)
-
-    if status:
-        query &= Q(status=status.value)
-
-    if date_range:
-        query &= Q(date__range=(date_range.start, date_range.end))
-
-    if funding_source:
-        query &= Q(positions__funding_source__exact=funding_source)
-
-    if has_external_id is not None:
-        empty_q = Q(external_invoice_id__isnull=True) | Q(external_invoice_id__exact="")
-        query &= ~empty_q if has_external_id else empty_q
-
-    if pos_has_external_id is not None:
-        empty_q = Q(positions__external_position_id__isnull=True) | Q(
-            positions__external_position_id__exact=""
-        )
-        query &= ~empty_q if pos_has_external_id else empty_q
-
+    query = (
+        invoice_number_criterion(invoice_number)
+        & creditor_criterion(creditor)
+        & status_criterion(status)
+        & date_range_criterion(date_range)
+        & funding_source_criterion(funding_source)
+        & external_id_criterion(has_external_id)
+    )
     qs = InvoiceModel.objects.filter(query).distinct()
 
-    if sort_by == "alphabetical":
-        qs = _ordered_alphabetically(qs)
-    elif sort_by == "date_asc":
-        qs = _ordered_date_asc(qs)
-    elif sort_by == "date_desc":
-        qs = _ordered_date_desc(qs)
-    else:
-        qs = _ordered_date_desc(qs)
+    invoices = get_sorted_invoices(qs, sort_by)
 
-    invoices = list(DomainQuerySet(qs, as_domain_object))
-
-    home_currency = GlobalPreferences.get_home_currency()
-    if has_foreign_currency in (True, False):
-        invoices = [
-            item for item in invoices if (item.currency() != home_currency) == has_foreign_currency
-        ]
-
-    if invoice_has_conversion in (True, False):
-        invoices = [item for item in invoices if bool(item.conversions()) == invoice_has_conversion]
+    if has_foreign_currency:
+        invoices = foreign_currency_without_conversion(invoices, home_currency)
 
     return invoices
+
+
+T = TypeVar("T")
+
+
+def empty_if_none(crit: Callable[[T], Q]) -> Callable[[T | None], Q]:
+    def _wrapped(value: T | None) -> Q:
+        if value is None:
+            return Q()
+        return crit(value)
+
+    return _wrapped
+
+
+@empty_if_none
+def invoice_number_criterion(invoice_number: str) -> Q:
+    return Q(number__icontains=invoice_number)
+
+
+@empty_if_none
+def creditor_criterion(creditor: str) -> Q:
+    return Q(creditor__name__icontains=creditor)
+
+
+@empty_if_none
+def status_criterion(status: PaymentStatus) -> Q:
+    return Q(status=status.value)
+
+
+@empty_if_none
+def date_range_criterion(date_range: DateRange) -> Q:
+    return Q(date__range=(date_range.start, date_range.end))
+
+
+@empty_if_none
+def funding_source_criterion(funding_source: FundingSourceId) -> Q:
+    return Q(positions__funding_source__exact=funding_source)
+
+
+@empty_if_none
+def external_id_criterion(has_external_id: bool) -> Q:
+    return (
+        Q(external_invoice_id__isnull=True)
+        | Q(external_invoice_id__exact="")
+        | Q(positions__external_position_id__isnull=True)
+        | Q(positions__external_position_id__exact="")
+    )
+
+
+def foreign_currency_without_conversion(
+    invoices: Sequence[Invoice], home_currency: Currency | None
+) -> Sequence[Invoice]:
+    return [
+        item for item in invoices if item.currency() != home_currency and not item.conversions()
+    ]
+
+
+def get_sorted_invoices(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[Invoice]:
+    sort_functions = {
+        "alphabetical": _ordered_alphabetically,
+        "date_asc": _ordered_date_asc,
+        "date_desc": _ordered_date_desc,
+    }
+    sort_function = sort_functions.get(sort_by, _ordered_date_desc)
+    return list(DomainQuerySet(sort_function(qs), as_domain_object))
 
 
 def as_domain_object(model: InvoiceModel) -> Invoice:

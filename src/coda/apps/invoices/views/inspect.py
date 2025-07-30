@@ -15,6 +15,7 @@ from coda.apps.invoices.models import Creditor
 from coda.apps.invoices.views.position_list import _DefaultContext
 from coda.apps.invoices.views.position_list import funding_sources_context
 from coda.apps.invoices.views.positions import AnyPositionDto, to_position_dto
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 from coda.domain.date import DateRange
 from coda.domain.invoice import Invoice, InvoiceId, PaymentStatus
@@ -48,24 +49,16 @@ class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
             end=request.GET.get("date_end"),
         )
 
-        query["funding_source"] = request.GET.get("funding_source")
+        query["funding_source"] = request.GET.get("funding_source") or None
 
         if (has_external_id := request.GET.get("has_external_id")) in ("true", "false"):
             query["has_external_id"] = has_external_id == "true"
 
-        if (pos_has_external_id := request.GET.get("pos_has_external_id")) in ("true", "false"):
-            query["pos_has_external_id"] = pos_has_external_id == "true"
-
         if (has_foreign_currency := request.GET.get("has_foreign_currency")) in ("true", "false"):
             query["has_foreign_currency"] = has_foreign_currency == "true"
 
-        if (invoice_has_conversion := request.GET.get("invoice_has_conversion")) in (
-            "true",
-            "false",
-        ):
-            query["invoice_has_conversion"] = invoice_has_conversion == "true"
-
         query["sort_by"] = request.GET.get("sort_by")
+        query["home_currency"] = GlobalPreferences.get_home_currency()
 
         return list(invoice_viewmodel(i) for i in repository.search(**query))
 

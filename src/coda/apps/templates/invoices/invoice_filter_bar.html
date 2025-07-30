@@ -37,54 +37,6 @@
     </div>
     <div class="grid">
         <div class="form-row">
-            <label for="has_external_id" class="form-row-item-sm">Invoice has external ID</label>
-            <select id="has_external_id" name="has_external_id">
-                <option value=""
-                        {% if request.GET.has_external_id == "" %}selected{% endif %}>-------</option>
-                <option value="true"
-                        {% if request.GET.has_external_id == "true" %}selected{% endif %}>Yes</option>
-                <option value="false"
-                        {% if request.GET.has_external_id == "false" %}selected{% endif %}>No</option>
-            </select>
-        </div>
-        <div class="form-row">
-            <label for="pos_has_external_id" class="form-row-item-sm">Position has external ID</label>
-            <select id="pos_has_external_id" name="pos_has_external_id">
-                <option value=""
-                        {% if request.GET.pos_has_external_id == "" %}selected{% endif %}>-------</option>
-                <option value="true"
-                        {% if request.GET.pos_has_external_id == "true" %}selected{% endif %}>Yes</option>
-                <option value="false"
-                        {% if request.GET.pos_has_external_id == "false" %}selected{% endif %}>No</option>
-            </select>
-        </div>
-    </div>
-    <div class="grid">
-        <div class="form-row">
-            <label for="has_foreign_currency" class="form-row-item-sm">Invoice has foreign currency</label>
-            <select id="has_foreign_currency" name="has_foreign_currency">
-                <option value=""
-                        {% if request.GET.has_foreign_currency == "" %}selected{% endif %}>-------</option>
-                <option value="true"
-                        {% if request.GET.has_foreign_currency == "true" %}selected{% endif %}>Yes</option>
-                <option value="false"
-                        {% if request.GET.has_foreign_currency == "false" %}selected{% endif %}>No</option>
-            </select>
-        </div>
-        <div class="form-row">
-            <label for="invoice_has_conversion" class="form-row-item-sm">Invoice has conversion</label>
-            <select id="invoice_has_conversion" name="invoice_has_conversion">
-                <option value=""
-                        {% if request.GET.invoice_has_conversion == "" %}selected{% endif %}>-------</option>
-                <option value="true"
-                        {% if request.GET.invoice_has_conversion == "true" %}selected{% endif %}>Yes</option>
-                <option value="false"
-                        {% if request.GET.invoice_has_conversion == "false" %}selected{% endif %}>No</option>
-            </select>
-        </div>
-    </div>
-    <div class="grid">
-        <div class="form-row">
             <label for="date_start" class="form-row-item-sm">Date start</label>
             <input type="date"
                    id="date_start"
@@ -98,6 +50,28 @@
                    name="date_end"
                    value="{{ request.GET.date_end }}">
         </div>
+    </div>
+    <div class="mb-1_5 mt-0_5">
+        <label for="has_external_id">
+            <input id="has_external_id"
+                   type="checkbox"
+                   role="switch"
+                   name="has_external_id"
+                   value="true"
+                   {% if request.GET.has_external_id == "true" %}checked{% endif %}>
+            <span>Show invoices without external IDs</span>
+        </label>
+    </div>
+    <div class="mb-1">
+        <label for="has_foreign_currency">
+            <input id="has_foreign_currency"
+                   type="checkbox"
+                   role="switch"
+                   name="has_foreign_currency"
+                   value="true"
+                   {% if request.GET.has_foreign_currency == "true" %}checked{% endif %}>
+            <span>Show invoices with foreign currencies and without conversion</span>
+        </label>
     </div>
     <div class="form-row">
         <label for="sort_by" class="form-row-item-sm">Sort by</label>
