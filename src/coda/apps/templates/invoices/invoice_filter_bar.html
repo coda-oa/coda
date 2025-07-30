@@ -89,6 +89,28 @@
             <span>Show invoices with foreign currencies and without conversion</span>
         </label>
     </div>
+    <div class="mb-1_5 mt-0_5">
+        <label for="has_external_id">
+            <input id="has_external_id"
+                   type="checkbox"
+                   role="switch"
+                   name="has_external_id"
+                   value="true"
+                   {% if request.GET.has_external_id == "true" %}checked{% endif %}>
+            <span>Show invoices without external IDs</span>
+        </label>
+    </div>
+    <div class="mb-1">
+        <label for="has_foreign_currency">
+            <input id="has_foreign_currency"
+                   type="checkbox"
+                   role="switch"
+                   name="has_foreign_currency"
+                   value="true"
+                   {% if request.GET.has_foreign_currency == "true" %}checked{% endif %}>
+            <span>Show invoices with foreign currencies and without conversion</span>
+        </label>
+    </div>
     <div class="form-row">
         <label for="sort_by" class="form-row-item-sm">Sort by</label>
         <select id="sort_by" name="sort_by">

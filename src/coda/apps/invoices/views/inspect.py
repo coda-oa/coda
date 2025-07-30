@@ -74,14 +74,16 @@ class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
             end=request.GET.get("date_end"),
         )
 
+        query["funding_source"] = request.GET.get("funding_source") or None
+
         if (has_external_id := request.GET.get("has_external_id")) in ("true", "false"):
             query["has_external_id"] = has_external_id == "true"
 
-        query["home_currency"] = GlobalPreferences.get_home_currency()
         if (has_foreign_currency := request.GET.get("has_foreign_currency")) in ("true", "false"):
             query["has_foreign_currency"] = has_foreign_currency == "true"
 
         query["sort_by"] = request.GET.get("sort_by")
+        query["home_currency"] = GlobalPreferences.get_home_currency()
 
         return list(invoice_viewmodel(i) for i in repository.search(**query))
 
