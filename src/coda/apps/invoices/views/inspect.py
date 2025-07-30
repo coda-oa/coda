@@ -34,6 +34,8 @@ class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
         ctx = super().get_context_data(**kwargs)
         ctx["payment_statuses"] = [p.value for p in PaymentStatus]
         ctx.update(funding_sources_context())
+        ctx["home_currency"] = GlobalPreferences.get_home_currency()
+
         return ctx
 
     def get_entities(self, request: HttpRequest) -> Sequence["InvoiceViewModel"]:
@@ -191,6 +193,7 @@ def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
         net=invoice.net(),
         comment=invoice.comment,
         external_invoice_id=invoice.external_invoice_id,
+        conversion=invoice.conversions(),
     )
 
 
@@ -221,3 +224,4 @@ class InvoiceViewModel(NamedTuple):
     net: Money
     comment: str
     external_invoice_id: str
+    conversion: dict[Currency, Decimal]
