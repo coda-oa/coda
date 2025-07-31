@@ -3,12 +3,7 @@ from typing import Any
 from django import template
 from django.template import Context
 
-from coda.apps.htmx_components.forms import (
-    FormType,
-    HtmxDynamicFormset,
-    HxVals,
-    render_formset_to_string,
-)
+from coda.apps.htmx_components.forms import FormType, HtmxDynamicFormset
 
 register = template.Library()
 
@@ -45,22 +40,4 @@ def render_formset(
             f"render_formset expects an HtmxDynamicFormset instance, got {type(formset)}"
         )
 
-    request = context.get("request")
-
-    hx_vals = HxVals(
-        prefix=formset.prefix,
-        mode=mode,
-        hx_include=hx_include,
-        extras=kwargs,
-    )
-
-    return render_formset_to_string(
-        formset.template_name,
-        formset.prerender_forms(formset.forms, request.POST if request else None),
-        formset.name,
-        formset.form_id,
-        formset.add_button,
-        formset.table_classes,
-        hx_vals,
-        request=request,
-    )
+    return formset.render(mode=mode, hx_include=hx_include, **kwargs)
