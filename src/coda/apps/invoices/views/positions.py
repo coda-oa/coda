@@ -178,6 +178,7 @@ class ContractPositionDto(CommonPositionDto[ContractYear, ContractCostType]):
     id: Int
     name: str
     year: int
+    cost_type: str = ContractCostType.Publish.value
 
     @classmethod
     def from_position(
