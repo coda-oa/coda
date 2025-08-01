@@ -160,11 +160,7 @@
                         </td>
                         <td>
                             {% for fs in funding_sources %}
-                                {% if position.funding_source == fs.id %}
-                                    {{ fs.name }}
-                                {% else %}
-                                    None
-                                {% endif %}
+                                {% if position.funding_source == fs.id %}{{ fs.name }}{% endif %}
                             {% endfor %}
                         </td>
                         <td>{{ position.cost_type }}</td>

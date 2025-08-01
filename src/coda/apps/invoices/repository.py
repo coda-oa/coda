@@ -5,6 +5,7 @@ from typing import TypeVar, TypedDict
 from django.db.models import Q, QuerySet
 
 from coda.apps.contracts import repository as contract_services
+from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.models import CurrencyConversion
 from coda.apps.invoices.models import Invoice as InvoiceModel
@@ -84,8 +85,7 @@ def get_other_paid_invoice_with_publication(
 
 def search(
     *,
-    invoice_number: str | None = None,
-    creditor: str | None = None,
+    generic_search: str | None = None,
     status: PaymentStatus | None = None,
     date_range: DateRange | None = None,
     funding_source: FundingSourceId | None = None,
@@ -93,15 +93,19 @@ def search(
     home_currency: Currency | None = None,
     has_foreign_currency: bool | None = None,
     sort_by: str = "date_desc",
+    contract_name: Contract | None = None,
+    contract_year: int | None = None,
 ) -> Sequence[Invoice]:
     query = (
-        invoice_number_criterion(invoice_number)
-        & creditor_criterion(creditor)
+        generic_search_criterion(generic_search)
         & status_criterion(status)
         & date_range_criterion(date_range)
         & funding_source_criterion(funding_source)
         & external_id_criterion(has_external_id)
+        & contract_criterion(contract_name)
+        & contract_year_criterion(contract_year)
     )
+
     qs = InvoiceModel.objects.filter(query).distinct()
 
     invoices = get_sorted_invoices(qs, sort_by)
@@ -122,6 +126,16 @@ def empty_if_none(crit: Callable[[T], Q]) -> Callable[[T | None], Q]:
         return crit(value)
 
     return _wrapped
+
+
+@empty_if_none
+def generic_search_criterion(generic_search: str) -> Q:
+    return (
+        invoice_number_criterion(generic_search)
+        | creditor_criterion(generic_search)
+        | Q(positions__publication__fundingrequest__request_id__iexact=generic_search)
+        | Q(external_invoice_id__iexact=generic_search)
+    )
 
 
 @empty_if_none
@@ -165,6 +179,16 @@ def foreign_currency_without_conversion(
     return [
         item for item in invoices if item.currency() != home_currency and not item.conversions()
     ]
+
+
+@empty_if_none
+def contract_criterion(contract_name: Contract) -> Q:
+    return Q(positions__contract_id=contract_name)
+
+
+@empty_if_none
+def contract_year_criterion(contract_year: int) -> Q:
+    return Q(positions__contract_year=contract_year)
 
 
 def get_sorted_invoices(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[Invoice]:

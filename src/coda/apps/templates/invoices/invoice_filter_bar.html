@@ -1,56 +1,72 @@
 <form method="get">
-    <div class="form-row">
-        <label for="invoice_number" class="form-row-item-sm">Invoice number</label>
-        <input type="text"
-               id="invoice_number"
-               name="invoice_number"
-               value="{{ request.GET.invoice_number }}">
-    </div>
-    <div class="form-row">
-        <label for="creditor" class="form-row-item-sm">Creditor</label>
-        <input type="text"
-               id="creditor"
-               name="creditor"
-               value="{{ request.GET.creditor }}">
-    </div>
-    <div class="form-row">
-        <label for="payment_status" class="form-row-item-sm">Payment status</label>
-        <select id="payment_status" name="payment_status">
-            <option {% if not request.GET.payment_status %}selected{% endif %} value>-------</option>
-            {% for ps in payment_statuses %}
-                <option value="{{ ps }}"
-                        {% if ps == request.GET.payment_status %}selected{% endif %}>{{ ps }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="form-row">
-        <label for="funding_source" class="form-row-item-sm">Funding Source</label>
-        <select id="funding_source" name="funding_source">
-            <option {% if not request.GET.funding_source %}selected{% endif %} value>-------</option>
-            {% for fs in funding_sources %}
-                <option value="{{ fs.id }}"
-                        {% if fs.id|stringformat:"s" == request.GET.funding_source %}selected{% endif %}>
-                    {{ fs.name }}
-                </option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="grid">
+    <input type="search"
+           name="search_term"
+           value="{{ request.GET.search_term }}"
+           placeholder="Search by invoice number, creditor, external invoice ID or funding request ID">
+    <details {% if expand_advanced_search %}open{% endif %}>
+        <summary role="button" class="outline muted">
+            <span class="m-0">Advanced search</span>
+        </summary>
         <div class="form-row">
-            <label for="date_start" class="form-row-item-sm">Date start</label>
-            <input type="date"
-                   id="date_start"
-                   name="date_start"
-                   value="{{ request.GET.date_start }}">
+            <label for="payment_status" class="form-row-item-sm">Payment status</label>
+            <select id="payment_status" name="payment_status">
+                <option {% if not request.GET.payment_status %}selected{% endif %} value>-------</option>
+                {% for ps in payment_statuses %}
+                    <option value="{{ ps }}"
+                            {% if ps == request.GET.payment_status %}selected{% endif %}>{{ ps }}</option>
+                {% endfor %}
+            </select>
         </div>
         <div class="form-row">
-            <label for="date_end" class="form-row-item-sm">Date end</label>
-            <input type="date"
-                   id="date_end"
-                   name="date_end"
-                   value="{{ request.GET.date_end }}">
+            <label for="funding_source" class="form-row-item-sm">Funding Source</label>
+            <select id="funding_source" name="funding_source">
+                <option {% if not request.GET.funding_source %}selected{% endif %} value>-------</option>
+                {% for fs in funding_sources %}
+                    <option value="{{ fs.id }}"
+                            {% if fs.id|stringformat:"s" == request.GET.funding_source %}selected{% endif %}>
+                        {{ fs.name }}
+                    </option>
+                {% endfor %}
+            </select>
         </div>
-    </div>
+        <div class="grid">
+            <div class="form-row">
+                <label for="contract_name" class="form-row-item-sm">Contract</label>
+                <select id="contract_name" name="contract_name">
+                    <option {% if not request.GET.contract_name %}selected{% endif %} value>-------</option>
+                    {% for contract in contract_list %}
+                        <option value="{{ contract.id }}"
+                                {% if contract.id|stringformat:"s" == request.GET.contract_name %}selected{% endif %}>
+                            {{ contract.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="contract_year" class="form-row-item-sm">Contract Year</label>
+                <input type="text"
+                       id="contract_year"
+                       name="contract_year"
+                       value="{{ request.GET.contract_year }}">
+            </div>
+        </div>
+        <div class="grid">
+            <div class="form-row">
+                <label for="date_start" class="form-row-item-sm">Date start</label>
+                <input type="date"
+                       id="date_start"
+                       name="date_start"
+                       value="{{ request.GET.date_start }}">
+            </div>
+            <div class="form-row">
+                <label for="date_end" class="form-row-item-sm">Date end</label>
+                <input type="date"
+                       id="date_end"
+                       name="date_end"
+                       value="{{ request.GET.date_end }}">
+            </div>
+        </div>
+    </details>
     <div class="mb-1_5 mt-0_5">
         <label for="has_external_id">
             <input id="has_external_id"

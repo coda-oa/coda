@@ -10,6 +10,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
+from coda.apps.contracts.models import Contract
 from coda.apps.invoices import repository, services
 from coda.apps.invoices.models import Creditor
 from coda.apps.invoices.views.position_list import _DefaultContext
@@ -21,6 +22,21 @@ from coda.domain.date import DateRange
 from coda.domain.invoice import Invoice, InvoiceId, PaymentStatus
 from coda.domain.money import Money
 from coda.domain.money._currency import Currency
+
+_advanced_search_fields = [
+    "payment_status",
+    "date_start",
+    "date_end",
+    "funding_source",
+    "has_external_id",
+    "has_foreign_currency",
+    "contract_name",
+    "contract_year",
+]
+
+
+def get_contract_list_context() -> dict[str, Any]:
+    return {"contract_list": Contract.objects.all()}
 
 
 class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
@@ -35,32 +51,38 @@ class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
         ctx["payment_statuses"] = [p.value for p in PaymentStatus]
         ctx.update(funding_sources_context())
         ctx["home_currency"] = GlobalPreferences.get_home_currency()
+        ctx["expand_advanced_search"] = any(
+            self.request.GET.get(key) for key in _advanced_search_fields
+        )
+        ctx.update(get_contract_list_context())
 
         return ctx
 
     def get_entities(self, request: HttpRequest) -> Sequence["InvoiceViewModel"]:
         query: dict[str, Any] = {}
-        query["invoice_number"] = request.GET.get("invoice_number")
-        query["creditor"] = request.GET.get("creditor")
+        query["generic_search"] = request.GET.get("search_term")
 
         if status := request.GET.get("payment_status"):
             query["status"] = self.try_into_paymentstatus(status)
+
+        query["funding_source"] = request.GET.get("funding_source") or None
+
+        query["contract_name"] = request.GET.get("contract_name") or None
+        query["contract_year"] = request.GET.get("contract_year") or None
 
         query["date_range"] = DateRange.try_fromisoformat(
             start=request.GET.get("date_start"),
             end=request.GET.get("date_end"),
         )
 
-        query["funding_source"] = request.GET.get("funding_source") or None
-
         if (has_external_id := request.GET.get("has_external_id")) in ("true", "false"):
             query["has_external_id"] = has_external_id == "true"
 
+        query["home_currency"] = GlobalPreferences.get_home_currency()
         if (has_foreign_currency := request.GET.get("has_foreign_currency")) in ("true", "false"):
             query["has_foreign_currency"] = has_foreign_currency == "true"
 
         query["sort_by"] = request.GET.get("sort_by")
-        query["home_currency"] = GlobalPreferences.get_home_currency()
 
         return list(invoice_viewmodel(i) for i in repository.search(**query))
 
