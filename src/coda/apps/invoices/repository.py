@@ -1,7 +1,8 @@
-from collections.abc import Callable, Sequence
 import logging
-from typing import TypeVar, TypedDict
+from collections.abc import Callable, Iterable, Sequence
+from typing import TypedDict, TypeVar
 
+from django.db import transaction
 from django.db.models import Q, QuerySet
 
 from coda.apps.contracts import repository as contract_services
@@ -276,7 +277,16 @@ def create(invoice: Invoice) -> InvoiceId:
     if invoice.id:
         raise InvoiceAlreadyExists(invoice.id)
 
-    invoice_model = InvoiceModel.objects.create(
+    invoice_model = _create_invoice_model(invoice)
+    invoice_model.save()
+    _add_positions(invoice, invoice_model)
+    _add_conversions(invoice, invoice_model)
+
+    return InvoiceId(invoice_model.id)
+
+
+def _create_invoice_model(invoice: Invoice) -> InvoiceModel:
+    return InvoiceModel(
         number=invoice.number,
         date=invoice.date,
         creditor_id=invoice.creditor,
@@ -284,10 +294,19 @@ def create(invoice: Invoice) -> InvoiceId:
         status=invoice.status.value,
         external_invoice_id=invoice.external_invoice_id,
     )
-    _add_positions(invoice, invoice_model)
-    _add_conversions(invoice, invoice_model)
 
-    return InvoiceId(invoice_model.id)
+
+@transaction.atomic
+def bulk_create(invoices: Iterable[Invoice]) -> list[InvoiceId]:
+    models = InvoiceModel.objects.bulk_create(
+        _create_invoice_model(invoice) for invoice in invoices
+    )
+
+    for invoice, invoice_model in zip(invoices, models):
+        _add_positions(invoice, invoice_model)
+        _add_conversions(invoice, invoice_model)
+
+    return [InvoiceId(m.id) for m in models]
 
 
 def _add_conversions(invoice: Invoice, invoice_model: InvoiceModel) -> None:
