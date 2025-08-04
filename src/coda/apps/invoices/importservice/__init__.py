@@ -4,13 +4,13 @@ from typing import BinaryIO, TextIO, cast
 from django.db.models import Q
 
 from coda.apps.contracts import repository as contract_repository
-from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository
 from coda.apps.invoices.importservice.dto import (
     CommonPositionImportDto,
     ContractPositionImportDto,
     FreePositionImportDto,
+    InvoiceImportDto,
     InvoiceListImportDto,
     PublicationPositionImportDto,
 )
@@ -28,9 +28,10 @@ from coda.domain.invoice import (
 from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
 from coda.domain.publication.publication import PublicationId
+from coda.domain.string import NonEmptyStr
 
 
-def parse_position_dto(
+def _parse_into_position(
     p: CommonPositionImportDto,
     currency: Currency,
     funding_sources_lookup: dict[str, FundingSourceId],
@@ -72,7 +73,7 @@ def parse_position_dto(
                 cost_type=p.cost_type,
             )
         case _:
-            raise ValueError(f"Unknown position type: {p.type}")
+            raise ValueError(f"Unknown position type: {p.type}.\n{p}")
 
     return position
 
@@ -98,28 +99,63 @@ def import_invoices(json: TextIO | BinaryIO) -> None:
         for position in invoice_dto.positions
         if isinstance(position, ContractPositionImportDto)
     )
+    positions_lookup = _build_positions_lookup(
+        dto.invoices, funding_sources_lookup, request_id_lookup, contract_lookup
+    )
     invoices = [
-        Invoice.new(
-            number=invoice_dto.number,
-            date=invoice_dto.date,
-            creditor=creditor_lookup[invoice_dto.creditor],
-            status=invoice_dto.status,
-            external_invoice_id=invoice_dto.external_id,
-            comment=invoice_dto.comment,
-            positions=[
-                parse_position_dto(
-                    p,
-                    invoice_dto.currency,
-                    funding_sources_lookup,
-                    request_id_lookup,
-                    contract_lookup,
-                )
-                for p in invoice_dto.positions
-            ],
-        )
+        _new_invoice(invoice_dto, creditor_lookup, positions_lookup[_invoice_key(invoice_dto)])
         for invoice_dto in dto.invoices
     ]
     repository.bulk_create(invoices)
+
+
+def _build_positions_lookup(
+    invoice_dtos: list[InvoiceImportDto],
+    funding_sources_lookup: dict[str, FundingSourceId],
+    request_id_lookup: dict[str, PublicationId],
+    contract_lookup: dict[str, Contract],
+) -> dict[str, list[AnyPosition]]:
+    return {
+        _invoice_key(invoice_dto): [
+            _parse_into_position(
+                p,
+                Currency.from_code(invoice_dto.currency),
+                funding_sources_lookup,
+                request_id_lookup,
+                contract_lookup,
+            )
+            for p in invoice_dto.positions
+        ]
+        for invoice_dto in invoice_dtos
+    }
+
+
+def _invoice_key(invoice_dto: InvoiceImportDto) -> str:
+    return str(hash(invoice_dto.model_dump_json()))
+
+
+def _new_invoice(
+    invoice_dto: InvoiceImportDto,
+    creditor_lookup: dict[str, CreditorId],
+    positions: list[AnyPosition],
+) -> Invoice:
+    invoice = Invoice.new(
+        number=invoice_dto.number,
+        date=invoice_dto.date,
+        creditor=creditor_lookup[invoice_dto.creditor],
+        status=invoice_dto.status,
+        external_invoice_id=invoice_dto.external_id,
+        comment=invoice_dto.comment,
+        positions=positions,
+    )
+
+    if invoice_dto.conversion:
+        invoice.add_conversion(
+            invoice_dto.conversion.exchange_rate,
+            Currency.from_code(invoice_dto.conversion.target_currency),
+        )
+
+    return invoice
 
 
 def _find_publication_ids(publications: Iterable[str]) -> dict[str, PublicationId]:
@@ -135,26 +171,36 @@ def _find_publication_ids(publications: Iterable[str]) -> dict[str, PublicationI
 
 
 def _find_contracts(contracts: Iterable[str]) -> dict[str, Contract]:
-    models = ContractModel.objects.filter(name__in=contracts)
-    return {c.name: contract_repository.as_domain_object(c) for c in models}
+    contracts = set(contracts)
+    existing = contract_repository.find_all_by_names(contracts)
+    existing_map: dict[str, Contract] = {c.name: c for c in existing}
+    to_create = [
+        Contract.new(name=NonEmptyStr(name)) for name in contracts if name not in existing_map
+    ]
+    if to_create:
+        created = contract_repository.create_many(to_create)
+        existing_map.update({c.name: c for c in created})
+    return {name: existing_map[name] for name in contracts}
 
 
 def _bulk_create_creditors(creditors: Iterable[str]) -> dict[str, CreditorId]:
+    creditors = set(creditors)
     existing = Creditor.objects.filter(name__in=creditors)
     existing_map = {c.name: c for c in existing}
     to_create = [Creditor(name=name) for name in creditors if name not in existing_map]
     if to_create:
-        created = Creditor.objects.bulk_create(to_create, ignore_conflicts=True)
+        created = Creditor.objects.bulk_create(to_create)
         existing_map.update({c.name: c for c in created})
-    return {name: CreditorId(existing_map[name].id) for name in creditors}
+    return {name: CreditorId(existing_map[name].pk) for name in creditors}
 
 
 def _bulk_create_funding_sources(funding_sources: Iterable[str]) -> dict[str, FundingSourceId]:
+    funding_sources = set(funding_sources)
     existing = FundingSource.objects.filter(name__in=funding_sources)
     existing_map = {fs.name: FundingSourceId(fs.id) for fs in existing}
     to_create = [FundingSource(name=name) for name in funding_sources if name not in existing_map]
     if to_create:
-        created = FundingSource.objects.bulk_create(to_create, ignore_conflicts=True)
+        created = FundingSource.objects.bulk_create(to_create)
         existing_map.update({fs.name: FundingSourceId(fs.id) for fs in created})
 
     return existing_map

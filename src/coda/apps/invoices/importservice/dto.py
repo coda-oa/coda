@@ -11,6 +11,8 @@ from coda.domain.money import Currency
 
 DEFAULT_TAX_RATE = Decimal("19.00")
 
+CurrencyCode = Annotated[str, PlainValidator(lambda v: Currency.from_code(v).code)]
+
 
 type PositionType = Literal["publication", "contract", "free"]
 
@@ -65,7 +67,7 @@ class FreePositionImportDto(CommonPositionImportDto):
 
 
 class ConversionImportDto(BaseModel):
-    target_currency: Currency
+    target_currency: CurrencyCode
     exchange_rate: Decimal
 
 
@@ -73,12 +75,14 @@ class InvoiceImportDto(BaseModel):
     number: str
     date: datetime.date
     creditor: str
-    currency: Currency
+    currency: CurrencyCode
     status: PaymentStatus
     external_id: str = ""
     comment: str = ""
     conversion: ConversionImportDto | None = None
-    positions: list[CommonPositionImportDto]
+    positions: list[
+        PublicationPositionImportDto | ContractPositionImportDto | FreePositionImportDto
+    ]
 
 
 class InvoiceListImportDto(BaseModel):

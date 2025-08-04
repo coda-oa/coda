@@ -16,7 +16,7 @@ from coda.apps.invoices.importservice.dto import (
     InvoiceListImportDto,
     PublicationPositionImportDto,
 )
-from coda.apps.invoices.models import FundingSource
+from coda.apps.invoices.models import Creditor, FundingSource
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.invoice import (
@@ -59,7 +59,6 @@ def publication_position_import_dto() -> PublicationPositionImportDto:
 
 def contract_position_import_dto() -> ContractPositionImportDto:
     contract = domainfactory.contract()
-    contract.id = contract_repository.create(contract)
     contract_year = domainfactory.contract_year(contract)
 
     return ContractPositionImportDto(
@@ -92,7 +91,7 @@ def invoice_import_list_dto(positions: list[CommonPositionImportDto]) -> Invoice
             InvoiceImportDto(
                 number="INV-001",
                 date="2023-10-01",
-                creditor="creditor-id",
+                creditor="creditor-name",
                 currency=Currency.BBD.code,
                 status="unpaid",
                 external_id="external-invoice-id",
@@ -158,10 +157,13 @@ def expected_invoice(import_dto: InvoiceImportDto) -> Invoice:
         expected_free_position(cast(FreePositionImportDto, import_dto.positions[2])),
     ]
 
+    creditor = Creditor.objects.filter(name=import_dto.creditor).first()
+    assert creditor is not None, "Creditor should have been created by import service"
+
     expected_invoice = Invoice.new(
         number=import_dto.number,
         date=import_dto.date,
-        creditor=CreditorId(modelfactory.creditor().id),
+        creditor=CreditorId(creditor.id),
         status=PaymentStatus.Unpaid,
         external_invoice_id="external-invoice-id",
         comment="Test invoice comment",
