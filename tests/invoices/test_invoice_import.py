@@ -1,3 +1,4 @@
+import datetime
 import tempfile
 from decimal import Decimal
 from typing import cast
@@ -17,6 +18,8 @@ from coda.apps.invoices.importservice.dto import (
     PublicationPositionImportDto,
 )
 from coda.apps.invoices.models import Creditor, FundingSource
+from coda.domain.contract import Contract
+from coda.domain.date import DateRange
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.invoice import (
@@ -31,11 +34,46 @@ from coda.domain.invoice import (
     PublicationCostType,
     TaxRate,
 )
-from coda.domain.money import Currency
-from coda.domain.money._money import Money
-from coda.domain.publication.publication import JournalId, PublicationId
+from coda.domain.money import Currency, Money
+from coda.domain.publication import JournalId, PublicationId
+from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 from tests.invoices.test_invoice_repository import assert_invoice_eq
+
+
+@pytest.mark.django_db
+def test__full_invoice__import__is_saved_to_database() -> None:
+    import_dto = invoice_import_list_dto(create_position_dtos())
+
+    import_invoices(import_dto)
+
+    expected = expected_invoice(import_dto.invoices[0])
+    actual = repository.first()
+    assert actual is not None, "Invoice should have been created by import service"
+    assert_invoice_eq(expected, actual)
+
+
+@pytest.mark.django_db
+def test__full_invoice__related_entities_already_exist__is_not_created_again() -> None:
+    contract_position = contract_position_import_dto()
+    import_dto = invoice_import_list_dto([contract_position])
+
+    modelfactory.funding_source(name=contract_position.funding_source)
+    modelfactory.creditor(name=import_dto.invoices[0].creditor)
+    create_contract_from(contract_position)
+
+    import_invoices(import_dto)
+
+    assert FundingSource.objects.count() == 1
+    assert Creditor.objects.count() == 1
+    assert len(contract_repository.all()) == 1
+
+
+def import_invoices(import_dto: InvoiceListImportDto) -> None:
+    with tempfile.TemporaryFile("w+", encoding="utf-8") as temp_file:
+        temp_file.write(import_dto.model_dump_json())
+        temp_file.seek(0)
+        importservice.import_invoices(temp_file)
 
 
 def publication_position_import_dto() -> PublicationPositionImportDto:
@@ -173,58 +211,22 @@ def expected_invoice(import_dto: InvoiceImportDto) -> Invoice:
     return expected_invoice
 
 
-@pytest.mark.django_db
-def test__full_invoice__import__is_saved_to_database() -> None:
-    publication_position = publication_position_import_dto()
-    contract_position = contract_position_import_dto()
-    free_position = free_position_import_dto()
-    import_dto = invoice_import_list_dto(
-        positions=[publication_position, contract_position, free_position]
+def create_position_dtos() -> list[CommonPositionImportDto]:
+    return [
+        publication_position_import_dto(),
+        contract_position_import_dto(),
+        free_position_import_dto(),
+    ]
+
+
+def create_contract_from(contract_position: ContractPositionImportDto) -> Contract:
+    contract = Contract.new(
+        name=NonEmptyStr(contract_position.contract_name),
+        period=complete_year(contract_position.contract_year),
     )
-
-    with tempfile.TemporaryFile("w+", encoding="utf-8") as temp_file:
-        temp_file.write(import_dto.model_dump_json())
-        temp_file.seek(0)
-        importservice.import_invoices(temp_file)
-
-    expected = expected_invoice(import_dto.invoices[0])
-    actual = repository.first()
-    assert actual is not None, "Invoice should have been created by import service"
-    assert_invoice_eq(expected, actual)
+    contract.id = contract_repository.create(contract)
+    return contract
 
 
-# def _parse_into_position_import_dto(position: AnyPosition) -> CommonPositionImportDto:
-#     match position.item:
-#         case PublicationId() as publication_id:
-#             request = fundingrequest_repository.get_by_publication_id(publication_id)
-
-#             return PublicationPositionImportDto(
-#                 type="publication",
-#                 request_id=request.request_id,
-#                 amount=position.net(),
-#                 tax_rate=position.tax_rate,
-#                 funding_source=position.funding_source,
-#                 external_id=position.external_position_id,
-#                 cost_type=position.cost_type,
-#             )
-#         case ContractYear() as contract_year:
-#             return ContractPositionImportDto(
-#                 type="contract",
-#                 contract_name=contract_year.contract.name,
-#                 contract_year=contract_year.year,
-#                 amount=position.net(),
-#                 tax_rate=position.tax_rate,
-#                 funding_source=position.funding_source,
-#                 external_id=position.external_position_id,
-#                 cost_type=position.cost_type,
-#             )
-#         case str(description):
-#             return FreePositionImportDto(
-#                 type="free",
-#                 description=description,
-#                 amount=position.net(),
-#                 tax_rate=position.tax_rate,
-#                 funding_source=position.funding_source,
-#                 external_id=position.external_position_id,
-#                 cost_type=position.cost_type,
-#             )
+def complete_year(year: int) -> DateRange:
+    return DateRange.create(start=datetime.date(year, 1, 1), end=datetime.date(year, 12, 31))
