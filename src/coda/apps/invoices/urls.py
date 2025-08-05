@@ -14,6 +14,7 @@ from coda.apps.invoices.views.fundingsources import (
     fundingsource_listview,
     fundingsource_updateview,
 )
+from coda.apps.invoices.views.importview import import_invoices
 from coda.apps.invoices.views.inspect import (
     invoice_detail,
     invoice_list,
@@ -53,4 +54,5 @@ urlpatterns = [
     path("fundingsources/update/<int:pk>", fundingsource_updateview, name="fundingsource_update"),
     path("conversion_section/", load_conversion_section, name="conversions_section"),
     path("<int:pk>/pay/", pay_invoice, name="pay_invoice"),
+    path("import/", import_invoices, name="import"),
 ]

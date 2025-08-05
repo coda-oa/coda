@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+    {% include "invoices/invoice_list_title_bar.html" with entity_name="Invoices" entity_create_url="invoices:create" %}
+    <div class="my-2">{% include "invoices/invoice_filter_bar.html" %}</div>
+    {% include "partials/pagination_nav.html" %}
+    {% include "entity_list.html" with list_item_template="invoices/invoice_list_item.html" %}
+    {% include "partials/pagination_nav.html" %}
+{% endblock content %}

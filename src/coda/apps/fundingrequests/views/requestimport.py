@@ -1,26 +1,21 @@
 from typing import BinaryIO, cast
 
 import pydantic
-from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.files.uploadedfile import UploadedFile
-from django.forms import widgets
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
+from coda.apps.formbase import JsonUploadForm
 from coda.apps.fundingrequests.services import importservice
-
-
-class FundingRequestImportForm(forms.Form):
-    import_file = forms.FileField(widget=widgets.FileInput(attrs={"accept": ".json"}))
 
 
 @login_required
 def import_fundingrequests(request: HttpRequest) -> HttpResponse:
     import_errors = []
     if request.method == "POST":
-        form = FundingRequestImportForm(request.POST, request.FILES)
+        form = JsonUploadForm(request.POST, request.FILES)
         if not form.is_valid():
             messages.error(request, "Invalid uploaded file")
             return render_import_form(request)
@@ -41,5 +36,5 @@ def render_import_form(
     return render(
         request,
         "fundingrequests/fundingrequest_import.html",
-        {"form": FundingRequestImportForm(), "import_errors": import_errors},
+        {"form": JsonUploadForm(), "import_errors": import_errors},
     )

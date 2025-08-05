@@ -42,9 +42,8 @@ def get_contract_list_context() -> dict[str, Any]:
 class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
     paginate_by = 20
     entity_name = "Invoices"
-    entity_create_url = "invoices:create"
+    template_name = "invoices/invoice_list.html"
     entity_list_item_template = "invoices/invoice_list_item.html"
-    entity_filter_template = "invoices/invoice_filter_bar.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
