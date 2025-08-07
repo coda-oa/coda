@@ -3,7 +3,9 @@ from abc import ABC
 from decimal import Decimal
 from typing import Annotated, Literal
 
+from annotated_types import Len
 from pydantic import BaseModel, PlainValidator, ValidationError, model_validator
+
 
 from coda.domain.fundingrequest.identity import InvalidFundingRequestId, PublicFundingRequestId
 from coda.domain.invoice import ContractCostType, PaymentStatus, PublicationCostType
@@ -12,7 +14,7 @@ from coda.domain.money import Currency
 DEFAULT_TAX_RATE = Decimal("19.00")
 
 CurrencyCode = Annotated[str, PlainValidator(lambda v: Currency.from_code(v).code)]
-
+NonEmptyStr = Annotated[str, Len(min_length=1)]
 
 type PositionType = Literal["publication", "contract", "free"]
 
@@ -72,9 +74,9 @@ class ConversionImportDto(BaseModel):
 
 
 class InvoiceImportDto(BaseModel):
-    number: str
+    number: NonEmptyStr
     date: datetime.date
-    creditor: str
+    creditor: NonEmptyStr
     currency: CurrencyCode
     status: PaymentStatus
     external_id: str = ""

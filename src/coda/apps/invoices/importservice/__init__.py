@@ -1,7 +1,10 @@
 from collections.abc import Iterable
-from typing import BinaryIO, TextIO, cast
+from dataclasses import dataclass
+import json
+from typing import BinaryIO, TextIO, cast, Any
 
 from django.db.models import Q
+import pydantic
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests.models import FundingRequest
@@ -11,7 +14,6 @@ from coda.apps.invoices.importservice.dto import (
     ContractPositionImportDto,
     FreePositionImportDto,
     InvoiceImportDto,
-    InvoiceListImportDto,
     PublicationPositionImportDto,
 )
 from coda.apps.invoices.models import Creditor, FundingSource
@@ -31,23 +33,202 @@ from coda.domain.publication.publication import PublicationId
 from coda.domain.string import NonEmptyStr
 
 
+@dataclass
+class InvoiceImportReport:
+    valid_invoices: int
+    invalid_invoices: int
+    errors: dict[str, list[str]]
+
+
+@dataclass
+class RelatedEntityLookups:
+    creditor_lookup: dict[str, CreditorId]
+    funding_sources_lookup: dict[str, FundingSourceId]
+    request_id_lookup: dict[str, PublicationId]
+    contract_lookup: dict[str, Contract]
+
+
+def import_invoices(json_stream: TextIO | BinaryIO) -> InvoiceImportReport:
+    text_content = json_stream.read()
+    data = json.loads(text_content)
+
+    invoice_dtos, validation_errors = _validate_invoices(data["invoices"])
+
+    if validation_errors:
+        return InvoiceImportReport(
+            valid_invoices=0,
+            invalid_invoices=len(validation_errors),
+            errors=validation_errors,
+        )
+
+    processed_invoices, processing_errors = _process_invoices(invoice_dtos)
+
+    return InvoiceImportReport(
+        valid_invoices=len(processed_invoices),
+        invalid_invoices=len(invoice_dtos) - len(processed_invoices),
+        errors=processing_errors,
+    )
+
+
+def _validate_invoices(
+    raw_invoices: list[dict[str, Any]],
+) -> tuple[list[InvoiceImportDto], dict[str, list[str]]]:
+    """
+    Validate a list of raw invoice data and return valid DTOs and validation errors.
+
+    Returns:
+        Tuple of (valid_invoice_dtos, validation_errors_by_invoice_number)
+    """
+    invoice_numbers = _extract_invoice_numbers(raw_invoices)
+    invoice_dtos = []
+    errors = {}
+
+    for i, raw_invoice in enumerate(raw_invoices):
+        try:
+            dto = InvoiceImportDto.model_validate(raw_invoice)
+            invoice_dtos.append(dto)
+        except (pydantic.ValidationError, ValueError, AttributeError) as e:
+            invoice_number = invoice_numbers[i]
+            errors[invoice_number] = _format_validation_error(e)
+
+    return invoice_dtos, errors
+
+
+def _extract_invoice_numbers(raw_invoices: list[dict[str, Any]]) -> list[str]:
+    """Extract invoice numbers from raw JSON data, providing fallbacks for missing numbers."""
+    return [
+        raw_invoice.get("number", f"<unknown-{i}>") for i, raw_invoice in enumerate(raw_invoices)
+    ]
+
+
+def _format_validation_error(error: Exception) -> list[str]:
+    """Format validation errors into a consistent list of string messages."""
+    if isinstance(error, pydantic.ValidationError):
+        return [str(err) for err in error.errors()]
+    else:
+        # Handle other validation-related exceptions
+        return [str(error)]
+
+
+def _process_invoices(
+    invoice_dtos: list[InvoiceImportDto],
+) -> tuple[list[Invoice], dict[str, list[str]]]:
+    """
+    Process validated invoice DTOs into domain objects and persist them.
+
+    Returns:
+        Tuple of (created_invoices, processing_errors_by_invoice_number)
+    """
+    request_id_lookup, invoices_with_missing_publications = _find_publication_ids(invoice_dtos)
+
+    valid_invoice_dtos = [
+        invoice_dto
+        for invoice_dto in invoice_dtos
+        if invoice_dto.number not in invoices_with_missing_publications
+    ]
+
+    if not valid_invoice_dtos:
+        return [], _build_missing_publication_errors(
+            invoice_dtos, invoices_with_missing_publications
+        )
+
+    lookups = _build_entity_lookups(valid_invoice_dtos, request_id_lookup)
+    invoices = _create_invoices(valid_invoice_dtos, lookups)
+
+    repository.bulk_create(invoices)
+
+    processing_errors = _build_missing_publication_errors(
+        invoice_dtos, invoices_with_missing_publications
+    )
+
+    return invoices, processing_errors
+
+
+def _build_entity_lookups(
+    invoice_dtos: list[InvoiceImportDto], request_id_lookup: dict[str, PublicationId]
+) -> RelatedEntityLookups:
+    """Build all necessary entity lookups for invoice processing."""
+    return RelatedEntityLookups(
+        creditor_lookup=_bulk_create_creditors(_creditors(invoice_dtos)),
+        funding_sources_lookup=_bulk_create_funding_sources(_funding_sources(invoice_dtos)),
+        request_id_lookup=request_id_lookup,
+        contract_lookup=_find_contracts(_contracts(invoice_dtos)),
+    )
+
+
+def _create_invoices(
+    invoice_dtos: list[InvoiceImportDto], lookups: RelatedEntityLookups
+) -> list[Invoice]:
+    """Create domain invoice objects from DTOs and lookups."""
+    positions_lookup = _build_positions_lookup(invoice_dtos, lookups)
+
+    return [
+        _new_invoice(
+            invoice_dto,
+            lookups.creditor_lookup[invoice_dto.creditor],
+            positions_lookup[_invoice_key(invoice_dto)],
+        )
+        for invoice_dto in invoice_dtos
+    ]
+
+
+def _build_missing_publication_errors(
+    all_invoice_dtos: list[InvoiceImportDto], invoices_with_missing_publications: set[str]
+) -> dict[str, list[str]]:
+    """Build error dictionary for invoices with missing publications."""
+    return {
+        invoice_dto.number: ["Invoice contains position with non-existing publication"]
+        for invoice_dto in all_invoice_dtos
+        if invoice_dto.number in invoices_with_missing_publications
+    }
+
+
+def _creditors(invoice_dtos: Iterable[InvoiceImportDto]) -> Iterable[str]:
+    return (invoice_dto.creditor for invoice_dto in invoice_dtos if invoice_dto.creditor)
+
+
+def _contracts(invoice_dtos: Iterable[InvoiceImportDto]) -> Iterable[str]:
+    return (
+        position.contract_name
+        for invoice_dto in invoice_dtos
+        for position in invoice_dto.positions
+        if isinstance(position, ContractPositionImportDto)
+    )
+
+
+def _funding_sources(invoice_dtos: Iterable[InvoiceImportDto]) -> Iterable[str]:
+    return (
+        position.funding_source
+        for invoice_dto in invoice_dtos
+        for position in invoice_dto.positions
+    )
+
+
+def _build_positions_lookup(
+    invoice_dtos: list[InvoiceImportDto], lookups: RelatedEntityLookups
+) -> dict[str, list[AnyPosition]]:
+    return {
+        _invoice_key(invoice_dto): [
+            _parse_into_position(p, Currency.from_code(invoice_dto.currency), lookups)
+            for p in invoice_dto.positions
+        ]
+        for invoice_dto in invoice_dtos
+    }
+
+
 def _parse_into_position(
-    p: CommonPositionImportDto,
-    currency: Currency,
-    funding_sources_lookup: dict[str, FundingSourceId],
-    request_id_lookup: dict[str, PublicationId],
-    contract_lookup: dict[str, Contract],
+    p: CommonPositionImportDto, currency: Currency, lookups: RelatedEntityLookups
 ) -> AnyPosition:
     cost = Money(p.amount, currency)
     tax_rate = TaxRate.from_percentage(p.tax_rate)
-    funding_source = funding_sources_lookup[p.funding_source] if p.funding_source else None
+    funding_source = lookups.funding_sources_lookup[p.funding_source] if p.funding_source else None
     external_id = p.external_id
     position: AnyPosition
     match p:
         case PublicationPositionImportDto():
             id_type = cast(str, p.request_id or p.legacy_request_id)
             position = Position(
-                item=request_id_lookup[id_type],
+                item=lookups.request_id_lookup[id_type],
                 cost=cost,
                 tax_rate=tax_rate,
                 funding_source=funding_source,
@@ -56,7 +237,7 @@ def _parse_into_position(
             )
         case ContractPositionImportDto():
             position = ContractPosition(
-                item=contract_lookup[p.contract_name].in_year(p.contract_year),
+                item=lookups.contract_lookup[p.contract_name].in_year(p.contract_year),
                 cost=cost,
                 tax_rate=tax_rate,
                 funding_source=funding_source,
@@ -78,71 +259,19 @@ def _parse_into_position(
     return position
 
 
-def import_invoices(json: TextIO | BinaryIO) -> None:
-    text_content = json.read()
-    dto = InvoiceListImportDto.model_validate_json(text_content)
-    creditor_lookup = _bulk_create_creditors(invoice_dto.creditor for invoice_dto in dto.invoices)
-    funding_sources_lookup = _bulk_create_funding_sources(
-        position.funding_source
-        for invoice_dto in dto.invoices
-        for position in invoice_dto.positions
-    )
-    request_id_lookup = _find_publication_ids(
-        cast(str, position.request_id or position.legacy_request_id)
-        for invoice_dto in dto.invoices
-        for position in invoice_dto.positions
-        if isinstance(position, PublicationPositionImportDto)
-    )
-    contract_lookup = _find_contracts(
-        position.contract_name
-        for invoice_dto in dto.invoices
-        for position in invoice_dto.positions
-        if isinstance(position, ContractPositionImportDto)
-    )
-    positions_lookup = _build_positions_lookup(
-        dto.invoices, funding_sources_lookup, request_id_lookup, contract_lookup
-    )
-    invoices = [
-        _new_invoice(invoice_dto, creditor_lookup, positions_lookup[_invoice_key(invoice_dto)])
-        for invoice_dto in dto.invoices
-    ]
-    repository.bulk_create(invoices)
-
-
-def _build_positions_lookup(
-    invoice_dtos: list[InvoiceImportDto],
-    funding_sources_lookup: dict[str, FundingSourceId],
-    request_id_lookup: dict[str, PublicationId],
-    contract_lookup: dict[str, Contract],
-) -> dict[str, list[AnyPosition]]:
-    return {
-        _invoice_key(invoice_dto): [
-            _parse_into_position(
-                p,
-                Currency.from_code(invoice_dto.currency),
-                funding_sources_lookup,
-                request_id_lookup,
-                contract_lookup,
-            )
-            for p in invoice_dto.positions
-        ]
-        for invoice_dto in invoice_dtos
-    }
-
-
 def _invoice_key(invoice_dto: InvoiceImportDto) -> str:
     return str(hash(invoice_dto.model_dump_json()))
 
 
 def _new_invoice(
     invoice_dto: InvoiceImportDto,
-    creditor_lookup: dict[str, CreditorId],
+    creditor: CreditorId,
     positions: list[AnyPosition],
 ) -> Invoice:
     invoice = Invoice.new(
         number=invoice_dto.number,
         date=invoice_dto.date,
-        creditor=creditor_lookup[invoice_dto.creditor],
+        creditor=creditor,
         status=invoice_dto.status,
         external_invoice_id=invoice_dto.external_id,
         comment=invoice_dto.comment,
@@ -158,16 +287,34 @@ def _new_invoice(
     return invoice
 
 
-def _find_publication_ids(publications: Iterable[str]) -> dict[str, PublicationId]:
+def _find_publication_ids(
+    invoices: Iterable[InvoiceImportDto],
+) -> tuple[dict[str, PublicationId], set[str]]:
+    invoices_with_publications = [
+        (invoice_dto.number, cast(str, position.request_id or position.legacy_request_id))
+        for invoice_dto in invoices
+        for position in invoice_dto.positions
+        if isinstance(position, PublicationPositionImportDto)
+    ]
+
+    publications = {publication for _, publication in invoices_with_publications}
+
     requests = FundingRequest.objects.filter(
         Q(request_id__in=publications) | Q(legacy_request_id__in=publications)
     ).prefetch_related("publication")
+
+    invoices_with_missing_publications = {
+        invoice_number
+        for invoice_number, publication in invoices_with_publications
+        if requests.filter(Q(request_id=publication) | Q(legacy_request_id=publication)).count()
+        == 0
+    }
 
     return {req.request_id: PublicationId(req.publication.id) for req in requests} | {
         req.legacy_request_id: PublicationId(req.publication.id)
         for req in requests
         if req.legacy_request_id
-    }
+    }, invoices_with_missing_publications
 
 
 def _find_contracts(contracts: Iterable[str]) -> dict[str, Contract]:

@@ -1,5 +1,6 @@
 import datetime
-import tempfile
+import io
+from collections.abc import Iterable
 from decimal import Decimal
 from typing import cast
 
@@ -20,7 +21,7 @@ from coda.apps.invoices.importservice.dto import (
 from coda.apps.invoices.models import Creditor, FundingSource
 from coda.domain.contract import Contract
 from coda.domain.date import DateRange
-from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
+from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest, FundingOrganizationId
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.invoice import (
     AnyPosition,
@@ -45,12 +46,14 @@ from tests.invoices.test_invoice_repository import assert_invoice_eq
 def test__full_invoice__import__is_saved_to_database() -> None:
     import_dto = invoice_import_list_dto(create_position_dtos())
 
-    import_invoices(import_dto)
+    report = import_invoices(import_dto)
 
     expected = expected_invoice(import_dto.invoices[0])
     actual = repository.first()
     assert actual is not None, "Invoice should have been created by import service"
     assert_invoice_eq(expected, actual)
+    assert report.valid_invoices == 1
+    assert report.errors == {}
 
 
 @pytest.mark.django_db
@@ -69,23 +72,139 @@ def test__full_invoice__related_entities_already_exist__is_not_created_again() -
     assert len(contract_repository.all()) == 1
 
 
-def import_invoices(import_dto: InvoiceListImportDto) -> None:
-    with tempfile.TemporaryFile("w+", encoding="utf-8") as temp_file:
-        temp_file.write(import_dto.model_dump_json())
-        temp_file.seek(0)
-        importservice.import_invoices(temp_file)
-
-
-def publication_position_import_dto() -> PublicationPositionImportDto:
-    fundingrequest = domainfactory.fundingrequest(
-        journal_id=JournalId(modelfactory.journal().id),
-        funding_org_id=FundingOrganizationId(modelfactory.funding_organization().id),
+@pytest.mark.django_db
+def test__one_invoice_with_non_existing_publication_position__import_invoices__still_imports_other_invoices() -> (
+    None
+):
+    invalid_dto = invoice_dto(
+        number="INV-001", positions=[non_existing_publication_position_import_dto()]
     )
-    fundingrequest.id = fundingrequest_repository.create(fundingrequest)
+    valid_dto = invoice_dto(number="INV-002", positions=create_position_dtos())
 
+    actual = import_invoices(InvoiceListImportDto(invoices=[invalid_dto, valid_dto]))
+
+    assert_valid_invoice_imported(valid_dto)
+    assert actual.valid_invoices == 1
+    assert actual.invalid_invoices == 1
+    assert "INV-001" in actual.errors
+
+
+@pytest.mark.django_db
+def test__invoice_with_non_existing_publication_position__import_invoices__does_not_create_related_entities() -> (
+    None
+):
+    invalid_dto = invoice_dto(
+        number="INV-001", positions=[non_existing_publication_position_import_dto()]
+    )
+
+    _ = import_invoices(InvoiceListImportDto(invoices=[invalid_dto]))
+
+    assert FundingSource.objects.count() == 0
+    assert Creditor.objects.count() == 0
+    assert len(repository.all()) == 0
+
+
+@pytest.mark.django_db
+def test__invalid_dto_data__import_invoices__returns_error_report() -> None:
+    invalid_dto = InvoiceImportDto.model_construct(
+        number="INV-001",
+        date=datetime.date.today(),
+        creditor="",
+        currency="BBD",
+        status=PaymentStatus.Unpaid,
+        positions=[],
+    )
+
+    actual = import_invoices(InvoiceListImportDto(invoices=[invalid_dto]))
+
+    assert actual.valid_invoices == 0
+    assert actual.invalid_invoices == 1
+    assert "INV-001" in actual.errors
+
+
+@pytest.mark.django_db
+def test__multiple_invalid_invoices__import_invoices__returns_errors_per_invoice() -> None:
+    # Create invalid JSON data that will fail validation
+    invalid_data = {
+        "invoices": [
+            {
+                "number": "INV-001",
+                "date": str(datetime.date.today()),
+                "creditor": "",  # Invalid: empty string
+                "currency": "BBD",
+                "status": "unpaid",
+                "positions": [],
+            },
+            {
+                "number": "INV-002",
+                "date": str(datetime.date.today()),
+                "creditor": "Valid Creditor",
+                "currency": "INVALID",  # Invalid: currency code
+                "status": "unpaid",
+                "positions": [],
+            },
+        ]
+    }
+
+    import io
+    import json
+
+    json_stream = io.StringIO(json.dumps(invalid_data))
+    actual = importservice.import_invoices(json_stream)
+
+    assert actual.valid_invoices == 0
+    assert actual.invalid_invoices == 2
+    assert "INV-001" in actual.errors
+    assert "INV-002" in actual.errors
+    assert len(actual.errors) == 2
+
+
+@pytest.mark.django_db
+def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
+    # Create invalid JSON data without a number field
+    invalid_data = {
+        "invoices": [
+            {
+                # Missing "number" field
+                "date": str(datetime.date.today()),
+                "creditor": "Test Creditor",
+                "currency": "EUR",
+                "status": "unpaid",
+                "positions": [],
+            }
+        ]
+    }
+
+    import io
+    import json
+
+    json_stream = io.StringIO(json.dumps(invalid_data))
+    actual = importservice.import_invoices(json_stream)
+
+    assert actual.valid_invoices == 0
+    assert actual.invalid_invoices == 1
+    assert "<unknown-0>" in actual.errors  # Fallback key when number is missing
+
+
+def assert_valid_invoice_imported(valid_dto: InvoiceImportDto) -> None:
+    all_invoices = repository.all()
+    expected = expected_invoice(valid_dto)
+    assert len(all_invoices) == 1
+    actual = all_invoices[0]
+    assert_invoice_eq(expected, actual)
+
+
+def import_invoices(import_dto: InvoiceListImportDto) -> importservice.InvoiceImportReport:
+    temp_stream = io.StringIO(import_dto.model_dump_json())
+    return importservice.import_invoices(temp_stream)
+
+
+def publication_position_import_dto(
+    fundingrequest: AnyFundingRequest,
+) -> PublicationPositionImportDto:
+    request_id = str(fundingrequest.request_id)
     return PublicationPositionImportDto(
-        type="publication",
-        request_id=str(fundingrequest.request_id),
+        request_id=request_id,
         legacy_request_id="legacy_request_id",
         tax_rate=Decimal("19.00"),
         amount=Decimal("100.00"),
@@ -93,6 +212,24 @@ def publication_position_import_dto() -> PublicationPositionImportDto:
         external_id="external-publication-position",
         cost_type=PublicationCostType.Reprint.value,
     )
+
+
+def non_existing_publication_position_import_dto() -> PublicationPositionImportDto:
+    return PublicationPositionImportDto(
+        legacy_request_id="non-existing-legacy-request-id",
+        tax_rate=Decimal("19.00"),
+        amount=Decimal("100.00"),
+        cost_type=PublicationCostType.Gold_OA.value,
+    )
+
+
+def create_funding_request() -> AnyFundingRequest:
+    fundingrequest = domainfactory.fundingrequest(
+        journal_id=JournalId(modelfactory.journal().id),
+        funding_org_id=FundingOrganizationId(modelfactory.funding_organization().id),
+    )
+    fundingrequest.id = fundingrequest_repository.create(fundingrequest)
+    return fundingrequest
 
 
 def contract_position_import_dto() -> ContractPositionImportDto:
@@ -124,28 +261,33 @@ def free_position_import_dto() -> FreePositionImportDto:
 
 
 def invoice_import_list_dto(positions: list[CommonPositionImportDto]) -> InvoiceListImportDto:
-    return InvoiceListImportDto(
-        invoices=[
-            InvoiceImportDto(
-                number="INV-001",
-                date="2023-10-01",
-                creditor="creditor-name",
-                currency=Currency.BBD.code,
-                status="unpaid",
-                external_id="external-invoice-id",
-                comment="Test invoice comment",
-                conversion=ConversionImportDto(
-                    target_currency=Currency.EUR.code,
-                    exchange_rate=Decimal("5.00"),
-                ),
-                positions=positions,
-            ),
-        ]
+    return InvoiceListImportDto(invoices=[invoice_dto(positions=positions)])
+
+
+def invoice_dto(
+    number: str = "INV-001", positions: Iterable[CommonPositionImportDto] = ()
+) -> InvoiceImportDto:
+    return InvoiceImportDto(
+        number=number,
+        date="2023-10-01",
+        creditor="creditor-name",
+        currency=Currency.BBD.code,
+        status="unpaid",
+        external_id="external-invoice-id",
+        comment="Test invoice comment",
+        conversion=ConversionImportDto(
+            target_currency=Currency.EUR.code,
+            exchange_rate=Decimal("5.00"),
+        ),
+        positions=positions,
     )
 
 
 def expected_publication_position(import_dto: PublicationPositionImportDto) -> AnyPosition:
-    funding_source = FundingSource.objects.get(name=import_dto.funding_source)
+    funding_source = FundingSource.objects.filter(name=import_dto.funding_source).first()
+    assert (
+        funding_source is not None
+    ), f"FundingSource '{import_dto.funding_source}' should exist in the database"
     request = fundingrequest_repository.get_by_request_id(
         PublicFundingRequestId.from_str(str(import_dto.request_id))
     )
@@ -161,9 +303,12 @@ def expected_publication_position(import_dto: PublicationPositionImportDto) -> A
 
 
 def expected_contract_position(import_dto: ContractPositionImportDto) -> AnyPosition:
-    funding_source = FundingSource.objects.get(name=import_dto.funding_source)
+    funding_source = FundingSource.objects.filter(name=import_dto.funding_source).first()
+    assert funding_source is not None, f"FundingSource '{import_dto.funding_source}' should exist"
+
     contract = contract_repository.get_by_name(import_dto.contract_name)
     assert contract is not None, "Contract should have been created by import service"
+
     contract_year = contract.in_year(import_dto.contract_year)
     return ContractPosition(
         item=contract_year,
@@ -176,7 +321,10 @@ def expected_contract_position(import_dto: ContractPositionImportDto) -> AnyPosi
 
 
 def expected_free_position(import_dto: FreePositionImportDto) -> AnyPosition:
-    funding_source = FundingSource.objects.get(name=import_dto.funding_source)
+    funding_source = FundingSource.objects.filter(name=import_dto.funding_source).first()
+    assert (
+        funding_source is not None
+    ), f"FundingSource '{import_dto.funding_source}' should exist in the database"
     description = import_dto.description
     return Position(
         item=description,
@@ -213,7 +361,7 @@ def expected_invoice(import_dto: InvoiceImportDto) -> Invoice:
 
 def create_position_dtos() -> list[CommonPositionImportDto]:
     return [
-        publication_position_import_dto(),
+        publication_position_import_dto(create_funding_request()),
         contract_position_import_dto(),
         free_position_import_dto(),
     ]
