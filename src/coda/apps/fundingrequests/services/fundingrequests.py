@@ -69,6 +69,7 @@ def bulk_create_fundingrequests(
             external_funding=[f.to_external_funding() for f in creation_dto.funding],
             extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
             request_remarks=creation_dto.extra_information.request_remarks,
+            legacy_request_id=creation_dto.legacy_request_id,
         )
         for request_id, creation_dto in zip(ids, creation_dtos)
     ]

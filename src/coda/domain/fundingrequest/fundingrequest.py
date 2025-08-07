@@ -65,12 +65,14 @@ class FundingRequest(Generic[TPublication]):
         request_id: PublicFundingRequestId,
         publication: TPublication,
         estimated_cost: Payment,
+        legacy_request_id: str = "",
         external_funding: Iterable[ExternalFunding] = (),
         extra_contact: FundingRequestContact = NoContact,
         request_remarks: str = "",
         review: Review | None = None,
     ) -> None:
         self.id = id
+        self.legacy_request_id = legacy_request_id
         self.request_id = request_id
         self.publication = publication
         self.extra_contact = extra_contact
@@ -88,15 +90,17 @@ class FundingRequest(Generic[TPublication]):
         external_funding: Iterable[ExternalFunding] = (),
         extra_contact: FundingRequestContact | _NoContact = NoContact,
         request_remarks: str = "",
+        legacy_request_id: str = "",
     ) -> "FundingRequest[TPublication]":
         return cls(
             None,
-            request_id or PublicFundingRequestId.create(),
-            publication,
-            estimated_cost,
-            external_funding,
-            extra_contact,
-            request_remarks,
+            request_id=request_id or PublicFundingRequestId.create(),
+            publication=publication,
+            estimated_cost=estimated_cost,
+            external_funding=external_funding,
+            extra_contact=extra_contact,
+            request_remarks=request_remarks,
+            legacy_request_id=legacy_request_id,
         )
 
     @property

@@ -20,6 +20,7 @@ def import_fundingrequests(json: TextIO | BinaryIO) -> None:
                 fundingrequestdto.parse_funding(funding) for funding in request.research_funding
             ],
             request_date=request.request_date,
+            legacy_request_id=request.legacy_request_id,
         )
         for request in import_request_list.requests
     ]

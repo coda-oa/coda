@@ -74,6 +74,7 @@ def expected_request(*, for_: TPublication) -> FundingRequest[TPublication]:
     expected = FundingRequest(
         id=None,
         request_id=request_id,
+        legacy_request_id="the-legacy-id",
         publication=for_,
         estimated_cost=Payment(amount=Money("1000.00", Currency.EUR), method=PaymentMethod.Unknown),
         request_remarks="Request remarks from the author",

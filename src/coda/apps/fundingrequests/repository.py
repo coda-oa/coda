@@ -101,6 +101,7 @@ def create_many(fundingrequests: Iterable[AnyFundingRequest]) -> Iterable[Fundin
             estimated_cost_currency=fundingrequest.estimated_cost.amount.currency.code,
             payment_method=fundingrequest.estimated_cost.method.value,
             review=review,
+            legacy_request_id=fundingrequest.legacy_request_id,
         )
         for fundingrequest, pid, review in zip(fundingrequests, publication_ids, reviews)
     ]
@@ -299,6 +300,7 @@ def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
         ],
         request_remarks=model.request_remarks,
         review=review,
+        legacy_request_id=model.legacy_request_id,
     )
 
     return fr

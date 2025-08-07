@@ -34,6 +34,7 @@ FUNDINGREQUEST_IMPORT = FundingRequestImportListDto(
     requests=[
         FundingRequestImportDto(
             request_date=datetime.date(2025, 3, 19),
+            legacy_request_id="the-legacy-id",
             review=ReviewImportDto(
                 result=ReviewResult.Approved,
                 funding=DecidedFundingImportDto(
