@@ -157,6 +157,7 @@
         "InvoiceImportDto": {
             "properties": {
                 "number": {
+                    "minLength": 1,
                     "title": "Number",
                     "type": "string"
                 },
@@ -166,6 +167,7 @@
                     "type": "string"
                 },
                 "creditor": {
+                    "minLength": 1,
                     "title": "Creditor",
                     "type": "string"
                 },
