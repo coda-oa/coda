@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import cast
 
 import pytest
 from django.test import Client
@@ -6,7 +7,7 @@ from django.urls import reverse
 
 from coda.apps.invoices import repository
 from coda.apps.preferences.models import GlobalPreferences
-from coda.domain.invoice import CreditorId
+from coda.domain.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.money._currency import Currency
 from tests import domainfactory, modelfactory
 from tests.invoices.test_create_invoice_view import invoice_post_data
@@ -77,17 +78,30 @@ def test__saved_invoice_with_conversion__form_field_for_exchange_rate_is_cleared
 ) -> None:
     creditor = CreditorId(modelfactory.creditor().id)
     invoice = domainfactory.invoice(creditor=creditor, positions=())
-    invoice.id = repository.create(invoice)
     invoice.add_conversion(Decimal("2.0"), Currency.JPY)
-    repository.update(invoice)
+    invoice.id = repository.create(invoice)
 
-    data = {"conversion_currency": Currency.JPY.code, "exchange_rate": ""}
+    data = {
+        **invoice_form_data(invoice),
+        "conversion_currency": Currency.JPY.code,
+        "exchange_rate": "",
+    }
     url = reverse("invoices:update", kwargs={"pk": invoice.id})
 
     _ = client.post(url, data)
 
     updated_invoice = repository.get_by_id(invoice.id)
     assert updated_invoice.conversions() == {}
+
+
+def invoice_form_data(invoice: Invoice) -> dict[str, str]:
+    return {
+        "number": invoice.number,
+        "currency": "EUR",
+        "creditor": str(invoice.creditor),
+        "date": invoice.date.isoformat(),
+        "status": invoice.status.value,
+    }
 
 
 @pytest.mark.django_db
@@ -100,17 +114,14 @@ def test__saved_invoice_with_conversion__invoice_currency_is_changed_to_home_cur
     publication_position = domainfactory.publication_position(
         fr.publication.id, currency=Currency.JPY
     )
-    invoice_id = invoice_with_position(publication_position)
-    invoice = repository.get_by_id(invoice_id)
-
+    invoice = invoice_with_position(publication_position)
     invoice.add_conversion(Decimal("2.0"), Currency.EUR)
     repository.update(invoice)
 
-    data = {"currency": Currency.EUR.code}
+    data = invoice_form_data(invoice) | {"currency": Currency.EUR.code}
     url = reverse("invoices:update", kwargs={"pk": invoice.id})
 
     _ = client.post(url, data)
 
-    assert invoice.id is not None
-    updated_invoice = repository.get_by_id(invoice.id)
+    updated_invoice = repository.get_by_id(cast(InvoiceId, invoice.id))
     assert updated_invoice.conversions() == {}

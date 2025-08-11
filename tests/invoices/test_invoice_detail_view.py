@@ -41,9 +41,9 @@ def test__invoice_with_publication_position__viewing_invoice_details__publicatio
 ) -> None:
     fr = funding_request()
     publication_position = domainfactory.publication_position(fr.publication.id)
-    invoice_id = invoice_with_position(publication_position)
+    invoice = invoice_with_position(publication_position)
 
-    response = goto_invoice_detail_view(client, invoice_id)
+    response = goto_invoice_detail_view(client, cast(InvoiceId, invoice.id))
 
     actual_invoice = response.context["display_invoice"]
     first_position: PublicationPositionDto = actual_invoice.positions[0]
@@ -71,7 +71,7 @@ def funding_request() -> FundingRequest[Publication]:
     return fundingrequest_repository.get_article_request(fr.id)
 
 
-def invoice_with_position(position: AnyPosition) -> InvoiceId:
+def invoice_with_position(position: AnyPosition) -> Invoice:
     creditor = modelfactory.creditor()
     invoice = Invoice.new(
         number="123",
@@ -80,7 +80,8 @@ def invoice_with_position(position: AnyPosition) -> InvoiceId:
         positions=[position],
         comment="A comment",
     )
-    return create(invoice)
+    invoice.id = create(invoice)
+    return invoice
 
 
 def goto_invoice_detail_view(client: Client, invoice_id: int) -> TemplateResponse:

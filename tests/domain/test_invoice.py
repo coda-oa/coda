@@ -83,6 +83,19 @@ def test__invoice_in_eur__adding_conversion__has_conversion() -> None:
     }
 
 
+def test__invoice_with_conversion__clear_conversions__has_no_conversions() -> None:
+    first = position(Money(100, Currency.EUR))
+    second = position(Money(200, Currency.EUR))
+    sut = make_sut([first, second])
+
+    sut.add_conversion(Decimal("2.0"), Currency.JPY)
+    sut.add_conversion(Decimal("3.0"), Currency.AUD)
+
+    sut.clear_conversions()
+
+    assert sut.conversions() == {}
+
+
 def in_memory_exchange(rates: dict[Currency, Decimal]) -> CurrencyExchange:
     def _exchange(origin: Currency, target: Currency) -> Decimal:
         return rates[target]

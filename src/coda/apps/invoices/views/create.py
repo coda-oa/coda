@@ -23,7 +23,7 @@ from decimal import Decimal
 def create_invoice(request: HttpRequest) -> HttpResponse:
     errors = ErrorDict(errors={})
 
-    conversion = None
+    conversion = {}
     currency_code = request.POST.get("conversion_currency", "").strip()
     exchange_rate_str = request.POST.get("exchange_rate", "").strip()
 
@@ -54,8 +54,7 @@ def save_invoice(
     request: HttpRequest,
     *,
     invoice_id: InvoiceId | None = None,
-    existing_invoice: Invoice | None = None,
-    conversions: dict[Currency, Decimal] | None = None,
+    conversions: dict[Currency, Decimal],
 ) -> tuple[InvoiceId | None, ErrorDict]:
     form = InvoiceForm(request.POST)
     if not form.is_valid():
@@ -71,7 +70,6 @@ def save_invoice(
                     form,
                     positions,
                     invoice_id=invoice_id,
-                    existing_invoice=existing_invoice,
                     conversions=conversions,
                 )
             ),
@@ -84,9 +82,8 @@ def save_invoice(
 def parse_invoice(
     form: InvoiceForm,
     positions: list[AnyPositionDto],
+    conversions: dict[Currency, Decimal],
     invoice_id: InvoiceId | None = None,
-    existing_invoice: Invoice | None = None,
-    conversions: dict[Currency, Decimal] | None = None,
 ) -> Invoice:
     invoice = Invoice(
         id=invoice_id,
@@ -98,12 +95,9 @@ def parse_invoice(
         comment=form.cleaned_data["comment"],
         external_invoice_id=form.cleaned_data["external_invoice_id"],
     )
-    if existing_invoice:
-        for currency, rate in existing_invoice.conversions().items():
-            invoice.add_conversion(rate, currency)
 
-    if conversions:
-        for currency, rate in conversions.items():
-            invoice.add_conversion(rate, currency)
+    print(conversions)
+    for currency, rate in conversions.items():
+        invoice.add_conversion(rate, currency)
 
     return invoice
