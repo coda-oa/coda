@@ -4,7 +4,7 @@
            value="{{ request.GET.search_term }}"
            placeholder="Search by invoice number, creditor, external invoice ID or funding request ID">
     <details {% if expand_advanced_search %}open{% endif %}>
-        <summary role="button" class="outline muted">
+        <summary class="button outline muted">
             <span class="m-0">Advanced search</span>
         </summary>
         <div class="form-row">
@@ -32,15 +32,15 @@
         <div class="grid">
             <div class="form-row">
                 <label for="contract_name" class="form-row-item-sm">Contract</label>
-                <select id="contract_name" name="contract_name">
-                    <option {% if not request.GET.contract_name %}selected{% endif %} value>-------</option>
-                    {% for contract in contract_list %}
-                        <option value="{{ contract.id }}"
-                                {% if contract.id|stringformat:"s" == request.GET.contract_name %}selected{% endif %}>
-                            {{ contract.name }}
-                        </option>
-                    {% endfor %}
-                </select>
+                <search-select id="contract_name" name="contract_name" class="w-100">
+                <li {% if not request.GET.contract_name %}selected{% endif %} value>-------</li>
+                {% for contract in contract_list %}
+                    <li value="{{ contract.id }}"
+                        {% if contract.id|stringformat:"s" == request.GET.contract_name %}selected{% endif %}>
+                        {{ contract.name }}
+                    </li>
+                {% endfor %}
+                </search-select>
             </div>
             <div class="form-row">
                 <label for="contract_year" class="form-row-item-sm">Contract Year</label>
@@ -74,7 +74,7 @@
                    role="switch"
                    name="has_external_id"
                    value="true"
-                   {% if request.GET.has_external_id == "true" %}checked{% endif %}>
+                   {% if request.GET.has_external_id == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
             <span>Show invoices without external IDs</span>
         </label>
     </div>
@@ -85,7 +85,7 @@
                    role="switch"
                    name="has_foreign_currency"
                    value="true"
-                   {% if request.GET.has_foreign_currency == "true" %}checked{% endif %}>
+                   {% if request.GET.has_foreign_currency == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
             <span>Show invoices with foreign currencies and without conversion</span>
         </label>
     </div>

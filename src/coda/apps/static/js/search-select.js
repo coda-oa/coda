@@ -172,7 +172,7 @@ class SearchSelect extends HTMLElement {
 
         this.searchResults.addEventListener("mousedown", (e) => {
             if (e.target.tagName === 'LI') {
-                this.searchBox.value = e.target.textContent
+                this.searchBox.value = e.target.textContent.trim()
                 this.setActiveElement(e.target, this.visibleItems.indexOf(e.target))
                 this.setValueToActiveElementOrFirstMatch()
                 this.searchResults.classList.remove("visible")
@@ -204,11 +204,11 @@ class SearchSelect extends HTMLElement {
     setValueToActiveElementOrFirstMatch() {
         if (this.activeElement !== undefined) {
             this.value = this.activeElement.getAttribute("value")
-            this.searchBox.value = this.activeElement.textContent
+            this.searchBox.value = this.activeElement.textContent.trim()
         } else {
             const match = this.firstMatch()
             this.value = match?.getAttribute("value")
-            this.searchBox.value = match?.textContent
+            this.searchBox.value = match?.textContent.trim()
         }
     }
 
@@ -256,7 +256,7 @@ class SearchSelect extends HTMLElement {
 
     matches(li) {
         const searchTerm = this.searchBox.value
-        return searchTerm.length == 0 || li.textContent.toLowerCase().includes(searchTerm.toLowerCase())
+        return searchTerm.length == 0 || li.textContent.trim().toLowerCase().includes(searchTerm.toLowerCase())
     }
 
     set value(value) {
