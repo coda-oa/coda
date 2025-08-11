@@ -8,9 +8,9 @@ from coda.domain.money import Currency
 
 class InvoiceForm(forms.Form):
     use_required_attribute = False
-    number = forms.CharField(max_length=255, label="Invoice Number")
-    date = forms.DateField(widget=forms.TextInput(attrs={"type": "date"}), label="Invoice Date")
-    creditor = forms.ModelChoiceField[Creditor](queryset=Creditor.objects.all())
+    number = forms.CharField(max_length=255, label="Invoice Number*")
+    date = forms.DateField(widget=forms.TextInput(attrs={"type": "date"}), label="Invoice Date*")
+    creditor = forms.ModelChoiceField[Creditor](queryset=Creditor.objects.all(), label="Creditor*")
     currency = currency_field()
     status = forms.ChoiceField(
         choices=[(s.value, s.value) for s in PaymentStatus],

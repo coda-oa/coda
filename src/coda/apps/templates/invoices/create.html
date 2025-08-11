@@ -17,19 +17,49 @@
             <table>
                 <tbody>
                     {% for field in form %}
-                        <tr>
-                            <td>{{ field.label_tag }}</td>
-                            <td>
-                                <div class="flex align-start">
-                                    {{ field }}
-                                    {% if field.name == "creditor" %}
-                                        <a href="{% url "invoices:creditor_create" %}"
-                                           class="secondary"
-                                           role="button">New</a>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
+                        {% if field.name == "currency" %}
+                            <tr>
+                                <td>{{ field.label_tag }}</td>
+                                <td>
+                                    <div class="flex align-start">
+                                        <select name="currency"
+                                                id="currency"
+                                                hx-target="#conversion-section"
+                                                hx-include="[name='currency']"
+                                                hx-trigger="change"
+                                                hx-get="{% url "invoices:conversions_section" %}">
+                                            {% for code, label in form.fields.currency.choices %}
+                                                <option value="{{ code }}"
+                                                        {% if form.data.currency and form.data.currency == code %} selected {% elif not form.data.currency and form.initial.currency == code %} selected {% elif not form.data.currency and not form.initial.currency and code == "EUR" %} selected {% endif %}>
+                                                    {{ label }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div id="conversion-section" hx-target="this" hx-swap="outerHTML">
+                                        {% if home_currency != invoice_currency %}
+                                            {% include "invoices/detail_conversions.html" %}
+                                        {% elif conversions %}
+                                            {% include "invoices/detail_conversions.html" with home_currency=conversion_currency exchange_rate=exchange_rate %}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td>{{ field.label_tag }}</td>
+                                <td>
+                                    <div class="flex align-start">
+                                        {{ field }}
+                                        {% if field.name == "creditor" %}
+                                            <a href="{% url "invoices:creditor_create" %}"
+                                               class="secondary"
+                                               role="button">New</a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
                     {% endfor %}
                 </tbody>
             </table>

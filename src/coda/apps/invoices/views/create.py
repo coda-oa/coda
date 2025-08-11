@@ -15,12 +15,25 @@ from coda.apps.invoices.views.position_list import (
 from coda.apps.invoices.views.positions import AnyPositionDto
 from coda.domain.invoice import CreditorId, Invoice, InvoiceId, PaymentStatus
 
+from coda.domain.money._currency import Currency
+from decimal import Decimal
+
 
 @login_required
 def create_invoice(request: HttpRequest) -> HttpResponse:
     errors = ErrorDict(errors={})
+
+    conversion = None
+    currency_code = request.POST.get("conversion_currency", "").strip()
+    exchange_rate_str = request.POST.get("exchange_rate", "").strip()
+
+    if currency_code and exchange_rate_str:
+        home_currency = Currency.from_code(currency_code)
+        exchange_rate = Decimal(exchange_rate_str)
+        conversion = {home_currency: exchange_rate}
+
     if request.POST.get("action") == "create":
-        new_id, errors = save_invoice(request)
+        new_id, errors = save_invoice(request, conversions=conversion)
         if new_id:
             return redirect("invoices:detail", pk=new_id)
 
@@ -38,7 +51,11 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
 
 
 def save_invoice(
-    request: HttpRequest, *, invoice_id: InvoiceId | None = None
+    request: HttpRequest,
+    *,
+    invoice_id: InvoiceId | None = None,
+    existing_invoice: Invoice | None = None,
+    conversions: dict[Currency, Decimal] | None = None,
 ) -> tuple[InvoiceId | None, ErrorDict]:
     form = InvoiceForm(request.POST)
     if not form.is_valid():
@@ -49,7 +66,15 @@ def save_invoice(
         _positions = [parse_position_data(request, i) for i in range(1, number_of_positions + 1)]
         positions = [p for p in _positions if p is not None]
         return (
-            services.save(parse_invoice(form, positions, invoice_id=invoice_id)),
+            services.save(
+                parse_invoice(
+                    form,
+                    positions,
+                    invoice_id=invoice_id,
+                    existing_invoice=existing_invoice,
+                    conversions=conversions,
+                )
+            ),
             ErrorDict(errors={}),
         )
     except PositionError as e:
@@ -60,8 +85,10 @@ def parse_invoice(
     form: InvoiceForm,
     positions: list[AnyPositionDto],
     invoice_id: InvoiceId | None = None,
+    existing_invoice: Invoice | None = None,
+    conversions: dict[Currency, Decimal] | None = None,
 ) -> Invoice:
-    return Invoice(
+    invoice = Invoice(
         id=invoice_id,
         number=form.cleaned_data["number"],
         date=form.cleaned_data["date"],
@@ -71,3 +98,12 @@ def parse_invoice(
         comment=form.cleaned_data["comment"],
         external_invoice_id=form.cleaned_data["external_invoice_id"],
     )
+    if existing_invoice:
+        for currency, rate in existing_invoice.conversions().items():
+            invoice.add_conversion(rate, currency)
+
+    if conversions:
+        for currency, rate in conversions.items():
+            invoice.add_conversion(rate, currency)
+
+    return invoice
