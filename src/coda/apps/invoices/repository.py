@@ -1,10 +1,11 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 import logging
-from typing import TypedDict
+from typing import TypeVar, TypedDict
 
 from django.db.models import Q, QuerySet
 
 from coda.apps.contracts import repository as contract_services
+from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.models import CurrencyConversion
 from coda.apps.invoices.models import Invoice as InvoiceModel
@@ -44,12 +45,12 @@ def get_by_id(invoice_id: InvoiceId) -> Invoice:
 
 def get_by_creditor(creditor_id: CreditorId) -> Sequence[Invoice]:
     return DomainQuerySet(
-        _ordered(InvoiceModel.objects.filter(creditor_id=creditor_id)), as_domain_object
+        _ordered_date_desc(InvoiceModel.objects.filter(creditor_id=creditor_id)), as_domain_object
     )
 
 
 def all() -> Sequence[Invoice]:
-    return DomainQuerySet(_ordered(InvoiceModel.objects.all()), as_domain_object)
+    return DomainQuerySet(_ordered_date_desc(InvoiceModel.objects.all()), as_domain_object)
 
 
 def invoice_with_publication(publication_id: PublicationId) -> Invoice | None:
@@ -84,25 +85,120 @@ def get_other_paid_invoice_with_publication(
 
 def search(
     *,
-    invoice_number: str | None = None,
-    creditor: str | None = None,
+    generic_search: str | None = None,
     status: PaymentStatus | None = None,
     date_range: DateRange | None = None,
+    funding_source: FundingSourceId | None = None,
+    has_external_id: bool | None = None,
+    home_currency: Currency | None = None,
+    has_foreign_currency: bool | None = None,
+    sort_by: str = "date_desc",
+    contract_name: Contract | None = None,
+    contract_year: int | None = None,
 ) -> Sequence[Invoice]:
-    query = Q()
-    if invoice_number:
-        query &= Q(number__icontains=invoice_number)
+    query = (
+        generic_search_criterion(generic_search)
+        & status_criterion(status)
+        & date_range_criterion(date_range)
+        & funding_source_criterion(funding_source)
+        & external_id_criterion(has_external_id)
+        & contract_criterion(contract_name)
+        & contract_year_criterion(contract_year)
+    )
 
-    if creditor:
-        query &= Q(creditor__name__icontains=creditor)
+    qs = InvoiceModel.objects.filter(query).distinct()
 
-    if status:
-        query &= Q(status=status.value)
+    invoices = get_sorted_invoices(qs, sort_by)
 
-    if date_range:
-        query &= Q(date__range=(date_range.start, date_range.end))
+    if has_foreign_currency:
+        invoices = foreign_currency_without_conversion(invoices, home_currency)
 
-    return DomainQuerySet(_ordered(InvoiceModel.objects.filter(query)), as_domain_object)
+    return invoices
+
+
+T = TypeVar("T")
+
+
+def empty_if_none(crit: Callable[[T], Q]) -> Callable[[T | None], Q]:
+    def _wrapped(value: T | None) -> Q:
+        if value is None:
+            return Q()
+        return crit(value)
+
+    return _wrapped
+
+
+@empty_if_none
+def generic_search_criterion(generic_search: str) -> Q:
+    return (
+        invoice_number_criterion(generic_search)
+        | creditor_criterion(generic_search)
+        | Q(positions__publication__fundingrequest__request_id__iexact=generic_search)
+        | Q(external_invoice_id__iexact=generic_search)
+    )
+
+
+@empty_if_none
+def invoice_number_criterion(invoice_number: str) -> Q:
+    return Q(number__icontains=invoice_number)
+
+
+@empty_if_none
+def creditor_criterion(creditor: str) -> Q:
+    return Q(creditor__name__icontains=creditor)
+
+
+@empty_if_none
+def status_criterion(status: PaymentStatus) -> Q:
+    return Q(status=status.value)
+
+
+@empty_if_none
+def date_range_criterion(date_range: DateRange) -> Q:
+    return Q(date__range=(date_range.start, date_range.end))
+
+
+@empty_if_none
+def funding_source_criterion(funding_source: FundingSourceId) -> Q:
+    return Q(positions__funding_source__exact=funding_source)
+
+
+@empty_if_none
+def external_id_criterion(has_external_id: bool) -> Q:
+    return (
+        Q(external_invoice_id__isnull=True)
+        | Q(external_invoice_id__exact="")
+        | Q(positions__external_position_id__isnull=True)
+        | Q(positions__external_position_id__exact="")
+    )
+
+
+def foreign_currency_without_conversion(
+    invoices: Sequence[Invoice], home_currency: Currency | None
+) -> Sequence[Invoice]:
+    return [
+        item for item in invoices if item.currency() != home_currency and not item.conversions()
+    ]
+
+
+@empty_if_none
+def contract_criterion(contract_name: Contract) -> Q:
+    return Q(positions__contract_id=contract_name)
+
+
+@empty_if_none
+def contract_year_criterion(contract_year: int) -> Q:
+    return Q(positions__contract_year=contract_year)
+
+
+def get_sorted_invoices(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[Invoice]:
+    sort_functions = {
+        "alphabetical": _ordered_alphabetically,
+        "date_asc": _ordered_date_asc,
+        "date_desc": _ordered_date_desc,
+    }
+    sort_function = sort_functions.get(sort_by, _ordered_date_desc)
+    return list(DomainQuerySet(sort_function(qs), as_domain_object))
 
 
 def as_domain_object(model: InvoiceModel) -> Invoice:
@@ -283,5 +379,13 @@ def _create_position(m: InvoiceModel, pos: AnyPosition) -> PositionModel:
             raise ValueError("Invalid position item")
 
 
-def _ordered(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
+def _ordered_alphabetically(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
+    return invoices.order_by("number")
+
+
+def _ordered_date_asc(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
+    return invoices.order_by("date")
+
+
+def _ordered_date_desc(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
     return invoices.order_by("-date")

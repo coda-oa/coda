@@ -1,7 +1,17 @@
+{% load static %}
 <article>
     <div class="flex justify-between align-center">
         <h2 class="m-0">
             <a href="{{ entity.url }}">Invoice: {{ entity.number }}</a>
+            {% if entity.total.currency.code != home_currency.code and not entity.conversion %}
+                <a data-tooltip="This invoice has a foreign currency but no conversions">
+                    <img src="{% static "assets/exclamation.svg" %}"
+                         alt="This invoice has a foreign currency but no conversions"
+                         height="auto"
+                         width="auto"
+                         class="mb-0_5">
+                </a>
+            {% endif %}
         </h2>
         <div>
             {% if entity.status == "Unpaid" %}
