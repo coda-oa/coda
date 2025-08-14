@@ -121,79 +121,31 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
-@require_POST
-def add_conversion_dialog(request: HttpRequest, pk: int) -> HttpResponse:
-    return render(
-        request,
-        "invoices/add_conversion_dialog.html",
-        {"currencies": list(Currency), "invoice_id": pk},
-    )
+@require_GET
+def load_conversion_section(request: HttpRequest) -> HttpResponse:
+    selected_currency = request.GET.get("currency")
+    home_currency = GlobalPreferences.get_home_currency().code
 
+    invoice = None
+    conversions = {}
 
-@login_required
-@require_POST
-def add_conversion(request: HttpRequest, pk: int) -> HttpResponse:
-    invoice = repository.get_by_id(InvoiceId(pk))
-    currency = Currency.from_code(request.POST["currency"])
-    exchange_rate = Decimal(request.POST["exchange_rate"])
-    invoice.add_conversion(exchange_rate, currency)
-    repository.update(invoice)
+    invoice_id = request.GET.get("invoice_id", "").strip()
+    if invoice_id:
+        invoice = repository.get_by_id(InvoiceId(int(invoice_id)))
+        conversions = invoice.conversions()
+
+    if selected_currency == home_currency and (not invoice or not invoice.conversions()):
+        return HttpResponse("")
+
     return render(
         request,
         "invoices/detail_conversions.html",
-        {"invoice": invoice_viewmodel(invoice), "conversions": invoice.conversions()},
-    )
-
-
-@login_required
-@require_POST
-def edit_conversion_row(request: HttpRequest, pk: int) -> HttpResponse:
-    currency = Currency.from_code(request.POST["currency"])
-    exchange_rate = Decimal(request.POST["exchange_rate"] or 0)
-    row = request.POST["row"]
-    return render(
-        request,
-        "invoices/detail_conversion_row.html",
         {
-            "edit": True,
-            "row": row,
-            "invoice_id": pk,
-            "currency": currency,
-            "exchange_rate": exchange_rate,
+            "selected_currency": selected_currency,
+            "home_currency": home_currency,
+            "conversions": conversions,
         },
     )
-
-
-@login_required
-@require_POST
-def update_conversion(request: HttpRequest, pk: int) -> HttpResponse:
-    invoice = repository.get_by_id(InvoiceId(pk))
-    currency = Currency.from_code(request.POST["currency"])
-    exchange_rate = Decimal(request.POST["exchange_rate"])
-    invoice.add_conversion(exchange_rate, currency)
-    repository.update(invoice)
-    row = int(request.POST["row"])
-    return render(
-        request,
-        "invoices/detail_conversion_row.html",
-        {
-            "row": row,
-            "edit": False,
-            "invoice_id": pk,
-            "currency": currency,
-            "exchange_rate": exchange_rate,
-        },
-    )
-
-
-@login_required
-@require_POST
-def delete_conversion(request: HttpRequest, pk: int) -> HttpResponse:
-    invoice = repository.get_by_id(InvoiceId(pk))
-    currency = Currency.from_code(request.POST["currency"])
-    invoice.remove_conversion(currency)
-    repository.update(invoice)
-    return HttpResponse()
 
 
 def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":

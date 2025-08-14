@@ -10,7 +10,7 @@
                class="form-row-item-sm">Funding Source</label>
         {% if editable != None %}
             <input type="text"
-                   id="id-position-external-position-id"
+                   id="id-position-{{ counter }}-external-position-id"
                    name="position-{{ counter }}-external-position-id"
                    {% for fs in funding_sources %} {% if position.funding_source == fs.id %}value="{{ fs.name }}"{% endif %}
                    {% endfor %}
@@ -30,7 +30,7 @@
     <div class="form-row">
         <label for="id-position-{{ counter }}-external-position-id">External Position ID</label>
         <input type="text"
-               id="id-position-external-position-id"
+               id="id-position-{{ counter }}-external-position-id"
                name="position-{{ counter }}-external-position-id"
                value="{{ position.external_position_id }}"
                {% if editable != None %}readonly{% endif %}>

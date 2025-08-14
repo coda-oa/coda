@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
@@ -6,40 +8,85 @@ from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.views.create import save_invoice
 from coda.apps.invoices.views.position_list import (
-    _DefaultContext,
     ErrorDict,
+    _DefaultContext,
     existing_positions,
     funding_sources_context,
     invoice_total_context,
 )
-from coda.apps.invoices.views.positions import to_position_dto
-from coda.domain.invoice import InvoiceId
+from coda.apps.invoices.views.positions import AnyPositionDto, to_position_dto
+from coda.apps.preferences.models import GlobalPreferences
+from coda.domain.invoice import Invoice, InvoiceId
+from coda.domain.money._currency import Currency
 
 
 @login_required
 def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
-    if request.method == "POST":
-        invoice_id, errors = save_invoice(request, invoice_id=invoice.id)
-        if invoice_id:
-            return redirect("invoices:detail", pk=invoice_id)
 
-        form = InvoiceForm(request.POST)
-        positions = existing_positions(request)
-    else:
+    if request.method == "GET":
         positions = [to_position_dto(p) for p in invoice.positions]
-        errors = ErrorDict(errors={})
-        form = InvoiceForm(
-            {
-                "number": invoice.number,
-                "creditor": invoice.creditor,
-                "date": invoice.date,
-                "status": invoice.status.value,
-                "comment": invoice.comment,
-                "currency": invoice.currency().code,
-                "external_invoice_id": invoice.external_invoice_id,
-            }
-        )
+        return render_edit_view(request, invoice, positions)
+
+    update_conversions(invoice, request.POST)
+
+    invoice_id, errors = save_invoice(
+        request,
+        invoice_id=invoice.id,
+        conversions=invoice.conversions(),
+    )
+
+    if invoice_id:
+        return redirect("invoices:detail", pk=invoice_id)
+
+    return render_edit_view(request, invoice, existing_positions(request), errors=errors)
+
+
+def update_conversions(
+    invoice: Invoice,
+    post_data: dict[str, str],
+) -> None:
+    submitted_currencies: set[Currency] = set()
+
+    for key in post_data:
+        if key.startswith("exchange_rate_"):
+            code = key.split("_")[-1]
+            rate_str = post_data.get(key, "").strip()
+
+            if not rate_str or not code:
+                continue
+
+            try:
+                if (exchange_rate := Decimal(rate_str)) != 0:
+                    currency = Currency.from_code(code)
+                    invoice.add_conversion(exchange_rate, currency)
+                    submitted_currencies.add(currency)
+                else:
+                    continue
+
+            except (ValueError, ArithmeticError):
+                continue
+
+    existing_currencies = set(invoice.conversions().keys())
+    to_remove = existing_currencies - submitted_currencies
+
+    for currency in to_remove:
+        invoice.remove_conversion(currency)
+
+
+def render_edit_view(
+    request: HttpRequest,
+    invoice: Invoice,
+    positions: list[AnyPositionDto],
+    errors: ErrorDict | None = None,
+) -> HttpResponse:
+    home_currency = GlobalPreferences.get_home_currency()
+    errors = errors or ErrorDict(errors={})
+    conversion_currency = None
+    exchange_rate = Decimal(0)
+    if invoice.conversions():
+        conversion_currency, exchange_rate = next(iter(invoice.conversions().items()))
+        exchange_rate = invoice.conversions().get(home_currency, Decimal("0"))
 
     return render(
         request,
@@ -48,5 +95,22 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
         | funding_sources_context()
         | invoice_total_context(positions, invoice.currency().code)
         | errors
-        | {"mode_name": "Edit", "form": form, "positions": positions, "invoice_id": invoice.id},
+        | {
+            "mode_name": "Edit",
+            "form": _restore_form(request, invoice),
+            "positions": positions,
+            "invoice_id": invoice.id,
+            "conversions": invoice.conversions(),
+            "invoice_currency": invoice.currency().code,
+            "home_currency": home_currency.code,
+            "conversion_currency": conversion_currency.code if conversion_currency else None,
+            "exchange_rate": exchange_rate,
+            "selected_currency": invoice.currency().code,
+        },
     )
+
+
+def _restore_form(request: HttpRequest, invoice: Invoice) -> InvoiceForm:
+    if request.method == "POST":
+        return InvoiceForm(request.POST)
+    return InvoiceForm.from_invoice(invoice)

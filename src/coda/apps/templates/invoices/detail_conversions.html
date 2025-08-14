@@ -1,29 +1,53 @@
-<article id="conversions">
-    <div class="flex justify-between">
-        <h2>Conversions</h2>
-        <button hx-post="{% url 'invoices:add_conversion_dialog' pk=invoice.id %}"
-                hx-swap="beforeend"
-                hx-target="#conversions"
-                class="secondary">Add conversion</button>
+{% if selected_currency != home_currency %}
+    <div class="grid mb-0_5">
+        <span>Conversion Currency:</span>
+        <span>Exchange Rate:</span>
     </div>
-    <div class="form-row mt-1 mb-2">
-        <label for="invoice_currency">Invoice currency</label>
-        <input type="text" readonly value="{{ invoice.currency.code }}">
+    <div class="grid mb-0_5">
+        <div class="#conversion_row">
+            <input class="mb-0"
+                   type="text"
+                   id="conversion_currency"
+                   name="conversion_currency_{{ home_currency }}"
+                   value="{{ home_currency }}"
+                   readonly>
+        </div>
+        <div>
+            <input class="mb-0"
+                   type="number"
+                   id="exchange_rate"
+                   name="exchange_rate_{{ home_currency }}"
+                   value="{{ exchange_rate }}"
+                   step="0.01">
+        </div>
     </div>
-    {% if conversions %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Currency</th>
-                    <th>Exchange Rate</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for currency, exchange_rate in conversions.items %}
-                    {% include "invoices/detail_conversion_row.html" with row=forloop.counter invoice_id=invoice.id %}
-                {% endfor %}
-            </tbody>
-        </table>
-    {% endif %}
-</article>
+{% endif %}
+{% if conversions %}
+    <div class="grid mb-0_5 mt-1">
+        <span>Past Conversions:</span>
+    </div>
+    {% for currency, con_exchange_rate in conversions.items %}
+        {% if not currency.code == home_currency %}
+            <div class="grid mb-0_5 conversion_row"
+                 id="conversion_row_{{ currency.code }}">
+                <div>
+                    <input class="mb-0"
+                           type="text"
+                           id="conversion_currency_{{ currency.code }}"
+                           name="conversion_currency_{{ currency.code }}"
+                           value="{{ currency.code }}"
+                           readonly>
+                </div>
+                <div class="grid">
+                    <input class="mb-0"
+                           type="number"
+                           id="exchange_rate_{{ currency.code }}"
+                           name="exchange_rate_{{ currency.code }}"
+                           value="{{ con_exchange_rate }}"
+                           step="0.01">
+                    <button class="danger" onclick="this.closest('.conversion_row').remove()">Delete Conversion</button>
+                </div>
+            </div>
+        {% endif %}
+    {% endfor %}
+{% endif %}

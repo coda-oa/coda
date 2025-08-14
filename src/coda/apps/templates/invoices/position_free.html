@@ -5,7 +5,8 @@
 {% block position_type_specifics %}
     <div class="form-row">
         <label for="id-position-{{ counter }}-description" class="form-row-item-sm">Description</label>
-        <input type="text"
+        <input id="id-position-{{ counter }}-description"
+               type="text"
                name="position-{{ counter }}-description"
                value="{{ position.description }}"
                {% if editable != None %}readonly{% endif %}>

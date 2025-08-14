@@ -1,16 +1,17 @@
+from typing import Self
 from django import forms
 
 from coda.apps.fields import currency_field
 from coda.apps.invoices.models import Creditor, FundingSource
-from coda.domain.invoice import PaymentStatus
+from coda.domain.invoice import Invoice, PaymentStatus
 from coda.domain.money import Currency
 
 
 class InvoiceForm(forms.Form):
     use_required_attribute = False
-    number = forms.CharField(max_length=255, label="Invoice Number")
-    date = forms.DateField(widget=forms.TextInput(attrs={"type": "date"}), label="Invoice Date")
-    creditor = forms.ModelChoiceField[Creditor](queryset=Creditor.objects.all())
+    number = forms.CharField(max_length=255, label="Invoice Number*")
+    date = forms.DateField(widget=forms.TextInput(attrs={"type": "date"}), label="Invoice Date*")
+    creditor = forms.ModelChoiceField[Creditor](queryset=Creditor.objects.all(), label="Creditor*")
     currency = currency_field()
     status = forms.ChoiceField(
         choices=[(s.value, s.value) for s in PaymentStatus],
@@ -22,6 +23,20 @@ class InvoiceForm(forms.Form):
         label="External Invoice ID",
     )
     comment = forms.CharField(widget=forms.Textarea, required=False, label="Comment")
+
+    @classmethod
+    def from_invoice(cls, invoice: Invoice) -> Self:
+        return cls(
+            {
+                "number": invoice.number,
+                "creditor": invoice.creditor,
+                "date": invoice.date,
+                "status": invoice.status.value,
+                "comment": invoice.comment,
+                "currency": invoice.currency().code,
+                "external_invoice_id": invoice.external_invoice_id,
+            }
+        )
 
     def get_currency(self) -> Currency:
         return Currency.from_code(self.cleaned_data["currency"])

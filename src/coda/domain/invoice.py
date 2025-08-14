@@ -198,6 +198,9 @@ class Invoice:
         """
         return dict(self._conversions)
 
+    def clear_conversions(self) -> None:
+        self._conversions.clear()
+
     def convert(self, to: Currency) -> "Invoice":
         """
         Returns a new Invoice with all positions converted to the specified currency.

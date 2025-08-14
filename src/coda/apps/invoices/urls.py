@@ -15,14 +15,10 @@ from coda.apps.invoices.views.fundingsources import (
     fundingsource_updateview,
 )
 from coda.apps.invoices.views.inspect import (
-    add_conversion,
-    add_conversion_dialog,
-    delete_conversion,
-    edit_conversion_row,
     invoice_detail,
     invoice_list,
-    update_conversion,
     pay_invoice,
+    load_conversion_section,
 )
 from coda.apps.invoices.views.position_list import (
     add_position,
@@ -55,10 +51,6 @@ urlpatterns = [
     path("fundingsources/<int:pk>/", fundingsource_detailview, name="fundingsource_detail"),
     path("fundingsources/create/", fundingsource_createview, name="fundingsource_create"),
     path("fundingsources/update/<int:pk>", fundingsource_updateview, name="fundingsource_update"),
-    path("conversions/dialog/<int:pk>", add_conversion_dialog, name="add_conversion_dialog"),
-    path("conversions/add/<int:pk>", add_conversion, name="add_conversion"),
-    path("conversions/<int:pk>/edit/", edit_conversion_row, name="edit_conversion"),
-    path("conversions/<int:pk>/update/", update_conversion, name="update_conversion"),
-    path("conversions/<int:pk>/delete/", delete_conversion, name="delete_conversion"),
+    path("conversion_section/", load_conversion_section, name="conversions_section"),
     path("<int:pk>/pay/", pay_invoice, name="pay_invoice"),
 ]
