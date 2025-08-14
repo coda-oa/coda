@@ -9,7 +9,6 @@ from django.db.models.functions import Coalesce
 from django.urls import reverse
 
 from coda.apps.contracts import repository as contract_services
-from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.models import CurrencyConversion
 from coda.apps.invoices.models import Invoice as InvoiceModel
@@ -98,8 +97,8 @@ def search(
     home_currency: Currency | None = None,
     has_foreign_currency: bool | None = None,
     sort_by: str = "date_desc",
-    contract_name: Contract | None = None,
-    contract_year: int | None = None,
+    contract_id: str | int | None = None,
+    contract_year: str | int | None = None,
 ) -> Sequence[InvoiceListItem]:
     query = (
         generic_search_criterion(generic_search)
@@ -107,10 +106,11 @@ def search(
         & date_range_criterion(date_range)
         & funding_source_criterion(funding_source)
         & external_id_criterion(has_external_id)
-        & contract_criterion(contract_name)
+        & contract_criterion(contract_id)
         & contract_year_criterion(contract_year)
     )
 
+    logging.info("Query: %s", query)
     qs = InvoiceModel.objects.filter(query).distinct()
 
     # Apply foreign currency filter at the database level for better performance
@@ -195,13 +195,17 @@ def foreign_currency_without_conversion_queryset(
 
 
 @empty_if_none
-def contract_criterion(contract_name: Contract) -> Q:
-    return Q(positions__contract_id=contract_name)
+def contract_criterion(contract_id: str | int) -> Q:
+    return Q(positions__contract_id=contract_id) | Q(
+        positions__publication__attached_contracts__contract_id=contract_id
+    )
 
 
 @empty_if_none
-def contract_year_criterion(contract_year: int) -> Q:
-    return Q(positions__contract_year=contract_year)
+def contract_year_criterion(contract_year: str | int) -> Q:
+    return Q(positions__contract_year=contract_year) | Q(
+        positions__publication__attached_contracts__contract_year=contract_year
+    )
 
 
 def get_sorted_list_items(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[InvoiceListItem]:

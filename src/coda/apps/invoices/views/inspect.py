@@ -61,9 +61,9 @@ class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
     def get_entities(self, request: HttpRequest) -> list[InvoiceListItem]:
         query: dict[str, Any] = {
             "generic_search": request.GET.get("search_term"),
-            "funding_source": request.GET.get("funding_source"),
-            "contract_name": request.GET.get("contract_name"),
-            "contract_year": request.GET.get("contract_year"),
+            "funding_source": request.GET.get("funding_source") or None,
+            "contract_id": request.GET.get("contract_name") or None,
+            "contract_year": request.GET.get("contract_year") or None,
             "home_currency": GlobalPreferences.get_home_currency(),
             "has_external_id": self.bool_like(request.GET.get("has_external_id")),
             "has_foreign_currency": self.bool_like(request.GET.get("has_foreign_currency")),
