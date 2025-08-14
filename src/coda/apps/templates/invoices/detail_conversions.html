@@ -1,19 +1,53 @@
-<div class="grid">
-    <div class="#conversion_row">
-        <label for="conversion_currency">Conversion Currency:</label>
-        <input class="mb-0"
-               type="text"
-               id="conversion_currency"
-               name="conversion_currency"
-               value="{{ home_currency }}"
-               readonly>
+{% if selected_currency != home_currency %}
+    <div class="grid mb-0_5">
+        <span>Conversion Currency:</span>
+        <span>Exchange Rate:</span>
     </div>
-    <div>
-        <label for="exchange_rate">Exchange Rate:</label>
-        <input class="mb-0"
-               type="number"
-               id="exchange_rate"
-               name="exchange_rate"
-               value="{{ exchange_rate }}">
+    <div class="grid mb-0_5">
+        <div class="#conversion_row">
+            <input class="mb-0"
+                   type="text"
+                   id="conversion_currency"
+                   name="conversion_currency_{{ home_currency }}"
+                   value="{{ home_currency }}"
+                   readonly>
+        </div>
+        <div>
+            <input class="mb-0"
+                   type="number"
+                   id="exchange_rate"
+                   name="exchange_rate_{{ home_currency }}"
+                   value="{{ exchange_rate }}"
+                   step="0.01">
+        </div>
     </div>
-</div>
+{% endif %}
+{% if conversions %}
+    <div class="grid mb-0_5 mt-1">
+        <span>Past Conversions:</span>
+    </div>
+    {% for currency, con_exchange_rate in conversions.items %}
+        {% if not currency.code == home_currency %}
+            <div class="grid mb-0_5 conversion_row"
+                 id="conversion_row_{{ currency.code }}">
+                <div>
+                    <input class="mb-0"
+                           type="text"
+                           id="conversion_currency_{{ currency.code }}"
+                           name="conversion_currency_{{ currency.code }}"
+                           value="{{ currency.code }}"
+                           readonly>
+                </div>
+                <div class="grid">
+                    <input class="mb-0"
+                           type="number"
+                           id="exchange_rate_{{ currency.code }}"
+                           name="exchange_rate_{{ currency.code }}"
+                           value="{{ con_exchange_rate }}"
+                           step="0.01">
+                    <button class="danger" onclick="this.closest('.conversion_row').remove()">Delete Conversion</button>
+                </div>
+            </div>
+        {% endif %}
+    {% endfor %}
+{% endif %}

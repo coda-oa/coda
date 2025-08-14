@@ -57,8 +57,8 @@ def test__invoice_with_foreign_currency_and_conversion__is_saved__invoice_has_co
     url = reverse("invoices:create")
     post_data = invoice_post_data(positions=[])
     post_data["currency"] = Currency.JPY.code
-    post_data["conversion_currency"] = Currency.EUR.code
-    post_data["exchange_rate"] = "1.5"
+    post_data["conversion_currency_EUR"] = Currency.EUR.code
+    post_data["exchange_rate_EUR"] = "1.5"
 
     response = client.post(url, post_data)
 
@@ -80,11 +80,10 @@ def test__saved_invoice_with_conversion__form_field_for_exchange_rate_is_cleared
     invoice = domainfactory.invoice(creditor=creditor, positions=())
     invoice.add_conversion(Decimal("2.0"), Currency.JPY)
     invoice.id = repository.create(invoice)
-
     data = {
         **invoice_form_data(invoice),
-        "conversion_currency": Currency.JPY.code,
-        "exchange_rate": "",
+        "conversion_currency_JPY": Currency.JPY.code,
+        "exchange_rate_JPY": "",
     }
     url = reverse("invoices:update", kwargs={"pk": invoice.id})
 
@@ -92,6 +91,126 @@ def test__saved_invoice_with_conversion__form_field_for_exchange_rate_is_cleared
 
     updated_invoice = repository.get_by_id(invoice.id)
     assert updated_invoice.conversions() == {}
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__saved_invoice_with_conversion__invoice_currency_is_changed_to_home_currency__conversion_is_deleted(
+    client: Client,
+) -> None:
+    GlobalPreferences.set_home_currency(Currency.USD)
+    invoice = build_invoice_with_JPY_currency_and_USD_conversion()
+    data = {**invoice_form_data(invoice), "currency": Currency.USD.code}
+    url = reverse("invoices:update", kwargs={"pk": invoice.id})
+
+    _ = client.post(url, data)
+
+    updated_invoice = repository.get_by_id(cast(InvoiceId, invoice.id))
+    assert Currency.USD not in updated_invoice.conversions()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invoice_with_foreign_curency_has_conversion_to_home_currency__home_currency_is_changed__conversion_to_old_home_currency_remains(
+    client: Client,
+) -> None:
+    GlobalPreferences.set_home_currency(Currency.EUR)
+    invoice = build_invoice_with_JPY_currency_and_USD_conversion()
+    invoice.add_conversion(Decimal("2.0"), Currency.EUR)
+    repository.update(invoice)
+    data = invoice_form_data(invoice) | {"currency": Currency.EUR.code}
+    url = reverse("invoices:detail", kwargs={"pk": invoice.id})
+
+    GlobalPreferences.set_home_currency(Currency.USD)
+    _ = client.post(url, data)
+
+    updated_invoice = repository.get_by_id(cast(InvoiceId, invoice.id))
+    assert updated_invoice.conversions() == invoice.conversions()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invoice_with_foreign_curency_has_conversion_to_home_currency__home_currency_is_changed__the_conversion_to_the_old_home_currency_is_still_displayed(
+    client: Client,
+) -> None:
+    GlobalPreferences.set_home_currency(Currency.EUR)
+    invoice = build_invoice_with_JPY_currency_and_USD_conversion()
+    invoice.add_conversion(Decimal("2.0"), Currency.EUR)
+    repository.update(invoice)
+    data = {**invoice_form_data(invoice), "currency": Currency.JPY.code}
+    url = reverse("invoices:update", kwargs={"pk": invoice.id})
+
+    GlobalPreferences.set_home_currency(Currency.USD)
+    response = client.get(url, data)
+
+    assert "conversions" in response.context
+    assert Currency.EUR in response.context["conversions"]
+    assert response.context["conversions"][Currency.EUR] == Decimal("2.0")
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invoice_with_foreign_currency_and_multiple_conversions__home_currency_is_changed__correct_exchange_rate_for_current_home_currency_is_returned(
+    client: Client,
+) -> None:
+    GlobalPreferences.set_home_currency(Currency.EUR)
+    invoice = build_invoice_with_JPY_currency_and_USD_conversion()
+    invoice.add_conversion(Decimal("2.0"), Currency.EUR)
+    repository.update(invoice)
+    data = {**invoice_form_data(invoice), "currency": Currency.JPY.code}
+    url = reverse("invoices:update", kwargs={"pk": invoice.id})
+
+    GlobalPreferences.set_home_currency(Currency.USD)
+    response = client.get(url, data)
+
+    assert response.context["home_currency"] == Currency.USD.code
+    assert response.context["exchange_rate"] == Decimal("3.0")
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invoice_with_foreign_currency_and_multiple_conversions__home_currency_is_changed__conversion_to_old_home_currency_can_be_deleted(
+    client: Client,
+) -> None:
+    GlobalPreferences.set_home_currency(Currency.EUR)
+    invoice = build_invoice_with_JPY_currency_and_USD_conversion()
+    invoice.add_conversion(Decimal("2.0"), Currency.EUR)
+    repository.update(invoice)
+    GlobalPreferences.set_home_currency(Currency.USD)
+    data = {
+        **invoice_form_data(invoice),
+        "currency": Currency.JPY.code,
+        "conversion_currency_USD": Currency.USD.code,
+        "exchange_rate_USD": "3.0",
+    }
+    url = reverse("invoices:update", kwargs={"pk": invoice.id})
+
+    _ = client.post(url, data)
+
+    updated_invoice = repository.get_by_id(cast(InvoiceId, invoice.id))
+    assert Currency.USD in updated_invoice.conversions()
+    assert Currency.EUR not in updated_invoice.conversions()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invoice_with_foreign_currency_and_exchange_rate_to_home_currency_is_zero__invoice_is_saved__conversion_with_exchange_rate_zero_is_not_saved(
+    client: Client,
+) -> None:
+    GlobalPreferences.set_home_currency(Currency.EUR)
+    invoice = build_invoice_with_JPY_currency_and_USD_conversion()
+    data = {
+        **invoice_form_data(invoice),
+        "currency": Currency.JPY.code,
+        "conversion_currency_EUR": Currency.EUR.code,
+        "exchange_rate_EUR": "0",
+    }
+    url = reverse("invoices:update", kwargs={"pk": invoice.id})
+
+    _ = client.post(url, data)
+
+    updated_invoice = repository.get_by_id(cast(InvoiceId, invoice.id))
+    assert Currency.EUR not in updated_invoice.conversions()
 
 
 def invoice_form_data(invoice: Invoice) -> dict[str, str]:
@@ -104,24 +223,12 @@ def invoice_form_data(invoice: Invoice) -> dict[str, str]:
     }
 
 
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
-def test__saved_invoice_with_conversion__invoice_currency_is_changed_to_home_currency__conversion_is_deleted(
-    client: Client,
-) -> None:
-    GlobalPreferences.set_home_currency(Currency.EUR)
+def build_invoice_with_JPY_currency_and_USD_conversion() -> Invoice:
     fr = funding_request()
     publication_position = domainfactory.publication_position(
         fr.publication.id, currency=Currency.JPY
     )
     invoice = invoice_with_position(publication_position)
-    invoice.add_conversion(Decimal("2.0"), Currency.EUR)
+    invoice.add_conversion(Decimal("3.0"), Currency.USD)
     repository.update(invoice)
-
-    data = invoice_form_data(invoice) | {"currency": Currency.EUR.code}
-    url = reverse("invoices:update", kwargs={"pk": invoice.id})
-
-    _ = client.post(url, data)
-
-    updated_invoice = repository.get_by_id(cast(InvoiceId, invoice.id))
-    assert updated_invoice.conversions() == {}
+    return invoice

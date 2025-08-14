@@ -13,6 +13,7 @@ from coda.apps.invoices.views.position_list import (
     parse_position_data,
 )
 from coda.apps.invoices.views.positions import AnyPositionDto
+from coda.apps.preferences.models import GlobalPreferences
 from coda.domain.invoice import CreditorId, Invoice, InvoiceId, PaymentStatus
 
 from coda.domain.money._currency import Currency
@@ -21,11 +22,12 @@ from decimal import Decimal
 
 @login_required
 def create_invoice(request: HttpRequest) -> HttpResponse:
+    home_currency = GlobalPreferences.get_home_currency()
     errors = ErrorDict(errors={})
 
     conversion = {}
-    currency_code = request.POST.get("conversion_currency", "").strip()
-    exchange_rate_str = request.POST.get("exchange_rate", "").strip()
+    currency_code = request.POST.get(f"conversion_currency_{home_currency.code}", "").strip()
+    exchange_rate_str = request.POST.get(f"exchange_rate_{home_currency.code}", "").strip()
 
     if currency_code and exchange_rate_str:
         home_currency = Currency.from_code(currency_code)
@@ -44,6 +46,7 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
             "mode_name": "Create",
             "form": InvoiceForm(request.POST if request.POST else None),
             "positions": existing_positions(request),
+            "home_currency_ceate": home_currency.code,
         }
         | _DefaultContext
         | errors,

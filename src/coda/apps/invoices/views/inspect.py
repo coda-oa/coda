@@ -90,14 +90,26 @@ def load_conversion_section(request: HttpRequest) -> HttpResponse:
     selected_currency = request.GET.get("currency")
     home_currency = GlobalPreferences.get_home_currency().code
 
-    if selected_currency != home_currency:
-        return render(
-            request,
-            "invoices/detail_conversions.html",
-            {"selected_currency": selected_currency, "home_currency": home_currency, "edit": True},
-        )
+    invoice = None
+    conversions = {}
 
-    return HttpResponse("")
+    invoice_id = request.GET.get("invoice_id", "").strip()
+    if invoice_id:
+        invoice = repository.get_by_id(InvoiceId(int(invoice_id)))
+        conversions = invoice.conversions()
+
+    if selected_currency == home_currency and (not invoice or not invoice.conversions()):
+        return HttpResponse("")
+
+    return render(
+        request,
+        "invoices/detail_conversions.html",
+        {
+            "selected_currency": selected_currency,
+            "home_currency": home_currency,
+            "conversions": conversions,
+        },
+    )
 
 
 def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":

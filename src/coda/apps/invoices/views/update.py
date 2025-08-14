@@ -28,9 +28,7 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
         positions = [to_position_dto(p) for p in invoice.positions]
         return render_edit_view(request, invoice, positions)
 
-    conversion_currency_code = request.POST.get("conversion_currency", "").strip()
-    exchange_rate_str = request.POST.get("exchange_rate", "").strip()
-    update_conversions(invoice, conversion_currency_code, exchange_rate_str)
+    update_conversions(invoice, request.POST)
 
     invoice_id, errors = save_invoice(
         request,
@@ -45,15 +43,35 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 def update_conversions(
-    invoice: Invoice, conversion_currency_code: str, exchange_rate_str: str
+    invoice: Invoice,
+    post_data: dict[str, str],
 ) -> None:
-    if not (conversion_currency_code and exchange_rate_str):
-        invoice.clear_conversions()
-        return
+    submitted_currencies: set[Currency] = set()
 
-    conversion_currency = Currency.from_code(conversion_currency_code)
-    exchange_rate = Decimal(exchange_rate_str)
-    invoice.add_conversion(exchange_rate, conversion_currency)
+    for key in post_data:
+        if key.startswith("exchange_rate_"):
+            code = key.split("_")[-1]
+            rate_str = post_data.get(key, "").strip()
+
+            if not rate_str or not code:
+                continue
+
+            try:
+                if (exchange_rate := Decimal(rate_str)) != 0:
+                    currency = Currency.from_code(code)
+                    invoice.add_conversion(exchange_rate, currency)
+                    submitted_currencies.add(currency)
+                else:
+                    continue
+
+            except (ValueError, ArithmeticError):
+                continue
+
+    existing_currencies = set(invoice.conversions().keys())
+    to_remove = existing_currencies - submitted_currencies
+
+    for currency in to_remove:
+        invoice.remove_conversion(currency)
 
 
 def render_edit_view(
@@ -68,6 +86,7 @@ def render_edit_view(
     exchange_rate = Decimal(0)
     if invoice.conversions():
         conversion_currency, exchange_rate = next(iter(invoice.conversions().items()))
+        exchange_rate = invoice.conversions().get(home_currency, Decimal("0"))
 
     return render(
         request,
@@ -86,6 +105,7 @@ def render_edit_view(
             "home_currency": home_currency.code,
             "conversion_currency": conversion_currency.code if conversion_currency else None,
             "exchange_rate": exchange_rate,
+            "selected_currency": invoice.currency().code,
         },
     )
 
