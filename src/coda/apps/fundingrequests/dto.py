@@ -124,3 +124,4 @@ class CreateFundingRequestDto(CodaBaseDto):
     extra_information: ExtraInformationDto
     funding: Iterable[ExternalFundingDto] = ()
     request_date: datetime.date = Field(default_factory=datetime.date.today)
+    legacy_request_id: str = ""

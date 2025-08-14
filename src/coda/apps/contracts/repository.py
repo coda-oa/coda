@@ -1,5 +1,7 @@
 from collections.abc import Iterable, Sequence
 
+from django.db import transaction
+
 from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.domain.contract import Contract, ContractId, PublicationBilling, PublisherId
@@ -7,7 +9,6 @@ from coda.domain.date import DateRange
 from coda.domain.publication import JournalId
 from coda.domain.string import NonEmptyStr
 from coda.lazyiterable import LazyCachedIterable
-from django.db import models
 
 
 def first() -> Contract | None:
@@ -33,6 +34,11 @@ def get_by_name(name: str) -> Contract | None:
         return None
 
     return as_domain_object(contract)
+
+
+def find_all_by_names(names: Iterable[str]) -> list[Contract]:
+    contracts = ContractModel.objects.filter(name__in=names)
+    return [as_domain_object(contract) for contract in contracts]
 
 
 def get_active_contracts() -> Iterable[Contract]:
@@ -61,23 +67,30 @@ def create(contract: Contract) -> ContractId:
     if contract.id:
         raise ContractAlreadyExists(contract.id)
 
-    if not contract.id:
-        contract_model = ContractModel.objects.create(
-            name=contract.name,
-            start_date=contract.period.start,
-            end_date=contract.period.end,
-            publication_billing=contract.publication_billing.value,
-        )
-    else:
-        contract_model = ContractModel.objects.get(pk=contract.id)
-        contract_model.name = contract.name
-        contract_model.start_date = contract.period.start
-        contract_model.end_date = contract.period.end
-        contract_model.publication_billing = contract.publication_billing.value
-
+    contract_model = _to_contract_model(contract)
+    contract_model.save()
     _set_publishers_and_journals(contract, contract_model)
     contract_model.save()
     return ContractId(contract_model.pk)
+
+
+def _to_contract_model(contract: Contract) -> ContractModel:
+    return ContractModel(
+        name=contract.name,
+        start_date=contract.period.start,
+        end_date=contract.period.end,
+        publication_billing=contract.publication_billing.value,
+    )
+
+
+@transaction.atomic
+def create_many(contracts: Iterable[Contract]) -> list[Contract]:
+    contracts = list(contracts)
+    models = [_to_contract_model(contract) for contract in contracts]
+    models = ContractModel.objects.bulk_create(models)
+    for contract, model in zip(contracts, models):
+        _set_publishers_and_journals(contract, model)
+    return [as_domain_object(model) for model in models]
 
 
 def update(contract: Contract) -> None:

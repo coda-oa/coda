@@ -119,6 +119,8 @@ class FundingRequest(models.Model):
         "FundingRequestReview", on_delete=models.CASCADE, related_name="fundingrequest"
     )
 
+    legacy_request_id = models.CharField(max_length=255, blank=True)
+
     def get_absolute_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.pk})
 

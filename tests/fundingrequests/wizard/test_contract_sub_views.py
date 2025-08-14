@@ -123,13 +123,12 @@ def test__contract_step__same_contract_in_different_years__done__both_contract_y
     None
 ):
     store = DictStore()
-    contracts = [domainfactory.contract() for _ in range(3)]
-    save_all(contracts)
+    contract = domainfactory.contract(period=DateRange.create())
+    save_all([contract])
     sut = ContractStep()
 
-    first_contract = contracts[0]
-    first_contract_year = first_contract.in_first_year()
-    second_contract_year = first_contract.in_year(first_contract_year.year + 1)
+    first_contract_year = contract.in_first_year()
+    second_contract_year = contract.in_year(first_contract_year.year + 1)
     contract_years = to_htmx_formset_data(
         [
             {"contract": first_contract_year.contract_id, "year": first_contract_year.year},

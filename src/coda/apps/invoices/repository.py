@@ -1,11 +1,14 @@
-from collections.abc import Callable, Sequence
 import logging
-from typing import TypeVar, TypedDict
+from collections.abc import Callable, Iterable, Sequence
+from decimal import Decimal
+from typing import TypedDict, TypeVar
 
-from django.db.models import Q, QuerySet
+from django.db import transaction
+from django.db.models import F, Q, QuerySet, Sum, Value
+from django.db.models.functions import Coalesce
+from django.urls import reverse
 
 from coda.apps.contracts import repository as contract_services
-from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.models import CurrencyConversion
 from coda.apps.invoices.models import Invoice as InvoiceModel
@@ -26,6 +29,7 @@ from coda.domain.invoice import (
     PublicationCostType,
     TaxRate,
 )
+from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Currency, Money
 from coda.domain.publication import PublicationId
 from coda.lazyiterable import LazyCachedIterable
@@ -93,27 +97,29 @@ def search(
     home_currency: Currency | None = None,
     has_foreign_currency: bool | None = None,
     sort_by: str = "date_desc",
-    contract_name: Contract | None = None,
-    contract_year: int | None = None,
-) -> Sequence[Invoice]:
+    contract_id: str | int | None = None,
+    contract_year: str | int | None = None,
+) -> Sequence[InvoiceListItem]:
     query = (
         generic_search_criterion(generic_search)
         & status_criterion(status)
         & date_range_criterion(date_range)
         & funding_source_criterion(funding_source)
         & external_id_criterion(has_external_id)
-        & contract_criterion(contract_name)
+        & contract_criterion(contract_id)
         & contract_year_criterion(contract_year)
     )
 
+    logging.info("Query: %s", query)
     qs = InvoiceModel.objects.filter(query).distinct()
 
-    invoices = get_sorted_invoices(qs, sort_by)
+    # Apply foreign currency filter at the database level for better performance
+    if has_foreign_currency and home_currency:
+        qs = foreign_currency_without_conversion_queryset(qs, home_currency)
 
-    if has_foreign_currency:
-        invoices = foreign_currency_without_conversion(invoices, home_currency)
+    list_items = get_sorted_list_items(qs, sort_by)
 
-    return invoices
+    return list_items
 
 
 T = TypeVar("T")
@@ -173,32 +179,60 @@ def external_id_criterion(has_external_id: bool) -> Q:
     )
 
 
-def foreign_currency_without_conversion(
-    invoices: Sequence[Invoice], home_currency: Currency | None
-) -> Sequence[Invoice]:
-    return [
-        item for item in invoices if item.currency() != home_currency and not item.conversions()
-    ]
+def foreign_currency_without_conversion_queryset(
+    qs: QuerySet[InvoiceModel], home_currency: Currency
+) -> QuerySet[InvoiceModel]:
+    """
+    Filter invoices at the database level to only include those with foreign currency and no conversions.
+    This is much more efficient than filtering in Python after fetching all data.
+    """
+    return qs.filter(
+        # Foreign currency: positions have currency different from home currency
+        ~Q(positions__cost_currency=home_currency.code),
+        # No conversions: no currency conversion records
+        currency_conversions__isnull=True,
+    ).distinct()
 
 
 @empty_if_none
-def contract_criterion(contract_name: Contract) -> Q:
-    return Q(positions__contract_id=contract_name)
+def contract_criterion(contract_id: str | int) -> Q:
+    return Q(positions__contract_id=contract_id) | Q(
+        positions__publication__attached_contracts__contract_id=contract_id
+    )
 
 
 @empty_if_none
-def contract_year_criterion(contract_year: int) -> Q:
-    return Q(positions__contract_year=contract_year)
+def contract_year_criterion(contract_year: str | int) -> Q:
+    return Q(positions__contract_year=contract_year) | Q(
+        positions__publication__attached_contracts__contract_year=contract_year
+    )
 
 
-def get_sorted_invoices(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[Invoice]:
+def get_sorted_list_items(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[InvoiceListItem]:
     sort_functions = {
         "alphabetical": _ordered_alphabetically,
         "date_asc": _ordered_date_asc,
         "date_desc": _ordered_date_desc,
     }
     sort_function = sort_functions.get(sort_by, _ordered_date_desc)
-    return list(DomainQuerySet(sort_function(qs), as_domain_object))
+    qs = _annotate_position_based_data(
+        sort_function(qs).select_related("creditor").prefetch_related("currency_conversions")
+    )
+
+    return [as_list_item(model) for model in qs]
+
+
+def _annotate_position_based_data(qs: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
+    return qs.annotate(
+        net_total=Coalesce(Sum("positions__cost_amount"), Decimal("0")),
+        tax_total=Coalesce(
+            Sum(F("positions__cost_amount") * F("positions__tax_rate")), Decimal("0")
+        ),
+        first_position_currency=Coalesce(
+            "positions__cost_currency",
+            Value("EUR"),  # Default currency if no positions
+        ),
+    )
 
 
 def as_domain_object(model: InvoiceModel) -> Invoice:
@@ -222,6 +256,49 @@ def as_domain_object(model: InvoiceModel) -> Invoice:
         )
 
     return invoice
+
+
+def as_list_item(model: InvoiceModel) -> InvoiceListItem:
+    """
+    Converts an InvoiceModel to InvoiceListItem using pre-computed annotations.
+    This version relies on database-level calculations for maximum performance.
+    """
+
+    net_amount = getattr(model, "net_total", Decimal("0"))
+    tax_amount = getattr(model, "tax_total", Decimal("0"))
+    total_amount = net_amount + tax_amount
+
+    currency_code = getattr(model, "first_position_currency", "EUR")
+    currency = Currency.from_code(currency_code)
+
+    net = Money(net_amount, currency)
+    tax = Money(tax_amount, currency)
+    total = Money(total_amount, currency)
+
+    conversions = {}
+    for conversion in model.currency_conversions.all():
+        conversions[Currency.from_code(conversion.target_currency)] = conversion.exchange_rate
+
+    creditor_name = model.creditor.name
+
+    url = reverse("invoices:detail", kwargs={"pk": model.id})
+
+    return InvoiceListItem(
+        id=InvoiceId(model.id),
+        number=model.number,
+        date=model.date,
+        creditor=CreditorId(model.creditor_id),
+        creditor_name=creditor_name,
+        status=PaymentStatus(model.status),
+        currency=currency,
+        net=net,
+        tax=tax,
+        total=total,
+        comment=model.comment,
+        external_invoice_id=model.external_invoice_id,
+        conversions=conversions,
+        url=url,
+    )
 
 
 class _CommonPositionArgs(TypedDict):
@@ -276,7 +353,16 @@ def create(invoice: Invoice) -> InvoiceId:
     if invoice.id:
         raise InvoiceAlreadyExists(invoice.id)
 
-    invoice_model = InvoiceModel.objects.create(
+    invoice_model = _create_invoice_model(invoice)
+    invoice_model.save()
+    _add_positions(invoice, invoice_model)
+    _add_conversions(invoice, invoice_model)
+
+    return InvoiceId(invoice_model.id)
+
+
+def _create_invoice_model(invoice: Invoice) -> InvoiceModel:
+    return InvoiceModel(
         number=invoice.number,
         date=invoice.date,
         creditor_id=invoice.creditor,
@@ -284,10 +370,19 @@ def create(invoice: Invoice) -> InvoiceId:
         status=invoice.status.value,
         external_invoice_id=invoice.external_invoice_id,
     )
-    _add_positions(invoice, invoice_model)
-    _add_conversions(invoice, invoice_model)
 
-    return InvoiceId(invoice_model.id)
+
+@transaction.atomic
+def bulk_create(invoices: Iterable[Invoice]) -> list[InvoiceId]:
+    models = InvoiceModel.objects.bulk_create(
+        _create_invoice_model(invoice) for invoice in invoices
+    )
+
+    for invoice, invoice_model in zip(invoices, models):
+        _add_positions(invoice, invoice_model)
+        _add_conversions(invoice, invoice_model)
+
+    return [InvoiceId(m.id) for m in models]
 
 
 def _add_conversions(invoice: Invoice, invoice_model: InvoiceModel) -> None:

@@ -46,6 +46,7 @@ def create(fundingrequest: AnyFundingRequest) -> FundingRequestId:
         raise FundingRequestAlreadyExists(fundingrequest.id)
 
     pid = publication_repository.create(fundingrequest.publication)
+    fundingrequest.publication.id = pid
     fr = FundingRequestModel()
     fr.review = FundingRequestReview.objects.create()
     _save_review(fundingrequest._review, fr.review)
@@ -100,6 +101,7 @@ def create_many(fundingrequests: Iterable[AnyFundingRequest]) -> Iterable[Fundin
             estimated_cost_currency=fundingrequest.estimated_cost.amount.currency.code,
             payment_method=fundingrequest.estimated_cost.method.value,
             review=review,
+            legacy_request_id=fundingrequest.legacy_request_id,
         )
         for fundingrequest, pid, review in zip(fundingrequests, publication_ids, reviews)
     ]
@@ -255,6 +257,16 @@ def get_monograph_request(id: FundingRequestId) -> FundingRequest[Monograph]:
     return fr
 
 
+def get_by_request_id(request_id: PublicFundingRequestId) -> AnyFundingRequest:
+    model = FundingRequestModel.objects.get(request_id=str(request_id))
+    return as_domain_object(model)
+
+
+def get_by_publication_id(publication_id: PublicationId) -> AnyFundingRequest:
+    model = FundingRequestModel.objects.get(publication_id=publication_id)
+    return as_domain_object(model)
+
+
 def _is_publication_type(
     fr: Any, publication_type: type[TPublication]
 ) -> TypeIs[FundingRequest[TPublication]]:
@@ -288,6 +300,7 @@ def as_domain_object(model: FundingRequestModel) -> AnyFundingRequest:
         ],
         request_remarks=model.request_remarks,
         review=review,
+        legacy_request_id=model.legacy_request_id,
     )
 
     return fr

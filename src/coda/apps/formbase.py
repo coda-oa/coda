@@ -2,6 +2,7 @@ from collections.abc import Mapping, MutableMapping
 from typing import Any
 
 from django import forms
+from django.forms import widgets
 from django.forms.renderers import BaseRenderer
 from django.forms.utils import ErrorList
 
@@ -46,3 +47,7 @@ class CodaFormBase(forms.Form):
     @classmethod
     def form_posted(cls, request: Mapping[str, Any]) -> bool:
         return bool(request.keys() & cls.base_fields.keys())
+
+
+class JsonUploadForm(forms.Form):
+    import_file = forms.FileField(widget=widgets.FileInput(attrs={"accept": ".json"}))

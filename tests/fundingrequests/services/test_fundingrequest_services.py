@@ -262,6 +262,7 @@ def assert_contains_expected_institutions(
 def assert_fundingrequest_eq(actual: AnyFundingRequest | None, expected: AnyFundingRequest) -> None:
     assert actual is not None
     assert actual.request_date == expected.request_date
+    assert actual.legacy_request_id == expected.legacy_request_id
 
     assert_publication_eq(actual.publication, expected.publication)
     assert actual.estimated_cost == expected.estimated_cost

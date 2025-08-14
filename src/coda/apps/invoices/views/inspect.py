@@ -1,5 +1,4 @@
 import datetime
-from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any, NamedTuple, cast
 
@@ -20,8 +19,10 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 from coda.domain.date import DateRange
 from coda.domain.invoice import Invoice, InvoiceId, PaymentStatus
+from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Money
 from coda.domain.money._currency import Currency
+
 
 _advanced_search_fields = [
     "payment_status",
@@ -39,12 +40,11 @@ def get_contract_list_context() -> dict[str, Any]:
     return {"contract_list": Contract.objects.all()}
 
 
-class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
+class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
     paginate_by = 20
     entity_name = "Invoices"
-    entity_create_url = "invoices:create"
+    template_name = "invoices/invoice_list.html"
     entity_list_item_template = "invoices/invoice_list_item.html"
-    entity_filter_template = "invoices/invoice_filter_bar.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
@@ -58,39 +58,36 @@ class InvoiceListView(LoginRequiredMixin, EntityListView["InvoiceViewModel"]):
 
         return ctx
 
-    def get_entities(self, request: HttpRequest) -> Sequence["InvoiceViewModel"]:
-        query: dict[str, Any] = {}
-        query["generic_search"] = request.GET.get("search_term")
+    def get_entities(self, request: HttpRequest) -> list[InvoiceListItem]:
+        query: dict[str, Any] = {
+            "generic_search": request.GET.get("search_term"),
+            "funding_source": request.GET.get("funding_source") or None,
+            "contract_id": request.GET.get("contract_name") or None,
+            "contract_year": request.GET.get("contract_year") or None,
+            "home_currency": GlobalPreferences.get_home_currency(),
+            "has_external_id": self.bool_like(request.GET.get("has_external_id")),
+            "has_foreign_currency": self.bool_like(request.GET.get("has_foreign_currency")),
+            "sort_by": request.GET.get("sort_by"),
+            "status": self.try_into_paymentstatus(request.GET.get("payment_status", "")),
+            "date_range": DateRange.try_fromisoformat(
+                start=request.GET.get("date_start"),
+                end=request.GET.get("date_end"),
+            ),
+        }
 
-        if status := request.GET.get("payment_status"):
-            query["status"] = self.try_into_paymentstatus(status)
-
-        query["funding_source"] = request.GET.get("funding_source") or None
-
-        query["contract_name"] = request.GET.get("contract_name") or None
-        query["contract_year"] = request.GET.get("contract_year") or None
-
-        query["date_range"] = DateRange.try_fromisoformat(
-            start=request.GET.get("date_start"),
-            end=request.GET.get("date_end"),
-        )
-
-        if (has_external_id := request.GET.get("has_external_id")) in ("true", "false"):
-            query["has_external_id"] = has_external_id == "true"
-
-        query["home_currency"] = GlobalPreferences.get_home_currency()
-        if (has_foreign_currency := request.GET.get("has_foreign_currency")) in ("true", "false"):
-            query["has_foreign_currency"] = has_foreign_currency == "true"
-
-        query["sort_by"] = request.GET.get("sort_by")
-
-        return list(invoice_viewmodel(i) for i in repository.search(**query))
+        return list(repository.search(**query))
 
     def try_into_paymentstatus(self, status: str) -> PaymentStatus | None:
         try:
             return PaymentStatus(status)
         except ValueError:
             return None
+
+    def bool_like(self, value: str | None) -> bool | None:
+        if not value:
+            return None
+
+        return value.lower() == "true"
 
 
 invoice_list = InvoiceListView.as_view()
@@ -167,7 +164,7 @@ def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
         net=invoice.net(),
         comment=invoice.comment,
         external_invoice_id=invoice.external_invoice_id,
-        conversion=invoice.conversions(),
+        conversions=invoice.conversions(),
     )
 
 
@@ -198,4 +195,4 @@ class InvoiceViewModel(NamedTuple):
     net: Money
     comment: str
     external_invoice_id: str
-    conversion: dict[Currency, Decimal]
+    conversions: dict[Currency, Decimal]

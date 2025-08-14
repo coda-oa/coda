@@ -140,6 +140,11 @@
                     "title": "Request Date",
                     "type": "string"
                 },
+                "legacy_request_id": {
+                    "default": "",
+                    "title": "Legacy Request Id",
+                    "type": "string"
+                },
                 "review": {
                     "$ref": "#/$defs/ReviewImportDto"
                 },
@@ -242,8 +247,8 @@
                     "type": "string"
                 },
                 "eissn": {
-                    "title": "Eissn",
-                    "type": "string"
+                    "default": "",
+                    "title": "Eissn"
                 },
                 "journal_name": {
                     "default": "Imported nameless journal",
@@ -296,7 +301,6 @@
             "required": [
                 "title",
                 "kind",
-                "eissn",
                 "open_access_type"
             ],
             "title": "PublicationImportDto",
@@ -376,7 +380,11 @@
                     "default": "open"
                 },
                 "funding": {
-                    "$ref": "#/$defs/DecidedFundingImportDto"
+                    "$ref": "#/$defs/DecidedFundingImportDto",
+                    "default": {
+                        "amount": "0.00",
+                        "currency": "EUR"
+                    }
                 },
                 "remarks": {
                     "default": "",

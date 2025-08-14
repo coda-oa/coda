@@ -59,7 +59,8 @@ class CommonPositionDto(abc.ABC, CodaBaseDto, Generic[ItemT, CostT]):
     @abc.abstractmethod
     def from_position(
         cls, position: CommonPosition[ItemT, CostT]
-    ) -> "CommonPositionDto[ItemT, CostT]": ...
+    ) -> "CommonPositionDto[ItemT, CostT]":
+        ...
 
     @classmethod
     def from_request(cls, post_data: dict[str, str], prefix: str = "") -> Self:
@@ -73,15 +74,18 @@ class CommonPositionDto(abc.ABC, CodaBaseDto, Generic[ItemT, CostT]):
         return cls(**post_data)
 
     @abc.abstractmethod
-    def parse(self) -> ItemT: ...
+    def parse(self) -> ItemT:
+        ...
 
     @abc.abstractmethod
-    def parse_safe(self) -> ItemT: ...
+    def parse_safe(self) -> ItemT:
+        ...
 
     @abc.abstractmethod
     def to_position(
         self, currency: Currency, *, parse_safe: bool = False
-    ) -> CommonPosition[ItemT, CostT]: ...
+    ) -> CommonPosition[ItemT, CostT]:
+        ...
 
 
 class RelatedFundingRequest(CodaBaseDto):
