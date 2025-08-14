@@ -99,7 +99,7 @@ def test__saved_invoice_with_conversion__invoice_currency_is_changed_to_home_cur
     client: Client,
 ) -> None:
     GlobalPreferences.set_home_currency(Currency.USD)
-    invoice = build_invoice_with_JPY_currency_and_USD_conversion()
+    invoice = build_invoice_with_jpy_currency_and_usd_conversion()
     data = {**invoice_form_data(invoice), "currency": Currency.USD.code}
     url = reverse("invoices:update", kwargs={"pk": invoice.id})
 
@@ -115,7 +115,7 @@ def test__invoice_with_foreign_curency_has_conversion_to_home_currency__home_cur
     client: Client,
 ) -> None:
     GlobalPreferences.set_home_currency(Currency.EUR)
-    invoice = build_invoice_with_JPY_currency_and_USD_conversion()
+    invoice = build_invoice_with_jpy_currency_and_usd_conversion()
     invoice.add_conversion(Decimal("2.0"), Currency.EUR)
     repository.update(invoice)
     data = invoice_form_data(invoice) | {"currency": Currency.EUR.code}
@@ -134,7 +134,7 @@ def test__invoice_with_foreign_curency_has_conversion_to_home_currency__home_cur
     client: Client,
 ) -> None:
     GlobalPreferences.set_home_currency(Currency.EUR)
-    invoice = build_invoice_with_JPY_currency_and_USD_conversion()
+    invoice = build_invoice_with_jpy_currency_and_usd_conversion()
     invoice.add_conversion(Decimal("2.0"), Currency.EUR)
     repository.update(invoice)
     data = {**invoice_form_data(invoice), "currency": Currency.JPY.code}
@@ -154,7 +154,7 @@ def test__invoice_with_foreign_currency_and_multiple_conversions__home_currency_
     client: Client,
 ) -> None:
     GlobalPreferences.set_home_currency(Currency.EUR)
-    invoice = build_invoice_with_JPY_currency_and_USD_conversion()
+    invoice = build_invoice_with_jpy_currency_and_usd_conversion()
     invoice.add_conversion(Decimal("2.0"), Currency.EUR)
     repository.update(invoice)
     data = {**invoice_form_data(invoice), "currency": Currency.JPY.code}
@@ -173,7 +173,7 @@ def test__invoice_with_foreign_currency_and_multiple_conversions__home_currency_
     client: Client,
 ) -> None:
     GlobalPreferences.set_home_currency(Currency.EUR)
-    invoice = build_invoice_with_JPY_currency_and_USD_conversion()
+    invoice = build_invoice_with_jpy_currency_and_usd_conversion()
     invoice.add_conversion(Decimal("2.0"), Currency.EUR)
     repository.update(invoice)
     GlobalPreferences.set_home_currency(Currency.USD)
@@ -198,7 +198,7 @@ def test__invoice_with_foreign_currency_and_exchange_rate_to_home_currency_is_ze
     client: Client,
 ) -> None:
     GlobalPreferences.set_home_currency(Currency.EUR)
-    invoice = build_invoice_with_JPY_currency_and_USD_conversion()
+    invoice = build_invoice_with_jpy_currency_and_usd_conversion()
     data = {
         **invoice_form_data(invoice),
         "currency": Currency.JPY.code,
@@ -223,7 +223,7 @@ def invoice_form_data(invoice: Invoice) -> dict[str, str]:
     }
 
 
-def build_invoice_with_JPY_currency_and_USD_conversion() -> Invoice:
+def build_invoice_with_jpy_currency_and_usd_conversion() -> Invoice:
     fr = funding_request()
     publication_position = domainfactory.publication_position(
         fr.publication.id, currency=Currency.JPY
