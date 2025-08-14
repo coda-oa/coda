@@ -1,14 +1,16 @@
+import pydantic
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
-import pydantic
+from django.views.decorators.http import require_http_methods
 
 from coda.apps.formbase import JsonUploadForm
 from coda.apps.invoices import importservice
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def import_invoices(request: HttpRequest) -> HttpResponse:
     import_errors = []
     form = get_form(request)

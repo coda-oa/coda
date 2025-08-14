@@ -1,10 +1,10 @@
+import json
 from collections.abc import Iterable
 from dataclasses import dataclass
-import json
-from typing import BinaryIO, TextIO, cast, Any
+from typing import Any, BinaryIO, TextIO, cast
 
-from django.db.models import Q
 import pydantic
+from django.db.models import Q
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests.models import FundingRequest
@@ -87,7 +87,7 @@ def _validate_invoices(
         try:
             dto = InvoiceImportDto.model_validate(raw_invoice)
             invoice_dtos.append(dto)
-        except (pydantic.ValidationError, ValueError, AttributeError) as e:
+        except (ValueError, AttributeError) as e:
             invoice_number = invoice_numbers[i]
             errors[invoice_number] = _format_validation_error(e)
 
