@@ -19,7 +19,7 @@ class Command(BaseCommand):
         df = self.download_test_data()
         self.stdout.write("Parsing publishers")
         publishers = self.add_publishers(df)
-        self.stdout.write(f"Added {self.num_created(publishers)} publishers")
+        self.stdout.write(f"Added {len(publishers)} publishers")
 
         self.stdout.write("Parsing journals")
         journals = self.add_journals(df)
@@ -35,12 +35,14 @@ class Command(BaseCommand):
             "https://raw.githubusercontent.com/coda-oa/coda-test-data/main/journals.csv"
         )
 
-    def add_publishers(self, df: pl.DataFrame) -> list[tuple[Publisher, bool]]:
+    def add_publishers(self, df: pl.DataFrame) -> list[Publisher]:
         publishers = df["publisher"].unique().to_list()
-        return [Publisher.objects.get_or_create(name=publisher) for publisher in publishers]
-
-    def num_created(self, publisher_objects: list[tuple[Publisher, bool]]) -> int:
-        return sum([int(created) for _, created in publisher_objects])
+        existing_publishers = Publisher.objects.filter(name__in=publishers)
+        return [
+            Publisher.objects.create(name=publisher)
+            for publisher in publishers
+            if publisher not in existing_publishers
+        ]
 
     def add_journals(self, df: pl.DataFrame) -> list[Journal]:
         df = self.clean_eissn(df)
@@ -51,7 +53,7 @@ class Command(BaseCommand):
             [
                 Journal(
                     title=row["journal_title"],
-                    publisher=Publisher.objects.get(name=row["publisher"]),
+                    publisher=Publisher.objects.filter(name=row["publisher"]).first(),
                     eissn=row["e_issn"].strip(),
                     licenses=row["license"],
                     predecessor=None,
