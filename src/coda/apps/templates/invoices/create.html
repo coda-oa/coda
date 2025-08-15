@@ -2,7 +2,6 @@
 {% block content %}
     <div class="flex justify-between align-center my-2">
         <h1 class="my-2">{{ mode_name }} Invoice</h1>
-        
     </div>
     <form id="invoice-form" method="post">
         {% csrf_token %}
@@ -61,10 +60,9 @@
     <div class="grid wizard-nav">
         {% if mode_name == "Edit" %}
             <a href="{% url "invoices:detail" pk=invoice_id %}"
-               role="button"
-               class="danger">Cancel</a>
+               class="button danger text-center">Cancel</a>
         {% elif mode_name == "Create" %}
-            <a href="{% url "invoices:list" %}" role="button" class="danger">Cancel</a>
+            <a href="{% url "invoices:list" %}" class="button danger text-center">Cancel</a>
         {% endif %}
         <button form="invoice-form" type="submit" name="action" value="create">Save</button>
     </div>
