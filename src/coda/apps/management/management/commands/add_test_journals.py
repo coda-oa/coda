@@ -37,11 +37,13 @@ class Command(BaseCommand):
 
     def add_publishers(self, df: pl.DataFrame) -> list[Publisher]:
         publishers = df["publisher"].unique().to_list()
-        existing_publishers = Publisher.objects.filter(name__in=publishers)
+        existing_publisher_names = set(
+            Publisher.objects.filter(name__in=publishers).values_list("name", flat=True)
+        )
         return [
             Publisher.objects.create(name=publisher)
             for publisher in publishers
-            if publisher not in existing_publishers
+            if publisher not in existing_publisher_names
         ]
 
     def add_journals(self, df: pl.DataFrame) -> list[Journal]:
