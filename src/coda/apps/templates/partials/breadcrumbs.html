@@ -1,0 +1,28 @@
+{% if breadcrumbs %}
+    <ul class="breadcrumbs mt-2 flex">
+        {% for crumb in breadcrumbs %}
+            <li>
+                {% if not forloop.last and crumb.url %}
+                    <small><a href="{{ crumb.url }}">{{ crumb.title }}</a></small>
+                {% else %}
+                    <small><span aria-current="page">{{ crumb.title }}</span></small>
+                {% endif %}
+            </li>
+            {% if not forloop.last %}
+                <li>
+                    <span>
+                        <svg class="w-6 h-6 text-gray-800 dark:text-white vertical-align-img"
+                             aria-hidden="true"
+                             xmlns="http://www.w3.org/2000/svg"
+                             width="15"
+                             height="15"
+                             fill="none"
+                             viewBox="0 0 24 24">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7" />
+                        </svg>
+                    </span>
+                </li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+{% endif %}
