@@ -430,6 +430,9 @@ def breadcrumb_home(context: Context) -> list[dict[str, str]]:
     return []
 
 
+PUBLISHING_JOURNALS_NAMESPACE = "publishing:journals"
+PUBLISHING_PUBLISHERS_NAMESPACE = "publishing:publishers"
+
 BREADCRUMB_MAP = {
     ("fundingrequests", "home"): breadcrumb_funding_request_home,
     ("fundingrequests", "list"): breadcrumb_funding_request_list,
@@ -445,13 +448,13 @@ BREADCRUMB_MAP = {
     ("fundingrequests", "create_monograph"): breadcrumb_funding_request_create_monograph,
     ("fundingrequests", "import"): breadcrumb_funding_request_import,
     ("publishing", "home"): breadcrumb_publishing_home,
-    ("publishing:journals", "list"): breadcrumb_publishing_journals_list,
-    ("publishing:journals", "create"): breadcrumb_publishing_journals_create,
-    ("publishing:journals", "update"): breadcrumb_publishing_journals_update,
-    ("publishing:journals", "detail"): breadcrumb_publishing_journals_detail,
-    ("publishing:publishers", "list"): breadcrumb_publishing_publishers_list,
-    ("publishing:publishers", "update"): breadcrumb_publishing_publishers_update,
-    ("publishing:publishers", "create"): breadcrumb_publishing_publishers_create,
+    (PUBLISHING_JOURNALS_NAMESPACE, "list"): breadcrumb_publishing_journals_list,
+    (PUBLISHING_JOURNALS_NAMESPACE, "create"): breadcrumb_publishing_journals_create,
+    (PUBLISHING_JOURNALS_NAMESPACE, "update"): breadcrumb_publishing_journals_update,
+    (PUBLISHING_JOURNALS_NAMESPACE, "detail"): breadcrumb_publishing_journals_detail,
+    (PUBLISHING_PUBLISHERS_NAMESPACE, "list"): breadcrumb_publishing_publishers_list,
+    (PUBLISHING_PUBLISHERS_NAMESPACE, "update"): breadcrumb_publishing_publishers_update,
+    (PUBLISHING_PUBLISHERS_NAMESPACE, "create"): breadcrumb_publishing_publishers_create,
     ("blocklist", "list"): breadcrumb_blocklist_list,
     ("invoices", "home"): breadcrumb_invoices_home,
     ("invoices", "list"): breadcrumb_invoices_list,
