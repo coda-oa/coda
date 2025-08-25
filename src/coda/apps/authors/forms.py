@@ -29,8 +29,8 @@ class OrcidField(forms.CharField):
 class AuthorForm(CodaFormBase):
     use_required_attribute = False
 
-    name = forms.CharField()
-    email = forms.EmailField()
+    name = forms.CharField(label="Name*")
+    email = forms.EmailField(label="Email*")
     orcid = OrcidField(required=False)
     affiliation = forms.ChoiceField(
         choices=lambda: (

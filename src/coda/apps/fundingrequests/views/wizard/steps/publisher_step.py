@@ -34,8 +34,12 @@ class PublisherStepDto(CodaBaseDto):
 class PublisherStep(TemplateStep):
     template_name = "fundingrequests/fundingrequest_monograph_publisher_and_contract.html"
 
+    def __init__(self) -> None:
+        self.publisher_error: str | None = None
+
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         ctx = super().get_context_data(request, store)
+        ctx["publisher_error"] = self.publisher_error
 
         if request.POST.get("publisher"):
             publisher = Publisher.objects.get(pk=request.POST["publisher"])
@@ -60,6 +64,8 @@ class PublisherStep(TemplateStep):
         publisher_valid = bool(request.POST.get("publisher"))
         contract_formset = ContractFormset(request.POST)
         contract_formset_valid = contract_formset.is_valid()
+        if not publisher_valid:
+            self.publisher_error = "Please search and select a publisher."
         return publisher_valid and contract_formset_valid
 
     def done(self, request: HttpRequest, store: Store) -> None:

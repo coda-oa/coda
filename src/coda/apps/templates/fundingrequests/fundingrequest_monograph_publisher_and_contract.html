@@ -7,13 +7,19 @@
             <input type="search"
                    name="publisher_name"
                    id="publisher_name"
-                   value="{{ publisher_name }}">
+                   {% if publisher_error and request.method == "POST" and not selected_publisher %}aria-invalid="true"{% endif %}
+                   value="{{ selected_publisher }}">
             <button type="button"
                     hx-post="{% url 'fundingrequests:wizard_find_publisher' %}"
                     hx-target="#publisher-search-results"
                     hx-swap="outerHTML"
                     class="inline-search-pill pill-right">Search</button>
         </fieldset>
+        {% if publisher_error and request.method == "POST" and not selected_publisher %}
+            <ul class="errorlist">
+                <li>{{ publisher_error }}</li>
+            </ul>
+        {% endif %}
         {% include "fundingrequests/partials/publisher_search_results.html" %}
     </article>
     <article>
