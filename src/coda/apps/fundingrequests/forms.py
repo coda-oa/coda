@@ -16,6 +16,7 @@ from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 from coda.apps.publications.dto import ContractYearDto
+from coda.apps.widgets import SearchSelectWidget
 from coda.domain.contract import ContractId, ContractYear
 
 
@@ -133,7 +134,9 @@ class PaymentForm(CodaFormBase):
 
 class ExternalFundingForm(forms.Form):
     use_required_attribute = False
-    organization = forms.ModelChoiceField[FundingOrganization](FundingOrganization.objects.all())
+    organization = forms.ModelChoiceField[FundingOrganization](
+        queryset=FundingOrganization.objects.all(), widget=SearchSelectWidget()
+    )
     project_id = forms.CharField()
     project_name = forms.CharField(required=False)
 
