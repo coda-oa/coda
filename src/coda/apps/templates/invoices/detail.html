@@ -35,7 +35,7 @@
                     </th>
                     <td>
                         <input readonly
-                               type="number"
+                               type="text"
                                id="id-head-invoice-number"
                                name="id-head-invoice-number"
                                value="{{ invoice.number }}">
@@ -98,7 +98,7 @@
                                   name="id-head-comment"
                                   cols="40"
                                   rows="10"
-                                  id="id-head-comment"> {{ invoice_comment }}</textarea>
+                                  id="id-head-comment"> {{ invoice.comment }}</textarea>
                     </td>
                 </tr>
             </tbody>
@@ -129,7 +129,7 @@
                     <th>Position</th>
                     <th>Funding Source</th>
                     <th>Cost Type</th>
-                    <th>Tax</th>
+                    <th>Tax (%)</th>
                     <th>Net Cost ({{ display_currency.code }})</th>
                 </tr>
             </thead>
@@ -164,7 +164,7 @@
                             {% endfor %}
                         </td>
                         <td>{{ position.cost_type }}</td>
-                        <td>{{ position.tax_rate }}</td>
+                        <td>{{ position.tax_rate|floatformat:1 }}</td>
                         <td>{{ position.cost_amount }}</td>
                     </tr>
                 {% endfor %}
