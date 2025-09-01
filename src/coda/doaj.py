@@ -38,8 +38,12 @@ DoajJournalSearchUrl: Final = "https://doaj.org/api/search/journals/issn:{issn}"
 
 def find_journal(issn: Issn) -> DoajListedJournal | None:
     url = DoajJournalSearchUrl.format(issn=issn)
-    response = httpx.get(url)
-    data = _try_parse(response)
+    try:
+        response = httpx.get(url)
+        response.raise_for_status()
+        data = _try_parse(response)
+    except httpx.HTTPError:
+        data = None
 
     if not data:
         return None
