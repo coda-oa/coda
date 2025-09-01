@@ -1,30 +1,119 @@
 {% load param_replace %}
-<div class="my-2">
-    {% if page_obj.number > 1 %}
-        {% comment %} <a class="mr-1" href="?page=1">«</a> {% endcomment %}
-        <a class="mr-1" href="?{% param_replace page=1 %}">«</a>
-    {% else %}
-        <a class="mr-1 pagination__disabled" disabled>«</a>
-    {% endif %}
-    {% if page_obj.has_previous %}
-        {% comment %} <a class="mr-1" href="?page={{ page_obj.previous_page_number }}">‹</a> {% endcomment %}
-        <a class="mr-1"
-           href="?{% param_replace page=page_obj.previous_page_number %}">‹</a>
-    {% else %}
-        <a class="mr-1 pagination__disabled" disabled>‹</a>
-    {% endif %}
-    <span class="mr-1 pagination__current">{{ page_obj.number }}</span>
-    {% if page_obj.has_next %}
-        {% comment %} <a class="mr-1" href="?page={{ page_obj.next_page_number }}">›</a> {% endcomment %}
-        <a class="mr-1"
-           href="?{% param_replace page=page_obj.next_page_number %}">›</a>
-    {% else %}
-        <a class="mr-1 pagination__disabled" disabled>›</a>
-    {% endif %}
-    {% if page_obj.number < page_obj.paginator.num_pages %}
-        {% comment %} <a href="?page={{ page_obj.paginator.num_pages }}">»</a> {% endcomment %}
-        <a href="?{% param_replace page=page_obj.paginator.num_pages %}">»</a>
-    {% else %}
-        <a class="pagination__disabled" disabled>»</a>
-    {% endif %}
-</div>
+{% if page_obj.paginator.num_pages > 1 %}
+    <div class="flex justify-between pagination-container">
+        <ul class="pagination" aria-label="Pagination Navigation">
+            {% comment %} << {% endcomment %}
+            {% if page_obj.number > 1 %}
+                <li>
+                    <a href="?{% param_replace page=1 %}">«</a>
+                </li>
+            {% else %}
+                <li>
+                    <a class="pagination__disabled" disabled>«</a>
+                </li>
+            {% endif %}
+            {% comment %} < {% endcomment %}
+            {% if page_obj.has_previous %}
+                <li>
+                    <a href="?{% param_replace page=page_obj.previous_page_number %}">‹</a>
+                </li>
+            {% else %}
+                <li>
+                    <a class="pagination__disabled" disabled>‹</a>
+                </li>
+            {% endif %}
+            {% comment %} page 1 {% endcomment %}
+            {% if page_obj.number != 1 %}
+                <li>
+                    <a href="?{% param_replace page=1 %}">1</a>
+                </li>
+            {% else %}
+                <li class="pagination__current">
+                    <a class="pagination__disabled" disabled><span class="pagination__current">1</span></a>
+                </li>
+            {% endif %}
+            {% comment %} dots {% endcomment %}
+            {% if page_obj.number > 3 %}
+                <li>
+                    <a class="pagination__disabled" disabled><span class="pagination__dots">…</span></a>
+                </li>
+            {% endif %}
+            {% comment %} page before current page {% endcomment %}
+            {% if page_obj.number|add:"-1" > 1 %}
+                <li>
+                    <a href="?{% param_replace page=page_obj.number|add:"-1" %}">{{ page_obj.number|add:"-1" }}</a>
+                </li>
+            {% endif %}
+            {% comment %} current page {% endcomment %}
+            {% if page_obj.number != 1 and page_obj.number != page_obj.paginator.num_pages %}
+                <li class="pagination__current">
+                    <a class="pagination__disabled" disabled><span class="pagination__current">{{ page_obj.number }}</span></a>
+                </li>
+            {% endif %}
+            {% comment %} page after current page {% endcomment %}
+            {% if page_obj.number|add:"1" < page_obj.paginator.num_pages %}
+                <li>
+                    <a href="?{% param_replace page=page_obj.number|add:"1" %}">{{ page_obj.number|add:"1" }}</a>
+                </li>
+            {% endif %}
+            {% comment %} dots {% endcomment %}
+            {% if page_obj.number < page_obj.paginator.num_pages|add:"-2" %}
+                <li>
+                    <a class="pagination__disabled" disabled><span class="pagination__dots">…</span></a>
+                </li>
+            {% endif %}
+            {% comment %} last page {% endcomment %}
+            {% if page_obj.number != page_obj.paginator.num_pages %}
+                <li>
+                    <a href="?{% param_replace page=page_obj.paginator.num_pages %}">{{ page_obj.paginator.num_pages }}</a>
+                </li>
+            {% else %}
+                <li class="pagination__current">
+                    <a class="pagination__disabled" disabled><span class="pagination__current">{{ page_obj.paginator.num_pages }}</span></a>
+                </li>
+            {% endif %}
+            {% comment %}  >  {% endcomment %}
+            {% if page_obj.has_next %}
+                <li>
+                    <a href="?{% param_replace page=page_obj.next_page_number %}">›</a>
+                </li>
+            {% else %}
+                <li>
+                    <a class="pagination__disabled" disabled>›</a>
+                </li>
+            {% endif %}
+            {% comment %}  >>  {% endcomment %}
+            {% if page_obj.number < page_obj.paginator.num_pages %}
+                <li>
+                    <a href="?{% param_replace page=page_obj.paginator.num_pages %}">»</a>
+                </li>
+            {% else %}
+                <li>
+                    <a class="pagination__disabled" disabled>»</a>
+                </li>
+            {% endif %}
+        </ul>
+        {% comment %} Jump to page {% endcomment %}
+        {% if page_obj.paginator.num_pages > 1 %}
+            {% csrf_token %}
+            <form method="get">
+                {% for key, value in request.GET.items %}
+                    {% if key != "page" %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}
+                {% endfor %}
+                <div class="form-row">
+                    <label for="jump_to_page">Jump to page:</label>
+                    <div class="grid flex">
+                        <input type="number"
+                               id="jump_to_page"
+                               name="page"
+                               min="1"
+                               max="{{ page_obj.paginator.num_pages }}"
+                               value="{{ page_obj.number }}"
+                               class="pagination__jumpinput">
+                        <button type="submit" class="pagination__jumpbutton">Go</button>
+                    </div>
+                </div>
+            </form>
+        {% endif %}
+    </div>
+{% endif %}
