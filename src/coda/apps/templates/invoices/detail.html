@@ -164,7 +164,7 @@
                             {% endfor %}
                         </td>
                         <td>{{ position.cost_type }}</td>
-                        <td>{{ position.tax_rate }}</td>
+                        <td>{{ position.tax_rate|floatformat:1 }}</td>
                         <td>{{ position.cost_amount }}</td>
                     </tr>
                 {% endfor %}
