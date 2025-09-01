@@ -223,8 +223,7 @@
         --_nav-container-width: var(--_nav-container-expanded-width);
     }
 
-    .nav-container .nav span,
-    .nav-container .nav .bmftr-logo {
+    .nav-container .nav span {
         --_opacity-transition-duration: 0.1s;
         width: 0;
 
@@ -233,8 +232,7 @@
         transition: opacity var(--_opacity-transition-duration) ease-in-out;
     }
 
-    .nav-container:is(:hover, :focus-within) .nav span,
-    .nav-container:is(:hover, :focus-within) .nav .bmftr-logo {
+    .nav-container:is(:hover, :focus-within) .nav span {
         visibility: visible;
         opacity: 1;
         width: auto;

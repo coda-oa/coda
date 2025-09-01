@@ -35,4 +35,11 @@ button.undecorated {
   padding: var(--coda-form-element-spacing-horizontal) var(--coda-form-element-spacing-vertical);
   border: 1px solid var(--coda-border-color);
   border-radius: var(--coda-border-radius);
+  text-decoration: none;
+}
+
+.button.contrast {
+  background-color: var(--coda-contrast-background-color);
+  border-color: var(--coda-contrast-border-color);
+  color: var(--coda-contrast-color);
 }
