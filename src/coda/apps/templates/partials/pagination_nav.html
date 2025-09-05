@@ -102,7 +102,7 @@
                 {% endfor %}
                 <div class="form-row">
                     <label for="jump_to_page">Jump to page:</label>
-                    <div role="group">
+                    <fieldset role="group">
                         <input type="number"
                                id="jump_to_page"
                                name="page"
@@ -111,7 +111,7 @@
                                value="{{ page_obj.number }}"
                                class="pagination__jumpinput">
                         <button type="submit" class="pagination__jumpbutton outline">Go</button>
-                    </div>
+                    </fieldset>
                 </div>
             </form>
         {% endif %}

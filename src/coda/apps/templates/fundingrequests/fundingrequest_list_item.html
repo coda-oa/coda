@@ -43,6 +43,7 @@
         <p class="flex mb-0_5 mt-2">
             {% if entity.type == "Monograph" %}
                 <a href="{{ list_url }}?{% param_replace publication_type="Monograph" %}"
+                   aria-label="Filter for monographs"
                    data-tooltip="Filter for monographs"
                    class="icon-tooltip">
                     <svg class="w-6 h-6 text-gray-800 dark:text-white"
@@ -57,6 +58,7 @@
                 </a>
             {% elif entity.type == "Article" %}
                 <a href="{{ list_url }}?{% param_replace publication_type="Article" %}"
+                   aria-label="Filter for articles"
                    data-tooltip="Filter for articles"
                    class="icon-tooltip">
                     <svg class="w-6 h-6 text-gray-800 dark:text-white"
