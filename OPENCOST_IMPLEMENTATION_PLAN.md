@@ -1,258 +1,533 @@
 # OpenCost Reporting Feature Implementation Plan
 
-## Overview
+## Executive Summary
 
 Implementation plan for adding OpenCost metadata export functionality to CODA. OpenCost is a standardized XML format for exchanging publication cost data, enabling transparency in scholarly publishing costs.
 
+**Architecture**: OpenCost Bounded Context following CODA's Domain-Driven Design patterns
+**Scope**: Export CODA publication/contract data as OpenCost XML with web interface
+**Status**: Ready for Phase 1 implementation
+
+## Requirements Summary
+
+### **Functional Requirements** ✅
+- [ ] Export publication data in OpenCost XML format
+- [ ] Export contract data in OpenCost XML format
+- [ ] Support multi-institutional cost sharing for publications
+- [ ] Handle multiple invoices per publication/contract
+- [ ] Institution identifier management (ROR, ISNI, Ringold)
+- [ ] Contract identifier management (ESAC, OAI, EZB, local)
+- [ ] Contract invoice period grouping (group_id linking)
+- [ ] Interactive web reports with navigation to current CODA pages
+- [ ] Audit-compliant report snapshots
+
+### **Technical Requirements** ✅
+- [ ] Bounded context architecture (separate from other CODA domains)
+- [ ] Domain models with business logic (cost sharing validation)
+- [ ] Django models for persistence (following CODA patterns)
+- [ ] Anti-corruption layer (CODA ↔ OpenCost transformation)
+- [ ] Repository pattern for domain-Django mapping
+- [ ] Bulk query optimization for large datasets
+- [ ] Streaming XML generation for performance
+- [ ] Caching strategy for frequently accessed data
+
+### **OpenCost Schema Compliance** ✅
+- [ ] Publication `external_costsplitting` boolean field
+- [ ] Contract identifier primary/secondary types
+- [ ] Institution identifier primary/secondary types
+- [ ] Flexible date formats (YYYY, YYYY-MM, YYYY-MM-DD)
+- [ ] Multiple invoice support (`maxOccurs="unbounded"`)
+- [ ] Group ID linking mechanism for contract-publication relationships
+- [ ] All required/optional fields per OpenCost XSD
+
 ## Goals
 
-- Export CODA publication and contract data in OpenCost XML format
-- Create and save OpenCost reports for institutions
-- Support both individual publications and bulk exports
+- Export CODA publication and contract data in OpenCost XML format using efficient bulk queries
+- Create and save OpenCost reports for institutions with optimized data loading
+- Support both individual publications and bulk exports with proper performance considerations
 - Maintain data integrity and validation according to OpenCost schema
+- Respect bounded context boundaries and avoid domain model coupling
 
-## **LLM Context: Problem Domain & Key Insights** 🤖
+## Architecture Overview
 
-*This section provides comprehensive context for future LLM assistance on this project.*
+**OpenCost Bounded Context** following CODA's Domain-Driven Design:
 
-### **Project Background**
+- **Domain Layer** (`src/coda/domain/opencost/`): OpenCost schema models, business logic
+- **Application Layer** (`src/coda/apps/opencost/`): Data aggregation, transformation services
+- **Infrastructure Layer**: XML generation, web interface, API endpoints
 
-- **CODA**: Django-based system for managing publication costs, contracts, and institutional data
-- **OpenCost**: XML schema standard for exchanging publication cost data between institutions
-- **Goal**: Export CODA data in OpenCost XML format for institutional transparency and reporting
+**Key Principles:**
+- **Bounded Context Independence**: Separate domain models from other CODA contexts
+- **Anti-Corruption Layer**: Clean CODA ↔ OpenCost data transformation
+- **Query Optimization**: Bulk operations for large institutional datasets
+- **Audit Compliance**: Immutable report snapshots with navigation links
 
-### **Critical Domain Understanding**
+## Implementation Roadmap
 
-#### **OpenCost Schema Scope**
+### **Phase 1: Domain Service & Application Layer Development** ⭐ *Start Here*
 
-- **Publications**: Support `external_costsplitting` boolean field for multi-institutional cost sharing
-- **Contracts**: Do NOT support cost splitting (confirmed via XSD analysis)
-- **Institution Identifiers**: ROR, ISNI, Ringold supported in schema
-- **Contract Identifiers**: ESAC (primary), OAI, EZB, local (secondary) supported
-- **Date Formats**: Flexible YYYY, YYYY-MM, YYYY-MM-DD support required
-
-#### **CODA Architecture Insights**
-
-- **Invoice Bounded Context**: All cost management happens here, not in Publication domain
-- **Domain-Driven Design**: Separate domain models from Django models with transformation layers
-- **Link Pattern**: Existing flexible identifier system for publications serves as template
-- **Cost Types**: Separate `PublicationCostType` and `ContractCostType` enums already OpenCost-compliant
-
-#### **Key Technical Decisions Made**
-
-1. **Cost Splitting is Publication-Only**: OpenCost XSD confirms no cost splitting for contracts
-2. **Invoice Context for Cost Data**: Cost splitting belongs with positions, not publications themselves
-3. **Future-Proof Identifiers**: Use type/value pattern like CODA's Link system for extensibility
-4. **Multi-Institutional Support**: Beyond binary splitting - track specific amounts per institution
-
-### **Architecture Patterns to Follow**
-
-#### **Domain Model Structure**
-
-```python
-# Example of CODA's pattern - Domain model separate from Django
-@dataclass(slots=True, frozen=True, kw_only=True)
-class PublicationCostSharingArrangement:
-    shares: list[InstitutionCostShare]
-    # Rich domain behavior methods here
-```
-
-#### **Identifier System Pattern**
-
-```python
-# Follow CODA's Link pattern for maximum flexibility
-class InstitutionIdentifier(models.Model):
-    institution = models.ForeignKey(Institution, related_name="identifiers")
-    type = models.CharField(max_length=50)  # No enum - fully flexible
-    value = models.CharField(max_length=255)
-```
-
-### **Common Pitfalls to Avoid**
-
-- ❌ Adding cost splitting to contract positions (OpenCost doesn't support it)
-- ❌ Storing cost splitting data in Publication model (belongs in invoice context)
-- ❌ Using rigid enums for identifier types (prevents future OpenCost evolution)
-- ❌ Assuming simple boolean for cost splitting (users need detailed financial tracking)
-
-### **Integration Points**
-
-- **Existing CODA Models**: Publication, Contract, Institution, Invoice, Position
-- **Domain Models**: `/app/src/coda/domain/opencost/` already implemented
-- **Pattern Consistency**: Follow CODA's Link system for new identifier models
-- **Data Transformation**: Domain models ↔ Django models ↔ OpenCost XML
-
-### **Validation Requirements**
-
-- Cost sharing amounts must sum to position total
-- Only publication positions can have cost sharing
-- Institution identifiers must follow OpenCost type constraints
-- Contract invoice groups need unique IDs within contract scope
-
-### **User Experience Considerations**
-
-- Users want detailed financial breakdown, not just "split/not split"
-- Administrative interface needed for managing identifier types
-- Cost sharing UI should validate totals in real-time
-- Export should handle missing data gracefully (OpenCost has many optional fields)
-
-### **Files to Reference for Context**
-
-- **OpenCost Schema**: `/app/src/coda/domain/opencost/opencost.xsd`
-- **OpenCost Docs**: `/app/src/coda/domain/opencost/opencost_docs.md`
-- **CODA Invoice Domain**: `/app/src/coda/domain/invoice.py`
-- **CODA Link Pattern**: `/app/src/coda/apps/publications/models/_link.py`
-- **Existing Domain Models**: `/app/src/coda/domain/opencost/_*.py`
-
-### **Conversation Evolution & Key Insights**
-
-#### **Major Architectural Realizations**
-
-1. **Cost Splitting Complexity**: Started with simple boolean, evolved to understand users need detailed multi-institutional financial tracking
-2. **Domain Boundary Respect**: Realized cost splitting belongs in invoice bounded context, not publication domain
-3. **OpenCost Schema Analysis**: Discovered cost splitting only applies to publications, not contracts (confirmed via XSD)
-4. **Future-Proofing Need**: Identifier systems must accommodate future OpenCost schema evolution without database changes
-
-#### **Decision Evolution Timeline**
-
-- **Initial**: Simple boolean `external_cost_splitting` field on Publication
-- **Correction 1**: Move to invoice context (proper bounded context)
-- **Correction 2**: Multi-institutional support with specific amounts
-- **Final**: Publication-only cost sharing with detailed financial tracking
-
-#### **Critical Schema Understanding**
-
-- OpenCost XSD line 23: `external_costsplitting` only in `publication_type`, not `contract_type`
-- Users need "which institutions pay how much" not just "is split or not"
-- CODA's existing cost type enums already match OpenCost requirements perfectly
-
-#### **Implementation Readiness Checklist**
-
-- ✅ OpenCost schema requirements understood
-- ✅ CODA architecture patterns identified
-- ✅ Data model gaps analyzed
-- ✅ Future-proof identifier system designed
-- ✅ Cost splitting complexity properly scoped
-- ✅ Domain boundaries respected
-- 🚧 Ready for Phase 1.1 implementation
-
-## **Implementation Roadmap**
-
-### **Phase 1: Data Model Enhancements** ⭐ *Start Here*
-
-**Objective**: Add missing data models using future-proof identifier patterns
+**Objective**: Build application layer services that transform CODA data using existing OpenCost domain models
 **Duration**: 1-2 sprints
 **Status**: Ready to begin
 
-#### **1.1 Critical Foundation Models**
+#### **1.1 OpenCost Data Aggregation Services**
 
-- **Institution Identifiers**: Flexible system for ROR, ISNI, Ringold IDs
-- **Contract Identifiers**: ESAC, OAI, EZB, local identifier support
-- **Invoice Groups**: Contract invoice grouping with periods
-- **Cost Splitting**: Multi-institutional publication cost sharing with detailed financial tracking
+**File**: `src/coda/apps/opencost/data_aggregation.py`
+- **Bulk Data Loading**: Efficient queries using `select_related`, `prefetch_related` for report generation
+- **Publication Data Aggregation**: Single query to load publications with related invoices, contracts, authors
+- **Contract Data Aggregation**: Optimized loading of contracts with invoice groups and cost data
+- **Invoice Grouping**: Efficient grouping and aggregation of invoice data by contract periods
 
-#### **1.2 Data Enhancement Tasks**
+#### **1.2 OpenCost Domain Models (Bounded Context)**
 
-- **Publication-Contract Linking**: Group-based linking for invoice periods
-- **Flexible Date Support**: YYYY, YYYY-MM, YYYY-MM-DD formats
-- **VAT Handling**: Dual VAT approach support
+**File**: `src/coda/domain/opencost/report_models.py` (New)
+- **OpenCost-Specific Value Objects**: OpenCostPublicationCost, OpenCostContractCost, OpenCostInstitution
+- **Report Aggregates**: OpenCostReport with publications, contracts, metadata
+- **Domain Rules**: Cost calculation, date formatting, identifier validation within OpenCost context
+- **No External Dependencies**: OpenCost domain models remain independent of other bounded contexts
+
+#### **1.3 Transformation Services (Anti-Corruption Layer)**
+
+**File**: `src/coda/apps/opencost/transformers.py`
+- **Data Conversion**: Transform Django model data → OpenCost domain models
+- **Bounded Context Translation**: Map CODA concepts to OpenCost equivalents without domain coupling
+- **Batch Processing**: Process large datasets efficiently for report generation
+- **Data Validation**: Ensure OpenCost schema compliance during transformation
+
+#### **1.4 Optimized Query Strategies**
+
+#### **1.4 Supporting Data Models**
+
+#### **1.4 Optimized Query Strategies**
+
+**File**: `src/coda/apps/opencost/queries.py`
+- **Publication Report Query**: Single query with joins for publications + invoices + contracts + institutions
+- **Contract Report Query**: Optimized loading of contract data with related invoice groups and payments
+- **Bulk Processing**: Pagination and batching for large institutions with thousands of publications
+- **Query Performance**: Use raw SQL or custom QuerySets for complex aggregations when needed
+
+The bounded context will implement efficient data loading patterns following CODA's established query optimization approaches.
 
 ---
 
-### **Phase 2: Service Layer Development**
+### **Phase 2: Bounded Context Services & Anti-Corruption Layer**
 
-**Objective**: Build transformation services and validation logic
+**Objective**: Build transformation services that respect bounded context boundaries
 **Duration**: 2-3 sprints
 
-#### **2.1 Core Services**
+#### **2.1 Anti-Corruption Layer**
 
-- **Data Transformation**: CODA → OpenCost mapping
-- **Validation Engine**: OpenCost schema compliance
-- **Data Aggregation**: Contract and publication grouping
+**File**: `src/coda/apps/opencost/anti_corruption.py`
+- **Context Translation**: Convert CODA models to OpenCost-specific structures without domain coupling
+- **Data Mapping**: Transform CODA Publication → OpenCost Publication (not shared domain objects)
+- **Invoice Transformer**: CODA Invoice → OpenCost invoice types
+- **Institution Transformer**: CODA Institution → OpenCost InstitutionType
+
+#### **2.2 Business Logic Services**
+
+**File**: `src/coda/apps/opencost/domain_services.py`
+- **Report Generation Orchestration**: Coordinate data collection and transformation
+- **Validation Services**: Ensure OpenCost schema compliance using domain models
+- **Data Consistency Checks**: Verify group_id linking and referential integrity
 
 ---
 
-### **Phase 3: Export Engine Implementation**
+### **Phase 3: XML Generation & Infrastructure Layer**
 
-**Objective**: Create XML generation and data aggregation engines with web viewing capability
+**Objective**: Create XML serialization and web interface using transformed domain models
 **Duration**: 2-3 sprints
 
-#### **3.1 Export Features**
+#### **3.1 XML Generation Services**
 
-- **XML Generation**: Standards-compliant OpenCost output
-- **Report Storage**: Database persistence for generated reports
-- **Report Management**: Create, view, download, and regenerate reports
-- **Web Interface**: HTML display of report content and metadata
-- **Download Options**: XML file download functionality
+**File**: `src/coda/apps/opencost/xml_generation.py`
+- **OpenCost XML Serialization**: Convert OpenCost domain models to XML using Pydantic
+- **Schema Validation**: Ensure generated XML complies with opencost.xsd
+- **Multi-Entity Reports**: Handle publications + contracts in single XML document
 
-#### **3.2 Report Model Structure - Interactive Web Reports**
+#### **3.2 Web Interface & API**
 
-**Design Philosophy**: Store both XML content for download AND relational links for interactive web viewing
+**File**: `src/coda/apps/opencost/views.py`
+- **Report Management UI**: Create, view, download OpenCost reports
+- **Interactive Report Display**: Web-friendly presentation of OpenCost data
+- **Download Endpoints**: XML file generation and delivery
 
-```python
-class OpenCostReport(models.Model):
-    """Stored OpenCost reports for web viewing and download"""
-    institution = models.ForeignKey(Institution, on_delete=models.CASCADE)
-    title = models.CharField(max_length=255)  # e.g., "2024 Annual Report"
-    report_period_start = models.DateField()
-    report_period_end = models.DateField()
-    generated_at = models.DateTimeField(auto_now_add=True)
-    generated_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    xml_content = models.TextField()  # Store the OpenCost XML for download
-    summary_stats = models.JSONField()  # Publication/contract counts, totals
+#### **3.3 Report Storage & Metadata**
 
-    class Meta:
-        ordering = ['-generated_at']
+**Goal**: Store report metadata for audit compliance while leveraging domain models for business logic
+- **Report Snapshots**: Immutable data for institutional reporting requirements
+- **XML Content Storage**: Generated XML for consistent downloads
+- **Regeneration Capability**: Re-run transformation using current domain logic
 
-class OpenCostReportPublication(models.Model):
-    """Links publications included in an OpenCost report"""
-    report = models.ForeignKey(OpenCostReport, on_delete=models.CASCADE, related_name="publications")
-    publication = models.ForeignKey('publications.Publication', on_delete=models.CASCADE)
-    cost_total = models.DecimalField(max_digits=20, decimal_places=4)
-    currency = models.CharField(max_length=3)
-    has_cost_splitting = models.BooleanField()
+---
 
-    class Meta:
-        unique_together = ('report', 'publication')
+## **Test-Driven Development Strategy**
 
-class OpenCostReportContract(models.Model):
-    """Links contracts included in an OpenCost report"""
-    report = models.ForeignKey(OpenCostReport, on_delete=models.CASCADE, related_name="contracts")
-    contract = models.ForeignKey('contracts.Contract', on_delete=models.CASCADE)
-    cost_total = models.DecimalField(max_digits=20, decimal_places=4)
-    currency = models.CharField(max_length=3)
-    invoice_count = models.IntegerField()
+*Following CODA's TDD practices with clear Given/When/Then scenarios for all OpenCost functionality.*
 
-    class Meta:
-        unique_together = ('report', 'contract')
+### **Domain Model Tests - Cost Sharing Logic**
+*Location: `tests/domain/test_invoice_cost_sharing.py`*
 
-class OpenCostReportInvoice(models.Model):
-    """Links invoices included in an OpenCost report"""
-    report = models.ForeignKey(OpenCostReport, on_delete=models.CASCADE, related_name="invoices")
-    invoice = models.ForeignKey('invoices.Invoice', on_delete=models.CASCADE)
-    # Link to publication or contract
-    publication = models.ForeignKey('publications.Publication', on_delete=models.CASCADE, null=True, blank=True)
-    contract = models.ForeignKey('contracts.Contract', on_delete=models.CASCADE, null=True, blank=True)
+#### **Cost Share Creation and Validation**
 
-    class Meta:
-        unique_together = ('report', 'invoice')
-        constraints = [
-            models.CheckConstraint(
-                check=(
-                    models.Q(publication__isnull=False, contract__isnull=True) |
-                    models.Q(publication__isnull=True, contract__isnull=False)
-                ),
-                name='invoice_belongs_to_publication_or_contract'
-            )
-        ]
+**Valid Cost Sharing Arrangement Creation**
+- **GIVEN**: A publication position with €1000 cost
+- **WHEN**: Creating cost shares for 2 institutions (€600 + €400)
+- **THEN**: Cost sharing arrangement validates successfully with complete split
+
+**Invalid Cost Sharing Sum Validation**
+- **GIVEN**: A publication position with €1000 cost
+- **WHEN**: Creating cost shares that sum to €900 (incomplete)
+- **THEN**: Validation fails indicating incomplete cost coverage
+
+**Single Institution Payment Detection**
+- **GIVEN**: A publication position paid by single institution
+- **WHEN**: Checking external cost splitting status
+- **THEN**: Returns False (no external cost splitting)
+
+**Contract Position Cost Sharing Restriction**
+- **GIVEN**: A contract position (not publication)
+- **WHEN**: Attempting to add cost sharing
+- **THEN**: Validation error raised (contracts don't support cost splitting per OpenCost)
+
+### **Django Model Tests - Persistence and Constraints**
+*Location: `tests/models/test_opencost_cost_sharing.py`*
+
+#### **Database Constraint Testing**
+
+**Cost Share Unique Constraint Enforcement**
+- **GIVEN**: A publication position with existing cost share for institution
+- **WHEN**: Creating duplicate cost share for same position+institution
+- **THEN**: Database constraint prevents duplicate with IntegrityError
+
+**Publication-Only Cost Share Constraint**
+- **GIVEN**: A contract position (no publication)
+- **WHEN**: Attempting to create cost share
+- **THEN**: Database constraint prevents creation with IntegrityError
+
+**Cost Sharing Domain Model Conversion**
+- **GIVEN**: A publication position with cost shares in database
+- **WHEN**: Converting to domain model via enhanced Position
+- **THEN**: Returns proper PublicationCostSharingArrangement with all shares
+
+### **Service Layer Tests - Data Transformation**
+*Location: `tests/services/test_opencost_transformation.py`*
+
+#### **CODA to OpenCost Transformation**
+
+**Multi-Institution Publication Transformation**
+- **GIVEN**: A CODA publication with multi-institutional cost sharing
+- **WHEN**: Transforming to OpenCost format
+- **THEN**: external_costsplitting=true and correct cost data structure
+
+**Single Institution Publication Transformation**
+- **GIVEN**: A CODA publication paid by single institution
+- **WHEN**: Transforming to OpenCost format
+- **THEN**: external_costsplitting=false
+
+**Contract with Invoice Groups Transformation**
+- **GIVEN**: A CODA contract with invoice groups and group_id
+- **WHEN**: Transforming to OpenCost format
+- **THEN**: Contract has correct invoice_group with group_id and all invoices
+
+### **Integration Tests - End-to-End Workflows**
+*Location: `tests/integration/test_opencost_report_generation.py`*
+
+#### **Complete Report Generation**
+
+**Complex Institution Report Generation**
+- **GIVEN**: Institution with publications having cost sharing + contracts with groups
+- **WHEN**: Generating complete OpenCost report
+- **THEN**: XML validates against schema with correct cost splitting data
+
+**Report XML Structure Validation**
+- **GIVEN**: Generated OpenCost report with cost sharing data
+- **WHEN**: Parsing XML structure
+- **THEN**: Contains proper publication elements with external_costsplitting flags
+
+### **Performance Tests - Bulk Operations**
+*Location: `tests/performance/test_opencost_bulk_operations.py`*
+
+#### **Large Dataset Performance**
+
+**Bulk Cost Sharing Query Performance**
+- **GIVEN**: 1000 publications with cost sharing data
+- **WHEN**: Generating OpenCost report
+- **THEN**: Completes within 30 seconds with <100 database queries
+
+**Memory Usage Optimization**
+- **GIVEN**: Large institution with thousands of publications
+- **WHEN**: Processing cost sharing calculations
+- **THEN**: Memory usage remains below 500MB throughout process
+
+### **Schema Validation Tests**
+*Location: `tests/validation/test_opencost_schema.py`*
+
+#### **OpenCost XML Compliance**
+
+**Cost Splitting XML Schema Validation**
+- **GIVEN**: Generated OpenCost XML with cost splitting data
+- **WHEN**: Validating against OpenCost XSD schema
+- **THEN**: All elements validate without schema errors
+
+**Required Field Presence Validation**
+- **GIVEN**: OpenCost publication with external cost splitting
+- **WHEN**: Checking required fields in XML
+- **THEN**: All mandatory elements present (external_costsplitting, cost_data, etc.)
+
+### **Test Execution Strategy**
+
+- **Red-Green-Refactor**: Write failing test, make it pass, refactor
+- **Test Categories**: Unit (fast), Integration (thorough), Performance (separate)
+- **Coverage Targets**: Domain 100%, Models 95%, Services 90%
+- **CI Integration**: All tests must pass before merge
+
+---
+
+## **Detailed Implementation Strategy**
+
+### **Bounded Context Architecture**
+
+#### **OpenCost Bounded Context (Independent)**
+- **Location**: `src/coda/domain/opencost/`, `src/coda/apps/opencost/`
+- **Components**: OpenCost-specific domain models, aggregation services, report generation
+- **Isolation**: No direct references to Publication, Contract, or Invoice domain models
+- **Communication**: Data transfer via application services, not shared domain objects
+
+#### **Application Layer (Anti-Corruption)**
+- **Location**: `src/coda/apps/opencost/`
+- **Components**: Data aggregation, transformation services, optimized queries
+- **Responsibility**: Convert CODA data → OpenCost data, bulk processing, persistence
+
+#### **Infrastructure Layer (Performance-Optimized)**
+- **Components**: Efficient XML serialization, bulk report generation, web interfaces
+- **Responsibility**: High-performance data export, user interaction, file delivery
+
+### **Key Implementation Patterns**
+
+#### **Bounded Context Pattern**
+
+The anti-corruption layer will convert CODA publication data to OpenCost-specific structures using efficient bulk queries and transformation services, maintaining complete independence between the bounded contexts.
+
+#### **Repository Pattern Implementation**
+
+The OpenCost bounded context will implement repository patterns for efficient data access and transformation, following CODA's established architectural patterns.
+
+#### **Performance Optimization Strategy**
+
+Report generation will use optimized bulk queries, batched transformations, and streaming XML serialization to handle large datasets efficiently while maintaining memory efficiency.
+
+### **Performance Considerations**
+
+#### **Query Optimization Strategies**
+- **Bulk Loading**: Use `select_related` and `prefetch_related` to minimize database queries
+- **Aggregation at Database Level**: Calculate totals and counts in SQL rather than Python
+- **Pagination**: Process large datasets in chunks to avoid memory issues
+- **Raw SQL**: Use custom SQL for complex aggregations when Django ORM is insufficient
+
+#### **Memory Management**
+- **Streaming XML Generation**: Generate XML in chunks for very large reports
+- **Lazy Evaluation**: Use generators and iterators for large datasets
+- **Garbage Collection**: Explicit cleanup for large data processing
+
+#### **Caching Strategy**
+- **Institution Data**: Cache institution identifiers and metadata
+- **Report Metadata**: Cache report generation statistics and summaries
+- **Template Data**: Cache frequently accessed configuration data
+
+The bounded context will implement these optimization patterns using established CODA approaches.
+
+### **Django Integration Layer**
+
+The OpenCost bounded context will include minimal Django models for:
+- Report metadata persistence
+- OpenCost-specific identifiers (ROR, ISNI, ESAC IDs) using CODA's established Link patterns
+- Anti-corruption layer between CODA and OpenCost formats
+
+---
+
+## **Architecture Alignment**
+
+### **✅ Domain-Driven Design Approach**
+
+**Implementation Strategy**:
+- **Domain Layer**: Leverage existing OpenCost Pydantic models in `src/coda/domain/opencost/`
+- **Application Layer**: Create services, repositories, minimal Django models in `src/coda/apps/opencost/`
+- **Infrastructure Layer**: XML generation, web views, API endpoints
+
+### **✅ Bounded Context Benefits**
+
+1. **Phase 1**: Application layer services transforming CODA to OpenCost formats
+2. **Phase 2**: Domain service orchestration and business logic coordination
+3. **Phase 3**: Infrastructure layer for XML generation and web interface
+
+### **✅ Key Advantages**
+
+- **Separation of Concerns**: Business logic in domain, persistence in application layer
+- **Leverage Existing Code**: OpenCost domain models already implement schema compliance
+- **Maintainability**: Clear boundaries between domain rules and infrastructure concerns
+- **Testability**: Domain logic can be tested independently of Django infrastructure
+
+---
+
+## **🎯 Complete Bounded Context Implementation Strategy - Ready to Execute!**
+
+### **Implementation Notes**
+
+The above transformation services will handle the complex mapping between CODA's domain model and OpenCost requirements, including:
+- Publication-contract linking via `group_id` mechanism
+- Multi-invoice support for both publications and contracts
+- Institution identifier mapping (ROR, ISNI, etc.)
+- Cost splitting data transformation
+- Date format conversion (YYYY, YYYY-MM, YYYY-MM-DD)
+- VAT handling according to OpenCost schema
+
+---
+
+## **🎯 Complete DDD Implementation Strategy - Ready to Execute!**
+
+### **Export & Reporting Strategy - Finalized ✅**
+
+- **Generation**: On-demand report creation (primarily yearly, flexible timing)
+- **Storage**: Database persistence with snapshot approach for audit trails
+- **Web Interface**: HTML viewing with clickable navigation to current CODA pages
+- **Download**: XML file download for external system integration
+- **Management**: List, view, regenerate reports through web interface
+
+### **All Requirements Clarified ✅**
+
+1. ✅ **Institution Identifiers**: Starting fresh (no existing data migration)
+2. ✅ **User Permissions**: Single-institution deployment (no cross-institutional concerns)
+3. ✅ **Contract Invoice Groups**: OpenCost billing period grouping requirements understood
+4. ✅ **Export Strategy**: On-demand generation with web viewing and database storage
+5. ✅ **Data Consistency**: Snapshot approach for audit compliance and regulatory requirements
+6. ✅ **Architecture**: Bounded context with anti-corruption layer and query optimization
+7. ✅ **Performance**: Bulk processing strategies for large institutions and datasets
+
+### **Architectural Principles Established ✅**
+
+#### **Bounded Context Independence**
+- OpenCost has its own domain models, separate from CODA Publication/Contract/Invoice contexts
+- No shared domain objects between contexts - data transfer via application services only
+- OpenCost business rules and validation contained within its bounded context
+
+#### **Query Performance Optimization**
+- Bulk data loading using `select_related` and `prefetch_related` patterns
+- Database-level aggregation to minimize memory usage and processing time
+- Streaming XML generation for very large reports
+- Pagination and batching for institutions with thousands of publications
+
+#### **Anti-Corruption Layer Pattern**
+- Application services transform CODA data → OpenCost-specific structures
+- No direct references to other domain models from OpenCost context
+- Clean mapping layer that can evolve independently
+
+### **Technical Foundation Ready ✅**
+
+- **Bounded Context**: Independent OpenCost domain with optimized models for reporting performance
+- **Anti-Corruption Layer**: Clean separation between CODA and OpenCost contexts via application services
+- **Query Optimization**: Bulk data loading strategies to handle large institutions efficiently
+- **Domain Independence**: OpenCost models don't share dependencies with other CODA contexts
+- **OpenCost Compliance**: Schema requirements fully analyzed with performance-optimized implementation
+- **Memory Management**: Streaming and batching strategies for large report generation
+- **Audit Compliance**: Immutable report snapshots with efficient data aggregation
+
+**Status**: 📋 Planning phase complete - Ready for Phase 1.1 implementation using bounded context architecture
+**Next Step**: Begin Phase 1.1 - Optimized Data Aggregation Services (independent OpenCost context)
+**Architecture**: Bounded Context with anti-corruption layer + performance-optimized bulk processing
+**Last Updated**: September 5, 2025
+The bounded context will implement audit fields and data integrity constraints using established CODA patterns.
+
+**Benefits of Snapshot-Based Report Storage**:
+- ✅ **Immutable Reports**: Report data never changes after generation (audit compliance)
+- ✅ **Interactive Navigation**: Click publications/contracts → current CODA detail pages
+- ✅ **Data Change Detection**: Visual indicators when current data differs from report
+- ✅ **Historical Accuracy**: Reports reflect data as it existed at generation time
+- ✅ **Audit Trail**: Complete lineage of what data was included and when
+- ✅ **Performance**: Pre-computed totals for fast web display
+- ✅ **Regulatory Compliance**: Meets financial reporting standards for immutability
+
+**User Experience Pattern**:
+```html
+<!-- Report shows snapshot data with change indicators -->
+<div class="publication-row">
+  <h4>{{ report_pub.publication_title }}</h4>  <!-- Frozen snapshot -->
+  <span class="cost">{{ report_pub.cost_total }} {{ report_pub.currency }}</span>
+  {% if report_pub.has_data_changed %}
+    <span class="badge warning">Data Updated Since Report</span>
+  {% endif %}
+  <a href="{{ report_pub.get_current_publication_url }}">View Current Details →</a>
+</div>
 ```
 
-**Benefits of Relational Report Storage**:
-- ✅ **Interactive Navigation**: Click publications/contracts/invoices → detailed CODA pages
-- ✅ **Performance**: Pre-computed cost totals and statistics for fast web display
-- ✅ **Data Integrity**: Links maintained even if underlying data changes
-- ✅ **Flexible Views**: Filter, sort, and search within reports
-- ✅ **Audit Trail**: Track which exact objects were included in each report
-- ✅ **XML Availability**: Still provides downloadable OpenCost XML for external systems
+#### **3.3 Data Consistency Strategy - Why Snapshot Approach?**
+
+**Problem**: Publication/invoice data can change after report generation
+
+**Alternative Approaches Considered**:
+
+1. **Live Links Only** ❌
+   - Reports would change when underlying data changes
+   - Violates audit requirements for institutional reporting
+   - Year-over-year comparisons become impossible
+
+2. **Complete Data Duplication** ❌
+   - Massive storage overhead
+   - Complex synchronization logic
+   - Difficult to maintain
+
+3. **Snapshot Key Fields** ✅ **CHOSEN APPROACH**
+   - Store critical display fields (title, DOI, costs) at report time
+   - Maintain links for navigation to current data
+   - Detect and indicate when data has changed
+   - Balances auditability with usability
+
+**Real-World Parallel**: Similar to how financial systems handle month-end closing - the report is locked, but you can still drill down to see current account status.
+
+#### **3.4 Decision Rationale Documentation** 📋
+
+**Context**: During implementation planning (September 2025), we faced a critical design decision about how to handle data consistency in OpenCost reports when underlying publication/invoice data changes after report generation.
+
+**Key Question**: Should reports reflect current data (live) or snapshot data (frozen)?
+
+**Stakeholder Considerations Identified**:
+
+1. **Institutional Reporting Needs**
+   - Annual reports to funding agencies (requires stable data)
+   - Multi-year trend analysis (needs historical consistency)
+   - Audit compliance (regulatory requirement for immutable records)
+
+2. **User Experience Requirements**
+   - Report viewing months after generation
+   - Navigation to detailed CODA pages
+   - Understanding when data has changed since report creation
+
+3. **Technical Constraints**
+   - OpenCost XML must be downloadable and stable
+   - Web interface should be interactive and performant
+   - System should handle publication deletions gracefully
+
+**Analysis of Alternative Approaches**:
+
+| Approach | Storage | Audit Compliance | User Experience | Technical Complexity |
+|----------|---------|------------------|-----------------|---------------------|
+| **Live Links Only** | Minimal | ❌ Reports change | ❌ Confusing | Low |
+| **Full Data Duplication** | Very High | ✅ Complete | ✅ Self-contained | Very High |
+| **Key Field Snapshots** | Medium | ✅ Stable core data | ✅ Best of both | Medium |
+
+**Decision Made**: **Key Field Snapshots** (Hybrid Approach)
+
+**Justification**:
+- **Regulatory**: Meets audit requirements for institutional reporting
+- **Practical**: Balances storage efficiency with data stability
+- **Usable**: Provides both stable report data AND current detail access
+- **Industry Standard**: Follows financial systems best practices (QuickBooks, SAP)
+
+**Implementation Compromise**: Store essential display fields (title, DOI, costs) as snapshots while maintaining foreign key relationships for navigation to current data.
+
+**Future Consideration**: If storage becomes an issue, we can implement data archiving strategies, but the core snapshot approach should remain for audit compliance.
+
+**Date of Decision**: September 5, 2025
+**Decision Participants**: Technical team, understanding institutional reporting requirements
 
 ---
 
@@ -353,112 +628,84 @@ class OpenCostReportInvoice(models.Model):
 **Files**: New models extending institution system
 **Pattern**: Follow CODA's Link pattern for maximum extensibility
 
-#### **Recommended Approach: Dedicated InstitutionIdentifier Model**
+#### **Recommended Approach: Institution Identifier Support**
 
-```python
-class InstitutionIdentifier(models.Model):
-    """Flexible institution identifiers - future-proof design"""
-    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name="identifiers")
-    type = models.CharField(max_length=50)  # ror, isni, ringold, local, etc.
-    value = models.CharField(max_length=255)
-
-    class Meta:
-        unique_together = ('institution', 'type')
-
-    def __str__(self):
-        return f"{self.institution.name} - {self.type}: {self.value}"
-```
+For OpenCost compliance, institutions will need identifier support (ROR, ISNI, Ringold). This will be implemented following CODA's existing Link pattern for flexibility.
 
 **Benefits**:
-
 - ✅ **Zero schema changes** for new OpenCost identifier types
-- ✅ **Simple querying**: `institution.identifiers.filter(type='ror')`
-- ✅ **Type safety**: Consistent with CODA patterns
-- ✅ **Performance**: Direct foreign key relationships
+- ✅ **Simple querying**: Following established CODA patterns
+- ✅ **Type safety**: Consistent with CODA architecture
+- ✅ **Performance**: Optimized for bulk report generation
 
-### **1.2 Contract Identifiers (Future-Proof Design)**
+### **Contract Identifier Support**
 
-**Task**: Create flexible contract identifier system
-**Files**: New models for contract identifiers
-**Pattern**: Mirror Institution identifier approach
+Similarly, contracts will need identifier support for OpenCost (ESAC, OAI, EZB, local) following the same flexible pattern.
 
-```python
-class ContractIdentifier(models.Model):
-    """Flexible contract identifiers - future-proof design"""
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="identifiers")
-    type = models.CharField(max_length=50)  # esac, oai, ezb, local, etc.
-    value = models.CharField(max_length=255)
+**Task**: Create flexible contract identifier system following CODA patterns
+**Files**: Contract identifier support
+**Pattern**: Mirror Institution identifier approach for consistency
 
-    class Meta:
-        unique_together = ('contract', 'type')
+### **Cost Sharing Support for Publications**
 
-    def __str__(self):
-        return f"{self.contract.title} - {self.type}: {self.value}"
-```
+**Critical Requirement**: Support publication cost sharing between institutions as required by OpenCost schema.
 
-### **1.3 Multi-Institution Cost Sharing (Publication-Only)**
+**Invoice Domain Integration**: Cost sharing should be implemented as part of the invoice domain model since it represents real-world payment arrangements. When a publication position is paid by multiple institutions, this needs to be captured at the position level.
 
-**Task**: Create comprehensive cost-sharing system for publication cost sharing
-**Files**: New models for institutional cost sharing in invoice bounded context
-**Understanding**: CODA users need to track which institutions pay how much for publication positions. OpenCost only supports cost splitting for publications, not contracts.
+**OpenCost Mapping**:
+- **`external_costsplitting`**: Boolean field derived from whether a publication position has multiple institutional cost shares
+- **Business Logic**: Only publications support cost splitting (contracts do not in OpenCost schema)
+- **Data Source**: Publication position cost shares within invoice positions
 
-#### **Domain Models for Publication Cost Sharing**
+**Domain Model Requirements**:
+1. **Publication Position Cost Shares**: Track which institutions pay what portion of a publication position
+2. **Cost Share Validation**: Ensure shares sum to the total position cost
+3. **External Cost Splitting Detection**: Derive OpenCost `external_costsplitting` flag from presence of multiple institutional shares
+4. **Integration Point**: Anti-corruption layer transforms invoice cost sharing data to OpenCost format
 
-```python
-# New domain model: /app/src/coda/domain/invoice.py
-@dataclass(slots=True, frozen=True, kw_only=True)
-class InstitutionCostShare:
-    """Represents one institution's share of a publication position's cost"""
-    institution_id: int  # Reference to Institution
-    amount: Money
-    cost_type: PublicationCostType  # Only publications support cost sharing
-    percentage: Decimal | None = None  # Optional percentage for validation
+**Key Insight**: This belongs in the invoice domain because it represents actual payment arrangements captured when invoices are processed, not just OpenCost export metadata.
 
-@dataclass(slots=True, frozen=True, kw_only=True)
-class PublicationCostSharingArrangement:
-    """Collection of institutional cost shares for a publication position"""
-    shares: list[InstitutionCostShare]
+### **Implementation Strategy Summary**
 
-    def total_amount(self) -> Money:
-        """Sum of all institutional shares"""
-        if not self.shares:
-            return Money("0", Currency.EUR)
-        currency = self.shares[0].amount.currency
-        return sum((share.amount for share in self.shares), Money("0", currency))
+The bounded context approach will handle:
+- **Institution Identifiers**: Support for ROR, ISNI, Ringold IDs using CODA's flexible patterns
+- **Contract Identifiers**: ESAC, OAI, EZB, local identifiers with the same flexibility
+- **Cost Sharing**: Publication-level cost sharing between institutions as required by OpenCost
+- **Performance Optimization**: Bulk data loading and efficient query patterns for large institutions
+- **Domain Independence**: OpenCost models isolated from other CODA contexts
 
-    def is_complete_split(self, position_cost: Money) -> bool:
-        """Verify that shares sum to position total"""
-        return self.total_amount() == position_cost
+### **Invoice Domain Model Enhancements**
 
-    def participating_institutions(self) -> list[int]:
-        """Get list of institution IDs involved in cost sharing"""
-        return [share.institution_id for share in self.shares]
+**Critical**: Publication cost sharing must be integrated into the invoice domain model, not just the OpenCost bounded context.
 
-# Enhanced Position (Publication only) with cost sharing
-@dataclass(slots=True, frozen=True, kw_only=True)
-class Position(CommonPosition[PublicationItemType, PublicationCostType]):
-    item: PublicationItemType
-    cost_type: PublicationCostType
-    cost_sharing: PublicationCostSharingArrangement | None = None  # Only for publications
+**Required Changes to `/app/src/coda/domain/invoice.py`**:
 
-    def has_external_cost_splitting(self) -> bool | None:
-        """OpenCost external_costsplitting derived from cost_sharing"""
-        if self.cost_sharing is None:
-            return None  # Unknown
-        return len(self.cost_sharing.shares) > 1  # True if multiple institutions
+1. **Cost Share Domain Models**:
+   - `InstitutionCostShare` - individual institution's portion of a position cost
+   - `PublicationCostSharingArrangement` - collection of institutional shares
+   - Enhanced `Position` class with optional cost sharing for publication positions
 
-# ContractPosition remains unchanged (no cost sharing)
-@dataclass(slots=True, frozen=True, kw_only=True)
-class ContractPosition(CommonPosition[ContractYear, ContractCostType]):
-    item: ContractYear
-    cost_type: ContractCostType
-    # No cost_sharing field - contracts don't support cost splitting in OpenCost
-```
+2. **Business Logic**:
+   - Validation that cost shares sum to position total
+   - `has_external_cost_splitting()` method for OpenCost export
+   - Publication-only constraint (contracts don't support cost splitting per OpenCost)
 
-#### **Django Models for Publication Cost Sharing**
+3. **Integration Points**:
+   - Django model extensions for cost share persistence
+   - Repository pattern updates for cost share CRUD operations
+   - Anti-corruption layer mapping to OpenCost schema
+
+**Why Invoice Domain**: Cost sharing represents real payment arrangements when invoices are processed, making it core invoice domain logic rather than export-specific metadata.
+
+### **Django Models for Domain Persistence**
+
+**Architecture**: Domain models contain business logic, Django models provide persistence mapping following CODA's established patterns.
+
+#### **Cost Sharing Django Models**
 
 ```python
-# New models: /app/src/coda/apps/invoices/models.py
+# src/coda/apps/invoices/models.py - Extensions
+
 class PublicationPositionCostShare(models.Model):
     """Individual institution's share of a publication position's cost"""
     position = models.ForeignKey(
@@ -485,7 +732,7 @@ class PublicationPositionCostShare(models.Model):
     def __str__(self):
         return f"{self.institution.name}: {self.amount} {self.currency}"
 
-# Enhanced Position model (only for publication positions)
+# Enhanced Position model (existing model extension)
 class Position(models.Model):
     # ... existing fields ...
 
@@ -506,7 +753,7 @@ class Position(models.Model):
         return PublicationCostSharingArrangement(shares=shares)
 
     def has_external_cost_splitting(self) -> bool | None:
-        """OpenCost external_costsplitting derived property (publications only)"""
+        """OpenCost external_costsplitting derived from cost_sharing"""
         if not self.publication:
             return None  # Not applicable to contract positions
         arrangement = self.get_publication_cost_sharing()
@@ -515,52 +762,107 @@ class Position(models.Model):
         return len(arrangement.shares) > 1
 ```
 
-#### **User Interface Considerations**
+#### **OpenCost Report Django Models**
 
 ```python
-# Cost sharing form/formset (publication positions only)
-class PublicationCostShareForm(forms.ModelForm):
-    class Meta:
-        model = PublicationPositionCostShare
-        fields = ['institution', 'amount', 'percentage']
+# src/coda/apps/opencost/models.py - New app
 
-PublicationCostSharingFormSet = forms.inlineformset_factory(
-    Position,
-    PublicationPositionCostShare,
-    form=PublicationCostShareForm,
-    extra=1,
-    can_delete=True
-)
+class OpenCostReport(models.Model):
+    """OpenCost report metadata and persistence"""
+    institution = models.ForeignKey('institutions.Institution', on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)
+    period_start = models.DateField()
+    period_end = models.DateField()
+    generated_at = models.DateTimeField(auto_now_add=True)
+    xml_content = models.TextField()  # Generated OpenCost XML
+    data_snapshot_date = models.DateTimeField()
+
+    class Meta:
+        ordering = ['-generated_at']
+
+class OpenCostReportPublication(models.Model):
+    """Snapshot of publication data in report for audit trail"""
+    report = models.ForeignKey(OpenCostReport, on_delete=models.CASCADE, related_name="publications")
+    publication = models.ForeignKey('publications.Publication', on_delete=models.CASCADE)
+    title = models.CharField(max_length=500)
+    doi = models.CharField(max_length=255, blank=True)
+    total_cost_amount = models.DecimalField(max_digits=20, decimal_places=4)
+    total_cost_currency = models.CharField(max_length=3)
+    has_external_cost_splitting = models.BooleanField(null=True)  # OpenCost field
+
+    # Contract linkage (if applicable)
+    part_of_contract = models.ForeignKey('contracts.Contract', on_delete=models.CASCADE, null=True)
+    contract_identifier_type = models.CharField(max_length=50, blank=True)  # ESAC, etc.
+    contract_identifier_value = models.CharField(max_length=255, blank=True)
+    contract_group_id = models.CharField(max_length=100, blank=True)  # Links to invoice groups
+
+    # Audit fields
+    data_snapshot_date = models.DateTimeField()
+
+    class Meta:
+        unique_together = ('report', 'publication')
+
+    def get_current_publication_url(self):
+        """Link to current publication (may have changed since report)"""
+        return reverse('publications:detail', kwargs={'pk': self.publication_id})
+
+class OpenCostReportInvoice(models.Model):
+    """Snapshot of invoice data in report for audit trail"""
+    report = models.ForeignKey(OpenCostReport, on_delete=models.CASCADE, related_name="invoices")
+    publication_report = models.ForeignKey(
+        OpenCostReportPublication,
+        on_delete=models.CASCADE,
+        null=True,
+        related_name="invoices"
+    )
+    contract_report = models.ForeignKey(
+        'OpenCostReportContract',
+        on_delete=models.CASCADE,
+        null=True,
+        related_name="invoices"
+    )
+
+    # Invoice snapshot data
+    invoice = models.ForeignKey('invoices.Invoice', on_delete=models.CASCADE)
+    invoice_number = models.CharField(max_length=255)
+    creditor = models.CharField(max_length=255)
+    invoice_date = models.DateField()
+    paid_date = models.DateField(null=True)
+    total_amount = models.DecimalField(max_digits=20, decimal_places=4)
+    currency = models.CharField(max_length=3)
+
+    # Audit fields
+    data_snapshot_date = models.DateTimeField()
+
+    class Meta:
+        unique_together = ('report', 'invoice')
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(publication_report__isnull=False, contract_report__isnull=True) |
+                    models.Q(publication_report__isnull=True, contract_report__isnull=False)
+                ),
+                name='invoice_belongs_to_publication_or_contract'
+            )
+        ]
+
+    def get_current_invoice_url(self):
+        """Link to current invoice (may have changed since report)"""
+        return reverse('invoices:detail', kwargs={'pk': self.invoice_id})
 ```
 
-**Benefits of This Publication-Focused Approach**:
-
-- ✅ **OpenCost Compliant**: Aligns exactly with OpenCost schema (publication-only)
-- ✅ **Domain Accurate**: Reflects the actual business logic of cost splitting
-- ✅ **Simplified Implementation**: No need to handle contract cost sharing edge cases
-- ✅ **Clear Semantics**: Cost sharing applies to individual publication payments
-- ✅ **User-Friendly**: Intuitive UI that matches the OpenCost export behavior
-- ✅ **Data Integrity**: Database constraints ensure cost sharing only for publications
-
-**Future Extensions**:
-
-- Cost sharing templates for common arrangements
-- Automatic percentage calculation from amounts
-- Integration with institutional reporting dashboards
-- Historical cost sharing analysis
-
-### **1.4 Contract Invoice Groups (New Model)**
-
-**Task**: Create model for OpenCost contract invoice grouping concept
-**Files**: New ContractInvoiceGroup model
+#### **Contract Invoice Groups Django Models**
 
 ```python
+# src/coda/apps/contracts/models.py - Extensions
+
 class ContractInvoiceGroup(models.Model):
     """Groups contract invoices by period for OpenCost reporting"""
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="invoice_groups")
+    contract = models.ForeignKey('Contract', on_delete=models.CASCADE, related_name="invoice_groups")
     group_id = models.CharField(max_length=100)  # Unique within contract
     period_start = models.DateField()
     period_end = models.DateField()
+    description = models.TextField(blank=True)
 
     class Meta:
         unique_together = ('contract', 'group_id')
@@ -568,40 +870,140 @@ class ContractInvoiceGroup(models.Model):
     def __str__(self):
         return f"{self.contract.title} - Group {self.group_id} ({self.period_start} to {self.period_end})"
 
-# Link invoices to groups
 class InvoiceGroupMembership(models.Model):
     """Links invoices to contract invoice groups"""
-    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE)
+    invoice = models.ForeignKey('invoices.Invoice', on_delete=models.CASCADE)
     group = models.ForeignKey(ContractInvoiceGroup, on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ('invoice', 'group')
 ```
 
-**New Models**:
+#### **Identifier Django Models**
 
 ```python
-class ContractIdentifierType(models.Model):
-    """Dynamic identifier types - no enum constraints"""
+# src/coda/apps/institutions/models.py - Extensions
+
+class InstitutionIdentifierType(models.Model):
+    """Types of institution identifiers (ROR, ISNI, Ringold, etc.)"""
     name = models.CharField(max_length=255, unique=True)
     is_primary = models.BooleanField(default=False)  # For OpenCost primary vs secondary
     description = models.TextField(blank=True)
 
-    def __str__(self) -> str:
+    def __str__(self):
+        return self.name
+
+class InstitutionIdentifier(models.Model):
+    """Institution identifiers following CODA Link pattern"""
+    institution = models.ForeignKey('Institution', on_delete=models.CASCADE, related_name="identifiers")
+    type = models.ForeignKey(InstitutionIdentifierType, on_delete=models.CASCADE)
+    value = models.CharField(max_length=255)
+
+    class Meta:
+        unique_together = ('institution', 'type', 'value')
+
+    def __str__(self):
+        return f"{self.type.name}: {self.value}"
+
+# src/coda/apps/contracts/models.py - Extensions
+
+class ContractIdentifierType(models.Model):
+    """Types of contract identifiers (ESAC, OAI, EZB, local, etc.)"""
+    name = models.CharField(max_length=255, unique=True)
+    is_primary = models.BooleanField(default=False)  # For OpenCost primary vs secondary
+    description = models.TextField(blank=True)
+
+    def __str__(self):
         return self.name
 
 class ContractIdentifier(models.Model):
-    """Flexible type/value pairs like Link system"""
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="identifiers")
+    """Contract identifiers following CODA Link pattern"""
+    contract = models.ForeignKey('Contract', on_delete=models.CASCADE, related_name="identifiers")
     type = models.ForeignKey(ContractIdentifierType, on_delete=models.CASCADE)
     value = models.CharField(max_length=255)
 
     class Meta:
         unique_together = ('contract', 'type', 'value')
 
-    def __str__(self) -> str:
+    def __str__(self):
         return f"{self.type.name}: {self.value}"
 ```
+
+### **Domain-Django Mapping Strategy**
+
+**Pattern**: Domain models contain business logic, Django models provide persistence with conversion methods:
+
+1. **Domain → Django**: `from_domain_object()` class methods on Django models
+2. **Django → Domain**: `to_domain_object()` instance methods on Django models
+3. **Repository Pattern**: Handles conversion in repository layer
+4. **Business Logic**: All validation and calculations in domain models
+5. **Persistence**: Django models focus on data integrity and relationships
+
+### **Implementation Approach**
+
+The OpenCost bounded context will implement the necessary domain models and query patterns while maintaining independence from other CODA contexts. Cost sharing capabilities will be handled through the domain model patterns established in CODA.
+
+### **Next Steps**
+
+1. **Bounded Context Setup**: Establish OpenCost domain models using existing CODA patterns
+2. **Anti-Corruption Layer**: Build translation layer between CODA and OpenCost formats
+3. **Query Optimization**: Implement efficient data aggregation for large institutions
+4. **XML Generation**: Create streaming XML output following OpenCost schema
+5. **Integration Testing**: Validate with sample data and performance testing
+
+### **Contract Invoice Groups**
+
+**Task**: Create model for OpenCost contract invoice grouping concept
+
+**OpenCost Group ID Linking Mechanism:**
+The `group_id` field is crucial for linking publications to specific contract invoice periods in OpenCost XML output:
+
+1. **Contract Side**: `contract//cost_data//invoice_group//group_id`
+2. **Publication Side**: `publication//cost_data//part_of_contract//group_id`
+3. **Matching Rule**: Values must be identical to establish the link
+4. **Use Case**: Enables publications to reference specific invoice periods within transformative agreements
+
+The bounded context will implement this linking through appropriate domain models.
+
+### **User Interface Considerations**
+
+The bounded context approach will handle cost sharing UI through standard CODA patterns, maintaining consistency with existing invoice management interfaces.
+
+**Benefits of the Publication-Focused Approach**:
+
+- ✅ **OpenCost Compliant**: Aligns exactly with OpenCost schema requirements
+- ✅ **Domain Accurate**: Reflects the actual business logic of cost splitting
+- ✅ **Simplified Implementation**: Focused scope reduces complexity
+- ✅ **Clear Semantics**: Cost sharing applies to publication payments as expected
+- ✅ **Data Integrity**: Domain constraints ensure proper validation
+
+### **Contract Invoice Groups**
+
+**Task**: Create model for OpenCost contract invoice grouping concept
+
+**OpenCost Group ID Linking Mechanism:**
+The `group_id` field is crucial for linking publications to specific contract invoice periods in OpenCost XML output:
+
+1. **Contract Side**: `contract//cost_data//invoice_group//group_id`
+2. **Publication Side**: `publication//cost_data//part_of_contract//group_id`
+3. **Matching Rule**: Values must be identical to establish the link
+4. **Use Case**: Enables publications to reference specific invoice periods within transformative agreements
+
+The bounded context will implement this linking through appropriate domain models.
+**Example Group ID Linking Scenario:**
+
+A contract might have invoice groups for specific periods (e.g., quarterly billing), and publications need to reference the appropriate group based on their payment timing. The OpenCost bounded context will implement this through domain models that track:
+
+- Contract invoice periods and their unique group identifiers
+- Publication-to-contract associations with the relevant group reference
+- Proper validation to ensure group IDs exist and match
+
+This enables the XML output to correctly link publications to specific contract billing periods.
+#     <part_of_contract>
+#       <group_id>deal-2024-q1</group_id>  <!-- From OpenCostReportPublication -->
+**Implementation Approach**:
+
+The bounded context will implement flexible identifier management following CODA's established Link pattern, supporting dynamic identifier types without schema constraints.
 
 **Benefits**:
 
@@ -614,52 +1016,25 @@ class ContractIdentifier(models.Model):
 
 **Domain Layer Integration**:
 
-```python
-# Similar to Link system - typed classes + flexible fallback
-class EsacIdentifier:
-    def __init__(self, value: str): ...
-    def type(self) -> str: return "ESAC"
-
-class ContractUserIdentifier:  # Like UserLink
-    def __init__(self, id_type: str, value: str): ...
-
-def create_contract_identifier(id_type: str, value: str) -> ContractIdentifier:
-    # Pattern matching like create_link()
-```
+The bounded context will integrate with CODA's Link system patterns, providing typed identifier classes with flexible fallback patterns for institutional and contract identification.
 
 **Migration Strategy**:
 
-```python
-# Seed initial OpenCost identifier types
-def seed_opencost_identifier_types():
-    types = [
-        ("ESAC", True, "ESAC Initiative identifier"),
-        ("oai", False, "OAI identifier"),
-        ("ezb", False, "EZB identifier"),
-        ("local", False, "Local institution identifier"),
-    ]
-    for name, is_primary, desc in types:
-        ContractIdentifierType.objects.get_or_create(
-            name=name, defaults={"is_primary": is_primary, "description": desc}
-        )
-```
+The bounded context will include standard data seeding for OpenCost identifier types following established CODA patterns.
 
 ## **Next Steps & Deliverables**
 
 ### **Immediate Action Items** 🎯
 
 1. **Create Phase 1.1 Models** (Priority: Critical)
-   - [ ] `InstitutionIdentifier` model
-   - [ ] `ContractIdentifier` model
-   - [ ] `ContractInvoiceGroup` model
-   - [ ] `InvoiceGroupMembership` model
-   - [ ] `PublicationPositionCostShare` model for multi-institutional publication cost sharing
-   - [ ] `InstitutionCostShare` and `PublicationCostSharingArrangement` domain models
-   - [ ] Enhanced `Position` domain model with publication cost sharing support
-   - [ ] `OpenCostReport` model and related relational models for interactive web viewing
-     - [ ] `OpenCostReportPublication` for clickable publication links
-     - [ ] `OpenCostReportContract` for clickable contract links
-     - [ ] `OpenCostReportInvoice` for clickable invoice links
+   - [ ] **Domain Models**: Invoice cost sharing, contract groups, identifier patterns
+   - [ ] **Django Models**: Database persistence for domain objects
+     - [ ] `PublicationPositionCostShare` - institutional shares of publication positions
+     - [ ] `ContractInvoiceGroup` & `InvoiceGroupMembership` - contract period grouping
+     - [ ] `InstitutionIdentifier` & `ContractIdentifier` - flexible identifier systems
+     - [ ] `OpenCostReport*` models - report snapshots with audit trails
+   - [ ] **Enhanced Position Model**: Cost sharing support with domain conversion methods
+   - [ ] **Repository Extensions**: Domain-Django mapping in repository layer
 
 2. **Database Migration** (Priority: High)
    - [ ] Generate Django migrations for new models and fields
@@ -720,30 +1095,74 @@ def seed_opencost_identifier_types():
 
 ---
 
-## **🎯 Complete Implementation Strategy - Ready to Execute!**
+## **Appendix: Detailed Project Context**
 
-### **Export & Reporting Strategy - Finalized ✅**
+*This section provides comprehensive technical context for developers and future project continuity.*
 
-- **Generation**: On-demand report creation (primarily yearly, flexible timing)
-- **Storage**: Database persistence with `OpenCostReport` model for audit trails
-- **Web Interface**: HTML viewing of report content and metadata
-- **Download**: XML file download for external system integration
-- **Management**: List, view, regenerate reports through web interface
+### **Project Background**
 
-### **All Requirements Clarified ✅**
+- **CODA**: Django-based system for managing publication costs, contracts, and institutional data
+- **OpenCost**: XML schema standard for exchanging publication cost data between institutions
+- **Goal**: Export CODA data in OpenCost XML format for institutional transparency and reporting
+- **Deployment Model**: Single-institution CODA instances (no cross-institutional permission complexity)
 
-1. ✅ **Institution Identifiers**: Starting fresh (no existing data migration)
-2. ✅ **User Permissions**: Single-institution deployment (no cross-institutional concerns)
-3. ✅ **Contract Invoice Groups**: OpenCost billing period grouping requirements understood
-4. ✅ **Export Strategy**: On-demand generation with web viewing and database storage
+### **Critical Domain Understanding**
 
-### **Technical Foundation Ready ✅**
+#### **OpenCost Schema Requirements**
+- **Publications**: Support `external_costsplitting` boolean field for multi-institutional cost sharing
+- **Contracts**: Do NOT support cost splitting (confirmed via XSD analysis)
+- **Institution Identifiers**: ROR, ISNI, Ringold supported in schema
+- **Contract Identifiers**: ESAC (primary), OAI, EZB, local (secondary) supported
+- **Contract Invoice Groups**: Billing period grouping concept for linking publications to contract periods
+- **Date Formats**: Flexible YYYY, YYYY-MM, YYYY-MM-DD support required
+- **Multiple Invoices**: Both publications and contracts can have multiple invoices (maxOccurs="unbounded")
 
-- **Data Models**: Future-proof identifier system following CODA's Link pattern
-- **Domain Architecture**: Respects bounded contexts, cost splitting publication-only
-- **OpenCost Compliance**: Schema requirements fully analyzed and incorporated
-- **User Experience**: Complete report generation and viewing workflow defined
+#### **CODA Multi-Invoice Context**
+- **CODA Reality**: Single publications/contracts often appear on multiple invoices (installments, split payments)
+- **OpenCost Support**: Schema explicitly designed for multiple invoices per publication/contract
+- **Implementation Need**: Report models must handle one-to-many relationships correctly
 
-**Status**: 📋 Planning phase complete - Ready for Phase 1.1 implementation
-**Next Step**: Begin Phase 1.1 - Data Model Enhancements
-**Last Updated**: September 5, 2025
+#### **CODA Architecture Patterns**
+- **Invoice Bounded Context**: All cost management happens here, not in Publication domain
+- **Domain-Driven Design**: Separate domain models from Django models with transformation layers
+- **Link Pattern**: Existing flexible identifier system (`LinkType`/`Link`) serves as template
+- **Cost Types**: Separate `PublicationCostType` and `ContractCostType` enums already OpenCost-compliant
+
+### **Key Architectural Decisions**
+
+#### **1. Report Data Consistency Strategy**
+- **Problem**: Publication/invoice data changes after report generation, affecting report integrity
+- **Solution**: Snapshot approach - store key display fields at report generation time + maintain navigation links
+- **Rationale**: Institutional reporting requires audit-compliant immutable historical data
+
+#### **2. Identifier System Architecture**
+- **Problem**: Need flexible institution/contract identifiers for future OpenCost schema evolution
+- **Solution**: Type/value pattern following CODA's Link system (no rigid enums)
+- **Rationale**: OpenCost schema may add new identifier types without requiring database changes
+
+#### **3. Cost Splitting Domain Scope**
+- **Problem**: Where to implement multi-institutional cost sharing functionality
+- **Solution**: Publication positions only, within invoice bounded context
+- **Rationale**: OpenCost XSD analysis confirms contracts don't support cost splitting
+
+#### **4. Multi-Invoice Support Strategy**
+- **Problem**: CODA allows single publications/contracts to appear on multiple invoices; OpenCost must support this
+- **Solution**: One-to-many relationships in report models + proper invoice grouping for contracts
+- **Rationale**: OpenCost schema explicitly supports multiple invoices (maxOccurs="unbounded")
+
+### **Common Pitfalls to Avoid**
+
+- ❌ Adding cost splitting to contract positions (OpenCost doesn't support it)
+- ❌ Storing cost splitting data in Publication model (belongs in invoice context)
+- ❌ Using rigid enums for identifier types (prevents future OpenCost evolution)
+- ❌ Assuming simple boolean for cost splitting (users need detailed financial tracking)
+- ❌ Using live data links in reports (violates audit requirements for institutional reporting)
+- ❌ Assuming one invoice per publication/contract (OpenCost supports multiple invoices)
+
+### **Files & Integration Points**
+
+- **OpenCost Schema**: `/app/src/coda/domain/opencost/opencost.xsd`
+- **OpenCost Docs**: `/app/src/coda/domain/opencost/opencost_docs.md`
+- **CODA Invoice Domain**: `/app/src/coda/domain/invoice.py`
+- **CODA Link Pattern**: `/app/src/coda/apps/publications/models/_links.py`
+- **Existing Domain Models**: `/app/src/coda/domain/opencost/_*.py`
