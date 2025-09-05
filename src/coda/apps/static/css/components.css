@@ -106,3 +106,7 @@ search-select:not(:defined) {
 .wizard-nav>button {
   margin: 0;
 }
+
+span.icon-tooltip[data-tooltip] {
+  border: none;
+}

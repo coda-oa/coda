@@ -1,0 +1,15 @@
+<details class="dropdown">
+    <summary>Publication Type</summary>
+    <ul class="undecorated">
+        {% for type in publication_types %}
+            <li>
+                <input type="checkbox"
+                       id="type-{{ type }}"
+                       name="publication_type"
+                       value="{{ type }}"
+                       {% if type in selected_publication_types %}checked{% endif %}>
+                <label for="type-{{ type }}">{{ type }}</label>
+            </li>
+        {% endfor %}
+    </ul>
+</details>

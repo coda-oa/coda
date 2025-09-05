@@ -25,13 +25,46 @@
             {% include "fundingrequests/partials/payment_status.html" with payment_status=entity.payment_status %}
         </div>
     </div>
-    <p class="flex mb-0_5 mt-2">
-        {% url "fundingrequests:list" as list_url %}
-        {% for label in entity.labels %}
-            <a href="{{ list_url }}?{% param_replace labels=label.id %}">
-                <small class="label pill"
-                       style="--label-bg-color: {{ label.hexcolor }};
-                              --label-border-color: {{ label.hexcolor }}">{{ label.name }}</small></a>
-        {% endfor %}
-    </p>
+    <div class="flex justify-between">
+        <p class="flex mb-0_5 mt-2">
+            {% url "fundingrequests:list" as list_url %}
+            {% for label in entity.labels %}
+                <a href="{{ list_url }}?{% param_replace labels=label.id %}">
+                    <small class="label pill"
+                           style="--label-bg-color: {{ label.hexcolor }};
+                                  --label-border-color: {{ label.hexcolor }}">{{ label.name }}</small></a>
+            {% endfor %}
+        </p>
+        <p class="flex mb-0_5 mt-2">
+            {% if entity.type == "Monograph" %}
+                <a href="{{ list_url }}?{% param_replace publication_type="Monograph" %}"
+                   data-tooltip="Filter for monographs"
+                   class="icon-tooltip">
+                    <svg class="w-6 h-6 text-gray-800 dark:text-white"
+                         aria-hidden="true"
+                         xmlns="http://www.w3.org/2000/svg"
+                         width="24"
+                         height="24"
+                         fill="none"
+                         viewBox="0 0 24 24">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v13H7a2 2 0 0 0-2 2Zm0 0a2 2 0 0 0 2 2h12M9 3v14m7 0v4" />
+                    </svg>
+                </a>
+            {% elif entity.type == "Article" %}
+                <a href="{{ list_url }}?{% param_replace publication_type="Article" %}"
+                   data-tooltip="Filter for articles"
+                   class="icon-tooltip">
+                    <svg class="w-6 h-6 text-gray-800 dark:text-white"
+                         aria-hidden="true"
+                         xmlns="http://www.w3.org/2000/svg"
+                         width="24"
+                         height="24"
+                         fill="none"
+                         viewBox="0 0 24 24">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7h1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h11.5M7 14h6m-6 3h6m0-10h.5m-.5 3h.5M7 7h3v3H7V7Z" />
+                    </svg>
+                </a>
+            {% endif %}
+        </p>
+    </div>
 </article>

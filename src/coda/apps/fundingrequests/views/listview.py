@@ -35,6 +35,7 @@ _advanced_search_fields = [
     "payment_status",
     "start_date",
     "end_date",
+    "publication_type",
     "contract_name",
     "contract_year",
 ]
@@ -63,7 +64,11 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
 
     def get_entities(self, request: HttpRequest) -> Sequence["FundingRequestListViewModel"]:
         fundingrequests = query(request)
-        return DomainQuerySet(fundingrequests, as_viewmodel)  # type: ignore
+        viewmodels = DomainQuerySet(fundingrequests, as_viewmodel)  # type: ignore
+        requested_types = request.GET.getlist("publication_type")
+        if requested_types:
+            return [vm for vm in viewmodels if vm.type in requested_types]
+        return viewmodels
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
@@ -72,6 +77,9 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
         expand_advanced_search = any(self.request.GET.get(key) for key in _advanced_search_fields)
 
         labels = Label.objects.all()
+        publication_types = ["Article", "Monograph"]
+        selected_publication_types = self.request.GET.getlist("publication_type")
+
         return ctx | {
             "labels": labels,
             "exlude_labels": labels,
@@ -79,6 +87,8 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
             "open_access_types": [oat.value for oat in OpenAccessType],
             "expand_advanced_search": expand_advanced_search,
             "payment_status_choices": _payment_status_choices,
+            "publication_types": publication_types,
+            "selected_publication_types": selected_publication_types,
         }
 
 
