@@ -14,9 +14,14 @@
         <div>
             {% if entity.authors %}<p>Authors: {{ entity.authors|join:", " }}</p>{% endif %}
             <p class="text-ellipsis">
-                {{ entity.publishing_entity_type }}
+                {{ entity.publishing_entity_type }}:
                 <a href="{{ entity.publishing_entity_url }}">{{ entity.publishing_entity_name }}</a>
             </p>
+            {% if entity.type == "Article" %}
+                <p class="text-ellipsis">
+                    Publisher: <a href="{{ entity.journal_publisher_url }}">{{ entity.journal_publisher_name }}</a>
+                </p>
+            {% endif %}
         </div>
         <div>
             <p>

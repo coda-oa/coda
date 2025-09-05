@@ -1,6 +1,6 @@
 import datetime
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, Literal, NamedTuple, cast
+from typing import Any, Literal, cast
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
@@ -26,6 +26,7 @@ from coda.domain.publication.payment import (
     PublicationUnpaid,
 )
 from coda.domain.publication.publication import PublicationId
+from dataclasses import dataclass
 
 _advanced_search_fields = [
     "labels",
@@ -122,7 +123,8 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     )
 
 
-class FundingRequestListViewModel(NamedTuple):
+@dataclass(frozen=True)
+class FundingRequestListViewModel:
     type: Literal["Article", "Monograph"]
     id: int | None
     url: str
@@ -135,6 +137,8 @@ class FundingRequestListViewModel(NamedTuple):
     labels: Iterable[Label]
     status: str
     payment_status: dict[str, Any] | None = None
+    journal_publisher_name: str | None = None
+    journal_publisher_url: str | None = None
 
 
 GetPaymentStatus = Callable[[PublicationId], PublicationPaymentStatus]
@@ -164,6 +168,9 @@ def article_viewmodel(
 
     journal_title = journal.title
     journal_url = journal.get_absolute_url()
+    journal_publisher = str(journal.publisher) if journal.publisher else None
+    journal_publisher_url = journal.publisher.get_absolute_url() if journal.publisher else None
+
     return FundingRequestListViewModel(
         type="Article",
         id=funding_request.id,
@@ -177,6 +184,8 @@ def article_viewmodel(
         labels=funding_request.labels.all(),
         status=funding_request.review.review_result,
         payment_status=payment_status_viewmodel(payment_status, funding_request.request_id),
+        journal_publisher_name=journal_publisher,
+        journal_publisher_url=journal_publisher_url,
     )
 
 
