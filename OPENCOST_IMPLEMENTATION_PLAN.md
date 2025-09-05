@@ -173,28 +173,170 @@ class InstitutionIdentifier(models.Model):
 
 ### **Phase 3: Export Engine Implementation**
 
-**Objective**: Create XML generation and data aggregation engines
+**Objective**: Create XML generation and data aggregation engines with web viewing capability
 **Duration**: 2-3 sprints
 
 #### **3.1 Export Features**
 
 - **XML Generation**: Standards-compliant OpenCost output
-- **Report Configurations**: Flexible filtering and grouping
-- **Data Export**: Multiple format support
+- **Report Storage**: Database persistence for generated reports
+- **Report Management**: Create, view, download, and regenerate reports
+- **Web Interface**: HTML display of report content and metadata
+- **Download Options**: XML file download functionality
+
+#### **3.2 Report Model Structure - Interactive Web Reports**
+
+**Design Philosophy**: Store both XML content for download AND relational links for interactive web viewing
+
+```python
+class OpenCostReport(models.Model):
+    """Stored OpenCost reports for web viewing and download"""
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)  # e.g., "2024 Annual Report"
+    report_period_start = models.DateField()
+    report_period_end = models.DateField()
+    generated_at = models.DateTimeField(auto_now_add=True)
+    generated_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    xml_content = models.TextField()  # Store the OpenCost XML for download
+    summary_stats = models.JSONField()  # Publication/contract counts, totals
+
+    class Meta:
+        ordering = ['-generated_at']
+
+class OpenCostReportPublication(models.Model):
+    """Links publications included in an OpenCost report"""
+    report = models.ForeignKey(OpenCostReport, on_delete=models.CASCADE, related_name="publications")
+    publication = models.ForeignKey('publications.Publication', on_delete=models.CASCADE)
+    cost_total = models.DecimalField(max_digits=20, decimal_places=4)
+    currency = models.CharField(max_length=3)
+    has_cost_splitting = models.BooleanField()
+
+    class Meta:
+        unique_together = ('report', 'publication')
+
+class OpenCostReportContract(models.Model):
+    """Links contracts included in an OpenCost report"""
+    report = models.ForeignKey(OpenCostReport, on_delete=models.CASCADE, related_name="contracts")
+    contract = models.ForeignKey('contracts.Contract', on_delete=models.CASCADE)
+    cost_total = models.DecimalField(max_digits=20, decimal_places=4)
+    currency = models.CharField(max_length=3)
+    invoice_count = models.IntegerField()
+
+    class Meta:
+        unique_together = ('report', 'contract')
+
+class OpenCostReportInvoice(models.Model):
+    """Links invoices included in an OpenCost report"""
+    report = models.ForeignKey(OpenCostReport, on_delete=models.CASCADE, related_name="invoices")
+    invoice = models.ForeignKey('invoices.Invoice', on_delete=models.CASCADE)
+    # Link to publication or contract
+    publication = models.ForeignKey('publications.Publication', on_delete=models.CASCADE, null=True, blank=True)
+    contract = models.ForeignKey('contracts.Contract', on_delete=models.CASCADE, null=True, blank=True)
+
+    class Meta:
+        unique_together = ('report', 'invoice')
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(publication__isnull=False, contract__isnull=True) |
+                    models.Q(publication__isnull=True, contract__isnull=False)
+                ),
+                name='invoice_belongs_to_publication_or_contract'
+            )
+        ]
+```
+
+**Benefits of Relational Report Storage**:
+- ✅ **Interactive Navigation**: Click publications/contracts/invoices → detailed CODA pages
+- ✅ **Performance**: Pre-computed cost totals and statistics for fast web display
+- ✅ **Data Integrity**: Links maintained even if underlying data changes
+- ✅ **Flexible Views**: Filter, sort, and search within reports
+- ✅ **Audit Trail**: Track which exact objects were included in each report
+- ✅ **XML Availability**: Still provides downloadable OpenCost XML for external systems
 
 ---
 
 ### **Phase 4: User Interface & API**
 
-**Objective**: Build Django views, templates, and REST endpoints
+**Objective**: Build Django views, templates, and web interfaces for OpenCost reporting
 **Duration**: 2-3 sprints
+
+#### **4.1 Web Interface Features**
+
+- **Report Dashboard**: List of generated OpenCost reports with summaries and statistics
+- **Report Generation Form**: User interface to create new reports with date ranges and filters
+- **Interactive Report Viewer**:
+  - Tabbed interface (Publications, Contracts, Summary)
+  - Clickable publications → publication detail pages
+  - Clickable contracts → contract detail pages
+  - Clickable invoices → invoice detail pages
+  - Cost breakdown tables with filtering and sorting
+- **Download Interface**: XML file download with proper content-type headers
+- **Report Management**: Edit report metadata, regenerate reports when data changes
+
+#### **4.2 User Experience Flow**
+
+1. **Generate Report**: User selects date range and clicks "Generate OpenCost Report"
+2. **Processing**: System creates XML, stores relational data, shows progress
+3. **Interactive Report View**:
+   - Summary tab with statistics and totals
+   - Publications tab with clickable links to publication details
+   - Contracts tab with clickable links to contract details
+   - Cost breakdown with drill-down capabilities
+4. **Navigation**: Click any publication/contract/invoice to view detailed CODA pages
+5. **Download**: User can download XML file for external systems
+6. **Management**: List of historical reports with regeneration options
+
+#### **4.3 Template Structure**
+
+```html
+<!-- OpenCost Report Viewer Template -->
+<div class="opencost-report">
+  <header>
+    <h1>{{ report.title }}</h1>
+    <p>Period: {{ report.period_start }} - {{ report.period_end }}</p>
+    <a href="{% url 'opencost:download' report.pk %}" class="btn">Download XML</a>
+  </header>
+
+  <nav class="report-tabs">
+    <button data-tab="summary">Summary</button>
+    <button data-tab="publications">Publications ({{ report.publications.count }})</button>
+    <button data-tab="contracts">Contracts ({{ report.contracts.count }})</button>
+  </nav>
+
+  <div id="publications-tab">
+    {% for report_pub in report.publications.all %}
+      <div class="publication-row">
+        <a href="{% url 'publications:detail' report_pub.publication.pk %}">
+          {{ report_pub.publication.title }}
+        </a>
+        <span class="cost">{{ report_pub.cost_total }} {{ report_pub.currency }}</span>
+        {% if report_pub.has_cost_splitting %}<span class="badge">Cost Shared</span>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+```
 
 ---
 
 ### **Phase 5: Advanced Features**
 
-**Objective**: Scheduling, caching, bulk operations
+**Objective**: Data validation, quality checks, and advanced reporting features
 **Duration**: 1-2 sprints
+
+#### **5.1 Data Quality & Validation**
+
+- **OpenCost Readiness Checker**: Dashboard showing data completeness for OpenCost export
+- **Missing Data Reports**: Identify publications/contracts lacking required identifiers
+- **Validation Rules**: Pre-export checks for OpenCost schema compliance
+- **Data Quality Metrics**: Statistics on identifier coverage, cost completeness
+
+#### **5.2 Advanced Features**
+
+- **Report Templates**: Predefined report configurations for common use cases
+- **Bulk Operations**: Mass assignment of identifiers, cost sharing arrangements
+- **Export Scheduling**: Optional automated report generation (future enhancement)
 
 ---
 
@@ -514,6 +656,10 @@ def seed_opencost_identifier_types():
    - [ ] `PublicationPositionCostShare` model for multi-institutional publication cost sharing
    - [ ] `InstitutionCostShare` and `PublicationCostSharingArrangement` domain models
    - [ ] Enhanced `Position` domain model with publication cost sharing support
+   - [ ] `OpenCostReport` model and related relational models for interactive web viewing
+     - [ ] `OpenCostReportPublication` for clickable publication links
+     - [ ] `OpenCostReportContract` for clickable contract links
+     - [ ] `OpenCostReportInvoice` for clickable invoice links
 
 2. **Database Migration** (Priority: High)
    - [ ] Generate Django migrations for new models and fields
@@ -574,6 +720,30 @@ def seed_opencost_identifier_types():
 
 ---
 
-**Status**: 📋 Planning phase complete - Ready for implementation
+## **🎯 Complete Implementation Strategy - Ready to Execute!**
+
+### **Export & Reporting Strategy - Finalized ✅**
+
+- **Generation**: On-demand report creation (primarily yearly, flexible timing)
+- **Storage**: Database persistence with `OpenCostReport` model for audit trails
+- **Web Interface**: HTML viewing of report content and metadata
+- **Download**: XML file download for external system integration
+- **Management**: List, view, regenerate reports through web interface
+
+### **All Requirements Clarified ✅**
+
+1. ✅ **Institution Identifiers**: Starting fresh (no existing data migration)
+2. ✅ **User Permissions**: Single-institution deployment (no cross-institutional concerns)
+3. ✅ **Contract Invoice Groups**: OpenCost billing period grouping requirements understood
+4. ✅ **Export Strategy**: On-demand generation with web viewing and database storage
+
+### **Technical Foundation Ready ✅**
+
+- **Data Models**: Future-proof identifier system following CODA's Link pattern
+- **Domain Architecture**: Respects bounded contexts, cost splitting publication-only
+- **OpenCost Compliance**: Schema requirements fully analyzed and incorporated
+- **User Experience**: Complete report generation and viewing workflow defined
+
+**Status**: 📋 Planning phase complete - Ready for Phase 1.1 implementation
 **Next Step**: Begin Phase 1.1 - Data Model Enhancements
-**Last Updated**: September 4, 2025
+**Last Updated**: September 5, 2025
