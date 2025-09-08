@@ -6,7 +6,7 @@ import pytest
 from coda.apps.invoices import repository, services
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
-from coda.domain.invoice import CreditorId, Invoice, InvoiceId, ItemType, Position
+from coda.domain.invoice import CreditorId, Invoice, InvoiceId, ItemType, Position, PaymentStatus
 from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationUnpaid
 from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
@@ -244,3 +244,49 @@ def create_publication() -> PublicationId:
     publication = domainfactory.publication(journal)
     publication.id = publication_repository.create(publication)
     return publication.id
+
+
+@pytest.mark.django_db
+def test__import_invoice_with_paid_status_and_publication__publications_are_paid() -> None:
+    """Test that importing an invoice directly with paid status marks publications as paid."""
+    publication = create_publication()
+    invoice = import_paid_invoice_for_publications(publication)
+    
+    invoice.id = services.save(invoice)
+    
+    assert_publication_paid(invoice, publication)
+
+
+@pytest.mark.django_db 
+def test__import_invoice_with_existing_id_and_paid_status__publications_are_paid() -> None:
+    """Test importing an invoice that has an external ID but doesn't exist in our system yet."""
+    publication = create_publication()
+    
+    # Create an invoice with an ID set (simulating external ID from import)
+    # but this invoice doesn't actually exist in our database yet
+    invoice = import_paid_invoice_for_publications(publication)
+    invoice.id = InvoiceId(999999)  # Set a non-existent ID
+    
+    # This might fail because _unpay_deleted_publication_positions tries to get_by_id
+    # Let's see what happens
+    try:
+        invoice.id = services.save(invoice)
+        assert_publication_paid(invoice, publication)
+    except Exception as e:
+        # If this fails, it might reveal the issue
+        print(f"Error occurred: {e}")
+        raise
+
+
+def import_paid_invoice_for_publications(*publication_ids: PublicationId) -> Invoice:
+    """Create an invoice with paid status directly, simulating import scenario."""
+    creditor = CreditorId(modelfactory.creditor().id)
+    positions = tuple(
+        domainfactory.publication_position(publication_id) for publication_id in publication_ids
+    )
+    
+    # Create invoice and set paid status directly (simulating import)
+    from coda.domain.invoice import PaymentStatus
+    invoice = domainfactory.invoice(creditor=creditor, positions=positions)
+    invoice.status = PaymentStatus.Paid  # Set status directly rather than calling pay()
+    return invoice

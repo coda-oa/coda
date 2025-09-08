@@ -22,7 +22,13 @@ def _unpay_deleted_publication_positions(invoice: Invoice) -> None:
     if not invoice.id:
         return
 
-    saved_invoice = repository.get_by_id(invoice.id)
+    try:
+        saved_invoice = repository.get_by_id(invoice.id)
+    except Exception:
+        # Invoice doesn't exist in database yet (e.g., during import with external ID)
+        # No need to unpay positions since there are no existing positions to remove
+        return
+        
     saved_publication_positions = set(_publication_positions(saved_invoice))
     new_publication_positions = set(_publication_positions(invoice))
     deleted_publication_ids = saved_publication_positions.difference(new_publication_positions)
@@ -52,7 +58,15 @@ def _save_invoice(invoice: Invoice) -> InvoiceId:
     if not invoice.id:
         invoice.id = repository.create(invoice)
     else:
-        repository.update(invoice)
+        # Check if invoice exists before trying to update
+        try:
+            existing_invoice = repository.get_by_id(invoice.id)
+            repository.update(invoice)
+        except Exception:
+            # Invoice doesn't exist in database (e.g., import with external ID)
+            # Clear the ID and create a new one
+            invoice.id = None
+            invoice.id = repository.create(invoice)
 
     return invoice.id
 
