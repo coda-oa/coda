@@ -259,7 +259,21 @@ def test__import_invoice_with_paid_status_and_publication__publications_are_paid
 
 @pytest.mark.django_db 
 def test__import_invoice_with_existing_id_and_paid_status__publications_are_paid() -> None:
-    """Test importing an invoice that has an external ID but doesn't exist in our system yet."""
+    """Test importing an invoice that has an external ID but doesn't exist in our system yet.
+    
+    This test reproduces the specific issue described in the bug report:
+    "Importing invoices with publication positions does not mark publications as paid"
+    
+    The scenario is:
+    1. External system provides an invoice with an ID and paid status
+    2. This invoice has publication positions
+    3. The invoice doesn't exist in our local database yet
+    4. When importing/saving the invoice, publications should be marked as paid
+    
+    Before the fix, this would fail because:
+    - _unpay_deleted_publication_positions() would try to get_by_id() for non-existent invoice
+    - _save_invoice() would try to update() instead of create() for non-existent invoice
+    """
     publication = create_publication()
     
     # Create an invoice with an ID set (simulating external ID from import)
@@ -267,15 +281,9 @@ def test__import_invoice_with_existing_id_and_paid_status__publications_are_paid
     invoice = import_paid_invoice_for_publications(publication)
     invoice.id = InvoiceId(999999)  # Set a non-existent ID
     
-    # This might fail because _unpay_deleted_publication_positions tries to get_by_id
-    # Let's see what happens
-    try:
-        invoice.id = services.save(invoice)
-        assert_publication_paid(invoice, publication)
-    except Exception as e:
-        # If this fails, it might reveal the issue
-        print(f"Error occurred: {e}")
-        raise
+    # This should work now - the invoice should be created and publications marked as paid
+    invoice.id = services.save(invoice)
+    assert_publication_paid(invoice, publication)
 
 
 def import_paid_invoice_for_publications(*publication_ids: PublicationId) -> Invoice:
