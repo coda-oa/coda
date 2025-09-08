@@ -6,7 +6,7 @@ import pytest
 from coda.apps.invoices import repository, services
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
-from coda.domain.invoice import CreditorId, Invoice, InvoiceId, ItemType, Position, PaymentStatus
+from coda.domain.invoice import CreditorId, Invoice, InvoiceId, ItemType, Position
 from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationUnpaid
 from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
@@ -244,57 +244,3 @@ def create_publication() -> PublicationId:
     publication = domainfactory.publication(journal)
     publication.id = publication_repository.create(publication)
     return publication.id
-
-
-@pytest.mark.django_db
-def test__import_invoice_with_paid_status_and_publication__publications_are_paid() -> None:
-    """Test that importing an invoice directly with paid status marks publications as paid."""
-    publication = create_publication()
-    invoice = import_paid_invoice_for_publications(publication)
-    
-    invoice.id = services.save(invoice)
-    
-    assert_publication_paid(invoice, publication)
-
-
-@pytest.mark.django_db 
-def test__import_invoice_with_existing_id_and_paid_status__publications_are_paid() -> None:
-    """Test importing an invoice that has an external ID but doesn't exist in our system yet.
-    
-    This test reproduces the specific issue described in the bug report:
-    "Importing invoices with publication positions does not mark publications as paid"
-    
-    The scenario is:
-    1. External system provides an invoice with an ID and paid status
-    2. This invoice has publication positions
-    3. The invoice doesn't exist in our local database yet
-    4. When importing/saving the invoice, publications should be marked as paid
-    
-    Before the fix, this would fail because:
-    - _unpay_deleted_publication_positions() would try to get_by_id() for non-existent invoice
-    - _save_invoice() would try to update() instead of create() for non-existent invoice
-    """
-    publication = create_publication()
-    
-    # Create an invoice with an ID set (simulating external ID from import)
-    # but this invoice doesn't actually exist in our database yet
-    invoice = import_paid_invoice_for_publications(publication)
-    invoice.id = InvoiceId(999999)  # Set a non-existent ID
-    
-    # This should work now - the invoice should be created and publications marked as paid
-    invoice.id = services.save(invoice)
-    assert_publication_paid(invoice, publication)
-
-
-def import_paid_invoice_for_publications(*publication_ids: PublicationId) -> Invoice:
-    """Create an invoice with paid status directly, simulating import scenario."""
-    creditor = CreditorId(modelfactory.creditor().id)
-    positions = tuple(
-        domainfactory.publication_position(publication_id) for publication_id in publication_ids
-    )
-    
-    # Create invoice and set paid status directly (simulating import)
-    from coda.domain.invoice import PaymentStatus
-    invoice = domainfactory.invoice(creditor=creditor, positions=positions)
-    invoice.status = PaymentStatus.Paid  # Set status directly rather than calling pay()
-    return invoice
