@@ -65,11 +65,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
 
     def get_entities(self, request: HttpRequest) -> Sequence["FundingRequestListViewModel"]:
         fundingrequests = query(request)
-        viewmodels = DomainQuerySet(fundingrequests, as_viewmodel)  # type: ignore
-        requested_types = request.GET.getlist("publication_type")
-        if requested_types:
-            return [vm for vm in viewmodels if vm.type in requested_types]
-        return viewmodels
+        return DomainQuerySet(fundingrequests, as_viewmodel)  # type: ignore
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
@@ -116,6 +112,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
                 OpenAccessType(oat) for oat in request.GET.getlist("open_access_type")
             ],
             payment_statuses=requested_payment_statuses,
+            requested_entity_types=request.GET.getlist("publication_type"),
             sort_by=request.GET.get("sort_by"),
             contract_name=ContractId(request.GET.get("contract_name") or 0),
             contract_year=int(request.GET.get("contract_year") or 0),

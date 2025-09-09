@@ -1,5 +1,6 @@
 from collections.abc import Iterable, Sequence
 from typing import Any, cast
+from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Q
@@ -164,9 +165,9 @@ def save_review(review: Review) -> None:
 
 
 def _save_review(review: Review, review_model: FundingRequestReview) -> None:
-    review_model.review_result = review.result.value
-    review_model.decided_funding_amount = review.decided_funding.amount
-    review_model.decided_funding_currency = review.decided_funding.currency.code
+    review_model.review_result = review.result.value if review.result else "unknown"
+    review_model.decided_funding_amount = review.decided_funding.amount if review.decided_funding else Decimal("0")
+    review_model.decided_funding_currency = review.decided_funding.currency.code if review.decided_funding else "EUR"   
     review_model.remarks = review.remarks
     review_model.save()
 
@@ -360,6 +361,7 @@ def search(
     | None = None,
     labels: Iterable[int] | None = None,
     exclude_labels: Iterable[int] | None = None,
+    requested_entity_types: list[str] | None = None,
     sort_by: str | None = None,
     contract_name: ContractId | None = None,
     contract_year: int | None = None,
@@ -422,6 +424,14 @@ def search(
             )
 
         query = query & payment_query
+
+    if requested_entity_types:
+        entity_type_query = Q()
+        if "Article" in requested_entity_types:
+            entity_type_query |= Q(publication__article_journal__isnull=False)
+        if "Monograph" in requested_entity_types:
+            entity_type_query |= Q(publication__monograph_publisher__isnull=False)
+        query = query & entity_type_query
 
     if contract_name:
         query = query & Q(publication__attached_contracts__contract__id=contract_name)
