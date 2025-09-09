@@ -13,6 +13,9 @@
                     <td>
                         <input type="radio"
                                name="publisher"
+                               hx-target="#publisher-error"
+                               hx-swap="outerHTML"
+                               hx-post="{% url 'fundingrequests:clear_publisher_error' %}"
                                value="{{ publisher.pk }}"
                                {% if publisher.pk == selected_publisher.pk %}checked{% endif %}>
                     </td>

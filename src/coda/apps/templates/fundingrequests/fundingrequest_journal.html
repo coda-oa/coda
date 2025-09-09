@@ -10,7 +10,7 @@
         <button type="submit" class="inline-search-pill pill-right">Search</button>
     </fieldset>
     {% if journal_error and request.method == "POST" and not selected_journal %}
-        <ul class="errorlist">
+        <ul class="errorlist" id="journal-error">
             <li>{{ journal_error }}</li>
         </ul>
     {% endif %}
@@ -32,6 +32,9 @@
                             <td>
                                 <input type="radio"
                                        name="journal"
+                                       hx-target="#journal-error"
+                                       hx-swap="outerHTML"
+                                       hx-post="{% url 'fundingrequests:clear_journal_error' %}"
                                        value="{{ journal.pk }}"
                                        {% if journal.pk == selected_journal.pk %}checked{% endif %}>
                             </td>
