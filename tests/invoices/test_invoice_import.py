@@ -19,6 +19,7 @@ from coda.apps.invoices.importservice.dto import (
     PublicationPositionImportDto,
 )
 from coda.apps.invoices.models import Creditor, FundingSource
+from coda.apps.publications.services import publications
 from coda.domain.contract import Contract
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest, FundingOrganizationId
@@ -30,6 +31,7 @@ from coda.domain.invoice import (
     CreditorId,
     FundingSourceId,
     Invoice,
+    InvoiceId,
     PaymentStatus,
     Position,
     PublicationCostType,
@@ -37,6 +39,7 @@ from coda.domain.invoice import (
 )
 from coda.domain.money import Currency, Money
 from coda.domain.publication import JournalId, PublicationId
+from coda.domain.publication.payment import InvoiceReceived
 from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 from tests.invoices.test_invoice_repository import assert_invoice_eq
@@ -184,6 +187,31 @@ def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 1
     assert "<unknown-0>" in actual.errors  # Fallback key when number is missing
+
+
+@pytest.mark.django_db
+def test__unpaid_invoice_with_publication_position_import_invoices_funding_request_has_payment_status_invoice_received() -> (
+    None
+):
+    funding_request = create_funding_request()
+    position_dto = publication_position_import_dto(funding_request)
+    invoice_dto_ = invoice_dto(
+        number="INV-2025-001",
+        positions=[position_dto],
+    )
+    import_dto = InvoiceListImportDto(invoices=[invoice_dto_])
+
+    _ = import_invoices(import_dto)
+
+    publication_id = cast(PublicationId, funding_request.publication.id)
+    payment_status = publications.get_payment_status(publication_id)
+    imported_invoice = repository.first()
+    assert imported_invoice is not None
+    expected_payment_status = InvoiceReceived(
+        invoice_id=cast(InvoiceId, imported_invoice.id),
+        invoice_number="INV-2025-001",
+    )
+    assert payment_status == expected_payment_status
 
 
 def assert_valid_invoice_imported(valid_dto: InvoiceImportDto) -> None:

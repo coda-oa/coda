@@ -1,5 +1,6 @@
 from typing import Final
 
+from django.db import transaction
 from coda.apps.publications.models import PublicationPayment as PublicationPaymentModel
 from coda.domain.invoice import InvoiceId
 from coda.domain.publication import PublicationId
@@ -52,3 +53,77 @@ def find_payment(publication: PublicationId) -> PublicationPayment | None:
 
     assert model.invoice is not None
     return REVERSE_STATUS_MAPPING[model.status](model)
+
+
+def bulk_save_payments(payment_updates: list[tuple[PublicationId, PublicationPayment]]) -> None:
+    """
+    Bulk update publication payment statuses for better performance during imports.
+
+    Args:
+        payment_updates: List of (publication_id, payment_status) tuples
+    """
+    if not payment_updates:
+        return
+
+    with transaction.atomic():
+        # Group by payment type for efficient processing
+        paid_updates = []
+        received_updates = []
+
+        for publication_id, payment in payment_updates:
+            if isinstance(payment, PublicationPaid):
+                paid_updates.append((publication_id, payment))
+            elif isinstance(payment, InvoiceReceived):
+                received_updates.append((publication_id, payment))
+
+        # Process paid publications
+        if paid_updates:
+            _bulk_update_payment_status(paid_updates, "paid")  # type: ignore[arg-type]
+
+        # Process invoice received publications
+        if received_updates:
+            _bulk_update_payment_status(received_updates, "invoice_received")  # type: ignore[arg-type]
+
+
+def _bulk_update_payment_status(
+    updates: list[tuple[PublicationId, InvoiceReceived | PublicationPaid]], status: str
+) -> None:
+    """Helper function to bulk update payments with the same status."""
+    publication_ids = [pub_id for pub_id, _ in updates]
+
+    # Get or create payment records
+    existing_payments = {
+        p.publication_id: p
+        for p in PublicationPaymentModel.objects.filter(publication_id__in=publication_ids)
+    }
+
+    payments_to_create = []
+    payments_to_update = []
+
+    for publication_id, payment in updates:
+        invoice_id = None
+        if isinstance(payment, (PublicationPaid, InvoiceReceived)):
+            invoice_id = payment.invoice_id
+
+        if publication_id in existing_payments:
+            # Update existing
+            model = existing_payments[publication_id]
+            model.status = status
+            model.invoice_id = invoice_id
+            payments_to_update.append(model)
+        else:
+            # Create new
+            payments_to_create.append(
+                PublicationPaymentModel(
+                    publication_id=publication_id, status=status, invoice_id=invoice_id
+                )
+            )
+
+    # Bulk operations
+    if payments_to_create:
+        PublicationPaymentModel.objects.bulk_create(payments_to_create)
+
+    if payments_to_update:
+        PublicationPaymentModel.objects.bulk_update(
+            payments_to_update, fields=["status", "invoice_id"]
+        )

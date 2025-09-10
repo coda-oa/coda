@@ -9,6 +9,8 @@ from django.db.models import Q
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository
+from coda.apps.publications.services import publications
+from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
 from coda.apps.invoices.importservice.dto import (
     CommonPositionImportDto,
     ContractPositionImportDto,
@@ -135,7 +137,15 @@ def _process_invoices(
     lookups = _build_entity_lookups(valid_invoice_dtos, request_id_lookup)
     invoices = _create_invoices(valid_invoice_dtos, lookups)
 
-    repository.bulk_create(invoices)
+    # Bulk create invoices for performance
+    invoice_ids = repository.bulk_create(invoices)
+
+    # Set the IDs on the invoice objects so payment updates can work
+    for invoice, invoice_id in zip(invoices, invoice_ids):
+        invoice.id = invoice_id
+
+    # Update payment statuses for funding requests
+    _update_funding_request_payment_statuses(invoices)
 
     processing_errors = _build_missing_publication_errors(
         invoice_dtos, invoices_with_missing_publications
@@ -297,10 +307,10 @@ def _find_publication_ids(
         if isinstance(position, PublicationPositionImportDto)
     ]
 
-    publications = {publication for _, publication in invoices_with_publications}
+    publication_ids = {publication for _, publication in invoices_with_publications}
 
     requests = FundingRequest.objects.filter(
-        Q(request_id__in=publications) | Q(legacy_request_id__in=publications)
+        Q(request_id__in=publication_ids) | Q(legacy_request_id__in=publication_ids)
     ).prefetch_related("publication")
 
     invoices_with_missing_publications = {
@@ -351,3 +361,39 @@ def _bulk_create_funding_sources(funding_sources: Iterable[str]) -> dict[str, Fu
         existing_map.update({fs.name: FundingSourceId(fs.id) for fs in created})
 
     return existing_map
+
+
+def _update_funding_request_payment_statuses(invoices: list[Invoice]) -> None:
+    """
+    Update funding request payment statuses based on imported invoice payment statuses.
+    This uses bulk operations for optimal performance during large imports.
+    """
+    payment_updates = []
+
+    for invoice in invoices:
+        # Note: After bulk_create, invoices will have their IDs set
+        if not invoice.id:
+            continue  # Skip if somehow ID wasn't set
+
+        # Get publication positions from this invoice
+        publication_positions = [
+            p.item for p in invoice.positions if isinstance(p.item, PublicationId)
+        ]
+
+        if not publication_positions:
+            continue  # Skip invoices without publication positions
+
+        # Determine payment status based on invoice payment status
+        payment: PublicationPayment
+        if invoice.is_paid():
+            payment = PublicationPaid(invoice_id=invoice.id, invoice_number=invoice.number)
+        else:
+            payment = InvoiceReceived(invoice_id=invoice.id, invoice_number=invoice.number)
+
+        # Collect payment updates for bulk processing
+        for publication_id in publication_positions:
+            payment_updates.append((publication_id, payment))
+
+    # Bulk update all payment statuses at once
+    if payment_updates:
+        publications.bulk_update_payments(payment_updates)

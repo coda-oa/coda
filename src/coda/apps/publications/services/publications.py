@@ -34,6 +34,16 @@ def update_payment(publication_id: PublicationId, publication_payment: Publicati
     payment_repository.save_payment(publication_id, publication_payment)
 
 
+def bulk_update_payments(payment_updates: list[tuple[PublicationId, PublicationPayment]]) -> None:
+    """
+    Bulk update publication payment statuses for better performance.
+
+    Args:
+        payment_updates: List of (publication_id, payment_status) tuples
+    """
+    payment_repository.bulk_save_payments(payment_updates)
+
+
 def invoice_deleted(publication_id: PublicationId) -> None:
     payment_repository.delete_payment(publication_id)
 
