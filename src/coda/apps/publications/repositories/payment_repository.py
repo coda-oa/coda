@@ -1,6 +1,7 @@
 from typing import Final
 
 from django.db import transaction
+
 from coda.apps.publications.models import PublicationPayment as PublicationPaymentModel
 from coda.domain.invoice import InvoiceId
 from coda.domain.publication import PublicationId
@@ -66,9 +67,8 @@ def bulk_save_payments(payment_updates: list[tuple[PublicationId, PublicationPay
         return
 
     with transaction.atomic():
-        # Group by payment type for efficient processing
-        paid_updates = []
-        received_updates = []
+        paid_updates: list[tuple[PublicationId, PublicationPayment]] = []
+        received_updates: list[tuple[PublicationId, PublicationPayment]] = []
 
         for publication_id, payment in payment_updates:
             if isinstance(payment, PublicationPaid):
@@ -76,13 +76,11 @@ def bulk_save_payments(payment_updates: list[tuple[PublicationId, PublicationPay
             elif isinstance(payment, InvoiceReceived):
                 received_updates.append((publication_id, payment))
 
-        # Process paid publications
         if paid_updates:
-            _bulk_update_payment_status(paid_updates, "paid")  # type: ignore[arg-type]
+            _bulk_update_payment_status(paid_updates, "paid")
 
-        # Process invoice received publications
         if received_updates:
-            _bulk_update_payment_status(received_updates, "invoice_received")  # type: ignore[arg-type]
+            _bulk_update_payment_status(received_updates, "invoice_received")
 
 
 def _bulk_update_payment_status(
@@ -106,7 +104,6 @@ def _bulk_update_payment_status(
             invoice_id = payment.invoice_id
 
         if publication_id in existing_payments:
-            # Update existing
             model = existing_payments[publication_id]
             model.status = status
             model.invoice_id = invoice_id
@@ -119,7 +116,6 @@ def _bulk_update_payment_status(
                 )
             )
 
-    # Bulk operations
     if payments_to_create:
         PublicationPaymentModel.objects.bulk_create(payments_to_create)
 

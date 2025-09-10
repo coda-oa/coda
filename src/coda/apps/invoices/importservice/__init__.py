@@ -26,6 +26,7 @@ from coda.domain.invoice import (
     CreditorId,
     FundingSourceId,
     Invoice,
+    InvoiceId,
     Position,
     TaxRate,
 )
@@ -137,21 +138,20 @@ def _process_invoices(
     lookups = _build_entity_lookups(valid_invoice_dtos, request_id_lookup)
     invoices = _create_invoices(valid_invoice_dtos, lookups)
 
-    # Bulk create invoices for performance
     invoice_ids = repository.bulk_create(invoices)
-
-    # Set the IDs on the invoice objects so payment updates can work
-    for invoice, invoice_id in zip(invoices, invoice_ids):
-        invoice.id = invoice_id
-
-    # Update payment statuses for funding requests
-    _update_funding_request_payment_statuses(invoices)
+    _assign_invoice_ids(invoices, invoice_ids)
+    _update_publication_payment_statuses(invoices)
 
     processing_errors = _build_missing_publication_errors(
         invoice_dtos, invoices_with_missing_publications
     )
 
     return invoices, processing_errors
+
+
+def _assign_invoice_ids(invoices: list[Invoice], invoice_ids: list[InvoiceId]) -> None:
+    for invoice, invoice_id in zip(invoices, invoice_ids):
+        invoice.id = invoice_id
 
 
 def _build_entity_lookups(
@@ -363,37 +363,31 @@ def _bulk_create_funding_sources(funding_sources: Iterable[str]) -> dict[str, Fu
     return existing_map
 
 
-def _update_funding_request_payment_statuses(invoices: list[Invoice]) -> None:
+def _update_publication_payment_statuses(invoices: list[Invoice]) -> None:
     """
     Update funding request payment statuses based on imported invoice payment statuses.
     This uses bulk operations for optimal performance during large imports.
     """
-    payment_updates = []
+    payment_updates = [
+        (publication_id, _create_payment(invoice))
+        for invoice in invoices
+        for publication_id in _publication_positions(invoice)
+        if invoice.id
+    ]
 
-    for invoice in invoices:
-        # Note: After bulk_create, invoices will have their IDs set
-        if not invoice.id:
-            continue  # Skip if somehow ID wasn't set
-
-        # Get publication positions from this invoice
-        publication_positions = [
-            p.item for p in invoice.positions if isinstance(p.item, PublicationId)
-        ]
-
-        if not publication_positions:
-            continue  # Skip invoices without publication positions
-
-        # Determine payment status based on invoice payment status
-        payment: PublicationPayment
-        if invoice.is_paid():
-            payment = PublicationPaid(invoice_id=invoice.id, invoice_number=invoice.number)
-        else:
-            payment = InvoiceReceived(invoice_id=invoice.id, invoice_number=invoice.number)
-
-        # Collect payment updates for bulk processing
-        for publication_id in publication_positions:
-            payment_updates.append((publication_id, payment))
-
-    # Bulk update all payment statuses at once
     if payment_updates:
         publications.bulk_update_payments(payment_updates)
+
+
+def _publication_positions(invoice: Invoice) -> list[PublicationId]:
+    return [p.item for p in invoice.positions if isinstance(p.item, PublicationId)]
+
+
+def _create_payment(invoice: Invoice) -> PublicationPayment:
+    if not invoice.id:
+        raise ValueError("Invoice must have an ID to create a payment status.")
+
+    if invoice.is_paid():
+        return PublicationPaid(invoice_id=invoice.id, invoice_number=invoice.number)
+
+    return InvoiceReceived(invoice_id=invoice.id, invoice_number=invoice.number)
