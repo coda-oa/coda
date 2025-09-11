@@ -35,6 +35,8 @@ services:
     build:
       context: .
       dockerfile: ./dockerfiles/production/postgres/Dockerfile
+      args:
+          POSTGRES_VERSION: ${POSTGRES_VERSION}
 
     volumes:
       - production_postgres_data:/var/lib/postgresql/data

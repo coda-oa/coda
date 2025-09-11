@@ -1,4 +1,6 @@
-FROM postgres:15
+# check=skip=InvalidDefaultArgInFrom
+ARG POSTGRES_VERSION
+FROM postgres:${POSTGRES_VERSION}
 
 COPY ./dockerfiles/production/postgres/maintenance /usr/local/bin/maintenance
 RUN chmod +x /usr/local/bin/maintenance/*
