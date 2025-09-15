@@ -5,10 +5,12 @@ from coda.apps.publications.repositories import payment_repository, publication_
 from coda.domain.contract import ContractId, ContractYear
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
+    IndividualBillingPaymentStatus,
+    InvoiceReceived,
     PublicationCoveredByContract,
+    PublicationPaid,
     PublicationPayment,
     PublicationPaymentStatus,
-    PublicationUnpaid,
 )
 
 
@@ -24,10 +26,14 @@ def get_payment_status(publication: PublicationId) -> PublicationPaymentStatus:
         )
 
     payment = payment_repository.find_payment(publication)
-    if payment:
-        return payment
+    status = IndividualBillingPaymentStatus(publication)
 
-    return PublicationUnpaid()
+    if isinstance(payment, PublicationPaid):
+        status.paid_invoice(payment.invoice_id, payment.invoice_number)
+    elif isinstance(payment, InvoiceReceived):
+        status.received_invoice(payment.invoice_id, payment.invoice_number)
+
+    return status
 
 
 def update_payment(publication_id: PublicationId, publication_payment: PublicationPayment) -> None:

@@ -230,7 +230,9 @@ def test__unpaid_invoice_with_publication_position_import_invoices_funding_reque
     imported_invoice = repository.first()
 
     assert imported_invoice is not None
-    assert payment_status == expected_payment_status(imported_invoice)
+
+    # FIXME: migrate to new payment status
+    assert payment_status == expected_payment_status(imported_invoice)  # type: ignore[comparison-overlap]
 
 
 def assert_valid_invoice_imported(valid_dto: InvoiceImportDto) -> None:

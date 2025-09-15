@@ -7,7 +7,11 @@ from coda.apps.invoices import repository, services
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
 from coda.domain.invoice import AnyPosition, CreditorId, Invoice, InvoiceId
-from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationUnpaid
+from coda.domain.publication.payment import (
+    IndividualBillingPaymentStatus,
+    Payment,
+    IndividualPublicationPaymentStatus,
+)
 from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
 
@@ -22,10 +26,12 @@ def test__unpaid_invoice_with_publication__save__publication_has_invoice_receive
 
 
 def assert_invoice_received(invoice: Invoice, publication: PublicationId) -> None:
-    invoice_received = InvoiceReceived(
-        invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number
-    )
-    assert publications.get_payment_status(publication) == invoice_received
+    payment_status = publications.get_payment_status(publication)
+    assert isinstance(payment_status, IndividualBillingPaymentStatus)
+    assert payment_status.status() == IndividualPublicationPaymentStatus.Unpaid
+    assert payment_status.payments() == [
+        Payment(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=True)
+    ]
 
 
 @pytest.mark.django_db
@@ -42,8 +48,14 @@ def test__paid_invoice__save__publications_are_paid() -> None:
 
 
 def assert_publication_paid(invoice: Invoice, publication: PublicationId) -> None:
-    paid = PublicationPaid(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number)
-    assert publications.get_payment_status(publication) == paid
+    payment_status = publications.get_payment_status(publication)
+    assert isinstance(payment_status, IndividualBillingPaymentStatus)
+    assert payment_status.status() == IndividualPublicationPaymentStatus.Paid
+    assert payment_status.payments() == [
+        Payment(
+            invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=False
+        )
+    ]
 
 
 @pytest.mark.django_db
@@ -123,7 +135,9 @@ def test__invoice_with_publications__delete_invoice__publications_are_unpaid() -
 
 
 def assert_publication_unpaid(publication: PublicationId) -> None:
-    assert publications.get_payment_status(publication) == PublicationUnpaid()
+    payment_status = publications.get_payment_status(publication)
+    assert isinstance(payment_status, IndividualBillingPaymentStatus)
+    assert payment_status.status() == IndividualPublicationPaymentStatus.Unpaid
 
 
 @pytest.mark.django_db
@@ -155,9 +169,7 @@ def test__paid_invoice_with_two_equal_publication_positions__delete_one__publica
     invoice.positions = [equal_position]
     services.save(invoice)
 
-    assert publications.get_payment_status(publication) == PublicationPaid(
-        invoice_id=invoice.id, invoice_number=invoice.number
-    )
+    assert_publication_paid(invoice, publication)
 
 
 @pytest.mark.django_db

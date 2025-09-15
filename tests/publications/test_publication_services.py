@@ -9,10 +9,12 @@ from coda.apps.publications.services import publications
 from coda.domain.contract import ContractYear, PublicationBilling
 from coda.domain.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.publication.payment import (
+    IndividualBillingPaymentStatus,
     InvoiceReceived,
+    Payment,
+    IndividualPublicationPaymentStatus,
     PublicationCoveredByContract,
     PublicationPaid,
-    PublicationUnpaid,
 )
 from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
@@ -26,7 +28,14 @@ def test__publication_with_paid_invoice__mark_paid__publication_is_paid() -> Non
     paid = PublicationPaid(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number)
     publications.update_payment(publication, paid)
 
-    assert publications.get_payment_status(publication) == paid
+    payment_status = publications.get_payment_status(publication)
+    assert isinstance(payment_status, IndividualBillingPaymentStatus)
+    assert payment_status.status() == IndividualPublicationPaymentStatus.Paid
+    assert payment_status.payments() == [
+        Payment(
+            invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=False
+        )
+    ]
 
 
 @pytest.mark.django_db
@@ -35,31 +44,45 @@ def test__publication_without_invoice__publication_is_unpaid() -> None:
     publication = domainfactory.publication(journal)
     publication.id = publication_repository.create(publication)
 
-    assert publications.get_payment_status(publication.id) == PublicationUnpaid()
+    payment_status = get_individual_paymentstatus(publication.id)
+    assert payment_status.status() == IndividualPublicationPaymentStatus.Unpaid
+
+
+def get_individual_paymentstatus(publication_id: PublicationId) -> IndividualBillingPaymentStatus:
+    payment_status = publications.get_payment_status(publication_id)
+    assert isinstance(payment_status, IndividualBillingPaymentStatus)
+    return payment_status
 
 
 @pytest.mark.django_db
 def test__publication_with_paid_invoice__not_marked_paid__publication_is_unpaid() -> None:
-    publication = create_publication()
-    create_invoice_for_publication(publication)
+    publication_id = create_publication()
+    create_invoice_for_publication(publication_id)
 
-    assert publications.get_payment_status(publication) == PublicationUnpaid()
+    assert (
+        get_individual_paymentstatus(publication_id).status()
+        == IndividualPublicationPaymentStatus.Unpaid
+    )
 
 
 @pytest.mark.django_db
 def test__publication_with_unpaid_invoice__invoice_received__publication_has_invoice_received() -> (
     None
 ):
-    publication = create_publication()
-    invoice = create_invoice_for_publication(publication)
+    publication_id = create_publication()
+    invoice = create_invoice_for_publication(publication_id)
 
     invoice_received = InvoiceReceived(
         invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number
     )
 
-    publications.update_payment(publication, invoice_received)
+    publications.update_payment(publication_id, invoice_received)
 
-    assert publications.get_payment_status(publication) == invoice_received
+    payment_status = get_individual_paymentstatus(publication_id)
+    assert payment_status.status() == IndividualPublicationPaymentStatus.Unpaid
+    assert payment_status.payments() == [
+        Payment(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=True)
+    ]
 
 
 @pytest.mark.django_db
@@ -72,9 +95,9 @@ def test__contract_with_individual_publication_billing__unpaid_publication_witho
 
     publication = create_publication(contract.in_first_year())
 
-    payment_status = publications.get_payment_status(publication)
+    payment_status = get_individual_paymentstatus(publication)
 
-    assert payment_status == PublicationUnpaid()
+    assert payment_status.status() == IndividualPublicationPaymentStatus.Unpaid
 
 
 @pytest.mark.django_db
@@ -91,9 +114,9 @@ def test__contract_with_individual_publication_billing__paid_publication__paymen
     paid = PublicationPaid(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number)
     publications.update_payment(publication, paid)
 
-    payment_status = publications.get_payment_status(publication)
+    payment_status = get_individual_paymentstatus(publication)
 
-    assert payment_status == paid
+    assert payment_status.status() == IndividualPublicationPaymentStatus.Paid
 
 
 @pytest.mark.django_db
@@ -111,9 +134,12 @@ def test__contract_with_individual_publication_billing__unpaid_publication_with_
     )
 
     publications.update_payment(publication, invoice_received)
-    payment_status = publications.get_payment_status(publication)
+    payment_status = get_individual_paymentstatus(publication)
 
-    assert payment_status == invoice_received
+    assert payment_status.status() == IndividualPublicationPaymentStatus.Unpaid
+    assert payment_status.payments() == [
+        Payment(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=True)
+    ]
 
 
 @pytest.mark.django_db
@@ -147,7 +173,10 @@ def test__paid_publication__invoice_deleted__publication_is_unpaid() -> None:
 
     publications.invoice_deleted(publication)
 
-    assert publications.get_payment_status(publication) == PublicationUnpaid()
+    assert (
+        get_individual_paymentstatus(publication).status()
+        == IndividualPublicationPaymentStatus.Unpaid
+    )
 
 
 def pay_publication(publication: PublicationId) -> Invoice:

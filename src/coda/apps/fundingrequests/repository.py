@@ -34,7 +34,6 @@ from coda.domain.publication.payment import (
     InvoiceReceived,
     PublicationCoveredByContract,
     PublicationPaid,
-    PublicationPaymentStatus,
     PublicationUnpaid,
 )
 from coda.domain.string import NonEmptyStr
@@ -351,7 +350,13 @@ def search(
     processing_states: list[ReviewResult] | None = None,
     open_access_types: list[OpenAccessType] | None = None,
     date_range: DateRange | None = None,
-    payment_statuses: list[type[PublicationPaymentStatus]] | None = None,
+    payment_statuses: list[
+        type[InvoiceReceived]
+        | type[PublicationPaid]
+        | type[PublicationUnpaid]
+        | type[PublicationCoveredByContract]
+    ]
+    | None = None,
     labels: Iterable[int] | None = None,
     exclude_labels: Iterable[int] | None = None,
 ) -> Iterable[FundingRequestModel]:

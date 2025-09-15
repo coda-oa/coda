@@ -20,11 +20,7 @@ from coda.domain.fundingrequest import FundingRequestId, ReviewResult
 from coda.domain.money import Currency, Money
 from coda.domain.publication import License, Link
 from coda.domain.publication.payment import (
-    InvoiceReceived,
-    PublicationCoveredByContract,
-    PublicationPaid,
     PublicationPaymentStatus,
-    PublicationUnpaid,
 )
 from coda.domain.publication.publication import OpenAccessType, PublicationId
 
@@ -170,35 +166,37 @@ def publication_viewmodel(fundingrequest: FundingRequestModel) -> PublicationVie
 
 
 def payment_status_viewmodel(payment_status: PublicationPaymentStatus) -> dict[str, Any]:
-    match payment_status:
-        case PublicationCoveredByContract(contract_id, contract_name, contract_year):
-            return {
-                "status": "Covered by contract",
-                "contract_id": contract_id,
-                "contract_name": contract_name,
-                "contract_year": contract_year,
-                "url": reverse("contracts:detail", kwargs={"pk": contract_id}),
-            }
+    # FIXME: migrate to new payment status
+    return {}
+    # match payment_status:
+    #     case PublicationCoveredByContract(contract_id, contract_name, contract_year):
+    #         return {
+    #             "status": "Covered by contract",
+    #             "contract_id": contract_id,
+    #             "contract_name": contract_name,
+    #             "contract_year": contract_year,
+    #             "url": reverse("contracts:detail", kwargs={"pk": contract_id}),
+    #         }
 
-        case PublicationPaid(invoice_id, invoice_number):
-            return {
-                "status": "Paid",
-                "invoice_id": invoice_id,
-                "invoice_number": invoice_number,
-                "url": reverse("invoices:detail", kwargs={"pk": invoice_id}),
-            }
+    #     case PublicationPaid(invoice_id, invoice_number):
+    #         return {
+    #             "status": "Paid",
+    #             "invoice_id": invoice_id,
+    #             "invoice_number": invoice_number,
+    #             "url": reverse("invoices:detail", kwargs={"pk": invoice_id}),
+    #         }
 
-        case PublicationUnpaid():
-            return {"status": "Unpaid"}
-        case InvoiceReceived(invoice_id, invoice_number):
-            return {
-                "status": "Invoice received",
-                "invoice_id": invoice_id,
-                "invoice_number": invoice_number,
-                "url": reverse("invoices:detail", kwargs={"pk": invoice_id}),
-            }
+    #     case PublicationUnpaid():
+    #         return {"status": "Unpaid"}
+    #     case InvoiceReceived(invoice_id, invoice_number):
+    #         return {
+    #             "status": "Invoice received",
+    #             "invoice_id": invoice_id,
+    #             "invoice_number": invoice_number,
+    #             "url": reverse("invoices:detail", kwargs={"pk": invoice_id}),
+    #         }
 
-    return payment_status
+    # return payment_status
 
 
 def funding_viewmodel(external_funding: ExternalFunding) -> ExternalFundingViewModel:
