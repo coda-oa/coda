@@ -5,7 +5,7 @@ from coda.apps.publications.repositories import payment_repository, publication_
 from coda.domain.contract import ContractId, ContractYear
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
-    IndividualBillingPaymentStatus,
+    IndividuallyBilledPublicationPayments,
     InvoiceReceived,
     PublicationCoveredByContract,
     PublicationPaid,
@@ -26,7 +26,7 @@ def get_payment_status(publication: PublicationId) -> PublicationPaymentStatus:
         )
 
     payment = payment_repository.find_payment(publication)
-    status = IndividualBillingPaymentStatus(publication)
+    status = IndividuallyBilledPublicationPayments(publication)
 
     if isinstance(payment, PublicationPaid):
         status.paid_invoice(payment.invoice_id, payment.invoice_number)

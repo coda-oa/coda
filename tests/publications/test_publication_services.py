@@ -9,7 +9,7 @@ from coda.apps.publications.services import publications
 from coda.domain.contract import ContractYear, PublicationBilling
 from coda.domain.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.publication.payment import (
-    IndividualBillingPaymentStatus,
+    IndividuallyBilledPublicationPayments,
     InvoiceReceived,
     Payment,
     IndividualPublicationPaymentStatus,
@@ -29,7 +29,7 @@ def test__publication_with_paid_invoice__mark_paid__publication_is_paid() -> Non
     publications.update_payment(publication, paid)
 
     payment_status = publications.get_payment_status(publication)
-    assert isinstance(payment_status, IndividualBillingPaymentStatus)
+    assert isinstance(payment_status, IndividuallyBilledPublicationPayments)
     assert payment_status.status() == IndividualPublicationPaymentStatus.Paid
     assert payment_status.payments() == [
         Payment(
@@ -48,9 +48,11 @@ def test__publication_without_invoice__publication_is_unpaid() -> None:
     assert payment_status.status() == IndividualPublicationPaymentStatus.Unpaid
 
 
-def get_individual_paymentstatus(publication_id: PublicationId) -> IndividualBillingPaymentStatus:
+def get_individual_paymentstatus(
+    publication_id: PublicationId,
+) -> IndividuallyBilledPublicationPayments:
     payment_status = publications.get_payment_status(publication_id)
-    assert isinstance(payment_status, IndividualBillingPaymentStatus)
+    assert isinstance(payment_status, IndividuallyBilledPublicationPayments)
     return payment_status
 
 

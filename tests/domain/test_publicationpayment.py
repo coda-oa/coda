@@ -1,14 +1,14 @@
 from coda.domain.invoice import InvoiceId
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
-    IndividualBillingPaymentStatus,
+    IndividuallyBilledPublicationPayments,
     Payment,
     IndividualPublicationPaymentStatus,
 )
 
 
-def make_sut() -> IndividualBillingPaymentStatus:
-    return IndividualBillingPaymentStatus(publication_id=PublicationId(1))
+def make_sut() -> IndividuallyBilledPublicationPayments:
+    return IndividuallyBilledPublicationPayments(publication_id=PublicationId(1))
 
 
 def test__publication_payment_status__without_payments__is_unpaid() -> None:

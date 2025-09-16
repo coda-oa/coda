@@ -46,7 +46,7 @@ class IndividualPublicationPaymentStatus(enum.Enum):
         return self.value
 
 
-class IndividualBillingPaymentStatus:
+class IndividuallyBilledPublicationPayments:
     """
     Represents the payment status of a publication that is billed individually (not covered by a contract).
     """
@@ -95,4 +95,4 @@ class IndividualBillingPaymentStatus:
 
 
 PublicationPayment = InvoiceReceived | PublicationPaid
-PublicationPaymentStatus = PublicationCoveredByContract | IndividualBillingPaymentStatus
+PublicationPaymentStatus = PublicationCoveredByContract | IndividuallyBilledPublicationPayments
