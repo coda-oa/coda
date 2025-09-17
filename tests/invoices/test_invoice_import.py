@@ -31,7 +31,6 @@ from coda.domain.invoice import (
     CreditorId,
     FundingSourceId,
     Invoice,
-    InvoiceId,
     PaymentStatus,
     Position,
     PublicationCostType,
@@ -39,9 +38,12 @@ from coda.domain.invoice import (
 )
 from coda.domain.money import Currency, Money
 from coda.domain.publication import JournalId, PublicationId
-from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
+from coda.domain.publication.payment import (
+    IndividuallyBilledPublicationPayments,
+)
 from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
+from tests.invoices import payment_assertions
 from tests.invoices.test_invoice_repository import assert_invoice_eq
 
 
@@ -194,9 +196,7 @@ PaidInvoicePaymentFixture = (
         number="INV-2025-001",
         positions=[publication_position_import_dto(fr)],
     ),
-    lambda invoice: PublicationPaid(
-        invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number
-    ),
+    payment_assertions.new_invoice_paid_assertion,
 )
 
 
@@ -205,20 +205,18 @@ UnpaidInvoicePaymentFixture = (
         number="INV-2025-002",
         positions=[publication_position_import_dto(fr)],
     ),
-    lambda invoice: InvoiceReceived(
-        invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number
-    ),
+    payment_assertions.new_invoice_received_assertion,
 )
 
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    "invoice_dto, expected_payment_status",
+    "invoice_dto, create_payments_assertion",
     [PaidInvoicePaymentFixture, UnpaidInvoicePaymentFixture],
 )
 def test__unpaid_invoice_with_publication_position_import_invoices_funding_request_has_payment_status_invoice_received(
     invoice_dto: Callable[[AnyFundingRequest], InvoiceImportDto],
-    expected_payment_status: Callable[[Invoice], PublicationPayment],
+    create_payments_assertion: payment_assertions.CreatePaymentsAssertion,
 ) -> None:
     funding_request = create_funding_request()
     import_dto = InvoiceListImportDto(invoices=[invoice_dto(funding_request)])
@@ -231,8 +229,9 @@ def test__unpaid_invoice_with_publication_position_import_invoices_funding_reque
 
     assert imported_invoice is not None
 
-    # FIXME: migrate to new payment status
-    assert payment_status == expected_payment_status(imported_invoice)  # type: ignore[comparison-overlap]
+    assert_payment_status = create_payments_assertion(imported_invoice)
+    assert isinstance(payment_status, IndividuallyBilledPublicationPayments)
+    assert_payment_status(payment_status)
 
 
 def assert_valid_invoice_imported(valid_dto: InvoiceImportDto) -> None:

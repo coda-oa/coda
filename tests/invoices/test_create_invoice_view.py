@@ -1,6 +1,5 @@
 import datetime
 import random
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
@@ -38,11 +37,14 @@ from coda.domain.invoice import (
 from coda.domain.money import Currency, Money
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
-    IndividualPublicationPaymentStatus,
     IndividuallyBilledPublicationPayments,
-    Payment,
 )
 from tests import domainfactory, modelfactory
+from tests.invoices.payment_assertions import (
+    CreatePaymentsAssertion,
+    new_invoice_paid_assertion,
+    new_invoice_received_assertion,
+)
 from tests.invoices.test_invoice_repository import assert_invoice_eq
 
 _faker = faker.Faker()
@@ -179,38 +181,13 @@ def test__given_positions_added__create__saves_new_invoice(client: Client) -> No
     assertRedirects(response, reverse("invoices:detail", kwargs={"pk": actual.id}))
 
 
-def expect_paid(invoice: Invoice) -> Callable[[IndividuallyBilledPublicationPayments], None]:
-    def expectation(actual: IndividuallyBilledPublicationPayments) -> None:
-        assert invoice.id is not None
-        assert actual.status() == IndividualPublicationPaymentStatus.Paid
-        assert actual.payments() == [Payment(invoice.id, invoice.number, pending=False)]
-
-    return expectation
-
-
-def expect_invoice_received(
-    invoice: Invoice,
-) -> Callable[[IndividuallyBilledPublicationPayments], None]:
-    def expectation(actual: IndividuallyBilledPublicationPayments) -> None:
-        assert invoice.id is not None
-        assert actual.status() == IndividualPublicationPaymentStatus.Unpaid
-        assert actual.payments() == [Payment(invoice.id, invoice.number, pending=True)]
-
-    return expectation
-
-
-type CreatePaymentsAssertion = Callable[
-    [Invoice | None], Callable[[IndividuallyBilledPublicationPayments], None]
-]
-
-
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 @pytest.mark.parametrize(
     ["invoice_status", "get_assertion_for_invoice"],
     [
-        (PaymentStatus.Paid, expect_paid),
-        (PaymentStatus.Unpaid, expect_invoice_received),
+        (PaymentStatus.Paid, new_invoice_paid_assertion),
+        (PaymentStatus.Unpaid, new_invoice_received_assertion),
     ],
 )
 def test__given_publication_added__create__publication_has_invoice_received(

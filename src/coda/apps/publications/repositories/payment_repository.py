@@ -5,7 +5,12 @@ from django.db import transaction
 from coda.apps.publications.models import PublicationPayment as PublicationPaymentModel
 from coda.domain.invoice import InvoiceId
 from coda.domain.publication import PublicationId
-from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
+from coda.domain.publication.payment import (
+    IndividuallyBilledPublicationPayments,
+    InvoiceReceived,
+    PublicationPaid,
+    PublicationPayment,
+)
 
 
 def _to_invoice_received(model: PublicationPaymentModel) -> PublicationPayment:
@@ -47,13 +52,22 @@ def delete_payment(publication: PublicationId) -> None:
     PublicationPaymentModel.objects.filter(publication_id=publication).delete()
 
 
-def find_payment(publication: PublicationId) -> PublicationPayment | None:
-    model = PublicationPaymentModel.objects.filter(publication_id=publication).first()
-    if model is None:
+def find_payment(publication: PublicationId) -> IndividuallyBilledPublicationPayments | None:
+    queryset = PublicationPaymentModel.objects.filter(publication_id=publication)
+    if queryset.count() == 0:
         return None
 
-    assert model.invoice is not None
-    return REVERSE_STATUS_MAPPING[model.status](model)
+    payments = IndividuallyBilledPublicationPayments(publication)
+    for model in queryset:
+        if model.invoice is None:
+            raise ValueError("Payment record has no associated invoice")
+
+        if model.status == "paid":
+            payments.paid_invoice(InvoiceId(model.invoice.id), model.invoice.number)
+        elif model.status == "invoice_received":
+            payments.received_invoice(InvoiceId(model.invoice.id), model.invoice.number)
+
+    return payments
 
 
 def bulk_save_payments(payment_updates: list[tuple[PublicationId, PublicationPayment]]) -> None:

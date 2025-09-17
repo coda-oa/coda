@@ -1,20 +1,16 @@
 from coda.domain.invoice import InvoiceId
 from coda.domain.publication import PublicationId
-from coda.domain.publication.payment import (
-    IndividuallyBilledPublicationPayments,
-    Payment,
-    IndividualPublicationPaymentStatus,
-)
+from coda.domain.publication.payment import IndividuallyBilledPublicationPayments, Payment
 
 
 def make_sut() -> IndividuallyBilledPublicationPayments:
     return IndividuallyBilledPublicationPayments(publication_id=PublicationId(1))
 
 
-def test__publication_payment_status__without_payments__is_unpaid() -> None:
+def test__publication_payment_status__without_payments__no_payments_all_paid() -> None:
     sut = make_sut()
 
-    assert sut.status() == IndividualPublicationPaymentStatus.Unpaid
+    assert_all_paid(sut)
     assert sut.payments() == []
 
 
@@ -25,7 +21,7 @@ def test__publication_payment_status__add_invoice_received__is_unpaid_with_pendi
 
     sut.received_invoice(invoice_id=InvoiceId(1), invoice_number="INV-001")
 
-    assert sut.status() == IndividualPublicationPaymentStatus.Unpaid
+    assert_all_payments_pending(sut)
     assert sut.payments() == [
         Payment(invoice_id=InvoiceId(1), invoice_number="INV-001", pending=True)
     ]
@@ -36,7 +32,7 @@ def test__publication_payment_status__add_paid__is_paid() -> None:
 
     sut.paid_invoice(invoice_id=InvoiceId(1), invoice_number="INV-001")
 
-    assert sut.status() == IndividualPublicationPaymentStatus.Paid
+    assert_all_paid(sut)
     assert sut.payments() == [
         Payment(invoice_id=InvoiceId(1), invoice_number="INV-001", pending=False)
     ]
@@ -50,7 +46,7 @@ def test__payment_status_with_pending_payment__add_paid_for_same_invoice__is_pai
     sut.received_invoice(invoice_id=InvoiceId(1), invoice_number="INV-001")
     sut.paid_invoice(invoice_id=InvoiceId(1), invoice_number="INV-001")
 
-    assert sut.status() == IndividualPublicationPaymentStatus.Paid
+    assert_all_paid(sut)
     assert sut.payments() == [
         Payment(invoice_id=InvoiceId(1), invoice_number="INV-001", pending=False)
     ]
@@ -64,7 +60,7 @@ def test__payment_status_with_pending_and_paid_payments_of_different_invoices__i
     sut.received_invoice(invoice_id=InvoiceId(1), invoice_number="INV-001")
     sut.paid_invoice(invoice_id=InvoiceId(2), invoice_number="INV-002")
 
-    assert sut.status() == IndividualPublicationPaymentStatus.PartiallyPaid
+    assert_payments_partially_paid(sut)
     assert sut.payments() == [
         Payment(invoice_id=InvoiceId(1), invoice_number="INV-001", pending=True),
         Payment(invoice_id=InvoiceId(2), invoice_number="INV-002", pending=False),
@@ -77,5 +73,25 @@ def test__payment_status_paid__remove_all_payments__is_unpaid() -> None:
     sut.paid_invoice(invoice_id=InvoiceId(1), invoice_number="INV-001")
     sut.deleted_invoice(invoice_id=InvoiceId(1))
 
-    assert sut.status() == IndividualPublicationPaymentStatus.Unpaid
+    assert sut.all_paid()
+    assert not sut.has_pending_payments()
+    assert not sut.partially_paid()
     assert sut.payments() == []
+
+
+def assert_all_paid(sut: IndividuallyBilledPublicationPayments) -> None:
+    assert sut.all_paid()
+    assert not sut.partially_paid()
+    assert not sut.has_pending_payments()
+
+
+def assert_all_payments_pending(sut: IndividuallyBilledPublicationPayments) -> None:
+    assert not sut.all_paid()
+    assert not sut.partially_paid()
+    assert sut.has_pending_payments()
+
+
+def assert_payments_partially_paid(sut: IndividuallyBilledPublicationPayments) -> None:
+    assert not sut.all_paid()
+    assert sut.has_pending_payments()
+    assert sut.partially_paid()

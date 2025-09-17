@@ -1,4 +1,3 @@
-import enum
 from dataclasses import dataclass
 
 from coda.domain.contract import ContractId
@@ -37,13 +36,13 @@ class Payment:
     pending: bool
 
 
-class IndividualPublicationPaymentStatus(enum.Enum):
-    Unpaid = "unpaid"
-    PartiallyPaid = "partially paid"
-    Paid = "paid"
-
-    def __str__(self) -> str:
-        return self.value
+# class IndividualPublicationPaymentStatus(enum.Enum):
+#     Unpaid = "unpaid"
+#     PartiallyPaid = "partially paid"
+#     Paid = "paid"
+#
+#     def __str__(self) -> str:
+#         return self.value
 
 
 class IndividuallyBilledPublicationPayments:
@@ -72,23 +71,31 @@ class IndividuallyBilledPublicationPayments:
     def deleted_invoice(self, invoice_id: InvoiceId) -> None:
         self._payments.pop(invoice_id, None)
 
-    def _is_paid(self) -> bool:
-        if not self._payments:
-            return False
-
+    def all_paid(self) -> bool:
         return all(not payment.pending for payment in self._payments.values())
 
     def _all_pending(self) -> bool:
         return all(payment.pending for payment in self._payments.values())
 
-    def status(self) -> IndividualPublicationPaymentStatus:
-        if not self._payments or self._all_pending():
-            return IndividualPublicationPaymentStatus.Unpaid
+    # def status(self) -> IndividualPublicationPaymentStatus:
+    #     if not self._payments or self._all_pending():
+    #         return IndividualPublicationPaymentStatus.Unpaid
+    #
+    #     if self.all_paid():
+    #         return IndividualPublicationPaymentStatus.Paid
+    #
+    #     return IndividualPublicationPaymentStatus.PartiallyPaid
 
-        if self._is_paid():
-            return IndividualPublicationPaymentStatus.Paid
+    def partially_paid(self) -> bool:
+        if not self._payments:
+            return False
 
-        return IndividualPublicationPaymentStatus.PartiallyPaid
+        return not self.all_paid() and not self._all_pending()
+
+    def has_pending_payments(self) -> bool:
+        if not self._payments:
+            return False
+        return any(payment.pending for payment in self._payments.values())
 
     def payments(self) -> list[Payment]:
         return list(self._payments.values())
