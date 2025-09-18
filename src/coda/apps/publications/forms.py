@@ -1,5 +1,6 @@
 import datetime
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
+import logging
 from typing import Any, NamedTuple, cast
 
 import pydantic
@@ -157,11 +158,14 @@ class PublicationForm(CodaFormBase):
 
         self._update_field_choices("subject_area", vocabularies.subject_areas)
         self._update_field_choices("publication_type", vocabularies.publication_types)
+        if data:
+            _ = self.is_valid()
 
     def _update_field_choices(self, field_name: str, vocabulary: VocabularyProtocol | None) -> None:
         field: forms.Field = self.fields[field_name]
         if vocabulary:
-            self._as_choicefield(field).choices = concept_form_values(vocabulary.concepts)
+            choices = [(None, "-----------")] + concept_form_values(vocabulary.concepts)
+            self._as_choicefield(field).choices = choices
             if field_name in self.errors:
                 self.errors.pop(field_name)
                 field.widget.attrs.pop("aria-invalid")
@@ -188,11 +192,22 @@ class PublicationForm(CodaFormBase):
             self.add_error("online_publication_date", str(err))
             self.add_error("print_publication_date", str(err))
 
+    def is_valid(self) -> bool:
+        self.full_clean()
+        valid = super().is_valid()
+        logging.info("PublicationForm has the following errors %s", self.errors)
+        if self.errors:
+            return False
+
+        return valid
+
     def _parse_concept(self, field_name: str) -> None:
         try:
+            logging.info("Concept %s has value %s", field_name, self.data[field_name])
             self.cleaned_data[field_name] = ConceptDto.model_validate_json(self.data[field_name])
-        except (pydantic.ValidationError, MultiValueDictKeyError) as err:
-            self.add_error(field_name, str(err))
+        except (pydantic.ValidationError, MultiValueDictKeyError):
+            # self.add_error(field_name, str(err))
+            pass
 
     def to_dto(self) -> PublicationMetaDto:
         return PublicationMetaDto(

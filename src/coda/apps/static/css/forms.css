@@ -95,3 +95,7 @@
     max-width: max-content;
     padding: 0;
 }
+
+search-select[aria-invalid="true"]::part(search-box) {
+  border-color: var(--coda-validation-invalid-color);
+}
