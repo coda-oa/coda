@@ -31,7 +31,7 @@ services:
 
   postgres:
     restart: always
-    image: coda_production_postgres
+    image: coda_production_postgres:${POSTGRES_VERSION}
     build:
       context: .
       dockerfile: ./dockerfiles/production/postgres/Dockerfile
