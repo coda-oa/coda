@@ -12,7 +12,7 @@ from coda.apps.invoices.views.position_list import (
     parse_into_position_list,
     parse_position_data,
 )
-from coda.apps.invoices.views.positions import AnyPositionDto
+from coda.apps.invoices.views.position_dtos.edit_position_dtos import AnyPositionDto
 from coda.apps.preferences.models import GlobalPreferences
 from coda.domain.invoice import CreditorId, Invoice, InvoiceId, PaymentStatus
 

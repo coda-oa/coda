@@ -12,7 +12,7 @@ from coda.apps.contracts import repository as contract_services
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.repository import create
-from coda.apps.invoices.views.positions import (
+from coda.apps.invoices.views.position_dtos.edit_position_dtos import (
     ContractPositionDto,
     FreePositionDto,
     PublicationPositionDto,
@@ -224,6 +224,41 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
     assert response.context["positions"] == [expect_existing_contract_position(contract_input)]
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_is_zero(
+    client: Client,
+) -> None:
+    a_publication = domainfactory.publication(JournalId(modelfactory.journal().id))
+    a_publication.id = publication_repository.create(a_publication)
+    some_position = publication_position(a_publication)
+    vat_position = Position(
+        item=some_position.item,
+        cost=some_position.cost,
+        cost_type=PublicationCostType.Vat,  
+        tax_rate=some_position.tax_rate,
+        funding_source=some_position.funding_source,
+        external_position_id=some_position.external_position_id,
+    )
+
+    creditor = modelfactory.creditor()
+    invoice = Invoice.new(
+        number="123",
+        creditor=CreditorId(creditor.id),
+        date=datetime.date.today(),
+        positions=[vat_position],
+        comment="A comment",
+    )
+
+    invoice.id = create(invoice)
+
+    response = goto_update_view(client, invoice.id)
+
+    assert response.context["positions"][0].tax_rate == 0
+
+
+
+
 def save_invoice_view(
     client: Client, invoice_id: InvoiceId, post_data: dict[str, Any]
 ) -> TemplateResponse:
@@ -281,6 +316,7 @@ def expect_publication_position(
         cost_amount=publication_position.cost.amount,
         tax_rate=publication_position.tax_rate.percentage(),
         external_position_id=publication_position.external_position_id,
+        tax_amount=publication_position.tax().amount,
     )
 
 
@@ -296,6 +332,7 @@ def expect_contract_position(contract_position: ContractPosition) -> ContractPos
         cost_type=contract_position.cost_type,
         tax_rate=contract_position.tax_rate.percentage(),
         external_position_id=contract_position.external_position_id,
+        tax_amount=contract_position.tax().amount,
     )
 
 
@@ -307,6 +344,7 @@ def expect_free_position(free_position: Position[str]) -> FreePositionDto:
         cost_type=free_position.cost_type,
         tax_rate=free_position.tax_rate.percentage(),
         external_position_id=free_position.external_position_id,
+        tax_amount=free_position.tax().amount,
     )
 
 

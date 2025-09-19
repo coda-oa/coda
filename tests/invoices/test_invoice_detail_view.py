@@ -15,12 +15,9 @@ from coda.apps.fundingrequests.dto import (
 )
 from coda.apps.fundingrequests.services import fundingrequests
 from coda.apps.invoices.repository import create
-from coda.apps.invoices.views.positions import (
-    PublicationPositionDto,
-)
+from coda.apps.invoices.views.position_dtos.detail_position_dtos import PositionDetailDto
 from coda.apps.publications.dto import PublicationDto
 from coda.domain.fundingrequest.fundingrequest import (
-    AnyFundingRequest,
     FundingOrganizationId,
     FundingRequest,
 )
@@ -46,8 +43,11 @@ def test__invoice_with_publication_position__viewing_invoice_details__publicatio
     response = goto_invoice_detail_view(client, cast(InvoiceId, invoice.id))
 
     actual_invoice = response.context["display_invoice"]
-    first_position: PublicationPositionDto = actual_invoice.positions[0]
-    assert_publication_position_has_fundingrequest_info(fr, first_position)
+    first_position: PositionDetailDto = actual_invoice.positions[0]
+    assert first_position.url == reverse(
+        "fundingrequests:detail", kwargs={"pk": fr.id}
+    )
+
 
 
 def funding_request() -> FundingRequest[Publication]:
@@ -87,11 +87,3 @@ def invoice_with_position(position: AnyPosition) -> Invoice:
 def goto_invoice_detail_view(client: Client, invoice_id: int) -> TemplateResponse:
     return cast(TemplateResponse, client.get(reverse("invoices:detail", kwargs={"pk": invoice_id})))
 
-
-def assert_publication_position_has_fundingrequest_info(
-    fr: AnyFundingRequest, first_position: PublicationPositionDto
-) -> None:
-    assert first_position.funding_request.url == reverse(
-        "fundingrequests:detail", kwargs={"pk": fr.id}
-    )
-    assert first_position.funding_request.request_id == str(fr.request_id)

@@ -48,16 +48,10 @@
                value="{{ position.cost_amount }}"
                {% if editable != None %}readonly{% endif %}>
     </div>
-    <div class="form-row tax-rate">
-        <label for="id-position-{{ counter }}-tax-rate" class="form-row-item-sm">Tax Rate</label>
-        <input type="number"
-               id="id-position-{{ counter }}-tax-rate"
-               name="position-{{ counter }}-tax-rate"
-               min="0"
-               max="100"
-               step="1"
-               value="{{ position.tax_rate }}"
-               {% if editable != None %}readonly{% endif %}>
+    <div class="form-row tax-rate" id="tax-rate-wrapper-{{ counter }}">
+        {% if position.cost_type != "vat" %}
+            {% include "invoices/position_tax_rate.html" with tax_rate=position.tax_rate %}
+        {% endif %}
     </div>
     <div class="form-row cost-type">
         <label for="id-position-{{ counter }}-cost-type" class="form-row-item-sm">Cost Type</label>
@@ -69,7 +63,14 @@
                    value="{{ position.cost_type }}">
         {% else %}
             <select id="id-position-{{ counter }}-cost-type"
-                    name="position-{{ counter }}-cost-type">
+                    name="position-{{ counter }}-cost-type"
+                    hx-get="{% url 'invoices:position_cost_type_options' %}"
+                    hx-target="#tax-rate-wrapper-{{ counter }}"
+                    hx-swap="innerHTML"
+                    hx-trigger="change"
+                    hx-include="[name='position-{{ counter }}-cost-type']"
+                    hx-vals='{"counter": "{{ counter }}"}'
+                    {% if editable != None %}readonly{% endif %}>
                 {% if position.type == "contract" %}
                     {% for type in contract_cost_types %}
                         <option value="{{ type }}"

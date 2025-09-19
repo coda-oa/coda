@@ -20,6 +20,7 @@ from coda.apps.invoices.views.inspect import (
     invoice_list,
     pay_invoice,
     load_conversion_section,
+    position_cost_type_options,
 )
 from coda.apps.invoices.views.position_list import (
     add_position,
@@ -28,7 +29,7 @@ from coda.apps.invoices.views.position_list import (
     switch_position_tab,
 )
 from coda.apps.invoices.views.search import search_contracts, search_publications
-from coda.apps.invoices.views.update import update_invoice
+from coda.apps.invoices.views.update import free_position_cost_type_options, update_invoice
 
 app_name = "invoices"
 
@@ -55,4 +56,6 @@ urlpatterns = [
     path("conversion_section/", load_conversion_section, name="conversions_section"),
     path("<int:pk>/pay/", pay_invoice, name="pay_invoice"),
     path("import/", import_invoices, name="import"),
+    path("position-cost-type-options/", position_cost_type_options, name="position_cost_type_options"),
+    path("free-position-cost-type-options/", free_position_cost_type_options, name="free_position_cost_type_options"),
 ]

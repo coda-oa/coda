@@ -66,7 +66,7 @@ class TaxRate(Decimal):
 ItemType = PublicationId | ContractYear | str
 CostType = PublicationCostType | ContractCostType
 BaseItemT = TypeVar("BaseItemT", covariant=True)
-BaseCostTypeT = TypeVar("BaseCostTypeT", covariant=True)
+BaseCostTypeT = TypeVar("BaseCostTypeT", covariant=True, bound=enum.Enum)
 PublicationItemType = TypeVar("PublicationItemType", bound=PublicationId | str, covariant=True)
 type AnyPosition = "CommonPosition[ItemType, CostType]"
 Positions = Iterable[AnyPosition]
@@ -96,15 +96,19 @@ class CommonPosition(ABC, Generic[BaseItemT, BaseCostTypeT]):
         ...
 
     def net(self) -> Money:
+        if self.cost_type.value == "vat":
+            return Money(0, self.cost.currency)
         return self.cost
 
     def tax(self) -> Money:
+        if self.cost_type.value == "vat":
+            return self.cost
         return self.cost * self.tax_rate
 
     def total(self) -> Money:
         return self.net() + self.tax()
-
-
+    
+    
 @dataclass(slots=True, frozen=True, kw_only=True)
 class Position(CommonPosition[PublicationItemType, PublicationCostType]):
     item: PublicationItemType
