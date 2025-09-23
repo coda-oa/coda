@@ -500,6 +500,20 @@ def test__wizard__early_complete_not_allowed__post_complete_early__does_not_call
     assert "completed" not in completed_state
 
 
+def test__wizard__invalid_step__early_complete__does_not_call_done() -> None:
+    completed_state: dict[str, Any] = {}
+
+    sut = make_sut(
+        CompletingWizardSpy,
+        steps=[InvalidStep()],
+        completed_state=completed_state,
+        allow_early_complete=True,
+    )
+    _ = post(sut, complete_early())
+
+    assert "completed" not in completed_state
+
+
 def test__wizard__initializes_store_with_id() -> None:
     sut = make_sut(steps=[SimpleStep()])
 

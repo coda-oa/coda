@@ -205,25 +205,43 @@ class Wizard(View, abc.ABC):
         self.prepare(request)
         return self._render_step(request, self.index())
 
+    def validate_and_done(self, request: HttpRequest, current_index: int) -> bool:
+        current_step = self.steps[current_index]
+        store = self.get_store()
+        if valid := current_step.is_valid(request, store):
+            current_step.done(self.request, store)
+
+        logging.info("Step of type %s is valid: %s", type(current_step), valid)
+        return valid
+
+    def complete_wizard(self, store: Store, **kwargs: Any) -> HttpResponse:
+        self.complete(**kwargs)
+        response = redirect(self.get_success_url())
+        store.clear()
+        store.save()
+        return response
+
+    def wants_to_progress(self, request: HttpRequest, next_index: int) -> bool:
+        current_index = self.index()
+        return next_index > current_index or self.wants_early_complete(request)
+
     def post(self, request: HttpRequest, **kwargs: Any) -> HttpResponse:
+        current_index = self.index()
         next_index = self.determine_next_index(request)
         store = self.get_store()
 
-        response: HttpResponse
-        if self.is_last(next_index) or self.wants_early_complete(request):
-            if self.wants_early_complete(request):
-                self.steps[next_index].done(request, store)
+        if self.wants_to_progress(request, next_index):
+            valid = self.validate_and_done(request, current_index)
+            if not valid:
+                return self._render_step(request, current_index)
 
-            self.complete(**kwargs)
-            response = redirect(self.get_success_url())
-            store.clear()
-        else:
-            next_index = self.ensure_in_bounds(next_index)
-            response = self._render_step(request, next_index)
-            store["step"] = next_index
+        if self.wants_early_complete(request) or self.is_last(next_index):
+            return self.complete_wizard(store, **kwargs)
 
+        next_index = self.ensure_in_bounds(next_index)
+        store["step"] = next_index
         store.save()
-        return response
+        return self._render_step(request, next_index)
 
     def ensure_in_bounds(self, index: int) -> int:
         if self._out_of_bounds(index):
@@ -239,23 +257,12 @@ class Wizard(View, abc.ABC):
     def determine_next_index(self, request: HttpRequest) -> int:
         match request.POST.get("action"):
             case "next":
-                next_index = self.next_index()
+                next_index = self.index() + 1
             case "back":
                 next_index = self.index() - 1
             case _:
                 next_index = self.index()
         return next_index
-
-    def next_index(self) -> int:
-        current_index = self.index()
-        current_step = self.steps[current_index]
-        store = self.get_store()
-        if valid := current_step.is_valid(self.request, store):
-            current_step.done(self.request, store)
-            current_index = current_index + 1
-
-        logging.info("Step of type %s is valid: %s", type(current_step), valid)
-        return current_index
 
     def _out_of_bounds(self, current_step: int) -> bool:
         return current_step < 0 or current_step >= len(self.steps)
