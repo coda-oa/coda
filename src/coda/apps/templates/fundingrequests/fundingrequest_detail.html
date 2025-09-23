@@ -214,11 +214,9 @@
                 {% include "fundingrequests/partials/checkrun.html" %}
             {% endif %}
             <div class="mb-2">
-                {% if funding_request.is_approved %}
-                    <p class="mb-2">
-                        <b>Funding amount:</b> {{ funding_request.funding_amount }}
-                    </p>
-                {% endif %}
+                <p class="mb-2">
+                    <b>Decided Funding Amount:</b> {{ funding_request.funding_amount }}
+                </p>
                 {% if funding_request.review_remarks %}
                     <div class="mb-2">
                         <p>

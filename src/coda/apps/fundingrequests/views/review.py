@@ -47,14 +47,14 @@ def process_review(review: Review, request: HttpRequest) -> Review:
         case "approve":
             review = review.approved(funding, remarks)
         case "reject":
-            review = review.rejected(remarks)
+            review = review.rejected(funding, remarks)
         case "close":
-            review = review.closed(remarks)
+            review = review.closed(funding, remarks)
         case "waive":
-            review = review.costs_waived(remarks)
+            review = review.costs_waived(funding, remarks)
         case "open":
-            review = review.opened(remarks)
+            review = review.opened(funding, remarks)
         case "return":
-            review = review.with_remarks(remarks)
+            review = review.with_remarks(decided_funding=funding, remarks=remarks)
 
     return review
