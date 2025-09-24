@@ -1,10 +1,10 @@
 from coda.domain.invoice import InvoiceId
 from coda.domain.publication import PublicationId
-from coda.domain.publication.payment import IndividuallyBilledPublicationPayments, Payment
+from coda.domain.publication.payment import PublicationPayments, Payment
 
 
-def make_sut() -> IndividuallyBilledPublicationPayments:
-    return IndividuallyBilledPublicationPayments(publication_id=PublicationId(1))
+def make_sut() -> PublicationPayments:
+    return PublicationPayments(publication_id=PublicationId(1))
 
 
 def test__publication_payment_status__without_payments__no_payments_all_paid() -> None:
@@ -79,19 +79,19 @@ def test__payment_status_paid__remove_all_payments__is_unpaid() -> None:
     assert sut.payments() == []
 
 
-def assert_all_paid(sut: IndividuallyBilledPublicationPayments) -> None:
+def assert_all_paid(sut: PublicationPayments) -> None:
     assert sut.all_paid()
     assert not sut.partially_paid()
     assert not sut.has_pending_payments()
 
 
-def assert_all_payments_pending(sut: IndividuallyBilledPublicationPayments) -> None:
+def assert_all_payments_pending(sut: PublicationPayments) -> None:
     assert not sut.all_paid()
     assert not sut.partially_paid()
     assert sut.has_pending_payments()
 
 
-def assert_payments_partially_paid(sut: IndividuallyBilledPublicationPayments) -> None:
+def assert_payments_partially_paid(sut: PublicationPayments) -> None:
     assert not sut.all_paid()
     assert sut.has_pending_payments()
     assert sut.partially_paid()

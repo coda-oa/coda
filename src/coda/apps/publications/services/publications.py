@@ -5,9 +5,11 @@ from coda.apps.publications.repositories import payment_repository, publication_
 from coda.domain.contract import ContractId, ContractYear
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
-    IndividuallyBilledPublicationPayments,
+    InvoiceReceived,
+    PublicationPaid,
+    PublicationPayments,
+    PaymentEvent,
     PublicationCoveredByContract,
-    PublicationPayment,
     PublicationPaymentStatus,
 )
 
@@ -26,16 +28,26 @@ def get_payment_status(publication: PublicationId) -> PublicationPaymentStatus:
     payments = payment_repository.find_payment(publication)
 
     if not payments:
-        return IndividuallyBilledPublicationPayments(publication)
+        return PublicationPayments(publication)
 
     return payments
 
 
-def update_payment(publication_id: PublicationId, publication_payment: PublicationPayment) -> None:
-    payment_repository.save_payment(publication_id, publication_payment)
+def update_payment(publication_id: PublicationId, payment_event: PaymentEvent) -> None:
+    _payments = payment_repository.find_payment(publication_id)
+    if not _payments:
+        _payments = PublicationPayments(publication_id)
+
+    match payment_event:
+        case PublicationPaid(invoice_id, invoice_number):
+            _payments.paid_invoice(invoice_id, invoice_number)
+        case InvoiceReceived(invoice_id, invoice_number):
+            _payments.received_invoice(invoice_id, invoice_number)
+
+    payment_repository.save_payment(publication_id, payment_event)
 
 
-def bulk_update_payments(payment_updates: list[tuple[PublicationId, PublicationPayment]]) -> None:
+def bulk_update_payments(payment_updates: list[tuple[PublicationId, PaymentEvent]]) -> None:
     """
     Bulk update publication payment statuses for better performance.
 

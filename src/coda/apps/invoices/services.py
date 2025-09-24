@@ -1,8 +1,9 @@
 from typing import cast
+
 from coda.apps.invoices import repository
 from coda.apps.publications.services import publications
 from coda.domain.invoice import Invoice, InvoiceId
-from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
+from coda.domain.publication.payment import InvoiceReceived, PaymentEvent, PublicationPaid
 from coda.domain.publication.publication import PublicationId
 
 
@@ -91,7 +92,7 @@ def _invoice_received(invoice: Invoice) -> None:
     _update_payments(invoice, invoice_received)
 
 
-def _update_payments(invoice: Invoice, paid: PublicationPayment) -> None:
+def _update_payments(invoice: Invoice, paid: PaymentEvent) -> None:
     for p in _publication_positions(invoice):
         publications.update_payment(p, paid)
 

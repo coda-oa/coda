@@ -37,7 +37,7 @@ from coda.domain.invoice import (
 from coda.domain.money import Currency, Money
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
-    IndividuallyBilledPublicationPayments,
+    PublicationPayments,
 )
 from tests import domainfactory, modelfactory
 from tests.invoices.payment_assertions import (
@@ -207,7 +207,7 @@ def test__given_publication_added__create__publication_has_invoice_received(
     assert_payment_status = get_assertion_for_invoice(actual)
 
     actual_status = publications.get_payment_status(PublicationId(publication.id))
-    assert isinstance(actual_status, IndividuallyBilledPublicationPayments)
+    assert isinstance(actual_status, PublicationPayments)
     assert_payment_status(actual_status)
 
 

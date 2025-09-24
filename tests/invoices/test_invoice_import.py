@@ -39,7 +39,7 @@ from coda.domain.invoice import (
 from coda.domain.money import Currency, Money
 from coda.domain.publication import JournalId, PublicationId
 from coda.domain.publication.payment import (
-    IndividuallyBilledPublicationPayments,
+    PublicationPayments,
 )
 from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
@@ -230,7 +230,7 @@ def test__unpaid_invoice_with_publication_position_import_invoices_funding_reque
     assert imported_invoice is not None
 
     assert_payment_status = create_payments_assertion(imported_invoice)
-    assert isinstance(payment_status, IndividuallyBilledPublicationPayments)
+    assert isinstance(payment_status, PublicationPayments)
     assert_payment_status(payment_status)
 
 

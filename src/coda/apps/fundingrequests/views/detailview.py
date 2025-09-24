@@ -1,6 +1,7 @@
 import datetime
 from collections.abc import Iterable
 from typing import Any, NamedTuple, cast
+from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
@@ -20,6 +21,7 @@ from coda.domain.fundingrequest import FundingRequestId, ReviewResult
 from coda.domain.money import Currency, Money
 from coda.domain.publication import License, Link
 from coda.domain.publication.payment import (
+    PublicationCoveredByContract,
     PublicationPaymentStatus,
 )
 from coda.domain.publication.publication import OpenAccessType, PublicationId
@@ -160,43 +162,40 @@ def publication_viewmodel(fundingrequest: FundingRequestModel) -> PublicationVie
         contracts=[c for c in publication.attached_contracts.all()],
         request_remarks=fundingrequest.request_remarks,
         payment_status=payment_status_viewmodel(
-            publications.get_payment_status(PublicationId(publication.id))
+            publications.get_payment_status(PublicationId(publication.id)),
+            fundingrequest.request_id,
         ),
     )
 
 
-def payment_status_viewmodel(payment_status: PublicationPaymentStatus) -> dict[str, Any]:
-    # FIXME: migrate to new payment status
+def payment_status_viewmodel(
+    payment_status: PublicationPaymentStatus, request_id: str
+) -> dict[str, Any]:
+    if isinstance(payment_status, PublicationCoveredByContract):
+        return {
+            "status": "Covered by contract",
+            "contract_id": payment_status.contract_id,
+            "contract_name": payment_status.contract_name,
+            "contract_year": payment_status.contract_year,
+            "url": reverse("contracts:detail", kwargs={"pk": payment_status.contract_id}),
+        }
+
+    invoice_list_url = f"{reverse('invoices:list')}?{urlencode({'generic_search': request_id})}"
+    if not payment_status.payments():
+        return {
+            "status": "Unpaid",
+        }
+    elif payment_status.all_paid():
+        return {
+            "status": "Paid",
+            "url": invoice_list_url,
+        }
+    elif payment_status.has_pending_payments():
+        return {
+            "status": "Invoice received",
+            "url": invoice_list_url,
+        }
     return {}
-    # match payment_status:
-    #     case PublicationCoveredByContract(contract_id, contract_name, contract_year):
-    #         return {
-    #             "status": "Covered by contract",
-    #             "contract_id": contract_id,
-    #             "contract_name": contract_name,
-    #             "contract_year": contract_year,
-    #             "url": reverse("contracts:detail", kwargs={"pk": contract_id}),
-    #         }
-
-    #     case PublicationPaid(invoice_id, invoice_number):
-    #         return {
-    #             "status": "Paid",
-    #             "invoice_id": invoice_id,
-    #             "invoice_number": invoice_number,
-    #             "url": reverse("invoices:detail", kwargs={"pk": invoice_id}),
-    #         }
-
-    #     case PublicationUnpaid():
-    #         return {"status": "Unpaid"}
-    #     case InvoiceReceived(invoice_id, invoice_number):
-    #         return {
-    #             "status": "Invoice received",
-    #             "invoice_id": invoice_id,
-    #             "invoice_number": invoice_number,
-    #             "url": reverse("invoices:detail", kwargs={"pk": invoice_id}),
-    #         }
-
-    # return payment_status
 
 
 def funding_viewmodel(external_funding: ExternalFunding) -> ExternalFundingViewModel:

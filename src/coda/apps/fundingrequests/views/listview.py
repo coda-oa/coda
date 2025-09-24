@@ -158,7 +158,7 @@ def article_viewmodel(
         updated_at=funding_request.updated_at,
         labels=funding_request.labels.all(),
         status=funding_request.review.review_result,
-        payment_status=payment_status_viewmodel(payment_status),
+        payment_status=payment_status_viewmodel(payment_status, funding_request.request_id),
     )
 
 
@@ -184,7 +184,7 @@ def monograph_viewmodel(
         updated_at=funding_request.updated_at,
         labels=funding_request.labels.all(),
         status=funding_request.review.review_result,
-        payment_status=payment_status_viewmodel(payment_status),
+        payment_status=payment_status_viewmodel(payment_status, funding_request.request_id),
     )
 
 

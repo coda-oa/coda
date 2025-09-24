@@ -9,11 +9,11 @@ from coda.apps.publications.services import publications
 from coda.domain.contract import ContractYear, PublicationBilling
 from coda.domain.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.publication.payment import (
-    IndividuallyBilledPublicationPayments,
     InvoiceReceived,
     Payment,
     PublicationCoveredByContract,
     PublicationPaid,
+    PublicationPayments,
 )
 from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
@@ -28,7 +28,7 @@ def test__publication_with_paid_invoice__mark_paid__publication_is_paid() -> Non
     publications.update_payment(publication, paid)
 
     payment_status = publications.get_payment_status(publication)
-    assert isinstance(payment_status, IndividuallyBilledPublicationPayments)
+    assert isinstance(payment_status, PublicationPayments)
     assert payment_status.all_paid()
     assert payment_status.payments() == [
         Payment(
@@ -49,9 +49,9 @@ def test__publication_without_invoice__has_no_payments() -> None:
 
 def get_individual_paymentstatus(
     publication_id: PublicationId,
-) -> IndividuallyBilledPublicationPayments:
+) -> PublicationPayments:
     payment_status = publications.get_payment_status(publication_id)
-    assert isinstance(payment_status, IndividuallyBilledPublicationPayments)
+    assert isinstance(payment_status, PublicationPayments)
     return payment_status
 
 
@@ -80,6 +80,40 @@ def test__publication_with_unpaid_invoice__invoice_received__publication_has_inv
     assert payment_status.has_pending_payments()
     assert payment_status.payments() == [
         Payment(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=True)
+    ]
+
+
+@pytest.mark.django_db
+def test__publication_with_paid_invoice__new_invoice_received__publication_is_partially_paid() -> (
+    None
+):
+    publication_id = create_publication()
+    invoice = pay_publication(publication_id)
+    publications.update_payment(
+        publication_id,
+        PublicationPaid(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number),
+    )
+
+    next_invoice = create_invoice_for_publication(publication_id)
+    publications.update_payment(
+        publication_id,
+        InvoiceReceived(
+            invoice_id=cast(InvoiceId, next_invoice.id), invoice_number=next_invoice.number
+        ),
+    )
+
+    payment_status = get_individual_paymentstatus(publication_id)
+    assert payment_status.has_pending_payments()
+    assert payment_status.partially_paid()
+    assert payment_status.payments() == [
+        Payment(
+            invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=False
+        ),
+        Payment(
+            invoice_id=cast(InvoiceId, next_invoice.id),
+            invoice_number=next_invoice.number,
+            pending=True,
+        ),
     ]
 
 

@@ -9,8 +9,6 @@ from django.db.models import Q
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository
-from coda.apps.publications.services import publications
-from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
 from coda.apps.invoices.importservice.dto import (
     CommonPositionImportDto,
     ContractPositionImportDto,
@@ -19,6 +17,7 @@ from coda.apps.invoices.importservice.dto import (
     PublicationPositionImportDto,
 )
 from coda.apps.invoices.models import Creditor, FundingSource
+from coda.apps.publications.services import publications
 from coda.domain.contract import Contract
 from coda.domain.invoice import (
     AnyPosition,
@@ -32,6 +31,7 @@ from coda.domain.invoice import (
 )
 from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
+from coda.domain.publication.payment import InvoiceReceived, PaymentEvent, PublicationPaid
 from coda.domain.publication.publication import PublicationId
 from coda.domain.string import NonEmptyStr
 
@@ -383,7 +383,7 @@ def _publication_positions(invoice: Invoice) -> list[PublicationId]:
     return [p.item for p in invoice.positions if isinstance(p.item, PublicationId)]
 
 
-def _create_payment(invoice: Invoice) -> PublicationPayment:
+def _create_payment(invoice: Invoice) -> PaymentEvent:
     if not invoice.id:
         raise ValueError("Invoice must have an ID to create a payment status.")
 

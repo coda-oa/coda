@@ -22,6 +22,9 @@ class PublicationPaid:
     invoice_number: str
 
 
+PaymentEvent = InvoiceReceived | PublicationPaid
+
+
 @dataclass(frozen=True, slots=True)
 class PublicationCoveredByContract:
     contract_id: ContractId
@@ -36,16 +39,7 @@ class Payment:
     pending: bool
 
 
-# class IndividualPublicationPaymentStatus(enum.Enum):
-#     Unpaid = "unpaid"
-#     PartiallyPaid = "partially paid"
-#     Paid = "paid"
-#
-#     def __str__(self) -> str:
-#         return self.value
-
-
-class IndividuallyBilledPublicationPayments:
+class PublicationPayments:
     """
     Represents the payment status of a publication that is billed individually (not covered by a contract).
     """
@@ -101,5 +95,4 @@ class IndividuallyBilledPublicationPayments:
         return list(self._payments.values())
 
 
-PublicationPayment = InvoiceReceived | PublicationPaid
-PublicationPaymentStatus = PublicationCoveredByContract | IndividuallyBilledPublicationPayments
+PublicationPaymentStatus = PublicationCoveredByContract | PublicationPayments
