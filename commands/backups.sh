@@ -37,4 +37,4 @@ else
     exit 1
 fi
 
-$COMPOSE_BASE_CMD run --rm -it postgres $cmd 
+$COMPOSE_BASE_CMD run --rm -it postgres $cmd

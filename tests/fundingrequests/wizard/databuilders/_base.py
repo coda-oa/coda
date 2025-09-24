@@ -102,6 +102,7 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
     def set_global_preferences(self) -> None:
         GlobalPreferences.set_subject_classification_vocabulary(self.subject_areas)
         GlobalPreferences.set_article_publication_type_vocabulary(self.publication_types)
+        GlobalPreferences.set_monograph_publication_type_vocabulary(self.publication_types)
 
     @abc.abstractmethod
     def publication_dto(self) -> TPublicationDto:

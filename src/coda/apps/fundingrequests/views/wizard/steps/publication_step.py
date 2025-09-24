@@ -13,7 +13,7 @@ from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.publications.dto import LinkDto, PublicationMetaDto
 from coda.apps.publications.forms import LinkForm, PublicationForm
 from coda.apps.publications.models import LinkType
-from coda.apps.wizard import TemplateStep, Store
+from coda.apps.wizard import Store, TemplateStep
 from coda.domain.author import AuthorNames
 
 
@@ -125,7 +125,7 @@ class PublicationStep(TemplateStep):
 
     def done(self, request: HttpRequest, store: Store) -> None:
         authors_formset = self.get_author_formset(request, store)
-        publication_form = PublicationForm(request.POST)
+        publication_form = self.make_publication_form(request.POST)
         link_forms = self.link_forms(request)
         self.clean_all((publication_form, *link_forms))
 
