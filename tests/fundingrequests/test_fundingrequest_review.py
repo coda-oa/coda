@@ -109,7 +109,7 @@ def test__fundingrequest__close__stores_in_database(client: Client) -> None:
 def test__closed_fundingrequest__re_opening__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
     fr.id = repository.create(fr)
-    review = Review(fr.id).closed()
+    review = Review(fr.id).update_review(ReviewResult.Open)
     repository.save_review(review)
 
     remarks = "Re-opened for further review"
