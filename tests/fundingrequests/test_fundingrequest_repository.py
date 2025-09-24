@@ -148,7 +148,7 @@ def test__searching_for_funding_requests_by_process_state__returns_matching_fund
 ):
     approved_request = modelfactory.fundingrequest()
     approved_request_id = FundingRequestId(approved_request.id)
-    repository.save_review(Review(approved_request_id).update_review(ReviewResult.Approved))
+    repository.save_review(Review(approved_request_id).update_review(ReviewResult.Approved, Money(100, Currency.EUR)))
 
     rejected_request = modelfactory.fundingrequest()
     rejected_request_id = FundingRequestId(rejected_request.id)
