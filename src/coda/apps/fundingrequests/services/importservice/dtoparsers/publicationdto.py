@@ -74,5 +74,7 @@ def _parse_journal(import_dto: PublicationImportDto) -> JournalDto:
 
 
 def _parse_publisher(import_dto: PublicationImportDto) -> PublisherId:
-    publisher, _ = Publisher.objects.get_or_create(name=import_dto.publisher_name)
+    publisher = Publisher.objects.filter(name=import_dto.publisher_name).first()
+    if not publisher:
+        publisher = Publisher.objects.create(name=import_dto.publisher_name)
     return PublisherId(publisher.id)

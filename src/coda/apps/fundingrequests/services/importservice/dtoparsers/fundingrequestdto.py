@@ -31,7 +31,9 @@ def parse_funding(import_dto: ResearchFundingImportDto) -> ExternalFundingDto:
 
 
 def parse_funder(import_dto: ResearchFundingImportDto) -> FundingOrganizationId:
-    org, _ = FundingOrganization.objects.get_or_create(name=import_dto.funder)
+    org = FundingOrganization.objects.filter(name=import_dto.funder).first()
+    if not org:
+        org = FundingOrganization.objects.create(name=import_dto.funder)
     return FundingOrganizationId(org.id)
 
 

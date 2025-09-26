@@ -20,10 +20,7 @@ def non_virtuals() -> Iterable[Institution]:
 
 
 def first_by_name(name: str) -> Institution | None:
-    try:
-        return Institution.objects.get(name=name)
-    except Institution.DoesNotExist:
-        return None
+    return Institution.objects.filter(name=name).first()
 
 
 def search(name: str | None = None) -> Iterable[Institution]:

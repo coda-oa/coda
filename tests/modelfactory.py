@@ -32,8 +32,8 @@ def institution(enabled: bool = True) -> Institution:
     return Institution.objects.create(name=_faker.company(), virtual=not enabled)
 
 
-def publisher() -> Publisher:
-    return Publisher.objects.create(name=_faker.company())
+def publisher(name: str = "") -> Publisher:
+    return Publisher.objects.create(name=name or _faker.company())
 
 
 def journal(publisher_id: int | None = None) -> Journal:

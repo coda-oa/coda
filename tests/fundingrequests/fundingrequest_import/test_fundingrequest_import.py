@@ -20,6 +20,7 @@ from coda.apps.publishers.models import Publisher
 from coda.domain.contract import Contract, PublisherId
 from coda.domain.fundingrequest import FundingRequestId, Review
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
+from coda.domain.publication.publication import Publication
 from coda.domain.string import NonEmptyStr
 from tests import modelfactory
 from tests.fundingrequests.fundingrequest_import import fullrequest, minimalrequest
@@ -175,6 +176,41 @@ def test__import_article_fundingrequests__saves_fundingrequests_without_creating
 
     fundingrequest = fundingrequest_repository.first()
     assert_fundingrequest_eq(fundingrequest, fullrequest.expected_article_request())
+
+
+@pytest.mark.django_db
+def test__given_existing_related_entities_with_multiple_duplicate_names__import__picks_first_match() -> (
+    None
+):
+    write_json(fullrequest.full_article_request_import())
+    publisher = modelfactory.publisher(name=IMPORT_PUBLISHER_NAME)
+    _ = modelfactory.publisher(name=IMPORT_PUBLISHER_NAME)
+
+    contract = Contract.new(name=NonEmptyStr(IMPORT_CONTRACT_NAME))
+    contract.id = contract_repository.create(contract)
+
+    _ = contract_repository.create(Contract.new(name=NonEmptyStr(IMPORT_CONTRACT_NAME)))
+
+    institution = institution_repository.create(IMPORT_AUTHOR_AFFILIATION)
+    _ = institution_repository.create(IMPORT_AUTHOR_AFFILIATION)
+
+    funding_org = modelfactory.funding_organization(name=IMPORT_RESEARCH_FUNDER_NAME)
+    _ = modelfactory.funding_organization(name=IMPORT_RESEARCH_FUNDER_NAME)
+
+    with JSON_PATH.open() as json_file:
+        import_fundingrequests(json_file)
+
+    request = fundingrequest_repository.first()
+    assert request is not None
+    assert isinstance(request.publication, Publication)
+    journal = journal_services.get_by_pk(request.publication.journal)
+    assert journal.publisher.id == publisher.id
+
+    funding, *_ = request.external_funding
+    assert funding.organization == funding_org.id
+
+    author, *_ = request.publication.relevant_authors
+    assert author.affiliation == institution.id
 
 
 def assert_no_journal_created_on_import() -> None:

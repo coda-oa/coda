@@ -42,6 +42,7 @@ from coda.domain.vocabulary import VocabularyConcept, VocabularyProtocol
 from tests.fundingrequests.fundingrequest_import.entitynames import (
     COAR_RESOURCE_TYPES_NAME,
     DFG_SUBJECT_CLASSIFICATION_NAME,
+    IMPORT_CONTRACT_NAME,
     IMPORT_JOURNAL_ISSN,
     IMPORT_PUBLICATION_TITLE,
     IMPORT_PUBLISHER_NAME,
@@ -67,7 +68,10 @@ def expected_monograph_request() -> FundingRequest[Monograph]:
 
 
 def expected_request(*, for_: TPublication) -> FundingRequest[TPublication]:
-    funding_organization = FundingOrganization.objects.get(name=IMPORT_RESEARCH_FUNDER_NAME)
+    funding_organization = FundingOrganization.objects.filter(
+        name=IMPORT_RESEARCH_FUNDER_NAME
+    ).first()
+    assert funding_organization is not None, "Expected funding organization not found"
     funding_org_id = FundingOrganizationId(funding_organization.id)
 
     request_id = PublicFundingRequestId.create(date=datetime.date(2025, 3, 19))
@@ -112,7 +116,8 @@ def expected_article() -> Publication:
 
 
 def expected_monograph() -> Monograph:
-    publisher = Publisher.objects.get(name=IMPORT_PUBLISHER_NAME)
+    publisher = Publisher.objects.filter(name=IMPORT_PUBLISHER_NAME).first()
+    assert publisher is not None, "Expected publisher not found"
     monograph = Monograph.new(
         title=NonEmptyStr("My article"),
         publisher=PublisherId(publisher.id),
@@ -175,7 +180,7 @@ def expected_authors() -> Authors:
 
 
 def expected_contracts() -> tuple[ContractYear, ...]:
-    contract = contract_repository.get_by_name("My contract")
+    contract = contract_repository.get_by_name(IMPORT_CONTRACT_NAME)
     assert contract is not None
     contract_year = contract.in_year(2025)
     return (contract_year,)
