@@ -1,17 +1,6 @@
-{% extends "base.html" %}
-{% block content %}
-    <div class="my-2 flex justify-between align-center">
-        <h1>Funding Sources</h1>
-        <a href="{% url "invoices:fundingsource_create" %}"
-           class="secondary"
-           role="button">New</a>
-    </div>
-    {% for fr in fundingsources %}
-        <article class="flex justify-between align-center">
-            <h2 class="m-0">{{ fr.name }}</h2>
-            <a href="{% url "invoices:fundingsource_update" pk=fr.id %}"
-               class="secondary"
-               role="button">Edit</a>
-        </article>
-    {% endfor %}
-{% endblock content %}
+<article class="flex justify-between align-center">
+    <h2 class="m-0">{{ entity.name }}</h2>
+    <a href="{% url "invoices:fundingsource_update" pk=entity.id %}"
+       class="secondary"
+       role="button">Edit</a>
+</article>

@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from typing import Any, cast
 
 from django.contrib.auth.decorators import login_required
@@ -10,10 +9,9 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.blocklist.models import BlockList
-from coda.apps.journals import services
 from coda.apps.journals.forms import JournalForm
 from coda.apps.journals.models import Journal
-from coda.apps.views import EntityListView
+from coda.apps.views import SimpleSearchEntityListView
 
 
 class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
@@ -30,20 +28,16 @@ class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
 journal_detail_view = JournalDetailView.as_view()
 
 
-class JournalListView(LoginRequiredMixin, EntityListView[Journal]):
+class JournalListView(LoginRequiredMixin, SimpleSearchEntityListView[Journal]):
+    model = Journal
     paginate_by = 20
     entity_name = "Journals"
     entity_create_url = "publishing:journals:create"
     entity_list_item_template = "journals/journal_list_item.html"
-    entity_filter_template = "journals/journal_filter.html"
-
-    def get_entities(self, request: HttpRequest) -> Sequence[Journal]:
-        search_term = self.request.GET.get("search_term", "")
-        if search_term:
-            return services.find_by_title(search_term)
-
-        return services.all()
-
+    search_fields = ["title", "eissn"]
+    use_generic_entity_filter = True
+    entity_filter_template = "entity_generic_filter.html"
+    search_placeholder = "Search by title or eissn..."
 
 journal_list_view = JournalListView.as_view()
 

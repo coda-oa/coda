@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from io import BytesIO
 from typing import Any
 
@@ -12,28 +11,27 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView
 
-from coda.apps.institutions import repository, services
+from coda.apps.institutions import services
 from coda.apps.institutions.forms import InstitutionForm
 from coda.apps.institutions.models import Institution
-from coda.apps.views import EntityListView
+from coda.apps.views import SimpleSearchEntityListView
 
 
-class InstitutionListView(LoginRequiredMixin, EntityListView[Institution]):
+class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institution]):
+    model = Institution
     template_name = "institutions/institution_list.html"
     entity_name = "Organization Structure"
-    entity_filter_template = "institutions/institution_filter.html"
     entity_list_item_template = "institutions/institution_list_item.html"
     entity_create_url = "institutions:create"
     entity_secondary_create_url = "institutions:import_view"
+    use_generic_entity_filter = True
+    entity_filter_template = "entity_generic_filter.html"
+    search_placeholder = "Search institutions..."
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {
             "entity_secondary_create_url": self.entity_secondary_create_url
         }
-
-    def get_entities(self, request: HttpRequest) -> Sequence[Institution]:
-        return list(repository.search(name=request.GET.get("query")))
-
 
 institution_list_view = InstitutionListView.as_view()
 
