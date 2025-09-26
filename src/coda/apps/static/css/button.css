@@ -43,3 +43,10 @@ button.undecorated {
   border-color: var(--coda-contrast-border-color);
   color: var(--coda-contrast-color);
 }
+
+a.button.secondary {
+  background-color: var(--coda-secondary-background);
+  padding: var(--coda-form-element-spacing-horizontal) var(--coda-form-element-spacing-vertical);
+  color: var(--coda-secondary-inverse);
+
+}
