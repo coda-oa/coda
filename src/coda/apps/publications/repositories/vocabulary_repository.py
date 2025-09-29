@@ -4,6 +4,7 @@ from typing import Any, cast
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.publications.models import Vocabulary as VocabularyModel
 from coda.apps.publications.repositories import publication_repository
+from coda.domain.errors import DomainError
 from coda.domain.publication import BasePublication
 from coda.domain.vocabulary import (
     ConceptId,
@@ -15,7 +16,7 @@ from coda.domain.vocabulary import (
 )
 
 
-class EntityNotFoundError(Exception):
+class VocabularyNotFoundError(DomainError):
     def __init__(self, entity_type: type[Any], query_name: str, query_value: Any) -> None:
         super().__init__(f"{entity_type.__name__} with {query_name}={query_value} not found")
         self.entity_type = entity_type
@@ -23,7 +24,7 @@ class EntityNotFoundError(Exception):
         self.query_value = query_value
 
 
-class VocabularyInUseError(Exception):
+class VocabularyInUseError(DomainError):
     def __init__(
         self,
         vocabulary: VocabularyProtocol,
@@ -62,7 +63,7 @@ def get_by_id(id: VocabularyId) -> VocabularyProtocol:
     try:
         v = VocabularyModel.objects.get(pk=id)
     except VocabularyModel.DoesNotExist:
-        raise EntityNotFoundError(Vocabulary, query_name="id", query_value=id)
+        raise VocabularyNotFoundError(Vocabulary, query_name="id", query_value=id)
 
     vocabulary = as_domain_object(v)
 
@@ -72,7 +73,7 @@ def get_by_id(id: VocabularyId) -> VocabularyProtocol:
 def get_limited_by_id(id: VocabularyId) -> LimitedVocabulary:
     v = get_by_id(id)
     if not isinstance(v, LimitedVocabulary):
-        raise EntityNotFoundError(LimitedVocabulary, query_name="id", query_value=id)
+        raise VocabularyNotFoundError(LimitedVocabulary, query_name="id", query_value=id)
 
     return v
 
@@ -81,7 +82,7 @@ def first_by_name(name: str) -> VocabularyProtocol:
     try:
         v = VocabularyModel.objects.get(name=name)
     except VocabularyModel.DoesNotExist:
-        raise EntityNotFoundError(Vocabulary, query_name="name", query_value=name)
+        raise VocabularyNotFoundError(Vocabulary, query_name="name", query_value=name)
 
     return as_domain_object(v)
 
@@ -92,7 +93,7 @@ def newest_base_vocabulary_by_name(name: str) -> Vocabulary:
 
     v = vocabularies_by_name.first()
     if not v:
-        raise EntityNotFoundError(Vocabulary, query_name="name", query_value=name)
+        raise VocabularyNotFoundError(Vocabulary, query_name="name", query_value=name)
 
     return cast(Vocabulary, as_domain_object(v))
 

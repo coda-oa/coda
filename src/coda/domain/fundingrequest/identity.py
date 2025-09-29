@@ -2,8 +2,9 @@ import base64
 import datetime
 import random
 import struct
-from typing import Any
+from typing import Self
 
+from coda.domain.errors import DomainError
 from coda.domain.fundingrequest import damm
 
 # NOTE: the largest number that can be encoded in base64 with struct.pack("!Q", n)
@@ -26,9 +27,14 @@ def _decode_base64_id(id: str) -> int:
     return int_id
 
 
-class InvalidFundingRequestId(ValueError):
-    def __init__(self, *args: Any) -> None:
-        super().__init__("The checksum of the fundingrequest is invalid", *args)
+class InvalidFundingRequestId(DomainError):
+    @classmethod
+    def invalid(cls, request_id: str) -> Self:
+        return cls(f"The funding request id {request_id} is invalid")
+
+    @classmethod
+    def invalid_checksum(cls, request_id: str) -> Self:
+        return cls(f"The checksum of the funding request id {request_id} is invalid")
 
 
 class PublicFundingRequestId:
@@ -43,14 +49,14 @@ class PublicFundingRequestId:
     def from_str(cls, id_str: str) -> "PublicFundingRequestId":
         parts = id_str.split("-", maxsplit=2)
         if len(parts) != 3 or parts[0] != "coda":
-            raise ValueError(f"Invalid funding request ID: {id_str}")
+            raise InvalidFundingRequestId.invalid(id_str)
 
         date = datetime.datetime.strptime(parts[1], "%Y%m%d").date()
         id_without_checksum = parts[2][:-1]
         checksum = parts[2][-1]
         full_id = int(str(_decode_base64_id(id_without_checksum)) + checksum)
         if not damm.validate(full_id):
-            raise InvalidFundingRequestId()
+            raise InvalidFundingRequestId.invalid_checksum(id_str)
 
         return cls(date, id_without_checksum)
 

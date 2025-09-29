@@ -234,7 +234,7 @@ def test__given_position_with_invalid_contract_year__create__returns_error(clien
     response = client.post(reverse("invoices:create"), post_data)
 
     expected = {
-        "position-1-error": f"Contract is not active in {contract_year.year}",
+        "position-1-error": f"Contract {contract.name} is not active in {contract_year.year}",
     }
     assert expected == response.context["errors"]
 

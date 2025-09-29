@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Generic, NewType, Self, TypeVar
 
 from coda.domain.contract import ContractYear
+from coda.domain.errors import DomainError
 from coda.domain.money import Currency, Money
 from coda.domain.money._money import CurrencyExchange
 from coda.domain.publication import PublicationId
@@ -51,7 +52,7 @@ class TaxRate(Decimal):
     def __new__(cls, value: Decimal | float | str) -> Self:
         v = Decimal(value)
         if v < 0:
-            raise ValueError("Tax rate must be positive")
+            raise DomainError("Tax rate must be positive")
 
         return super().__new__(cls, v.quantize(Decimal("0.0000")))
 

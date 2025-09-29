@@ -3,6 +3,8 @@ from collections.abc import Collection
 from dataclasses import dataclass
 from typing import NewType, Protocol
 
+from coda.domain.errors import DomainError
+
 
 class ConceptId(uuid.UUID):
     @classmethod
@@ -26,7 +28,7 @@ class VocabularyProtocol(Protocol):
         """Get a concept by its concept ID unique to the vocabulary"""
         ...
 
-    def get_concept_by_id(self, concept_id: ConceptId) -> "VocabularyConcept":
+    def get_concept_by_id(self, id: ConceptId) -> "VocabularyConcept":
         """Get a concept by its globally unique ID"""
         ...
 
@@ -36,10 +38,29 @@ class VocabularyProtocol(Protocol):
         ...
 
 
-class DuplicateConceptError(Exception):
-    def __init__(self, concept_id: str, *args: object) -> None:
-        super().__init__(f"Concept ID {concept_id} already exists in vocabulary", *args)
+class DuplicateConceptError(DomainError):
+    def __init__(self, vocabulary: VocabularyProtocol, concept_id: str, *args: object) -> None:
+        super().__init__(
+            f"Concept ID {concept_id} already exists in vocabulary {vocabulary.name} ({vocabulary.version})",
+            *args,
+        )
         self.concept_id = concept_id
+
+
+class ConceptNotFoundError(DomainError):
+    def __init__(self, vocabulary: VocabularyProtocol, concept_id: str, *args: object) -> None:
+        super().__init__(
+            f"Concept {concept_id} was not found in vocabulary {vocabulary.name} ({vocabulary.version})",
+            *args,
+        )
+
+
+class ConceptNotAllowedError(DomainError):
+    def __init__(self, vocabulary: "LimitedVocabulary", concept_id: str, *args: object) -> None:
+        super().__init__(
+            f"Concept {concept_id} is not allowed in vocabulary {vocabulary.name} ({vocabulary.version})",
+            *args,
+        )
 
 
 @dataclass(frozen=True)
@@ -86,7 +107,7 @@ class Vocabulary:
             if concept.id == id:
                 return concept
 
-        raise ValueError(f"Concept ID {id} not found in vocabulary")
+        raise ConceptNotFoundError(self, str(id))
 
     def has_concept(self, concept_id: str) -> bool:
         return any(c.concept_id == concept_id for c in self._concepts)
@@ -101,7 +122,7 @@ class Vocabulary:
 
     def add_concept(self, concept_id: str, name: str = "", description: str = "") -> None:
         if any(c.concept_id == concept_id for c in self._concepts):
-            raise DuplicateConceptError(concept_id=concept_id)
+            raise DuplicateConceptError(self, concept_id=concept_id)
 
         concept = VocabularyConcept.new(
             concept_id=concept_id, name=name, description=description, vocabulary=self.id
@@ -113,7 +134,7 @@ class Vocabulary:
             if concept.concept_id == concept_id:
                 return i
 
-        raise ValueError(f"Concept ID {concept_id} not found in vocabulary")
+        raise ConceptNotFoundError(self, concept_id)
 
 
 _UnknownConceptId = ConceptId("fd0febd8-2218-4327-a517-d78b7f8f58ff")
@@ -162,7 +183,7 @@ class LimitedVocabulary:
 
     def get_concept_by_id(self, id: ConceptId) -> VocabularyConcept:
         if id in self._disallowed:
-            raise ValueError(f"Concept {id} is disallowed in this vocabulary")
+            raise ConceptNotAllowedError(self, str(id))
 
         return self._move_concept_to_self(self.base_vocabulary.get_concept_by_id(id))
 
@@ -172,7 +193,7 @@ class LimitedVocabulary:
 
     def get_concept(self, concept_id: str) -> VocabularyConcept:
         if concept_id in self._disallowed:
-            raise ValueError(f"Concept {concept_id} is disallowed in this vocabulary")
+            raise ConceptNotAllowedError(self, concept_id)
 
         return self._move_concept_to_self(self.base_vocabulary.get_concept(concept_id))
 

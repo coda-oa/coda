@@ -15,6 +15,7 @@ from typing import (
 
 from coda.domain.author import Author, AuthorNames
 from coda.domain.contract import PublisherId
+from coda.domain.errors import DomainError
 from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import UnknownConcept, VocabularyConcept
 
@@ -38,6 +39,11 @@ class UnpublishedState(enum.Enum):
     Rejected = "Rejected"
 
 
+class InvalidLicenseType(DomainError):
+    def __init__(self, license_type: str, *args: object) -> None:
+        super().__init__(f"Invalid license {license_type}", *args)
+
+
 class License(enum.Enum):
     CC_BY = "CC-BY"
     CC_BY_SA = "CC-BY-SA"
@@ -59,7 +65,7 @@ class License(enum.Enum):
             name = name.replace("-", "_").replace(" ", "_")
             return cls[name]
         except KeyError:
-            raise ValueError(f"Unknown license name: {name}")
+            raise InvalidLicenseType(f"Unknown license name: {name}")
 
 
 class OpenAccessType(enum.Enum):
@@ -72,6 +78,10 @@ class OpenAccessType(enum.Enum):
     Closed = "Closed"
 
 
+class InvalidPublicationState(DomainError):
+    pass
+
+
 class Unpublished(NamedTuple):
     state: UnpublishedState = UnpublishedState.Unknown
 
@@ -81,7 +91,7 @@ class Unpublished(NamedTuple):
             state_with_first_upper = state[0].upper() + state[1:]
             return cls(UnpublishedState(state_with_first_upper))
         except ValueError:
-            raise ValueError(f"Unknown unpublished state: {state}")
+            raise InvalidPublicationState(f"Unknown unpublished state: {state}")
 
     def name(self) -> str:
         return self.state.name
@@ -94,7 +104,7 @@ class Published:
 
     def __post_init__(self) -> None:
         if (self.online, self.print) == (None, None):
-            raise ValueError("Published state requires at least one date")
+            raise InvalidPublicationState("Published state requires at least one date")
 
     @staticmethod
     def name() -> str:
@@ -102,6 +112,11 @@ class Published:
 
 
 PublicationState: TypeAlias = Unpublished | Published
+
+
+class TooManySubmittingAuthors(DomainError):
+    def __init__(self, *args: object) -> None:
+        super().__init__("Publication can only have one submitting author", *args)
 
 
 class Authors(tuple[Author, ...]):
@@ -112,7 +127,7 @@ class Authors(tuple[Author, ...]):
         submitting_authors = tuple(author for author in instance if author.is_submitter())
 
         if len(submitting_authors) > 1:
-            raise ValueError("Publication can only have one submitting author")
+            raise TooManySubmittingAuthors()
 
         return instance
 

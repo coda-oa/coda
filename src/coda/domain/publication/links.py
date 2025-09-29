@@ -3,6 +3,7 @@ from typing import Any, NamedTuple, Protocol
 
 import pydantic
 
+from coda.domain.errors import DomainError
 from coda.domain.string import NonEmptyStr
 
 from pydantic_core import PydanticCustomError
@@ -38,6 +39,11 @@ class UserLink(NamedTuple):
         return self.link_value
 
 
+class InvalidIsbn(DomainError):
+    def __init__(self, isbn: str, *args: object) -> None:
+        super().__init__(f"{isbn} is not a valid ISBN", *args)
+
+
 class Isbn:
     __slot__ = ("_value",)
     __match_args__ = ("_value",)
@@ -48,7 +54,7 @@ class Isbn:
             ISBN.validate_isbn_format(raw_isbn)
             self._isbn = raw_isbn
         except PydanticCustomError:
-            raise ValueError(f"{isbn} is not a valid ISBN")
+            raise InvalidIsbn(isbn)
 
     @staticmethod
     def type() -> str:
@@ -92,13 +98,18 @@ class Isbn:
         return hash((self._isbn,))
 
 
+class InvalidDoi(DomainError):
+    def __init__(self, *args: object) -> None:
+        super().__init__("Invalid DOI format", *args)
+
+
 class Doi:
     __match_args__ = ("_doi",)
 
     def __init__(self, doi: str) -> None:
         self._doi = NonEmptyStr(doi).strip()
         if not self._valid():
-            raise ValueError("Invalid DOI format")
+            raise InvalidDoi()
 
     @staticmethod
     def type() -> str:
@@ -148,12 +159,17 @@ class Doi:
         return hash((self._doi,))
 
 
+class InvalidUrl(DomainError):
+    def __init__(self, url: str, *args: object) -> None:
+        super().__init__(f"{url} is not a valid URL", *args)
+
+
 class Url:
     def __init__(self, url: str) -> None:
         try:
             self._url = str(pydantic.HttpUrl(url))
         except pydantic.ValidationError:
-            raise ValueError(f"{url} is not a valid URL")
+            raise InvalidUrl(f"{url} is not a valid URL")
 
     @staticmethod
     def type() -> str:

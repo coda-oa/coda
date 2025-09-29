@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, NewType
 
 from coda.domain.date import DateRange
+from coda.domain.errors import DomainError
 from coda.domain.string import NonEmptyStr
 
 if TYPE_CHECKING:
@@ -119,8 +120,8 @@ class ContractYear:
         return hash((str(self.__class__), self.year, self.contract_id))
 
 
-class InvalidContractYearError(ValueError):
+class InvalidContractYearError(DomainError):
     def __init__(self, year: int, contract: Contract, *args: object) -> None:
-        super().__init__(f"Contract is not active in {year}", *args)
+        super().__init__(f"Contract {contract.name} is not active in {year}", *args)
         self.year = year
         self.contract = contract

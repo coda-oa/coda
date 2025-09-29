@@ -1,5 +1,11 @@
 from typing import Self, cast
 
+from coda.domain.errors import DomainError
+
+
+class InvalidOrcid(DomainError):
+    pass
+
 
 class Orcid(str):
     def __new__(cls, orcid: str | None) -> Self:
@@ -8,17 +14,17 @@ class Orcid(str):
         """
         instance = super().__new__(cls, orcid or "")
         if not instance:
-            raise ValueError("ORCID is required")
+            raise InvalidOrcid("ORCID cannot be empty")
 
         instance = cast(Self, instance.strip())
         instance = cast(Self, strip_url_components(instance))
 
         split = instance.split("-")
         if len(split) != 4 or not all(len(block) == 4 for block in split):
-            raise ValueError("ORCID must consist of four blocks separated by hyphens")
+            raise InvalidOrcid("ORCID must consist of four blocks separated by hyphens")
 
         if instance[-1] != checksum(instance):
-            raise ValueError("ORCID has an invalid checksum")
+            raise InvalidOrcid("ORCID has an invalid checksum")
 
         return instance
 

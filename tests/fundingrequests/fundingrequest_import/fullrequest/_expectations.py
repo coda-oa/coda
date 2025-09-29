@@ -138,7 +138,7 @@ def expected_publication_type() -> VocabularyConcept:
         coar_resource_types = vocabulary_repository.newest_base_vocabulary_by_name(
             COAR_RESOURCE_TYPES_NAME
         )
-    except vocabulary_repository.EntityNotFoundError:
+    except vocabulary_repository.VocabularyNotFoundError:
         raise AssertionError("COAR resource types vocabulary not found")
 
     return find_concept_by_name(coar_resource_types, "journal article")
@@ -149,7 +149,7 @@ def expected_subject_area() -> VocabularyConcept:
         dfg_classification = vocabulary_repository.newest_base_vocabulary_by_name(
             DFG_SUBJECT_CLASSIFICATION_NAME
         )
-    except vocabulary_repository.EntityNotFoundError:
+    except vocabulary_repository.VocabularyNotFoundError:
         raise AssertionError("DFG subject classification not found")
 
     return find_concept_by_name(dfg_classification, "Humanities")

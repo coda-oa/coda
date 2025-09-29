@@ -89,7 +89,7 @@ def test__given_publication_using_limited_vocabulary__delete_vocabulary__migrate
     actual_vocabulary = get_vocabulary(publication)
 
     assert actual_vocabulary == vocabulary.id
-    with pytest.raises(vocabulary_repository.EntityNotFoundError):
+    with pytest.raises(vocabulary_repository.VocabularyNotFoundError):
         vocabulary_repository.get_by_id(limited.id)
 
 
