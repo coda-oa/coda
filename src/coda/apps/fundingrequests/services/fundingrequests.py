@@ -1,9 +1,10 @@
+from dataclasses import dataclass
 import datetime
 import itertools
 import logging
 import random
 from collections.abc import Iterable
-from typing import Protocol, overload
+from typing import Protocol, cast, overload
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import (
@@ -18,7 +19,9 @@ from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import PublicationBaseDto
 from coda.checks.checkfactory import CheckFactory
 from coda.domain.author import Author
+from coda.domain.errors import DomainError
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId
+from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 
 
@@ -50,31 +53,72 @@ def create_fundingrequest(
     return fr_id
 
 
+@dataclass
+class CreateFundingRequestFailed(DomainError):
+    reason: str
+    legacy_id: str = ""
+    publication_title: str = ""
+
+    @property
+    def request_key(self) -> str:
+        if self.legacy_id:
+            return self.legacy_id
+
+        return self.publication_title
+
+
+def try_into_funding_request(
+    request_id: PublicFundingRequestId, creation_dto: CreateFundingRequestDto
+) -> tuple[AnyFundingRequest, None] | tuple[None, CreateFundingRequestFailed]:
+    try:
+        return (
+            FundingRequest.new(
+                creation_dto.publication.to_publication(),
+                creation_dto.payment.to_payment(),
+                request_id=request_id,
+                external_funding=[f.to_external_funding() for f in creation_dto.funding],
+                extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
+                request_remarks=creation_dto.extra_information.request_remarks,
+                legacy_request_id=creation_dto.legacy_request_id,
+            ),
+            None,
+        )
+    except ValueError as e:
+        return None, CreateFundingRequestFailed(
+            reason=str(e),
+            legacy_id=creation_dto.legacy_request_id,
+            publication_title=creation_dto.publication.meta.title,
+        )
+
+
 def bulk_create_fundingrequests(
     creation_dtos: Iterable[CreateFundingRequestDto],
     *,
     request_id_generator: RequestIdGenerator = PublicFundingRequestId.create,
     checkfactory: CheckFactory | None = None,
-) -> Iterable[FundingRequestId]:
+) -> tuple[Iterable[FundingRequestId], list[CreateFundingRequestFailed]]:
     ids = [
         _find_unused_request_id(request_id_generator, creation_dto.request_date)
         for creation_dto in creation_dtos
     ]
 
-    funding_requests = [
-        FundingRequest.new(
-            creation_dto.publication.to_publication(),
-            creation_dto.payment.to_payment(),
-            request_id=request_id,
-            external_funding=[f.to_external_funding() for f in creation_dto.funding],
-            extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
-            request_remarks=creation_dto.extra_information.request_remarks,
-            legacy_request_id=creation_dto.legacy_request_id,
-        )
+    parse_attempts = [
+        try_into_funding_request(request_id, creation_dto)
         for request_id, creation_dto in zip(ids, creation_dtos)
     ]
 
-    return repository.create_many(funding_requests)
+    grouped = {
+        k: [e[0] if e[0] else e[1] for e in g]
+        for k, g in itertools.groupby(
+            parse_attempts,
+            lambda e: "fundingrequests" if e[0] is not None else "errors",
+        )
+    }
+    print("Grouped creation information", grouped)
+    funding_requests = cast(Iterable[AnyFundingRequest], list(grouped.get("fundingrequests", [])))
+    errors = cast(Iterable[CreateFundingRequestFailed], list(grouped.get("errors", [])))
+
+    return repository.create_many(funding_requests), list(errors)
 
 
 def _find_unused_request_id(

@@ -1,5 +1,6 @@
 from collections.abc import Callable, Generator
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import cast
 
@@ -18,6 +19,7 @@ from coda.apps.institutions.models import Institution
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers.models import Publisher
 from coda.domain.contract import Contract, PublisherId
+from coda.domain.date import DateRange
 from coda.domain.fundingrequest import FundingRequestId, Review
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.domain.publication.publication import Publication
@@ -153,12 +155,72 @@ def assert_new_publisher_exists() -> None:
 
 
 @pytest.mark.django_db
+def test__given_invalid_publication_title__import__returns_errors() -> None:
+    requests = fullrequest.full_article_request_import()
+    request = requests.requests[0]
+    request.publication.title = ""
+    write_json(requests)
+
+    with JSON_PATH.open() as json_file:
+        report = import_fundingrequests(json_file)
+
+    assert report.valid_requests == 0
+    assert report.invalid_requests == 1
+    assert request.legacy_request_id in report.errors
+
+
+@pytest.mark.django_db
+def test__given_invalid_contract_year__import__returns_errors() -> None:
+    contract = Contract.new(
+        NonEmptyStr(IMPORT_CONTRACT_NAME),
+        period=DateRange.create(
+            start=date(1900, 1, 1),
+            end=date(1900, 12, 31),
+        ),
+    )
+    contract.id = contract_repository.create(contract)
+
+    requests = fullrequest.full_article_request_import()
+    write_json(requests)
+
+    with JSON_PATH.open() as json_file:
+        report = import_fundingrequests(json_file)
+
+    invalid_request = requests.requests[0]
+    assert report.valid_requests == 0
+    assert report.invalid_requests == 1
+    assert invalid_request.legacy_request_id in report.errors
+
+
+@pytest.mark.django_db
+def test__given_invalid_and_valid_requests__import__saves_only_valid_requests() -> None:
+    invalid_request = fullrequest.full_article_request_import().requests[0]
+    invalid_request.publication.title = ""
+    invalid_request.legacy_request_id = "invalid-legacy-id"
+
+    valid_request = fullrequest.full_article_request_import().requests[0]
+
+    all_requests = FundingRequestImportListDto(requests=[invalid_request, valid_request])
+    imported_request = fundingrequest_repository.first()
+    write_json(all_requests)
+
+    with JSON_PATH.open() as json_file:
+        report = import_fundingrequests(json_file)
+
+    imported_request = fundingrequest_repository.first()
+    assert len(fundingrequest_repository.all()) == 1
+    assert_fundingrequest_eq(imported_request, fullrequest.expected_article_request())
+    assert "invalid-legacy-id" in report.errors
+    assert "valid-legacy-id" not in report.errors
+
+
+@pytest.mark.django_db
 def test__import_article_fundingrequests__saves_fundingrequests_without_creating_existing_entities() -> (
     None
 ):
     write_json(fullrequest.full_article_request_import())
 
-    publisher = PublisherId(modelfactory.publisher().id)
+    publisher = PublisherId(modelfactory.publisher().pk)
     journal_services.create(NonEmptyStr("Another title"), IMPORT_JOURNAL_ISSN, publisher)
     contract = Contract.new(name=NonEmptyStr(IMPORT_CONTRACT_NAME))
     contract_repository.create(contract)
@@ -204,13 +266,13 @@ def test__given_existing_related_entities_with_multiple_duplicate_names__import_
     assert request is not None
     assert isinstance(request.publication, Publication)
     journal = journal_services.get_by_pk(request.publication.journal)
-    assert journal.publisher.id == publisher.id
+    assert journal.publisher.id == publisher.pk
 
     funding, *_ = request.external_funding
-    assert funding.organization == funding_org.id
+    assert funding.organization == funding_org.pk
 
     author, *_ = request.publication.relevant_authors
-    assert author.affiliation == institution.id
+    assert author.affiliation == institution.pk
 
 
 def assert_no_journal_created_on_import() -> None:
