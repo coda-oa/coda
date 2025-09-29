@@ -11,6 +11,11 @@
   "forwardPorts": [
     8000
   ],
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "configureZshAsDefaultShell": true
+    }
+  },
   "customizations": {
     "vscode": {
       "extensions": [
