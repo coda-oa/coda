@@ -7,10 +7,10 @@ from coda.domain.invoice import InvoiceId
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
     InvoicePaymentReset,
-    PublicationPayments,
     InvoiceReceived,
     PaymentEvent,
     PublicationPaid,
+    PublicationPayments,
 )
 
 

@@ -7,7 +7,7 @@ from coda.apps.invoices import repository, services
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
 from coda.domain.invoice import AnyPosition, CreditorId, Invoice, InvoiceId
-from coda.domain.publication.payment import PublicationPayments, Payment
+from coda.domain.publication.payment import Payment, PublicationPayments
 from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
 
@@ -39,18 +39,21 @@ def test__paid_invoice__save__publications_are_paid() -> None:
 
     invoice.id = services.save(invoice)
 
-    assert_publication_paid(invoice, publication_1)
-    assert_publication_paid(invoice, publication_2)
+    assert_publication_paid(publication_1, invoice)
+    assert_publication_paid(publication_2, invoice)
 
 
-def assert_publication_paid(invoice: Invoice, publication: PublicationId) -> None:
+def assert_publication_paid(publication: PublicationId, *invoices: Invoice) -> None:
     payment_status = publications.get_payment_status(publication)
     assert isinstance(payment_status, PublicationPayments)
     assert payment_status.all_paid()
     assert payment_status.payments() == [
         Payment(
-            invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=False
+            invoice_id=cast(InvoiceId, invoice.id),
+            invoice_number=invoice.number,
+            pending=False,
         )
+        for invoice in invoices
     ]
 
 
@@ -74,8 +77,8 @@ def test__invoice__pay_invoice_with_publications__all_publication_paid() -> None
 
     services.pay_invoice(invoice.id)
 
-    assert_publication_paid(invoice, publication_1)
-    assert_publication_paid(invoice, publication_2)
+    assert_publication_paid(publication_1, invoice)
+    assert_publication_paid(publication_2, invoice)
 
 
 @pytest.mark.django_db
@@ -165,7 +168,7 @@ def test__paid_invoice_with_two_equal_publication_positions__delete_one__publica
     invoice.positions = [equal_position]
     services.save(invoice)
 
-    assert_publication_paid(invoice, publication)
+    assert_publication_paid(publication, invoice)
 
 
 @pytest.mark.django_db
@@ -183,7 +186,7 @@ def test__two_paid_invoices_have_the_same_publication__removing_publication_from
     invoice2.positions = []
     services.save(invoice2)
 
-    assert_publication_paid(invoice, publication)
+    assert_publication_paid(publication, invoice)
 
 
 @pytest.mark.django_db
@@ -200,11 +203,11 @@ def test__one_invoice_paid_one_invoice_unpaid__removing_publication_from_paid_in
     invoice.positions = []
     services.save(invoice)
 
-    assert_publication_unpaid(publication)
+    assert_invoice_received(invoice2, publication)
 
 
 @pytest.mark.django_db
-def test__publication_on_paid_unpaid_and_paid_invoice__removing_publication_from_first_paid_invoice__publication_is_still_paid() -> (
+def test__publication_on_paid_unpaid_and_paid_invoice__removing_publication_from_first_paid_invoice__publication_is_partially_paid() -> (
     None
 ):
     publication = create_publication()
@@ -221,7 +224,28 @@ def test__publication_on_paid_unpaid_and_paid_invoice__removing_publication_from
     first_paid.positions = []
     services.save(first_paid)
 
-    assert_publication_paid(second_paid, publication)
+    assert_publication_partially_paid(publication, unpaid, second_paid)
+
+
+def assert_publication_partially_paid(publication: PublicationId, *invoices: Invoice) -> None:
+    payments = publications.get_payment_status(publication)
+    assert isinstance(payments, PublicationPayments)
+    assert payments.has_pending_payments()
+    assert payments.partially_paid()
+
+    def _sort_by_id(payments: list[Payment]) -> list[Payment]:
+        return sorted(payments, key=lambda p: p.invoice_id)
+
+    assert _sort_by_id(payments.payments()) == _sort_by_id(
+        [
+            Payment(
+                invoice_id=cast(InvoiceId, invoice.id),
+                invoice_number=invoice.number,
+                pending=not invoice.is_paid(),
+            )
+            for invoice in invoices
+        ]
+    )
 
 
 def paid_invoice_for_publication(publication: PublicationId) -> Invoice:
