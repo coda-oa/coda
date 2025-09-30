@@ -23,6 +23,20 @@ class Command(BaseCommand):
         file = options["json_file"]
         self.stdout.write(f"Importing funding requests from {file}...")
         with Path(file).open("r") as f:
-            importservice.import_fundingrequests(f)
+            report = importservice.import_fundingrequests(f)
 
-        self.stdout.write(self.style.SUCCESS("Funding requests imported successfully."))
+        if report.valid_requests > 0:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"{report.valid_requests} funding requests were imported successfully"
+                )
+            )
+
+        if report.invalid_requests > 0:
+            self.stdout.write(
+                self.style.ERROR(
+                    f"{report.invalid_requests} funding requests could not be imported due to errors"
+                )
+            )
+            errors = "/n".join(f"{request}: {errors}" for request, errors in report.errors.items())
+            self.stdout.write(self.style.ERROR(errors))
