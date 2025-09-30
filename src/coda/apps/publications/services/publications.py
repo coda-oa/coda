@@ -3,10 +3,9 @@ from typing import cast
 
 from coda.apps.publications.repositories import payment_repository, publication_repository
 from coda.domain.contract import ContractId, ContractYear
+from coda.domain.invoice import InvoiceId
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
-    InvoiceReceived,
-    PublicationPaid,
     PublicationPayments,
     PaymentEvent,
     PublicationCoveredByContract,
@@ -38,12 +37,6 @@ def update_payment(publication_id: PublicationId, payment_event: PaymentEvent) -
     if not _payments:
         _payments = PublicationPayments(publication_id)
 
-    match payment_event:
-        case PublicationPaid(invoice_id, invoice_number):
-            _payments.paid_invoice(invoice_id, invoice_number)
-        case InvoiceReceived(invoice_id, invoice_number):
-            _payments.received_invoice(invoice_id, invoice_number)
-
     payment_repository.save_payment(publication_id, payment_event)
 
 
@@ -57,8 +50,8 @@ def bulk_update_payments(payment_updates: list[tuple[PublicationId, PaymentEvent
     payment_repository.bulk_save_payments(payment_updates)
 
 
-def invoice_deleted(publication_id: PublicationId) -> None:
-    payment_repository.delete_payment(publication_id)
+def invoice_deleted(publication_id: PublicationId, invoice_id: InvoiceId) -> None:
+    payment_repository.delete_payment(publication_id, invoice_id)
 
 
 def _consolidated_billing_contract(contracts: Iterable[ContractYear]) -> ContractYear | None:

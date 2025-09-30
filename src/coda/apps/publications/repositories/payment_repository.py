@@ -6,6 +6,7 @@ from coda.apps.publications.models import PublicationPayment as PublicationPayme
 from coda.domain.invoice import InvoiceId
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
+    InvoicePaymentReset,
     PublicationPayments,
     InvoiceReceived,
     PaymentEvent,
@@ -29,6 +30,7 @@ def _to_publication_paid(model: PublicationPaymentModel) -> PaymentEvent:
 
 STATUS_MAPPING: Final = {
     InvoiceReceived: "invoice_received",
+    InvoicePaymentReset: "invoice_received",
     PublicationPaid: "paid",
 }
 
@@ -39,17 +41,24 @@ REVERSE_STATUS_MAPPING: Final = {
 
 
 def save_payment(publication: PublicationId, publication_payment: PaymentEvent) -> None:
-    model, _ = PublicationPaymentModel.objects.get_or_create(publication_id=publication)
-    model.status = STATUS_MAPPING[type(publication_payment)]
-    match publication_payment:
-        case PublicationPaid(invoice_id, _) | InvoiceReceived(invoice_id, _):
-            model.invoice_id = invoice_id
+    payments = PublicationPaymentModel.objects.filter(
+        publication_id=publication,
+        invoice_id=publication_payment.invoice_id,
+    ).first()
 
-    model.save()
+    if not payments:
+        payments = PublicationPaymentModel(
+            publication_id=publication, invoice_id=publication_payment.invoice_id
+        )
+
+    payments.status = STATUS_MAPPING[type(publication_payment)]
+    payments.save()
 
 
-def delete_payment(publication: PublicationId) -> None:
-    PublicationPaymentModel.objects.filter(publication_id=publication).delete()
+def delete_payment(publication: PublicationId, invoice_id: InvoiceId) -> None:
+    PublicationPaymentModel.objects.filter(
+        publication_id=publication, invoice_id=invoice_id
+    ).delete()
 
 
 def find_payment(publication: PublicationId) -> PublicationPayments | None:

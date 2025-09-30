@@ -1,3 +1,4 @@
+import pytest
 from coda.domain.invoice import InvoiceId
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import PublicationPayments, Payment
@@ -73,10 +74,31 @@ def test__payment_status_paid__remove_all_payments__is_unpaid() -> None:
     sut.paid_invoice(invoice_id=InvoiceId(1), invoice_number="INV-001")
     sut.deleted_invoice(invoice_id=InvoiceId(1))
 
-    assert sut.all_paid()
-    assert not sut.has_pending_payments()
-    assert not sut.partially_paid()
+    assert_all_paid(sut)
     assert sut.payments() == []
+
+
+def test__payment_status_with_paid_payment__reset_payment__has_pending_payments() -> None:
+    sut = make_sut()
+
+    sut.paid_invoice(invoice_id=InvoiceId(1), invoice_number="INV-001")
+    sut.reset_payment(invoice_id=InvoiceId(1))
+
+    assert_all_payments_pending(sut)
+
+
+def test__empty_payment_status__reset_payment__raises_error() -> None:
+    sut = make_sut()
+
+    with pytest.raises(ValueError):
+        sut.reset_payment(InvoiceId(1))
+
+
+def test__empty_payment_status__invoice_deleted__raises_error() -> None:
+    sut = make_sut()
+
+    with pytest.raises(ValueError):
+        sut.deleted_invoice(InvoiceId(1))
 
 
 def assert_all_paid(sut: PublicationPayments) -> None:

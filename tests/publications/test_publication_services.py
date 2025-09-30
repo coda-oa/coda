@@ -10,6 +10,7 @@ from coda.domain.contract import ContractYear, PublicationBilling
 from coda.domain.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.publication.payment import (
     InvoiceReceived,
+    InvoicePaymentReset,
     Payment,
     PublicationCoveredByContract,
     PublicationPaid,
@@ -84,6 +85,28 @@ def test__publication_with_unpaid_invoice__invoice_received__publication_has_inv
 
 
 @pytest.mark.django_db
+def test__publication_with_invoice_received__invoice_paid__publication_is_paid() -> None:
+    publication_id = create_publication()
+    invoice = create_invoice_for_publication(publication_id)
+    invoice_received = InvoiceReceived(
+        invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number
+    )
+    publications.update_payment(publication_id, invoice_received)
+
+    invoice.pay()
+    invoice_repository.update(invoice)
+    publications.update_payment(
+        publication_id, PublicationPaid(cast(InvoiceId, invoice.id), invoice.number)
+    )
+
+    payment_status = get_individual_paymentstatus(publication_id)
+    assert payment_status.all_paid()
+    assert payment_status.payments() == [
+        Payment(cast(InvoiceId, invoice.id), invoice.number, pending=False)
+    ]
+
+
+@pytest.mark.django_db
 def test__publication_with_paid_invoice__new_invoice_received__publication_is_partially_paid() -> (
     None
 ):
@@ -115,6 +138,29 @@ def test__publication_with_paid_invoice__new_invoice_received__publication_is_pa
             pending=True,
         ),
     ]
+
+
+@pytest.mark.django_db
+def test__publicatoin_with_two_paid_invoices__unpay_one_publication__publication_is_partially_paid() -> (
+    None
+):
+    publication_id = create_publication()
+    first_invoice = pay_publication(publication_id)
+    second_invoice = pay_publication(publication_id)
+
+    publications.update_payment(
+        publication_id, PublicationPaid(cast(InvoiceId, first_invoice.id), first_invoice.number)
+    )
+    publications.update_payment(
+        publication_id, PublicationPaid(cast(InvoiceId, second_invoice.id), second_invoice.number)
+    )
+
+    publications.update_payment(
+        publication_id, InvoicePaymentReset(cast(InvoiceId, first_invoice.id))
+    )
+
+    payment_status = get_individual_paymentstatus(publication_id)
+    assert payment_status.partially_paid()
 
 
 @pytest.mark.django_db
@@ -203,7 +249,7 @@ def test__paid_publication__invoice_deleted__publication_has_no_payments() -> No
         PublicationPaid(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number),
     )
 
-    publications.invoice_deleted(publication)
+    publications.invoice_deleted(publication, cast(InvoiceId, invoice.id))
     payments = get_individual_paymentstatus(publication)
     assert payments.payments() == []
 

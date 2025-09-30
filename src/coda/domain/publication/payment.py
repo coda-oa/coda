@@ -22,7 +22,12 @@ class PublicationPaid:
     invoice_number: str
 
 
-PaymentEvent = InvoiceReceived | PublicationPaid
+@dataclass(frozen=True, slots=True)
+class InvoicePaymentReset:
+    invoice_id: InvoiceId
+
+
+PaymentEvent = InvoiceReceived | PublicationPaid | InvoicePaymentReset
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +42,28 @@ class Payment:
     invoice_id: InvoiceId
     invoice_number: str
     pending: bool
+
+
+class NoPaymentForInvoice(ValueError):
+    def __init__(
+        self,
+        publication_id: PublicationId,
+        invoice_id: int,
+        invoice_number: str = "",
+        *args: object,
+    ) -> None:
+        super().__init__(
+            " ".join(
+                (
+                    f"Publication {publication_id} has no payment"
+                    + f"for invoice {invoice_id}"
+                    + f"({invoice_number})"
+                    if invoice_number
+                    else "",
+                )
+            ).strip(),
+            *args,
+        )
 
 
 class PublicationPayments:
@@ -62,7 +89,18 @@ class PublicationPayments:
             invoice_id=invoice_id, invoice_number=invoice_number, pending=True
         )
 
+    def reset_payment(self, invoice_id: InvoiceId) -> None:
+        payment = self._payments.get(invoice_id)
+        if not payment:
+            raise NoPaymentForInvoice(self._publication_id, invoice_id)
+
+        invoice_number = payment.invoice_number
+        self.received_invoice(invoice_id, invoice_number)
+
     def deleted_invoice(self, invoice_id: InvoiceId) -> None:
+        if invoice_id not in self._payments:
+            raise NoPaymentForInvoice(self._publication_id, invoice_id)
+
         self._payments.pop(invoice_id, None)
 
     def all_paid(self) -> bool:
@@ -70,15 +108,6 @@ class PublicationPayments:
 
     def _all_pending(self) -> bool:
         return all(payment.pending for payment in self._payments.values())
-
-    # def status(self) -> IndividualPublicationPaymentStatus:
-    #     if not self._payments or self._all_pending():
-    #         return IndividualPublicationPaymentStatus.Unpaid
-    #
-    #     if self.all_paid():
-    #         return IndividualPublicationPaymentStatus.Paid
-    #
-    #     return IndividualPublicationPaymentStatus.PartiallyPaid
 
     def partially_paid(self) -> bool:
         if not self._payments:
