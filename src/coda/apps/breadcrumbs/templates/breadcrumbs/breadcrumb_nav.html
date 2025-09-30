@@ -1,0 +1,30 @@
+{% load breadcrumb_tags %}
+<nav aria-label="breadcrumb" class="breadcrumb-navigation">
+    {% if breadcrumbs or current_page_title %}
+        <ol class="breadcrumb">
+            {% for breadcrumb in breadcrumbs %}
+                <li class="breadcrumb-item">
+                    <small><a href="{{ breadcrumb.url }}" class="breadcrumb-link">{{ breadcrumb.title }}</a></small>
+                </li>
+                <li>
+                    <span>
+                        <svg class="w-6 h-6 text-gray-800 dark:text-white"
+                             aria-hidden="true"
+                             xmlns="http://www.w3.org/2000/svg"
+                             width="15"
+                             height="15"
+                             fill="none"
+                             viewBox="0 0 24 24">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7" />
+                        </svg>
+                    </span>
+                </li>
+            {% endfor %}
+            {% if current_page_title %}
+                <li class="breadcrumb-item active" aria-current="page">
+                    <small>{{ current_page_title }}</small>
+                </li>
+            {% endif %}
+        </ol>
+    {% endif %}
+</nav>

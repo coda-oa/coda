@@ -1,0 +1,1 @@
+# Breadcrumb navigation system for Django
