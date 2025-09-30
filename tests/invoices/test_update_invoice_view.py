@@ -227,7 +227,6 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
 def save_invoice_view(
     client: Client, invoice_id: InvoiceId, post_data: dict[str, Any]
 ) -> TemplateResponse:
-    print("Post data: ", post_data)
     return cast(
         TemplateResponse,
         client.post(reverse("invoices:update", kwargs={"pk": invoice_id}), post_data),

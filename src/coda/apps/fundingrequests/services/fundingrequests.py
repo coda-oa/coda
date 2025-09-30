@@ -114,7 +114,6 @@ def bulk_create_fundingrequests(
             lambda e: "fundingrequests" if e[0] is not None else "errors",
         )
     }
-    print("Grouped creation information", grouped)
     funding_requests = cast(Iterable[AnyFundingRequest], list(grouped.get("fundingrequests", [])))
     errors = cast(Iterable[CreateFundingRequestFailed], list(grouped.get("errors", [])))
 

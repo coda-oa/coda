@@ -54,6 +54,4 @@ def import_fundingrequests(json: TextIO | BinaryIO) -> FundingRequestImportRepor
         review = reviewdto.parse_dto(request.review, fundingrequest_id)
         repository.save_review(review)
 
-    print("Created FundingRequests:", list(ids))
-    print("Errors:", errors)
     return FundingRequestImportReport(len(tuple(ids)), len(errors), errors)

@@ -99,7 +99,6 @@ def parse_invoice(
         external_invoice_id=form.cleaned_data["external_invoice_id"],
     )
 
-    print(conversions)
     for currency, rate in conversions.items():
         invoice.add_conversion(rate, currency)
 
