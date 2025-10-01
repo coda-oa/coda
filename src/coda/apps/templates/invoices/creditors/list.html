@@ -1,13 +1,5 @@
-{% extends "base.html" %}
-{% block content %}
-    <h1 class="my-2">Creditors</h1>
-    <div class="grid-container">
-        {% for creditor in creditors %}
-            <article>
-                <h2 class="m-0 text-center">
-                    <a href="{% url "invoices:creditor_detail" pk=creditor.pk %}">{{ creditor.name }}</a>
-                </h2>
-            </article>
-        {% endfor %}
-    </div>
-{% endblock content %}
+<article>
+    <h2 class="m-0 text-center">
+        <a href="{% url "invoices:creditor_detail" pk=entity.pk %}">{{ entity.name }}</a>
+    </h2>
+</article>

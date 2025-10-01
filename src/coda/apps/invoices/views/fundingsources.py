@@ -1,10 +1,11 @@
 from typing import Any
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.invoices.forms import FundingSourceForm
 from coda.apps.invoices.models import FundingSource
+from coda.apps.views import SimpleSearchEntityListView
 
 
 class CreateFundingSourceView(LoginRequiredMixin, CreateView[FundingSource, FundingSourceForm]):
@@ -33,11 +34,13 @@ class UpdateFundingSourceView(LoginRequiredMixin, UpdateView[FundingSource, Fund
 fundingsource_updateview = UpdateFundingSourceView.as_view()
 
 
-class FundingSourceListView(LoginRequiredMixin, ListView[FundingSource]):
+class FundingSourceListView(LoginRequiredMixin, SimpleSearchEntityListView[FundingSource]):
     model = FundingSource
-    template_name = "invoices/fundingsources/list.html"
-    context_object_name = "fundingsources"
-
+    entity_name = "Funding Sources"
+    entity_create_url = "invoices:fundingsource_create"
+    entity_list_item_template = "invoices/fundingsources/list.html"
+    entity_filter_template = "entity_generic_filter.html"
+    use_generic_entity_filter = True
 
 fundingsource_listview = FundingSourceListView.as_view()
 

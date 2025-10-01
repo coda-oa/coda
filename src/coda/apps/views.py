@@ -1,9 +1,13 @@
 from collections.abc import Sequence
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Type, TypeVar, cast
 
 from django.core.paginator import Paginator
 from django.http import HttpRequest
 from django.views.generic import TemplateView
+
+from django.db.models import Model, Q
+
+from coda.apps.domainqueryset import DomainQuerySet
 
 EntityType = TypeVar("EntityType")
 
@@ -34,4 +38,29 @@ class EntityListView(Generic[EntityType], TemplateView):
             "use_generic_entity_filter": self.use_generic_entity_filter,
             "entities": page.object_list,
             "page_obj": page,
+            "search_placeholder": self.search_placeholder,
         }
+    
+    @property
+    def search_placeholder(self) -> str:
+        return f"Search {self.entity_name.lower()}..."
+
+
+ModelType = TypeVar("ModelType", bound=Model)
+
+class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
+    model: Type[ModelType]
+    search_fields: list[str] = ["name"]
+
+    def get_entities(self, request: HttpRequest) -> Sequence[ModelType]:
+        search_term = request.GET.get("query", "").strip()
+        queryset = self.model.objects.all() # type: ignore[attr-defined]
+
+        if search_term:
+            query = Q()
+            for field in self.search_fields:
+                query |= Q(**{f"{field}__icontains": search_term})
+            queryset = queryset.filter(query)
+
+        return DomainQuerySet(queryset.order_by(*self.search_fields), lambda x: cast(ModelType, x))
+

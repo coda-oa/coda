@@ -105,3 +105,4 @@
         <a href="{% url "invoices:list" %}" role="button" class="secondary">Clear</a>
     </div>
 </form>
+{% if request.GET and entities|length == 0 %}<p class="my-2">No invoices match the selected filters.</p>{% endif %}

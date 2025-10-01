@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from typing import Any
 
 from django import forms
@@ -9,20 +8,18 @@ from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, UpdateView
 
-from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.fundingrequests.models import FundingOrganization
-from coda.apps.views import EntityListView
+from coda.apps.views import SimpleSearchEntityListView
 
 
-class FundingOrganizationListView(LoginRequiredMixin, EntityListView[FundingOrganization]):
+class FundingOrganizationListView(LoginRequiredMixin, SimpleSearchEntityListView[FundingOrganization]):
+    model = FundingOrganization
     entity_name = "Funding Organizations"
     entity_create_url = "fundingrequests:funders_create"
     entity_list_item_template = "fundingrequests/funders/funder_list_item.html"
-
-    def get_entities(self, request: HttpRequest) -> Sequence[FundingOrganization]:
-        return DomainQuerySet(FundingOrganization.objects.all(), lambda x: x)
-
-
+    entity_filter_template = "entity_generic_filter.html"
+    use_generic_entity_filter = True
+    
 fundingorganizations_list = FundingOrganizationListView.as_view()
 
 

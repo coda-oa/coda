@@ -11,6 +11,7 @@ from django.urls import reverse
 from coda.apps.contracts import repository
 from coda.apps.contracts.forms import ContractForm, EntityFormset
 from coda.apps.contracts.models import Contract as ContractModel
+from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
 from coda.apps.views import EntityListView
@@ -22,9 +23,16 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
     entity_name = "Contracts"
     entity_create_url = "contracts:create"
     entity_list_item_template = "contracts/contract_list_item.html"
+    entity_filter_template = "entity_generic_filter.html"
+    use_generic_entity_filter = True
 
     def get_entities(self, request: HttpRequest) -> Sequence[Contract]:
-        return repository.all()
+        search_term = request.GET.get("query", "").strip()
+        contracts = ContractModel.objects.all()
+        if search_term:
+            contracts = contracts.filter(name__icontains=search_term)
+        
+        return DomainQuerySet(contracts, repository.as_domain_object)
 
 
 @login_required
