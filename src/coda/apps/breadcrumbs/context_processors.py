@@ -10,7 +10,7 @@ from .view_resolver import resolve_breadcrumb_metadata
 def _build_breadcrumb_hierarchy(url_name: str, request: HttpRequest, query_params: str = "", **original_kwargs: Any) -> list[dict[str, Any]]:
     """
     Recursively build the complete breadcrumb hierarchy from a given URL name.
-    Uses actual view metadata instead of static mapping.
+    Only includes views that have proper breadcrumb metadata (via decorators or mixins).
     
     Args:
         url_name: The starting URL name (e.g., 'invoices:list')
@@ -42,11 +42,10 @@ def _build_breadcrumb_hierarchy(url_name: str, request: HttpRequest, query_param
             metadata = resolve_breadcrumb_metadata(current_url_name, request, **url_kwargs)
             
             if not metadata:
-                # If we can't resolve metadata, fall back to static mapping
-                title = _get_title_from_url_name(current_url_name)
-                parent_url_name = _get_static_parent_mapping().get(current_url_name)
+                # If we can't resolve metadata, skip this level (no static fallback)
+                break
             else:
-                title = metadata.get('title', _get_title_from_url_name(current_url_name))
+                title = metadata.get('title', '')
                 parent_url_name = metadata.get('parent_url_name')
             
             # Build URL for current level using cleaned kwargs
@@ -75,30 +74,7 @@ def _build_breadcrumb_hierarchy(url_name: str, request: HttpRequest, query_param
     return breadcrumbs
 
 
-def _get_static_parent_mapping() -> dict[str, str | None]:
-    """
-    Fallback static hierarchy mapping for views without breadcrumb metadata.
-    """
-    return {
-        'invoices:list': 'invoices:finances_home',
-        'invoices:detail': 'invoices:list',
-        'invoices:create': 'invoices:list',
-        'invoices:update': 'invoices:detail',
-        'invoices:creditor_list': 'invoices:finances_home',
-        'invoices:creditor_detail': 'invoices:creditor_list',
-        'invoices:creditor_create': 'invoices:creditor_list',
-        'invoices:finances_home': None,  # Top level under Home
-        'contracts:list': None,
-        'contracts:detail': 'contracts:list',
-        'fundingrequests:list': None,
-        'fundingrequests:detail': 'fundingrequests:list',
-        'publications:list': None,
-        'publications:detail': 'publications:list',
-        'authors:list': None,
-        'authors:detail': 'authors:list',
-        'institutions:list': None,
-        'institutions:detail': 'institutions:list',
-    }
+
 
 
 def breadcrumb_context(request: HttpRequest) -> dict[str, Any]:
@@ -171,30 +147,3 @@ def breadcrumb_context(request: HttpRequest) -> dict[str, Any]:
     }
 
 
-def _get_title_from_url_name(url_name: str) -> str:
-    """
-    Convert URL name to a human-readable title.
-    
-    You can customize this mapping based on your URL patterns.
-    """
-    title_mapping = {
-        'home': 'Home',
-        'invoices:finances_home': 'Finances',
-        'invoices:list': 'Invoices',
-        'invoices:detail': 'Invoice Details',
-        'invoices:create': 'Create Invoice',
-        'invoices:creditor_list': 'Creditors',
-        'invoices:creditor_detail': 'Creditor Details',
-        'contracts:list': 'Contracts',
-        'contracts:detail': 'Contract Details',
-        'fundingrequests:list': 'Funding Requests',
-        'fundingrequests:detail': 'Funding Request Details',
-        'publications:list': 'Publications',
-        'publications:detail': 'Publication Details',
-        'authors:list': 'Authors',
-        'authors:detail': 'Author Details',
-        'institutions:list': 'Institutions',
-        'institutions:detail': 'Institution Details',
-    }
-    
-    return title_mapping.get(url_name, url_name.replace('_', ' ').replace(':', ' - ').title())
