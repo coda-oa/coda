@@ -1,9 +1,9 @@
-from typing import Any, Dict
+from typing import Any
 from django.http import HttpRequest
 from django.urls import resolve, reverse, NoReverseMatch
 
 
-def resolve_breadcrumb_metadata(url_name: str, request: HttpRequest, **url_kwargs: Any) -> Dict[str, Any]:
+def resolve_breadcrumb_metadata(url_name: str, request: HttpRequest, **url_kwargs: Any) -> dict[str, Any]:
     """
     Resolve breadcrumb metadata from an actual view without executing it.
     
@@ -85,7 +85,7 @@ def resolve_breadcrumb_metadata(url_name: str, request: HttpRequest, **url_kwarg
         return {}
 
 
-def extract_url_kwargs_from_url(url: str, url_name: str) -> Dict[str, Any]:
+def extract_url_kwargs_from_url(url: str, url_name: str) -> dict[str, Any]:
     """
     Extract URL kwargs (like pk) from a URL path.
     

@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable
 from urllib.parse import parse_qs, urlparse
 
 from django.http import HttpRequest, HttpResponse
@@ -7,14 +7,14 @@ from django.urls import reverse
 from django.utils.http import urlencode as django_urlencode
 
 # Type for title - can be string or callable that takes request, *args, **kwargs
-TitleType = Union[str, Callable[[HttpRequest, Any, Any], str]]
+TitleType = str | Callable[[HttpRequest, Any, Any], str]
 
 
 def breadcrumb(
     title: TitleType,
-    parent_url_name: Optional[str] = None,
+    parent_url_name: str | None = None,
     preserve_filters: bool = True,
-    exclude_params: Optional[list[str]] = None,
+    exclude_params: list[str] | None = None,
 ) -> Callable[[Callable[..., HttpResponse]], Callable[..., HttpResponse]]:
     """
     Decorator to add breadcrumb navigation to Django views.
@@ -84,7 +84,7 @@ def get_preserved_query_params(request: HttpRequest, exclude_params: list[str]) 
     Returns:
         URL-encoded query string
     """
-    params: Dict[str, str] = {}
+    params: dict[str, str] = {}
     for key, value in request.GET.items():
         if key not in exclude_params:
             # Convert to string to satisfy mypy
@@ -134,7 +134,7 @@ def extract_filters_from_referer(referer_url: str, exclude_params: list[str]) ->
         query_params = parse_qs(parsed_url.query)
         
         # Filter out excluded parameters and flatten values
-        filtered_params: Dict[str, str] = {}
+        filtered_params: dict[str, str] = {}
         for key, values in query_params.items():
             if key not in exclude_params and values:
                 # Take the first value if multiple values exist

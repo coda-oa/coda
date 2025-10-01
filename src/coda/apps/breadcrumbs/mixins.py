@@ -1,10 +1,10 @@
-from typing import Any, Callable, Union
+from typing import Any, Callable
 
 from django.http import HttpRequest, HttpResponseBase
 from django.views.generic.base import View
 
 # Type for title - can be string or callable
-TitleType = Union[str, Callable[[HttpRequest, Any, Any], str]]
+TitleType = str | Callable[[HttpRequest, Any, Any], str]
 
 
 class BreadcrumbMixin(View):
