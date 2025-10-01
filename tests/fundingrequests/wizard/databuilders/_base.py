@@ -7,7 +7,7 @@ from unittest.mock import create_autospec
 
 from faker import Faker
 
-from coda.apps.contracts.repository import as_domain_object
+from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.fundingrequests.dto import (
     CreateFundingRequestDto,
     ExternalFundingDto,
@@ -52,7 +52,9 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
         self._faker = Faker()
         self.affiliation = modelfactory.institution()
         self.funder = modelfactory.funding_organization()
-        self.contracts = [as_domain_object(modelfactory.contract()) for _ in range(1, 3)]
+        self.contracts = [
+            contract_mapper.as_domain_object(modelfactory.contract()) for _ in range(1, 3)
+        ]
         self.contract_years = [domainfactory.contract_year(c) for c in self.contracts]
 
         self.extra_contact: FundingRequestContact = FilledContact(

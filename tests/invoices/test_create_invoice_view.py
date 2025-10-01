@@ -11,6 +11,7 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.contracts import repository as contract_services
+from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.invoices import repository
 from coda.apps.invoices.models import FundingSource
 from coda.apps.invoices.views.position_dtos.edit_position_dtos import (
@@ -63,7 +64,7 @@ def test__searching_for_publication__returns_matches_in_response(client: Client)
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__searching_for_contract__returns_matches_in_response(client: Client) -> None:
-    contract = contract_services.as_domain_object(modelfactory.contract())
+    contract = contract_mapper.as_domain_object(modelfactory.contract())
     response = client.post(reverse("invoices:contract_search"), {"contract_query": contract.name})
 
     expected_context = expect_contract_search_result(contract)
@@ -85,7 +86,7 @@ def test__add_publication_as_position__returns_position_in_response(client: Clie
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__add_contract_as_position__returns_position_in_response(client: Client) -> None:
-    contract = contract_services.as_domain_object(modelfactory.contract())
+    contract = contract_mapper.as_domain_object(modelfactory.contract())
     contract_year = domainfactory.contract_year(contract)
     expected = expect_new_contract_position(contract_year)
 
@@ -121,7 +122,7 @@ def test__changing_publication_position_data__updates_position_in_response(clien
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__changing_contract_position_data__updates_position_in_response(client: Client) -> None:
-    contract = contract_services.as_domain_object(modelfactory.contract())
+    contract = contract_mapper.as_domain_object(modelfactory.contract())
     contract_year = domainfactory.contract_year(contract)
     position_data = number_of_positions(1) | create_contract_position_input(contract_year)
     response = client.post(reverse("invoices:create"), position_data)
@@ -164,7 +165,7 @@ def test__given_position_added__removing_position__position_removed_from_respons
 @pytest.mark.usefixtures("logged_in")
 def test__given_positions_added__create__saves_new_invoice(client: Client) -> None:
     publication = modelfactory.publication()
-    contract = contract_services.as_domain_object(modelfactory.contract())
+    contract = contract_mapper.as_domain_object(modelfactory.contract())
     contract_year = domainfactory.contract_year(contract)
 
     first_position_data = create_publication_position_input(publication, 1)
@@ -233,7 +234,7 @@ def invoice_post_data(
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__given_position_with_invalid_contract_year__create__returns_error(client: Client) -> None:
-    contract = contract_services.as_domain_object(modelfactory.contract())
+    contract = contract_mapper.as_domain_object(modelfactory.contract())
     contract_year = InvalidContractYear(contract, 1)
 
     first_position_data = create_contract_position_input(contract_year, 1)

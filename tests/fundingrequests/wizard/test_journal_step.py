@@ -4,8 +4,8 @@ import pytest
 from django.http import HttpRequest
 from django.test import RequestFactory
 
+from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.contracts.models import Contract
-from coda.apps.contracts.repository import as_domain_object
 from coda.apps.fundingrequests.views.wizard.steps.journal_step import (
     JournalContractStep,
     JournalStep,
@@ -159,4 +159,6 @@ def post(data: dict[str, Any] | None = None) -> HttpRequest:
 
 
 def contract_year_dto(c: Contract) -> ContractYearDto:
-    return ContractYearDto.from_contract_year(domainfactory.contract_year(as_domain_object(c)))
+    return ContractYearDto.from_contract_year(
+        domainfactory.contract_year(contract_mapper.as_domain_object(c))
+    )

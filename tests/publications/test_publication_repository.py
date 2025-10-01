@@ -6,6 +6,7 @@ import pytest
 
 from coda.apps.authors.services import author_create
 from coda.apps.contracts import repository as contract_repository
+from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.domain.contract import ContractYear, PublisherId
 from coda.domain.date import DateRange
@@ -41,7 +42,7 @@ def create_publication(
     publication_id: PublicationId | None = None,
 ) -> Publication:
     journal = JournalId(modelfactory.journal().id)
-    contracts = [contract_repository.as_domain_object(modelfactory.contract()) for _ in range(4)]
+    contracts = [contract_mapper.as_domain_object(modelfactory.contract()) for _ in range(4)]
     contract_years = [domainfactory.contract_year(contract) for contract in contracts]
     publication = domainfactory.publication(
         journal=journal,
