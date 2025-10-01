@@ -13,7 +13,9 @@
             <li>
                 {% include "partials/nav_link.html" with link="publishing:home" image="assets/journal.svg" text="Journals & Publishers" %}
             </li>
-            <li>{% include "partials/nav_link.html" with link="invoices:home" image="assets/cash.svg" text="Finances" %}</li>
+            <li>
+                {% include "partials/nav_link.html" with link="invoices:finances_home" image="assets/cash.svg" text="Finances" %}
+            </li>
             <li>
                 {% include "partials/nav_link.html" with link="contracts:list" image="assets/briefcase.svg" text="Contracts" %}
             </li>
@@ -34,7 +36,11 @@
                     <form action="{% url "logout" %}" method="post">
                         {% csrf_token %}
                         <button type="submit" class="login_logout_button outline contrast">
-                            <img src="{% static "assets/logout.svg" %}" class="nav-link-icon" alt="logout" width="auto" height="auto">
+                            <img src="{% static "assets/logout.svg" %}"
+                                 class="nav-link-icon"
+                                 alt="logout"
+                                 width="auto"
+                                 height="auto">
                             <span>Logout</span>
                         </button>
                     </form>
@@ -44,7 +50,11 @@
                     <a role="button"
                        class="login_logout_button outline contrast"
                        href="{% url "login" %}">
-                        <img src="{% static "assets/login.svg" %}" class="nav-link-icon" alt="login" width="auto" height="auto">
+                        <img src="{% static "assets/login.svg" %}"
+                             class="nav-link-icon"
+                             alt="login"
+                             width="auto"
+                             height="auto">
                         <span>Login</span></a>
                 </li>
             {% endif %}

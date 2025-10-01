@@ -18,9 +18,11 @@ from coda.domain.invoice import CreditorId, Invoice, InvoiceId, PaymentStatus
 
 from coda.domain.money._currency import Currency
 from decimal import Decimal
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @login_required
+@breadcrumb("Create Invoice", parent_url_name="invoices:list", preserve_filters=True)
 def create_invoice(request: HttpRequest) -> HttpResponse:
     home_currency = GlobalPreferences.get_home_currency()
     errors = ErrorDict(errors={})

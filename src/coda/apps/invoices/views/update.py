@@ -19,9 +19,20 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.domain.invoice import Invoice, InvoiceId
 from coda.domain.money._currency import Currency
 from django.views.decorators.http import require_GET
+from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
+
+
+invoice_breadcrumb_title = generate_dynamic_title(
+    model_name="Edit Invoice",
+    fetch_fn=lambda pk: repository.get_by_id(InvoiceId(int(pk))),
+    label_attr="number",
+    fallback_attr="id",
+    default_title="Edit Invoice"
+)
 
 
 @login_required
+@breadcrumb(invoice_breadcrumb_title, parent_url_name="invoices:detail", preserve_filters=True)
 def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
 

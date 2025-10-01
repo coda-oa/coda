@@ -9,9 +9,13 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView, UpdateView
 
 from coda.apps.fundingrequests.models import FundingOrganization
-from coda.apps.views import SimpleSearchEntityListView
+from coda.apps.views import SimpleSearchEntityListView 
+
+from django.utils.decorators import method_decorator
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
+@method_decorator(breadcrumb("Funding Organizations", parent_url_name="fundingrequests:home"), name="dispatch")
 class FundingOrganizationListView(LoginRequiredMixin, SimpleSearchEntityListView[FundingOrganization]):
     model = FundingOrganization
     entity_name = "Funding Organizations"
@@ -29,8 +33,8 @@ class FundingOrganizationForm(forms.ModelForm[FundingOrganization]):
         fields = ["name"]
 
 
-class FundingOrganizationCreateView(
-    LoginRequiredMixin, CreateView[FundingOrganization, FundingOrganizationForm]
+@method_decorator(breadcrumb("Create Funding Organization", parent_url_name="fundingrequests:funders"), name="dispatch")
+class FundingOrganizationCreateView(LoginRequiredMixin, CreateView[FundingOrganization, FundingOrganizationForm]
 ):
     model = FundingOrganization
     form_class = FundingOrganizationForm
@@ -44,8 +48,8 @@ class FundingOrganizationCreateView(
 fundingorganizations_create = FundingOrganizationCreateView.as_view()
 
 
-class FundingOrganizationUpdateView(
-    LoginRequiredMixin, UpdateView[FundingOrganization, FundingOrganizationForm]
+@method_decorator(breadcrumb("Update Funding Organization", parent_url_name="fundingrequests:funders"), name="dispatch")
+class FundingOrganizationUpdateView(LoginRequiredMixin, UpdateView[FundingOrganization, FundingOrganizationForm]
 ):
     model = FundingOrganization
     form_class = FundingOrganizationForm

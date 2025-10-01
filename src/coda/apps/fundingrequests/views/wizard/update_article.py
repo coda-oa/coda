@@ -22,7 +22,11 @@ from coda.apps.fundingrequests.views.wizard.steps.publication_step import Public
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.wizard import SessionStore, Wizard
 
+from django.utils.decorators import method_decorator
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
+
+@method_decorator(breadcrumb("Update Additional Information", parent_url_name="fundingrequests:detail"), name="dispatch")
 class UpdateExtraInformationView(LoginRequiredMixin, Wizard):
     store_name = "update_submitter_wizard"
     store_factory = SessionStore
@@ -52,6 +56,7 @@ class UpdateExtraInformationView(LoginRequiredMixin, Wizard):
             store.save()
 
 
+@method_decorator(breadcrumb("Update Publication Details", parent_url_name="fundingrequests:detail"), name="dispatch")
 class UpdatePublicationView(LoginRequiredMixin, Wizard):
     store_name = "update_publication_wizard"
     store_factory = SessionStore
@@ -79,6 +84,7 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         store.save()
 
 
+@method_decorator(breadcrumb("Update Cost & Funding", parent_url_name="fundingrequests:detail"), name="dispatch")
 class UpdateFundingView(LoginRequiredMixin, Wizard):
     steps = [FundingStep()]
     store_name = "update_funding_wizard"

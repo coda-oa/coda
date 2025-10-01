@@ -34,7 +34,7 @@ from coda.apps.invoices.views.update import free_position_cost_type_options, upd
 app_name = "invoices"
 
 urlpatterns = [
-    path("", finances_home, name="home"),
+    path("", finances_home, name="finances_home"),
     path("list/", invoice_list, name="list"),
     path("<int:pk>/", invoice_detail, name="detail"),
     path("create/", create_invoice, name="create"),

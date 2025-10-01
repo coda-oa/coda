@@ -13,6 +13,9 @@ from coda.apps.domainqueryset import DomainModelProtocol, DomainQuerySet
 from coda.apps.publishers.models import Publisher
 from coda.apps.views import EntityListView
 
+from django.utils.decorators import method_decorator
+from coda.apps.breadcrumbs.decorators import breadcrumb
+
 
 @dataclass(slots=True, frozen=True)
 class PublisherViewModel(DomainModelProtocol[int]):
@@ -21,6 +24,7 @@ class PublisherViewModel(DomainModelProtocol[int]):
     is_blocked: bool
 
 
+@method_decorator(breadcrumb("Publishers", parent_url_name="publishing:home"), name="dispatch")
 class PublisherListView(LoginRequiredMixin, EntityListView[PublisherViewModel]):
     entity_list_item_template = "publishers/publisher_list_item.html"
     entity_name = "Publishers"
@@ -54,6 +58,7 @@ class PublisherForm(forms.ModelForm[Publisher]):
         fields = "__all__"
 
 
+@method_decorator(breadcrumb("Create Publisher", parent_url_name="publishing:publishers:list"), name="dispatch")
 class PublisherCreateView(LoginRequiredMixin, CreateView[Publisher, PublisherForm]):
     template_name = "generic_form_view.html"
     model = Publisher
@@ -66,6 +71,7 @@ class PublisherCreateView(LoginRequiredMixin, CreateView[Publisher, PublisherFor
         return context
 
 
+@method_decorator(breadcrumb("Update Publisher", parent_url_name="publishing:publishers:list"), name="dispatch")
 class PublisherUpdateView(LoginRequiredMixin, UpdateView[Publisher, PublisherForm]):
     template_name = "generic_form_view.html"
     model = Publisher

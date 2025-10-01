@@ -6,8 +6,11 @@ from coda.apps.fundingrequests.views.wizard.steps.publication_step import Public
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import PublisherStep
 from coda.apps.publications.dto import MonographDto
 from coda.apps.wizard import SessionStore, Store
+from django.utils.decorators import method_decorator
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
+@method_decorator(breadcrumb("New Funding Request for a Monograph", parent_url_name="fundingrequests:list"), name="dispatch")
 class MonographRequestWizard(FundingRequestCreationWizard[MonographDto]):
     store_name = "monograph_request_wizard"
     store_factory = SessionStore

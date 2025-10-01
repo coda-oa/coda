@@ -8,6 +8,8 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
 
+from django.utils.decorators import method_decorator
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.publications.services import vocabularies
 from coda.apps.views import EntityListView
@@ -21,6 +23,7 @@ from coda.domain.vocabulary import (
 ConceptPair = tuple[VocabularyConcept | None, VocabularyConcept | None]
 
 
+@method_decorator(breadcrumb("Vocabularies"), name="dispatch")
 class VocabularyListView(LoginRequiredMixin, EntityListView[VocabularyProtocol]):
     entity_name = "Vocabularies"
     entity_list_item_template = "publications/vocabulary_list_item.html"
@@ -30,6 +33,7 @@ class VocabularyListView(LoginRequiredMixin, EntityListView[VocabularyProtocol])
 
 
 @login_required
+@breadcrumb("Create Limited Vocabulary", parent_url_name="publications:vocabularies")
 def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
     base_vocabulary = vocabulary_repository.get_by_id(VocabularyId(pk))
     default_limited_name = f"{base_vocabulary.name} (limited)"
@@ -44,6 +48,7 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
+@breadcrumb("Edit Limited Vocabulary", parent_url_name="publications:vocabularies")
 def edit_limited(request: HttpRequest, pk: int) -> HttpResponse:
     limited = vocabulary_repository.get_limited_by_id(VocabularyId(pk))
     return render(

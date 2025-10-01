@@ -3,20 +3,21 @@ import functools
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.contrib.auth.views import LoginView, LogoutView
+from django.contrib.auth.views import LogoutView
 from django.shortcuts import render
 from django.urls import include, path
 from django.views import defaults as default_views
 
 from coda.apps import home
 from coda.apps.htmx_components.forms import DemoFormset
+from coda.apps.login import CustomLoginView
 
 urlpatterns = [
     # Django Admin, use {% url 'admin:index' %}
     path(settings.ADMIN_URL, admin.site.urls),
     # User management
     path("", home.view, name="home"),
-    path("login/", view=LoginView.as_view(template_name="pages/login.html"), name="login"),
+    path("login/", view=CustomLoginView.as_view(), name="login"),
     path("logout/", view=LogoutView.as_view(), name="logout"),
     path("users/", include("coda.apps.users.urls", namespace="users")),
     path("contracts/", include("coda.apps.contracts.urls", namespace="contracts")),

@@ -7,10 +7,12 @@ from django.views.decorators.http import require_http_methods
 
 from coda.apps.formbase import JsonUploadForm
 from coda.apps.invoices import importservice
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @login_required
 @require_http_methods(["GET", "POST"])
+@breadcrumb("Import Invoices", parent_url_name="invoices:list")
 def import_invoices(request: HttpRequest) -> HttpResponse:
     import_errors = []
     form = get_form(request)
