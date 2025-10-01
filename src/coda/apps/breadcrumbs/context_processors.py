@@ -1,7 +1,7 @@
 from typing import Any
 
 from django.http import HttpRequest
-from django.urls import reverse
+from django.urls import reverse, NoReverseMatch
 
 from .decorators import build_breadcrumb_url, get_preserved_query_params, extract_filters_from_referer
 from .view_resolver import resolve_breadcrumb_metadata
@@ -34,8 +34,13 @@ def _build_breadcrumb_hierarchy(url_name: str, request: HttpRequest, query_param
         try:
             # Clear kwargs for views that don't need them (BEFORE building URL)
             url_kwargs = current_kwargs.copy()
-            if current_url_name.endswith(':list') or current_url_name.endswith('_home'):
-                # List views and home views don't need pk parameters
+            
+            # Try to build URL with kwargs first, clear them if it fails
+            try:
+                # Test if URL can be built with current kwargs
+                reverse(current_url_name, kwargs=url_kwargs)
+            except NoReverseMatch:
+                # If kwargs don't work, clear them (this handles list views, home views, etc.)
                 url_kwargs = {}
             
             # Get breadcrumb metadata from the actual view

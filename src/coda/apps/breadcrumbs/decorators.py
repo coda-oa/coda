@@ -12,7 +12,7 @@ TitleType = str | Callable[[HttpRequest, Any, Any], str]
 
 def breadcrumb(
     title: TitleType,
-    parent_url_name: str | None = None,
+    parent_url_name: str | Callable[[HttpRequest, Any, Any], str] | None = None,
     preserve_filters: bool = True,
     exclude_params: list[str] | None = None,
 ) -> Callable[[Callable[..., HttpResponse]], Callable[..., HttpResponse]]:
@@ -45,6 +45,10 @@ def breadcrumb(
             resolved_title = title
             if callable(title):
                 resolved_title = title(request, *args, **kwargs)
+
+            resolved_parent  = parent_url_name
+            if callable(parent_url_name):
+                resolved_parent = parent_url_name(request, *args, **kwargs)
             
             # Store the HTTP referer to preserve filters from the previous page
             referer_url = request.META.get('HTTP_REFERER', '')
@@ -52,7 +56,7 @@ def breadcrumb(
             breadcrumb_data = getattr(request, '_breadcrumb_data', {})
             breadcrumb_data.update({
                 'title': resolved_title,
-                'parent_url_name': parent_url_name,
+                'parent_url_name': resolved_parent,
                 'preserve_filters': preserve_filters,
                 'exclude_params': exclude_params,
                 'referer_url': referer_url,
