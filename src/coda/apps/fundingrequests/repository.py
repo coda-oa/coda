@@ -11,6 +11,7 @@ from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import FundingRequestContact as FundingRequestContactModel
 from coda.apps.publications.repositories import publication_repository
+from coda.domain.contract import ContractId
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest import (
     AnyFundingRequest,
@@ -359,6 +360,9 @@ def search(
     | None = None,
     labels: Iterable[int] | None = None,
     exclude_labels: Iterable[int] | None = None,
+    sort_by: str | None = None,
+    contract_name: ContractId | None = None,
+    contract_year: int | None = None,
 ) -> Iterable[FundingRequestModel]:
     query = Q()
 
@@ -419,6 +423,12 @@ def search(
 
         query = query & payment_query
 
+    if contract_name:
+        query = query & Q(publication__attached_contracts__contract__id=contract_name)
+
+    if contract_year:
+        query = query & Q(publication__attached_contracts__contract_year=contract_year)
+
     return (
         FundingRequestModel.objects.filter(query)
         .distinct()
@@ -431,7 +441,7 @@ def search(
             "labels",
             "publication__relevant_authors",
         )
-        .order_by("-request_date")
+        .order_by(_get_sort_by(sort_by))
     )
 
 
@@ -441,3 +451,14 @@ def get_funding_organization(pk: int) -> FundingOrganization:
 
 def get_funding_organization_by_name(name: str) -> FundingOrganization | None:
     return FundingOrganization.objects.filter(name=name).first()
+
+
+def _get_sort_by(sort_by: str | None) -> str:
+    if sort_by == "alphabetical":
+        return "publication__title"
+    elif sort_by == "date_asc":
+        return "request_date"
+    elif sort_by == "date_desc":
+        return "-request_date"
+    else:
+        return "-request_date"

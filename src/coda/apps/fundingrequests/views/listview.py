@@ -6,6 +6,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
+from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
@@ -13,6 +14,7 @@ from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.views.detailview import payment_status_viewmodel
 from coda.apps.publications.services import publications
 from coda.apps.views import EntityListView
+from coda.domain.contract import ContractId
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
@@ -33,6 +35,8 @@ _advanced_search_fields = [
     "payment_status",
     "start_date",
     "end_date",
+    "contract_name",
+    "contract_year",
 ]
 
 _payment_status_map = {
@@ -63,6 +67,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
+        ctx.update(get_contract_list_context())
 
         expand_advanced_search = any(self.request.GET.get(key) for key in _advanced_search_fields)
 
@@ -100,6 +105,9 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
                 OpenAccessType(oat) for oat in request.GET.getlist("open_access_type")
             ],
             payment_statuses=requested_payment_statuses,
+            sort_by=request.GET.get("sort_by"),
+            contract_name=ContractId(request.GET.get("contract_name") or 0),
+            contract_year=int(request.GET.get("contract_year") or 0),
         ),
     )
 
@@ -194,6 +202,10 @@ def is_monograph(funding_request: FundingRequestModel) -> bool:
 
 def is_article(funding_request: FundingRequestModel) -> bool:
     return funding_request.publication.article_journal is not None
+
+
+def get_contract_list_context() -> dict[str, Any]:
+    return {"contract_list": Contract.objects.all()}
 
 
 class PaymentStatusLookup:
