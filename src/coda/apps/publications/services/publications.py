@@ -33,10 +33,6 @@ def get_payment_status(publication: PublicationId) -> PublicationPaymentStatus:
 
 
 def update_payment(publication_id: PublicationId, payment_event: PaymentEvent) -> None:
-    _payments = payment_repository.find_payment(publication_id)
-    if not _payments:
-        _payments = PublicationPayments(publication_id)
-
     payment_repository.save_payment(publication_id, payment_event)
 
 
