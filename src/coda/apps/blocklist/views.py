@@ -15,9 +15,11 @@ from coda.apps.blocklist.models import (
 )
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @login_required
+@breadcrumb("Blocklist")
 def blocklist(request: HttpRequest) -> HttpResponse:
     return render(request, "blocklist/blocklist_page.html", context("journals"))
 

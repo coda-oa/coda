@@ -9,12 +9,16 @@ from django.views.generic.edit import UpdateView
 from coda.apps.preferences.forms import GlobalPreferencesForm
 from coda.apps.preferences.models import GlobalPreferences
 
+from django.utils.decorators import method_decorator
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
+@method_decorator(breadcrumb("Coda Global Preferences"), name="dispatch")
 class GlobalPreferencesUpdateView(
     LoginRequiredMixin,
     SuccessMessageMixin[GlobalPreferencesForm],
     UpdateView[GlobalPreferences, GlobalPreferencesForm],
 ):
+
     model = GlobalPreferences
     form_class = GlobalPreferencesForm
     template_name = "preferences/global.html"

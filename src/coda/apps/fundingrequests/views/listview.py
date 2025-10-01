@@ -27,6 +27,9 @@ from coda.domain.publication.payment import (
 )
 from coda.domain.publication.publication import PublicationId
 
+from django.utils.decorators import method_decorator
+from coda.apps.breadcrumbs.decorators import breadcrumb
+
 _advanced_search_fields = [
     "labels",
     "exclude_labels",
@@ -54,6 +57,7 @@ _payment_status_choices = [
 ]
 
 
+@method_decorator(breadcrumb("Funding Requests", parent_url_name="fundingrequests:home"), name="dispatch")
 class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestListViewModel"]):
     template_name = "fundingrequests/fundingrequest_list.html"
     entity_name = "Funding Requests"

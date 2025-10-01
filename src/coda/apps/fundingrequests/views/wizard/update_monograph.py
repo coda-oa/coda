@@ -16,7 +16,10 @@ from coda.apps.publications.dto import MonographDto
 from coda.apps.wizard import SessionStore, Wizard
 from coda.domain.fundingrequest import FundingRequestId
 
+from django.utils.decorators import method_decorator
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
+@method_decorator(breadcrumb("Update Publication Details", parent_url_name="fundingrequests:detail"), name="dispatch")
 class MonographUpdateMetaView(Wizard):
     store_name = "monograph_request_update_meta"
     steps = [PublicationStep.for_monograph(), PublisherStep()]
