@@ -1,6 +1,5 @@
 import datetime
 import random
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
@@ -37,8 +36,15 @@ from coda.domain.invoice import (
 )
 from coda.domain.money import Currency, Money
 from coda.domain.publication import PublicationId
-from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
+from coda.domain.publication.payment import (
+    PublicationPayments,
+)
 from tests import domainfactory, modelfactory
+from tests.invoices.payment_assertions import (
+    CreatePaymentsAssertion,
+    new_invoice_paid_assertion,
+    new_invoice_received_assertion,
+)
 from tests.invoices.test_invoice_repository import assert_invoice_eq
 
 _faker = faker.Faker()
@@ -178,16 +184,16 @@ def test__given_positions_added__create__saves_new_invoice(client: Client) -> No
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 @pytest.mark.parametrize(
-    ["invoice_status", "expected_payment_status"],
+    ["invoice_status", "get_assertion_for_invoice"],
     [
-        (PaymentStatus.Paid, lambda i: PublicationPaid(i.id, i.number)),
-        (PaymentStatus.Unpaid, lambda i: InvoiceReceived(i.id, i.number)),
+        (PaymentStatus.Paid, new_invoice_paid_assertion),
+        (PaymentStatus.Unpaid, new_invoice_received_assertion),
     ],
 )
 def test__given_publication_added__create__publication_has_invoice_received(
     client: Client,
     invoice_status: PaymentStatus,
-    expected_payment_status: Callable[[Invoice], PublicationPayment],
+    get_assertion_for_invoice: CreatePaymentsAssertion,
 ) -> None:
     publication = modelfactory.publication()
 
@@ -198,9 +204,11 @@ def test__given_publication_added__create__publication_has_invoice_received(
 
     actual = repository.first()
     assert actual is not None
+    assert_payment_status = get_assertion_for_invoice(actual)
 
     actual_status = publications.get_payment_status(PublicationId(publication.id))
-    assert actual_status == expected_payment_status(actual)
+    assert isinstance(actual_status, PublicationPayments)
+    assert_payment_status(actual_status)
 
 
 def invoice_post_data(

@@ -25,8 +25,8 @@
     --coda-pill-padding-vertical: 0.35rem;
     --coda-pill-padding-horizontal: 0.75rem;
 
-    --coda-validation-valid-color: var(--pico-form-element-valid-active-border-color);
-    --coda-validation-invalid-color: var(--pico-form-element-invalid-active-border-color);
+    --coda-validation-valid-color: var(--pico-form-element-valid-border-color);
+    --coda-validation-invalid-color: var(--pico-form-element-invalid-border-color);
 
     --coda-validation-text-color: #fff;
     --coda-disabled-text-color: var(--pico-muted-color);

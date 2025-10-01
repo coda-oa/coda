@@ -1,4 +1,9 @@
-<search-select name="{{ widget.name }}">
+<search-select id="{{ widget.attrs.id|default:widget.name }}" name="{{ widget.name }}"
+{% if widget.attrs.required %}required{% endif %}
+{% for attr, value in widget.attrs.items %}
+    {% if attr != 'id' and attr != 'name' and attr != 'required' %}{{ attr }}="{{ value }}"{% endif %}
+{% endfor %}
+>
 {% for group_name, group_choices, group_index in widget.optgroups %}
     {% if group_name %}<optgroup label="{{ group_name }}">{% endif %}
         {% for widget in group_choices %}

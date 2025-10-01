@@ -1,6 +1,6 @@
 import datetime
 import io
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from decimal import Decimal
 from typing import cast
 
@@ -19,6 +19,7 @@ from coda.apps.invoices.importservice.dto import (
     PublicationPositionImportDto,
 )
 from coda.apps.invoices.models import Creditor, FundingSource
+from coda.apps.publications.services import publications
 from coda.domain.contract import Contract
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest, FundingOrganizationId
@@ -37,8 +38,12 @@ from coda.domain.invoice import (
 )
 from coda.domain.money import Currency, Money
 from coda.domain.publication import JournalId, PublicationId
+from coda.domain.publication.payment import (
+    PublicationPayments,
+)
 from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
+from tests.invoices import payment_assertions
 from tests.invoices.test_invoice_repository import assert_invoice_eq
 
 
@@ -186,6 +191,49 @@ def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
     assert "<unknown-0>" in actual.errors  # Fallback key when number is missing
 
 
+PaidInvoicePaymentFixture = (
+    lambda fr: paid_invoice_dto(
+        number="INV-2025-001",
+        positions=[publication_position_import_dto(fr)],
+    ),
+    payment_assertions.new_invoice_paid_assertion,
+)
+
+
+UnpaidInvoicePaymentFixture = (
+    lambda fr: invoice_dto(
+        number="INV-2025-002",
+        positions=[publication_position_import_dto(fr)],
+    ),
+    payment_assertions.new_invoice_received_assertion,
+)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "invoice_dto, create_payments_assertion",
+    [PaidInvoicePaymentFixture, UnpaidInvoicePaymentFixture],
+)
+def test__unpaid_invoice_with_publication_position_import_invoices_funding_request_has_payment_status_invoice_received(
+    invoice_dto: Callable[[AnyFundingRequest], InvoiceImportDto],
+    create_payments_assertion: payment_assertions.CreatePaymentsAssertion,
+) -> None:
+    funding_request = create_funding_request()
+    import_dto = InvoiceListImportDto(invoices=[invoice_dto(funding_request)])
+
+    _ = import_invoices(import_dto)
+
+    publication_id = cast(PublicationId, funding_request.publication.id)
+    payment_status = publications.get_payment_status(publication_id)
+    imported_invoice = repository.first()
+
+    assert imported_invoice is not None
+
+    assert_payment_status = create_payments_assertion(imported_invoice)
+    assert isinstance(payment_status, PublicationPayments)
+    assert_payment_status(payment_status)
+
+
 def assert_valid_invoice_imported(valid_dto: InvoiceImportDto) -> None:
     all_invoices = repository.all()
     expected = expected_invoice(valid_dto)
@@ -283,11 +331,19 @@ def invoice_dto(
     )
 
 
+def paid_invoice_dto(
+    number: str = "INV-001", positions: Iterable[CommonPositionImportDto] = ()
+) -> InvoiceImportDto:
+    dto = invoice_dto(number, positions)
+    dto.status = PaymentStatus.Paid
+    return dto
+
+
 def expected_publication_position(import_dto: PublicationPositionImportDto) -> AnyPosition:
     funding_source = FundingSource.objects.filter(name=import_dto.funding_source).first()
-    assert funding_source is not None, (
-        f"FundingSource '{import_dto.funding_source}' should exist in the database"
-    )
+    assert (
+        funding_source is not None
+    ), f"FundingSource '{import_dto.funding_source}' should exist in the database"
     request = fundingrequest_repository.get_by_request_id(
         PublicFundingRequestId.from_str(str(import_dto.request_id))
     )
@@ -322,9 +378,9 @@ def expected_contract_position(import_dto: ContractPositionImportDto) -> AnyPosi
 
 def expected_free_position(import_dto: FreePositionImportDto) -> AnyPosition:
     funding_source = FundingSource.objects.filter(name=import_dto.funding_source).first()
-    assert funding_source is not None, (
-        f"FundingSource '{import_dto.funding_source}' should exist in the database"
-    )
+    assert (
+        funding_source is not None
+    ), f"FundingSource '{import_dto.funding_source}' should exist in the database"
     description = import_dto.description
     return Position(
         item=description,

@@ -20,7 +20,7 @@ show_usage() {
 parse_environment_args() {
     local temp_env=""
     remaining_args=()
-    
+
     while [[ $# -gt 0 ]]; do
         case $1 in
             --local|-l)
@@ -46,7 +46,7 @@ parse_environment_args() {
                 ;;
         esac
     done
-    
+
     # Set the environment
     CODA_ENV="$temp_env"
 }
@@ -57,7 +57,7 @@ init_environment() {
     if [ -n "$COMPOSE_BASE_CMD" ]; then
         return 0
     fi
-    
+
     # Auto-detect environment if not specified
     if [ -z "$CODA_ENV" ]; then
         if [ -d "$PWD/.envs/.local" ]; then

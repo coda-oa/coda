@@ -3,12 +3,13 @@ from typing import cast
 
 from coda.apps.publications.repositories import payment_repository, publication_repository
 from coda.domain.contract import ContractId, ContractYear
+from coda.domain.invoice import InvoiceId
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
+    PublicationPayments,
+    PaymentEvent,
     PublicationCoveredByContract,
-    PublicationPayment,
     PublicationPaymentStatus,
-    PublicationUnpaid,
 )
 
 
@@ -23,19 +24,30 @@ def get_payment_status(publication: PublicationId) -> PublicationPaymentStatus:
             contract_year=consolidated_billing.year,
         )
 
-    payment = payment_repository.find_payment(publication)
-    if payment:
-        return payment
+    payments = payment_repository.find_payment(publication)
 
-    return PublicationUnpaid()
+    if not payments:
+        return PublicationPayments(publication)
 
-
-def update_payment(publication_id: PublicationId, publication_payment: PublicationPayment) -> None:
-    payment_repository.save_payment(publication_id, publication_payment)
+    return payments
 
 
-def invoice_deleted(publication_id: PublicationId) -> None:
-    payment_repository.delete_payment(publication_id)
+def update_payment(publication_id: PublicationId, payment_event: PaymentEvent) -> None:
+    payment_repository.save_payment(publication_id, payment_event)
+
+
+def bulk_update_payments(payment_updates: list[tuple[PublicationId, PaymentEvent]]) -> None:
+    """
+    Bulk update publication payment statuses for better performance.
+
+    Args:
+        payment_updates: List of (publication_id, payment_status) tuples
+    """
+    payment_repository.bulk_save_payments(payment_updates)
+
+
+def invoice_deleted(publication_id: PublicationId, invoice_id: InvoiceId) -> None:
+    payment_repository.delete_payment(publication_id, invoice_id)
 
 
 def _consolidated_billing_contract(contracts: Iterable[ContractYear]) -> ContractYear | None:

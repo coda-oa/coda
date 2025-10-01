@@ -1,7 +1,7 @@
 import abc
 import datetime
 import uuid
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
 from pydantic.json_schema import JsonSchemaValue
@@ -122,7 +122,7 @@ class ContractYearDto(CodaBaseDto):
 
     @classmethod
     def from_contract_year(cls, contract_year: ContractYear) -> "ContractYearDto":
-        return cls(contract=contract_year.contract.id, year=contract_year.year)
+        return cls(contract=cast(ContractId, contract_year.contract.id), year=contract_year.year)
 
     def to_contract_year(self) -> ContractYear:
         return contract_services.get_by_id(self.contract).in_year(self.year)
@@ -166,7 +166,8 @@ class PublicationDto(PublicationBaseDto):
             ),
             journal=JournalDto(id=publication.journal),
             contracts=[
-                ContractYearDto(contract=c.contract.id, year=c.year) for c in publication.contracts
+                ContractYearDto(contract=cast(ContractId, c.contract.id), year=c.year)
+                for c in publication.contracts
             ],
             links=[LinkDto.from_link(link) for link in publication.links],
             relevant_authors=list(map(AuthorDto.from_author, publication.relevant_authors)),

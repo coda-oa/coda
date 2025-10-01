@@ -17,6 +17,7 @@ from coda.apps.invoices.importservice.dto import (
     PublicationPositionImportDto,
 )
 from coda.apps.invoices.models import Creditor, FundingSource
+from coda.apps.publications.services import publications
 from coda.domain.contract import Contract
 from coda.domain.invoice import (
     AnyPosition,
@@ -24,11 +25,13 @@ from coda.domain.invoice import (
     CreditorId,
     FundingSourceId,
     Invoice,
+    InvoiceId,
     Position,
     TaxRate,
 )
 from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
+from coda.domain.publication.payment import InvoiceReceived, PaymentEvent, PublicationPaid
 from coda.domain.publication.publication import PublicationId
 from coda.domain.string import NonEmptyStr
 
@@ -135,13 +138,20 @@ def _process_invoices(
     lookups = _build_entity_lookups(valid_invoice_dtos, request_id_lookup)
     invoices = _create_invoices(valid_invoice_dtos, lookups)
 
-    repository.bulk_create(invoices)
+    invoice_ids = repository.bulk_create(invoices)
+    _assign_invoice_ids(invoices, invoice_ids)
+    _update_publication_payment_statuses(invoices)
 
     processing_errors = _build_missing_publication_errors(
         invoice_dtos, invoices_with_missing_publications
     )
 
     return invoices, processing_errors
+
+
+def _assign_invoice_ids(invoices: list[Invoice], invoice_ids: list[InvoiceId]) -> None:
+    for invoice, invoice_id in zip(invoices, invoice_ids):
+        invoice.id = invoice_id
 
 
 def _build_entity_lookups(
@@ -297,10 +307,10 @@ def _find_publication_ids(
         if isinstance(position, PublicationPositionImportDto)
     ]
 
-    publications = {publication for _, publication in invoices_with_publications}
+    publication_ids = {publication for _, publication in invoices_with_publications}
 
     requests = FundingRequest.objects.filter(
-        Q(request_id__in=publications) | Q(legacy_request_id__in=publications)
+        Q(request_id__in=publication_ids) | Q(legacy_request_id__in=publication_ids)
     ).prefetch_related("publication")
 
     invoices_with_missing_publications = {
@@ -351,3 +361,33 @@ def _bulk_create_funding_sources(funding_sources: Iterable[str]) -> dict[str, Fu
         existing_map.update({fs.name: FundingSourceId(fs.id) for fs in created})
 
     return existing_map
+
+
+def _update_publication_payment_statuses(invoices: list[Invoice]) -> None:
+    """
+    Update funding request payment statuses based on imported invoice payment statuses.
+    This uses bulk operations for optimal performance during large imports.
+    """
+    payment_updates = [
+        (publication_id, _create_payment(invoice))
+        for invoice in invoices
+        for publication_id in _publication_positions(invoice)
+        if invoice.id
+    ]
+
+    if payment_updates:
+        publications.bulk_update_payments(payment_updates)
+
+
+def _publication_positions(invoice: Invoice) -> list[PublicationId]:
+    return [p.item for p in invoice.positions if isinstance(p.item, PublicationId)]
+
+
+def _create_payment(invoice: Invoice) -> PaymentEvent:
+    if not invoice.id:
+        raise ValueError("Invoice must have an ID to create a payment status.")
+
+    if invoice.is_paid():
+        return PublicationPaid(invoice_id=invoice.id, invoice_number=invoice.number)
+
+    return InvoiceReceived(invoice_id=invoice.id, invoice_number=invoice.number)

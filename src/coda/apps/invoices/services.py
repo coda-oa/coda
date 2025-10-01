@@ -1,8 +1,7 @@
-from typing import cast
 from coda.apps.invoices import repository
 from coda.apps.publications.services import publications
 from coda.domain.invoice import Invoice, InvoiceId
-from coda.domain.publication.payment import InvoiceReceived, PublicationPaid, PublicationPayment
+from coda.domain.publication.payment import InvoiceReceived, PaymentEvent, PublicationPaid
 from coda.domain.publication.publication import PublicationId
 
 
@@ -27,25 +26,7 @@ def _unpay_deleted_publication_positions(invoice: Invoice) -> None:
     new_publication_positions = set(_publication_positions(invoice))
     deleted_publication_ids = saved_publication_positions.difference(new_publication_positions)
     for publication in deleted_publication_ids:
-        _update_or_delete_payment_of_deleted_position(invoice, publication)
-
-
-def _update_or_delete_payment_of_deleted_position(
-    invoice: Invoice, deleted_publication: PublicationId
-) -> None:
-    other_invoice = repository.get_other_paid_invoice_with_publication(invoice, deleted_publication)
-
-    if other_invoice is None:
-        publications.invoice_deleted(deleted_publication)
-        return
-
-    publications.update_payment(
-        deleted_publication,
-        PublicationPaid(
-            invoice_id=cast(InvoiceId, other_invoice.id),
-            invoice_number=other_invoice.number,
-        ),
-    )
+        publications.invoice_deleted(publication, invoice.id)
 
 
 def _save_invoice(invoice: Invoice) -> InvoiceId:
@@ -74,7 +55,7 @@ def reset_payment(invoice_id: InvoiceId) -> None:
 def delete_invoice(invoice_id: InvoiceId) -> None:
     invoice = repository.get_by_id(invoice_id)
     for p in _publication_positions(invoice):
-        publications.invoice_deleted(p)
+        publications.invoice_deleted(p, invoice_id)
 
     repository.delete(invoice_id)
 
@@ -91,7 +72,7 @@ def _invoice_received(invoice: Invoice) -> None:
     _update_payments(invoice, invoice_received)
 
 
-def _update_payments(invoice: Invoice, paid: PublicationPayment) -> None:
+def _update_payments(invoice: Invoice, paid: PaymentEvent) -> None:
     for p in _publication_positions(invoice):
         publications.update_payment(p, paid)
 

@@ -1,38 +1,31 @@
 import datetime
-from collections.abc import Callable, Iterable, Mapping, MutableMapping
+import logging
+from collections.abc import Iterable, Mapping
 from typing import Any, NamedTuple, cast
 
-import pydantic
 from django import forms
-from django.forms.renderers import BaseRenderer
-from django.forms.utils import ErrorList
-from django.utils.datastructures import MultiValueDictKeyError
 
 from coda.apps import widgets
 from coda.apps.formbase import CodaFormBase
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import ConceptDto, LinkDto, PublicationMetaDto
-from coda.apps.publications.models import Concept, LinkType, Publication, Vocabulary
+from coda.apps.publications.models import LinkType, Publication
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.domain.publication import License, OpenAccessType, Published, UnpublishedState, links
 from coda.domain.vocabulary import UnknownConcept, VocabularyConcept, VocabularyProtocol
 
-
-def concept_choices_from_global_settings(
-    vocabulary_type: str,
-) -> Callable[[], list[tuple[str, str]]]:
-    def _concept_options_by_vocabulary() -> list[tuple[str, str]]:
-        vocabulary = vocabulary_from_settings(vocabulary_type)
-        return concept_form_values(vocabulary.concepts)
-
-    return _concept_options_by_vocabulary
+from ._fields import ConceptChoiceField, encode_concept_dto
 
 
-def get_concepts(vocabulary: Vocabulary | None) -> Iterable[Concept]:
-    if not vocabulary:
-        return []
-
-    return vocabulary.concepts.all()
+def vocabulary_from_settings(vocabulary_type: str) -> VocabularyProtocol:
+    match vocabulary_type:
+        case "publication_type":
+            vocabulary = GlobalPreferences.get_article_publication_type_vocabulary()
+        case "subject_area":
+            vocabulary = GlobalPreferences.get_subject_classification_vocabulary()
+        case _:
+            raise ValueError("unknown vocabulary type")
+    return vocabulary
 
 
 class Vocabularies(NamedTuple):
@@ -49,13 +42,13 @@ class PublicationForm(CodaFormBase):
         required=True,
         initial=License.Unknown.name,
     )
-    publication_type = forms.ChoiceField(
-        choices=concept_choices_from_global_settings("publication_type"),
+    publication_type = ConceptChoiceField(
+        choices=lambda: vocabulary_from_settings("publication_type"),
         required=True,
         widget=widgets.SearchSelectWidget,
     )
-    subject_area = forms.ChoiceField(
-        choices=concept_choices_from_global_settings("subject_area"),
+    subject_area = ConceptChoiceField(
+        choices=lambda: vocabulary_from_settings("subject_area"),
         required=True,
         widget=widgets.SearchSelectWidget,
     )
@@ -98,8 +91,8 @@ class PublicationForm(CodaFormBase):
             data={
                 "title": dto.title,
                 "license": dto.license,
-                "subject_area": dto.subject_area.model_dump_json(),
-                "publication_type": dto.publication_type.model_dump_json(),
+                "subject_area": encode_concept_dto(dto.subject_area),
+                "publication_type": encode_concept_dto(dto.publication_type),
                 "open_access_type": dto.open_access_type,
                 "publication_state": dto.publication_state,
                 "online_publication_date": dto.online_publication_date,
@@ -129,53 +122,30 @@ class PublicationForm(CodaFormBase):
     def __init__(
         self,
         data: Mapping[str, Any] | None = None,
-        files: Mapping[str, Any] | None = None,
-        auto_id: bool | str = True,
-        prefix: str | None = None,
-        initial: MutableMapping[str, Any] | None = None,
-        error_class: type[ErrorList] = ErrorList,
-        label_suffix: str | None = None,
-        empty_permitted: bool = False,
-        field_order: list[str] | None = None,
-        use_required_attribute: bool | None = None,
-        renderer: BaseRenderer | None = None,
         vocabularies: Vocabularies = Vocabularies(),
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
-        super().__init__(
-            data,
-            files,
-            auto_id,
-            prefix,
-            initial,
-            error_class,
-            label_suffix,
-            empty_permitted,
-            field_order,
-            use_required_attribute,
-            renderer,
+        super().__init__(data, *args, **kwargs)
+
+        self._set_vocabulary("subject_area", vocabularies.subject_areas)
+        self._set_vocabulary("publication_type", vocabularies.publication_types)
+        logging.info(
+            "PublicationForm initialized with vocabularies: subject_areas=%s, publication_types=%s",
+            vocabularies.subject_areas,
+            vocabularies.publication_types,
         )
 
-        self._update_field_choices("subject_area", vocabularies.subject_areas)
-        self._update_field_choices("publication_type", vocabularies.publication_types)
+        if data:
+            _ = self.is_valid()
 
-    def _update_field_choices(self, field_name: str, vocabulary: VocabularyProtocol | None) -> None:
-        field: forms.Field = self.fields[field_name]
-        if vocabulary:
-            self._as_choicefield(field).choices = concept_form_values(vocabulary.concepts)
-            if field_name in self.errors:
-                self.errors.pop(field_name)
-                field.widget.attrs.pop("aria-invalid")
-
-    def _as_choicefield(self, field: forms.Field) -> forms.ChoiceField:
-        return cast(forms.ChoiceField, field)
+    def _set_vocabulary(self, field: str, vocabulary: VocabularyProtocol | None) -> None:
+        cast(ConceptChoiceField, self.fields[field]).set_vocabulary(vocabulary)
 
     def full_clean(self) -> None:
         super().full_clean()
         if not hasattr(self, "cleaned_data"):
             return
-
-        self._parse_concept("subject_area")
-        self._parse_concept("publication_type")
 
         if self.cleaned_data.get("publication_state") != Published.name():
             return
@@ -188,18 +158,21 @@ class PublicationForm(CodaFormBase):
             self.add_error("online_publication_date", str(err))
             self.add_error("print_publication_date", str(err))
 
-    def _parse_concept(self, field_name: str) -> None:
-        try:
-            self.cleaned_data[field_name] = ConceptDto.model_validate_json(self.data[field_name])
-        except (pydantic.ValidationError, MultiValueDictKeyError) as err:
-            self.add_error(field_name, str(err))
+    def is_valid(self) -> bool:
+        self.full_clean()
+        valid = super().is_valid()
+        logging.info("PublicationForm has the following errors %s", self.errors.as_data())
+        if self.errors:
+            return False
+
+        return valid
 
     def to_dto(self) -> PublicationMetaDto:
         return PublicationMetaDto(
             title=self.cleaned_data["title"],
             license=self.cleaned_data["license"],
-            subject_area=self.cleaned_data["subject_area"],
-            publication_type=self.cleaned_data["publication_type"],
+            subject_area=ConceptDto.from_concept(self.cleaned_data["subject_area"]),
+            publication_type=ConceptDto.from_concept(self.cleaned_data["publication_type"]),
             open_access_type=self.cleaned_data["open_access_type"],
             publication_state=self.cleaned_data["publication_state"],
             online_publication_date=self.cleaned_data["online_publication_date"],
@@ -231,17 +204,6 @@ class LinkForm(forms.Form):
             link_type=self.cleaned_data["link_type"],
             link_value=self.cleaned_data.get("link_value", self.data.get("link_value", "")),
         )
-
-
-def vocabulary_from_settings(vocabulary_type: str) -> VocabularyProtocol:
-    match vocabulary_type:
-        case "publication_type":
-            vocabulary = GlobalPreferences.get_article_publication_type_vocabulary()
-        case "subject_area":
-            vocabulary = GlobalPreferences.get_subject_classification_vocabulary()
-        case _:
-            raise ValueError("unknown vocabulary type")
-    return vocabulary
 
 
 def concept_json(concept: VocabularyConcept) -> str:

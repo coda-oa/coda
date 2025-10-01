@@ -7,6 +7,7 @@ from coda.apps.publications.dto import (
     PublicationDto,
     PublicationMetaDto,
 )
+from coda.apps.publications.forms._fields import encode_concept_dto
 from tests import domainfactory
 
 
@@ -18,7 +19,7 @@ def stepdata(publication: PublicationBaseDto | None = None) -> dict[str, Any]:
         prefix="relevant-authors",
     )
     authors = _serialize_authors(publication_.other_authors)
-    concepts = _concepts_to_json(meta)
+    concepts = _serialize_concept(meta)
     meta_reduced = _reduce_meta(meta)
     link_form_data = _serialize_links(publication_.links)
 
@@ -42,8 +43,8 @@ def _serialize_links(links: list[LinkDto]) -> dict[str, list[str]]:
     return link_form_data
 
 
-def _concepts_to_json(meta: PublicationMetaDto) -> dict[str, Any]:
+def _serialize_concept(meta: PublicationMetaDto) -> dict[str, Any]:
     return {
-        "subject_area": meta.subject_area.model_dump_json(),
-        "publication_type": meta.publication_type.model_dump_json(),
+        "subject_area": encode_concept_dto(meta.subject_area),
+        "publication_type": encode_concept_dto(meta.publication_type),
     }

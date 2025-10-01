@@ -2,7 +2,7 @@ from collections.abc import Mapping, MutableMapping
 from typing import Any
 
 from django import forms
-from django.forms import widgets
+from django.forms import ValidationError, widgets
 from django.forms.renderers import BaseRenderer
 from django.forms.utils import ErrorList
 
@@ -40,9 +40,13 @@ class CodaFormBase(forms.Form):
             renderer,
         )
 
-        for field in self.errors:
-            attrs = self[field].field.widget.attrs
-            attrs["aria-invalid"] = "true"
+    def add_error(self, field: str | None, error: ValidationError | Any) -> None:
+        super().add_error(field, error)
+        if not field:
+            return
+
+        attrs = self[field].field.widget.attrs
+        attrs["aria-invalid"] = "true"
 
     @classmethod
     def form_posted(cls, request: Mapping[str, Any]) -> bool:

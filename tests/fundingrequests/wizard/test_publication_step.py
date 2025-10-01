@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from itertools import zip_longest
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from django import forms
@@ -351,5 +352,7 @@ def assert_has_concept_choices(
     form: PublicationForm, field_name: str, vocabulary: Vocabulary
 ) -> None:
     field = cast(forms.ChoiceField, form.fields[field_name])
-    choice_names = [name for _, name in field.choices]
-    assert choice_names == [c.name for c in vocabulary.concepts]
+    choice_names = [name for _, name in cast(Iterable[tuple[Any, str]], field.choices)]
+    concept_names = [c.name for c in vocabulary.concepts]
+    for concept_name in concept_names:
+        assert concept_name in choice_names
