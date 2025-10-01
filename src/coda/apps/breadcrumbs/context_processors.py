@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from django.http import HttpRequest
 from django.urls import reverse
@@ -75,7 +75,7 @@ def _build_breadcrumb_hierarchy(url_name: str, request: HttpRequest, query_param
     return breadcrumbs
 
 
-def _get_static_parent_mapping() -> Dict[str, str | None]:
+def _get_static_parent_mapping() -> dict[str, str | None]:
     """
     Fallback static hierarchy mapping for views without breadcrumb metadata.
     """
@@ -101,7 +101,7 @@ def _get_static_parent_mapping() -> Dict[str, str | None]:
     }
 
 
-def breadcrumb_context(request: HttpRequest) -> Dict[str, Any]:
+def breadcrumb_context(request: HttpRequest) -> dict[str, Any]:
     """
     Context processor that automatically generates breadcrumb navigation data.
     
