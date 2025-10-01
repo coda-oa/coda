@@ -30,22 +30,6 @@ details[open] .position-collapsed {
     width: 28ch;
 }
 
-.invoice-position-tax-column {
-    width: 12ch;
-}
-
-.invoice-position-cost-type-column {
-    width: 25ch;
-}
-
-.invoice-position-cost-column {
-    width: 28ch;
-}
-
-.invoice-position-request-link-column {
-    width: 10ch;
-}
-
 .invoice-position-request-link {
     font-size: 1.5rem;
 }
@@ -59,9 +43,6 @@ details[open] .position-collapsed {
     width: 100%;
 }
 
-.invoice-add-position-name-column {
-    width: calc(31ch + var(--coda-spacing) / 2);
-}
 
 .tab-list {
     display: grid;

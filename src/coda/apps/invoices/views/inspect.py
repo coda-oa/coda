@@ -12,9 +12,9 @@ from django.views.decorators.http import require_GET, require_POST
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices import repository, services
 from coda.apps.invoices.models import Creditor
-from coda.apps.invoices.views.position_list import _DefaultContext
-from coda.apps.invoices.views.position_list import funding_sources_context
-from coda.apps.invoices.views.positions import AnyPositionDto, to_position_dto
+from coda.apps.invoices.views.position_dtos.detail_position_dtos import PositionDetailDto
+from coda.apps.invoices.views.position_dtos.edit_position_dtos import DEFAULT_TAX_RATE_PERCENTAGE
+from coda.apps.invoices.views.position_list import _DefaultContext, funding_sources_context
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 from coda.domain.date import DateRange
@@ -22,7 +22,6 @@ from coda.domain.invoice import Invoice, InvoiceId, PaymentStatus
 from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Money
 from coda.domain.money._currency import Currency
-
 
 _advanced_search_fields = [
     "payment_status",
@@ -149,6 +148,7 @@ def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
     creditor_name = Creditor.objects.get(id=invoice.creditor).name
     id = cast(InvoiceId, invoice.id)
     url = reverse("invoices:detail", kwargs={"pk": id})
+    
     return InvoiceViewModel(
         id=id,
         url=url,
@@ -158,7 +158,7 @@ def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
         creditor=invoice.creditor,
         creditor_name=creditor_name,
         currency=invoice.currency(),
-        positions=[to_position_dto(position) for position in invoice.positions],
+        positions=[PositionDetailDto.to_position_detail_dto(p) for p in invoice.positions],
         tax=invoice.tax(),
         total=invoice.total(),
         net=invoice.net(),
@@ -179,6 +179,16 @@ def pay_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     services.save(invoice)
     return redirect("invoices:detail", pk=invoice.id)
 
+@require_GET
+@login_required
+def position_cost_type_options(request: HttpRequest) -> HttpResponse:
+    counter = request.GET.get("counter")
+    cost_type_key = f"position-{counter}-cost-type"
+    cost_type = request.GET.get(cost_type_key)
+    if cost_type == "vat":
+        return HttpResponse("")
+    return render(request, "invoices/position_tax_rate.html", {"counter": counter, "tax_rate": DEFAULT_TAX_RATE_PERCENTAGE})
+
 
 class InvoiceViewModel(NamedTuple):
     id: int
@@ -189,10 +199,11 @@ class InvoiceViewModel(NamedTuple):
     creditor: int
     creditor_name: str
     currency: Currency
-    positions: list[AnyPositionDto]
+    positions: list[PositionDetailDto]
     tax: Money
     total: Money
     net: Money
     comment: str
     external_invoice_id: str
     conversions: dict[Currency, Decimal]
+

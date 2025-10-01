@@ -17,32 +17,7 @@
             <hr>
         {% endfor %}
         {% if positions %}
-            <div class="my-2">
-                <h3 class="mb-1_5">Summary</h3>
-                <div class="common-position-grid">
-                    <div class="form-row amount">
-                        <label for="tax-rate" class="form-row-item-sm">Tax</label>
-                        <input id="tax-rate" type="number" readonly value="{{ tax }}">
-                    </div>
-                    <div class="form-row cost-type">
-                        <label for="tax-rate-cost-type" class="form-row-item-sm">Cost Type</label>
-                        <input id="tax-rate-cost-type" type="text" readonly value="vat">
-                    </div>
-                </div>
-                <div class="common-position-grid">
-                    <div class="form-row amount">
-                        <label for="total" class="form-row-item-sm">Total</label>
-                        <input id="total"
-                               type="number"
-                               hx-post="{% url 'invoices:get_total' %}"
-                               hx-target="#positions"
-                               hx-trigger="change from:#positions__list input[type=number]"
-                               hx-swap="outerHTML"
-                               readonly
-                               value="{{ total }}">
-                    </div>
-                </div>
-            </div>
-        </section>
-    {% endif %}
+            {% include "invoices/position_summary.html" with net=net tax=tax total=total %}
+        {% endif %}
+    </section>
 </article>

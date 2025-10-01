@@ -130,6 +130,7 @@
                     <th>Funding Source</th>
                     <th>Cost Type</th>
                     <th>Tax (%)</th>
+                    <th>Tax ({{ display_currency.code }})</th>
                     <th>Net Cost ({{ display_currency.code }})</th>
                 </tr>
             </thead>
@@ -146,16 +147,10 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if position.type == "publication" %}
-                                {% if position.funding_request %}
-                                    <a href="{{ position.funding_request.url }}">{{ position.title }}</a>
-                                {% else %}
-                                    {{ position.title }}
-                                {% endif %}
-                            {% elif position.type == "contract" %}
-                                <a href="{{ position.contract_url }}">{{ position.name }}</a>
+                            {% if position.url %}
+                                <a href="{{ position.url }}">{{ position.title }}</a>
                             {% else %}
-                                {{ position.description }}
+                                {{ position.title }}
                             {% endif %}
                         </td>
                         <td>
@@ -165,7 +160,8 @@
                         </td>
                         <td>{{ position.cost_type }}</td>
                         <td>{{ position.tax_rate|floatformat:1 }}</td>
-                        <td>{{ position.cost_amount }}</td>
+                        <td>{{ position.tax_amount }}</td>
+                        <td>{{ position.net_costs }}</td>
                     </tr>
                 {% endfor %}
             </tbody>

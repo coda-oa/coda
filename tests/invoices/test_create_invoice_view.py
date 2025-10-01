@@ -13,7 +13,7 @@ from pytest_django.asserts import assertRedirects
 from coda.apps.contracts import repository as contract_services
 from coda.apps.invoices import repository
 from coda.apps.invoices.models import FundingSource
-from coda.apps.invoices.views.positions import (
+from coda.apps.invoices.views.position_dtos.edit_position_dtos import (
     DEFAULT_TAX_RATE_PERCENTAGE,
     ContractPositionDto,
     FreePositionDto,

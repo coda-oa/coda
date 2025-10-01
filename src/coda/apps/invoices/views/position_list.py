@@ -6,7 +6,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
 from coda.apps.invoices.models import FundingSource
-from coda.apps.invoices.views.positions import (
+from coda.apps.invoices.views.position_dtos.edit_position_dtos import (
     AnyPositionDto,
     ContractPositionDto,
     FreePositionDto,
@@ -65,7 +65,11 @@ def remove_position(request: HttpRequest) -> HttpResponse:
 @login_required
 def invoice_total(request: HttpRequest) -> HttpResponse:
     positions = existing_positions(request)
-    return render_positions(request, positions)
+    return render(
+        request,
+        "invoices/position_summary.html",
+        invoice_total_context(positions, request.POST.get("currency", "EUR")),
+    )
 
 
 def temp_invoice(positions: list[AnyPositionDto], currency: Currency) -> Invoice:
@@ -180,6 +184,7 @@ def invoice_total_context(positions: list[AnyPositionDto], currency: str) -> dic
     _currency = Currency.from_code(currency)
     _tmp_invoice = temp_invoice(positions, _currency)
     return {
+        "net": _tmp_invoice.net().amount,
         "tax": _tmp_invoice.tax().amount,
         "total": _tmp_invoice.total().amount,
     }
