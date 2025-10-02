@@ -44,18 +44,13 @@ def process_review(review: Review, request: HttpRequest) -> Review:
     remarks = request.POST["reviewer_remarks"]
 
     action = request.POST["action"]
-    match action:
-        case "approve":
-            review = review.update_review(ReviewResult.Approved, funding, remarks)
-        case "reject":
-            review = review.update_review(ReviewResult.Rejected, funding, remarks)
-        case "close":
-            review = review.update_review(ReviewResult.Closed, funding, remarks)
-        case "waive":
-            review = review.update_review(ReviewResult.Waived, funding, remarks)
-        case "open":
-            review = review.update_review(ReviewResult.Open, funding, remarks)
-        case "return":
-            review = review.update_review(decided_funding=funding, remarks=remarks)
 
+    if action == "return":
+        review = review.update_review(decided_funding=funding, remarks=remarks)
+        
+    else:
+        result = ReviewResult.of(action)
+        review = review.update_review(result, funding, remarks)
+        
     return review
+    
