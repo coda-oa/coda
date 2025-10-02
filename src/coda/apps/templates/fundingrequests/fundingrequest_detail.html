@@ -167,8 +167,10 @@
                 <table class="fundingrequest-table">
                     <tbody>
                         <tr>
-                            <th>Estimated Cost</th>
+                            <th scope="row">Estimated Cost</th>
                             <td>{{ funding_request.estimated_cost.amount }} {{ funding_request.estimated_cost.currency.code }}</td>
+                            <th scope="row">Decided Funding Amount</th>
+                            <td>{{ funding_request.funding_amount }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -214,11 +216,9 @@
                 {% include "fundingrequests/partials/checkrun.html" %}
             {% endif %}
             <div class="mb-2">
-                {% if funding_request.is_approved %}
-                    <p class="mb-2">
-                        <b>Funding amount:</b> {{ funding_request.funding_amount }}
-                    </p>
-                {% endif %}
+                <p class="mb-2">
+                    <b>Decided Funding Amount:</b> {{ funding_request.funding_amount }}
+                </p>
                 {% if funding_request.review_remarks %}
                     <div class="mb-2">
                         <p>

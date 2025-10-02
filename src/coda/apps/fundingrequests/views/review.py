@@ -7,6 +7,7 @@ from django.views.decorators.http import require_POST
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.services import checks
 from coda.domain.fundingrequest import FundingRequestId, Review
+from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import Currency, Money
 
 
@@ -43,18 +44,13 @@ def process_review(review: Review, request: HttpRequest) -> Review:
     remarks = request.POST["reviewer_remarks"]
 
     action = request.POST["action"]
-    match action:
-        case "approve":
-            review = review.approved(funding, remarks)
-        case "reject":
-            review = review.rejected(remarks)
-        case "close":
-            review = review.closed(remarks)
-        case "waive":
-            review = review.costs_waived(remarks)
-        case "open":
-            review = review.opened(remarks)
-        case "return":
-            review = review.with_remarks(remarks)
 
+    if action == "return":
+        review = review.update_review(decided_funding=funding, remarks=remarks)
+        
+    else:
+        result = ReviewResult.of(action)
+        review = review.update_review(result, funding, remarks)
+        
     return review
+    

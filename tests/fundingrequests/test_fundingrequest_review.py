@@ -24,7 +24,7 @@ def test__fundingrequest__approving_with_funding_amount_and_remarks__stores_in_d
     client.post(
         reverse("fundingrequests:review_submit", kwargs={"pk": fr_id}),
         {
-            "action": "approve",
+            "action": "approved",
             "decided_funding_amount": funding.amount,
             "decided_funding_currency": funding.currency.code,
             "reviewer_remarks": remarks,
@@ -47,7 +47,7 @@ def test__fundingrequest__rejecting_with_remark__stores_in_database(client: Clie
     client.post(
         reverse("fundingrequests:review_submit", kwargs={"pk": fr_id}),
         {
-            "action": "reject",
+            "action": "rejected",
             "reviewer_remarks": remarks,
             "decided_funding_amount": 0,
             "decided_funding_currency": "EUR",
@@ -70,7 +70,7 @@ def test__fundingrequest__waive_costs__stores_in_database(client: Client) -> Non
     client.post(
         reverse("fundingrequests:review_submit", kwargs={"pk": fr_id}),
         {
-            "action": "waive",
+            "action": "waived",
             "reviewer_remarks": remarks,
             "decided_funding_amount": 0,
             "decided_funding_currency": "EUR",
@@ -92,7 +92,7 @@ def test__fundingrequest__close__stores_in_database(client: Client) -> None:
     client.post(
         reverse("fundingrequests:review_submit", kwargs={"pk": fr_id}),
         {
-            "action": "close",
+            "action": "closed",
             "reviewer_remarks": remarks,
             "decided_funding_amount": 0,
             "decided_funding_currency": "EUR",
@@ -109,7 +109,7 @@ def test__fundingrequest__close__stores_in_database(client: Client) -> None:
 def test__closed_fundingrequest__re_opening__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
     fr.id = repository.create(fr)
-    review = Review(fr.id).closed()
+    review = Review(fr.id).update_review(ReviewResult.Open)
     repository.save_review(review)
 
     remarks = "Re-opened for further review"

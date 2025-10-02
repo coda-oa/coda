@@ -23,24 +23,11 @@ class ReviewResult(enum.Enum):
 @dataclass(frozen=True)
 class Review:
     fundingrequest: "FundingRequestId | None" = None
-    decided_funding: Money = field(default_factory=lambda: Money(0, Currency.EUR))
-    result: ReviewResult = ReviewResult.Open
+    decided_funding: Money | None = field(default_factory=lambda: Money(0, Currency.EUR))
+    result: ReviewResult | None = ReviewResult.Open
     remarks: str = ""
 
-    def approved(self, decided_funding: Money, remarks: str = "") -> "Review":
-        return Review(self.fundingrequest, decided_funding, ReviewResult.Approved, remarks)
+    def update_review(self, result: ReviewResult | None = None, decided_funding: Money | None = None, remarks: str = "") -> "Review":
+        return Review(self.fundingrequest, self.decided_funding if decided_funding is None else decided_funding, self.result if result is None else result, remarks or self.remarks)
+    
 
-    def rejected(self, remarks: str = "") -> "Review":
-        return Review(self.fundingrequest, result=ReviewResult.Rejected, remarks=remarks)
-
-    def opened(self, remarks: str = "") -> "Review":
-        return Review(self.fundingrequest, decided_funding=self.decided_funding, remarks=remarks)
-
-    def costs_waived(self, remarks: str = "") -> "Review":
-        return Review(self.fundingrequest, result=ReviewResult.Waived, remarks=remarks)
-
-    def closed(self, remarks: str = "") -> "Review":
-        return Review(self.fundingrequest, result=ReviewResult.Closed, remarks=remarks)
-
-    def with_remarks(self, remarks: str) -> "Review":
-        return Review(self.fundingrequest, self.decided_funding, self.result, remarks)
