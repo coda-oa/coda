@@ -90,7 +90,7 @@ def find_publisher(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def clear_publisher_error(request: HttpRequest) -> HttpResponse:
-    publisher_name = request.POST.get("publisher_name", "") or request.GET.get("publisher_name", "")
+    publisher_name = request.POST.get("publisher_name", "") 
     return render(
         request,
         "fundingrequests/partials/clear_publisher_error.html",

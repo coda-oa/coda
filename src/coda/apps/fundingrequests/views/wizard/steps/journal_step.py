@@ -63,7 +63,7 @@ class JournalStep(TemplateStep):
 
 @require_POST
 def clear_journal_error(request: HttpRequest) -> HttpResponse:
-    journal_title = request.POST.get("journal_title", "") or request.GET.get("journal_title", "")
+    journal_title = request.POST.get("journal_title", "")
     return render(
         request,
         "fundingrequests/partials/clear_journal_error.html",
