@@ -108,7 +108,7 @@ def test__searching_for_funding_requests_by_title__returns_matching_funding_requ
 
     _ = modelfactory.fundingrequest("No match")
 
-    results = repository.search(title=title)
+    results = repository.search(repository.SearchParams(title=title))
 
     assert list(results) == [matching_request]
 
@@ -122,7 +122,7 @@ def test__searching_for_funding_requests_by_author__returns_matching_funding_req
     non_matching_author.name = NonEmptyStr("Not the submitter")
     _ = modelfactory.fundingrequest("No match", authors=Authors([non_matching_author]))
 
-    results = repository.search(author=matching_author.name)
+    results = repository.search(repository.SearchParams(author=matching_author.name))
 
     assert list(results) == [matching_request]
 
@@ -137,7 +137,7 @@ def test__searching_for_funding_requests_with_label__returns_matching_funding_re
 
     _ = modelfactory.fundingrequest("No match")
 
-    results = repository.search(labels=[first.pk, second.pk])
+    results = repository.search(repository.SearchParams(labels=[first.pk, second.pk]))
 
     assert list(results) == [matching_request]
 
@@ -156,7 +156,7 @@ def test__searching_for_funding_requests_by_process_state__returns_matching_fund
 
     in_progress_request = modelfactory.fundingrequest()  # noqa: F841
 
-    results = repository.search(processing_states=[ReviewResult.Approved, ReviewResult.Rejected])
+    results = repository.search(repository.SearchParams(processing_states=[ReviewResult.Approved, ReviewResult.Rejected]))
 
     assert_contains_all(list(results), [approved_request, rejected_request])
 
@@ -169,7 +169,7 @@ def test__searching_for_funding_requests_by_publisher__returns_matching_funding_
 
     _ = modelfactory.fundingrequest("No match")
 
-    results = repository.search(publisher=matching_publisher.name)
+    results = repository.search(repository.SearchParams(publisher=matching_publisher.name))
 
     assert list(results) == [matching_request]
 
@@ -188,7 +188,7 @@ def test__searching_with_start_and_end_date__returns_matching_funding_requests()
     end_date = date(2021, 5, 1)
     date_range = DateRange(start_date, end_date)
 
-    results = repository.search(date_range=date_range)
+    results = repository.search(repository.SearchParams(date_range=date_range))
 
     assert list(results) == [matching_request]
 
@@ -205,7 +205,7 @@ def test__searching_with_no_start_date__returns_matching_funding_requests() -> N
 
     date_range = DateRange.create(end=date(2021, 5, 1))
 
-    results = repository.search(date_range=date_range)
+    results = repository.search(repository.SearchParams(date_range=date_range))
 
     assert list(results) == [matching_request]
 
@@ -222,7 +222,7 @@ def test__searching_with_no_end_date__returns_matching_funding_requests() -> Non
 
     date_range = DateRange.create(start=date(2021, 1, 1))
 
-    results = repository.search(date_range=date_range)
+    results = repository.search(repository.SearchParams(date_range=date_range))
 
     assert list(results) == [matching_request]
 

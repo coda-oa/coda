@@ -102,7 +102,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
 
     return cast(
         QuerySet[FundingRequestModel],
-        repository.search(
+        repository.search(repository.SearchParams(
             generic_search=request.GET.get("search_term"),
             date_range=date_range,
             labels=list(map(int, request.GET.getlist("labels"))),
@@ -116,7 +116,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
             sort_by=request.GET.get("sort_by"),
             contract_name=ContractId(request.GET.get("contract_name") or 0),
             contract_year=int(request.GET.get("contract_year") or 0),
-        ),
+        )),
     )
 
 
