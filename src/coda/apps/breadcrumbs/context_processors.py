@@ -1,10 +1,11 @@
 from typing import Any
 
 from django.http import HttpRequest
-from django.urls import reverse, NoReverseMatch
+from django.urls import reverse, NoReverseMatch, resolve
 
 from .decorators import build_breadcrumb_url, get_preserved_query_params, extract_filters_from_referer
 from .view_resolver import resolve_breadcrumb_metadata
+
 
 
 def _build_breadcrumb_hierarchy(url_name: str, request: HttpRequest, query_params: str = "", **original_kwargs: Any) -> list[dict[str, Any]]:
@@ -105,46 +106,20 @@ def breadcrumb_context(request: HttpRequest) -> dict[str, Any]:
     
     # If there's a parent URL, build the complete breadcrumb hierarchy
     parent_url_name = breadcrumb_data.get('parent_url_name')
-    if parent_url_name:
-        preserve_filters = breadcrumb_data.get('preserve_filters', True)
-        exclude_params = breadcrumb_data.get('exclude_params', ['page'])
-        
+    
+    
+    if parent_url_name:       
         # Get preserved query parameters if needed
-        query_params = ""
-        if preserve_filters:
-            # Try to get filters from the referer URL first (when user came from a filtered list)
-            referer_url = breadcrumb_data.get('referer_url', '')
-            if referer_url:
-                query_params = extract_filters_from_referer(referer_url, exclude_params)
-            
-            # Fallback to current request parameters if no referer filters found
-            if not query_params:
-                query_params = get_preserved_query_params(request, exclude_params)
+        query_params = _get_query_params(request, breadcrumb_data)
         
         # Extract URL kwargs from the current request for proper URL building
-        current_kwargs = {}
-        try:
-            from django.urls import resolve
-            resolver_match = resolve(request.path)
-            current_kwargs = resolver_match.kwargs
-        except Exception:
-            pass
+        current_kwargs = _get_url_kwargs(request)
         
         # Build the complete hierarchical breadcrumb chain
         breadcrumbs = _build_breadcrumb_hierarchy(parent_url_name, request, query_params, **current_kwargs)
     
-    # Add home breadcrumb if not already at home
-    if breadcrumbs or current_page_title:
-        try:
-            home_url = reverse('home')
-            if request.path != home_url:
-                breadcrumbs.insert(0, {
-                    'title': 'Home',
-                    'url': home_url,
-                    'is_current': False
-                })
-        except Exception:
-            pass
+
+    breadcrumbs = _add_home_breadcrumb(request, breadcrumbs, current_page_title)
     
     return {
         'breadcrumbs': breadcrumbs,
@@ -152,3 +127,44 @@ def breadcrumb_context(request: HttpRequest) -> dict[str, Any]:
     }
 
 
+def _add_home_breadcrumb(request: HttpRequest, breadcrumbs: list[dict[str, Any]], current_page_title: str) -> list[dict[str, Any]]:
+    if not (breadcrumbs or current_page_title):
+        return breadcrumbs
+
+    try:
+        
+        home_url = reverse('home')
+        if request.path != home_url:
+            breadcrumbs.insert(0, {
+                'title': 'Home',
+                'url': home_url,
+                'is_current': False
+            })
+    except Exception:
+        pass
+
+    return breadcrumbs
+
+def _get_url_kwargs(request: HttpRequest) -> dict[str, Any]:
+    try:
+        resolver_match = resolve(request.path)
+        return resolver_match.kwargs
+    except Exception:
+        return {}
+    
+
+def _get_query_params(request: HttpRequest, breadcrumb_data: dict[str, Any]) -> str:
+    preserve_filters = breadcrumb_data.get('preserve_filters', True)
+    exclude_params = breadcrumb_data.get('exclude_params', ['page'])
+    if not preserve_filters:
+        return ''
+
+    referer_url = breadcrumb_data.get('referer_url', '')
+    query_params = ''
+    if referer_url:
+        query_params = extract_filters_from_referer(referer_url, exclude_params)
+
+    if not query_params:
+        query_params = get_preserved_query_params(request, exclude_params)
+
+    return query_params

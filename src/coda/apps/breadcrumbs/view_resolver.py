@@ -5,7 +5,7 @@ from django.urls import resolve, reverse, NoReverseMatch
 
 def resolve_breadcrumb_metadata(url_name: str, request: HttpRequest, **url_kwargs: Any) -> dict[str, Any]:
     """
-    Resolve breadcrumb metadata from an actual view without executing it.
+    Resolve breadcrumb metadata from a view function with breadcrumb decorators.
     
     Args:
         url_name: The URL name to resolve
@@ -16,73 +16,61 @@ def resolve_breadcrumb_metadata(url_name: str, request: HttpRequest, **url_kwarg
         Dictionary with breadcrumb metadata (title, parent_url_name, etc.)
     """
     try:
-        # Build the URL - try with provided kwargs first, then without if that fails
-        url = None
-        try:
-            url = reverse(url_name, kwargs=url_kwargs)
-        except NoReverseMatch:
-            # If kwargs don't work for this URL, try without them
-            try:
-                url = reverse(url_name)
-            except NoReverseMatch:
-                return {}
-        
+        url = _build_url_with_fallback(url_name, url_kwargs)
         if not url:
             return {}
         
-        # Resolve the view function/class
-        resolver_match = resolve(url)
-        view_func = resolver_match.func
+        view_func = _resolve_view_function(url)
+        return _extract_breadcrumb_metadata(view_func, request, url)
         
-        # Check if the view has breadcrumb metadata
-        breadcrumb_metadata = {}
-        
-        # For function-based views with decorators
-        if hasattr(view_func, 'breadcrumb_title'):
-            title = getattr(view_func, 'breadcrumb_title')
-            
-            # If it's a callable (dynamic title), we need to call it
-            if callable(title):
-                try:
-                    # Call the dynamic title function with the same args it would receive
-                    title = title(request, *resolver_match.args, **resolver_match.kwargs)
-                except Exception:
-                    # If the dynamic title function fails, use a fallback
-                    title = "Details"
-            
-            breadcrumb_metadata = {
-                'title': title,
-                'parent_url_name': getattr(view_func, 'breadcrumb_parent', None),
-                'preserve_filters': getattr(view_func, 'breadcrumb_preserve_filters', True),
-                'exclude_params': getattr(view_func, 'breadcrumb_exclude_params', ['page']),
-            }
-        
-        # For class-based views with breadcrumb mixins
-        elif hasattr(view_func, 'view_class'):
-            view_class = view_func.view_class
-            if hasattr(view_class, 'breadcrumb_title'):
-                title = view_class.breadcrumb_title
-                
-                # Handle callable titles for class-based views
-                if callable(title):
-                    try:
-                        # This is trickier for class-based views, might need different approach
-                        title = "Details"  # Fallback for now
-                    except Exception:
-                        title = "Details"
-                
-                breadcrumb_metadata = {
-                    'title': title,
-                    'parent_url_name': getattr(view_class, 'breadcrumb_parent_url_name', None),
-                    'preserve_filters': getattr(view_class, 'breadcrumb_preserve_filters', True),
-                    'exclude_params': getattr(view_class, 'breadcrumb_exclude_params', ['page']),
-                }
-        
-        return breadcrumb_metadata
-        
-    except (NoReverseMatch, Exception):
-        # If resolution fails, return empty metadata
+    except Exception:
         return {}
+
+
+def _build_url_with_fallback(url_name: str, url_kwargs: dict[str, Any]) -> str | None:
+    """Build URL with kwargs, falling back to no kwargs if needed."""
+    try:
+        return reverse(url_name, kwargs=url_kwargs)
+    except NoReverseMatch:
+        try:
+            return reverse(url_name)
+        except NoReverseMatch:
+            return None
+
+
+def _resolve_view_function(url: str) -> Any:
+    """Resolve URL to view function."""
+    resolver_match = resolve(url)
+    return resolver_match.func
+
+
+def _extract_breadcrumb_metadata(view_func: Any, request: HttpRequest, url: str) -> dict[str, Any]:
+    """Extract breadcrumb metadata from a decorated view function."""
+    if not hasattr(view_func, 'breadcrumb_title'):
+        return {}
+    
+    title = getattr(view_func, 'breadcrumb_title')
+    resolved_title = _resolve_dynamic_title(title, request, url)
+    
+    return {
+        'title': resolved_title,
+        'parent_url_name': getattr(view_func, 'breadcrumb_parent', None),
+        'preserve_filters': getattr(view_func, 'breadcrumb_preserve_filters', True),
+        'exclude_params': getattr(view_func, 'breadcrumb_exclude_params', ['page']),
+    }
+
+
+def _resolve_dynamic_title(title: Any, request: HttpRequest, url: str) -> str:
+    """Resolve title, calling it if it's a callable."""
+    if not callable(title):
+        return str(title)  # Ensure we return a string
+    
+    try:
+        resolver_match = resolve(url)
+        result = title(request, *resolver_match.args, **resolver_match.kwargs)
+        return str(result)  # Ensure we return a string
+    except Exception:
+        return "Details"
 
 
 def extract_url_kwargs_from_url(url: str, url_name: str) -> dict[str, Any]:
