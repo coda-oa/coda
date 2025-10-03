@@ -3,7 +3,6 @@ from typing import Any, cast
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Q
 from typing_extensions import TypeIs
 
 from coda.apps.domainqueryset import DomainQuerySet
@@ -12,8 +11,6 @@ from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import FundingRequestContact as FundingRequestContactModel
 from coda.apps.publications.repositories import publication_repository
-from coda.domain.contract import ContractId
-from coda.domain.date import DateRange
 from coda.domain.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
@@ -31,13 +28,7 @@ from coda.domain.fundingrequest import (
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import Currency, Money
-from coda.domain.publication import Monograph, OpenAccessType, Publication, PublicationId
-from coda.domain.publication.payment import (
-    InvoiceReceived,
-    PublicationCoveredByContract,
-    PublicationPaid,
-    PublicationUnpaid,
-)
+from coda.domain.publication import Monograph, Publication, PublicationId
 from coda.domain.string import NonEmptyStr
 
 from dataclasses import dataclass
@@ -168,8 +159,12 @@ def save_review(review: Review) -> None:
 
 def _save_review(review: Review, review_model: FundingRequestReview) -> None:
     review_model.review_result = review.result.value if review.result else "unknown"
-    review_model.decided_funding_amount = review.decided_funding.amount if review.decided_funding else Decimal("0")
-    review_model.decided_funding_currency = review.decided_funding.currency.code if review.decided_funding else "EUR"   
+    review_model.decided_funding_amount = (
+        review.decided_funding.amount if review.decided_funding else Decimal("0")
+    )
+    review_model.decided_funding_currency = (
+        review.decided_funding.currency.code if review.decided_funding else "EUR"
+    )
     review_model.remarks = review.remarks
     review_model.save()
 
@@ -345,8 +340,6 @@ def _save_contact(contact: FundingRequestContact, fr: FundingRequestModel) -> No
         fr.extra_contact = None
 
 
-
-
 @dataclass
 class SearchParams:
     generic_search: str | None = None
@@ -356,12 +349,15 @@ class SearchParams:
     processing_states: list[ReviewResult] | None = None
     open_access_types: list[OpenAccessType] | None = None
     date_range: DateRange | None = None
-    payment_statuses: list[
-        type[InvoiceReceived]
-        | type[PublicationPaid]
-        | type[PublicationUnpaid]
-        | type[PublicationCoveredByContract]
-    ] | None = None
+    payment_statuses: (
+        list[
+            type[InvoiceReceived]
+            | type[PublicationPaid]
+            | type[PublicationUnpaid]
+            | type[PublicationCoveredByContract]
+        ]
+        | None
+    ) = None
     labels: Iterable[int] | None = None
     exclude_labels: Iterable[int] | None = None
     requested_entity_types: list[str] | None = None
@@ -370,9 +366,7 @@ class SearchParams:
     contract_year: int | None = None
 
 
-def search(
-params: SearchParams
-) -> Iterable[FundingRequestModel]:
+def search(params: SearchParams) -> Iterable[FundingRequestModel]:
     query = Q()
 
     if params.generic_search:
@@ -409,7 +403,9 @@ params: SearchParams
         query = query & ~Q(labels__in=params.exclude_labels)
 
     if params.date_range and not params.date_range.is_unbounded():
-        query = query & Q(request_date__gte=params.date_range.start, request_date__lte=params.date_range.end)
+        query = query & Q(
+            request_date__gte=params.date_range.start, request_date__lte=params.date_range.end
+        )
 
     if params.payment_statuses:
         payment_query = Q()
@@ -468,14 +464,3 @@ def get_funding_organization(pk: int) -> FundingOrganization:
 
 def get_funding_organization_by_name(name: str) -> FundingOrganization | None:
     return FundingOrganization.objects.filter(name=name).first()
-
-
-def _get_sort_by(sort_by: str | None) -> str:
-    if sort_by == "alphabetical":
-        return "publication__title"
-    elif sort_by == "date_asc":
-        return "request_date"
-    elif sort_by == "date_desc":
-        return "-request_date"
-    else:
-        return "-request_date"

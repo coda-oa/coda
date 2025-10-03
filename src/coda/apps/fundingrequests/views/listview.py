@@ -8,23 +8,15 @@ from django.http import HttpRequest
 
 from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.fundingrequests import repository
+from coda.apps.fundingrequests import fundingrequest_query as fq
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.views.detailview import payment_status_viewmodel
 from coda.apps.publications.services import publications
 from coda.apps.views import EntityListView
-from coda.domain.contract import ContractId
-from coda.domain.date import DateRange
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
-from coda.domain.publication.payment import (
-    InvoiceReceived,
-    PublicationCoveredByContract,
-    PublicationPaid,
-    PublicationPaymentStatus,
-    PublicationUnpaid,
-)
+from coda.domain.publication.payment import PublicationPaymentStatus
 from coda.domain.publication.publication import PublicationId
 from dataclasses import dataclass
 
@@ -44,10 +36,10 @@ _advanced_search_fields = [
 ]
 
 _payment_status_map = {
-    "paid": PublicationPaid,
-    "unpaid": PublicationUnpaid,
-    "invoice_received": InvoiceReceived,
-    "covered_by_contract": PublicationCoveredByContract,
+    "paid": fq.PaymentStatus.Paid,
+    "unpaid": fq.PaymentStatus.Unpaid,
+    "invoice_received": fq.PaymentStatus.InvoiceReceived,
+    "covered_by_contract": fq.PaymentStatus.CoveredByContract,
 }
 
 _payment_status_choices = [
@@ -96,30 +88,34 @@ fundingrequest_list = FundingRequestListView.as_view()
 
 
 def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
-    start_date = request.GET.get("start_date")
-    end_date = request.GET.get("end_date")
-    date_range = DateRange.try_fromisoformat(start=start_date, end=end_date)
+    start_date = map_or_none(datetime.date.fromisoformat, request.GET.get("start_date"))
+    end_date = map_or_none(datetime.date.fromisoformat, request.GET.get("end_date"))
+    review_results = [ReviewResult(rr) for rr in request.GET.getlist("processing_status")]
+    open_access_types = [OpenAccessType(oat) for oat in request.GET.getlist("open_access_type")]
     requested_payment_statuses = [
         _payment_status_map[status] for status in request.GET.getlist("payment_status")
     ]
 
     return cast(
         QuerySet[FundingRequestModel],
-        repository.search(repository.SearchParams(
-            generic_search=request.GET.get("search_term"),
-            date_range=date_range,
-            labels=list(map(int, request.GET.getlist("labels"))),
-            exclude_labels=list(map(int, request.GET.getlist("exclude_labels"))),
-            processing_states=[ReviewResult(rr) for rr in request.GET.getlist("processing_status")],
-            open_access_types=[
-                OpenAccessType(oat) for oat in request.GET.getlist("open_access_type")
-            ],
-            payment_statuses=requested_payment_statuses,
-            requested_entity_types=request.GET.getlist("publication_type"),
-            sort_by=request.GET.get("sort_by"),
-            contract_name=ContractId(request.GET.get("contract_name") or 0),
-            contract_year=int(request.GET.get("contract_year") or 0),
-        )),
+        fq.search(
+            fq.FundingRequestSearchCriteria(
+                fq.GenericSearchCriteria(request.GET.get("search_term", "")),
+                fq.ReviewResultCriteria(review_results),
+                fq.OpenAccessTypeCriteria(open_access_types),
+                fq.DateRangeCriteria(start_date, end_date),
+                fq.PaymentStatusCriteria(requested_payment_statuses),
+                fq.LabelsSearchCriteria(
+                    [int(_id) for _id in request.GET.getlist("labels")],
+                    [int(_id) for _id in request.GET.getlist("exclude_labels")],
+                ),
+                fq.ContractSearchCriteria(
+                    map_or_none(int, request.GET.get("contract_name")),
+                    map_or_none(int, request.GET.get("contract_year")),
+                ),
+            ),
+            fq.SortOrder.alphabetical,
+        ),
     )
 
 
@@ -139,6 +135,13 @@ class FundingRequestListViewModel:
     payment_status: dict[str, Any] | None = None
     journal_publisher_name: str | None = None
     journal_publisher_url: str | None = None
+
+
+def map_or_none[T](map_fn: Callable[[str], T], value: str | None) -> T | None:
+    if value:
+        return map_fn(value)
+
+    return None
 
 
 GetPaymentStatus = Callable[[PublicationId], PublicationPaymentStatus]

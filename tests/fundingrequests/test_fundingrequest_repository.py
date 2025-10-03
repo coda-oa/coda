@@ -3,12 +3,11 @@ from typing import Any, cast
 
 import pytest
 
-from coda.apps.fundingrequests import repository
+from coda.apps.fundingrequests import fundingrequest_query, repository
 from coda.apps.fundingrequests.services.labels import label_attach, label_create
 from coda.apps.journals.models import Journal
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.color import Color
-from coda.domain.date import DateRange
 from coda.domain.fundingrequest import (
     FundingOrganizationId,
     FundingRequest,
@@ -148,7 +147,9 @@ def test__searching_for_funding_requests_by_process_state__returns_matching_fund
 ):
     approved_request = modelfactory.fundingrequest()
     approved_request_id = FundingRequestId(approved_request.id)
-    repository.save_review(Review(approved_request_id).update_review(ReviewResult.Approved, Money(100, Currency.EUR)))
+    repository.save_review(
+        Review(approved_request_id).update_review(ReviewResult.Approved, Money(100, Currency.EUR))
+    )
 
     rejected_request = modelfactory.fundingrequest()
     rejected_request_id = FundingRequestId(rejected_request.id)
@@ -156,7 +157,9 @@ def test__searching_for_funding_requests_by_process_state__returns_matching_fund
 
     in_progress_request = modelfactory.fundingrequest()  # noqa: F841
 
-    results = repository.search(repository.SearchParams(processing_states=[ReviewResult.Approved, ReviewResult.Rejected]))
+    results = repository.search(
+        repository.SearchParams(processing_states=[ReviewResult.Approved, ReviewResult.Rejected])
+    )
 
     assert_contains_all(list(results), [approved_request, rejected_request])
 
@@ -186,7 +189,6 @@ def test__searching_with_start_and_end_date__returns_matching_funding_requests()
 
     start_date = date(2021, 1, 1)
     end_date = date(2021, 5, 1)
-    date_range = DateRange(start_date, end_date)
 
     results = repository.search(repository.SearchParams(date_range=date_range))
 
@@ -203,7 +205,7 @@ def test__searching_with_no_start_date__returns_matching_funding_requests() -> N
     no_match.request_date = date(2021, 6, 1)
     no_match.save()
 
-    date_range = DateRange.create(end=date(2021, 5, 1))
+    end_date = date(2021, 5, 1)
 
     results = repository.search(repository.SearchParams(date_range=date_range))
 
@@ -220,7 +222,7 @@ def test__searching_with_no_end_date__returns_matching_funding_requests() -> Non
     no_match.request_date = date(2020, 12, 31)
     no_match.save()
 
-    date_range = DateRange.create(start=date(2021, 1, 1))
+    start_date = date(2021, 1, 1)
 
     results = repository.search(repository.SearchParams(date_range=date_range))
 
