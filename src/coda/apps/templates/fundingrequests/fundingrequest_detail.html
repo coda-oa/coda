@@ -1,6 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1 class="my-2">Funding Request</h1>
+    <h1 class="mt-2">Funding Request</h1>
+    <h2>
+        {% if publication.publishing_entity_type == "Publisher" %}
+            <span data-tooltip="Funding request for a monograph" class="icon-tooltip">
+                <svg class="mb-0_5 text-gray-800 dark:text-white"
+                     aria-hidden="true"
+                     xmlns="http://www.w3.org/2000/svg"
+                     width="1em"
+                     height="1em"
+                     fill="none"
+                     viewBox="0 0 24 24">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v13H7a2 2 0 0 0-2 2Zm0 0a2 2 0 0 0 2 2h12M9 3v14m7 0v4" />
+                </svg>
+            </span> Monograph
+        {% elif publication.publishing_entity_type == "Journal" %}
+            <span data-tooltip="Funding request for an article" class="icon-tooltip">
+                <svg class="mb-0_5 text-gray-800 dark:text-white"
+                     aria-hidden="true"
+                     xmlns="http://www.w3.org/2000/svg"
+                     width="1em"
+                     height="1em"
+                     fill="none"
+                     viewBox="0 0 24 24">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 3v4a1 1 0 0 1-1 1H5m4 8h6m-6-4h6m4-8v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Z" />
+                </svg>
+            </span> Article
+        {% endif %}
+    </h2>
     <div class="fundingrequest__detail-grid">
         <div>
             <article>

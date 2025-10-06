@@ -5,9 +5,15 @@
         <input type="search"
                name="journal_title"
                id="journal_title"
+               {% if journal_error and request.method == "POST" and not selected_journal %}aria-invalid="true"{% endif %}
                value="{{ journal_title }}">
         <button type="submit" class="inline-search-pill pill-right">Search</button>
     </fieldset>
+    {% if journal_error and request.method == "POST" and not selected_journal %}
+        <ul class="errorlist" id="journal-error">
+            <li>{{ journal_error }}</li>
+        </ul>
+    {% endif %}
     {% if journals %}
         <div class="scroll-container max-h-30">
             <table class="my-2">
@@ -26,6 +32,9 @@
                             <td>
                                 <input type="radio"
                                        name="journal"
+                                       hx-target="#journal-error"
+                                       hx-swap="outerHTML"
+                                       hx-post="{% url 'fundingrequests:clear_journal_error' %}"
                                        value="{{ journal.pk }}"
                                        {% if journal.pk == selected_journal.pk %}checked{% endif %}>
                             </td>

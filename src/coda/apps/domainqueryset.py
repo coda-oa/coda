@@ -45,7 +45,7 @@ class DomainQuerySet(Generic[DjangoModel, DomainModel], Sequence[DomainModel]):
         return self.queryset.count()
 
     def __iter__(self) -> Generator[DomainModel, None, None]:
-        yield from (self.map_to_domain(model) for model in self.queryset.iterator())
+        yield from (self.map_to_domain(model) for model in self.queryset.iterator(chunk_size=2000))
 
     def __contains__(self, item: object) -> bool:
         if not isinstance(
@@ -66,12 +66,10 @@ class DomainQuerySet(Generic[DjangoModel, DomainModel], Sequence[DomainModel]):
         return item.id
 
     @overload
-    def __getitem__(self, index: int) -> DomainModel:
-        ...
+    def __getitem__(self, index: int) -> DomainModel: ...
 
     @overload
-    def __getitem__(self, index: slice) -> list[DomainModel]:
-        ...
+    def __getitem__(self, index: slice) -> list[DomainModel]: ...
 
     def __getitem__(self, index: int | slice) -> DomainModel | list[DomainModel]:
         if isinstance(index, slice):

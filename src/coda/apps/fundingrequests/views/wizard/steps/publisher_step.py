@@ -3,6 +3,7 @@ from typing import Any
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from django.views.decorators.http import require_POST
 
 from coda.apps.dto import CodaBaseDto
 from coda.apps.fundingrequests.forms import ContractFormset
@@ -36,6 +37,7 @@ class PublisherStep(TemplateStep):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         ctx = super().get_context_data(request, store)
+        ctx["publisher_error"] = store.get("publisher_error", None)
 
         if request.POST.get("publisher"):
             publisher = Publisher.objects.get(pk=request.POST["publisher"])
@@ -60,6 +62,10 @@ class PublisherStep(TemplateStep):
         publisher_valid = bool(request.POST.get("publisher"))
         contract_formset = ContractFormset(request.POST)
         contract_formset_valid = contract_formset.is_valid()
+        if not publisher_valid:
+            store["publisher_error"] = "Please search and select a publisher."
+        else:
+            store["publisher_error"] = None
         return publisher_valid and contract_formset_valid
 
     def done(self, request: HttpRequest, store: Store) -> None:
@@ -79,4 +85,14 @@ def find_publisher(request: HttpRequest) -> HttpResponse:
         request,
         "fundingrequests/partials/publisher_search_results.html",
         {"publishers": publishers},
+    )
+
+
+@require_POST
+def clear_publisher_error(request: HttpRequest) -> HttpResponse:
+    publisher_name = request.POST.get("publisher_name", "") 
+    return render(
+        request,
+        "fundingrequests/partials/clear_publisher_error.html",
+        {"publisher_name": publisher_name},
     )

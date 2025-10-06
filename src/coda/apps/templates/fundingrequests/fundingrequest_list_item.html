@@ -14,9 +14,14 @@
         <div>
             {% if entity.authors %}<p>Authors: {{ entity.authors|join:", " }}</p>{% endif %}
             <p class="text-ellipsis">
-                {{ entity.publishing_entity_type }}
+                {{ entity.publishing_entity_type }}:
                 <a href="{{ entity.publishing_entity_url }}">{{ entity.publishing_entity_name }}</a>
             </p>
+            {% if entity.type == "Article" %}
+                <p class="text-ellipsis">
+                    Publisher: <a href="{{ entity.journal_publisher_url }}">{{ entity.journal_publisher_name }}</a>
+                </p>
+            {% endif %}
         </div>
         <div>
             <p>
@@ -25,13 +30,48 @@
             {% include "fundingrequests/partials/payment_status.html" with payment_status=entity.payment_status %}
         </div>
     </div>
-    <p class="flex mb-0_5 mt-2">
-        {% url "fundingrequests:list" as list_url %}
-        {% for label in entity.labels %}
-            <a href="{{ list_url }}?{% param_replace labels=label.id %}">
-                <small class="label pill"
-                       style="--label-bg-color: {{ label.hexcolor }};
-                              --label-border-color: {{ label.hexcolor }}">{{ label.name }}</small></a>
-        {% endfor %}
-    </p>
+    <div class="flex justify-between">
+        <p class="flex mb-0_5 mt-2">
+            {% url "fundingrequests:list" as list_url %}
+            {% for label in entity.labels %}
+                <a href="{{ list_url }}?{% param_replace labels=label.id %}">
+                    <small class="label pill"
+                           style="--label-bg-color: {{ label.hexcolor }};
+                                  --label-border-color: {{ label.hexcolor }}">{{ label.name }}</small></a>
+            {% endfor %}
+        </p>
+        <p class="flex mb-0_5 mt-2">
+            {% if entity.type == "Monograph" %}
+                <a href="{{ list_url }}?{% param_replace publication_type="Monograph" %}"
+                   aria-label="Filter for monographs"
+                   data-tooltip="Filter for monographs"
+                   class="icon-tooltip">
+                    <svg class="w-6 h-6 text-gray-800 dark:text-white"
+                         aria-hidden="true"
+                         xmlns="http://www.w3.org/2000/svg"
+                         width="24"
+                         height="24"
+                         fill="none"
+                         viewBox="0 0 24 24">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v13H7a2 2 0 0 0-2 2Zm0 0a2 2 0 0 0 2 2h12M9 3v14m7 0v4" />
+                    </svg>
+                </a>
+            {% elif entity.type == "Article" %}
+                <a href="{{ list_url }}?{% param_replace publication_type="Article" %}"
+                   aria-label="Filter for articles"
+                   data-tooltip="Filter for articles"
+                   class="icon-tooltip">
+                    <svg class="w-6 h-6 text-gray-800 dark:text-white"
+                         aria-hidden="true"
+                         xmlns="http://www.w3.org/2000/svg"
+                         width="24"
+                         height="24"
+                         fill="none"
+                         viewBox="0 0 24 24">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 3v4a1 1 0 0 1-1 1H5m4 8h6m-6-4h6m4-8v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Z" />
+                    </svg>
+                </a>
+            {% endif %}
+        </p>
+    </div>
 </article>

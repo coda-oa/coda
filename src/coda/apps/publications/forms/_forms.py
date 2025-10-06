@@ -36,30 +36,36 @@ class Vocabularies(NamedTuple):
 class PublicationForm(CodaFormBase):
     use_required_attribute = False
 
-    title = forms.CharField(required=True)
+    title = forms.CharField(required=True, label="Title*")
     license = forms.ChoiceField(
         choices=((lic.name, lic.value) for lic in License),
         required=True,
         initial=License.Unknown.name,
+        label="License*",
     )
     publication_type = ConceptChoiceField(
         choices=lambda: vocabulary_from_settings("publication_type"),
         required=True,
         widget=widgets.SearchSelectWidget,
+        label="Publication type*",
     )
     subject_area = ConceptChoiceField(
         choices=lambda: vocabulary_from_settings("subject_area"),
         required=True,
         widget=widgets.SearchSelectWidget,
+        label="Subject area*",
     )
     open_access_type = forms.ChoiceField(
         choices=Publication.OA_TYPES,
         required=True,
         initial=OpenAccessType.Closed.name,
-        label="Publication Open Access Type",
+        label="Publication open access type*",
     )
     publication_state = forms.ChoiceField(
-        choices=Publication.STATES, required=True, initial=UnpublishedState.Unknown.name
+        choices=Publication.STATES,
+        required=True,
+        initial=UnpublishedState.Unknown.name,
+        label="Publication state*",
     )
     online_publication_date = forms.DateField(
         widget=forms.DateInput(attrs={"type": "date"}), required=False
