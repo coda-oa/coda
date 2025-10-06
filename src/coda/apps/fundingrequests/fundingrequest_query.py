@@ -2,6 +2,7 @@ import datetime
 import enum
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import Protocol
 
 from django.db.models import Q
 
@@ -154,34 +155,56 @@ class DateRangeCriteria:
         return Q(request_date__gte=date_range.start, request_date__lte=date_range.end)
 
 
+class PublicationEntityType(enum.Enum):
+    All = "all"
+    Article = "article"
+    Monograph = "monograph"
+
+    @classmethod
+    def try_parse(cls, value: str | None) -> "PublicationEntityType":
+        if value is None:
+            return PublicationEntityType.All
+
+        value = value.lower()
+        try:
+            return cls(value)
+        except KeyError:
+            return PublicationEntityType.All
+
+
 @dataclass
-class FundingRequestSearchCriteria:
-    generic_search: GenericSearchCriteria = field(default_factory=GenericSearchCriteria)
-    review_results: ReviewResultCriteria = field(default_factory=ReviewResultCriteria)
-    open_access_types: OpenAccessTypeCriteria = field(default_factory=OpenAccessTypeCriteria)
-    date_range: DateRangeCriteria = field(default_factory=DateRangeCriteria)
-    payment_statuses: PaymentStatusCriteria = field(default_factory=PaymentStatusCriteria)
-    labels: LabelsSearchCriteria = field(default_factory=LabelsSearchCriteria)
-    contract: ContractSearchCriteria = field(default_factory=ContractSearchCriteria)
+class EntityTypeCriteria:
+    entity_type: PublicationEntityType = PublicationEntityType.All
 
     def _to_query(self) -> Q:
-        return (
-            self.generic_search._to_query()
-            & self.review_results._to_query()
-            & self.open_access_types._to_query()
-            & self.date_range._to_query()
-            & self.payment_statuses._to_query()
-            & self.labels._to_query()
-            & self.contract._to_query()
-        )
+        match self.entity_type:
+            case PublicationEntityType.Article:
+                return Q(publication__article_journal__isnull=False)
+            case PublicationEntityType.Monograph:
+                return Q(publication__monograph_publisher__isnull=False)
+            case _:
+                return Q()
+
+
+class FundingRequestSearchCriteria(Protocol):
+    def _to_query(self) -> Q:
+        ...
+
+
+def _to_query(*criteria: FundingRequestSearchCriteria) -> Q:
+    q = Q()
+    for c in criteria:
+        q &= c._to_query()
+
+    return q
 
 
 def search(
-    criteria: FundingRequestSearchCriteria,
+    *criteria: FundingRequestSearchCriteria,
     sort_order: SortOrder = SortOrder.default(),
 ) -> Iterable[FundingRequest]:
     return (
-        FundingRequest.objects.filter(criteria._to_query())
+        FundingRequest.objects.filter(_to_query(*criteria))
         .distinct()
         .select_related(
             "review",

@@ -1,6 +1,6 @@
 from collections.abc import Iterable, Sequence
-from typing import Any, cast
 from decimal import Decimal
+from typing import Any, cast
 
 from django.db import transaction
 from typing_extensions import TypeIs
@@ -30,8 +30,6 @@ from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import Currency, Money
 from coda.domain.publication import Monograph, Publication, PublicationId
 from coda.domain.string import NonEmptyStr
-
-from dataclasses import dataclass
 
 
 @transaction.atomic
@@ -338,124 +336,6 @@ def _save_contact(contact: FundingRequestContact, fr: FundingRequestModel) -> No
     elif fr.extra_contact:
         fr.extra_contact.delete()
         fr.extra_contact = None
-
-
-@dataclass
-class SearchParams:
-    generic_search: str | None = None
-    title: str | None = None
-    author: str | None = None
-    publisher: str | None = None
-    processing_states: list[ReviewResult] | None = None
-    open_access_types: list[OpenAccessType] | None = None
-    date_range: DateRange | None = None
-    payment_statuses: (
-        list[
-            type[InvoiceReceived]
-            | type[PublicationPaid]
-            | type[PublicationUnpaid]
-            | type[PublicationCoveredByContract]
-        ]
-        | None
-    ) = None
-    labels: Iterable[int] | None = None
-    exclude_labels: Iterable[int] | None = None
-    requested_entity_types: list[str] | None = None
-    sort_by: str | None = None
-    contract_name: ContractId | None = None
-    contract_year: int | None = None
-
-
-def search(params: SearchParams) -> Iterable[FundingRequestModel]:
-    query = Q()
-
-    if params.generic_search:
-        query = query & (
-            Q(publication__title__icontains=params.generic_search)
-            | Q(publication__relevant_authors__name__icontains=params.generic_search)
-            | Q(publication__article_journal__title__icontains=params.generic_search)
-            | Q(publication__article_journal__publisher__name__icontains=params.generic_search)
-            | Q(publication__monograph_publisher__name__icontains=params.generic_search)
-            | Q(request_id__icontains=params.generic_search)
-        )
-
-    if params.title:
-        query = query & Q(publication__title__icontains=params.title)
-
-    if params.author:
-        query = query & Q(publication__relevant_authors__name__icontains=params.author)
-
-    if params.publisher:
-        query = query & Q(publication__article_journal__publisher__name__icontains=params.publisher)
-
-    if params.processing_states:
-        review_states = [s.value.lower() for s in params.processing_states]
-        query = query & Q(review__review_result__in=review_states)
-
-    if params.open_access_types:
-        oa_types = [t.name for t in params.open_access_types]
-        query = query & Q(publication__open_access_type__in=oa_types)
-
-    if params.labels:
-        query = query & Q(labels__in=params.labels)
-
-    if params.exclude_labels:
-        query = query & ~Q(labels__in=params.exclude_labels)
-
-    if params.date_range and not params.date_range.is_unbounded():
-        query = query & Q(
-            request_date__gte=params.date_range.start, request_date__lte=params.date_range.end
-        )
-
-    if params.payment_statuses:
-        payment_query = Q()
-
-        if PublicationCoveredByContract in params.payment_statuses:
-            payment_query |= Q(
-                publication__attached_contracts__contract__publication_billing="consolidated"
-            )
-
-        if InvoiceReceived in params.payment_statuses:
-            payment_query |= Q(publication__payment__status="invoice_received")
-
-        if PublicationPaid in params.payment_statuses:
-            payment_query |= Q(publication__payment__status="paid")
-
-        if PublicationUnpaid in params.payment_statuses:
-            payment_query |= Q(publication__payment__isnull=True) & ~Q(
-                publication__attached_contracts__contract__publication_billing="consolidated"
-            )
-
-        query = query & payment_query
-
-    if params.requested_entity_types:
-        entity_type_query = Q()
-        if "Article" in params.requested_entity_types:
-            entity_type_query |= Q(publication__article_journal__isnull=False)
-        if "Monograph" in params.requested_entity_types:
-            entity_type_query |= Q(publication__monograph_publisher__isnull=False)
-        query = query & entity_type_query
-
-    if params.contract_name:
-        query = query & Q(publication__attached_contracts__contract__id=params.contract_name)
-
-    if params.contract_year:
-        query = query & Q(publication__attached_contracts__contract_year=params.contract_year)
-
-    return (
-        FundingRequestModel.objects.filter(query)
-        .distinct()
-        .select_related(
-            "review",
-            "publication__article_journal",
-            "publication__monograph_publisher",
-        )
-        .prefetch_related(
-            "labels",
-            "publication__relevant_authors",
-        )
-        .order_by(_get_sort_by(params.sort_by))
-    )
 
 
 def get_funding_organization(pk: int) -> FundingOrganization:

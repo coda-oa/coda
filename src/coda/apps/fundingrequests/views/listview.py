@@ -69,8 +69,8 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
         expand_advanced_search = any(self.request.GET.get(key) for key in _advanced_search_fields)
 
         labels = Label.objects.all()
-        publication_types = ["Article", "Monograph"]
-        selected_publication_types = self.request.GET.getlist("publication_type")
+        publication_types = [(et.value, et.value) for et in fq.PublicationEntityType]
+        selected_publication_types = self.request.GET.get("publication_type")
 
         return ctx | {
             "labels": labels,
@@ -99,22 +99,23 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     return cast(
         QuerySet[FundingRequestModel],
         fq.search(
-            fq.FundingRequestSearchCriteria(
-                fq.GenericSearchCriteria(request.GET.get("search_term", "")),
-                fq.ReviewResultCriteria(review_results),
-                fq.OpenAccessTypeCriteria(open_access_types),
-                fq.DateRangeCriteria(start_date, end_date),
-                fq.PaymentStatusCriteria(requested_payment_statuses),
-                fq.LabelsSearchCriteria(
-                    [int(_id) for _id in request.GET.getlist("labels")],
-                    [int(_id) for _id in request.GET.getlist("exclude_labels")],
-                ),
-                fq.ContractSearchCriteria(
-                    map_or_none(int, request.GET.get("contract_name")),
-                    map_or_none(int, request.GET.get("contract_year")),
-                ),
+            fq.GenericSearchCriteria(request.GET.get("search_term", "")),
+            fq.ReviewResultCriteria(review_results),
+            fq.EntityTypeCriteria(
+                fq.PublicationEntityType.try_parse(request.GET.get("publication_type"))
             ),
-            fq.SortOrder.alphabetical,
+            fq.OpenAccessTypeCriteria(open_access_types),
+            fq.DateRangeCriteria(start_date, end_date),
+            fq.PaymentStatusCriteria(requested_payment_statuses),
+            fq.LabelsSearchCriteria(
+                [int(_id) for _id in request.GET.getlist("labels")],
+                [int(_id) for _id in request.GET.getlist("exclude_labels")],
+            ),
+            fq.ContractSearchCriteria(
+                map_or_none(int, request.GET.get("contract_name")),
+                map_or_none(int, request.GET.get("contract_year")),
+            ),
+            sort_order=fq.SortOrder.alphabetical,
         ),
     )
 
