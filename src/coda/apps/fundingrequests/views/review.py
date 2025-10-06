@@ -9,9 +9,11 @@ from coda.apps.fundingrequests.services import checks
 from coda.domain.fundingrequest import FundingRequestId, Review
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import Currency, Money
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @login_required
+@breadcrumb("Review Funding Request", parent_url_name="fundingrequests:detail")
 def review_page(request: HttpRequest, pk: int) -> HttpResponse:
     fr = repository.get_by_id(FundingRequestId(pk))
     return render(

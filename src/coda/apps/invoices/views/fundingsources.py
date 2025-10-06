@@ -7,7 +7,9 @@ from coda.apps.invoices.forms import FundingSourceForm
 from coda.apps.invoices.models import FundingSource
 from coda.apps.views import SimpleSearchEntityListView
 
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
+@breadcrumb("Create Funding Source", parent_url_name="invoices:fundingsource_list")
 class CreateFundingSourceView(LoginRequiredMixin, CreateView[FundingSource, FundingSourceForm]):
     model = FundingSource
     success_url = reverse_lazy("invoices:fundingsource_list")
@@ -21,6 +23,7 @@ class CreateFundingSourceView(LoginRequiredMixin, CreateView[FundingSource, Fund
 fundingsource_createview = CreateFundingSourceView.as_view()
 
 
+@breadcrumb("Update Funding Source", parent_url_name="invoices:fundingsource_list")
 class UpdateFundingSourceView(LoginRequiredMixin, UpdateView[FundingSource, FundingSourceForm]):
     model = FundingSource
     success_url = reverse_lazy("invoices:fundingsource_list")
@@ -34,6 +37,7 @@ class UpdateFundingSourceView(LoginRequiredMixin, UpdateView[FundingSource, Fund
 fundingsource_updateview = UpdateFundingSourceView.as_view()
 
 
+@breadcrumb("Funding Sources", parent_url_name="invoices:finances_home")
 class FundingSourceListView(LoginRequiredMixin, SimpleSearchEntityListView[FundingSource]):
     model = FundingSource
     entity_name = "Funding Sources"
@@ -45,9 +49,11 @@ class FundingSourceListView(LoginRequiredMixin, SimpleSearchEntityListView[Fundi
 fundingsource_listview = FundingSourceListView.as_view()
 
 
+@breadcrumb("Funding Source Detail", parent_url_name="invoices:fundingsource_list")
 class FundingSourceDetailView(LoginRequiredMixin, DetailView[FundingSource]):
     model = FundingSource
     template_name = "invoices/fundingsources/detail.html"
+
 
 
 fundingsource_detailview = FundingSourceDetailView.as_view()

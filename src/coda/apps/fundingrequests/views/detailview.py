@@ -10,6 +10,7 @@ from django.urls import reverse
 
 from coda.apps.authors import services as author_services
 from coda.apps.authors.models import Author as AuthorModel
+from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.forms import ChooseLabelForm
 from coda.apps.fundingrequests.models import ExternalFunding, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
@@ -25,6 +26,8 @@ from coda.domain.publication.payment import (
     PublicationPaymentStatus,
 )
 from coda.domain.publication.publication import OpenAccessType, PublicationId
+
+from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 
 template_name = "fundingrequests/fundingrequest_detail.html"
 
@@ -206,7 +209,16 @@ def funding_viewmodel(external_funding: ExternalFunding) -> ExternalFundingViewM
     )
 
 
+funding_request_breadcrumb_title = generate_dynamic_title(
+    model_name="Funding Request",
+    fetch_fn=lambda pk: repository.get_by_id(FundingRequestId(int(pk))),
+    label_attr="request_id",
+    fallback_attr="id",
+    default_title="Funding Request Details"
+)
+
 @login_required
+@breadcrumb(funding_request_breadcrumb_title, parent_url_name="fundingrequests:list", preserve_filters=True)
 def fundingrequest_detail(request: HttpRequest, pk: int) -> HttpResponse:
     fr = FundingRequestModel.objects.get(pk=pk)
     return render(request, template_name, context(fr))

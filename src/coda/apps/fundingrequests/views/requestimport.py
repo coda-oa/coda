@@ -9,9 +9,11 @@ from django.shortcuts import render
 
 from coda.apps.formbase import JsonUploadForm
 from coda.apps.fundingrequests.services import importservice
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @login_required
+@breadcrumb("Import Funding Requests", parent_url_name="fundingrequests:list")
 def import_fundingrequests(request: HttpRequest) -> HttpResponse:
     import_errors = []
     if request.method == "POST":

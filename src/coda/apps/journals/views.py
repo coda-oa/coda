@@ -13,7 +13,10 @@ from coda.apps.journals.forms import JournalForm
 from coda.apps.journals.models import Journal
 from coda.apps.views import SimpleSearchEntityListView
 
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
+
+@breadcrumb("Journal Detail", parent_url_name="publishing:journals:list", preserve_filters=True)
 class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
     model = Journal
     slug_field = "eissn"
@@ -28,6 +31,7 @@ class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
 journal_detail_view = JournalDetailView.as_view()
 
 
+@breadcrumb("Journals", parent_url_name="publishing:home")
 class JournalListView(LoginRequiredMixin, SimpleSearchEntityListView[Journal]):
     model = Journal
     paginate_by = 20
@@ -42,6 +46,7 @@ class JournalListView(LoginRequiredMixin, SimpleSearchEntityListView[Journal]):
 journal_list_view = JournalListView.as_view()
 
 
+@breadcrumb("Create Journal", parent_url_name="publishing:journals:list")
 class JournalCreateView(LoginRequiredMixin, CreateView[Journal, JournalForm]):
     form_class = JournalForm
     template_name = "generic_form_view.html"
@@ -56,6 +61,7 @@ class JournalCreateView(LoginRequiredMixin, CreateView[Journal, JournalForm]):
 journal_create_view = JournalCreateView.as_view()
 
 
+@breadcrumb("Update Journal", parent_url_name="publishing:journals:detail")
 class JournalUpdateView(LoginRequiredMixin, UpdateView[Journal, JournalForm]):
     form_class = JournalForm
     template_name = "generic_form_view.html"

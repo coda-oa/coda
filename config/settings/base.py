@@ -105,6 +105,7 @@ LOCAL_APPS = [
     "coda.apps.preferences",
     "coda.apps.htmx_components",
     "coda.apps.blocklist",
+    "coda.apps.breadcrumbs",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -200,6 +201,7 @@ TEMPLATES = [
                 "django.template.context_processors.static",
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
+                "coda.apps.breadcrumbs.context_processors.breadcrumb_context",
             ],
             "libraries": {
                 "getitem": "coda.apps.templatetags.getitem",

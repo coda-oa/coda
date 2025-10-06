@@ -22,7 +22,10 @@ from coda.apps.fundingrequests.views.wizard.steps.publication_step import Public
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.wizard import SessionStore, Wizard
 
+from coda.apps.breadcrumbs.decorators import breadcrumb
 
+
+@breadcrumb("Update Additional Information", parent_url_name="fundingrequests:detail")
 class UpdateExtraInformationView(LoginRequiredMixin, Wizard):
     store_name = "update_submitter_wizard"
     store_factory = SessionStore
@@ -52,6 +55,7 @@ class UpdateExtraInformationView(LoginRequiredMixin, Wizard):
             store.save()
 
 
+@breadcrumb("Update Publication Details", parent_url_name="fundingrequests:detail")
 class UpdatePublicationView(LoginRequiredMixin, Wizard):
     store_name = "update_publication_wizard"
     store_factory = SessionStore
@@ -79,6 +83,7 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         store.save()
 
 
+@breadcrumb("Update Cost & Funding", parent_url_name="fundingrequests:detail")
 class UpdateFundingView(LoginRequiredMixin, Wizard):
     steps = [FundingStep()]
     store_name = "update_funding_wizard"

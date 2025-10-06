@@ -9,6 +9,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
+from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices import repository, services
 from coda.apps.invoices.models import Creditor
@@ -39,6 +40,7 @@ def get_contract_list_context() -> dict[str, Any]:
     return {"contract_list": Contract.objects.all()}
 
 
+@breadcrumb("Invoices", parent_url_name="invoices:finances_home")
 class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
     paginate_by = 20
     entity_name = "Invoices"
@@ -92,8 +94,18 @@ class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
 invoice_list = InvoiceListView.as_view()
 
 
+invoice_breadcrumb_title = generate_dynamic_title(
+    model_name="Invoice",
+    fetch_fn=lambda pk: repository.get_by_id(InvoiceId(int(pk))),
+    label_attr="number",
+    fallback_attr="id",
+    default_title="Invoice Details"
+)
+
+
 @login_required
 @require_GET
+@breadcrumb(invoice_breadcrumb_title, parent_url_name="invoices:list", preserve_filters=True)
 def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
     display_currency = Currency.from_code(

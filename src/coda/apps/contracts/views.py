@@ -8,6 +8,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts import repository
 from coda.apps.contracts.forms import ContractForm, EntityFormset
 from coda.apps.contracts.models import Contract as ContractModel
@@ -18,7 +19,7 @@ from coda.apps.views import EntityListView
 from coda.domain.contract import Contract, ContractId, PublisherId
 from coda.domain.publication import JournalId
 
-
+@breadcrumb("Contracts")
 class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
     entity_name = "Contracts"
     entity_create_url = "contracts:create"
@@ -36,6 +37,7 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
 
 
 @login_required
+@breadcrumb("Contract Detail", parent_url_name="contracts:list", preserve_filters=True)
 def contract_detail(request: HttpRequest, pk: int) -> HttpResponse:
     contract = get_object_or_404(ContractModel, pk=pk)
     domain_contract = repository.as_domain_object(contract)
@@ -47,6 +49,14 @@ def contract_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
+@breadcrumb(
+    title=lambda request, *args, **kwargs: (
+        "Update Contract" if kwargs.get("pk") else "Create Contract"
+    ),
+    parent_url_name=lambda request, *args, **kwargs: (
+        "contracts:detail" if kwargs.get("pk") else "contracts:list"
+    ),
+)
 def edit_contract_view(request: HttpRequest, pk: int | None = None) -> HttpResponse:
     save_contract: Callable[[ContractForm, EntityFormset, EntityFormset], ContractId]
     if pk is not None:

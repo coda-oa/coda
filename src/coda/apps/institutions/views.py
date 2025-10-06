@@ -11,12 +11,14 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView
 
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.institutions import services
 from coda.apps.institutions.forms import InstitutionForm
 from coda.apps.institutions.models import Institution
 from coda.apps.views import SimpleSearchEntityListView
 
 
+@breadcrumb("Organization Structure")
 class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institution]):
     model = Institution
     template_name = "institutions/institution_list.html"
@@ -36,6 +38,7 @@ class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institu
 institution_list_view = InstitutionListView.as_view()
 
 
+@breadcrumb("Create Institution", parent_url_name="institutions:list")
 class CreateInstitutionView(LoginRequiredMixin, CreateView[Institution, InstitutionForm]):
     template_name = "generic_form_view.html"
     model = Institution
@@ -62,6 +65,7 @@ def toggle_selectable(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
+@breadcrumb("Import Institutions", parent_url_name="institutions:list", preserve_filters=True)
 def import_view(request: HttpRequest) -> HttpResponse:
     return render(request, "institutions/institution_import.html")
 
