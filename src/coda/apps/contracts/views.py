@@ -20,6 +20,7 @@ from coda.apps.views import EntityListView
 from coda.domain.contract import Contract, ContractId, PublisherId
 from coda.domain.publication import JournalId
 
+
 @breadcrumb("Contracts")
 class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
     entity_name = "Contracts"

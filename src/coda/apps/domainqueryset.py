@@ -66,10 +66,12 @@ class DomainQuerySet(Generic[DjangoModel, DomainModel], Sequence[DomainModel]):
         return item.id
 
     @overload
-    def __getitem__(self, index: int) -> DomainModel: ...
+    def __getitem__(self, index: int) -> DomainModel:
+        ...
 
     @overload
-    def __getitem__(self, index: slice) -> list[DomainModel]: ...
+    def __getitem__(self, index: slice) -> list[DomainModel]:
+        ...
 
     def __getitem__(self, index: int | slice) -> DomainModel | list[DomainModel]:
         if isinstance(index, slice):

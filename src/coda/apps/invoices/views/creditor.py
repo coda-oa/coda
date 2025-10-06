@@ -11,15 +11,16 @@ from coda.domain.invoice import CreditorId
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
+
 @breadcrumb("Creditors", parent_url_name="invoices:finances_home")
 class CreditorListView(LoginRequiredMixin, SimpleSearchEntityListView[Creditor]):
     model = Creditor
     paginate_by = 20
-    entity_name = "Creditors"   
+    entity_name = "Creditors"
     entity_create_url = "invoices:creditor_create"
     entity_list_item_template = "invoices/creditors/list.html"
     entity_filter_template = "entity_generic_filter.html"
-    use_generic_entity_filter = True 
+    use_generic_entity_filter = True
 
 
 @breadcrumb("Creditor Detail", parent_url_name="invoices:creditor_list")

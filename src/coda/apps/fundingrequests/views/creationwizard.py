@@ -1,10 +1,9 @@
 import abc
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, cast
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse, reverse_lazy
 
-from coda.apps.fundingrequests.services import fundingrequests
 from coda.apps.fundingrequests.dto import (
     CreateFundingRequestDto,
     ExternalFundingDto,
@@ -12,6 +11,7 @@ from coda.apps.fundingrequests.dto import (
     ExtraInformationDto,
     PaymentDto,
 )
+from coda.apps.fundingrequests.services import fundingrequests
 from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.wizard import Store, Wizard
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
@@ -20,7 +20,7 @@ TPublicationDto = TypeVar("TPublicationDto", PublicationDto, MonographDto)
 
 
 class FundingRequestCreationWizard(LoginRequiredMixin, Wizard, abc.ABC, Generic[TPublicationDto]):
-    cancel_url = reverse_lazy("fundingrequests:list")
+    cancel_url = cast(str, reverse_lazy("fundingrequests:list"))
     request_id_generator = PublicFundingRequestId.create
 
     def get_success_url(self) -> str:

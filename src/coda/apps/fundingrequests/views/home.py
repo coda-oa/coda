@@ -5,6 +5,6 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @login_required
-@breadcrumb("Request Center") 
+@breadcrumb("Request Center")
 def fundingrequest_home(request: HttpRequest) -> HttpResponse:
     return render(request, "fundingrequests/fundingrequest_home.html")

@@ -28,7 +28,10 @@ from coda.apps.fundingrequests.views.wizard.create_article import ArticleRequest
 from coda.apps.fundingrequests.views.wizard.create_monograph import MonographRequestWizard
 from coda.apps.fundingrequests.views.wizard.steps.journal_step import clear_journal_error
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import add_linkrow, parse_authors
-from coda.apps.fundingrequests.views.wizard.steps.publisher_step import find_publisher, clear_publisher_error
+from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
+    find_publisher,
+    clear_publisher_error,
+)
 from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdateExtraInformationView,
     UpdateFundingView,

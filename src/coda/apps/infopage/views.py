@@ -5,6 +5,6 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @require_GET
-@breadcrumb("Information on CODA")  
+@breadcrumb("Information on CODA")
 def index(request: HttpRequest) -> HttpResponse:
     return render(request, "infopage/info_page.html")

@@ -49,10 +49,9 @@ def process_review(review: Review, request: HttpRequest) -> Review:
 
     if action == "return":
         review = review.update_review(decided_funding=funding, remarks=remarks)
-        
+
     else:
         result = ReviewResult.of(action)
         review = review.update_review(result, funding, remarks)
-        
+
     return review
-    

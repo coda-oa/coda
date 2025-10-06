@@ -11,13 +11,13 @@ from coda.apps.preferences.models import GlobalPreferences
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
+
 @breadcrumb("Coda Global Preferences")
 class GlobalPreferencesUpdateView(
     LoginRequiredMixin,
     SuccessMessageMixin[GlobalPreferencesForm],
     UpdateView[GlobalPreferences, GlobalPreferencesForm],
 ):
-
     model = GlobalPreferences
     form_class = GlobalPreferencesForm
     template_name = "preferences/global.html"
