@@ -9,6 +9,7 @@ from coda.apps.views import SimpleSearchEntityListView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
+
 @breadcrumb("Create Funding Source", parent_url_name="invoices:fundingsource_list")
 class CreateFundingSourceView(LoginRequiredMixin, CreateView[FundingSource, FundingSourceForm]):
     model = FundingSource
@@ -46,6 +47,7 @@ class FundingSourceListView(LoginRequiredMixin, SimpleSearchEntityListView[Fundi
     entity_filter_template = "entity_generic_filter.html"
     use_generic_entity_filter = True
 
+
 fundingsource_listview = FundingSourceListView.as_view()
 
 
@@ -53,7 +55,6 @@ fundingsource_listview = FundingSourceListView.as_view()
 class FundingSourceDetailView(LoginRequiredMixin, DetailView[FundingSource]):
     model = FundingSource
     template_name = "invoices/fundingsources/detail.html"
-
 
 
 fundingsource_detailview = FundingSourceDetailView.as_view()

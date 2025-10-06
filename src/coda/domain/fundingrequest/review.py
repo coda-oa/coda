@@ -23,11 +23,19 @@ class ReviewResult(enum.Enum):
 @dataclass(frozen=True)
 class Review:
     fundingrequest: "FundingRequestId | None" = None
-    decided_funding: Money | None = field(default_factory=lambda: Money(0, Currency.EUR))
-    result: ReviewResult | None = ReviewResult.Open
+    decided_funding: Money = field(default_factory=lambda: Money(0, Currency.EUR))
+    result: ReviewResult = ReviewResult.Open
     remarks: str = ""
 
-    def update_review(self, result: ReviewResult | None = None, decided_funding: Money | None = None, remarks: str = "") -> "Review":
-        return Review(self.fundingrequest, self.decided_funding if decided_funding is None else decided_funding, self.result if result is None else result, remarks or self.remarks)
-    
-
+    def update_review(
+        self,
+        result: ReviewResult | None = None,
+        decided_funding: Money | None = None,
+        remarks: str = "",
+    ) -> "Review":
+        return Review(
+            self.fundingrequest,
+            self.decided_funding if decided_funding is None else decided_funding,
+            self.result if result is None else result,
+            remarks or self.remarks,
+        )

@@ -8,7 +8,7 @@ from django.db.models import F, Q, QuerySet, Sum, Value
 from django.db.models.functions import Coalesce
 from django.urls import reverse
 
-from coda.apps.contracts import repository as contract_services
+from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.models import CurrencyConversion
 from coda.apps.invoices.models import Invoice as InvoiceModel
@@ -341,7 +341,7 @@ def _extract_common_position_args(position: PositionModel) -> _CommonPositionArg
 
 def _get_item_from_position_model(position: PositionModel) -> ItemType:
     if position.contract and position.contract_year:
-        contract = contract_services.as_domain_object(position.contract)
+        contract = contract_mapper.as_domain_object(position.contract)
         return contract.in_year(position.contract_year)
     elif position.publication_id:
         return PublicationId(position.publication_id)

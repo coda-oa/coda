@@ -214,11 +214,14 @@ funding_request_breadcrumb_title = generate_dynamic_title(
     fetch_fn=lambda pk: repository.get_by_id(FundingRequestId(int(pk))),
     label_attr="request_id",
     fallback_attr="id",
-    default_title="Funding Request Details"
+    default_title="Funding Request Details",
 )
 
+
 @login_required
-@breadcrumb(funding_request_breadcrumb_title, parent_url_name="fundingrequests:list", preserve_filters=True)
+@breadcrumb(
+    funding_request_breadcrumb_title, parent_url_name="fundingrequests:list", preserve_filters=True
+)
 def fundingrequest_detail(request: HttpRequest, pk: int) -> HttpResponse:
     fr = FundingRequestModel.objects.get(pk=pk)
     return render(request, template_name, context(fr))

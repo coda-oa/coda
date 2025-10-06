@@ -10,6 +10,7 @@ from django.urls import reverse
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts import repository
+from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.contracts.forms import ContractForm, EntityFormset
 from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.domainqueryset import DomainQuerySet
@@ -18,6 +19,7 @@ from coda.apps.publishers.models import Publisher
 from coda.apps.views import EntityListView
 from coda.domain.contract import Contract, ContractId, PublisherId
 from coda.domain.publication import JournalId
+
 
 @breadcrumb("Contracts")
 class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
@@ -32,15 +34,15 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
         contracts = ContractModel.objects.all()
         if search_term:
             contracts = contracts.filter(name__icontains=search_term)
-        
-        return DomainQuerySet(contracts, repository.as_domain_object)
+
+        return DomainQuerySet(contracts, contract_mapper.as_domain_object)
 
 
 @login_required
 @breadcrumb("Contract Detail", parent_url_name="contracts:list", preserve_filters=True)
 def contract_detail(request: HttpRequest, pk: int) -> HttpResponse:
     contract = get_object_or_404(ContractModel, pk=pk)
-    domain_contract = repository.as_domain_object(contract)
+    domain_contract = contract_mapper.as_domain_object(contract)
     return render(
         request,
         "contracts/contract_detail.html",

@@ -35,6 +35,7 @@ class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institu
             "entity_secondary_create_url": self.entity_secondary_create_url
         }
 
+
 institution_list_view = InstitutionListView.as_view()
 
 

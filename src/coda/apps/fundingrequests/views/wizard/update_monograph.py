@@ -18,6 +18,7 @@ from coda.domain.fundingrequest import FundingRequestId
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
+
 @breadcrumb("Update Publication Details", parent_url_name="fundingrequests:detail")
 class MonographUpdateMetaView(Wizard):
     store_name = "monograph_request_update_meta"

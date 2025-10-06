@@ -56,6 +56,12 @@ urlpatterns = [
     path("conversion_section/", load_conversion_section, name="conversions_section"),
     path("<int:pk>/pay/", pay_invoice, name="pay_invoice"),
     path("import/", import_invoices, name="import"),
-    path("position-cost-type-options/", position_cost_type_options, name="position_cost_type_options"),
-    path("free-position-cost-type-options/", free_position_cost_type_options, name="free_position_cost_type_options"),
+    path(
+        "position-cost-type-options/", position_cost_type_options, name="position_cost_type_options"
+    ),
+    path(
+        "free-position-cost-type-options/",
+        free_position_cost_type_options,
+        name="free_position_cost_type_options",
+    ),
 ]

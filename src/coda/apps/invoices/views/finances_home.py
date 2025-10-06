@@ -6,6 +6,6 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @login_required
-@breadcrumb("Finances") 
+@breadcrumb("Finances")
 def finances_home(request: HttpRequest) -> HttpResponse:
     return render(request, "invoices/finances_home.html")

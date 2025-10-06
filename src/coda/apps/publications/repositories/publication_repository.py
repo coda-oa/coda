@@ -4,7 +4,7 @@ from typing import TypedDict, cast
 from django.db import models, transaction
 
 from coda.apps.authors import services as author_services
-from coda.apps.contracts import repository as contract_services
+from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.publications.models import AttachedContract, LinkType, PublicationAttachedConcept
@@ -174,7 +174,7 @@ def get_contracts_for_publication(publication_id: PublicationId) -> Sequence[Con
 
 
 def _map_to_contract_year(c: AttachedContract) -> ContractYear:
-    return contract_services.as_domain_object(c.contract).in_year(c.contract_year)
+    return contract_mapper.as_domain_object(c.contract).in_year(c.contract_year)
 
 
 def as_domain_object(model: PublicationModel) -> BasePublication:
@@ -207,7 +207,7 @@ def _common_args(model: PublicationModel) -> "_CommonPublicationArgs":
         other_authors=AuthorNames.from_str(model.author_list or ""),
         publication_state=_deserialize_publication_state(model),
         contracts=tuple(
-            contract_services.as_domain_object(c.contract).in_year(c.contract_year)
+            contract_mapper.as_domain_object(c.contract).in_year(c.contract_year)
             for c in model.attached_contracts.all()
         ),
         links=_deserialize_links(model.links.all()),

@@ -14,7 +14,10 @@ from coda.apps.invoices.views.position_list import (
     funding_sources_context,
     invoice_total_context,
 )
-from coda.apps.invoices.views.position_dtos.edit_position_dtos import AnyPositionDto, to_position_dto
+from coda.apps.invoices.views.position_dtos.edit_position_dtos import (
+    AnyPositionDto,
+    to_position_dto,
+)
 from coda.apps.preferences.models import GlobalPreferences
 from coda.domain.invoice import Invoice, InvoiceId
 from coda.domain.money._currency import Currency
@@ -27,7 +30,7 @@ invoice_breadcrumb_title = generate_dynamic_title(
     fetch_fn=lambda pk: repository.get_by_id(InvoiceId(int(pk))),
     label_attr="number",
     fallback_attr="id",
-    default_title="Edit Invoice"
+    default_title="Edit Invoice",
 )
 
 
@@ -53,15 +56,17 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
 
     return render_edit_view(request, invoice, existing_positions(request), errors=errors)
 
+
 @require_GET
 @login_required
 def free_position_cost_type_options(request: HttpRequest) -> HttpResponse:
     cost_type = request.GET.get("free-position-cost-type")
 
     if cost_type == "vat":
-        return HttpResponse("")  
+        return HttpResponse("")
 
     return render(request, "invoices/free_position_tax_rate.html")
+
 
 def update_conversions(
     invoice: Invoice,

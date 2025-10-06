@@ -99,7 +99,7 @@ invoice_breadcrumb_title = generate_dynamic_title(
     fetch_fn=lambda pk: repository.get_by_id(InvoiceId(int(pk))),
     label_attr="number",
     fallback_attr="id",
-    default_title="Invoice Details"
+    default_title="Invoice Details",
 )
 
 
@@ -160,7 +160,7 @@ def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
     creditor_name = Creditor.objects.get(id=invoice.creditor).name
     id = cast(InvoiceId, invoice.id)
     url = reverse("invoices:detail", kwargs={"pk": id})
-    
+
     return InvoiceViewModel(
         id=id,
         url=url,
@@ -191,6 +191,7 @@ def pay_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     services.save(invoice)
     return redirect("invoices:detail", pk=invoice.id)
 
+
 @require_GET
 @login_required
 def position_cost_type_options(request: HttpRequest) -> HttpResponse:
@@ -199,7 +200,11 @@ def position_cost_type_options(request: HttpRequest) -> HttpResponse:
     cost_type = request.GET.get(cost_type_key)
     if cost_type == "vat":
         return HttpResponse("")
-    return render(request, "invoices/position_tax_rate.html", {"counter": counter, "tax_rate": DEFAULT_TAX_RATE_PERCENTAGE})
+    return render(
+        request,
+        "invoices/position_tax_rate.html",
+        {"counter": counter, "tax_rate": DEFAULT_TAX_RATE_PERCENTAGE},
+    )
 
 
 class InvoiceViewModel(NamedTuple):
@@ -218,4 +223,3 @@ class InvoiceViewModel(NamedTuple):
     comment: str
     external_invoice_id: str
     conversions: dict[Currency, Decimal]
-
