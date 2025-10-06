@@ -9,7 +9,6 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
-from django.utils.decorators import method_decorator
 from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices import repository, services
@@ -41,7 +40,7 @@ def get_contract_list_context() -> dict[str, Any]:
     return {"contract_list": Contract.objects.all()}
 
 
-@method_decorator(breadcrumb("Invoices", parent_url_name="invoices:finances_home"), name="dispatch")
+@breadcrumb("Invoices", parent_url_name="invoices:finances_home")
 class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
     paginate_by = 20
     entity_name = "Invoices"

@@ -6,10 +6,9 @@ from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalCon
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.publications.dto import PublicationDto
 from coda.apps.wizard import SessionStore, Store
-from django.utils.decorators import method_decorator
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
-@method_decorator(breadcrumb("New Funding Request for an Article", parent_url_name="fundingrequests:list"), name="dispatch")
+@breadcrumb("New Funding Request for an Article", parent_url_name="fundingrequests:list")
 class ArticleRequestWizard(FundingRequestCreationWizard[PublicationDto]):
     store_name = "funding_request_wizard"
     store_factory = SessionStore

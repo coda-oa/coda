@@ -8,7 +8,6 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
 
-from django.utils.decorators import method_decorator
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.publications.services import vocabularies
@@ -23,7 +22,7 @@ from coda.domain.vocabulary import (
 ConceptPair = tuple[VocabularyConcept | None, VocabularyConcept | None]
 
 
-@method_decorator(breadcrumb("Vocabularies"), name="dispatch")
+@breadcrumb("Vocabularies")
 class VocabularyListView(LoginRequiredMixin, EntityListView[VocabularyProtocol]):
     entity_name = "Vocabularies"
     entity_list_item_template = "publications/vocabulary_list_item.html"

@@ -8,8 +8,6 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
-from django.utils.decorators import method_decorator
-
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts import repository
 from coda.apps.contracts.forms import ContractForm, EntityFormset
@@ -21,7 +19,7 @@ from coda.apps.views import EntityListView
 from coda.domain.contract import Contract, ContractId, PublisherId
 from coda.domain.publication import JournalId
 
-@method_decorator(breadcrumb("Contracts"), name="dispatch")
+@breadcrumb("Contracts")
 class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
     entity_name = "Contracts"
     entity_create_url = "contracts:create"

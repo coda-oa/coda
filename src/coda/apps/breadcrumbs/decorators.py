@@ -15,9 +15,10 @@ def breadcrumb(
     parent_url_name: str | Callable[[HttpRequest, Any, Any], str] | None = None,
     preserve_filters: bool = True,
     exclude_params: list[str] | None = None,
-) -> Callable[[Callable[..., HttpResponse]], Callable[..., HttpResponse]]:
+) -> Callable[[Any], Any]:
     """
     Decorator to add breadcrumb navigation to Django views.
+    Works with both function-based and class-based views.
     
     Args:
         title: The display title for this page in the breadcrumb
@@ -25,54 +26,90 @@ def breadcrumb(
         preserve_filters: Whether to preserve URL parameters when navigating back
         exclude_params: List of parameter names to exclude when preserving filters
     
-    Example:
+    Usage example:
         @breadcrumb("Invoice Details", parent_url_name="invoices:list")
         def invoice_detail(request, pk):
             # your view code
             pass
+    
     """
     if exclude_params is None:
         exclude_params = ['page']  # Typically we don't want to preserve pagination
     
-    def decorator(view_func: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
+    def _setup_breadcrumb_data(request: HttpRequest, *args: Any, **kwargs: Any) -> None:
+        """Extract and set up breadcrumb data on the request object."""
+        if not hasattr(request, '_breadcrumb_data'):
+            setattr(request, '_breadcrumb_data', {})
+        
+        # Resolve title - it can be a string or a callable
+        resolved_title = title
+        if callable(title):
+            resolved_title = title(request, *args, **kwargs)
+
+        resolved_parent = parent_url_name
+        if callable(parent_url_name):
+            resolved_parent = parent_url_name(request, *args, **kwargs)
+        
+        # Store the HTTP referer to preserve filters from the previous page
+        referer_url = getattr(request, 'META', {}).get('HTTP_REFERER', '')
+        
+        breadcrumb_data = getattr(request, '_breadcrumb_data', {})
+        breadcrumb_data.update({
+            'title': resolved_title,
+            'parent_url_name': resolved_parent,
+            'preserve_filters': preserve_filters,
+            'exclude_params': exclude_params,
+            'referer_url': referer_url,
+            'view_args': args,
+            'view_kwargs': kwargs,
+        })
+    
+    def _add_breadcrumb_metadata(func: Callable[..., Any]) -> None:
+        """Add breadcrumb metadata to a function for introspection."""
+        setattr(func, 'breadcrumb_title', title)
+        setattr(func, 'breadcrumb_parent', parent_url_name)
+        setattr(func, 'breadcrumb_preserve_filters', preserve_filters)
+        setattr(func, 'breadcrumb_exclude_params', exclude_params)
+
+    def _create_view_wrapper(view_func: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
+        """Create the actual wrapper function for a view function."""
         @wraps(view_func)
         def wrapper(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-            # Store breadcrumb info on the request for later use
-            if not hasattr(request, '_breadcrumb_data'):
-                setattr(request, '_breadcrumb_data', {})
-            
-            # Resolve title - it can be a string or a callable
-            resolved_title = title
-            if callable(title):
-                resolved_title = title(request, *args, **kwargs)
-
-            resolved_parent  = parent_url_name
-            if callable(parent_url_name):
-                resolved_parent = parent_url_name(request, *args, **kwargs)
-            
-            # Store the HTTP referer to preserve filters from the previous page
-            referer_url = request.META.get('HTTP_REFERER', '')
-            
-            breadcrumb_data = getattr(request, '_breadcrumb_data', {})
-            breadcrumb_data.update({
-                'title': resolved_title,
-                'parent_url_name': resolved_parent,
-                'preserve_filters': preserve_filters,
-                'exclude_params': exclude_params,
-                'referer_url': referer_url,
-                'view_args': args,
-                'view_kwargs': kwargs,
-            })
-            
+            _setup_breadcrumb_data(request, *args, **kwargs)
             return view_func(request, *args, **kwargs)
         
-        # Store metadata on the function for introspection using setattr to avoid mypy issues
-        setattr(wrapper, 'breadcrumb_title', title)
-        setattr(wrapper, 'breadcrumb_parent', parent_url_name)
-        setattr(wrapper, 'breadcrumb_preserve_filters', preserve_filters)
-        setattr(wrapper, 'breadcrumb_exclude_params', exclude_params)
-        
+        _add_breadcrumb_metadata(wrapper)
         return wrapper
+    
+    def decorator(view_or_class: Any) -> Any:
+        """
+        Main decorator function that handles both functions and classes.
+        """
+        # Check if we're decorating a class (class-based view)
+        if isinstance(view_or_class, type):
+            # For class-based views, we need to wrap the dispatch method
+            # We use a custom wrapper that properly handles the self parameter
+            
+            original_dispatch = getattr(view_or_class, 'dispatch', None)
+            if not original_dispatch:
+                raise ValueError(
+                    f"Cannot apply breadcrumb decorator to class {view_or_class.__name__}: "
+                    "no dispatch method found. Make sure it's a proper Django view class."
+                )
+            
+            def new_dispatch(self: Any, request: HttpRequest, *args: Any, **kwargs: Any) -> Any:
+                _setup_breadcrumb_data(request, *args, **kwargs)
+                return original_dispatch(self, request, *args, **kwargs)
+            
+            _add_breadcrumb_metadata(new_dispatch)
+            
+            # Replace the dispatch method
+            setattr(view_or_class, 'dispatch', new_dispatch)
+            
+            return view_or_class
+        else:
+            # For function-based views, apply the wrapper directly
+            return _create_view_wrapper(view_or_class)
     
     return decorator
 

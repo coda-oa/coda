@@ -11,7 +11,6 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView
 
-from django.utils.decorators import method_decorator
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.institutions import services
 from coda.apps.institutions.forms import InstitutionForm
@@ -19,7 +18,7 @@ from coda.apps.institutions.models import Institution
 from coda.apps.views import SimpleSearchEntityListView
 
 
-@method_decorator(breadcrumb("Organization Structure"), name="dispatch")
+@breadcrumb("Organization Structure")
 class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institution]):
     model = Institution
     template_name = "institutions/institution_list.html"
@@ -39,7 +38,7 @@ class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institu
 institution_list_view = InstitutionListView.as_view()
 
 
-@method_decorator(breadcrumb("Create Institution", parent_url_name="institutions:list"), name="dispatch")
+@breadcrumb("Create Institution", parent_url_name="institutions:list")
 class CreateInstitutionView(LoginRequiredMixin, CreateView[Institution, InstitutionForm]):
     template_name = "generic_form_view.html"
     model = Institution
