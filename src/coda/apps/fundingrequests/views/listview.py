@@ -115,7 +115,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
                 map_or_none(int, request.GET.get("contract_name")),
                 map_or_none(int, request.GET.get("contract_year")),
             ),
-            sort_order=fq.SortOrder.alphabetical,
+            sort_order=fq.SortOrder.try_parse(request.GET.get("sort_by")),
         ),
     )
 

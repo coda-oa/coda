@@ -87,6 +87,16 @@ class SortOrder(enum.StrEnum):
     def default() -> "SortOrder":
         return SortOrder.date_desc
 
+    @staticmethod
+    def try_parse(value: str | None) -> "SortOrder":
+        if not value:
+            return SortOrder.default()
+
+        try:
+            return SortOrder[value]
+        except KeyError:
+            return SortOrder.default()
+
 
 @dataclass
 class ReviewResultCriteria:
