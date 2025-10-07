@@ -1,0 +1,214 @@
+import logging
+from decimal import Decimal
+from typing import TypedDict
+
+from django.urls import reverse
+
+from coda.apps.contracts import mapper as contract_mapper
+from coda.apps.invoices import models as invoice_models
+from coda.domain.contract import ContractYear
+from coda.domain.invoice import (
+    AnyPosition,
+    ContractCostType,
+    ContractPosition,
+    CreditorId,
+    FundingSourceId,
+    Invoice,
+    InvoiceId,
+    ItemType,
+    PaymentStatus,
+    Position,
+    PublicationCostType,
+    TaxRate,
+)
+from coda.domain.invoice_list_item import InvoiceListItem
+from coda.domain.money import Currency, Money
+from coda.domain.publication import PublicationId
+from coda.lazyiterable import LazyCachedIterable
+
+
+def as_domain_object(model: invoice_models.Invoice) -> Invoice:
+    """Convert InvoiceModel to Invoice domain object."""
+    invoice = Invoice(
+        id=InvoiceId(model.pk),
+        date=model.date,
+        number=model.number,
+        creditor=CreditorId(model.creditor.pk),
+        status=PaymentStatus(model.status),
+        positions=LazyCachedIterable(
+            _as_position_domain_object(position) for position in model.positions.all()
+        ),
+        comment=model.comment,
+        external_invoice_id=model.external_invoice_id,
+    )
+
+    conversions = model.currency_conversions.all()
+    for conversion in conversions:
+        invoice.add_conversion(
+            conversion.exchange_rate, Currency.from_code(conversion.target_currency)
+        )
+
+    return invoice
+
+
+def as_list_item(model: invoice_models.Invoice) -> InvoiceListItem:
+    """
+    Convert InvoiceModel to InvoiceListItem using pre-computed annotations.
+    This version relies on database-level calculations for maximum performance.
+    """
+
+    net_amount = getattr(model, "net_total", Decimal("0"))
+    tax_amount = getattr(model, "tax_total", Decimal("0"))
+    total_amount = net_amount + tax_amount
+
+    currency_code = getattr(model, "first_position_currency", "EUR")
+    currency = Currency.from_code(currency_code)
+
+    net = Money(net_amount, currency)
+    tax = Money(tax_amount, currency)
+    total = Money(total_amount, currency)
+
+    conversions = {}
+    for conversion in model.currency_conversions.all():
+        conversions[Currency.from_code(conversion.target_currency)] = conversion.exchange_rate
+
+    creditor_name = model.creditor.name
+
+    url = reverse("invoices:detail", kwargs={"pk": model.pk})
+
+    return InvoiceListItem(
+        id=InvoiceId(model.pk),
+        number=model.number,
+        date=model.date,
+        creditor=CreditorId(model.creditor.pk),
+        creditor_name=creditor_name,
+        status=PaymentStatus(model.status),
+        currency=currency,
+        net=net,
+        tax=tax,
+        total=total,
+        comment=model.comment,
+        external_invoice_id=model.external_invoice_id,
+        conversions=conversions,
+        url=url,
+    )
+
+
+def as_django_model(invoice: Invoice) -> invoice_models.Invoice:
+    """Convert Invoice domain object to InvoiceModel."""
+    return invoice_models.Invoice(
+        number=invoice.number,
+        date=invoice.date,
+        creditor_id=invoice.creditor,
+        comment=invoice.comment,
+        status=invoice.status.value,
+        external_invoice_id=invoice.external_invoice_id,
+    )
+
+
+def as_position_django_model(
+    invoice_model: invoice_models.Invoice, position: AnyPosition
+) -> invoice_models.Position:
+    """Convert position domain object to PositionModel."""
+    match position.item:
+        case ContractYear() as contract_year:
+            return invoice_models.Position(
+                contract_id=contract_year.contract.id,
+                contract_year=contract_year.year,
+                cost_amount=position.cost.amount,
+                cost_currency=position.cost.currency.code,
+                cost_type=position.cost_type.value,
+                tax_rate=position.tax_rate,
+                funding_source_id=position.funding_source,
+                invoice_id=invoice_model.pk,
+                external_position_id=position.external_position_id,
+            )
+        case PublicationId(pub_id):
+            return invoice_models.Position(
+                publication_id=pub_id,
+                cost_amount=position.cost.amount,
+                cost_currency=position.cost.currency.code,
+                cost_type=position.cost_type.value,
+                tax_rate=position.tax_rate,
+                funding_source_id=position.funding_source,
+                invoice_id=invoice_model.pk,
+                external_position_id=position.external_position_id,
+            )
+        case str(description):
+            return invoice_models.Position(
+                description=description,
+                cost_amount=position.cost.amount,
+                cost_currency=position.cost.currency.code,
+                cost_type=position.cost_type.value,
+                tax_rate=position.tax_rate,
+                funding_source_id=position.funding_source,
+                invoice_id=invoice_model.pk,
+                external_position_id=position.external_position_id,
+            )
+        case _:
+            raise ValueError("Invalid position item")
+
+
+def create_currency_conversions(
+    invoice: Invoice, invoice_model: invoice_models.Invoice
+) -> list[invoice_models.CurrencyConversion]:
+    """Create CurrencyConversion objects from invoice domain object."""
+    return [
+        invoice_models.CurrencyConversion(
+            invoice=invoice_model,
+            target_currency=target_currency.code,
+            exchange_rate=exchange_rate,
+        )
+        for target_currency, exchange_rate in invoice.conversions().items()
+    ]
+
+
+class _CommonPositionArgs(TypedDict):
+    cost: Money
+    tax_rate: TaxRate
+    funding_source: FundingSourceId | None
+    external_position_id: str
+
+
+def _as_position_domain_object(position: invoice_models.Position) -> AnyPosition:
+    """Convert PositionModel to position domain object."""
+    item = _get_item_from_position_model(position)
+    common_args = _extract_common_position_args(position)
+
+    cost_type: PublicationCostType | ContractCostType
+    if isinstance(item, ContractYear):
+        cost_type = ContractCostType(position.cost_type)
+        return ContractPosition(item=item, cost_type=cost_type, **common_args)
+
+    logging.info(
+        "Restoring Position %s from DB. Item is %s of type %s. Cost type is %s",
+        str(position.pk),
+        str(item),
+        type(item),
+        position.cost_type,
+    )
+    cost_type = PublicationCostType(position.cost_type)
+    return Position(item=item, cost_type=cost_type, **common_args)
+
+
+def _extract_common_position_args(position: invoice_models.Position) -> _CommonPositionArgs:
+    """Extract common position arguments from PositionModel."""
+    return {
+        "cost": Money(position.cost_amount, Currency[position.cost_currency]),
+        "tax_rate": TaxRate(position.tax_rate),
+        "funding_source": (
+            FundingSourceId(position.funding_source.pk) if position.funding_source else None
+        ),
+        "external_position_id": position.external_position_id,
+    }
+
+
+def _get_item_from_position_model(position: invoice_models.Position) -> ItemType:
+    """Extract item from PositionModel."""
+    if position.contract and position.contract_year:
+        contract = contract_mapper.as_domain_object(position.contract)
+        return contract.in_year(position.contract_year)
+    elif position.publication:
+        return PublicationId(position.publication.pk)
+    else:
+        return position.description

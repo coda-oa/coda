@@ -1,38 +1,28 @@
 import logging
 from collections.abc import Callable, Iterable, Sequence
 from decimal import Decimal
-from typing import TypedDict, TypeVar
+from typing import TypeVar
 
 from django.db import transaction
 from django.db.models import F, Q, QuerySet, Sum, Value
 from django.db.models.functions import Coalesce
-from django.urls import reverse
 
-from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.invoices import mapper as invoice_mapper
 from coda.apps.invoices.models import CurrencyConversion
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
-from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
 from coda.domain.invoice import (
-    AnyPosition,
-    ContractCostType,
-    ContractPosition,
     CreditorId,
     FundingSourceId,
     Invoice,
     InvoiceId,
-    ItemType,
     PaymentStatus,
-    Position,
-    PublicationCostType,
-    TaxRate,
 )
 from coda.domain.invoice_list_item import InvoiceListItem
-from coda.domain.money import Currency, Money
+from coda.domain.money import Currency
 from coda.domain.publication import PublicationId
-from coda.lazyiterable import LazyCachedIterable
 
 
 def first() -> Invoice | None:
@@ -40,21 +30,24 @@ def first() -> Invoice | None:
     if not model:
         return None
 
-    return as_domain_object(model)
+    return invoice_mapper.as_domain_object(model)
 
 
 def get_by_id(invoice_id: InvoiceId) -> Invoice:
-    return as_domain_object(InvoiceModel.objects.get(id=invoice_id))
+    return invoice_mapper.as_domain_object(InvoiceModel.objects.get(id=invoice_id))
 
 
 def get_by_creditor(creditor_id: CreditorId) -> Sequence[Invoice]:
     return DomainQuerySet(
-        _ordered_date_desc(InvoiceModel.objects.filter(creditor_id=creditor_id)), as_domain_object
+        _ordered_date_desc(InvoiceModel.objects.filter(creditor_id=creditor_id)),
+        invoice_mapper.as_domain_object,
     )
 
 
 def all() -> Sequence[Invoice]:
-    return DomainQuerySet(_ordered_date_desc(InvoiceModel.objects.all()), as_domain_object)
+    return DomainQuerySet(
+        _ordered_date_desc(InvoiceModel.objects.all()), invoice_mapper.as_domain_object
+    )
 
 
 def invoice_with_publication(publication_id: PublicationId) -> Invoice | None:
@@ -63,7 +56,7 @@ def invoice_with_publication(publication_id: PublicationId) -> Invoice | None:
     if not invoice:
         return None
 
-    return as_domain_object(invoice)
+    return invoice_mapper.as_domain_object(invoice)
 
 
 def get_other_paid_invoice_with_publication(
@@ -84,7 +77,7 @@ def get_other_paid_invoice_with_publication(
     if not invoice:
         return None
 
-    return as_domain_object(invoice)
+    return invoice_mapper.as_domain_object(invoice)
 
 
 def search(
@@ -219,7 +212,7 @@ def get_sorted_list_items(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[
         sort_function(qs).select_related("creditor").prefetch_related("currency_conversions")
     )
 
-    return [as_list_item(model) for model in qs]
+    return [invoice_mapper.as_list_item(model) for model in qs]
 
 
 def _annotate_position_based_data(qs: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
@@ -235,125 +228,11 @@ def _annotate_position_based_data(qs: QuerySet[InvoiceModel]) -> QuerySet[Invoic
     )
 
 
-def as_domain_object(model: InvoiceModel) -> Invoice:
-    invoice = Invoice(
-        id=InvoiceId(model.id),
-        date=model.date,
-        number=model.number,
-        creditor=CreditorId(model.creditor_id),
-        status=PaymentStatus(model.status),
-        positions=LazyCachedIterable(
-            _as_position_domain_object(position) for position in model.positions.all()
-        ),
-        comment=model.comment,
-        external_invoice_id=model.external_invoice_id,
-    )
-
-    conversions = model.currency_conversions.all()
-    for conversion in conversions:
-        invoice.add_conversion(
-            conversion.exchange_rate, Currency.from_code(conversion.target_currency)
-        )
-
-    return invoice
-
-
-def as_list_item(model: InvoiceModel) -> InvoiceListItem:
-    """
-    Converts an InvoiceModel to InvoiceListItem using pre-computed annotations.
-    This version relies on database-level calculations for maximum performance.
-    """
-
-    net_amount = getattr(model, "net_total", Decimal("0"))
-    tax_amount = getattr(model, "tax_total", Decimal("0"))
-    total_amount = net_amount + tax_amount
-
-    currency_code = getattr(model, "first_position_currency", "EUR")
-    currency = Currency.from_code(currency_code)
-
-    net = Money(net_amount, currency)
-    tax = Money(tax_amount, currency)
-    total = Money(total_amount, currency)
-
-    conversions = {}
-    for conversion in model.currency_conversions.all():
-        conversions[Currency.from_code(conversion.target_currency)] = conversion.exchange_rate
-
-    creditor_name = model.creditor.name
-
-    url = reverse("invoices:detail", kwargs={"pk": model.id})
-
-    return InvoiceListItem(
-        id=InvoiceId(model.id),
-        number=model.number,
-        date=model.date,
-        creditor=CreditorId(model.creditor_id),
-        creditor_name=creditor_name,
-        status=PaymentStatus(model.status),
-        currency=currency,
-        net=net,
-        tax=tax,
-        total=total,
-        comment=model.comment,
-        external_invoice_id=model.external_invoice_id,
-        conversions=conversions,
-        url=url,
-    )
-
-
-class _CommonPositionArgs(TypedDict):
-    cost: Money
-    tax_rate: TaxRate
-    funding_source: FundingSourceId | None
-    external_position_id: str
-
-
-def _as_position_domain_object(position: PositionModel) -> AnyPosition:
-    item = _get_item_from_position_model(position)
-    common_args = _extract_common_position_args(position)
-
-    cost_type: PublicationCostType | ContractCostType
-    if isinstance(item, ContractYear):
-        cost_type = ContractCostType(position.cost_type)
-        return ContractPosition(item=item, cost_type=cost_type, **common_args)
-
-    logging.info(
-        "Restoring Position %s from DB. Item is %s of type %s. Cost type is %s",
-        str(position.id),
-        str(item),
-        type(item),
-        position.cost_type,
-    )
-    cost_type = PublicationCostType(position.cost_type)
-    return Position(item=item, cost_type=cost_type, **common_args)
-
-
-def _extract_common_position_args(position: PositionModel) -> _CommonPositionArgs:
-    return {
-        "cost": Money(position.cost_amount, Currency[position.cost_currency]),
-        "tax_rate": TaxRate(position.tax_rate),
-        "funding_source": (
-            FundingSourceId(position.funding_source_id) if position.funding_source_id else None
-        ),
-        "external_position_id": position.external_position_id,
-    }
-
-
-def _get_item_from_position_model(position: PositionModel) -> ItemType:
-    if position.contract and position.contract_year:
-        contract = contract_mapper.as_domain_object(position.contract)
-        return contract.in_year(position.contract_year)
-    elif position.publication_id:
-        return PublicationId(position.publication_id)
-    else:
-        return position.description
-
-
 def create(invoice: Invoice) -> InvoiceId:
     if invoice.id:
         raise InvoiceAlreadyExists(invoice.id)
 
-    invoice_model = _create_invoice_model(invoice)
+    invoice_model = invoice_mapper.as_django_model(invoice)
     invoice_model.save()
     _add_positions(invoice, invoice_model)
     _add_conversions(invoice, invoice_model)
@@ -361,21 +240,10 @@ def create(invoice: Invoice) -> InvoiceId:
     return InvoiceId(invoice_model.id)
 
 
-def _create_invoice_model(invoice: Invoice) -> InvoiceModel:
-    return InvoiceModel(
-        number=invoice.number,
-        date=invoice.date,
-        creditor_id=invoice.creditor,
-        comment=invoice.comment,
-        status=invoice.status.value,
-        external_invoice_id=invoice.external_invoice_id,
-    )
-
-
 @transaction.atomic
 def bulk_create(invoices: Iterable[Invoice]) -> list[InvoiceId]:
     models = InvoiceModel.objects.bulk_create(
-        _create_invoice_model(invoice) for invoice in invoices
+        invoice_mapper.as_django_model(invoice) for invoice in invoices
     )
 
     for invoice, invoice_model in zip(invoices, models):
@@ -387,12 +255,7 @@ def bulk_create(invoices: Iterable[Invoice]) -> list[InvoiceId]:
 
 def _add_conversions(invoice: Invoice, invoice_model: InvoiceModel) -> None:
     CurrencyConversion.objects.bulk_create(
-        CurrencyConversion(
-            invoice=invoice_model,
-            target_currency=target_currency.code,
-            exchange_rate=exchange_rate,
-        )
-        for target_currency, exchange_rate in invoice.conversions().items()
+        invoice_mapper.create_currency_conversions(invoice, invoice_model)
     )
 
 
@@ -416,7 +279,10 @@ def update(invoice: Invoice) -> None:
 
 def _add_positions(invoice: Invoice, invoice_model: InvoiceModel) -> None:
     PositionModel.objects.bulk_create(
-        [_create_position(invoice_model, position) for position in invoice.positions]
+        [
+            invoice_mapper.as_position_django_model(invoice_model, position)
+            for position in invoice.positions
+        ]
     )
 
 
@@ -432,46 +298,6 @@ class InvoiceAlreadyExists(ValueError):
 class UnsavedInvoice(ValueError):
     def __init__(self, invoice: Invoice) -> None:
         super().__init__(f"Invoice {invoice.number} is not saved yet.")
-
-
-def _create_position(m: InvoiceModel, pos: AnyPosition) -> PositionModel:
-    match pos.item:
-        case ContractYear() as contract_year:
-            return PositionModel(
-                contract_id=contract_year.contract.id,
-                contract_year=contract_year.year,
-                cost_amount=pos.cost.amount,
-                cost_currency=pos.cost.currency.code,
-                cost_type=pos.cost_type.value,
-                tax_rate=pos.tax_rate,
-                funding_source_id=pos.funding_source,
-                invoice_id=m.id,
-                external_position_id=pos.external_position_id,
-            )
-        case PublicationId(pub_id):
-            return PositionModel(
-                publication_id=pub_id,
-                cost_amount=pos.cost.amount,
-                cost_currency=pos.cost.currency.code,
-                cost_type=pos.cost_type.value,
-                tax_rate=pos.tax_rate,
-                funding_source_id=pos.funding_source,
-                invoice_id=m.id,
-                external_position_id=pos.external_position_id,
-            )
-        case str(description):
-            return PositionModel(
-                description=description,
-                cost_amount=pos.cost.amount,
-                cost_currency=pos.cost.currency.code,
-                cost_type=pos.cost_type.value,
-                tax_rate=pos.tax_rate,
-                funding_source_id=pos.funding_source,
-                invoice_id=m.id,
-                external_position_id=pos.external_position_id,
-            )
-        case _:
-            raise ValueError("Invalid position item")
 
 
 def _ordered_alphabetically(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
