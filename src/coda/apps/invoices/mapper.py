@@ -97,6 +97,7 @@ def as_list_item(model: invoice_models.Invoice) -> InvoiceListItem:
 def as_django_model(invoice: Invoice) -> invoice_models.Invoice:
     """Convert Invoice domain object to InvoiceModel."""
     return invoice_models.Invoice(
+        pk=invoice.id,
         number=invoice.number,
         date=invoice.date,
         creditor_id=invoice.creditor,
@@ -106,7 +107,7 @@ def as_django_model(invoice: Invoice) -> invoice_models.Invoice:
     )
 
 
-def as_position_django_model(
+def _as_position_django_model(
     invoice_model: invoice_models.Invoice, position: AnyPosition
 ) -> invoice_models.Position:
     """Convert position domain object to PositionModel."""
@@ -149,25 +150,25 @@ def as_position_django_model(
             raise ValueError("Invalid position item")
 
 
-def create_currency_conversions(
-    invoice: Invoice, invoice_model: invoice_models.Invoice
-) -> list[invoice_models.CurrencyConversion]:
-    """Create CurrencyConversion objects from invoice domain object."""
-    return [
-        invoice_models.CurrencyConversion(
-            invoice=invoice_model,
-            target_currency=target_currency.code,
-            exchange_rate=exchange_rate,
-        )
-        for target_currency, exchange_rate in invoice.conversions().items()
-    ]
-
-
 class _CommonPositionArgs(TypedDict):
     cost: Money
     tax_rate: TaxRate
     funding_source: FundingSourceId | None
     external_position_id: str
+
+
+def synchronize_relationships(invoice: Invoice, invoice_model: invoice_models.Invoice) -> None:
+    """Synchronize relationships (positions and conversions) between domain object and model."""
+    invoice_model.positions.all().delete()
+    invoice_model.currency_conversions.all().delete()
+
+    positions = [
+        _as_position_django_model(invoice_model, position) for position in invoice.positions
+    ]
+    invoice_models.Position.objects.bulk_create(positions)
+
+    conversions = _create_currency_conversions(invoice, invoice_model)
+    invoice_models.CurrencyConversion.objects.bulk_create(conversions)
 
 
 def _as_position_domain_object(position: invoice_models.Position) -> AnyPosition:
@@ -212,3 +213,17 @@ def _get_item_from_position_model(position: invoice_models.Position) -> ItemType
         return PublicationId(position.publication.pk)
     else:
         return position.description
+
+
+def _create_currency_conversions(
+    invoice: Invoice, invoice_model: invoice_models.Invoice
+) -> list[invoice_models.CurrencyConversion]:
+    """Create CurrencyConversion objects from invoice domain object."""
+    return [
+        invoice_models.CurrencyConversion(
+            invoice=invoice_model,
+            target_currency=target_currency.code,
+            exchange_rate=exchange_rate,
+        )
+        for target_currency, exchange_rate in invoice.conversions().items()
+    ]

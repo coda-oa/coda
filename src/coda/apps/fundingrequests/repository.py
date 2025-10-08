@@ -5,8 +5,7 @@ from django.db import transaction
 from typing_extensions import TypeIs
 
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.fundingrequests.mapper import contacts, external_funding, reviews
-from coda.apps.fundingrequests.mapper import fundingrequests as fundingrequest_mapper
+from coda.apps.fundingrequests import mapper as fundingrequest_mapper
 from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequestReview
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
@@ -68,8 +67,10 @@ def create_many(fundingrequests: Iterable[AnyFundingRequest]) -> Iterable[Fundin
     )
     created_frs = FundingRequestModel.objects.bulk_create(fr_models)
 
-    external_funding_objs = external_funding.create_bulk_models(fundingrequest_list, created_frs)
-    contact_objs, contact_map = contacts.create_bulk_models_and_map(
+    external_funding_objs = fundingrequest_mapper.create_bulk_external_funding_models(
+        fundingrequest_list, created_frs
+    )
+    contact_objs, contact_map = fundingrequest_mapper.create_bulk_contact_models_and_map(
         fundingrequest_list, created_frs
     )
 
@@ -103,14 +104,14 @@ class UnsavedFundingRequest(ValueError):
 @transaction.atomic
 def save_review(review: Review) -> None:
     review_model = FundingRequestReview.objects.filter(fundingrequest=review.fundingrequest).get()
-    reviews.update_django_model(review, review_model)
+    fundingrequest_mapper._update_review_model(review, review_model)
     review_model.save()
 
 
 @transaction.atomic
 def save_contact(id: FundingRequestId, contact: FundingRequestContact) -> None:
     fr = FundingRequestModel.objects.get(pk=id)
-    contacts.synchronize_contact_relationship(fr, contact)
+    fundingrequest_mapper._synchronize_contact(fr, contact)
 
 
 @transaction.atomic
@@ -124,8 +125,7 @@ def save_funding(
     fr.save()
 
     # Update external funding
-    fr.external_funding.all().delete()
-    external_funding.bulk_create_for_model(fr, funding)
+    fundingrequest_mapper._synchronize_external_funding(fr, funding)
 
 
 def request_id_exists(request_id: PublicFundingRequestId) -> bool:
@@ -195,7 +195,7 @@ def _is_publication_type(
 
 def get_review(id: FundingRequestId) -> Review:
     model = FundingRequestReview.objects.filter(fundingrequest=id).first()
-    return reviews.as_domain_object(model, id)
+    return fundingrequest_mapper._as_review_domain_object(model, id)
 
 
 def get_funding_organization(pk: int) -> FundingOrganization:

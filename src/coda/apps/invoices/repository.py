@@ -9,9 +9,7 @@ from django.db.models.functions import Coalesce
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices import mapper as invoice_mapper
-from coda.apps.invoices.models import CurrencyConversion
 from coda.apps.invoices.models import Invoice as InvoiceModel
-from coda.apps.invoices.models import Position as PositionModel
 from coda.domain.date import DateRange
 from coda.domain.invoice import (
     CreditorId,
@@ -234,8 +232,7 @@ def create(invoice: Invoice) -> InvoiceId:
 
     invoice_model = invoice_mapper.as_django_model(invoice)
     invoice_model.save()
-    _add_positions(invoice, invoice_model)
-    _add_conversions(invoice, invoice_model)
+    invoice_mapper.synchronize_relationships(invoice, invoice_model)
 
     return InvoiceId(invoice_model.id)
 
@@ -247,43 +244,18 @@ def bulk_create(invoices: Iterable[Invoice]) -> list[InvoiceId]:
     )
 
     for invoice, invoice_model in zip(invoices, models):
-        _add_positions(invoice, invoice_model)
-        _add_conversions(invoice, invoice_model)
+        invoice_mapper.synchronize_relationships(invoice, invoice_model)
 
     return [InvoiceId(m.id) for m in models]
-
-
-def _add_conversions(invoice: Invoice, invoice_model: InvoiceModel) -> None:
-    CurrencyConversion.objects.bulk_create(
-        invoice_mapper.create_currency_conversions(invoice, invoice_model)
-    )
 
 
 def update(invoice: Invoice) -> None:
     if not invoice.id:
         raise UnsavedInvoice(invoice)
 
-    invoice_model = InvoiceModel.objects.get(id=invoice.id)
-    invoice_model.number = invoice.number
-    invoice_model.date = invoice.date
-    invoice_model.creditor_id = invoice.creditor
-    invoice_model.comment = invoice.comment
-    invoice_model.status = invoice.status.value
-    invoice_model.external_invoice_id = invoice.external_invoice_id
+    invoice_model = invoice_mapper.as_django_model(invoice)
+    invoice_mapper.synchronize_relationships(invoice, invoice_model)
     invoice_model.save()
-    invoice_model.positions.all().delete()
-    invoice_model.currency_conversions.all().delete()
-    _add_positions(invoice, invoice_model)
-    _add_conversions(invoice, invoice_model)
-
-
-def _add_positions(invoice: Invoice, invoice_model: InvoiceModel) -> None:
-    PositionModel.objects.bulk_create(
-        [
-            invoice_mapper.as_position_django_model(invoice_model, position)
-            for position in invoice.positions
-        ]
-    )
 
 
 def delete(invoice_id: InvoiceId) -> None:
