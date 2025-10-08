@@ -130,7 +130,11 @@ def _add_home_breadcrumb(
 
     try:
         home_url = reverse("home")
-        if request.path != home_url:
+        # Use path_info for SCRIPT_NAME compatibility
+        current_path = getattr(request, "path_info", request.path)
+        if current_path != home_url.replace(
+            getattr(request, "META", {}).get("SCRIPT_NAME", ""), ""
+        ):
             breadcrumbs.insert(0, {"title": "Home", "url": home_url, "is_current": False})
     except Exception:
         pass
@@ -140,7 +144,9 @@ def _add_home_breadcrumb(
 
 def _get_url_kwargs(request: HttpRequest) -> dict[str, Any]:
     try:
-        resolver_match = resolve(request.path)
+        # Handle SCRIPT_NAME: use path_info instead of path for proper resolution
+        path_for_resolution = getattr(request, "path_info", request.path)
+        resolver_match = resolve(path_for_resolution)
         return resolver_match.kwargs
     except Exception:
         return {}
