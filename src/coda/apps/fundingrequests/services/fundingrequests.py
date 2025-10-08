@@ -1,8 +1,9 @@
-from dataclasses import dataclass
 import datetime
 import itertools
 import random
 from collections.abc import Iterable
+from dataclasses import dataclass
+from decimal import Decimal
 from typing import Protocol, cast, overload
 
 from coda.apps.fundingrequests import repository
@@ -11,7 +12,7 @@ from coda.apps.fundingrequests.dto import (
     ExternalFundingDto,
     ExtraInformationDto,
     PaymentDto,
-    ReviewDto,
+    UpdateReviewDto,
 )
 from coda.apps.fundingrequests.services.checks import run_checks
 from coda.apps.institutions import repository as institution_repository
@@ -23,6 +24,8 @@ from coda.domain.errors import DomainError
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.fundingrequest.review import Review, ReviewResult
+from coda.domain.money import Currency, Money
 
 
 class RequestIdGenerator(Protocol):
@@ -164,8 +167,27 @@ def update_funding(
     run_checks(fundingrequest_id, checkfactory=checkfactory)
 
 
-def update_review(fundingrequest_id: FundingRequestId, review: ReviewDto) -> None:
-    pass
+def update_review(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) -> None:
+    if not review.result:
+        review = _keep_result(fundingrequest_id, review)
+
+    review_ = Review(
+        fundingrequest_id,
+        Money(
+            Decimal(review.decided_funding_amount),
+            Currency.from_code(review.decided_funding_currency),
+        ),
+        remarks=review.reviewer_remarks,
+        result=ReviewResult.of(review.result),
+    )
+    repository.save_review(review_)
+
+
+def _keep_result(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) -> UpdateReviewDto:
+    old_review = repository.get_review(fundingrequest_id)
+    review = review.model_copy()
+    review.result = old_review.result.value
+    return review
 
 
 @overload

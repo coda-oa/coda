@@ -11,7 +11,7 @@ from coda.apps.fundingrequests.dto import (
     ExtraContactDto,
     ExtraInformationDto,
     PaymentDto,
-    ReviewDto,
+    UpdateReviewDto,
 )
 from coda.apps.fundingrequests.repository import get_by_id
 from coda.apps.institutions.models import Institution
@@ -225,11 +225,11 @@ def test__update_fundingrequest_review__updates_the_review() -> None:
         remarks="Something interesing",
         result=ReviewResult.Approved,
     )
-    dto = ReviewDto(
+    dto = UpdateReviewDto(
         decided_funding_amount=float(review.decided_funding.amount),
         decided_funding_currency=review.decided_funding.currency.code,
         reviewer_remarks=review.remarks,
-        result=review.result,
+        result=review.result.value,
     )
 
     services.fundingrequests.update_review(new_id, dto)

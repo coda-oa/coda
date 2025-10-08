@@ -15,7 +15,6 @@ from coda.domain.fundingrequest import (
     Payment,
     PaymentMethod,
 )
-from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import Currency, Money
 from coda.domain.string import NonEmptyStr
 
@@ -113,11 +112,11 @@ class ExtraInformationDto(CodaBaseDto):
     request_remarks: str = ""
 
 
-class ReviewDto(CodaBaseDto):
+class UpdateReviewDto(CodaBaseDto):
     decided_funding_amount: float
     decided_funding_currency: str
     reviewer_remarks: str
-    result: ReviewResult
+    result: str
 
 
 class CreateFundingRequestDto(CodaBaseDto):
