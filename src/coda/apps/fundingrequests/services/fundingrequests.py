@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 import datetime
 import itertools
-import logging
 import random
 from collections.abc import Iterable
 from typing import Protocol, cast, overload
@@ -12,6 +11,7 @@ from coda.apps.fundingrequests.dto import (
     ExternalFundingDto,
     ExtraInformationDto,
     PaymentDto,
+    ReviewDto,
 )
 from coda.apps.fundingrequests.services.checks import run_checks
 from coda.apps.institutions import repository as institution_repository
@@ -137,7 +137,6 @@ def update_publication(
 ) -> None:
     fr = repository.get_by_id(fundingrequest_id)
     fr.publication = publication.to_publication(fr.publication.id)
-    logging.info(fr.publication)
     repository.update(fr)
     run_checks(fundingrequest_id, checkfactory=checkfactory)
 
@@ -163,6 +162,10 @@ def update_funding(
         map(ExternalFundingDto.to_external_funding, funding),
     )
     run_checks(fundingrequest_id, checkfactory=checkfactory)
+
+
+def update_review(fundingrequest_id: FundingRequestId, review: ReviewDto) -> None:
+    pass
 
 
 @overload

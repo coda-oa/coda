@@ -11,6 +11,7 @@ from coda.apps.fundingrequests.dto import (
     ExtraContactDto,
     ExtraInformationDto,
     PaymentDto,
+    ReviewDto,
 )
 from coda.apps.fundingrequests.repository import get_by_id
 from coda.apps.institutions.models import Institution
@@ -27,6 +28,9 @@ from coda.domain.fundingrequest import (
     NoContact,
     PublicFundingRequestId,
 )
+from coda.domain.fundingrequest.review import Review, ReviewResult
+from coda.domain.money._currency import Currency
+from coda.domain.money._money import Money
 from coda.domain.publication import JournalId
 from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
@@ -204,6 +208,35 @@ def test__update_fundingrequest_cost_and_external_funding__updates_cost_and_exte
     updated = get_by_id(new_id)
     assert updated.estimated_cost == new_cost
     assert list(updated.external_funding) == list(new_funding)
+
+
+@pytest.mark.django_db
+def test__update_fundingrequest_review__updates_the_review() -> None:
+    new_id = repository.create(
+        FundingRequest.new(
+            publication=domainfactory.publication(JournalId(modelfactory.journal().pk)),
+            estimated_cost=domainfactory.payment(),
+        )
+    )
+
+    review = Review(
+        new_id,
+        Money(100, Currency.GBP),
+        remarks="Something interesing",
+        result=ReviewResult.Approved,
+    )
+    dto = ReviewDto(
+        decided_funding_amount=float(review.decided_funding.amount),
+        decided_funding_currency=review.decided_funding.currency.code,
+        reviewer_remarks=review.remarks,
+        result=review.result,
+    )
+
+    services.fundingrequests.update_review(new_id, dto)
+
+    fr = repository.get_by_id(new_id)
+    assert fr.review() == review.result
+    assert fr.review_remarks == review.remarks
 
 
 @pytest.mark.django_db
