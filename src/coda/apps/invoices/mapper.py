@@ -24,7 +24,7 @@ from coda.domain.invoice import (
 from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Currency, Money
 from coda.domain.publication import PublicationId
-from coda.lazyiterable import LazyCachedIterable
+from coda.coda_itertools import LazyCachedIterable
 
 
 def as_domain_object(model: invoice_models.Invoice) -> Invoice:

@@ -6,7 +6,7 @@ from coda.apps.contracts import mapper
 from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.domain.contract import Contract, ContractId
-from coda.lazyiterable import LazyCachedIterable
+from coda.coda_itertools import LazyCachedIterable
 
 
 def first() -> Contract | None:
