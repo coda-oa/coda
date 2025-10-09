@@ -50,10 +50,17 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
 @breadcrumb("Edit Limited Vocabulary", parent_url_name="publications:vocabularies")
 def edit_limited(request: HttpRequest, pk: int) -> HttpResponse:
     limited = vocabulary_repository.get_limited_by_id(VocabularyId(pk))
+    allowed_concepts = limited.concepts
+    forbidden_concepts = limited.disallowed_concepts
     return render(
         request,
         "publications/vocabulary.html",
-        {"vocabulary": limited, "concept_pairs": concept_pairs(limited)},
+        {
+            "vocabulary": limited,
+            "concept_pairs": concept_pairs(limited),
+            "allowed_concepts": allowed_concepts,
+            "forbidden_concepts": forbidden_concepts,
+        },
     )
 
 
@@ -87,7 +94,12 @@ def render_vocabulary_table(
     return render(
         request,
         "publications/vocabulary_table.html",
-        {"vocabulary": vocabulary, "concept_pairs": concept_pairs},
+        {
+            "vocabulary": vocabulary,
+            "concept_pairs": concept_pairs,
+            "allowed_concepts": vocabulary.concepts,
+            "forbidden_concepts": vocabulary.disallowed_concepts,
+        },
     )
 
 
@@ -96,8 +108,10 @@ def render_vocabulary_table(
 def move_to_forbidden(request: HttpRequest) -> HttpResponse:
     vocabulary = get_vocabulary(request)
 
-    disallowed_concept = request.POST["disallow"]
-    vocabulary.disallow(disallowed_concept)
+    disallowed_ids = request.POST.getlist("disallow")
+    for concept_id in disallowed_ids:
+        vocabulary.disallow(concept_id)
+
     vocabulary_repository.save(vocabulary)
 
     return render_vocabulary_table(request, vocabulary, concept_pairs(vocabulary))
@@ -108,8 +122,10 @@ def move_to_forbidden(request: HttpRequest) -> HttpResponse:
 def move_to_allowed(request: HttpRequest) -> HttpResponse:
     vocabulary = get_vocabulary(request)
 
-    allowed_concept = request.POST["allow"]
-    vocabulary.allow(allowed_concept)
+    allowed_ids = request.POST.getlist("allow")
+    for concept_id in allowed_ids:
+        vocabulary.allow(concept_id)
+
     vocabulary_repository.save(vocabulary)
 
     return render_vocabulary_table(request, vocabulary, concept_pairs(vocabulary))

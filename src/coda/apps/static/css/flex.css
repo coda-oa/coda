@@ -56,3 +56,9 @@
     padding-right: 1.5rem;
     /* Adjust this value as needed */
 }
+
+.flex-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--coda-gap);
+}

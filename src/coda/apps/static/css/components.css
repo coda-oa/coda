@@ -110,3 +110,21 @@ search-select:not(:defined) {
 span.icon-tooltip[data-tooltip] {
   border: none;
 }
+
+
+.striped li:nth-child(odd) {
+  background-color: var(--pico-table-row-stripped-background-color);
+}
+
+.voc-concept-column {
+  width: 45%;
+}
+
+.voc-concept-column label {
+  width: 100%;
+  padding: var(--coda-spacing);
+}
+
+.voc-button-column {
+  width: 10%;
+}
