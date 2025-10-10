@@ -11,13 +11,14 @@ from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.contracts.models import Contract
-from coda.apps.invoices import repository, services
+from coda.apps.invoices import repository
 from coda.apps.invoices.models import Creditor
 from coda.apps.invoices.views.position_dtos.detail_position_dtos import PositionDetailDto
 from coda.apps.invoices.views.position_dtos.edit_position_dtos import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.apps.invoices.views.position_list import _DefaultContext, funding_sources_context
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
+from coda.contexts.finance.services import invoice_service
 from coda.domain.date import DateRange
 from coda.domain.invoice import Invoice, InvoiceId, PaymentStatus
 from coda.domain.invoice_list_item import InvoiceListItem
@@ -188,7 +189,7 @@ def pay_invoice(request: HttpRequest, pk: int) -> HttpResponse:
         invoice.pay()
     elif request.POST.get("action") == "reset_payment":
         invoice.reset_payment()
-    services.save(invoice)
+    invoice_service.save(invoice)
     return redirect("invoices:detail", pk=invoice.id)
 
 

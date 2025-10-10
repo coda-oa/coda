@@ -1,9 +1,12 @@
+from decimal import Decimal
+
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 
-from coda.apps.invoices import services
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.invoices.forms import InvoiceForm
+from coda.apps.invoices.views.position_dtos.edit_position_dtos import AnyPositionDto
 from coda.apps.invoices.views.position_list import (
     ErrorDict,
     PositionError,
@@ -12,13 +15,10 @@ from coda.apps.invoices.views.position_list import (
     parse_into_position_list,
     parse_position_data,
 )
-from coda.apps.invoices.views.position_dtos.edit_position_dtos import AnyPositionDto
 from coda.apps.preferences.models import GlobalPreferences
+from coda.contexts.finance.services import invoice_service
 from coda.domain.invoice import CreditorId, Invoice, InvoiceId, PaymentStatus
-
 from coda.domain.money._currency import Currency
-from decimal import Decimal
-from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
 @login_required
@@ -70,7 +70,7 @@ def save_invoice(
         _positions = [parse_position_data(request, i) for i in range(1, number_of_positions + 1)]
         positions = [p for p in _positions if p is not None]
         return (
-            services.save(
+            invoice_service.save(
                 parse_invoice(
                     form,
                     positions,

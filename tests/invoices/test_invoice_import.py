@@ -8,8 +8,10 @@ import pytest
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-from coda.apps.invoices import importservice, repository
-from coda.apps.invoices.importservice.dto import (
+from coda.apps.invoices import repository
+from coda.apps.invoices.models import Creditor, FundingSource
+from coda.apps.publications.services import publications
+from coda.contexts.finance.dto.import_dtos import (
     CommonPositionImportDto,
     ContractPositionImportDto,
     ConversionImportDto,
@@ -18,8 +20,7 @@ from coda.apps.invoices.importservice.dto import (
     InvoiceListImportDto,
     PublicationPositionImportDto,
 )
-from coda.apps.invoices.models import Creditor, FundingSource
-from coda.apps.publications.services import publications
+from coda.contexts.finance.services import import_service
 from coda.domain.contract import Contract
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest, FundingOrganizationId
@@ -155,7 +156,7 @@ def test__multiple_invalid_invoices__import_invoices__returns_errors_per_invoice
     import json
 
     json_stream = io.StringIO(json.dumps(invalid_data))
-    actual = importservice.import_invoices(json_stream)
+    actual = import_service.import_invoices(json_stream)
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 2
@@ -184,7 +185,7 @@ def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
     import json
 
     json_stream = io.StringIO(json.dumps(invalid_data))
-    actual = importservice.import_invoices(json_stream)
+    actual = import_service.import_invoices(json_stream)
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 1
@@ -242,9 +243,9 @@ def assert_valid_invoice_imported(valid_dto: InvoiceImportDto) -> None:
     assert_invoice_eq(expected, actual)
 
 
-def import_invoices(import_dto: InvoiceListImportDto) -> importservice.InvoiceImportReport:
+def import_invoices(import_dto: InvoiceListImportDto) -> import_service.InvoiceImportReport:
     temp_stream = io.StringIO(import_dto.model_dump_json())
-    return importservice.import_invoices(temp_stream)
+    return import_service.import_invoices(temp_stream)
 
 
 def publication_position_import_dto(
@@ -258,7 +259,7 @@ def publication_position_import_dto(
         amount=Decimal("100.00"),
         funding_source="publication-funding-source",
         external_id="external-publication-position",
-        cost_type=PublicationCostType.Reprint.value,
+        cost_type=PublicationCostType.Reprint,
     )
 
 
@@ -267,14 +268,14 @@ def non_existing_publication_position_import_dto() -> PublicationPositionImportD
         legacy_request_id="non-existing-legacy-request-id",
         tax_rate=Decimal("19.00"),
         amount=Decimal("100.00"),
-        cost_type=PublicationCostType.Gold_OA.value,
+        cost_type=PublicationCostType.Gold_OA,
     )
 
 
 def create_funding_request() -> AnyFundingRequest:
     fundingrequest = domainfactory.fundingrequest(
-        journal_id=JournalId(modelfactory.journal().id),
-        funding_org_id=FundingOrganizationId(modelfactory.funding_organization().id),
+        journal_id=JournalId(modelfactory.journal().pk),
+        funding_org_id=FundingOrganizationId(modelfactory.funding_organization().pk),
     )
     fundingrequest.id = fundingrequest_repository.create(fundingrequest)
     return fundingrequest
@@ -292,7 +293,7 @@ def contract_position_import_dto() -> ContractPositionImportDto:
         amount=Decimal("200.00"),
         funding_source="contract-funding-source",
         external_id="external-contract-position",
-        cost_type=ContractCostType.Read.value,
+        cost_type=ContractCostType.Read,
     )
 
 
@@ -304,7 +305,7 @@ def free_position_import_dto() -> FreePositionImportDto:
         amount=Decimal("50.00"),
         funding_source="free-position-funding-source",
         external_id="external-free-position",
-        cost_type=PublicationCostType.Other.value,
+        cost_type=PublicationCostType.Other,
     )
 
 

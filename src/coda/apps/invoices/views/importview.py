@@ -5,9 +5,9 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
-from coda.apps.formbase import JsonUploadForm
-from coda.apps.invoices import importservice
 from coda.apps.breadcrumbs.decorators import breadcrumb
+from coda.apps.formbase import JsonUploadForm
+from coda.contexts.finance.services import import_service
 
 
 @login_required
@@ -21,7 +21,7 @@ def import_invoices(request: HttpRequest) -> HttpResponse:
 
     import_file = form.cleaned_data["import_file"]
     try:
-        importservice.import_invoices(import_file)
+        import_service.import_invoices(import_file)
         messages.success(request, "Invoices imported successfully.")
     except pydantic.ValidationError as e:
         import_errors = [f"{error['loc']}: {error['msg']}" for error in e.errors()]

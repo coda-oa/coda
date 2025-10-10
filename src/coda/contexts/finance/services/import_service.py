@@ -9,7 +9,7 @@ from django.db.models import Q
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository
-from coda.apps.invoices.importservice.dto import (
+from coda.contexts.finance.dto.import_dtos import (
     CommonPositionImportDto,
     ContractPositionImportDto,
     FreePositionImportDto,
