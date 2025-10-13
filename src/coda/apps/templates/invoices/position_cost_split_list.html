@@ -1,0 +1,11 @@
+<div class="my-2">
+    <div class="flex justify-between align-center">
+        <h4>Funding Sources</h4>
+        <button type="button" class="secondary">Add</button>
+    </div>
+    {% include "invoices/position_funding_source_row.html" %}
+    {% include "invoices/position_cost_split_row.html" %}
+    {% for split in splits %}
+        {% include "invoices/position_cost_split_row.html" %}
+    {% endfor %}
+</div>
