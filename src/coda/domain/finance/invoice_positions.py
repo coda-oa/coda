@@ -1,7 +1,9 @@
 import enum
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Generic, Protocol, TypeVar
 
+from coda.domain import errors
 from coda.domain.contract import ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.invoice import FundingSourceId
@@ -12,6 +14,22 @@ from coda.domain.publication.publication import PublicationId
 
 BaseItemT = TypeVar("BaseItemT")
 BaseCostTypeT = TypeVar("BaseCostTypeT", bound=enum.Enum)
+
+
+class SplitTooLarge(errors.DomainError):
+    pass
+
+
+class InvalidSplitAmount(errors.DomainError):
+    pass
+
+
+class SameFundingSource(errors.DomainError):
+    pass
+
+
+def _sign(x: Decimal) -> int:
+    return 1 if x >= 0 else -1
 
 
 class Item(Protocol, Generic[BaseItemT, BaseCostTypeT]):
@@ -44,23 +62,17 @@ type AnyPosition = "Position[PublicationItem] | Position[ContractItem] | Positio
 
 class CostCalculation(Protocol):
     @property
-    def cost(self) -> Money:
-        ...
+    def cost(self) -> Money: ...
 
-    def tax_rate(self) -> TaxRate:
-        ...
+    def tax_rate(self) -> TaxRate: ...
 
-    def net(self) -> Money:
-        ...
+    def net(self) -> Money: ...
 
-    def tax(self) -> Money:
-        ...
+    def tax(self) -> Money: ...
 
-    def total(self) -> Money:
-        ...
+    def total(self) -> Money: ...
 
-    def convert(self, to: Currency, exchange: CurrencyExchange) -> "CostCalculation":
-        ...
+    def convert(self, to: Currency, exchange: CurrencyExchange) -> "CostCalculation": ...
 
 
 @dataclass(slots=True, frozen=True)
@@ -121,6 +133,7 @@ class _CommonPosition(Generic[ItemT]):
 
         self._item: ItemT = item
         self._cost_calculation = cost_calculation
+        self._splits: list[tuple[FundingSourceId | None, Money]] = []
 
     @property
     def cost(self) -> Money:
@@ -150,6 +163,35 @@ class _CommonPosition(Generic[ItemT]):
             external_position_id=self.external_position_id,
             cost_calculation=self._cost_calculation.convert(to, exchange),
         )
+
+    def add_split(self, funding_source: FundingSourceId, amount: Decimal) -> None:
+        if _sign(self.cost.amount) != _sign(amount):
+            raise InvalidSplitAmount()
+
+        if abs(amount) >= abs(self._get_split_remainder().amount):
+            raise SplitTooLarge()
+
+        if funding_source in self._funding_sources():
+            raise SameFundingSource()
+
+        self._splits.append((funding_source, Money(amount, self.cost.currency)))
+
+    def participants(self) -> list[tuple[FundingSourceId | None, Money]]:
+        remaining_costs = self._get_split_remainder()
+
+        return [(self.funding_source, remaining_costs)] + self._splits
+
+    def _get_split_remainder(self) -> Money:
+        split_costs = sum(
+            (amount for _, amount in self._splits), start=Money(0, self.cost.currency)
+        )
+        remaining_costs = self.cost - split_costs
+        return remaining_costs
+
+    def _funding_sources(self) -> set[FundingSourceId | None]:
+        fs = {fs for fs, _ in self._splits}
+        fs.add(self.funding_source)
+        return fs
 
     def __eq__(self, value: object, /) -> bool:
         if not isinstance(value, self.__class__):
@@ -224,33 +266,28 @@ def vat(
 
 class Position(Protocol[ItemT]):
     @property
-    def funding_source(self) -> FundingSourceId | None:
-        ...
+    def funding_source(self) -> FundingSourceId | None: ...
 
     @property
-    def external_position_id(self) -> str:
-        ...
+    def external_position_id(self) -> str: ...
 
     @property
-    def cost(self) -> Money:
-        ...
+    def cost(self) -> Money: ...
 
     @property
-    def item(self) -> ItemT:
-        ...
+    def item(self) -> ItemT: ...
 
     @property
-    def tax_rate(self) -> TaxRate:
-        ...
+    def tax_rate(self) -> TaxRate: ...
 
-    def net(self) -> Money:
-        ...
+    def net(self) -> Money: ...
 
-    def tax(self) -> Money:
-        ...
+    def tax(self) -> Money: ...
 
-    def total(self) -> Money:
-        ...
+    def total(self) -> Money: ...
 
-    def convert(self, to: Currency, exchange: CurrencyExchange) -> "Position[ItemT]":
-        ...
+    def convert(self, to: Currency, exchange: CurrencyExchange) -> "Position[ItemT]": ...
+
+    def add_split(self, funding_source: FundingSourceId, amount: Decimal) -> None: ...
+
+    def participants(self) -> list[tuple[FundingSourceId | None, Money]]: ...
