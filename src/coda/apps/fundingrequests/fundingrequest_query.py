@@ -55,11 +55,16 @@ class LabelsSearchCriteria:
     exclude_labels: list[LabelId] = field(default_factory=list)
 
     def _to_query(self) -> Q:
-        effective_labels = set(self.include_labels) - set(self.exclude_labels)
-        if not effective_labels:
-            return Q()
+        q = Q()
 
-        return Q(labels__in=effective_labels)
+        if self.include_labels:
+            q &= Q(labels__in=self.include_labels)
+            q &= Q(labels__isnull=False)
+
+        if self.exclude_labels:
+            q &= ~Q(labels__in=self.exclude_labels)
+
+        return q
 
 
 @dataclass
