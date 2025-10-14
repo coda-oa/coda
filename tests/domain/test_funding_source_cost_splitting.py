@@ -5,13 +5,7 @@ import pytest
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice import FundingSourceId
-from coda.domain.finance.invoice_positions import (
-    AnyPosition,
-    InvalidSplitAmount,
-    PublicationItem,
-    SameFundingSource,
-    SplitTooLarge,
-)
+from coda.domain.finance.invoice_positions import AnyPosition, InvalidSplitAmount, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
@@ -73,7 +67,7 @@ def test__position_is_split__split_again__splits_among_three_participants() -> N
 def test__position__split_costs__split_must_not_be_greater_than_amount(amount: int) -> None:
     sut = make_sut()
 
-    with pytest.raises(SplitTooLarge):
+    with pytest.raises(InvalidSplitAmount):
         sut.add_split(FundingSourceId(1), Decimal(amount))
 
 
@@ -83,7 +77,7 @@ def test__position_with_negative_amount__split_costs__split_must_not_be_greater_
 ) -> None:
     sut = make_sut(amount=Decimal(-100))
 
-    with pytest.raises(SplitTooLarge):
+    with pytest.raises(InvalidSplitAmount):
         sut.add_split(FundingSourceId(1), Decimal(amount))
 
 
@@ -93,7 +87,7 @@ def test__position_is_split__split_greater_than_remaining__raises_error(amount: 
 
     sut.add_split(FundingSourceId(1), Decimal(70))
 
-    with pytest.raises(SplitTooLarge):
+    with pytest.raises(InvalidSplitAmount):
         sut.add_split(FundingSourceId(2), Decimal(amount))
 
 
@@ -111,17 +105,15 @@ def test__position_with_negative_amount__split_positive_amount__is_not_allowed()
         sut.add_split(FundingSourceId(1), Decimal(1))
 
 
-def test__position__split_twice_by_same_funding_source__is_not_allowed() -> None:
-    sut = make_sut()
+def test__position_with_incomplete_split__has_remaining_cost() -> None:
+    sut = make_sut(amount=Decimal(100))
 
-    sut.add_split(FundingSourceId(1), Decimal(10))
+    sut.add_split(FundingSourceId(2), Decimal(25))
 
-    with pytest.raises(SameFundingSource):
-        sut.add_split(FundingSourceId(1), Decimal(10))
+    assert sut.unassigned_costs() == Money(75, Currency.EUR)
 
 
-def test__position_with_main_funding_source__split_by_same_funding_source__is_not_allowed() -> None:
-    sut = make_sut(FundingSourceId(1))
+def test__position_without_splits__has_no_remaining_cost() -> None:
+    sut = make_sut(amount=Decimal(100))
 
-    with pytest.raises(SameFundingSource):
-        sut.add_split(FundingSourceId(1), Decimal(10))
+    assert sut.unassigned_costs() == Money(0, Currency.EUR)

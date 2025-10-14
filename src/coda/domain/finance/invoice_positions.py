@@ -164,15 +164,14 @@ class _CommonPosition(Generic[ItemT]):
             cost_calculation=self._cost_calculation.convert(to, exchange),
         )
 
+    def unassigned_costs(self) -> Money:
+        if not self._splits:
+            return Money(0, self.cost.currency)
+        return self._get_split_remainder()
+
     def add_split(self, funding_source: FundingSourceId, amount: Decimal) -> None:
-        if _sign(self.cost.amount) != _sign(amount):
+        if self._is_invalid_split_amount(amount):
             raise InvalidSplitAmount()
-
-        if abs(amount) >= abs(self._get_split_remainder().amount):
-            raise SplitTooLarge()
-
-        if funding_source in self._funding_sources():
-            raise SameFundingSource()
 
         self._splits.append((funding_source, Money(amount, self.cost.currency)))
 
@@ -180,6 +179,11 @@ class _CommonPosition(Generic[ItemT]):
         remaining_costs = self._get_split_remainder()
 
         return [(self.funding_source, remaining_costs)] + self._splits
+
+    def _is_invalid_split_amount(self, amount: Decimal) -> bool:
+        sign_not_equal = _sign(self.cost.amount) != _sign(amount)
+        split_too_large = abs(amount) >= abs(self._get_split_remainder().amount)
+        return sign_not_equal or split_too_large
 
     def _get_split_remainder(self) -> Money:
         split_costs = sum(
@@ -287,6 +291,8 @@ class Position(Protocol[ItemT]):
     def total(self) -> Money: ...
 
     def convert(self, to: Currency, exchange: CurrencyExchange) -> "Position[ItemT]": ...
+
+    def unassigned_costs(self) -> Money: ...
 
     def add_split(self, funding_source: FundingSourceId, amount: Decimal) -> None: ...
 
