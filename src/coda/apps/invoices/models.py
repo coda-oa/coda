@@ -2,11 +2,18 @@ from django.db import models
 from django.urls import reverse
 
 from coda.apps.contracts.models import Contract
+from coda.apps.institutions.models import Institution
 from coda.apps.publications.models import Publication
 
 
 class FundingSource(models.Model):
-    name = models.CharField(max_length=255)
+    class TypeChoices(models.TextChoices):
+        budget = ("budget", "Budget")
+        institution = ("institution", "Institution")
+
+    type = models.CharField(max_length=255, default="budget", choices=TypeChoices)
+    name = models.CharField(max_length=255, blank=True)
+    institution = models.ForeignKey(Institution, null=True, on_delete=models.CASCADE)
 
 
 class Creditor(models.Model):
