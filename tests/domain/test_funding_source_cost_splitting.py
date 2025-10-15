@@ -103,17 +103,3 @@ def test__position_with_negative_amount__split_positive_amount__is_not_allowed()
 
     with pytest.raises(InvalidSplitAmount):
         sut.add_split(FundingSourceId(1), Decimal(1))
-
-
-def test__position_with_incomplete_split__has_remaining_cost() -> None:
-    sut = make_sut(amount=Decimal(100))
-
-    sut.add_split(FundingSourceId(2), Decimal(25))
-
-    assert sut.unassigned_costs() == Money(75, Currency.EUR)
-
-
-def test__position_without_splits__has_no_remaining_cost() -> None:
-    sut = make_sut(amount=Decimal(100))
-
-    assert sut.unassigned_costs() == Money(0, Currency.EUR)

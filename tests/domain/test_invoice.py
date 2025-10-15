@@ -11,7 +11,6 @@ from coda.domain.finance.invoice import (
     Invoice,
     NoSuchConversion,
     Positions,
-    UnassignedCosts,
 )
 from coda.domain.finance.invoice_positions import Position, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
@@ -69,27 +68,6 @@ def test__invoice_positions_with_tax__total__returns_sum_of_positions_with_tax()
     assert sut.total() == Money(345, Currency.USD)
     assert sut.tax() == Money(45, Currency.USD)
     assert sut.net() == Money(300, Currency.USD)
-
-
-def test__invoice_with_split_position_and_missing_remaining_amount__cannot_be_paid() -> None:
-    p = position(Money(100, Currency.EUR))
-    p.add_split(FundingSourceId(2), Decimal(20))
-
-    sut = make_sut([p])
-
-    with pytest.raises(UnassignedCosts):
-        sut.pay()
-
-
-def test__paid_invoice__adding_split_position_with_unassigned_costs__raises_error() -> None:
-    sut = make_sut([position(Money(100, Currency.EUR))])
-    sut.pay()
-
-    p = position(Money(100, Currency.EUR))
-    p.add_split(FundingSourceId(2), Decimal(20))
-
-    with pytest.raises(UnassignedCosts):
-        sut.positions = [p]
 
 
 def test__unpaid_invoice__can_add_split_position_with_unassigned_costs() -> None:
