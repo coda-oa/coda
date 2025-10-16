@@ -84,19 +84,46 @@ def save_vocabularies(request: HttpRequest) -> HttpResponse:
     return redirect("publications:vocabularies")
 
 
-def render_vocabulary_table(
-    request: HttpRequest,
-    vocabulary: LimitedVocabulary,
-    concept_pairs: Iterable[ConceptPair],
+def _move_concepts_between_lists(
+    request: HttpRequest, selected_concepts_param: str, move_from_allowed_to_forbidden: bool
 ) -> HttpResponse:
+    """
+    Helper function to move concepts between allowed and forbidden lists.
+
+    Args:
+        request: HTTP request containing form data
+        selected_concepts_param: Parameter name containing selected concept IDs
+        move_from_allowed_to_forbidden: True to move from allowed→forbidden, False for forbidden→allowed
+    """
+    vocabulary = get_vocabulary(request)
+
+    # Get selected concepts to move
+    selected_concepts = set(request.POST.getlist(selected_concepts_param))
+
+    # Get current state of both lists
+    current_allowed_ids = set(request.POST.getlist("allowed_concepts"))
+    current_forbidden_ids = set(request.POST.getlist("disallowed_concepts"))
+
+    # Calculate new state based on direction
+    if move_from_allowed_to_forbidden:
+        new_allowed_ids = current_allowed_ids - selected_concepts
+        new_forbidden_ids = current_forbidden_ids.union(selected_concepts)
+    else:  # move from forbidden to allowed
+        new_allowed_ids = current_allowed_ids.union(selected_concepts)
+        new_forbidden_ids = current_forbidden_ids - selected_concepts
+
+    # Get concept objects for rendering
+    allowed_concepts = [vocabulary.get_any_concept(cid) for cid in new_allowed_ids if cid]
+    forbidden_concepts = [vocabulary.get_any_concept(cid) for cid in new_forbidden_ids if cid]
+
+    # Return updated table (NO DATABASE SAVE)
     return render(
         request,
         "publications/vocabulary_table.html",
         {
             "vocabulary": vocabulary,
-            "concept_pairs": concept_pairs,
-            "allowed_concepts": vocabulary.concepts,
-            "forbidden_concepts": vocabulary.disallowed_concepts,
+            "allowed_concepts": allowed_concepts,
+            "forbidden_concepts": forbidden_concepts,
         },
     )
 
@@ -104,54 +131,20 @@ def render_vocabulary_table(
 @login_required
 @require_POST
 def move_to_forbidden(request: HttpRequest) -> HttpResponse:
-    vocabulary = get_vocabulary(request)
-
-    selected_to_disallow = set(request.POST.getlist("allowed_concepts_check"))
-
-    current_allowed_ids = set(request.POST.getlist("allowed_concepts"))
-    current_forbidden_ids = set(request.POST.getlist("disallowed_concepts"))
-
-    new_allowed_ids = current_allowed_ids - selected_to_disallow
-    new_forbidden_ids = current_forbidden_ids.union(selected_to_disallow)
-
-    allowed_concepts = [vocabulary.get_any_concept(cid) for cid in new_allowed_ids if cid]
-    forbidden_concepts = [vocabulary.get_any_concept(cid) for cid in new_forbidden_ids if cid]
-
-    return render(
+    return _move_concepts_between_lists(
         request,
-        "publications/vocabulary_table.html",
-        {
-            "vocabulary": vocabulary,
-            "allowed_concepts": allowed_concepts,
-            "forbidden_concepts": forbidden_concepts,
-        },
+        selected_concepts_param="allowed_concepts_check",
+        move_from_allowed_to_forbidden=True,
     )
 
 
 @login_required
 @require_POST
 def move_to_allowed(request: HttpRequest) -> HttpResponse:
-    vocabulary = get_vocabulary(request)
-
-    selected_to_allow = set(request.POST.getlist("disallowed_concepts_check"))
-
-    current_allowed_ids = set(request.POST.getlist("allowed_concepts"))
-    current_forbidden_ids = set(request.POST.getlist("disallowed_concepts"))
-
-    new_allowed_ids = current_allowed_ids.union(selected_to_allow)
-    new_forbidden_ids = current_forbidden_ids - selected_to_allow
-
-    allowed_concepts = [vocabulary.get_any_concept(cid) for cid in new_allowed_ids if cid]
-    forbidden_concepts = [vocabulary.get_any_concept(cid) for cid in new_forbidden_ids if cid]
-
-    return render(
+    return _move_concepts_between_lists(
         request,
-        "publications/vocabulary_table.html",
-        {
-            "vocabulary": vocabulary,
-            "allowed_concepts": allowed_concepts,
-            "forbidden_concepts": forbidden_concepts,
-        },
+        selected_concepts_param="disallowed_concepts_check",
+        move_from_allowed_to_forbidden=False,
     )
 
 
