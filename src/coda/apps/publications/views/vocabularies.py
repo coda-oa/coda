@@ -4,7 +4,7 @@ from itertools import zip_longest
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
 
@@ -65,25 +65,23 @@ def edit_limited(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
-def enter_edit_title_mode(request: HttpRequest) -> HttpResponse:
-    return render(
-        request,
-        "publications/vocabulary_edit_title.html",
-        {"vocabulary": get_vocabulary(request), "editing": True},
-    )
-
-
-@login_required
-def save_title(request: HttpRequest) -> HttpResponse:
+def save_vocabularies(request: HttpRequest) -> HttpResponse:
     vocabulary = get_vocabulary(request)
     vocabulary.name = request.POST["vocabulary_name"]
+
+    final_forbidden_ids = set(request.POST.getlist("disallowed_concepts"))
+
+    current_disallowed = [c.concept_id for c in vocabulary.disallowed_concepts]
+    for concept_id in current_disallowed:
+        vocabulary.allow(concept_id)
+
+    for concept_id in final_forbidden_ids:
+        if concept_id:
+            vocabulary.disallow(concept_id)
+
     vocabulary_repository.save(vocabulary)
 
-    return render(
-        request,
-        "publications/vocabulary_edit_title.html",
-        {"vocabulary": vocabulary, "editing": False},
-    )
+    return redirect("publications:vocabularies")
 
 
 def render_vocabulary_table(
@@ -108,13 +106,26 @@ def render_vocabulary_table(
 def move_to_forbidden(request: HttpRequest) -> HttpResponse:
     vocabulary = get_vocabulary(request)
 
-    disallowed_ids = request.POST.getlist("disallow")
-    for concept_id in disallowed_ids:
-        vocabulary.disallow(concept_id)
+    selected_to_disallow = set(request.POST.getlist("allowed_concepts_check"))
 
-    vocabulary_repository.save(vocabulary)
+    current_allowed_ids = set(request.POST.getlist("allowed_concepts"))
+    current_forbidden_ids = set(request.POST.getlist("disallowed_concepts"))
 
-    return render_vocabulary_table(request, vocabulary, concept_pairs(vocabulary))
+    new_allowed_ids = current_allowed_ids - selected_to_disallow
+    new_forbidden_ids = current_forbidden_ids.union(selected_to_disallow)
+
+    allowed_concepts = [vocabulary.get_any_concept(cid) for cid in new_allowed_ids if cid]
+    forbidden_concepts = [vocabulary.get_any_concept(cid) for cid in new_forbidden_ids if cid]
+
+    return render(
+        request,
+        "publications/vocabulary_table.html",
+        {
+            "vocabulary": vocabulary,
+            "allowed_concepts": allowed_concepts,
+            "forbidden_concepts": forbidden_concepts,
+        },
+    )
 
 
 @login_required
@@ -122,13 +133,26 @@ def move_to_forbidden(request: HttpRequest) -> HttpResponse:
 def move_to_allowed(request: HttpRequest) -> HttpResponse:
     vocabulary = get_vocabulary(request)
 
-    allowed_ids = request.POST.getlist("allow")
-    for concept_id in allowed_ids:
-        vocabulary.allow(concept_id)
+    selected_to_allow = set(request.POST.getlist("disallowed_concepts_check"))
 
-    vocabulary_repository.save(vocabulary)
+    current_allowed_ids = set(request.POST.getlist("allowed_concepts"))
+    current_forbidden_ids = set(request.POST.getlist("disallowed_concepts"))
 
-    return render_vocabulary_table(request, vocabulary, concept_pairs(vocabulary))
+    new_allowed_ids = current_allowed_ids.union(selected_to_allow)
+    new_forbidden_ids = current_forbidden_ids - selected_to_allow
+
+    allowed_concepts = [vocabulary.get_any_concept(cid) for cid in new_allowed_ids if cid]
+    forbidden_concepts = [vocabulary.get_any_concept(cid) for cid in new_forbidden_ids if cid]
+
+    return render(
+        request,
+        "publications/vocabulary_table.html",
+        {
+            "vocabulary": vocabulary,
+            "allowed_concepts": allowed_concepts,
+            "forbidden_concepts": forbidden_concepts,
+        },
+    )
 
 
 @login_required

@@ -202,3 +202,6 @@ class LimitedVocabulary:
 
     def allow(self, concept_id: str) -> None:
         self._disallowed.discard(concept_id)
+
+    def get_any_concept(self, concept_id: str) -> VocabularyConcept:
+        return self._move_concept_to_self(self.base_vocabulary.get_concept(concept_id))

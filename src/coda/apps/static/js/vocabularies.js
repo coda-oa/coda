@@ -72,11 +72,11 @@ window.ConceptListUI = (() => {
     };
 })();
 function initializeConceptUI() {
-    ConceptListUI.toggleButtonState("disallow", "disallow-button");
-    ConceptListUI.toggleButtonState("allow", "allow-button");
+    ConceptListUI.toggleButtonState("allowed_concepts_check", "disallow-button");
+    ConceptListUI.toggleButtonState("disallowed_concepts_check", "allow-button");
 
-    ConceptListUI.setupSelectDeselectButtons("disallow", "select-all-allowed", "deselect-all-allowed");
-    ConceptListUI.setupSelectDeselectButtons("allow", "select-all-forbidden", "deselect-all-forbidden");
+    ConceptListUI.setupSelectDeselectButtons("allowed_concepts_check", "select-all-allowed", "deselect-all-allowed");
+    ConceptListUI.setupSelectDeselectButtons("disallowed_concepts_check", "select-all-forbidden", "deselect-all-forbidden");
 
     ConceptListUI.setupFilter("allowed-filter", "#allowed-checkboxes");
     ConceptListUI.setupFilter("forbidden-filter", "#forbidden-checkboxes");

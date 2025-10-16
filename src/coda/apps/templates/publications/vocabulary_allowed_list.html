@@ -1,0 +1,17 @@
+<ul class="undecorated">
+    <fieldset id="allowed-checkboxes" datagroup="disallow">
+        {% for allowed_concept in allowed_concepts %}
+            <li>
+                <label>
+                    <input type="checkbox"
+                           name="allowed_concepts_check"
+                           value="{{ allowed_concept.concept_id }}" />
+                    {{ allowed_concept.concept_id }} {{ allowed_concept.name }}
+                </label>
+                <input type="hidden"
+                       name="allowed_concepts"
+                       value="{{ allowed_concept.concept_id }}" />
+            </li>
+        {% endfor %}
+    </fieldset>
+</ul>
