@@ -1,6 +1,10 @@
 from types import TracebackType
-from typing import Generic, ParamSpec, TypeVar
-from collections.abc import Callable
+from typing import Generic, ParamSpec, TypeVar, final
+from collections.abc import Callable, Generator, Iterable
+from dataclasses import dataclass
+from typing_extensions import TypeIs
+
+from coda.coda_itertools import LazyCachedIterable
 
 
 class DomainError(ValueError):
@@ -12,10 +16,66 @@ T = TypeVar("T")
 Ex = TypeVar("Ex", bound=BaseException)
 
 
+@final
+@dataclass(slots=True, frozen=True)
+class Result(Generic[T, Ex]):
+    _value: T | None
+    _exception: Ex | None
+
+    @classmethod
+    def success(cls, value: T) -> "Result[T, Ex]":
+        return cls(value, None)
+
+    @classmethod
+    def failed(cls, exception: Ex) -> "Result[T, Ex]":
+        return cls(None, exception)
+
+    def _ok(self, value: T | None) -> TypeIs[T]:
+        return value is not None
+
+    def ok(self) -> bool:
+        return self._ok(self._value)
+
+    def get(self) -> T:
+        if not self._ok(self._value):
+            raise ValueError("tried to get result of failed result")
+
+        return self._value
+
+    def get_or(self, default: T) -> T:
+        if not self._ok(self._value):
+            return default
+
+        return self._value
+
+    def get_err(self) -> Ex:
+        if self._exception is None:
+            raise ValueError("tried to get exception from successful result")
+
+        return self._exception
+
+
+@dataclass(slots=True)
+class ResultCollection(Generic[T, Ex]):
+    results: Iterable[Result[T, Ex]]
+
+    def __post_init__(self) -> None:
+        if isinstance(self.results, Generator):
+            self.results = LazyCachedIterable(self.results)
+
+    def values(self) -> list[T]:
+        return [r.get() for r in self.results if r.ok()]
+
+    def errors(self) -> list[Ex]:
+        return [r.get_err() for r in self.results if not r.ok()]
+
+    def split(self) -> tuple[list[T], list[Ex]]:
+        return self.values(), self.errors()
+
+
 class CaptureContext(Generic[Ex]):
     def __init__(self, exception_type: type[Ex]) -> None:
         self._ex_type = exception_type
-        self.errors: list[Ex] = []
 
     def __enter__(self) -> "CaptureContext[Ex]":
         return self
@@ -28,13 +88,16 @@ class CaptureContext(Generic[Ex]):
     ) -> None:
         pass
 
-    def __call__(self, fn: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T | None:
+    def __call__(self, fn: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> Result[T, Ex]:
         try:
-            return fn(*args, **kwargs)
+            return Result.success(fn(*args, **kwargs))
         except self._ex_type as e:
-            self.errors.append(e)
-            return None
+            return Result.failed(e)
 
 
 def capture(exception_type: type[Ex]) -> CaptureContext[Ex]:
     return CaptureContext(exception_type)
+
+
+def results(res: Iterable[Result[T, Ex]]) -> ResultCollection[T, Ex]:
+    return ResultCollection(res)

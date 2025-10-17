@@ -1,6 +1,11 @@
+from typing import Any
+
 from coda.apps.invoices import repository
+from coda.apps.invoices.views.position_dtos.edit_position_dtos import AnyPositionDto
 from coda.apps.publications.services import publications
-from coda.domain.invoice import Invoice, InvoiceId
+from coda.domain import errors
+from coda.domain.invoice import AnyPosition, Invoice, InvoiceId
+from coda.domain.money import Currency
 from coda.domain.publication.payment import InvoiceReceived, PaymentEvent, PublicationPaid
 from coda.domain.publication.publication import PublicationId
 
@@ -15,6 +20,31 @@ def save(invoice: Invoice) -> InvoiceId:
         _invoice_received(invoice)
 
     return id
+
+
+class PositionError(Exception):
+    def __init__(self, position: int, inner: Exception, *args: Any) -> None:
+        super().__init__(*args)
+        self.position = position
+        self.inner = inner
+
+    def message(self) -> str:
+        return str(self.inner)
+
+
+def try_parse_position_input(
+    positions: list[AnyPositionDto], currency: Currency
+) -> errors.ResultCollection[AnyPosition, PositionError]:
+    def _try_parse(p: AnyPositionDto, index: int) -> AnyPosition:
+        try:
+            return p.to_position(currency)
+        except ValueError as e:
+            raise PositionError(index, e)
+
+    with errors.capture(PositionError) as capture:
+        parsed = errors.results(capture(_try_parse, p, i) for i, p in enumerate(positions))
+
+    return parsed
 
 
 def _unpay_deleted_publication_positions(invoice: Invoice) -> None:

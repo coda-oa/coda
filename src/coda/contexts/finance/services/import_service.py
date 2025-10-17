@@ -18,7 +18,6 @@ from coda.contexts.finance.dto.import_dtos import (
 )
 from coda.apps.invoices.models import Creditor, FundingSource
 from coda.apps.publications.services import publications
-from coda.coda_itertools import notnone
 from coda.domain import errors
 from coda.domain.contract import Contract
 from coda.domain.invoice import (
@@ -105,12 +104,13 @@ def _validate_invoices(
     invoice_numbers = _extract_invoice_numbers(raw_invoices)
 
     with errors.capture(InvoiceProcessingError) as capture:
-        invoice_dtos = notnone(
+        parsed = errors.results(
             capture(_validate_invoice, invoice_numbers[i], raw_invoice)
             for i, raw_invoice in enumerate(raw_invoices)
         )
 
-    return list(invoice_dtos), capture.errors
+    invoice_dtos, errors_ = parsed.split()
+    return invoice_dtos, errors_
 
 
 def _extract_invoice_numbers(raw_invoices: list[dict[str, Any]]) -> list[str]:

@@ -19,7 +19,6 @@ from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import PublicationBaseDto
 from coda.checks.checkfactory import CheckFactory
-from coda.coda_itertools import notnone
 from coda.domain import errors
 from coda.domain.author import Author
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId
@@ -98,18 +97,20 @@ def bulk_create_fundingrequests(
     request_id_generator: RequestIdGenerator = PublicFundingRequestId.create,
     checkfactory: CheckFactory | None = None,
 ) -> tuple[Iterable[FundingRequestId], list[CreateFundingRequestFailed]]:
+    _ = checkfactory
     ids = [
         _find_unused_request_id(request_id_generator, creation_dto.request_date)
         for creation_dto in creation_dtos
     ]
 
     with errors.capture(CreateFundingRequestFailed) as capture:
-        funding_requests: Iterable[AnyFundingRequest] = notnone(
+        parsed = errors.results(
             capture(try_into_funding_request, request_id, creation_dto)
             for request_id, creation_dto in zip(ids, creation_dtos)
         )
 
-    return repository.create_many(funding_requests), capture.errors
+    funding_requests, errors_ = parsed.split()
+    return repository.create_many(funding_requests), errors_
 
 
 def _find_unused_request_id(
