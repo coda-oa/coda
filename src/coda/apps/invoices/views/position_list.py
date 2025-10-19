@@ -1,4 +1,4 @@
-import datetime
+from dataclasses import asdict
 from typing import Any, TypedDict
 
 from django.contrib.auth.decorators import login_required
@@ -15,14 +15,8 @@ from coda.apps.invoices.views.position_dtos.edit_position_dtos import (
     get_position_type,
 )
 from coda.apps.publications.models import Publication
-from coda.domain.invoice import (
-    AnyPosition,
-    ContractCostType,
-    CreditorId,
-    Invoice,
-    Positions,
-    PublicationCostType,
-)
+from coda.contexts.finance.services import invoice_service
+from coda.domain.invoice import ContractCostType, PublicationCostType
 from coda.domain.money import Currency
 
 _PublicationCostTypes = [ct.value for ct in PublicationCostType]
@@ -65,46 +59,12 @@ def remove_position(request: HttpRequest) -> HttpResponse:
 @login_required
 def invoice_total(request: HttpRequest) -> HttpResponse:
     positions = existing_positions(request)
+    currency = Currency.from_code(request.POST.get("currency", "EUR"))
     return render(
         request,
         "invoices/position_summary.html",
-        invoice_total_context(positions, request.POST.get("currency", "EUR")),
+        asdict(invoice_service.invoice_total(positions, currency)),
     )
-
-
-def temp_invoice(positions: list[AnyPositionDto], currency: Currency) -> Invoice:
-    return Invoice.new(
-        number="",
-        date=datetime.date.today(),
-        creditor=CreditorId(1),
-        positions=parse_into_position_list(positions, currency, parse_safe=True),
-        comment="",
-    )
-
-
-def parse_into_position_list(
-    positions: list[AnyPositionDto],
-    currency: Currency,
-    *,
-    parse_safe: bool = False,
-) -> Positions:
-    return [
-        parse_position(index, position, currency, parse_safe=parse_safe)
-        for index, position in enumerate(positions, start=1)
-    ]
-
-
-def parse_position(
-    index: int,
-    position: AnyPositionDto,
-    currency: Currency,
-    *,
-    parse_safe: bool = False,
-) -> AnyPosition:
-    try:
-        return position.to_position(currency, parse_safe=parse_safe)
-    except Exception as e:
-        raise PositionError(index, e)
 
 
 def added_positions(request: HttpRequest) -> list[AnyPositionDto]:
@@ -114,12 +74,12 @@ def added_positions(request: HttpRequest) -> list[AnyPositionDto]:
 
 def existing_positions(request: HttpRequest) -> list[AnyPositionDto]:
     number_of_positions = int(request.POST.get("number-of-positions", 0))
-    _positions = [parse_position_data(request, i) for i in range(1, number_of_positions + 1)]
+    _positions = [parse_position_dtos(request, i) for i in range(1, number_of_positions + 1)]
     positions = [p for p in _positions if p is not None]
     return positions
 
 
-def parse_position_data(request: HttpRequest, index: int) -> AnyPositionDto | None:
+def parse_position_dtos(request: HttpRequest, index: int) -> AnyPositionDto | None:
     position_type_str = request.POST.get(f"position-{index}-type")
     if not position_type_str:
         return None
@@ -166,13 +126,14 @@ def parse_added_free_position(request: HttpRequest) -> FreePositionDto | None:
 
 
 def render_positions(request: HttpRequest, positions: list[AnyPositionDto]) -> HttpResponse:
+    currency = Currency.from_code(request.POST.get("currency", "EUR"))
     return render(
         request,
         "invoices/invoice_positions.html",
         {"positions": positions}
         | _DefaultContext
         | funding_sources_context()
-        | invoice_total_context(positions, request.POST.get("currency", "EUR")),
+        | asdict(invoice_service.invoice_total(positions, currency)),
     )
 
 
@@ -180,31 +141,11 @@ def funding_sources_context() -> dict[str, Any]:
     return {"funding_sources": FundingSource.objects.all()}
 
 
-def invoice_total_context(positions: list[AnyPositionDto], currency: str) -> dict[str, Any]:
-    _currency = Currency.from_code(currency)
-    _tmp_invoice = temp_invoice(positions, _currency)
-    return {
-        "net": _tmp_invoice.net().amount,
-        "tax": _tmp_invoice.tax().amount,
-        "total": _tmp_invoice.total().amount,
-    }
-
-
 _ADD_POSITION_PARSERS = {
     "publication": parse_added_publication_position,
     "contract": parse_added_contract_position,
     "free": parse_added_free_position,
 }
-
-
-class PositionError(Exception):
-    def __init__(self, position: int, inner: Exception, *args: Any) -> None:
-        super().__init__(*args)
-        self.position = position
-        self.inner = inner
-
-    def message(self) -> str:
-        return str(self.inner)
 
 
 _DefaultContext = {

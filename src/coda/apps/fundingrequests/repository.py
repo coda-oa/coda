@@ -22,6 +22,7 @@ from coda.domain.fundingrequest import (
     TPublication,
 )
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
+from coda.domain.fundingrequest.references import FundingRequestReference
 from coda.domain.publication import Monograph, Publication, PublicationId
 
 
@@ -81,12 +82,12 @@ def create_many(fundingrequests: Iterable[AnyFundingRequest]) -> Iterable[Fundin
         FundingRequestContactModel.objects.bulk_create(contact_objs)
         # Now update the extra_contact field on each FundingRequestModel
         for fr in created_frs:
-            model_contact = contact_map.get(fr.id)
+            model_contact = contact_map.get(fr.pk)
             if model_contact:
                 fr.extra_contact = model_contact
                 fr.save(update_fields=["extra_contact"])
 
-    return tuple(FundingRequestId(fr.id) for fr in created_frs)
+    return tuple(FundingRequestId(fr.pk) for fr in created_frs)
 
 
 class FundingRequestAlreadyExists(ValueError):
@@ -180,6 +181,11 @@ def get_monograph_request(id: FundingRequestId) -> FundingRequest[Monograph]:
 def get_by_request_id(request_id: PublicFundingRequestId) -> AnyFundingRequest:
     model = FundingRequestModel.objects.get(request_id=str(request_id))
     return fundingrequest_mapper.as_domain_object(model)
+
+
+def get_reference_by_publication(publication: PublicationId) -> FundingRequestReference:
+    model = FundingRequestModel.objects.get(publication_id=publication)
+    return FundingRequestReference(request_id=model.request_id, url=model.get_absolute_url())
 
 
 def get_by_publication_id(publication_id: PublicationId) -> AnyFundingRequest:

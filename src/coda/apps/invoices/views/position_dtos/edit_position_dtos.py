@@ -136,7 +136,7 @@ class PublicationPositionDto(CommonPositionDto[PublicationId, PublicationCostTyp
 
     def to_position(
         self, currency: Currency, *, parse_safe: bool = False
-    ) -> Position[PublicationId]:        
+    ) -> Position[PublicationId]:
         return Position(
             item=self.parse(),
             cost_type=PublicationCostType(self.cost_type),
@@ -145,7 +145,7 @@ class PublicationPositionDto(CommonPositionDto[PublicationId, PublicationCostTyp
             funding_source=FundingSourceId(self.funding_source) if self.funding_source else None,
             external_position_id=self.external_position_id,
         )
-   
+
 
 class FreePositionDto(CommonPositionDto[str, PublicationCostType]):
     type: str = "free"
@@ -157,7 +157,7 @@ class FreePositionDto(CommonPositionDto[str, PublicationCostType]):
         return cls(
             description=position.item,
             funding_source=position.funding_source,
-            cost_amount=position.cost.amount, 
+            cost_amount=position.cost.amount,
             cost_type=position.cost_type,
             tax_rate=Decimal("0.00") if is_vat else position.tax_rate.percentage(),
             external_position_id=position.external_position_id,
@@ -171,7 +171,6 @@ class FreePositionDto(CommonPositionDto[str, PublicationCostType]):
         return self.description
 
     def to_position(self, currency: Currency, *, parse_safe: bool = False) -> Position[str]:
-
         return Position(
             item=self.parse(),
             cost_type=PublicationCostType(self.cost_type),
@@ -180,6 +179,7 @@ class FreePositionDto(CommonPositionDto[str, PublicationCostType]):
             funding_source=FundingSourceId(self.funding_source) if self.funding_source else None,
             external_position_id=self.external_position_id,
         )
+
 
 class ContractPositionDto(CommonPositionDto[ContractYear, ContractCostType]):
     """DTO for a contract position already added to an invoice."""
@@ -206,7 +206,7 @@ class ContractPositionDto(CommonPositionDto[ContractYear, ContractCostType]):
             name=contract.name,
             funding_source=position.funding_source,
             year=position.item.year,
-            cost_amount=position.cost.amount, 
+            cost_amount=position.cost.amount,
             cost_type=position.cost_type,
             tax_rate=Decimal("0.00") if is_vat else position.tax_rate.percentage(),
             external_position_id=position.external_position_id,

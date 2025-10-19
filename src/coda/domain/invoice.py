@@ -70,7 +70,7 @@ BaseItemT = TypeVar("BaseItemT", covariant=True)
 BaseCostTypeT = TypeVar("BaseCostTypeT", covariant=True, bound=enum.Enum)
 PublicationItemType = TypeVar("PublicationItemType", bound=PublicationId | str, covariant=True)
 type AnyPosition = "CommonPosition[ItemType, CostType]"
-Positions = Iterable[AnyPosition]
+type Positions = Iterable[AnyPosition]
 
 
 class PaymentStatus(enum.Enum):
@@ -108,8 +108,8 @@ class CommonPosition(ABC, Generic[BaseItemT, BaseCostTypeT]):
 
     def total(self) -> Money:
         return self.net() + self.tax()
-    
-    
+
+
 @dataclass(slots=True, frozen=True, kw_only=True)
 class Position(CommonPosition[PublicationItemType, PublicationCostType]):
     item: PublicationItemType

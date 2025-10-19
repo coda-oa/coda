@@ -1,10 +1,14 @@
+from dataclasses import dataclass
+import datetime
+from decimal import Decimal
 from typing import Any
 
 from coda.apps.invoices import repository
 from coda.apps.invoices.views.position_dtos.edit_position_dtos import AnyPositionDto
 from coda.apps.publications.services import publications
+from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.domain import errors
-from coda.domain.invoice import AnyPosition, Invoice, InvoiceId
+from coda.domain.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.money import Currency
 from coda.domain.publication.payment import InvoiceReceived, PaymentEvent, PublicationPaid
 from coda.domain.publication.publication import PublicationId
@@ -22,29 +26,40 @@ def save(invoice: Invoice) -> InvoiceId:
     return id
 
 
-class PositionError(Exception):
-    def __init__(self, position: int, inner: Exception, *args: Any) -> None:
-        super().__init__(*args)
-        self.position = position
-        self.inner = inner
+def parse_invoice(invoice_head: InvoiceHeadDto, positions: list[AnyPositionDto]) -> Invoice:
+    currency = invoice_head.currency
+    with errors.capture(ValueError) as capture:
+        parsed_positions = errors.results(
+            capture(p.to_position, currency).map_err(PositionParseError, p) for p in positions
+        )
 
-    def message(self) -> str:
-        return str(self.inner)
+    if parsed_positions.has_errors():
+        raise InvoiceParseError(parsed_positions.errors())
+
+    invoice = Invoice.new(
+        **invoice_head.model_dump(exclude={"currency"}),
+        positions=parsed_positions.values(),
+    )
+
+    return invoice
 
 
-def try_parse_position_input(
-    positions: list[AnyPositionDto], currency: Currency
-) -> errors.ResultCollection[AnyPosition, PositionError]:
-    def _try_parse(p: AnyPositionDto, index: int) -> AnyPosition:
-        try:
-            return p.to_position(currency)
-        except ValueError as e:
-            raise PositionError(index, e)
+@dataclass
+class InvoiceTotal:
+    net: Decimal
+    tax: Decimal
+    total: Decimal
 
-    with errors.capture(PositionError) as capture:
-        parsed = errors.results(capture(_try_parse, p, i) for i, p in enumerate(positions))
 
-    return parsed
+def invoice_total(positions: list[AnyPositionDto], currency: Currency) -> InvoiceTotal:
+    parsed = [p.to_position(currency, parse_safe=True) for p in positions]
+    invoice = Invoice.new("", datetime.date.today(), CreditorId(0), parsed)
+
+    return InvoiceTotal(
+        net=invoice.net().amount,
+        tax=invoice.tax().amount,
+        total=invoice.total().amount,
+    )
 
 
 def _unpay_deleted_publication_positions(invoice: Invoice) -> None:
@@ -109,3 +124,25 @@ def _update_payments(invoice: Invoice, paid: PaymentEvent) -> None:
 
 def _publication_positions(invoice: Invoice) -> list[PublicationId]:
     return [p.item for p in invoice.positions if isinstance(p.item, PublicationId)]
+
+
+class PositionParseError(Exception):
+    def __init__(self, inner: Exception, position: AnyPositionDto, *args: Any) -> None:
+        super().__init__(*args)
+        self.position = position
+        self.inner = inner
+
+    def message(self) -> str:
+        return str(self.inner)
+
+
+class InvoiceParseError(RuntimeError):
+    def __init__(self, position_errors: list[PositionParseError]) -> None:
+        super().__init__()
+        self.position_errors = position_errors
+
+    def error_for(self, position: AnyPositionDto) -> PositionParseError | None:
+        for err in self.position_errors:
+            if position == err.position:
+                return err
+        return None

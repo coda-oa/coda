@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
@@ -12,13 +13,13 @@ from coda.apps.invoices.views.position_list import (
     _DefaultContext,
     existing_positions,
     funding_sources_context,
-    invoice_total_context,
 )
 from coda.apps.invoices.views.position_dtos.edit_position_dtos import (
     AnyPositionDto,
     to_position_dto,
 )
 from coda.apps.preferences.models import GlobalPreferences
+from coda.contexts.finance.services import invoice_service
 from coda.domain.invoice import Invoice, InvoiceId
 from coda.domain.money._currency import Currency
 from django.views.decorators.http import require_GET
@@ -119,7 +120,7 @@ def render_edit_view(
         "invoices/create.html",
         _DefaultContext
         | funding_sources_context()
-        | invoice_total_context(positions, invoice.currency().code)
+        | asdict(invoice_service.invoice_total(positions, invoice.currency()))
         | errors
         | {
             "mode_name": "Edit",

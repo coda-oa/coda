@@ -3,7 +3,8 @@ from django import forms
 
 from coda.apps.fields import currency_field
 from coda.apps.invoices.models import Creditor, FundingSource
-from coda.domain.invoice import Invoice, PaymentStatus
+from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
+from coda.domain.invoice import CreditorId, Invoice, PaymentStatus
 from coda.domain.money import Currency
 
 
@@ -36,6 +37,17 @@ class InvoiceForm(forms.Form):
                 "currency": invoice.currency().code,
                 "external_invoice_id": invoice.external_invoice_id,
             }
+        )
+
+    def invoice_head(self) -> InvoiceHeadDto:
+        return InvoiceHeadDto(
+            number=self.cleaned_data["number"],
+            date=self.cleaned_data["date"],
+            status=PaymentStatus(self.cleaned_data["status"]),
+            creditor=CreditorId(self.cleaned_data["creditor"].id),
+            comment=self.cleaned_data["comment"],
+            external_invoice_id=self.cleaned_data["external_invoice_id"],
+            currency=self.get_currency(),
         )
 
     def get_currency(self) -> Currency:

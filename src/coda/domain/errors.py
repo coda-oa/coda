@@ -1,5 +1,5 @@
 from types import TracebackType
-from typing import Generic, ParamSpec, TypeVar, final
+from typing import Concatenate, Generic, ParamSpec, TypeAlias, TypeVar, final
 from collections.abc import Callable, Generator, Iterable
 from dataclasses import dataclass
 from typing_extensions import TypeIs
@@ -14,6 +14,9 @@ class DomainError(ValueError):
 P = ParamSpec("P")
 T = TypeVar("T")
 Ex = TypeVar("Ex", bound=BaseException)
+NewEx = TypeVar("NewEx", bound=BaseException)
+
+MapEx: TypeAlias = Callable[Concatenate[Ex, P], NewEx]
 
 
 @final
@@ -54,6 +57,14 @@ class Result(Generic[T, Ex]):
 
         return self._exception
 
+    def map_err(
+        self, fn: MapEx[Ex, P, NewEx], *args: P.args, **kwargs: P.kwargs
+    ) -> "Result[T, NewEx]":
+        if self._exception is not None:
+            return Result.failed(fn(self._exception, *args, **kwargs))
+
+        return Result.success(self.get())
+
 
 @dataclass(slots=True)
 class ResultCollection(Generic[T, Ex]):
@@ -62,6 +73,9 @@ class ResultCollection(Generic[T, Ex]):
     def __post_init__(self) -> None:
         if isinstance(self.results, Generator):
             self.results = LazyCachedIterable(self.results)
+
+    def has_errors(self) -> bool:
+        return any(not r.ok() for r in self.results)
 
     def values(self) -> list[T]:
         return [r.get() for r in self.results if r.ok()]
