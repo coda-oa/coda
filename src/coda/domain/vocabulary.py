@@ -70,6 +70,7 @@ class VocabularyConcept:
     vocabulary: VocabularyId
     name: str = ""
     description: str = ""
+    parent: ConceptId | None = None
 
     @classmethod
     def new(
@@ -171,6 +172,7 @@ class LimitedVocabulary:
             vocabulary=self.id,
             name=c.name,
             description=c.description,
+            parent=c.parent,
         )
 
     @property

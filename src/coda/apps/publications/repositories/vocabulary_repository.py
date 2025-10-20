@@ -182,6 +182,7 @@ def as_domain_object(v: VocabularyModel) -> VocabularyProtocol:
                     vocabulary=VocabularyId(v.pk),
                     name=c.name,
                     description=c.hint,
+                    parent=ConceptId(str(c.parent.entity_id)) if c.parent else None,
                 )
                 for c in v.concepts.all()
             ],

@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("preferences", "0006_globalpreferences_monograph_publication_type_vocabulary"),
-        ("publications", "0029_publication_monograph_publisher"),
+        ("publications", "0045_concept_parent"),
     ]
 
     operations = [

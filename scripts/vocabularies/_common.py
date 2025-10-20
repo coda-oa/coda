@@ -101,21 +101,62 @@ def create_fixture(vocabulary: Vocabulary, vocabulary_pk: int, concept_pk_start:
             "version": vocabulary.version,
         },
     }
-    concepts = [
-        {
-            "model": "publications.Concept",
-            "pk": concept_pk,
-            "fields": {
-                "vocabulary_id": vocabulary_pk,
-                "entity_id": uuid_lookup.get_or_insert(concept.id),
-                "concept_id": concept.id,
-                "name": concept.name,
-                "hint": concept.description,
-            },
-        }
-        for concept_pk, concept in enumerate(vocabulary.walk(), start=concept_pk_start)
-    ]
 
-    fixture = [voc_dict, *concepts]
+    concept_with_parents = list(walk_with_parents(vocabulary))
+    concept_id_to_pk: dict[str, int] = {}
+    concept_entries = []
+
+    for concept_pk, (concept, parent) in enumerate(concept_with_parents, start=concept_pk_start):
+        concept_id_to_pk[concept.id] = concept_pk
+
+        concept_entries.append(
+            {
+                "pk": concept_pk,
+                "concept": concept,
+                "parent": parent,
+                "entity_id": uuid_lookup.get_or_insert(concept.id),
+            }
+        )
+
+    concept_dicts = []
+
+    for entry in concept_entries:
+        concept = cast(Concept, entry["concept"])
+        parent = cast(Concept | None, entry["parent"])
+        pk = entry["pk"]
+        entity_id = entry["entity_id"]
+
+        fields = {
+            "vocabulary_id": vocabulary_pk,
+            "entity_id": entity_id,
+            "concept_id": concept.id,
+            "name": concept.name,
+            "hint": concept.description,
+        }
+
+        if parent:
+            parent_pk = concept_id_to_pk.get(parent.id)
+            if parent_pk is not None:
+                fields["parent"] = parent_pk
+
+        concept_dicts.append(
+            {
+                "model": "publications.Concept",
+                "pk": pk,
+                "fields": fields,
+            }
+        )
+
+    fixture = [voc_dict, *concept_dicts]
     uuid_lookup.save()
     return json.dumps(fixture, indent=4)
+
+
+def walk_with_parents(vocabulary: Vocabulary) -> Iterable[tuple[Concept, Concept | None]]:
+    def _walk(concept: Concept, parent: Concept | None) -> Iterable[tuple[Concept, Concept | None]]:
+        yield concept, parent
+        for sub in concept.subconcepts:
+            yield from _walk(sub, concept)
+
+    for top_level in vocabulary.concepts:
+        yield from _walk(top_level, None)
