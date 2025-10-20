@@ -183,8 +183,10 @@ def get_by_request_id(request_id: PublicFundingRequestId) -> AnyFundingRequest:
     return fundingrequest_mapper.as_domain_object(model)
 
 
-def get_reference_by_publication(publication: PublicationId) -> FundingRequestReference:
-    model = FundingRequestModel.objects.get(publication_id=publication)
+def find_reference_by_publication(publication: PublicationId) -> FundingRequestReference | None:
+    model = FundingRequestModel.objects.filter(publication_id=publication).first()
+    if not model:
+        return None
     return FundingRequestReference(request_id=model.request_id, url=model.get_absolute_url())
 
 

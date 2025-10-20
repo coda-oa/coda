@@ -5,19 +5,20 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
+from coda.apps.fundingrequests import repository
 from coda.apps.invoices.models import FundingSource
-from coda.apps.invoices.views.position_dtos.edit_position_dtos import (
+from coda.contexts.finance.dto.edit_position_dtos import (
     AnyPositionDto,
     ContractPositionDto,
     FreePositionDto,
     PublicationPositionDto,
     RelatedFundingRequest,
-    get_position_type,
 )
 from coda.apps.publications.models import Publication
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services import invoice_parser
 from coda.domain.invoice import ContractCostType, PublicationCostType
 from coda.domain.money import Currency
+from coda.domain.publication.publication import PublicationId
 
 _PublicationCostTypes = [ct.value for ct in PublicationCostType]
 _ContractCostTypes = [ct.value for ct in ContractCostType]
@@ -63,7 +64,7 @@ def invoice_total(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "invoices/position_summary.html",
-        asdict(invoice_service.invoice_total(positions, currency)),
+        asdict(invoice_parser.invoice_total(positions, currency)),
     )
 
 
@@ -84,7 +85,7 @@ def parse_position_dtos(request: HttpRequest, index: int) -> AnyPositionDto | No
     if not position_type_str:
         return None
 
-    position_type = get_position_type(position_type_str)
+    position_type = invoice_parser.get_position_type(position_type_str)
     return position_type.from_request(request.POST, f"position-{index}-")
 
 
@@ -95,20 +96,18 @@ def parse_added_publication_position(request: HttpRequest) -> PublicationPositio
 
     publication = Publication.objects.get(pk=publication_id)
     return PublicationPositionDto(
-        id=publication.id,
+        id=publication.pk,
         title=publication.title,
         funding_request=maybe_request_context(publication),
     )
 
 
 def maybe_request_context(publication: Publication) -> RelatedFundingRequest:
-    if hasattr(publication, "fundingrequest"):
-        return RelatedFundingRequest(
-            request_id=publication.fundingrequest.request_id,
-            url=publication.fundingrequest.get_absolute_url(),
-        )
-    else:
-        return RelatedFundingRequest(request_id=None)
+    reference = repository.find_reference_by_publication(PublicationId(publication.pk))
+    if reference:
+        return RelatedFundingRequest(request_id=reference.request_id, url=reference.url)
+
+    return RelatedFundingRequest()
 
 
 def parse_added_contract_position(request: HttpRequest) -> ContractPositionDto | None:
@@ -133,7 +132,7 @@ def render_positions(request: HttpRequest, positions: list[AnyPositionDto]) -> H
         {"positions": positions}
         | _DefaultContext
         | funding_sources_context()
-        | asdict(invoice_service.invoice_total(positions, currency)),
+        | asdict(invoice_parser.invoice_total(positions, currency)),
     )
 
 

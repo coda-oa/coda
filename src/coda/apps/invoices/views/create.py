@@ -13,7 +13,7 @@ from coda.apps.invoices.views.position_list import (
     parse_position_dtos,
 )
 from coda.apps.preferences.models import GlobalPreferences
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services import invoice_parser, invoice_service
 from coda.domain.invoice import InvoiceId
 from coda.domain.money import Currency
 
@@ -67,13 +67,13 @@ def save_invoice(
     positions = [p for p in _positions if p is not None]
 
     try:
-        invoice = invoice_service.parse_invoice(form.invoice_head(), positions)
+        invoice = invoice_parser.parse_invoice(form.invoice_head(), positions)
         invoice.id = invoice_id
         for currency, rate in conversions.items():
             invoice.add_conversion(rate, currency)
 
         return invoice_service.save(invoice), ErrorDict(errors={})
-    except invoice_service.InvoiceParseError as e:
+    except invoice_parser.InvoiceParseError as e:
         return None, ErrorDict(
             errors={
                 f"position-{i}-error": err.message()

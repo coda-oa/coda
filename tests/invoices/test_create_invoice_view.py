@@ -14,7 +14,7 @@ from coda.apps.contracts import repository as contract_services
 from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.invoices import repository
 from coda.apps.invoices.models import FundingSource
-from coda.apps.invoices.views.position_dtos.edit_position_dtos import (
+from coda.contexts.finance.dto.edit_position_dtos import (
     DEFAULT_TAX_RATE_PERCENTAGE,
     ContractPositionDto,
     FreePositionDto,

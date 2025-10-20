@@ -4,27 +4,23 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_GET
 
+from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.views.create import save_invoice
+from coda.contexts.finance.dto.edit_position_dtos import AnyPositionDto
 from coda.apps.invoices.views.position_list import (
     ErrorDict,
     _DefaultContext,
     existing_positions,
     funding_sources_context,
 )
-from coda.apps.invoices.views.position_dtos.edit_position_dtos import (
-    AnyPositionDto,
-    to_position_dto,
-)
 from coda.apps.preferences.models import GlobalPreferences
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services import invoice_parser
 from coda.domain.invoice import Invoice, InvoiceId
 from coda.domain.money._currency import Currency
-from django.views.decorators.http import require_GET
-from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
-
 
 invoice_breadcrumb_title = generate_dynamic_title(
     model_name="Edit Invoice",
@@ -41,7 +37,7 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
 
     if request.method == "GET":
-        positions = [to_position_dto(p) for p in invoice.positions]
+        positions = [invoice_parser.position_to_dto(p) for p in invoice.positions]
         return render_edit_view(request, invoice, positions)
 
     update_conversions(invoice, request.POST)
@@ -120,7 +116,7 @@ def render_edit_view(
         "invoices/create.html",
         _DefaultContext
         | funding_sources_context()
-        | asdict(invoice_service.invoice_total(positions, invoice.currency()))
+        | asdict(invoice_parser.invoice_total(positions, invoice.currency()))
         | errors
         | {
             "mode_name": "Edit",

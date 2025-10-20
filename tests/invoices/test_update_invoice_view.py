@@ -12,7 +12,7 @@ from coda.apps.contracts import repository as contract_services
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.repository import create
-from coda.apps.invoices.views.position_dtos.edit_position_dtos import (
+from coda.contexts.finance.dto.edit_position_dtos import (
     ContractPositionDto,
     FreePositionDto,
     PublicationPositionDto,
@@ -235,7 +235,7 @@ def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_
     vat_position = Position(
         item=some_position.item,
         cost=some_position.cost,
-        cost_type=PublicationCostType.Vat,  
+        cost_type=PublicationCostType.Vat,
         tax_rate=some_position.tax_rate,
         funding_source=some_position.funding_source,
         external_position_id=some_position.external_position_id,
@@ -255,8 +255,6 @@ def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_
     response = goto_update_view(client, invoice.id)
 
     assert response.context["positions"][0].tax_rate == 0
-
-
 
 
 def save_invoice_view(
