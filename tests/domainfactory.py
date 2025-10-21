@@ -138,12 +138,13 @@ def invoice(
 def publication_position(
     publication: PublicationId | None = None,
     currency: Currency | None = None,
+    cost_type: PublicationCostType | None = None,
     funding_source: FundingSourceId | None = None,
 ) -> Position[PublicationId]:
     return Position(
         item=publication or PublicationId(random.randint(1, 1000)),
         cost=random_money(currency),
-        cost_type=random.choice(list(PublicationCostType)),
+        cost_type=cost_type or random.choice(list(PublicationCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),
@@ -153,23 +154,26 @@ def publication_position(
 def contract_position(
     contract: ContractYear,
     currency: Currency | None = None,
+    cost_type: ContractCostType | None = None,
     funding_source: FundingSourceId | None = None,
 ) -> ContractPosition:
     return ContractPosition(
         item=contract,
         cost=random_money(currency),
-        cost_type=random.choice(list(ContractCostType)),
+        cost_type=cost_type or random.choice(list(ContractCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),
     )
 
 
-def free_position(currency: Currency | None = None) -> Position[str]:
+def free_position(
+    currency: Currency | None = None, cost_type: PublicationCostType | None = None
+) -> Position[str]:
     return Position(
         item=_faker.sentence(),
         cost=random_money(currency),
-        cost_type=random.choice(list(PublicationCostType)),
+        cost_type=cost_type or random.choice(list(PublicationCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         external_position_id=str(_faker.uuid4()),
     )

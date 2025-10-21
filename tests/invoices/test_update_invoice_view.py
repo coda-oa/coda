@@ -12,12 +12,8 @@ from coda.apps.contracts import repository as contract_services
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.repository import create
-from coda.contexts.finance.dto.edit_position_dtos import (
-    ContractPositionDto,
-    FreePositionDto,
-    PublicationPositionDto,
-)
 from coda.apps.publications.repositories import publication_repository
+from coda.contexts.finance.services import invoice_parser
 from coda.domain.contract import Contract
 from coda.domain.invoice import (
     ContractCostType,
@@ -50,7 +46,7 @@ def test__given_invoice__goto_update_view__has_invoice_head_in_form(client: Clie
     creditor = modelfactory.creditor()
     invoice = Invoice.new(
         number="123",
-        creditor=CreditorId(creditor.id),
+        creditor=CreditorId(creditor.pk),
         date=datetime.date.today(),
         positions=[_free_position],
         comment="A comment",
@@ -74,7 +70,7 @@ def test__given_invoice__goto_update_view__has_invoice_head_in_form(client: Clie
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__given_invoice__goto_update_view__has_invoice_positions_in_context(client: Client) -> None:
-    a_publication = domainfactory.publication(JournalId(modelfactory.journal().id))
+    a_publication = domainfactory.publication(JournalId(modelfactory.journal().pk))
     a_publication.id = publication_repository.create(a_publication)
     _publication_position = publication_position(a_publication)
 
@@ -87,7 +83,7 @@ def test__given_invoice__goto_update_view__has_invoice_positions_in_context(clie
     creditor = modelfactory.creditor()
     invoice = Invoice.new(
         number="123",
-        creditor=CreditorId(creditor.id),
+        creditor=CreditorId(creditor.pk),
         date=datetime.date.today(),
         positions=[_publication_position, _contract_position, _free_position],
     )
@@ -97,9 +93,9 @@ def test__given_invoice__goto_update_view__has_invoice_positions_in_context(clie
     response = goto_update_view(client, invoice.id)
 
     assert response.context["positions"] == [
-        expect_publication_position(_publication_position),
-        expect_contract_position(_contract_position),
-        expect_free_position(_free_position),
+        invoice_parser.position_to_dto(_publication_position),
+        invoice_parser.position_to_dto(_contract_position),
+        invoice_parser.position_to_dto(_free_position),
     ]
 
 
@@ -110,7 +106,7 @@ def test__given_invoice__saving_updated_invoice__updates_invoice(client: Client)
     first_position = domainfactory.free_position(currency=Currency.EUR)
     invoice = Invoice.new(
         number="123",
-        creditor=CreditorId(creditor.id),
+        creditor=CreditorId(creditor.pk),
         date=datetime.date.today(),
         positions=[first_position],
         comment="A comment",
@@ -123,7 +119,7 @@ def test__given_invoice__saving_updated_invoice__updates_invoice(client: Client)
     expected = Invoice(
         id=invoice.id,
         number="456",
-        creditor=CreditorId(creditor.id),
+        creditor=CreditorId(creditor.pk),
         date=datetime.date.today(),
         positions=[first_position, second_position],
         status=PaymentStatus.Paid,
@@ -142,10 +138,10 @@ def test__given_invoice__saving_updated_invoice__updates_invoice(client: Client)
             "external_invoice_id": expected.external_invoice_id,
         }
         | number_of_positions(2)
-        | expect_free_position(first_position).to_post_data(
+        | invoice_parser.position_to_dto(first_position).to_post_data(
             prefix="position-1", underscores_to_dash=True
         )
-        | expect_free_position(second_position).to_post_data(
+        | invoice_parser.position_to_dto(second_position).to_post_data(
             prefix="position-2", underscores_to_dash=True
         )
     )
@@ -164,7 +160,7 @@ def test__given_invoice__invalid_form__does_not_save_invoice(client: Client) -> 
     first_position = domainfactory.free_position(currency=Currency.EUR)
     expected = Invoice.new(
         number="123",
-        creditor=CreditorId(creditor.id),
+        creditor=CreditorId(creditor.pk),
         date=datetime.date.today(),
         positions=[first_position],
         comment="A comment",
@@ -193,7 +189,7 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
     creditor = modelfactory.creditor()
     invoice = Invoice.new(
         number="123",
-        creditor=CreditorId(creditor.id),
+        creditor=CreditorId(creditor.pk),
         date=datetime.date.today(),
         positions=[],
     )
@@ -229,7 +225,7 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
 def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_is_zero(
     client: Client,
 ) -> None:
-    a_publication = domainfactory.publication(JournalId(modelfactory.journal().id))
+    a_publication = domainfactory.publication(JournalId(modelfactory.journal().pk))
     a_publication.id = publication_repository.create(a_publication)
     some_position = publication_position(a_publication)
     vat_position = Position(
@@ -244,7 +240,7 @@ def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_
     creditor = modelfactory.creditor()
     invoice = Invoice.new(
         number="123",
-        creditor=CreditorId(creditor.id),
+        creditor=CreditorId(creditor.pk),
         date=datetime.date.today(),
         positions=[vat_position],
         comment="A comment",
@@ -297,51 +293,6 @@ def free_position() -> Position[str]:
         cost_type=PublicationCostType.Other,
         tax_rate=TaxRate.from_percentage(7),
         external_position_id="external-free",
-    )
-
-
-def expect_publication_position(
-    publication_position: Position[PublicationId],
-) -> PublicationPositionDto:
-    publication = publication_repository.get_by_id(publication_position.item)
-
-    return PublicationPositionDto(
-        id=publication.id,
-        title=publication.title,
-        funding_source=publication_position.funding_source,
-        cost_type=publication_position.cost_type,
-        cost_amount=publication_position.cost.amount,
-        tax_rate=publication_position.tax_rate.percentage(),
-        external_position_id=publication_position.external_position_id,
-        tax_amount=publication_position.tax().amount,
-    )
-
-
-def expect_contract_position(contract_position: ContractPosition) -> ContractPositionDto:
-    contract = contract_position.item.contract
-
-    return ContractPositionDto(
-        id=contract.id,
-        name=contract.name,
-        year=contract_position.item.year,
-        funding_source=contract_position.funding_source,
-        cost_amount=contract_position.cost.amount,
-        cost_type=contract_position.cost_type,
-        tax_rate=contract_position.tax_rate.percentage(),
-        external_position_id=contract_position.external_position_id,
-        tax_amount=contract_position.tax().amount,
-    )
-
-
-def expect_free_position(free_position: Position[str]) -> FreePositionDto:
-    return FreePositionDto(
-        description=free_position.item,
-        funding_source=free_position.funding_source,
-        cost_amount=free_position.cost.amount,
-        cost_type=free_position.cost_type,
-        tax_rate=free_position.tax_rate.percentage(),
-        external_position_id=free_position.external_position_id,
-        tax_amount=free_position.tax().amount,
     )
 
 

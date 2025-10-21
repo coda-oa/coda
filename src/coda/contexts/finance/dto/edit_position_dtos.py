@@ -37,7 +37,6 @@ class CommonPositionDto(abc.ABC, CodaBaseDto, Generic[ItemT, CostT]):
     cost_amount: Decimal = Decimal("0.00")
     tax_rate: Decimal = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
     external_position_id: str = ""
-    tax_amount: Decimal = Decimal("0.00")
 
     @classmethod
     def from_request(cls, post_data: dict[str, str], prefix: str = "") -> Self:

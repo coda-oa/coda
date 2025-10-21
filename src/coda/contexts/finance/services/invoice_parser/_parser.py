@@ -84,10 +84,6 @@ def position_to_dto(position: AnyPosition) -> AnyPositionDto:
     return parser.position_to_dto(position)
 
 
-def position_type_names() -> list[str]:
-    return list(_position_type_registry.keys())
-
-
 def get_position_type(type_name: str) -> type[AnyPositionDto]:
     return _position_type_registry[type_name]
 
@@ -99,15 +95,15 @@ _position_type_registry: dict[str, type[CommonPositionDto[ItemType, CostType]]] 
 }
 
 _dto_parser_registry: dict[str, PositionParser] = {
-    "publication": _publication,
-    "contract": _contract,
-    "free": _free,
+    "publication": _publication.parser,
+    "contract": _contract.parser,
+    "free": _free.parser,
 }
 
 _position_converters: dict[type[ItemType], PositionParser] = {
-    PublicationId: _publication,
-    ContractYear: _contract,
-    str: _free,
+    PublicationId: _publication.parser,
+    ContractYear: _contract.parser,
+    str: _free.parser,
 }
 
 

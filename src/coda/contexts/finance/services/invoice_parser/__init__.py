@@ -5,7 +5,6 @@ from ._parser import (
     invoice_total,
     parse_invoice,
     position_to_dto,
-    position_type_names,
     to_position,
 )
 
@@ -16,6 +15,5 @@ __all__ = [
     "invoice_total",
     "parse_invoice",
     "position_to_dto",
-    "position_type_names",
     "to_position",
 ]

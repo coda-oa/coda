@@ -31,9 +31,8 @@ def parse_cost_type(position: ContractPositionDto) -> ContractCostType:
 
 
 def to_position(
-    position: AnyPositionDto, currency: Currency, *, parse_safe: bool = False
-) -> AnyPosition:
-    assert isinstance(position, ContractPositionDto)
+    position: ContractPositionDto, currency: Currency, *, parse_safe: bool = False
+) -> ContractPosition:
     item = parse_item(position, parse_safe=parse_safe)
     cost_type = parse_cost_type(position)
 
@@ -49,8 +48,7 @@ def to_position(
     )
 
 
-def position_to_dto(position: AnyPosition) -> AnyPositionDto:
-    assert isinstance(position, ContractPosition)
+def position_to_dto(position: ContractPosition) -> ContractPositionDto:
     if not position.item.contract_id:
         raise ValueError("Contract ID is required for ContractPosition")
 
@@ -70,3 +68,18 @@ def position_to_dto(position: AnyPosition) -> AnyPositionDto:
         external_position_id=position.external_position_id,
         tax_amount=position.tax().amount,
     )
+
+
+class ContractParser:
+    def to_position(
+        self, position: AnyPositionDto, currency: Currency, *, parse_safe: bool = False
+    ) -> AnyPosition:
+        assert isinstance(position, ContractPositionDto)
+        return to_position(position, currency, parse_safe=parse_safe)
+
+    def position_to_dto(self, position: AnyPosition) -> AnyPositionDto:
+        assert isinstance(position, ContractPosition)
+        return position_to_dto(position)
+
+
+parser = ContractParser()
