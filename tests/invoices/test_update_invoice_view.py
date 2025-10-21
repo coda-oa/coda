@@ -17,13 +17,17 @@ from coda.contexts.finance.services import invoice_parser
 from coda.domain.contract import Contract
 from coda.domain.invoice import (
     ContractCostType,
+    ContractItem,
     ContractPosition,
     CreditorId,
+    FreeItem,
+    FreePosition,
     Invoice,
     InvoiceId,
     PaymentStatus,
-    Position,
+    PublicationPosition,
     PublicationCostType,
+    PublicationItem,
     TaxRate,
 )
 from coda.domain.money import Currency, Money
@@ -228,10 +232,9 @@ def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_
     a_publication = domainfactory.publication(JournalId(modelfactory.journal().pk))
     a_publication.id = publication_repository.create(a_publication)
     some_position = publication_position(a_publication)
-    vat_position = Position(
-        item=some_position.item,
+    vat_position = PublicationPosition(
+        item=PublicationItem(some_position.item, cost_type=PublicationCostType.Vat),
         cost=some_position.cost,
-        cost_type=PublicationCostType.Vat,
         tax_rate=some_position.tax_rate,
         funding_source=some_position.funding_source,
         external_position_id=some_position.external_position_id,
@@ -262,13 +265,12 @@ def save_invoice_view(
     )
 
 
-def publication_position(a_publication: Publication) -> Position[PublicationId]:
+def publication_position(a_publication: Publication) -> PublicationPosition:
     cost_type = random.choice(list(PublicationCostType))
-    return Position(
-        item=cast(PublicationId, a_publication.id),
+    return PublicationPosition(
+        item=PublicationItem(cast(PublicationId, a_publication.id), cost_type=cost_type),
         funding_source=_random_funding_source(),
         cost=Money(200, Currency.EUR),
-        cost_type=cost_type,
         tax_rate=TaxRate.from_percentage(19),
         external_position_id=f"external-publication-{a_publication.id}",
     )
@@ -276,21 +278,19 @@ def publication_position(a_publication: Publication) -> Position[PublicationId]:
 
 def contract_position(a_contract: Contract) -> ContractPosition:
     return ContractPosition(
-        item=a_contract.in_first_year(),
+        item=ContractItem(a_contract.in_first_year(), cost_type=ContractCostType.Publish),
         funding_source=_random_funding_source(),
         cost=Money(100, Currency.EUR),
-        cost_type=ContractCostType.Publish,
         tax_rate=TaxRate.from_percentage(19),
         external_position_id=f"external-contract-{a_contract.id}",
     )
 
 
-def free_position() -> Position[str]:
-    return Position(
-        item="Free position",
+def free_position() -> FreePosition:
+    return FreePosition(
+        item=FreeItem("Free position", cost_type=PublicationCostType.Other),
         funding_source=_random_funding_source(),
         cost=Money(50, Currency.EUR),
-        cost_type=PublicationCostType.Other,
         tax_rate=TaxRate.from_percentage(7),
         external_position_id="external-free",
     )

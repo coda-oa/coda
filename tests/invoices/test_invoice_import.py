@@ -28,13 +28,17 @@ from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.invoice import (
     AnyPosition,
     ContractCostType,
+    ContractItem,
     ContractPosition,
     CreditorId,
+    FreeItem,
+    FreePosition,
     FundingSourceId,
     Invoice,
     PaymentStatus,
-    Position,
+    PublicationPosition,
     PublicationCostType,
+    PublicationItem,
     TaxRate,
 )
 from coda.domain.money import Currency, Money
@@ -349,13 +353,15 @@ def expected_publication_position(import_dto: PublicationPositionImportDto) -> A
         PublicFundingRequestId.from_str(str(import_dto.request_id))
     )
     publication_id = cast(PublicationId, request.publication.id)
-    return Position(
-        item=publication_id,
+    return PublicationPosition(
+        item=PublicationItem(
+            publication_id,
+            cost_type=PublicationCostType(import_dto.cost_type),
+        ),
         cost=Money(import_dto.amount, Currency.BBD),
         tax_rate=TaxRate.from_percentage(import_dto.tax_rate),
-        funding_source=FundingSourceId(funding_source.id),
+        funding_source=FundingSourceId(funding_source.pk),
         external_position_id=import_dto.external_id,
-        cost_type=PublicationCostType(import_dto.cost_type),
     )
 
 
@@ -368,12 +374,14 @@ def expected_contract_position(import_dto: ContractPositionImportDto) -> AnyPosi
 
     contract_year = contract.in_year(import_dto.contract_year)
     return ContractPosition(
-        item=contract_year,
+        item=ContractItem(
+            contract_year,
+            cost_type=ContractCostType(import_dto.cost_type),
+        ),
         cost=Money(import_dto.amount, Currency.BBD),
         tax_rate=TaxRate.from_percentage(import_dto.tax_rate),
-        funding_source=FundingSourceId(funding_source.id),
+        funding_source=FundingSourceId(funding_source.pk),
         external_position_id=import_dto.external_id,
-        cost_type=ContractCostType(import_dto.cost_type),
     )
 
 
@@ -383,13 +391,15 @@ def expected_free_position(import_dto: FreePositionImportDto) -> AnyPosition:
         funding_source is not None
     ), f"FundingSource '{import_dto.funding_source}' should exist in the database"
     description = import_dto.description
-    return Position(
-        item=description,
+    return FreePosition(
+        item=FreeItem(
+            description,
+            cost_type=PublicationCostType(import_dto.cost_type),
+        ),
         cost=Money(import_dto.amount, Currency.BBD),
         tax_rate=TaxRate.from_percentage(import_dto.tax_rate),
-        funding_source=FundingSourceId(funding_source.id),
+        funding_source=FundingSourceId(funding_source.pk),
         external_position_id=import_dto.external_id,
-        cost_type=PublicationCostType(import_dto.cost_type),
     )
 
 
@@ -406,7 +416,7 @@ def expected_invoice(import_dto: InvoiceImportDto) -> Invoice:
     expected_invoice = Invoice.new(
         number=import_dto.number,
         date=import_dto.date,
-        creditor=CreditorId(creditor.id),
+        creditor=CreditorId(creditor.pk),
         status=PaymentStatus.Unpaid,
         external_invoice_id="external-invoice-id",
         comment="Test invoice comment",

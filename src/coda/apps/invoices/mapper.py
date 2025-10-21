@@ -1,4 +1,3 @@
-import logging
 from decimal import Decimal
 from typing import TypedDict
 
@@ -10,15 +9,19 @@ from coda.domain.contract import ContractYear
 from coda.domain.invoice import (
     AnyPosition,
     ContractCostType,
+    ContractItem,
     ContractPosition,
     CreditorId,
+    FreeItem,
+    FreePosition,
     FundingSourceId,
     Invoice,
     InvoiceId,
-    ItemType,
     PaymentStatus,
-    Position,
+    PublicationPosition,
+    PositionItemType,
     PublicationCostType,
+    PublicationItem,
     TaxRate,
 )
 from coda.domain.invoice_list_item import InvoiceListItem
@@ -176,20 +179,13 @@ def _as_position_domain_object(position: invoice_models.Position) -> AnyPosition
     item = _get_item_from_position_model(position)
     common_args = _extract_common_position_args(position)
 
-    cost_type: PublicationCostType | ContractCostType
-    if isinstance(item, ContractYear):
-        cost_type = ContractCostType(position.cost_type)
-        return ContractPosition(item=item, cost_type=cost_type, **common_args)
-
-    logging.info(
-        "Restoring Position %s from DB. Item is %s of type %s. Cost type is %s",
-        str(position.pk),
-        str(item),
-        type(item),
-        position.cost_type,
-    )
-    cost_type = PublicationCostType(position.cost_type)
-    return Position(item=item, cost_type=cost_type, **common_args)
+    match item:
+        case ContractItem():
+            return ContractPosition(item=item, **common_args)
+        case PublicationItem():
+            return PublicationPosition(item=item, **common_args)
+        case FreeItem():
+            return FreePosition(item=item, **common_args)
 
 
 def _extract_common_position_args(position: invoice_models.Position) -> _CommonPositionArgs:
@@ -204,15 +200,19 @@ def _extract_common_position_args(position: invoice_models.Position) -> _CommonP
     }
 
 
-def _get_item_from_position_model(position: invoice_models.Position) -> ItemType:
+def _get_item_from_position_model(position: invoice_models.Position) -> PositionItemType:
     """Extract item from PositionModel."""
     if position.contract and position.contract_year:
         contract = contract_mapper.as_domain_object(position.contract)
-        return contract.in_year(position.contract_year)
+        return ContractItem(
+            contract.in_year(position.contract_year), ContractCostType(position.cost_type)
+        )
     elif position.publication:
-        return PublicationId(position.publication.pk)
+        return PublicationItem(
+            PublicationId(position.publication.pk), PublicationCostType(position.cost_type)
+        )
     else:
-        return position.description
+        return FreeItem(position.description, PublicationCostType(position.cost_type))
 
 
 def _create_currency_conversions(

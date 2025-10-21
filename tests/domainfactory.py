@@ -22,15 +22,19 @@ from coda.domain.fundingrequest import (
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.invoice import (
     ContractCostType,
+    ContractItem,
     ContractPosition,
     CreditorId,
+    FreeItem,
+    FreePosition,
     FundingSourceId,
     Invoice,
     InvoiceId,
     PaymentStatus,
-    Position,
+    PublicationPosition,
     Positions,
     PublicationCostType,
+    PublicationItem,
     TaxRate,
 )
 from coda.domain.money import Currency, Money
@@ -140,11 +144,13 @@ def publication_position(
     currency: Currency | None = None,
     cost_type: PublicationCostType | None = None,
     funding_source: FundingSourceId | None = None,
-) -> Position[PublicationId]:
-    return Position(
-        item=publication or PublicationId(random.randint(1, 1000)),
+) -> PublicationPosition:
+    return PublicationPosition(
+        item=PublicationItem(
+            publication or PublicationId(random.randint(1, 1000)),
+            cost_type=cost_type or random.choice(list(PublicationCostType)),
+        ),
         cost=random_money(currency),
-        cost_type=cost_type or random.choice(list(PublicationCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),
@@ -158,9 +164,11 @@ def contract_position(
     funding_source: FundingSourceId | None = None,
 ) -> ContractPosition:
     return ContractPosition(
-        item=contract,
+        item=ContractItem(
+            contract,
+            cost_type=cost_type or random.choice(list(ContractCostType)),
+        ),
         cost=random_money(currency),
-        cost_type=cost_type or random.choice(list(ContractCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),
@@ -169,11 +177,13 @@ def contract_position(
 
 def free_position(
     currency: Currency | None = None, cost_type: PublicationCostType | None = None
-) -> Position[str]:
-    return Position(
-        item=_faker.sentence(),
+) -> FreePosition:
+    return FreePosition(
+        item=FreeItem(
+            _faker.sentence(),
+            cost_type=cost_type or random.choice(list(PublicationCostType)),
+        ),
         cost=random_money(currency),
-        cost_type=cost_type or random.choice(list(PublicationCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         external_position_id=str(_faker.uuid4()),
     )

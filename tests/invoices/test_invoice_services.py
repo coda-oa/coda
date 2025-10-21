@@ -1,4 +1,3 @@
-import dataclasses
 from typing import cast
 
 import pytest
@@ -7,7 +6,14 @@ from coda.apps.invoices import repository
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
 from coda.contexts.finance.services import invoice_service
-from coda.domain.invoice import AnyPosition, CreditorId, Invoice, InvoiceId
+from coda.domain.invoice import (
+    AnyPosition,
+    CreditorId,
+    Invoice,
+    InvoiceId,
+    PublicationPosition,
+    PublicationItem,
+)
 from coda.domain.publication.payment import Payment, PublicationPayments
 from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
@@ -161,7 +167,7 @@ def test__paid_invoice_with_two_equal_publication_positions__delete_one__publica
 ):
     publication = create_publication()
     position = domainfactory.publication_position(publication)
-    equal_position = dataclasses.replace(position)
+    equal_position = copy_position(position)
 
     invoice = paid_invoice(position, equal_position)
     invoice.id = invoice_service.save(invoice)
@@ -170,6 +176,16 @@ def test__paid_invoice_with_two_equal_publication_positions__delete_one__publica
     invoice_service.save(invoice)
 
     assert_publication_paid(publication, invoice)
+
+
+def copy_position(position: PublicationPosition) -> PublicationPosition:
+    return PublicationPosition(
+        item=PublicationItem(position.item, cost_type=position.cost_type),
+        cost=position.cost,
+        tax_rate=position.tax_rate,
+        funding_source=position.funding_source,
+        external_position_id=position.external_position_id,
+    )
 
 
 @pytest.mark.django_db
@@ -255,14 +271,14 @@ def paid_invoice_for_publication(publication: PublicationId) -> Invoice:
 
 
 def paid_invoice(*positions: AnyPosition) -> Invoice:
-    creditor = CreditorId(modelfactory.creditor().id)
+    creditor = CreditorId(modelfactory.creditor().pk)
     invoice = domainfactory.invoice(positions=tuple(positions), creditor=creditor)
     invoice.pay()
     return invoice
 
 
 def unpaid_invoice_for_publications(*publication_ids: PublicationId) -> Invoice:
-    creditor = CreditorId(modelfactory.creditor().id)
+    creditor = CreditorId(modelfactory.creditor().pk)
     positions = tuple(
         domainfactory.publication_position(publication_id) for publication_id in publication_ids
     )
@@ -273,7 +289,7 @@ def unpaid_invoice_for_publications(*publication_ids: PublicationId) -> Invoice:
 
 
 def create_publication() -> PublicationId:
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     publication = domainfactory.publication(journal)
     publication.id = publication_repository.create(publication)
     return publication.id

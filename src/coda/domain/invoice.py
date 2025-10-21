@@ -5,7 +5,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Generic, NewType, Self, TypeVar
+from functools import cached_property
+from typing import Generic, NewType, Protocol, Self, TypeVar
 
 from coda.domain.contract import ContractYear
 from coda.domain.errors import DomainError
@@ -66,10 +67,36 @@ class TaxRate(Decimal):
 
 ItemType = PublicationId | ContractYear | str
 CostType = PublicationCostType | ContractCostType
-BaseItemT = TypeVar("BaseItemT", covariant=True)
-BaseCostTypeT = TypeVar("BaseCostTypeT", covariant=True, bound=enum.Enum)
-PublicationItemType = TypeVar("PublicationItemType", bound=PublicationId | str, covariant=True)
-type AnyPosition = "CommonPosition[ItemType, CostType]"
+BaseItemT = TypeVar("BaseItemT")
+BaseCostTypeT = TypeVar("BaseCostTypeT", bound=enum.Enum)
+
+
+class Item(Protocol, Generic[BaseItemT, BaseCostTypeT]):
+    item: BaseItemT
+    cost_type: BaseCostTypeT
+
+
+@dataclass(slots=True)
+class PublicationItem(Item[PublicationId, PublicationCostType]):
+    item: PublicationId
+    cost_type: PublicationCostType
+
+
+@dataclass(slots=True)
+class ContractItem(Item[ContractYear, ContractCostType]):
+    item: ContractYear
+    cost_type: ContractCostType
+
+
+@dataclass(slots=True)
+class FreeItem(Item[str, PublicationCostType]):
+    item: str
+    cost_type: PublicationCostType
+
+
+PositionItemType = PublicationItem | ContractItem | FreeItem
+ItemT = TypeVar("ItemT", PublicationItem, ContractItem, FreeItem)
+type AnyPosition = PublicationPosition | ContractPosition | FreePosition
 type Positions = Iterable[AnyPosition]
 
 
@@ -79,12 +106,84 @@ class PaymentStatus(enum.Enum):
     Rejected = "rejected"
 
 
-@dataclass(slots=True, frozen=True, kw_only=True)
-class CommonPosition(ABC, Generic[BaseItemT, BaseCostTypeT]):
-    cost: Money
-    tax_rate: TaxRate = TaxRate(0)
-    funding_source: FundingSourceId | None = None
-    external_position_id: str = ""
+class CostCalculation(Protocol):
+    def tax_rate(self) -> TaxRate:
+        ...
+
+    def net(self) -> Decimal:
+        ...
+
+    def tax(self) -> Decimal:
+        ...
+
+    def total(self) -> Decimal:
+        ...
+
+
+@dataclass(slots=True, frozen=True)
+class RegularCostCalculation:
+    cost: Decimal
+    the_tax_rate: TaxRate
+
+    def tax_rate(self) -> TaxRate:
+        return self.the_tax_rate
+
+    def net(self) -> Decimal:
+        return self.cost
+
+    def tax(self) -> Decimal:
+        return self.cost * self.the_tax_rate
+
+    def total(self) -> Decimal:
+        return self.net() + self.tax()
+
+
+@dataclass(slots=True, frozen=True)
+class VatCalculation:
+    cost: Decimal
+
+    def tax_rate(self) -> TaxRate:
+        return TaxRate.from_percentage(0)
+
+    def net(self) -> Decimal:
+        return Decimal(0)
+
+    def tax(self) -> Decimal:
+        return self.cost
+
+    def total(self) -> Decimal:
+        return self.tax()
+
+
+class CommonPosition(ABC, Generic[ItemT, BaseItemT, BaseCostTypeT]):
+    def __init__(
+        self,
+        *,
+        item: ItemT,
+        cost: Money,
+        tax_rate: TaxRate,
+        funding_source: FundingSourceId | None = None,
+        external_position_id: str = "",
+    ) -> None:
+        self.cost = cost
+        self.funding_source = funding_source
+        self.external_position_id = external_position_id
+        self._tax_rate = tax_rate
+
+        self._item: ItemT = item
+
+    @cached_property
+    def _cost_calculation(self) -> CostCalculation:
+        if self.cost_type.value == "vat":
+            return VatCalculation(self.cost.amount)
+        else:
+            return RegularCostCalculation(self.cost.amount, self._tax_rate)
+
+    @abstractmethod
+    def convert(
+        self, to: Currency, exchange: CurrencyExchange
+    ) -> "CommonPosition[ItemT, BaseItemT, BaseCostTypeT]":
+        ...
 
     @property
     @abstractmethod
@@ -96,30 +195,89 @@ class CommonPosition(ABC, Generic[BaseItemT, BaseCostTypeT]):
     def cost_type(self) -> BaseCostTypeT:
         ...
 
+    @property
+    def tax_rate(self) -> TaxRate:
+        return self._cost_calculation.tax_rate()
+
     def net(self) -> Money:
-        if self.cost_type.value == "vat":
-            return Money(0, self.cost.currency)
-        return self.cost
+        return Money(self._cost_calculation.net(), self.cost.currency)
 
     def tax(self) -> Money:
-        if self.cost_type.value == "vat":
-            return self.cost
-        return self.cost * self.tax_rate
+        return Money(self._cost_calculation.tax(), self.cost.currency)
 
     def total(self) -> Money:
-        return self.net() + self.tax()
+        return Money(self._cost_calculation.total(), self.cost.currency)
+
+    def __eq__(self, value: object, /) -> bool:
+        if not isinstance(value, self.__class__):
+            return False
+
+        return (
+            self.cost == value.cost
+            and self.tax_rate == value.tax_rate
+            and self.funding_source == value.funding_source
+            and self.external_position_id == value.external_position_id
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.cost, self.tax_rate, self.funding_source, self.external_position_id))
 
 
-@dataclass(slots=True, frozen=True, kw_only=True)
-class Position(CommonPosition[PublicationItemType, PublicationCostType]):
-    item: PublicationItemType
-    cost_type: PublicationCostType
+class PublicationPosition(CommonPosition[PublicationItem, PublicationId, PublicationCostType]):
+    def convert(self, to: Currency, exchange: CurrencyExchange) -> "PublicationPosition":
+        return PublicationPosition(
+            item=self._item,
+            cost=self.cost.convert_to(to, exchange),
+            tax_rate=self.tax_rate,
+            funding_source=self.funding_source,
+            external_position_id=self.external_position_id,
+        )
+
+    @property
+    def item(self) -> PublicationId:
+        return self._item.item
+
+    @property
+    def cost_type(self) -> PublicationCostType:
+        return self._item.cost_type
 
 
-@dataclass(slots=True, frozen=True, kw_only=True)
-class ContractPosition(CommonPosition[ContractYear, ContractCostType]):
-    item: ContractYear
-    cost_type: ContractCostType
+class ContractPosition(CommonPosition[ContractItem, ContractYear, ContractCostType]):
+    def convert(self, to: Currency, exchange: CurrencyExchange) -> "ContractPosition":
+        return ContractPosition(
+            item=self._item,
+            cost=self.cost.convert_to(to, exchange),
+            tax_rate=self.tax_rate,
+            funding_source=self.funding_source,
+            external_position_id=self.external_position_id,
+        )
+
+    @property
+    def item(self) -> ContractYear:
+        return self._item.item
+
+    @property
+    def cost_type(self) -> ContractCostType:
+        return self._item.cost_type
+
+
+class FreePosition(CommonPosition[FreeItem, str, PublicationCostType]):
+    def convert(self, to: Currency, exchange: CurrencyExchange) -> "FreePosition":
+        return FreePosition(
+            item=self._item,
+            cost=self.cost.convert_to(to, exchange),
+            tax_rate=self.tax_rate,
+            funding_source=self.funding_source,
+            external_position_id=self.external_position_id,
+        )
+
+    @property
+    def item(self) -> str:
+        return self._item.item
+
+    @property
+    def cost_type(self) -> PublicationCostType:
+        return self._item.cost_type
 
 
 def _internal_exchange(exchange_rates: dict[Currency, Decimal]) -> CurrencyExchange:
@@ -218,10 +376,7 @@ class Invoice:
             raise NoSuchConversion(to)
 
         exchange = _internal_exchange(self.conversions())
-        converted_positions = [
-            dataclasses.replace(pos, cost=pos.cost.convert_to(to, exchange))
-            for pos in self.positions
-        ]
+        converted_positions = [pos.convert(to, exchange) for pos in self.positions]
         converted = dataclasses.replace(self, positions=converted_positions)
         converted._conversions = self._convert_exchange_rates(to)
 

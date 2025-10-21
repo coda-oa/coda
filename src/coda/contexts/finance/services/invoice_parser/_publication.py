@@ -10,8 +10,9 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 from coda.domain.invoice import (
     AnyPosition,
     FundingSourceId,
-    Position,
+    PublicationPosition,
     PublicationCostType,
+    PublicationItem,
     TaxRate,
 )
 from coda.domain.money import Currency, Money
@@ -29,12 +30,14 @@ def parse_cost_type(position: PublicationPositionDto) -> PublicationCostType:
 
 def to_position(
     position: PublicationPositionDto, currency: Currency, *, parse_safe: bool = False
-) -> Position[PublicationId]:
-    return Position(
-        item=parse_item(position, parse_safe=parse_safe),
+) -> PublicationPosition:
+    return PublicationPosition(
+        item=PublicationItem(
+            parse_item(position, parse_safe=parse_safe),
+            cost_type=parse_cost_type(position),
+        ),
         cost=Money(position.cost_amount, currency),
         tax_rate=TaxRate.from_percentage(position.tax_rate),
-        cost_type=parse_cost_type(position),
         external_position_id=position.external_position_id,
         funding_source=FundingSourceId(position.funding_source)
         if position.funding_source
@@ -42,7 +45,7 @@ def to_position(
     )
 
 
-def position_to_dto(position: Position[PublicationId]) -> PublicationPositionDto:
+def position_to_dto(position: PublicationPosition) -> PublicationPositionDto:
     publication = publication_repository.get_by_id(position.item)
     assert publication.id is not None
 
@@ -73,7 +76,9 @@ class PublicationParser:
         return to_position(position, currency, parse_safe=parse_safe)
 
     def position_to_dto(self, position: AnyPosition) -> AnyPositionDto:
-        assert isinstance(position, Position) and isinstance(position.item, PublicationId)
+        assert isinstance(position, PublicationPosition) and isinstance(
+            position.item, PublicationId
+        )
         return position_to_dto(position)
 
 

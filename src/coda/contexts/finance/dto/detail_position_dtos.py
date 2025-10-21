@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import cast
 
 from coda.contexts.finance.dto.edit_position_dtos import (
     ContractPositionDto,
@@ -8,9 +7,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     PublicationPositionDto,
 )
 from coda.contexts.finance.services import invoice_parser
-from coda.domain.contract import ContractYear
-from coda.domain.invoice import AnyPosition, CommonPosition, ContractCostType, PublicationCostType
-from coda.domain.publication.publication import PublicationId
+from coda.domain.invoice import AnyPosition, ContractCostType, PublicationCostType
 
 
 class UnsupportedPositionTypeError(Exception):
@@ -42,14 +39,11 @@ def build_position_detail_dto(position: AnyPosition) -> PositionDetailDto:
     dto = invoice_parser.position_to_dto(position)
 
     if isinstance(dto, PublicationPositionDto):
-        pub_position = cast(CommonPosition[PublicationId, PublicationCostType], position)
-        return _from_publication_dto(dto, pub_position)
+        return _from_publication_dto(dto, position)
     if isinstance(dto, ContractPositionDto):
-        contract_position = cast(CommonPosition[ContractYear, ContractCostType], position)
-        return _from_contract_dto(dto, contract_position)
+        return _from_contract_dto(dto, position)
     if isinstance(dto, FreePositionDto):
-        free_position = cast(CommonPosition[str, PublicationCostType], position)
-        return _from_free_dto(dto, free_position)
+        return _from_free_dto(dto, position)
     raise UnsupportedPositionTypeError(
         f"Unsupported DTO type: {type(dto).__name__}. "
         f"Supported types: {[PublicationPositionDto.__name__, ContractPositionDto.__name__, FreePositionDto.__name__]}"
@@ -57,7 +51,7 @@ def build_position_detail_dto(position: AnyPosition) -> PositionDetailDto:
 
 
 def _from_publication_dto(
-    dto: PublicationPositionDto, position: CommonPosition[PublicationId, PublicationCostType]
+    dto: PublicationPositionDto, position: AnyPosition
 ) -> "PositionDetailDto":
     is_vat = dto.cost_type == PublicationCostType.Vat.value
     return PositionDetailDto(
@@ -72,9 +66,7 @@ def _from_publication_dto(
     )
 
 
-def _from_contract_dto(
-    dto: ContractPositionDto, position: CommonPosition[ContractYear, ContractCostType]
-) -> "PositionDetailDto":
+def _from_contract_dto(dto: ContractPositionDto, position: AnyPosition) -> "PositionDetailDto":
     is_vat = dto.cost_type == ContractCostType.Vat.value
     return PositionDetailDto(
         type=dto.type,
@@ -88,9 +80,7 @@ def _from_contract_dto(
     )
 
 
-def _from_free_dto(
-    dto: FreePositionDto, position: CommonPosition[str, PublicationCostType]
-) -> "PositionDetailDto":
+def _from_free_dto(dto: FreePositionDto, position: AnyPosition) -> "PositionDetailDto":
     return PositionDetailDto(
         type=dto.type,
         title=dto.description,

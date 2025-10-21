@@ -8,8 +8,9 @@ from coda.domain.invoice import (
     CreditorId,
     Invoice,
     NoSuchConversion,
-    Position,
+    PublicationPosition,
     Positions,
+    PublicationItem,
     TaxRate,
 )
 from coda.domain.money import Currency, Money
@@ -22,11 +23,10 @@ def make_sut(positions: Positions) -> Invoice:
     return Invoice.new("invoice-#1234", datetime.date.today(), CreditorId(1), positions)
 
 
-def position(cost: Money, tax_rate: TaxRate = TaxRate(0)) -> Position[PublicationId]:
-    return Position(
-        item=PublicationId(1),
+def position(cost: Money, tax_rate: TaxRate = TaxRate(0)) -> PublicationPosition:
+    return PublicationPosition(
+        item=PublicationItem(PublicationId(1), cost_type=PublicationCostType.Gold_OA),
         cost=cost,
-        cost_type=PublicationCostType.Gold_OA,
         tax_rate=tax_rate,
     )
 

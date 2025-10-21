@@ -9,6 +9,7 @@ from coda.domain.contract import ContractId, ContractYear
 from coda.domain.invoice import (
     AnyPosition,
     ContractCostType,
+    ContractItem,
     ContractPosition,
     FundingSourceId,
     TaxRate,
@@ -37,8 +38,7 @@ def to_position(
     cost_type = parse_cost_type(position)
 
     return ContractPosition(
-        item=item,
-        cost_type=cost_type,
+        item=ContractItem(item, cost_type=cost_type),
         cost=Money(position.cost_amount, currency),
         tax_rate=TaxRate.from_percentage(position.tax_rate),
         funding_source=FundingSourceId(position.funding_source)
@@ -66,7 +66,6 @@ def position_to_dto(position: ContractPosition) -> ContractPositionDto:
         cost_type=position.cost_type.value,
         tax_rate=Decimal("0.00") if is_vat else position.tax_rate.percentage(),
         external_position_id=position.external_position_id,
-        tax_amount=position.tax().amount,
     )
 
 

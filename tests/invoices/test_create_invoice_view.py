@@ -26,13 +26,17 @@ from coda.apps.publications.services import publications
 from coda.domain.contract import Contract, ContractId
 from coda.domain.invoice import (
     ContractCostType,
+    ContractItem,
     ContractPosition,
     CreditorId,
+    FreeItem,
+    FreePosition,
     FundingSourceId,
     Invoice,
     PaymentStatus,
-    Position,
+    PublicationPosition,
     PublicationCostType,
+    PublicationItem,
     TaxRate,
 )
 from coda.domain.money import Currency, Money
@@ -256,35 +260,41 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
         datetime.date.fromisoformat(post_data["date"]),
         CreditorId(int(post_data["creditor"])),
         [
-            Position(
-                item=PublicationId(int(post_data["position-1-id"])),
+            PublicationPosition(
+                item=PublicationItem(
+                    PublicationId(int(post_data["position-1-id"])),
+                    cost_type=PublicationCostType(post_data["position-1-cost-type"]),
+                ),
                 cost=Money(
                     post_data["position-1-cost-amount"],
                     Currency[post_data["currency"]],
                 ),
-                cost_type=PublicationCostType(post_data["position-1-cost-type"]),
                 tax_rate=TaxRate(int(post_data["position-1-tax-rate"]) / 100),
                 funding_source=FundingSourceId(int(post_data["position-1-funding-source"])),
                 external_position_id=post_data["position-1-external-position-id"],
             ),
-            Position(
-                item=post_data["position-2-description"],
+            FreePosition(
+                item=FreeItem(
+                    post_data["position-2-description"],
+                    cost_type=PublicationCostType(post_data["position-2-cost-type"]),
+                ),
                 cost=Money(
                     post_data["position-2-cost-amount"],
                     Currency[post_data["currency"]],
                 ),
-                cost_type=PublicationCostType(post_data["position-2-cost-type"]),
                 tax_rate=TaxRate(int(post_data["position-2-tax-rate"]) / 100),
                 funding_source=FundingSourceId(int(post_data["position-2-funding-source"])),
                 external_position_id=post_data["position-2-external-position-id"],
             ),
             ContractPosition(
-                item=contract_year,
+                item=ContractItem(
+                    contract_year,
+                    cost_type=ContractCostType(post_data["position-3-cost-type"]),
+                ),
                 cost=Money(
                     post_data["position-3-cost-amount"],
                     Currency[post_data["currency"]],
                 ),
-                cost_type=ContractCostType(post_data["position-3-cost-type"]),
                 tax_rate=TaxRate(int(post_data["position-3-tax-rate"]) / 100),
                 funding_source=FundingSourceId(int(post_data["position-3-funding-source"])),
                 external_position_id=post_data["position-3-external-position-id"],

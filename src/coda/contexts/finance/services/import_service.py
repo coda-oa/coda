@@ -22,12 +22,16 @@ from coda.domain import errors
 from coda.domain.contract import Contract
 from coda.domain.invoice import (
     AnyPosition,
+    ContractItem,
     ContractPosition,
     CreditorId,
+    FreeItem,
+    FreePosition,
     FundingSourceId,
     Invoice,
     InvoiceId,
-    Position,
+    PublicationPosition,
+    PublicationItem,
     TaxRate,
 )
 from coda.domain.money._currency import Currency
@@ -253,31 +257,37 @@ def _parse_into_position(
     match p:
         case PublicationPositionImportDto():
             id_type = cast(str, p.request_id or p.legacy_request_id)
-            position = Position(
-                item=lookups.request_id_lookup[id_type],
+            position = PublicationPosition(
+                item=PublicationItem(
+                    lookups.request_id_lookup[id_type],
+                    cost_type=p.cost_type,
+                ),
                 cost=cost,
                 tax_rate=tax_rate,
                 funding_source=funding_source,
                 external_position_id=external_id,
-                cost_type=p.cost_type,
             )
         case ContractPositionImportDto():
             position = ContractPosition(
-                item=lookups.contract_lookup[p.contract_name].in_year(p.contract_year),
+                item=ContractItem(
+                    lookups.contract_lookup[p.contract_name].in_year(p.contract_year),
+                    cost_type=p.cost_type,
+                ),
                 cost=cost,
                 tax_rate=tax_rate,
                 funding_source=funding_source,
                 external_position_id=external_id,
-                cost_type=p.cost_type,
             )
         case FreePositionImportDto():
-            position = Position(
-                item=p.description,
+            position = FreePosition(
+                item=FreeItem(
+                    p.description,
+                    cost_type=p.cost_type,
+                ),
                 cost=cost,
                 tax_rate=tax_rate,
                 funding_source=funding_source,
                 external_position_id=external_id,
-                cost_type=p.cost_type,
             )
         case _:
             raise ValueError(f"Unknown position type: {p.type}.\n{p}")

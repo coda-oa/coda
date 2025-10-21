@@ -1,7 +1,14 @@
 from decimal import Decimal
 
 from coda.contexts.finance.dto.edit_position_dtos import AnyPositionDto, FreePositionDto
-from coda.domain.invoice import AnyPosition, FundingSourceId, Position, PublicationCostType, TaxRate
+from coda.domain.invoice import (
+    AnyPosition,
+    FreeItem,
+    FreePosition,
+    FundingSourceId,
+    PublicationCostType,
+    TaxRate,
+)
 from coda.domain.money import Currency, Money
 
 
@@ -16,10 +23,12 @@ def parse_cost_type(position: FreePositionDto) -> PublicationCostType:
 
 def to_position(
     position: FreePositionDto, currency: Currency, *, parse_safe: bool = False
-) -> Position[str]:
-    return Position(
-        item=parse_item(position, parse_safe=parse_safe),
-        cost_type=parse_cost_type(position),
+) -> FreePosition:
+    return FreePosition(
+        item=FreeItem(
+            parse_item(position, parse_safe=parse_safe),
+            cost_type=parse_cost_type(position),
+        ),
         cost=Money(position.cost_amount, currency),
         tax_rate=TaxRate.from_percentage(position.tax_rate),
         funding_source=FundingSourceId(position.funding_source)
@@ -29,7 +38,7 @@ def to_position(
     )
 
 
-def position_to_dto(position: Position[str]) -> FreePositionDto:
+def position_to_dto(position: FreePosition) -> FreePositionDto:
     assert isinstance(position.item, str)
     is_vat = position.cost_type == PublicationCostType.Vat
     return FreePositionDto(
@@ -50,7 +59,7 @@ class FreeParser:
         return to_position(position, currency, parse_safe=parse_safe)
 
     def position_to_dto(self, position: AnyPosition) -> AnyPositionDto:
-        assert isinstance(position, Position) and isinstance(position.item, str)
+        assert isinstance(position, FreePosition) and isinstance(position.item, str)
         return position_to_dto(position)
 
 

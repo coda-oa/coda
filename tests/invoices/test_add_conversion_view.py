@@ -76,7 +76,7 @@ def test__invoice_with_foreign_currency_and_conversion__is_saved__invoice_has_co
 def test__saved_invoice_with_conversion__form_field_for_exchange_rate_is_cleared_and_invoice_is_saved__ivoice_has_no_conversion(
     client: Client,
 ) -> None:
-    creditor = CreditorId(modelfactory.creditor().id)
+    creditor = CreditorId(modelfactory.creditor().pk)
     invoice = domainfactory.invoice(creditor=creditor, positions=())
     invoice.add_conversion(Decimal("2.0"), Currency.JPY)
     invoice.id = repository.create(invoice)
