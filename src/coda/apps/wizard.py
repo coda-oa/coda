@@ -187,7 +187,9 @@ class Wizard(View, abc.ABC):
         return self.store_factory(self.store_name, self.request)
 
     def index(self) -> int:
-        step = int(self.get_store().get("step", 0))
+        from coda.security.integration import SecureFormIntegration
+
+        step = SecureFormIntegration.secure_wizard_step(self.get_store(), max_steps=20)
         if self._out_of_bounds(step):
             step = 0
 

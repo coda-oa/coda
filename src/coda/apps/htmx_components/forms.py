@@ -20,8 +20,17 @@ _DEFAULT_RENDER_MODE = "paragraph"
 
 
 def _total_forms(data: dict[str, Any], prefix: str | None, min_forms: int = 1) -> int:
+    from coda.security.integration import SecureFormIntegration
+
     prefix = _prefix(data, prefix)
-    return int(data.get(prefix + "total_forms", min_forms) or min_forms)
+    # Extract the raw value and use our secure parsing
+    try:
+        raw_value = data.get(prefix + "total_forms", min_forms) or min_forms
+        return SecureFormIntegration.secure_total_forms(
+            {prefix + "total_forms": raw_value}, prefix, min_forms, max_forms=50
+        )
+    except Exception:
+        return min_forms
 
 
 def _forms(
@@ -280,7 +289,9 @@ class ManagementView(View, Generic[FormType]):
             forms[-1].errors.clear()
             return self._get_response(request, forms)
         elif (_form_index := request.POST.get("form_action_delete")) is not None:
-            form_index = int(_form_index)
+            from coda.security.integration import SecureFormIntegration
+
+            form_index = SecureFormIntegration.secure_form_index(_form_index, max_index=50)
             post_data = self._data_with_form_removed(request, form_index)
             total_forms = self._total_forms(post_data)
             forms = self._forms(post_data, total_forms)

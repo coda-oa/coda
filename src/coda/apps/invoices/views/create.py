@@ -62,7 +62,9 @@ def save_invoice(
     if not form.is_valid():
         return None, ErrorDict(errors={})
 
-    number_of_positions = int(request.POST.get("number-of-positions", 0))
+    from coda.security.integration import SecureFormIntegration
+
+    number_of_positions = SecureFormIntegration.secure_position_count(request, max_positions=100)
     _positions = [parse_position_dtos(request, i) for i in range(1, number_of_positions + 1)]
     positions = [p for p in _positions if p is not None]
 
