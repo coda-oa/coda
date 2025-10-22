@@ -13,9 +13,9 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.domain import errors
 from coda.domain.contract import ContractYear
-from coda.domain.finance.costtypes import CostType, ItemType
+from coda.domain.finance.costtypes import CostType
 from coda.domain.finance.invoice import CreditorId, Invoice
-from coda.domain.finance.invoice_positions import AnyPosition
+from coda.domain.finance.invoice_positions import AnyPosition, ItemType
 from coda.domain.money._currency import Currency
 from coda.domain.publication.publication import PublicationId
 

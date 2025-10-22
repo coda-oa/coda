@@ -37,7 +37,8 @@ class FreeItem(Item[str, PublicationCostType]):
     cost_type: PublicationCostType
 
 
-PositionItemType = PublicationItem | ContractItem | FreeItem
+type ItemType = PublicationId | ContractYear | str
+type PositionItemType = PublicationItem | ContractItem | FreeItem
 type AnyPosition = "Position[PublicationItem] | Position[ContractItem] | Position[FreeItem]"
 
 
@@ -186,7 +187,7 @@ def create(
     funding_source: FundingSourceId | None = None,
     external_position_id: str = "",
 ) -> "Position[ItemT]":
-    if item.cost_type.value == "vat":
+    if item.cost_type.is_vat():
         return vat(item, cost, funding_source, external_position_id)
 
     return regular(item, cost, tax_rate, funding_source, external_position_id)

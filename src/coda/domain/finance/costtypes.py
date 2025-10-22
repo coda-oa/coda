@@ -1,8 +1,5 @@
 import enum
 
-from coda.domain.contract import ContractYear
-from coda.domain.publication.publication import PublicationId
-
 
 class PublicationCostType(enum.Enum):
     """
@@ -21,6 +18,9 @@ class PublicationCostType(enum.Enum):
     Payment_Fee = "payment fee"
     Other = "other"
 
+    def is_vat(self) -> bool:
+        return self == PublicationCostType.Vat
+
 
 class ContractCostType(enum.Enum):
     """
@@ -31,6 +31,8 @@ class ContractCostType(enum.Enum):
     Read = "read"
     Vat = "vat"
 
+    def is_vat(self) -> bool:
+        return self == ContractCostType.Vat
 
-ItemType = PublicationId | ContractYear | str
+
 CostType = PublicationCostType | ContractCostType
