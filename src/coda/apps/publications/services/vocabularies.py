@@ -11,6 +11,7 @@ from coda.domain.vocabulary import (
 
 def create_limited_from(vocabulary_id: VocabularyId, name: str) -> VocabularyId:
     vocabulary = vocabulary_repository.create_limited(base_vocabulary_id=vocabulary_id, name=name)
+    assert vocabulary.id is not None  # Repository create_limited always assigns an ID
     return vocabulary.id
 
 

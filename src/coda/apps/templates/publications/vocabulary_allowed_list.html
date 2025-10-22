@@ -1,17 +1,24 @@
-<ul class="undecorated">
-    <fieldset id="allowed-checkboxes" datagroup="disallow">
-        {% for allowed_concept in allowed_concepts %}
-            <li>
-                <label>
-                    <input type="checkbox"
-                           name="allowed_concepts_check"
-                           value="{{ allowed_concept.concept_id }}" />
-                    {{ allowed_concept.concept_id }} {{ allowed_concept.name }}
-                </label>
-                <input type="hidden"
-                       name="allowed_concepts"
-                       value="{{ allowed_concept.concept_id }}" />
-            </li>
-        {% endfor %}
-    </fieldset>
-</ul>
+<li class="{% if index|default:"0"|divisibleby:"2" %}even{% else %}odd{% endif %}">
+    {% if node.is_allowed %}
+        <!-- Show checkbox - this concept belongs to this list -->
+        <label class="tree-node depth-{{ depth }}">
+            <input type="checkbox"
+                   name="{{ name_prefix }}_concepts_check"
+                   value="{{ node.concept.concept_id }}">
+            {{ node.concept.concept_id }} {{ node.concept.name }}
+        </label>
+        <input type="hidden"
+               name="{{ name_prefix }}_concepts"
+               value="{{ node.concept.concept_id }}">
+    {% else %}
+        <!-- Show only label - this concept is just for hierarchy context -->
+        <p class="tree-parent tree-node depth-{{ depth }}">{{ node.concept.concept_id }} {{ node.concept.name }}</p>
+    {% endif %}
+    {% if node.children %}
+        <ul class="tree-children undecorated">
+            {% for child in node.children %}
+                {% include "publications/vocabulary_allowed_list.html" with node=child name_prefix=name_prefix depth=depth|add:"2" index=forloop.parentloop.counter|add:forloop.counter %}
+            {% endfor %}
+        </ul>
+    {% endif %}
+</li>

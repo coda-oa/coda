@@ -25,14 +25,20 @@
     </div>
     <div class="flex">
         <div class="scroll-container max-h-30 striped voc-concept-column min-h-30">
-            {% include "publications/vocabulary_allowed_list.html" with allowed_concepts=allowed_concepts %}
+            <fieldset id="allowed-checkboxes" datagroup="disallow">
+                <ul class="undecorated">
+                    {% for node in allowed_tree %}
+                        {% include "publications/vocabulary_allowed_list.html" with node=node name_prefix="allowed" depth=0 index=forloop.counter %}
+                    {% endfor %}
+                </ul>
+            </fieldset>
         </div>
         <div class="flex-column align-center center-img voc-button-column">
             <button id="disallow-button"
                     data-group="disallow"
                     name="disallow"
                     hx-post="{% url 'publications:vocabulary_move_to_forbidden' %}"
-                    hx-include="[name='allowed_concepts'], [name='disallowed_concepts'], input[name='vocabulary_id'], #allowed-checkboxes input:checked"
+                    hx-include="[name='allowed_concepts'], [name='disallowed_concepts'], input[name='vocabulary_id'], input[name='base_vocabulary_id'], #allowed-checkboxes input:checked"
                     hx-target="#vocabulary-table"
                     hx-swap="outerHTML"
                     data-tooltip="Disallow"
@@ -50,7 +56,7 @@
             <button id="allow-button"
                     data-group="allow"
                     hx-post="{% url 'publications:vocabulary_move_to_allowed' %}"
-                    hx-include="[name='disallowed_concepts'], [name='allowed_concepts'], input[name='vocabulary_id'], #forbidden-checkboxes input:checked"
+                    hx-include="[name='disallowed_concepts'], [name='allowed_concepts'], input[name='vocabulary_id'], input[name='base_vocabulary_id'], #forbidden-checkboxes input:checked"
                     hx-target="#vocabulary-table"
                     hx-swap="outerHTML"
                     data-tooltip="Allow"
@@ -67,7 +73,13 @@
             </button>
         </div>
         <div class="scroll-container max-h-30 striped voc-concept-column min-h-30">
-            {% include "publications/vocabulary_disallowed_list.html" with concepts=forbidden_concepts %}
+            <fieldset id="forbidden-checkboxes" datagroup="allow">
+                <ul class="undecorated">
+                    {% for node in forbidden_tree %}
+                        {% include "publications/vocabulary_allowed_list.html" with node=node name_prefix="disallowed" depth=0 index=forloop.counter %}
+                    {% endfor %}
+                </ul>
+            </fieldset>
         </div>
     </div>
 </div>

@@ -117,21 +117,44 @@ def all_limited() -> list[LimitedVocabulary]:
 
 
 def save(vocabulary: VocabularyProtocol) -> None:
-    v, _ = VocabularyModel.objects.get_or_create(pk=vocabulary.id)
-    v.name = vocabulary.name
-    v.version = vocabulary.version
+    if vocabulary.id is None:
+        # Create new vocabulary
+        if isinstance(vocabulary, LimitedVocabulary):
+            v = VocabularyModel.objects.create(
+                name=vocabulary.name,
+                version=vocabulary.version,
+                is_limited=True,
+                base_vocabulary_id=vocabulary.base_vocabulary.id,
+            )
+            # Update the domain object with the assigned ID
+            vocabulary.id = VocabularyId(v.pk)
+        else:
+            v = VocabularyModel.objects.create(
+                name=vocabulary.name,
+                version=vocabulary.version,
+            )
+            # Update the domain object with the assigned ID
+            vocabulary.id = VocabularyId(v.pk)
+    else:
+        # Update existing vocabulary
+        v, _ = VocabularyModel.objects.get_or_create(pk=vocabulary.id)
+        v.name = vocabulary.name
+        v.version = vocabulary.version
+        if isinstance(vocabulary, LimitedVocabulary):
+            v.is_limited = True
+            v.base_vocabulary_id = vocabulary.base_vocabulary.id
 
     concepts: Collection[VocabularyConcept]
     if isinstance(vocabulary, Vocabulary):
         concepts = vocabulary.concepts
     elif isinstance(vocabulary, LimitedVocabulary):
         concepts = vocabulary.disallowed_concepts
-        v.is_limited = True
-        v.base_vocabulary_id = vocabulary.base_vocabulary.id
+        # Clear existing concepts for limited vocabularies (they store disallowed concepts)
         v.concepts.all().delete()
     else:
         raise ValueError(f"Unsupported vocabulary type: {type(vocabulary)}")
 
+    # First pass: create all concepts without parent relationships
     for c in concepts:
         mc, _ = v.concepts.get_or_create(entity_id=c.id)
         mc.concept_id = c.concept_id
@@ -139,11 +162,26 @@ def save(vocabulary: VocabularyProtocol) -> None:
         mc.hint = c.description
         mc.save()
 
+    # Second pass: set parent relationships
+    for c in concepts:
+        if c.parent is not None:
+            try:
+                mc = v.concepts.get(entity_id=c.id)
+                parent_concept = v.concepts.get(entity_id=c.parent)
+                mc.parent = parent_concept
+                mc.save()
+            except v.concepts.model.DoesNotExist:
+                # Parent concept doesn't exist, skip
+                pass
+
     v.save()
 
 
 def delete(vocabulary: VocabularyProtocol) -> None:
     id = vocabulary.id
+    if id is None:
+        raise ValueError("Cannot delete vocabulary without an ID")
+
     publications = publication_repository.find_publications_by_vocabulary(id)
     limited_vocabularies = find_limited_by_base_vocabulary(id)
     if publications or limited_vocabularies:

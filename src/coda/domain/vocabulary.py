@@ -16,7 +16,7 @@ VocabularyId = NewType("VocabularyId", int)
 
 
 class VocabularyProtocol(Protocol):
-    id: VocabularyId
+    id: VocabularyId | None
     name: str
     version: str
 
@@ -93,7 +93,7 @@ class VocabularyConcept:
 class Vocabulary:
     def __init__(
         self,
-        id: VocabularyId,
+        id: VocabularyId | None,
         name: str,
         version: str,
         concepts: Collection["VocabularyConcept"] | None = None,
@@ -125,8 +125,10 @@ class Vocabulary:
         if any(c.concept_id == concept_id for c in self._concepts):
             raise DuplicateConceptError(self, concept_id=concept_id)
 
+        # Use placeholder ID for unsaved vocabularies
+        vocab_id = self.id if self.id is not None else VocabularyId(-1)
         concept = VocabularyConcept.new(
-            concept_id=concept_id, name=name, description=description, vocabulary=self.id
+            concept_id=concept_id, name=name, description=description, vocabulary=vocab_id
         )
         self._concepts.append(concept)
 
@@ -145,8 +147,15 @@ UnknownConcept = VocabularyConcept(
 
 
 @dataclass
+class TreeNode:
+    concept: VocabularyConcept
+    children: list["TreeNode"]
+    is_allowed: bool
+
+
+@dataclass
 class LimitedVocabulary:
-    id: VocabularyId
+    id: VocabularyId | None
     base_vocabulary: VocabularyProtocol
     name: str = ""
     version: str = ""
@@ -169,7 +178,7 @@ class LimitedVocabulary:
         return VocabularyConcept(
             id=c.id,
             concept_id=c.concept_id,
-            vocabulary=self.id,
+            vocabulary=self.id or VocabularyId(-1),
             name=c.name,
             description=c.description,
             parent=c.parent,
@@ -205,5 +214,74 @@ class LimitedVocabulary:
     def allow(self, concept_id: str) -> None:
         self._disallowed.discard(concept_id)
 
+    def clear_disallowed(self) -> None:
+        """Clear all disallowed concepts."""
+        self._disallowed.clear()
+
+    def disallowed_concepts_ids(self) -> set[str]:
+        """Get the set of disallowed concept IDs."""
+        return self._disallowed.copy()
+
     def get_any_concept(self, concept_id: str) -> VocabularyConcept:
         return self._move_concept_to_self(self.base_vocabulary.get_concept(concept_id))
+
+    def get_concept_trees(self) -> tuple[list[TreeNode], list[TreeNode]]:
+        from collections import defaultdict
+
+        all_concepts = list(self.base_vocabulary.concepts)
+        allowed_concept_ids = {
+            c.concept_id for c in all_concepts if c.concept_id not in self._disallowed
+        }
+
+        # Build parent-to-children mapping
+        children_map: dict[ConceptId, list[VocabularyConcept]] = defaultdict(list)
+        roots = []
+        for concept in all_concepts:
+            if concept.parent is None:
+                roots.append(concept)
+            else:
+                children_map[concept.parent].append(concept)
+
+        def has_relevant_descendants(concept: VocabularyConcept, for_allowed_tree: bool) -> bool:
+            is_allowed = concept.concept_id in allowed_concept_ids
+            target_status = for_allowed_tree
+            if is_allowed == target_status:
+                return True
+            for child in children_map.get(concept.id, []):
+                if has_relevant_descendants(child, for_allowed_tree):
+                    return True
+            return False
+
+        def build_tree(concept: VocabularyConcept, for_allowed_tree: bool) -> TreeNode | None:
+            if not has_relevant_descendants(concept, for_allowed_tree):
+                return None
+            children = []
+            for child in children_map.get(concept.id, []):
+                child_node = build_tree(child, for_allowed_tree)
+                if child_node:
+                    children.append(child_node)
+            is_allowed = concept.concept_id in allowed_concept_ids
+
+            # For templates: show checkbox if this concept belongs to this tree's purpose
+            # Allowed tree: show checkbox for allowed concepts
+            # Forbidden tree: show checkbox for forbidden concepts
+            show_checkbox = is_allowed if for_allowed_tree else not is_allowed
+
+            return TreeNode(
+                concept=self._move_concept_to_self(concept),
+                children=children,
+                is_allowed=show_checkbox,
+            )
+
+        allowed_tree = []
+        forbidden_tree = []
+
+        for root in roots:
+            node = build_tree(root, True)
+            if node:
+                allowed_tree.append(node)
+            node = build_tree(root, False)
+            if node:
+                forbidden_tree.append(node)
+
+        return allowed_tree, forbidden_tree

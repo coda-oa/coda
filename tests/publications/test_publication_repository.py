@@ -221,6 +221,7 @@ def test__save_publication_with_limited_vocabulary__get_by_id__returns_publicati
     publication_types = vocabulary_with_concepts("1")
     subject_areas = vocabulary_with_concepts("allowed", "disallowed")
 
+    assert subject_areas.id is not None  # Repository create should assign ID
     limited = vocabulary_repository.create_limited(subject_areas.id, "Limited")
     limited.disallow("disallowed")
     vocabulary_repository.save(limited)
@@ -260,6 +261,9 @@ def test__find_by_vocabulary__returns_publications_with_matching_vocabulary() ->
     )
     id = publication_repository.create(publication)
 
+    assert publication_types.id is not None  # Repository create should assign ID
+    assert subject_areas.id is not None  # Repository create should assign ID
+
     actual, *_ = publication_repository.find_publications_by_vocabulary(publication_types.id)
     assert actual.id == id
 
@@ -285,6 +289,7 @@ def vocabulary_with_concepts(*concepts: str) -> Vocabulary:
         vocabulary.add_concept(concept)
 
     vocabulary_repository.save(vocabulary)
+    assert vocabulary.id is not None  # Repository create/save should assign ID
     return vocabulary
 
 

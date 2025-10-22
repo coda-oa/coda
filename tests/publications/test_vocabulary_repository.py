@@ -15,10 +15,12 @@ def test__saved_limited_vocabulary__get_by_id__returns_limited_vocabulary() -> N
     v.add_concept("forbidden")
     vocabulary_repository.save(v)
 
+    assert v.id is not None  # Repository create should assign ID
     limited_vocabulary = vocabulary_repository.create_limited(v.id, name="limited")
     limited_vocabulary.disallow("forbidden")
     vocabulary_repository.save(limited_vocabulary)
 
+    assert limited_vocabulary.id is not None  # Repository create_limited should assign ID
     actual = vocabulary_repository.get_by_id(limited_vocabulary.id)
     assert isinstance(actual, LimitedVocabulary)
     assert list(actual.concepts) == [v.get_concept("allowed")]
@@ -34,14 +36,17 @@ def test__saved_limited_vocabulary__allowing_previously_forbidden_concept__saves
     v.add_concept("forbidden")
     vocabulary_repository.save(v)
 
+    assert v.id is not None  # Repository create should assign ID
     limited_vocabulary = vocabulary_repository.create_limited(v.id, name="limited")
     limited_vocabulary.disallow("forbidden")
     vocabulary_repository.save(limited_vocabulary)
 
+    assert limited_vocabulary.id is not None  # Repository create_limited should assign ID
     limited_vocabulary = vocabulary_repository.get_limited_by_id(limited_vocabulary.id)
     limited_vocabulary.allow("forbidden")
     vocabulary_repository.save(limited_vocabulary)
 
+    assert limited_vocabulary.id is not None  # Type assertion for mypy
     result = vocabulary_repository.get_by_id(limited_vocabulary.id)
     assert sorted_by_concept_id(result.concepts) == sorted_by_concept_id(v.concepts)
 
@@ -58,6 +63,7 @@ def test__vocabulary_in_use_by_publication__delete__raises_error() -> None:
     with pytest.raises(vocabulary_repository.VocabularyInUseError):
         vocabulary_repository.delete(v)
 
+    assert v.id is not None  # Repository create should assign ID
     assert vocabulary_repository.get_by_id(v.id) is not None
 
 
@@ -67,11 +73,13 @@ def test__vocabulary_with_limited_vocabulary__delete__raises_error() -> None:
     v.add_concept(concept_id="test-concept", name="", description="")
     vocabulary_repository.save(v)
 
+    assert v.id is not None  # Repository create should assign ID
     _ = vocabulary_repository.create_limited(v.id, "limited")
 
     with pytest.raises(vocabulary_repository.VocabularyInUseError):
         vocabulary_repository.delete(v)
 
+    assert v.id is not None  # Type assertion for mypy
     assert vocabulary_repository.get_by_id(v.id) is not None
 
 
