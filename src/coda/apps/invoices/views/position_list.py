@@ -7,6 +7,7 @@ from django.shortcuts import render
 
 from coda.apps.fundingrequests import repository
 from coda.apps.invoices.models import FundingSource
+from coda.apps.publications.models import Publication
 from coda.contexts.finance.dto.edit_position_dtos import (
     AnyPositionDto,
     ContractPositionDto,
@@ -14,9 +15,8 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     PublicationPositionDto,
     RelatedFundingRequest,
 )
-from coda.apps.publications.models import Publication
 from coda.contexts.finance.services import invoice_parser
-from coda.domain.finance.invoice import ContractCostType, PublicationCostType
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.money import Currency
 from coda.domain.publication.publication import PublicationId
 

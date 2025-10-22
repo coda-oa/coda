@@ -24,16 +24,8 @@ from coda.contexts.finance.services import import_service
 from coda.domain.contract import Contract
 from coda.domain.date import DateRange
 from coda.domain.finance import invoice_positions
-from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest, FundingOrganizationId
-from coda.domain.fundingrequest.identity import PublicFundingRequestId
-from coda.domain.finance.invoice import (
-    ContractCostType,
-    CreditorId,
-    FundingSourceId,
-    Invoice,
-    PaymentStatus,
-    PublicationCostType,
-)
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
 from coda.domain.finance.invoice_positions import (
     AnyPosition,
     ContractItem,
@@ -41,6 +33,8 @@ from coda.domain.finance.invoice_positions import (
     PublicationItem,
 )
 from coda.domain.finance.taxrate import TaxRate
+from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest, FundingOrganizationId
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.money import Currency, Money
 from coda.domain.publication import JournalId, PublicationId
 from coda.domain.publication.payment import (

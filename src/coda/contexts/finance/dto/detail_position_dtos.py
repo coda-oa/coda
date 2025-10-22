@@ -7,7 +7,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     PublicationPositionDto,
 )
 from coda.contexts.finance.services import invoice_parser
-from coda.domain.finance.invoice import ContractCostType, PublicationCostType
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.invoice_positions import AnyPosition
 
 

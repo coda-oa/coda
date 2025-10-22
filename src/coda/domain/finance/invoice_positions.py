@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from typing import Generic, Protocol, TypeVar
 
 from coda.domain.contract import ContractYear
-from coda.domain.finance.invoice import ContractCostType, FundingSourceId, PublicationCostType
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency
 from coda.domain.money._money import CurrencyExchange, Money

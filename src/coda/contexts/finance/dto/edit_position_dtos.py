@@ -8,7 +8,7 @@ from pydantic import BeforeValidator
 
 from coda.apps.dto import CodaBaseDto
 from coda.domain.contract import ContractYear
-from coda.domain.finance.invoice import ContractCostType, CostType, ItemType, PublicationCostType
+from coda.domain.finance.costtypes import ContractCostType, CostType, ItemType, PublicationCostType
 from coda.domain.publication import PublicationId
 
 ItemT = TypeVar("ItemT", bound=ItemType, covariant=True)

@@ -10,6 +10,17 @@ from coda.domain.author import Author, AuthorId, AuthorNames, InstitutionId, Rol
 from coda.domain.contract import Contract, ContractId, ContractYear, PublisherId
 from coda.domain.date import DateRange
 from coda.domain.finance import invoice_positions
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.invoice import (
+    CreditorId,
+    FundingSourceId,
+    Invoice,
+    InvoiceId,
+    PaymentStatus,
+    Positions,
+)
+from coda.domain.finance.invoice_positions import ContractItem, FreeItem, Position, PublicationItem
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -21,23 +32,6 @@ from coda.domain.fundingrequest import (
     Review,
 )
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
-from coda.domain.finance.invoice import (
-    ContractCostType,
-    CreditorId,
-    FundingSourceId,
-    Invoice,
-    InvoiceId,
-    PaymentStatus,
-    Positions,
-    PublicationCostType,
-)
-from coda.domain.finance.invoice_positions import (
-    FreeItem,
-    ContractItem,
-    Position,
-    PublicationItem,
-)
-from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 from coda.domain.publication import (
     Authors,

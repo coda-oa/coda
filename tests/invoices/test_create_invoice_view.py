@@ -25,14 +25,8 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 )
 from coda.domain.contract import Contract, ContractId
 from coda.domain.finance import invoice_positions
-from coda.domain.finance.invoice import (
-    ContractCostType,
-    CreditorId,
-    FundingSourceId,
-    Invoice,
-    PaymentStatus,
-    PublicationCostType,
-)
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
 from coda.domain.finance.invoice_positions import ContractItem, FreeItem, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money

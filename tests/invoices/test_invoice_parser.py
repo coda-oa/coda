@@ -6,7 +6,7 @@ import pytest
 from coda.apps.contracts import repository
 from coda.contexts.finance.services import invoice_parser
 from coda.domain.contract import ContractYear
-from coda.domain.finance.invoice import ContractCostType, PublicationCostType
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.invoice_positions import AnyPosition
 from coda.domain.publication.publication import PublicationId
 from tests import domainfactory, modelfactory

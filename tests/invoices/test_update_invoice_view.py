@@ -16,14 +16,8 @@ from coda.apps.publications.repositories import publication_repository
 from coda.contexts.finance.services import invoice_parser
 from coda.domain.contract import Contract
 from coda.domain.finance import invoice_positions
-from coda.domain.finance.invoice import (
-    ContractCostType,
-    CreditorId,
-    Invoice,
-    InvoiceId,
-    PaymentStatus,
-    PublicationCostType,
-)
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId, PaymentStatus
 from coda.domain.finance.invoice_positions import ContractItem, FreeItem, Position, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money

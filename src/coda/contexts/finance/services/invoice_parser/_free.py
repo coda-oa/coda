@@ -2,7 +2,8 @@ from typing_extensions import TypeIs
 
 from coda.contexts.finance.dto.edit_position_dtos import AnyPositionDto, FreePositionDto
 from coda.domain.finance import invoice_positions
-from coda.domain.finance.invoice import FundingSourceId, PublicationCostType
+from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice_positions import AnyPosition, FreeItem, Position
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money

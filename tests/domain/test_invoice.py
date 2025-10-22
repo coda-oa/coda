@@ -9,8 +9,8 @@ from coda.domain.finance.invoice import (
     Invoice,
     NoSuchConversion,
     Positions,
-    PublicationCostType,
 )
+from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice_positions import Position, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money

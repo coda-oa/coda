@@ -6,9 +6,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import TYPE_CHECKING, NewType, Self
 
-from coda.domain.contract import ContractYear
 from coda.domain.money import Currency, CurrencyExchange, Money
-from coda.domain.publication import PublicationId
 
 if TYPE_CHECKING:
     from coda.domain.finance.invoice_positions import AnyPosition
@@ -16,38 +14,6 @@ if TYPE_CHECKING:
 InvoiceId = NewType("InvoiceId", int)
 CreditorId = NewType("CreditorId", int)
 FundingSourceId = NewType("FundingSourceId", int)
-
-
-class PublicationCostType(enum.Enum):
-    """
-    Enum representing the cost type based on the OpenCost schema.
-    """
-
-    Gold_OA = "gold-oa"
-    Hybrid_OA = "hybrid-oa"
-    Vat = "vat"
-    Colour_Charge = "colour charge"
-    Page_Charge = "page charge"
-    Permission = "permission"
-    Publication_Charge = "publication charge"
-    Reprint = "reprint"
-    Submission_Fee = "submission fee"
-    Payment_Fee = "payment fee"
-    Other = "other"
-
-
-class ContractCostType(enum.Enum):
-    """
-    Enum representing the cost type for contracts based on the OpenCost schema.
-    """
-
-    Publish = "publish"
-    Read = "read"
-    Vat = "vat"
-
-
-ItemType = PublicationId | ContractYear | str
-CostType = PublicationCostType | ContractCostType
 
 
 type Positions = Iterable[AnyPosition]

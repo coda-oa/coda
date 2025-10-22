@@ -10,7 +10,8 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     RelatedFundingRequest,
 )
 from coda.domain.finance import invoice_positions
-from coda.domain.finance.invoice import FundingSourceId, PublicationCostType
+from coda.domain.finance.costtypes import PublicationCostType
+from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.invoice_positions import AnyPosition, Position, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money

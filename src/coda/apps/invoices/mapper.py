@@ -7,14 +7,13 @@ from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.invoices import models as invoice_models
 from coda.coda_itertools import LazyCachedIterable
 from coda.domain.finance import invoice_positions
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.invoice import (
-    ContractCostType,
     CreditorId,
     FundingSourceId,
     Invoice,
     InvoiceId,
     PaymentStatus,
-    PublicationCostType,
 )
 from coda.domain.finance.invoice_positions import (
     AnyPosition,
