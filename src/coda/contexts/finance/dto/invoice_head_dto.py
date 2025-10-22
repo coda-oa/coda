@@ -1,6 +1,6 @@
 import datetime
 from coda.apps.dto import CodaBaseDto
-from coda.domain.invoice import CreditorId, PaymentStatus
+from coda.domain.finance.invoice import CreditorId, PaymentStatus
 from coda.domain.money._currency import Currency
 
 

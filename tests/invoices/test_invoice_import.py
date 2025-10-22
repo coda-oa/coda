@@ -23,24 +23,24 @@ from coda.contexts.finance.dto.import_dtos import (
 from coda.contexts.finance.services import import_service
 from coda.domain.contract import Contract
 from coda.domain.date import DateRange
+from coda.domain.finance import invoice_positions
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest, FundingOrganizationId
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
-from coda.domain.invoice import (
-    AnyPosition,
+from coda.domain.finance.invoice import (
     ContractCostType,
-    ContractItem,
-    ContractPosition,
     CreditorId,
-    FreeItem,
-    FreePosition,
     FundingSourceId,
     Invoice,
     PaymentStatus,
-    PublicationPosition,
     PublicationCostType,
-    PublicationItem,
-    TaxRate,
 )
+from coda.domain.finance.invoice_positions import (
+    AnyPosition,
+    ContractItem,
+    FreeItem,
+    PublicationItem,
+)
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 from coda.domain.publication import JournalId, PublicationId
 from coda.domain.publication.payment import (
@@ -353,7 +353,7 @@ def expected_publication_position(import_dto: PublicationPositionImportDto) -> A
         PublicFundingRequestId.from_str(str(import_dto.request_id))
     )
     publication_id = cast(PublicationId, request.publication.id)
-    return PublicationPosition(
+    return invoice_positions.create(
         item=PublicationItem(
             publication_id,
             cost_type=PublicationCostType(import_dto.cost_type),
@@ -373,7 +373,7 @@ def expected_contract_position(import_dto: ContractPositionImportDto) -> AnyPosi
     assert contract is not None, "Contract should have been created by import service"
 
     contract_year = contract.in_year(import_dto.contract_year)
-    return ContractPosition(
+    return invoice_positions.create(
         item=ContractItem(
             contract_year,
             cost_type=ContractCostType(import_dto.cost_type),
@@ -391,7 +391,7 @@ def expected_free_position(import_dto: FreePositionImportDto) -> AnyPosition:
         funding_source is not None
     ), f"FundingSource '{import_dto.funding_source}' should exist in the database"
     description = import_dto.description
-    return FreePosition(
+    return invoice_positions.create(
         item=FreeItem(
             description,
             cost_type=PublicationCostType(import_dto.cost_type),

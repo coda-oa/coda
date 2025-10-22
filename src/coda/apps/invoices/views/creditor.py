@@ -7,7 +7,7 @@ from coda.apps.invoices import repository
 from coda.apps.invoices.forms import CreditorForm
 from coda.apps.invoices.models import Creditor
 from coda.apps.views import SimpleSearchEntityListView
-from coda.domain.invoice import CreditorId
+from coda.domain.finance.invoice import CreditorId
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 

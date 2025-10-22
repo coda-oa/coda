@@ -10,10 +10,12 @@ from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
-from coda.apps.contracts import repository as contract_services
 from coda.apps.contracts import mapper as contract_mapper
+from coda.apps.contracts import repository as contract_services
 from coda.apps.invoices import repository
 from coda.apps.invoices.models import FundingSource
+from coda.apps.publications.models import Publication
+from coda.apps.publications.services import publications
 from coda.contexts.finance.dto.edit_position_dtos import (
     DEFAULT_TAX_RATE_PERCENTAGE,
     ContractPositionDto,
@@ -21,24 +23,18 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     PublicationPositionDto,
     RelatedFundingRequest,
 )
-from coda.apps.publications.models import Publication
-from coda.apps.publications.services import publications
 from coda.domain.contract import Contract, ContractId
-from coda.domain.invoice import (
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.invoice import (
     ContractCostType,
-    ContractItem,
-    ContractPosition,
     CreditorId,
-    FreeItem,
-    FreePosition,
     FundingSourceId,
     Invoice,
     PaymentStatus,
-    PublicationPosition,
     PublicationCostType,
-    PublicationItem,
-    TaxRate,
 )
+from coda.domain.finance.invoice_positions import ContractItem, FreeItem, PublicationItem
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
@@ -211,7 +207,7 @@ def test__given_publication_added__create__publication_has_invoice_received(
     assert actual is not None
     assert_payment_status = get_assertion_for_invoice(actual)
 
-    actual_status = publications.get_payment_status(PublicationId(publication.id))
+    actual_status = publications.get_payment_status(PublicationId(publication.pk))
     assert isinstance(actual_status, PublicationPayments)
     assert_payment_status(actual_status)
 
@@ -224,7 +220,7 @@ def invoice_post_data(
         "action": "create",
         "number": _faker.pystr(),
         "date": _faker.date(),
-        "creditor": str(creditor.id),
+        "creditor": str(creditor.pk),
         "status": status.value,
         "currency": Currency.EUR.code,
     } | number_of_positions(len(positions))
@@ -260,7 +256,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
         datetime.date.fromisoformat(post_data["date"]),
         CreditorId(int(post_data["creditor"])),
         [
-            PublicationPosition(
+            invoice_positions.create(
                 item=PublicationItem(
                     PublicationId(int(post_data["position-1-id"])),
                     cost_type=PublicationCostType(post_data["position-1-cost-type"]),
@@ -273,7 +269,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                 funding_source=FundingSourceId(int(post_data["position-1-funding-source"])),
                 external_position_id=post_data["position-1-external-position-id"],
             ),
-            FreePosition(
+            invoice_positions.create(
                 item=FreeItem(
                     post_data["position-2-description"],
                     cost_type=PublicationCostType(post_data["position-2-cost-type"]),
@@ -286,7 +282,7 @@ def expected_invoice(post_data: dict[str, str]) -> Invoice:
                 funding_source=FundingSourceId(int(post_data["position-2-funding-source"])),
                 external_position_id=post_data["position-2-external-position-id"],
             ),
-            ContractPosition(
+            invoice_positions.create(
                 item=ContractItem(
                     contract_year,
                     cost_type=ContractCostType(post_data["position-3-cost-type"]),

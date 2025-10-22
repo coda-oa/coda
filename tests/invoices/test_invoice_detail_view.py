@@ -1,11 +1,12 @@
 import datetime
 from typing import cast
-from django.urls import reverse
+
 import pytest
 from django.template.response import TemplateResponse
 from django.test import Client
-from coda.apps.fundingrequests import repository as fundingrequest_repository
+from django.urls import reverse
 
+from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests.dto import (
     CreateFundingRequestDto,
     ExternalFundingDto,
@@ -15,20 +16,17 @@ from coda.apps.fundingrequests.dto import (
 )
 from coda.apps.fundingrequests.services import fundingrequests
 from coda.apps.invoices.repository import create
-from coda.contexts.finance.dto.detail_position_dtos import PositionDetailDto
 from coda.apps.publications.dto import PublicationDto
-from coda.domain.fundingrequest.fundingrequest import (
-    FundingOrganizationId,
-    FundingRequest,
-)
-from coda.domain.publication.publication import JournalId, Publication
-from tests import domainfactory, modelfactory
-from coda.domain.invoice import (
-    AnyPosition,
+from coda.contexts.finance.dto.detail_position_dtos import PositionDetailDto
+from coda.domain.finance.invoice import (
     CreditorId,
     Invoice,
     InvoiceId,
 )
+from coda.domain.finance.invoice_positions import AnyPosition
+from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId, FundingRequest
+from coda.domain.publication.publication import JournalId, Publication
+from tests import domainfactory, modelfactory
 
 
 @pytest.mark.django_db
@@ -48,8 +46,8 @@ def test__invoice_with_publication_position__viewing_invoice_details__publicatio
 
 
 def funding_request() -> FundingRequest[Publication]:
-    journal = JournalId(modelfactory.journal().id)
-    funding_org = FundingOrganizationId(modelfactory.funding_organization().id)
+    journal = JournalId(modelfactory.journal().pk)
+    funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
     fr = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
     fr.id = fundingrequests.create_fundingrequest(
         CreateFundingRequestDto(
@@ -72,7 +70,7 @@ def invoice_with_position(position: AnyPosition) -> Invoice:
     creditor = modelfactory.creditor()
     invoice = Invoice.new(
         number="123",
-        creditor=CreditorId(creditor.id),
+        creditor=CreditorId(creditor.pk),
         date=datetime.date.today(),
         positions=[position],
         comment="A comment",

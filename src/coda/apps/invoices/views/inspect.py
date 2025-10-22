@@ -20,7 +20,7 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 from coda.contexts.finance.services import invoice_service
 from coda.domain.date import DateRange
-from coda.domain.invoice import Invoice, InvoiceId, PaymentStatus
+from coda.domain.finance.invoice import Invoice, InvoiceId, PaymentStatus
 from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Money
 from coda.domain.money._currency import Currency

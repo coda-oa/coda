@@ -13,13 +13,8 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.domain import errors
 from coda.domain.contract import ContractYear
-from coda.domain.invoice import (
-    AnyPosition,
-    CostType,
-    CreditorId,
-    Invoice,
-    ItemType,
-)
+from coda.domain.finance.invoice import CostType, CreditorId, Invoice, ItemType
+from coda.domain.finance.invoice_positions import AnyPosition
 from coda.domain.money._currency import Currency
 from coda.domain.publication.publication import PublicationId
 
@@ -80,7 +75,7 @@ def to_position(
 
 
 def position_to_dto(position: AnyPosition) -> AnyPositionDto:
-    parser = _position_converters[type(position.item)]
+    parser = _position_converters[type(position.item.item)]
     return parser.position_to_dto(position)
 
 

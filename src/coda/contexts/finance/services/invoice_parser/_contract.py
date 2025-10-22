@@ -1,4 +1,4 @@
-from decimal import Decimal
+from typing_extensions import TypeIs
 
 from coda.apps.contracts import repository
 from coda.contexts.finance.dto.edit_position_dtos import (
@@ -6,14 +6,10 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     ContractPositionDto,
 )
 from coda.domain.contract import ContractId, ContractYear
-from coda.domain.invoice import (
-    AnyPosition,
-    ContractCostType,
-    ContractItem,
-    ContractPosition,
-    FundingSourceId,
-    TaxRate,
-)
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.invoice import ContractCostType, FundingSourceId
+from coda.domain.finance.invoice_positions import AnyPosition, ContractItem, Position
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 
 
@@ -33,11 +29,11 @@ def parse_cost_type(position: ContractPositionDto) -> ContractCostType:
 
 def to_position(
     position: ContractPositionDto, currency: Currency, *, parse_safe: bool = False
-) -> ContractPosition:
+) -> Position[ContractItem]:
     item = parse_item(position, parse_safe=parse_safe)
     cost_type = parse_cost_type(position)
 
-    return ContractPosition(
+    return invoice_positions.create(
         item=ContractItem(item, cost_type=cost_type),
         cost=Money(position.cost_amount, currency),
         tax_rate=TaxRate.from_percentage(position.tax_rate),
@@ -48,25 +44,27 @@ def to_position(
     )
 
 
-def position_to_dto(position: ContractPosition) -> ContractPositionDto:
-    if not position.item.contract_id:
+def position_to_dto(position: Position[ContractItem]) -> ContractPositionDto:
+    if not position.item.item.contract_id:
         raise ValueError("Contract ID is required for ContractPosition")
 
-    contract = repository.get_by_id(position.item.contract_id)
-
-    is_vat = position.cost_type == ContractCostType.Vat
+    contract = repository.get_by_id(position.item.item.contract_id)
 
     assert contract.id is not None
     return ContractPositionDto(
         id=contract.id,
         name=contract.name,
         funding_source=position.funding_source,
-        year=position.item.year,
+        year=position.item.item.year,
         cost_amount=position.cost.amount,
-        cost_type=position.cost_type.value,
-        tax_rate=Decimal("0.00") if is_vat else position.tax_rate.percentage(),
+        cost_type=position.item.cost_type.value,
+        tax_rate=position.tax_rate.percentage(),
         external_position_id=position.external_position_id,
     )
+
+
+def _is_contractitem(p: AnyPosition) -> TypeIs[Position[ContractItem]]:
+    return isinstance(p.item, ContractItem)
 
 
 class ContractParser:
@@ -77,7 +75,7 @@ class ContractParser:
         return to_position(position, currency, parse_safe=parse_safe)
 
     def position_to_dto(self, position: AnyPosition) -> AnyPositionDto:
-        assert isinstance(position, ContractPosition)
+        assert _is_contractitem(position)
         return position_to_dto(position)
 
 

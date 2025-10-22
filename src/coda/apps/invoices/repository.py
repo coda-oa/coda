@@ -11,7 +11,7 @@ from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices import mapper as invoice_mapper
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.domain.date import DateRange
-from coda.domain.invoice import (
+from coda.domain.finance.invoice import (
     CreditorId,
     FundingSourceId,
     Invoice,

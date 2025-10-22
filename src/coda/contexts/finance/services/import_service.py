@@ -9,6 +9,8 @@ from django.db.models import Q
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository
+from coda.apps.invoices.models import Creditor, FundingSource
+from coda.apps.publications.services import publications
 from coda.contexts.finance.dto.import_dtos import (
     CommonPositionImportDto,
     ContractPositionImportDto,
@@ -16,24 +18,22 @@ from coda.contexts.finance.dto.import_dtos import (
     InvoiceImportDto,
     PublicationPositionImportDto,
 )
-from coda.apps.invoices.models import Creditor, FundingSource
-from coda.apps.publications.services import publications
 from coda.domain import errors
 from coda.domain.contract import Contract
-from coda.domain.invoice import (
-    AnyPosition,
-    ContractItem,
-    ContractPosition,
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.invoice import (
     CreditorId,
-    FreeItem,
-    FreePosition,
     FundingSourceId,
     Invoice,
     InvoiceId,
-    PublicationPosition,
-    PublicationItem,
-    TaxRate,
 )
+from coda.domain.finance.invoice_positions import (
+    AnyPosition,
+    ContractItem,
+    FreeItem,
+    PublicationItem,
+)
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
 from coda.domain.publication.payment import InvoiceReceived, PaymentEvent, PublicationPaid
@@ -257,7 +257,7 @@ def _parse_into_position(
     match p:
         case PublicationPositionImportDto():
             id_type = cast(str, p.request_id or p.legacy_request_id)
-            position = PublicationPosition(
+            position = invoice_positions.create(
                 item=PublicationItem(
                     lookups.request_id_lookup[id_type],
                     cost_type=p.cost_type,
@@ -268,7 +268,7 @@ def _parse_into_position(
                 external_position_id=external_id,
             )
         case ContractPositionImportDto():
-            position = ContractPosition(
+            position = invoice_positions.create(
                 item=ContractItem(
                     lookups.contract_lookup[p.contract_name].in_year(p.contract_year),
                     cost_type=p.cost_type,
@@ -279,7 +279,7 @@ def _parse_into_position(
                 external_position_id=external_id,
             )
         case FreePositionImportDto():
-            position = FreePosition(
+            position = invoice_positions.create(
                 item=FreeItem(
                     p.description,
                     cost_type=p.cost_type,
@@ -406,7 +406,7 @@ def _update_publication_payment_statuses(invoices: list[Invoice]) -> None:
 
 
 def _publication_positions(invoice: Invoice) -> list[PublicationId]:
-    return [p.item for p in invoice.positions if isinstance(p.item, PublicationId)]
+    return [p.item.item for p in invoice.positions if isinstance(p.item.item, PublicationId)]
 
 
 def _create_payment(invoice: Invoice) -> PaymentEvent:

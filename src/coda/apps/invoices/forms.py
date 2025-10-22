@@ -4,7 +4,7 @@ from django import forms
 from coda.apps.fields import currency_field
 from coda.apps.invoices.models import Creditor, FundingSource
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
-from coda.domain.invoice import CreditorId, Invoice, PaymentStatus
+from coda.domain.finance.invoice import CreditorId, Invoice, PaymentStatus
 from coda.domain.money import Currency
 
 

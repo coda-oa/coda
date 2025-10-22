@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from coda.domain.invoice import Invoice
+from coda.domain.finance.invoice import Invoice
 from coda.domain.publication.payment import PublicationPayments, Payment
 
 type PaymentAssertion = Callable[[PublicationPayments], None]

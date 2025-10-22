@@ -14,7 +14,7 @@ from coda.apps.invoices.views.position_list import (
 )
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.services import invoice_parser, invoice_service
-from coda.domain.invoice import InvoiceId
+from coda.domain.finance.invoice import InvoiceId
 from coda.domain.money import Currency
 
 

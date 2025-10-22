@@ -7,7 +7,7 @@ from annotated_types import Len
 from pydantic import BaseModel, PlainValidator, model_validator
 
 from coda.domain.fundingrequest.identity import InvalidFundingRequestId, PublicFundingRequestId
-from coda.domain.invoice import ContractCostType, PaymentStatus, PublicationCostType
+from coda.domain.finance.invoice import ContractCostType, PaymentStatus, PublicationCostType
 from coda.domain.money import Currency
 
 DEFAULT_TAX_RATE = Decimal("19.00")

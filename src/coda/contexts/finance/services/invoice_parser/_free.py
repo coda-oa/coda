@@ -1,14 +1,10 @@
-from decimal import Decimal
+from typing_extensions import TypeIs
 
 from coda.contexts.finance.dto.edit_position_dtos import AnyPositionDto, FreePositionDto
-from coda.domain.invoice import (
-    AnyPosition,
-    FreeItem,
-    FreePosition,
-    FundingSourceId,
-    PublicationCostType,
-    TaxRate,
-)
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.invoice import FundingSourceId, PublicationCostType
+from coda.domain.finance.invoice_positions import AnyPosition, FreeItem, Position
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 
 
@@ -23,8 +19,8 @@ def parse_cost_type(position: FreePositionDto) -> PublicationCostType:
 
 def to_position(
     position: FreePositionDto, currency: Currency, *, parse_safe: bool = False
-) -> FreePosition:
-    return FreePosition(
+) -> Position[FreeItem]:
+    return invoice_positions.create(
         item=FreeItem(
             parse_item(position, parse_safe=parse_safe),
             cost_type=parse_cost_type(position),
@@ -38,17 +34,19 @@ def to_position(
     )
 
 
-def position_to_dto(position: FreePosition) -> FreePositionDto:
-    assert isinstance(position.item, str)
-    is_vat = position.cost_type == PublicationCostType.Vat
+def position_to_dto(position: Position[FreeItem]) -> FreePositionDto:
     return FreePositionDto(
-        description=position.item,
+        description=position.item.item,
         funding_source=position.funding_source,
         cost_amount=position.cost.amount,
-        cost_type=position.cost_type.value,
-        tax_rate=Decimal("0.00") if is_vat else position.tax_rate.percentage(),
+        cost_type=position.item.cost_type.value,
+        tax_rate=position.tax_rate.percentage(),
         external_position_id=position.external_position_id,
     )
+
+
+def _is_freeitem(p: AnyPosition) -> TypeIs[Position[FreeItem]]:
+    return isinstance(p.item, FreeItem)
 
 
 class FreeParser:
@@ -59,7 +57,7 @@ class FreeParser:
         return to_position(position, currency, parse_safe=parse_safe)
 
     def position_to_dto(self, position: AnyPosition) -> AnyPositionDto:
-        assert isinstance(position, FreePosition) and isinstance(position.item, str)
+        assert _is_freeitem(position)
         return position_to_dto(position)
 
 

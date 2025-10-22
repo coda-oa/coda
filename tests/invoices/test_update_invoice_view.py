@@ -15,21 +15,17 @@ from coda.apps.invoices.repository import create
 from coda.apps.publications.repositories import publication_repository
 from coda.contexts.finance.services import invoice_parser
 from coda.domain.contract import Contract
-from coda.domain.invoice import (
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.invoice import (
     ContractCostType,
-    ContractItem,
-    ContractPosition,
     CreditorId,
-    FreeItem,
-    FreePosition,
     Invoice,
     InvoiceId,
     PaymentStatus,
-    PublicationPosition,
     PublicationCostType,
-    PublicationItem,
-    TaxRate,
 )
+from coda.domain.finance.invoice_positions import ContractItem, FreeItem, Position, PublicationItem
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 from coda.domain.publication import JournalId, Publication, PublicationId
 from tests import domainfactory, modelfactory
@@ -232,8 +228,8 @@ def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_
     a_publication = domainfactory.publication(JournalId(modelfactory.journal().pk))
     a_publication.id = publication_repository.create(a_publication)
     some_position = publication_position(a_publication)
-    vat_position = PublicationPosition(
-        item=PublicationItem(some_position.item, cost_type=PublicationCostType.Vat),
+    vat_position = invoice_positions.create(
+        item=PublicationItem(some_position.item.item, cost_type=PublicationCostType.Vat),
         cost=some_position.cost,
         tax_rate=some_position.tax_rate,
         funding_source=some_position.funding_source,
@@ -265,9 +261,9 @@ def save_invoice_view(
     )
 
 
-def publication_position(a_publication: Publication) -> PublicationPosition:
+def publication_position(a_publication: Publication) -> Position[PublicationItem]:
     cost_type = random.choice(list(PublicationCostType))
-    return PublicationPosition(
+    return invoice_positions.create(
         item=PublicationItem(cast(PublicationId, a_publication.id), cost_type=cost_type),
         funding_source=_random_funding_source(),
         cost=Money(200, Currency.EUR),
@@ -276,8 +272,8 @@ def publication_position(a_publication: Publication) -> PublicationPosition:
     )
 
 
-def contract_position(a_contract: Contract) -> ContractPosition:
-    return ContractPosition(
+def contract_position(a_contract: Contract) -> Position[ContractItem]:
+    return invoice_positions.create(
         item=ContractItem(a_contract.in_first_year(), cost_type=ContractCostType.Publish),
         funding_source=_random_funding_source(),
         cost=Money(100, Currency.EUR),
@@ -286,8 +282,8 @@ def contract_position(a_contract: Contract) -> ContractPosition:
     )
 
 
-def free_position() -> FreePosition:
-    return FreePosition(
+def free_position() -> Position[FreeItem]:
+    return invoice_positions.create(
         item=FreeItem("Free position", cost_type=PublicationCostType.Other),
         funding_source=_random_funding_source(),
         cost=Money(50, Currency.EUR),

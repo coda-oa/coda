@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from coda.domain.contract import ContractId
-from coda.domain.invoice import InvoiceId
+from coda.domain.finance.invoice import InvoiceId
 from coda.domain.publication.publication import PublicationId
 
 

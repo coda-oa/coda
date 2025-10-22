@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from coda.apps.invoices import repository
 from coda.apps.preferences.models import GlobalPreferences
-from coda.domain.invoice import CreditorId, Invoice, InvoiceId
+from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.money._currency import Currency
 from tests import domainfactory, modelfactory
 from tests.invoices.test_create_invoice_view import invoice_post_data

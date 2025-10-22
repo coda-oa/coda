@@ -19,7 +19,7 @@ from coda.apps.invoices.views.position_list import (
 )
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.services import invoice_parser
-from coda.domain.invoice import Invoice, InvoiceId
+from coda.domain.finance.invoice import Invoice, InvoiceId
 from coda.domain.money._currency import Currency
 
 invoice_breadcrumb_title = generate_dynamic_title(

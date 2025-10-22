@@ -9,7 +9,7 @@ from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.invoices import repository
 from coda.domain.contract import Contract
 from coda.domain.fundingrequest import FundingOrganizationId
-from coda.domain.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
+from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
 from coda.domain.money._currency import Currency
 from coda.domain.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory

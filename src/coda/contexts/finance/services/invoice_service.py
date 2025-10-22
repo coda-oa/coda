@@ -1,6 +1,6 @@
 from coda.apps.invoices import repository
 from coda.apps.publications.services import publications
-from coda.domain.invoice import Invoice, InvoiceId
+from coda.domain.finance.invoice import Invoice, InvoiceId
 from coda.domain.publication.payment import InvoiceReceived, PaymentEvent, PublicationPaid
 from coda.domain.publication.publication import PublicationId
 
@@ -78,4 +78,4 @@ def _update_payments(invoice: Invoice, paid: PaymentEvent) -> None:
 
 
 def _publication_positions(invoice: Invoice) -> list[PublicationId]:
-    return [p.item for p in invoice.positions if isinstance(p.item, PublicationId)]
+    return [p.item.item for p in invoice.positions if isinstance(p.item.item, PublicationId)]

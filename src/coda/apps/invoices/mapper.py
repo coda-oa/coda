@@ -5,29 +5,28 @@ from django.urls import reverse
 
 from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.invoices import models as invoice_models
-from coda.domain.contract import ContractYear
-from coda.domain.invoice import (
-    AnyPosition,
+from coda.coda_itertools import LazyCachedIterable
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.invoice import (
     ContractCostType,
-    ContractItem,
-    ContractPosition,
     CreditorId,
-    FreeItem,
-    FreePosition,
     FundingSourceId,
     Invoice,
     InvoiceId,
     PaymentStatus,
-    PublicationPosition,
-    PositionItemType,
     PublicationCostType,
-    PublicationItem,
-    TaxRate,
 )
+from coda.domain.finance.invoice_positions import (
+    AnyPosition,
+    ContractItem,
+    FreeItem,
+    PositionItemType,
+    PublicationItem,
+)
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Currency, Money
 from coda.domain.publication import PublicationId
-from coda.coda_itertools import LazyCachedIterable
 
 
 def as_domain_object(model: invoice_models.Invoice) -> Invoice:
@@ -115,35 +114,35 @@ def _as_position_django_model(
 ) -> invoice_models.Position:
     """Convert position domain object to PositionModel."""
     match position.item:
-        case ContractYear() as contract_year:
+        case ContractItem(contract_year, cost_type):
             return invoice_models.Position(
                 contract_id=contract_year.contract.id,
                 contract_year=contract_year.year,
                 cost_amount=position.cost.amount,
                 cost_currency=position.cost.currency.code,
-                cost_type=position.cost_type.value,
+                cost_type=cost_type.value,
                 tax_rate=position.tax_rate,
                 funding_source_id=position.funding_source,
                 invoice_id=invoice_model.pk,
                 external_position_id=position.external_position_id,
             )
-        case PublicationId(pub_id):
+        case PublicationItem(pub_id, cost_type):
             return invoice_models.Position(
                 publication_id=pub_id,
                 cost_amount=position.cost.amount,
                 cost_currency=position.cost.currency.code,
-                cost_type=position.cost_type.value,
+                cost_type=cost_type.value,
                 tax_rate=position.tax_rate,
                 funding_source_id=position.funding_source,
                 invoice_id=invoice_model.pk,
                 external_position_id=position.external_position_id,
             )
-        case str(description):
+        case FreeItem(description, cost_type):
             return invoice_models.Position(
                 description=description,
                 cost_amount=position.cost.amount,
                 cost_currency=position.cost.currency.code,
-                cost_type=position.cost_type.value,
+                cost_type=cost_type.value,
                 tax_rate=position.tax_rate,
                 funding_source_id=position.funding_source,
                 invoice_id=invoice_model.pk,
@@ -181,11 +180,11 @@ def _as_position_domain_object(position: invoice_models.Position) -> AnyPosition
 
     match item:
         case ContractItem():
-            return ContractPosition(item=item, **common_args)
+            return invoice_positions.create(item=item, **common_args)
         case PublicationItem():
-            return PublicationPosition(item=item, **common_args)
+            return invoice_positions.create(item=item, **common_args)
         case FreeItem():
-            return FreePosition(item=item, **common_args)
+            return invoice_positions.create(item=item, **common_args)
 
 
 def _extract_common_position_args(position: invoice_models.Position) -> _CommonPositionArgs:
