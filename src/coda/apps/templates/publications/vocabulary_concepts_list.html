@@ -1,6 +1,5 @@
-<li class="{% if index|default:"0"|divisibleby:"2" %}even{% else %}odd{% endif %}">
+<li class="{% if node.zebra_index|divisibleby:"2" %}even{% else %}odd{% endif %}">
     {% if node.is_allowed %}
-        <!-- Show checkbox - this concept belongs to this list -->
         <label class="tree-node depth-{{ depth }}">
             <input type="checkbox"
                    name="{{ name_prefix }}_concepts_check"
@@ -11,13 +10,12 @@
                name="{{ name_prefix }}_concepts"
                value="{{ node.concept.concept_id }}">
     {% else %}
-        <!-- Show only label - this concept is just for hierarchy context -->
         <p class="tree-parent tree-node depth-{{ depth }}">{{ node.concept.concept_id }} {{ node.concept.name }}</p>
     {% endif %}
     {% if node.children %}
         <ul class="tree-children undecorated">
             {% for child in node.children %}
-                {% include "publications/vocabulary_concepts_list.html" with node=child name_prefix=name_prefix depth=depth|add:"2" index=forloop.parentloop.counter|add:forloop.counter %}
+                {% include "publications/vocabulary_concepts_list.html" with node=child name_prefix=name_prefix depth=depth|add:"2" %}
             {% endfor %}
         </ul>
     {% endif %}

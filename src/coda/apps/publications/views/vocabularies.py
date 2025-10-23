@@ -26,11 +26,12 @@ ConceptPair = tuple[VocabularyConcept | None, VocabularyConcept | None]
 
 @dataclass
 class UITreeNode:
-    """Tree node with UI-specific presentation logic added."""
+    """Tree node with UI-specific annotations for template rendering"""
 
     concept: VocabularyConcept
     children: list["UITreeNode"]
     is_allowed: bool  # For template: whether to show checkbox or just label
+    zebra_index: int  # For template: sequential index for zebra striping
 
 
 def annotate_trees_for_ui(
@@ -43,10 +44,17 @@ def annotate_trees_for_ui(
     This handles the presentation logic of when to show checkboxes vs labels.
     - Allowed tree: show checkbox for allowed concepts, label for forbidden ones
     - Forbidden tree: show checkbox for forbidden concepts, label for allowed ones
+
+    Also adds sequential zebra_index for proper striping across nested lists.
     """
 
     def annotate_tree(tree: list[ConceptTreeNode], is_allowed_tree: bool) -> list[UITreeNode]:
+        zebra_counter = [0]  # Use list to make it mutable in nested function
+
         def annotate_node(node: ConceptTreeNode) -> UITreeNode:
+            zebra_counter[0] += 1
+            current_index = zebra_counter[0]
+
             is_concept_allowed = vocabulary.is_concept_allowed(node.concept.concept_id)
             # Show checkbox if this concept belongs to this tree's purpose
             show_checkbox = is_concept_allowed if is_allowed_tree else not is_concept_allowed
@@ -55,6 +63,7 @@ def annotate_trees_for_ui(
                 concept=node.concept,
                 children=[annotate_node(child) for child in node.children],
                 is_allowed=show_checkbox,
+                zebra_index=current_index,
             )
 
         return [annotate_node(node) for node in tree]

@@ -13,7 +13,7 @@ from coda.domain.vocabulary import (
 )
 
 from coda.apps.publications.services.vocabularies import build_concept_trees
-from coda.apps.publications.views.vocabularies import annotate_trees_for_ui
+from coda.apps.publications.views.vocabularies import annotate_trees_for_ui, UITreeNode
 
 from coda.apps.publications.repositories import vocabulary_repository
 
@@ -46,32 +46,15 @@ def test__limited_vocabulary_with_disallowed_concept__accessing_edit_view__conce
 ) -> None:
     vocab_id = VocabularyId(999)
 
-    id_a = ConceptId.new()
-    id_b = ConceptId.new()
-    id_c = ConceptId.new()
-
-    concept_a = VocabularyConcept(
-        id=id_a, concept_id="A", vocabulary=vocab_id, parent=None, name="A"
-    )
-    concept_b = VocabularyConcept(
-        id=id_b, concept_id="B", vocabulary=vocab_id, parent=id_a, name="B"
-    )
-    concept_c = VocabularyConcept(
-        id=id_c, concept_id="C", vocabulary=vocab_id, parent=id_b, name="C"
-    )
-
-    base_vocab = Vocabulary(
-        id=vocab_id, name="Test Base", version="1.0", concepts=[concept_a, concept_b, concept_c]
-    )
+    concepts, _ = create_concept_hierarchy_abc(vocab_id)
+    base_vocab = create_base_vocabulary_with_concepts(vocab_id, concepts)
 
     vocabulary_repository.save(base_vocab)
 
     limited_vocab = vocabulary_repository.create_limited(
         base_vocabulary_id=vocab_id, name="Limited"
     )
-
     limited_vocab.disallow("C")
-
     vocabulary_repository.save(limited_vocab)
 
     url = reverse("publications:vocabulary_edit_limited", kwargs={"pk": limited_vocab.id})
@@ -109,6 +92,7 @@ def test__vocabulary_with_allowed_and_forbidden_concepts__annotating_trees_for_u
     None
 ):
     vocab_id = VocabularyId(997)
+
     id_a = ConceptId.new()
     id_b = ConceptId.new()
     concept_a = VocabularyConcept(
@@ -117,21 +101,11 @@ def test__vocabulary_with_allowed_and_forbidden_concepts__annotating_trees_for_u
     concept_b = VocabularyConcept(
         id=id_b, concept_id="B", vocabulary=vocab_id, parent=id_a, name="B"
     )
-    base_vocab = Vocabulary(
-        id=vocab_id, name="Test Base", version="1.0", concepts=[concept_a, concept_b]
-    )
-    limited_vocab = LimitedVocabulary(
-        id=VocabularyId(996),
-        base_vocabulary=base_vocab,
-        name="Limited",
-        version="1.0",
-    )
-    limited_vocab.disallow("B")
 
-    service_allowed_tree, service_forbidden_tree = build_concept_trees(limited_vocab)
-    ui_allowed_tree, ui_forbidden_tree = annotate_trees_for_ui(
-        service_allowed_tree, service_forbidden_tree, limited_vocab
-    )
+    base_vocab = create_base_vocabulary_with_concepts(vocab_id, [concept_a, concept_b])
+    limited_vocab = create_limited_vocabulary_with_disallowed(base_vocab, ["B"], VocabularyId(996))
+
+    ui_allowed_tree, ui_forbidden_tree = build_and_annotate_ui_trees(limited_vocab)
 
     # In allowed tree: A is allowed, should show checkbox; B context not shown
     assert len(ui_allowed_tree) == 1
@@ -148,3 +122,78 @@ def test__vocabulary_with_allowed_and_forbidden_concepts__annotating_trees_for_u
     assert (
         ui_forbidden_tree[0].children[0].is_allowed
     )  # B is forbidden, show checkbox in forbidden tree
+
+
+@pytest.mark.django_db
+def test__nested_hierarchial_concept_tree__building_tree__zebra_striping_indexes_assigned_sequentially() -> (
+    None
+):
+    vocab_id = VocabularyId(995)
+
+    concepts, _ = create_concept_hierarchy_abc(vocab_id)
+    base_vocab = create_base_vocabulary_with_concepts(vocab_id, concepts)
+    limited_vocab = create_limited_vocabulary_with_disallowed(base_vocab, ["C"], VocabularyId(994))
+
+    ui_allowed_tree, ui_forbidden_tree = build_and_annotate_ui_trees(limited_vocab)
+
+    assert ui_allowed_tree[0].zebra_index == 1
+    assert ui_allowed_tree[0].children[0].zebra_index == 2
+
+    assert ui_forbidden_tree[0].zebra_index == 1
+    assert ui_forbidden_tree[0].children[0].zebra_index == 2
+    assert ui_forbidden_tree[0].children[0].children[0].zebra_index == 3
+
+
+def create_concept_hierarchy_abc(
+    vocab_id: VocabularyId,
+) -> tuple[list[VocabularyConcept], dict[str, ConceptId]]:
+    id_a = ConceptId.new()
+    id_b = ConceptId.new()
+    id_c = ConceptId.new()
+
+    concept_a = VocabularyConcept(
+        id=id_a, concept_id="A", vocabulary=vocab_id, parent=None, name="A"
+    )
+    concept_b = VocabularyConcept(
+        id=id_b, concept_id="B", vocabulary=vocab_id, parent=id_a, name="B"
+    )
+    concept_c = VocabularyConcept(
+        id=id_c, concept_id="C", vocabulary=vocab_id, parent=id_b, name="C"
+    )
+
+    concepts = [concept_a, concept_b, concept_c]
+    id_mapping = {"A": id_a, "B": id_b, "C": id_c}
+
+    return concepts, id_mapping
+
+
+def create_base_vocabulary_with_concepts(
+    vocab_id: VocabularyId, concepts: list[VocabularyConcept]
+) -> Vocabulary:
+    return Vocabulary(id=vocab_id, name="Test Base", version="1.0", concepts=concepts)
+
+
+def create_limited_vocabulary_with_disallowed(
+    base_vocab: Vocabulary, disallowed_concepts: list[str], limited_id: VocabularyId
+) -> LimitedVocabulary:
+    limited_vocab = LimitedVocabulary(
+        id=limited_id,
+        base_vocabulary=base_vocab,
+        name="Limited",
+        version="1.0",
+    )
+
+    for concept_id in disallowed_concepts:
+        limited_vocab.disallow(concept_id)
+
+    return limited_vocab
+
+
+def build_and_annotate_ui_trees(
+    limited_vocab: LimitedVocabulary,
+) -> tuple[list[UITreeNode], list[UITreeNode]]:
+    service_allowed_tree, service_forbidden_tree = build_concept_trees(limited_vocab)
+    ui_allowed_tree, ui_forbidden_tree = annotate_trees_for_ui(
+        service_allowed_tree, service_forbidden_tree, limited_vocab
+    )
+    return ui_allowed_tree, ui_forbidden_tree

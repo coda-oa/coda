@@ -111,13 +111,13 @@ span.icon-tooltip[data-tooltip] {
   border: none;
 }
 
-.striped li.odd label,
-.striped li.odd p {
+.striped li.odd>label,
+.striped li.odd>p {
   background-color: var(--pico-table-row-stripped-background-color);
 }
 
-.striped li.even label,
-.striped li.even p {
+.striped li.even>label,
+.striped li.even>p {
   background-color: transparent;
 }
 
@@ -142,25 +142,25 @@ span.icon-tooltip[data-tooltip] {
 }
 
 .tree-node.depth-0 {
-  --depth: 0;
+  --depth: 1;
 }
 
 .tree-node.depth-2 {
-  --depth: 2;
+  --depth: 3;
 }
 
 .tree-node.depth-4 {
-  --depth: 4;
+  --depth: 5;
 }
 
 .tree-node.depth-6 {
-  --depth: 6;
+  --depth: 7;
 }
 
 .tree-node.depth-8 {
-  --depth: 8;
+  --depth: 9;
 }
 
 .tree-node.depth-10 {
-  --depth: 10;
+  --depth: 11;
 }
