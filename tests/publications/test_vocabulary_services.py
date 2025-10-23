@@ -4,8 +4,15 @@ import pytest
 
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.apps.publications.services import vocabularies
+from coda.apps.publications.services.vocabularies import build_concept_trees
 from coda.domain.publication import BasePublication, PublicationId
-from coda.domain.vocabulary import LimitedVocabulary, Vocabulary, VocabularyConcept, VocabularyId
+from coda.domain.vocabulary import (
+    LimitedVocabulary,
+    Vocabulary,
+    VocabularyConcept,
+    VocabularyId,
+    ConceptId,
+)
 from tests.publications.test_vocabulary_repository import (
     create_publication_with_publication_type,
     create_publication_with_subject_area,
@@ -179,3 +186,54 @@ def test__vocabulary_usage_of_limited_vocabulary__with_publications__can_be_dele
     actual = vocabularies.get_usage(limited.id)
 
     assert actual.can_be_deleted() is True
+
+
+@pytest.mark.django_db
+def test__vocabulary_with_hierarchical_concepts__building_concept_trees__allowed_and_forbidden_concept_trees_with_hierarchy() -> (
+    None
+):
+    vocab_id = VocabularyId(999)
+
+    id_a = ConceptId.new()
+    id_b = ConceptId.new()
+    id_c = ConceptId.new()
+
+    concept_a = VocabularyConcept(
+        id=id_a, concept_id="A", vocabulary=vocab_id, parent=None, name="A"
+    )
+    concept_b = VocabularyConcept(
+        id=id_b, concept_id="B", vocabulary=vocab_id, parent=id_a, name="B"
+    )
+    concept_c = VocabularyConcept(
+        id=id_c, concept_id="C", vocabulary=vocab_id, parent=id_b, name="C"
+    )
+
+    base_vocab = Vocabulary(
+        id=vocab_id, name="Test Base", version="1.0", concepts=[concept_a, concept_b, concept_c]
+    )
+
+    limited_vocab = LimitedVocabulary(
+        id=VocabularyId(998),
+        base_vocabulary=base_vocab,
+        name="Limited",
+        version="1.0",
+    )
+
+    limited_vocab.disallow("C")
+
+    allowed_tree, forbidden_tree = build_concept_trees(limited_vocab)
+
+    # Test allowed tree structure (A and B are allowed)
+    assert len(allowed_tree) == 1
+    assert allowed_tree[0].concept.concept_id == "A"
+    assert len(allowed_tree[0].children) == 1
+    assert allowed_tree[0].children[0].concept.concept_id == "B"
+    assert allowed_tree[0].children[0].children == []  # C is not in allowed tree
+
+    # Test forbidden tree structure (includes context: A → B → C)
+    assert len(forbidden_tree) == 1
+    assert forbidden_tree[0].concept.concept_id == "A"
+    assert len(forbidden_tree[0].children) == 1
+    assert forbidden_tree[0].children[0].concept.concept_id == "B"
+    assert len(forbidden_tree[0].children[0].children) == 1
+    assert forbidden_tree[0].children[0].children[0].concept.concept_id == "C"

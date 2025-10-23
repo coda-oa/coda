@@ -28,7 +28,7 @@
             <fieldset id="allowed-checkboxes" datagroup="disallow">
                 <ul class="undecorated">
                     {% for node in allowed_tree %}
-                        {% include "publications/vocabulary_allowed_list.html" with node=node name_prefix="allowed" depth=0 index=forloop.counter %}
+                        {% include "publications/vocabulary_concepts_list.html" with node=node name_prefix="allowed" depth=0 index=forloop.counter %}
                     {% endfor %}
                 </ul>
             </fieldset>
@@ -76,7 +76,7 @@
             <fieldset id="forbidden-checkboxes" datagroup="allow">
                 <ul class="undecorated">
                     {% for node in forbidden_tree %}
-                        {% include "publications/vocabulary_allowed_list.html" with node=node name_prefix="disallowed" depth=0 index=forloop.counter %}
+                        {% include "publications/vocabulary_concepts_list.html" with node=node name_prefix="disallowed" depth=0 index=forloop.counter %}
                     {% endfor %}
                 </ul>
             </fieldset>

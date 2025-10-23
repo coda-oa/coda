@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -10,6 +11,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.publications.services import vocabularies
+from coda.apps.publications.services.vocabularies import build_concept_trees, ConceptTreeNode
 from coda.apps.views import EntityListView
 from coda.domain.vocabulary import (
     LimitedVocabulary,
@@ -20,6 +22,47 @@ from coda.domain.vocabulary import (
 
 
 ConceptPair = tuple[VocabularyConcept | None, VocabularyConcept | None]
+
+
+@dataclass
+class UITreeNode:
+    """Tree node with UI-specific presentation logic added."""
+
+    concept: VocabularyConcept
+    children: list["UITreeNode"]
+    is_allowed: bool  # For template: whether to show checkbox or just label
+
+
+def annotate_trees_for_ui(
+    allowed_tree: list[ConceptTreeNode],
+    forbidden_tree: list[ConceptTreeNode],
+    vocabulary: LimitedVocabulary,
+) -> tuple[list[UITreeNode], list[UITreeNode]]:
+    """Add UI-specific annotations to concept trees for template rendering.
+
+    This handles the presentation logic of when to show checkboxes vs labels.
+    - Allowed tree: show checkbox for allowed concepts, label for forbidden ones
+    - Forbidden tree: show checkbox for forbidden concepts, label for allowed ones
+    """
+
+    def annotate_tree(tree: list[ConceptTreeNode], is_allowed_tree: bool) -> list[UITreeNode]:
+        def annotate_node(node: ConceptTreeNode) -> UITreeNode:
+            is_concept_allowed = vocabulary.is_concept_allowed(node.concept.concept_id)
+            # Show checkbox if this concept belongs to this tree's purpose
+            show_checkbox = is_concept_allowed if is_allowed_tree else not is_concept_allowed
+
+            return UITreeNode(
+                concept=node.concept,
+                children=[annotate_node(child) for child in node.children],
+                is_allowed=show_checkbox,
+            )
+
+        return [annotate_node(node) for node in tree]
+
+    ui_allowed_tree = annotate_tree(allowed_tree, True)
+    ui_forbidden_tree = annotate_tree(forbidden_tree, False)
+
+    return ui_allowed_tree, ui_forbidden_tree
 
 
 def get_posted_concepts(request: HttpRequest, key: str) -> set[str]:
@@ -57,15 +100,18 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
             limited.disallow(concept_id)
 
     # Now build trees from the in-memory state (no DB writes)
-    allowed_tree, forbidden_tree = limited.get_concept_trees()
+    allowed_tree, forbidden_tree = build_concept_trees(limited)
+    ui_allowed_tree, ui_forbidden_tree = annotate_trees_for_ui(
+        allowed_tree, forbidden_tree, limited
+    )
 
     return render(
         request,
         "publications/vocabulary.html",
         {
             "vocabulary": limited,
-            "allowed_tree": allowed_tree,
-            "forbidden_tree": forbidden_tree,
+            "allowed_tree": ui_allowed_tree,
+            "forbidden_tree": ui_forbidden_tree,
             "base_vocabulary_id": pk,
         },
     )
@@ -75,14 +121,17 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
 @breadcrumb("Edit Limited Vocabulary", parent_url_name="publications:vocabularies")
 def edit_limited(request: HttpRequest, pk: int) -> HttpResponse:
     vocabulary = vocabulary_repository.get_limited_by_id(VocabularyId(pk))
-    allowed_tree, forbidden_tree = vocabulary.get_concept_trees()
+    allowed_tree, forbidden_tree = build_concept_trees(vocabulary)
+    ui_allowed_tree, ui_forbidden_tree = annotate_trees_for_ui(
+        allowed_tree, forbidden_tree, vocabulary
+    )
     return render(
         request,
         "publications/vocabulary.html",
         {
             "vocabulary": vocabulary,
-            "allowed_tree": allowed_tree,
-            "forbidden_tree": forbidden_tree,
+            "allowed_tree": ui_allowed_tree,
+            "forbidden_tree": ui_forbidden_tree,
         },
     )
 
@@ -146,13 +195,16 @@ def _move_concepts_between_lists(
             vocabulary.allow(concept_id)
 
     # Build trees from in-memory state (no DB writes)
-    allowed_tree, forbidden_tree = vocabulary.get_concept_trees()
+    allowed_tree, forbidden_tree = build_concept_trees(vocabulary)
+    ui_allowed_tree, ui_forbidden_tree = annotate_trees_for_ui(
+        allowed_tree, forbidden_tree, vocabulary
+    )
 
     # Pass base_vocabulary_id for create flow
     context = {
         "vocabulary": vocabulary,
-        "allowed_tree": allowed_tree,
-        "forbidden_tree": forbidden_tree,
+        "allowed_tree": ui_allowed_tree,
+        "forbidden_tree": ui_forbidden_tree,
     }
 
     # Add base_vocabulary_id if this is a create flow
