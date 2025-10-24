@@ -7,6 +7,8 @@ from pydantic.fields import FieldInfo
 
 M = TypeVar("M", bound=pydantic.BaseModel)
 
+_SEQUENCE_LENGTH = "#-{field_name}"
+
 
 def map_to_model(model: type[M], data: dict[str, Any], prefix: str = "") -> M:
     if prefix:
@@ -18,7 +20,7 @@ def map_to_model(model: type[M], data: dict[str, Any], prefix: str = "") -> M:
     fields = model.model_fields
     sequence_fields, mapping_fields, model_fields = _get_fields_by_type(fields)
 
-    keys_to_remove = _process_sequence_fields(data, sequence_fields)
+    keys_to_remove = _process_sequence_fields(model, data, sequence_fields)
     _remove_keys_from_data(data, keys_to_remove)
 
     keys_to_remove = _process_model_fields(data, fields, model_fields)
@@ -56,24 +58,48 @@ def _get_fields_by_type(
     return sequence_fields, mapping_fields, model_fields
 
 
-def _process_sequence_fields(data: dict[str, Any], sequence_fields: set[str]) -> set[str]:
+def _process_sequence_fields(
+    m: type[M], data: dict[str, Any], sequence_fields: set[str]
+) -> set[str]:
     remove_keys = set()
     for field_name in sequence_fields:
         if field_name in data:
             continue
 
-        counter_key = f"#-{field_name}"
+        counter_key = _SEQUENCE_LENGTH.format(field_name=field_name)
         if counter_key not in data:
             continue
 
         remove_keys.add(counter_key)
         number_of_fields = int(data[counter_key])
+
+        field_info = m.model_fields[field_name]
+        annotation = field_info.annotation
+        annotation_args = get_args(annotation)
+
+        any_pydantic_annotations = any(_is_pydantic_model(arg) for arg in annotation_args)
+
         field_values = []
         for i in range(1, number_of_fields + 1):
             field_key = f"{field_name}-{i}"
-            field_value = data[field_key]
-            field_values.append(field_value)
-            remove_keys.add(field_key)
+            if field_key in data:
+                field_value = data[field_key]
+                field_values.append(field_value)
+                remove_keys.add(field_key)
+            elif any_pydantic_annotations:
+                model_candidate = annotation_args[0]
+                if _is_union(model_candidate):
+                    stripped_data = {k: v for k, v in data.items() if k.startswith(field_key)}
+                    all_model_types = _get_all_model_types(model_candidate)
+                    model_candidate = _get_matching_model_type(
+                        all_model_types, stripped_data, prefix=field_key + "-"
+                    )
+
+                if not model_candidate:
+                    continue
+
+                model = map_to_model(model_candidate, data, prefix=field_key)
+                field_values.append(model)
 
         data[field_name] = field_values
 
@@ -100,11 +126,13 @@ def _process_model_fields(
         if not nested_data:
             continue
 
-        for nested_model_type in possible_models:
-            if _keys_match_model_fields(nested_model_type, nested_data, nested_prefix):
-                data[field_name] = map_to_model(nested_model_type, nested_data, prefix=field_name)
-                remove_keys.update(nested_data.keys())
-                break
+        model_type = _get_matching_model_type(possible_models, nested_data, nested_prefix)
+
+        if not model_type:
+            continue
+
+        data[field_name] = map_to_model(model_type, nested_data, prefix=field_name)
+        remove_keys.update(nested_data.keys())
 
     return remove_keys
 
@@ -175,6 +203,16 @@ def _is_union(annotation: Any) -> bool:
     return get_origin(annotation) in (Union, getattr(types, "UnionType", None))
 
 
+def _get_matching_model_type(
+    candidates: list[type[pydantic.BaseModel]], data: dict[str, Any], prefix: str
+) -> type[pydantic.BaseModel] | None:
+    for c in candidates:
+        if _keys_match_model_fields(c, data, prefix):
+            return c
+
+    return None
+
+
 def _keys_match_model_fields(
     model: type[pydantic.BaseModel], data: dict[str, Any], prefix: str
 ) -> bool:
@@ -190,7 +228,7 @@ def _keys_match_model_fields(
             if (
                 stripped == field_name
                 or stripped.startswith(field_name + "-")
-                or stripped == f"#-{field_name}"
+                or stripped == _SEQUENCE_LENGTH.format(field_name=field_name)
             ):
                 matched = True
                 break

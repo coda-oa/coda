@@ -646,3 +646,79 @@ def test__dict_with_int_keys() -> None:
     )
 
     assert actual == expected
+
+
+class StrData(pydantic.BaseModel):
+    a_str: str
+
+
+class ListOfStrData(pydantic.BaseModel):
+    str_data: list[StrData]
+
+
+def test__list_of_nested_models_can_be_mapped() -> None:
+    expected = ListOfStrData(
+        str_data=[
+            StrData(a_str="value-1"),
+            StrData(a_str="value-2"),
+        ]
+    )
+
+    actual = formdata.map_to_model(
+        ListOfStrData,
+        {
+            "#-str_data": 2,
+            "str_data-1-a_str": "value-1",
+            "str_data-2-a_str": "value-2",
+        },
+    )
+
+    assert actual == expected
+
+
+class ListOfStrDataOrInt(pydantic.BaseModel):
+    str_data: list[StrData | int]
+
+
+def test__list_of_nested_union_list_can_be_mapped() -> None:
+    expected = ListOfStrDataOrInt(
+        str_data=[
+            42,
+            StrData(a_str="some-value"),
+        ]
+    )
+
+    actual = formdata.map_to_model(
+        ListOfStrDataOrInt,
+        {
+            "#-str_data": 2,
+            "str_data-1": 42,
+            "str_data-2-a_str": "some-value",
+        },
+    )
+
+    assert actual == expected
+
+
+class ListOfModelUnions(pydantic.BaseModel):
+    data: list[StrData | DictData]
+
+
+def test__list_of_model_unions_can_be_mapped() -> None:
+    expected = ListOfModelUnions(
+        data=[
+            DictData(a_dict={"a": "some-value"}),
+            StrData(a_str="another-value"),
+        ]
+    )
+
+    actual = formdata.map_to_model(
+        ListOfModelUnions,
+        {
+            "#-data": 2,
+            "data-1-a_dict-a": "some-value",
+            "data-2-a_str": "another-value",
+        },
+    )
+
+    assert actual == expected
