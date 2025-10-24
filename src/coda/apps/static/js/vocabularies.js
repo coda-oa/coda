@@ -65,10 +65,55 @@ window.ConceptListUI = (() => {
         });
     }
 
+    function setupLevelSelection(dropdownId, buttonId, checkboxContainerSelector) {
+        const dropdown = document.getElementById(dropdownId);
+        const button = document.getElementById(buttonId);
+        const container = document.querySelector(checkboxContainerSelector);
+
+        if (!dropdown || !button || !container) return;
+
+        // Function to update button state based on dropdown selections
+        function updateButtonState() {
+            const selectedLevels = dropdown.querySelectorAll('input[type="checkbox"]:checked');
+            button.disabled = selectedLevels.length === 0;
+        }
+
+        // Listen for changes in the dropdown checkboxes
+        dropdown.addEventListener('change', updateButtonState);
+
+        // Initial state check
+        updateButtonState();
+
+        button.addEventListener('click', () => {
+            // Get selected levels from dropdown
+            const selectedLevels = Array.from(dropdown.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(cb => parseInt(cb.name.split('-')[1])); // Extract level number from "level-1", "level-2", etc.
+
+            if (selectedLevels.length === 0) return;
+
+            // Find and check all checkboxes at the selected levels
+            const targetCheckboxes = container.querySelectorAll('input[type="checkbox"][name*="_concepts_check"]');
+
+            targetCheckboxes.forEach(checkbox => {
+                const checkboxLevel = parseInt(checkbox.getAttribute('data-level'));
+                if (selectedLevels.includes(checkboxLevel)) {
+                    checkbox.checked = true;
+                    checkbox.dispatchEvent(new Event('change')); // Trigger change event for UI updates
+                }
+            });
+
+            // Close the dropdown and clear selections
+            dropdown.removeAttribute('open');
+            dropdown.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => cb.checked = false);
+            updateButtonState(); // Update button state after clearing
+        });
+    }
+
     return {
         toggleButtonState,
         setupSelectDeselectButtons,
-        setupFilter
+        setupFilter,
+        setupLevelSelection
     };
 })();
 function initializeConceptUI() {
@@ -80,6 +125,10 @@ function initializeConceptUI() {
 
     ConceptListUI.setupFilter("allowed-filter", "#allowed-checkboxes");
     ConceptListUI.setupFilter("forbidden-filter", "#forbidden-checkboxes");
+
+    // Setup level selection functionality for both sides
+    ConceptListUI.setupLevelSelection("allowed-levels-dropdown", "allowed-levels-select-button", "#allowed-checkboxes");
+    ConceptListUI.setupLevelSelection("disallowed-levels-dropdown", "disallowed-levels-select-button", "#forbidden-checkboxes");
 }
 
 

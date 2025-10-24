@@ -32,13 +32,14 @@ class UITreeNode:
     children: list["UITreeNode"]
     is_allowed: bool  # For template: whether to show checkbox or just label
     zebra_index: int  # For template: sequential index for zebra striping
+    level: int  # For template: hierarchy level (1=root, 2=children, etc.)
 
 
 def annotate_trees_for_ui(
     allowed_tree: list[ConceptTreeNode],
     forbidden_tree: list[ConceptTreeNode],
     vocabulary: LimitedVocabulary,
-) -> tuple[list[UITreeNode], list[UITreeNode]]:
+) -> tuple[list[UITreeNode], list[UITreeNode], int, set[int], set[int]]:
     """Add UI-specific annotations to concept trees for template rendering.
 
     This handles the presentation logic of when to show checkboxes vs labels.
@@ -46,12 +47,18 @@ def annotate_trees_for_ui(
     - Forbidden tree: show checkbox for forbidden concepts, label for allowed ones
 
     Also adds sequential zebra_index for proper striping across nested lists.
+
+    Returns:
+        tuple: (ui_allowed_tree, ui_forbidden_tree, overall_max_level, allowed_levels_with_checkboxes, forbidden_levels_with_checkboxes)
     """
 
-    def annotate_tree(tree: list[ConceptTreeNode], is_allowed_tree: bool) -> list[UITreeNode]:
+    def annotate_tree(
+        tree: list[ConceptTreeNode], is_allowed_tree: bool
+    ) -> tuple[list[UITreeNode], set[int]]:
         zebra_counter = [0]  # Use list to make it mutable in nested function
+        levels_with_checkboxes = set()  # Track which levels actually have checkboxes
 
-        def annotate_node(node: ConceptTreeNode) -> UITreeNode:
+        def annotate_node(node: ConceptTreeNode, level: int = 1) -> UITreeNode:
             zebra_counter[0] += 1
             current_index = zebra_counter[0]
 
@@ -59,19 +66,35 @@ def annotate_trees_for_ui(
             # Show checkbox if this concept belongs to this tree's purpose
             show_checkbox = is_concept_allowed if is_allowed_tree else not is_concept_allowed
 
+            # Track levels that have actual checkboxes
+            if show_checkbox:
+                levels_with_checkboxes.add(level)
+
             return UITreeNode(
                 concept=node.concept,
-                children=[annotate_node(child) for child in node.children],
+                children=[annotate_node(child, level + 1) for child in node.children],
                 is_allowed=show_checkbox,
                 zebra_index=current_index,
+                level=level,
             )
 
-        return [annotate_node(node) for node in tree]
+        annotated_nodes = [annotate_node(node) for node in tree]
+        return annotated_nodes, levels_with_checkboxes
 
-    ui_allowed_tree = annotate_tree(allowed_tree, True)
-    ui_forbidden_tree = annotate_tree(forbidden_tree, False)
+    ui_allowed_tree, allowed_levels_with_checkboxes = annotate_tree(allowed_tree, True)
+    ui_forbidden_tree, forbidden_levels_with_checkboxes = annotate_tree(forbidden_tree, False)
 
-    return ui_allowed_tree, ui_forbidden_tree
+    # Calculate overall max level from all levels that have checkboxes
+    all_levels_with_checkboxes = allowed_levels_with_checkboxes | forbidden_levels_with_checkboxes
+    overall_max_level = max(all_levels_with_checkboxes) if all_levels_with_checkboxes else 0
+
+    return (
+        ui_allowed_tree,
+        ui_forbidden_tree,
+        overall_max_level,
+        allowed_levels_with_checkboxes,
+        forbidden_levels_with_checkboxes,
+    )
 
 
 def get_posted_concepts(request: HttpRequest, key: str) -> set[str]:
@@ -110,9 +133,13 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
 
     # Now build trees from the in-memory state (no DB writes)
     allowed_tree, forbidden_tree = build_concept_trees(limited)
-    ui_allowed_tree, ui_forbidden_tree = annotate_trees_for_ui(
-        allowed_tree, forbidden_tree, limited
-    )
+    (
+        ui_allowed_tree,
+        ui_forbidden_tree,
+        max_level,
+        allowed_levels_with_checkboxes,
+        forbidden_levels_with_checkboxes,
+    ) = annotate_trees_for_ui(allowed_tree, forbidden_tree, limited)
 
     return render(
         request,
@@ -121,6 +148,10 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
             "vocabulary": limited,
             "allowed_tree": ui_allowed_tree,
             "forbidden_tree": ui_forbidden_tree,
+            "max_level": max_level,
+            "level_range": range(1, max_level + 1),
+            "allowed_level_range": sorted(allowed_levels_with_checkboxes),
+            "forbidden_level_range": sorted(forbidden_levels_with_checkboxes),
             "base_vocabulary_id": pk,
         },
     )
@@ -131,9 +162,13 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
 def edit_limited(request: HttpRequest, pk: int) -> HttpResponse:
     vocabulary = vocabulary_repository.get_limited_by_id(VocabularyId(pk))
     allowed_tree, forbidden_tree = build_concept_trees(vocabulary)
-    ui_allowed_tree, ui_forbidden_tree = annotate_trees_for_ui(
-        allowed_tree, forbidden_tree, vocabulary
-    )
+    (
+        ui_allowed_tree,
+        ui_forbidden_tree,
+        max_level,
+        allowed_levels_with_checkboxes,
+        forbidden_levels_with_checkboxes,
+    ) = annotate_trees_for_ui(allowed_tree, forbidden_tree, vocabulary)
     return render(
         request,
         "publications/vocabulary.html",
@@ -141,6 +176,10 @@ def edit_limited(request: HttpRequest, pk: int) -> HttpResponse:
             "vocabulary": vocabulary,
             "allowed_tree": ui_allowed_tree,
             "forbidden_tree": ui_forbidden_tree,
+            "max_level": max_level,
+            "level_range": range(1, max_level + 1),
+            "allowed_level_range": sorted(allowed_levels_with_checkboxes),
+            "forbidden_level_range": sorted(forbidden_levels_with_checkboxes),
         },
     )
 
@@ -205,15 +244,23 @@ def _move_concepts_between_lists(
 
     # Build trees from in-memory state (no DB writes)
     allowed_tree, forbidden_tree = build_concept_trees(vocabulary)
-    ui_allowed_tree, ui_forbidden_tree = annotate_trees_for_ui(
-        allowed_tree, forbidden_tree, vocabulary
-    )
+    (
+        ui_allowed_tree,
+        ui_forbidden_tree,
+        max_level,
+        allowed_levels_with_checkboxes,
+        forbidden_levels_with_checkboxes,
+    ) = annotate_trees_for_ui(allowed_tree, forbidden_tree, vocabulary)
 
     # Pass base_vocabulary_id for create flow
     context = {
         "vocabulary": vocabulary,
         "allowed_tree": ui_allowed_tree,
         "forbidden_tree": ui_forbidden_tree,
+        "max_level": max_level,
+        "level_range": range(1, max_level + 1),
+        "allowed_level_range": sorted(allowed_levels_with_checkboxes),
+        "forbidden_level_range": sorted(forbidden_levels_with_checkboxes),
     }
 
     # Add base_vocabulary_id if this is a create flow

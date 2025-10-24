@@ -105,7 +105,13 @@ def test__vocabulary_with_allowed_and_forbidden_concepts__annotating_trees_for_u
     base_vocab = create_base_vocabulary_with_concepts(vocab_id, [concept_a, concept_b])
     limited_vocab = create_limited_vocabulary_with_disallowed(base_vocab, ["B"], VocabularyId(996))
 
-    ui_allowed_tree, ui_forbidden_tree = build_and_annotate_ui_trees(limited_vocab)
+    (
+        ui_allowed_tree,
+        ui_forbidden_tree,
+        max_level,
+        allowed_levels_with_checkboxes,
+        forbidden_levels_with_checkboxes,
+    ) = build_and_annotate_ui_trees(limited_vocab)
 
     # In allowed tree: A is allowed, should show checkbox; B context not shown
     assert len(ui_allowed_tree) == 1
@@ -134,7 +140,13 @@ def test__nested_hierarchial_concept_tree__building_tree__zebra_striping_indexes
     base_vocab = create_base_vocabulary_with_concepts(vocab_id, concepts)
     limited_vocab = create_limited_vocabulary_with_disallowed(base_vocab, ["C"], VocabularyId(994))
 
-    ui_allowed_tree, ui_forbidden_tree = build_and_annotate_ui_trees(limited_vocab)
+    (
+        ui_allowed_tree,
+        ui_forbidden_tree,
+        max_level,
+        allowed_levels_with_checkboxes,
+        forbidden_levels_with_checkboxes,
+    ) = build_and_annotate_ui_trees(limited_vocab)
 
     assert ui_allowed_tree[0].zebra_index == 1
     assert ui_allowed_tree[0].children[0].zebra_index == 2
@@ -142,6 +154,28 @@ def test__nested_hierarchial_concept_tree__building_tree__zebra_striping_indexes
     assert ui_forbidden_tree[0].zebra_index == 1
     assert ui_forbidden_tree[0].children[0].zebra_index == 2
     assert ui_forbidden_tree[0].children[0].children[0].zebra_index == 3
+
+
+@pytest.mark.django_db
+def test__vocabulary_with_structural_nodes__level_calculation__only_counts_levels_with_checkboxes() -> (
+    None
+):
+    vocab_id = VocabularyId(998)
+
+    concepts, _ = create_concept_hierarchy_abd(vocab_id)
+    base_vocab = create_base_vocabulary_with_concepts(vocab_id, concepts)
+    limited_vocab = create_limited_vocabulary_with_disallowed(base_vocab, ["B"], VocabularyId(997))
+
+    (
+        ui_allowed_tree,
+        ui_forbidden_tree,
+        max_level,
+        allowed_levels_with_checkboxes,
+        forbidden_levels_with_checkboxes,
+    ) = build_and_annotate_ui_trees(limited_vocab)
+
+    assert allowed_levels_with_checkboxes == {1, 3}
+    assert forbidden_levels_with_checkboxes == {2}
 
 
 def create_concept_hierarchy_abc(
@@ -163,6 +197,30 @@ def create_concept_hierarchy_abc(
 
     concepts = [concept_a, concept_b, concept_c]
     id_mapping = {"A": id_a, "B": id_b, "C": id_c}
+
+    return concepts, id_mapping
+
+
+def create_concept_hierarchy_abd(
+    vocab_id: VocabularyId,
+) -> tuple[list[VocabularyConcept], dict[str, ConceptId]]:
+    """Creates A -> B -> D hierarchy for testing structural nodes."""
+    id_a = ConceptId.new()
+    id_b = ConceptId.new()
+    id_d = ConceptId.new()
+
+    concept_a = VocabularyConcept(
+        id=id_a, concept_id="A", vocabulary=vocab_id, parent=None, name="A"
+    )
+    concept_b = VocabularyConcept(
+        id=id_b, concept_id="B", vocabulary=vocab_id, parent=id_a, name="B"
+    )
+    concept_d = VocabularyConcept(
+        id=id_d, concept_id="D", vocabulary=vocab_id, parent=id_b, name="D"
+    )
+
+    concepts = [concept_a, concept_b, concept_d]
+    id_mapping = {"A": id_a, "B": id_b, "D": id_d}
 
     return concepts, id_mapping
 
@@ -191,9 +249,19 @@ def create_limited_vocabulary_with_disallowed(
 
 def build_and_annotate_ui_trees(
     limited_vocab: LimitedVocabulary,
-) -> tuple[list[UITreeNode], list[UITreeNode]]:
+) -> tuple[list[UITreeNode], list[UITreeNode], int, set[int], set[int]]:
     service_allowed_tree, service_forbidden_tree = build_concept_trees(limited_vocab)
-    ui_allowed_tree, ui_forbidden_tree = annotate_trees_for_ui(
-        service_allowed_tree, service_forbidden_tree, limited_vocab
+    (
+        ui_allowed_tree,
+        ui_forbidden_tree,
+        max_level,
+        allowed_levels_with_checkboxes,
+        forbidden_levels_with_checkboxes,
+    ) = annotate_trees_for_ui(service_allowed_tree, service_forbidden_tree, limited_vocab)
+    return (
+        ui_allowed_tree,
+        ui_forbidden_tree,
+        max_level,
+        allowed_levels_with_checkboxes,
+        forbidden_levels_with_checkboxes,
     )
-    return ui_allowed_tree, ui_forbidden_tree

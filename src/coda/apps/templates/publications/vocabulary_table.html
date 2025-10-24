@@ -23,6 +23,45 @@
                    data-target="#forbidden-checkboxes">
         </div>
     </div>
+    <div class="flex my-2">
+        <div class="voc-concept-column">
+            <div class="flex justify-between align-start">
+                <details class="dropdown" id="allowed-levels-dropdown">
+                    <summary>Select levels...</summary>
+                    <ul>
+                        {% for level in allowed_level_range %}
+                            <li>
+                                <label>
+                                    <input type="checkbox" name="level-{{ level }}" />
+                                    Level {{ level }}
+                                </label>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </details>
+                <button id="allowed-levels-select-button" class="secondary">Select</button>
+            </div>
+        </div>
+        <span aria-hidden="true" class="voc-button-column"></span>
+        <div class="voc-concept-column">
+            <div class="flex justify-between align-start">
+                <details class="dropdown" id="disallowed-levels-dropdown">
+                    <summary>Select levels...</summary>
+                    <ul>
+                        {% for level in forbidden_level_range %}
+                            <li>
+                                <label>
+                                    <input type="checkbox" name="level-{{ level }}" />
+                                    Level {{ level }}
+                                </label>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </details>
+                <button id="disallowed-levels-select-button" class="secondary">Select</button>
+            </div>
+        </div>
+    </div>
     <div class="flex">
         <div class="scroll-container max-h-30 striped voc-concept-column min-h-30">
             <fieldset id="allowed-checkboxes" datagroup="disallow">

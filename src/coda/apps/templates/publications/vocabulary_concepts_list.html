@@ -3,7 +3,8 @@
         <label class="tree-node depth-{{ depth }}">
             <input type="checkbox"
                    name="{{ name_prefix }}_concepts_check"
-                   value="{{ node.concept.concept_id }}">
+                   value="{{ node.concept.concept_id }}"
+                   data-level="{{ node.level }}">
             {{ node.concept.concept_id }} {{ node.concept.name }}
         </label>
         <input type="hidden"

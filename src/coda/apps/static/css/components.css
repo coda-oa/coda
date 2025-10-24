@@ -141,6 +141,10 @@ span.icon-tooltip[data-tooltip] {
   padding-left: calc(var(--depth) * 1rem);
 }
 
+.voc-concept-column details {
+  width: 100%;
+}
+
 .tree-node.depth-0 {
   --depth: 1;
 }
