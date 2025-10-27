@@ -3,11 +3,14 @@ from typing import BinaryIO, TextIO
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import CreateFundingRequestDto
+from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.services.fundingrequests import bulk_create_fundingrequests
 from coda.apps.fundingrequests.services.importservice.dto._fundingrequest import (
     FundingRequestImportDto,
 )
+from coda.apps.fundingrequests.services.labels import label_get_or_create, label_attach
 from coda.checks.nullcheckfactory import NullCheckFactory
+from coda.domain.color import Color
 
 from .dto import FundingRequestImportListDto
 from .dtoparsers import fundingrequestdto, publicationdto, reviewdto
@@ -53,5 +56,15 @@ def import_fundingrequests(json: TextIO | BinaryIO) -> FundingRequestImportRepor
     for fundingrequest_id, request in zip(ids, import_request_list.requests):
         review = reviewdto.parse_dto(request.review, fundingrequest_id)
         repository.save_review(review)
+
+        try:
+            funding_request = FundingRequestModel.objects.get(id=fundingrequest_id)
+            for label_dto in request.labels:
+                color = Color.from_hex(label_dto.color)
+                label = label_get_or_create(label_dto.name, color)
+                label_attach(funding_request, label)
+        except Exception as e:
+            error_key = request.legacy_request_id or request.publication.title
+            errors.setdefault(error_key, []).append(f"Failed to process labels: {str(e)}")
 
     return FundingRequestImportReport(len(tuple(ids)), len(errors), errors)

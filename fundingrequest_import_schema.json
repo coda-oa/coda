@@ -168,6 +168,13 @@
                 },
                 "seperate_contact": {
                     "$ref": "#/$defs/SeperateContactImportDto"
+                },
+                "labels": {
+                    "items": {
+                        "$ref": "#/$defs/LabelImportDto"
+                    },
+                    "title": "Labels",
+                    "type": "array"
                 }
             },
             "required": [
@@ -175,6 +182,25 @@
                 "publication"
             ],
             "title": "FundingRequestImportDto",
+            "type": "object"
+        },
+        "LabelImportDto": {
+            "properties": {
+                "name": {
+                    "title": "Name",
+                    "type": "string"
+                },
+                "color": {
+                    "default": "#007bff",
+                    "pattern": "^#[a-fA-F0-9]{6}$",
+                    "title": "Color",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name"
+            ],
+            "title": "LabelImportDto",
             "type": "object"
         },
         "License": {

@@ -1,5 +1,6 @@
 import datetime
 from decimal import Decimal
+import re
 
 import pydantic
 
@@ -34,6 +35,18 @@ class SeperateContactImportDto(pydantic.BaseModel):
         return cls(name="", email="")
 
 
+class LabelImportDto(pydantic.BaseModel):
+    name: str
+    color: str = "#1D1DF0"
+
+    @pydantic.field_validator("color")
+    @classmethod
+    def validate_color(cls, v: str) -> str:
+        if not re.match(r"^#[a-fA-F0-9]{6}$", v):
+            raise ValueError("Color must be in the format #RRGGBB")
+        return v
+
+
 class FundingRequestImportDto(pydantic.BaseModel):
     request_date: datetime.date
     legacy_request_id: str = ""
@@ -47,6 +60,7 @@ class FundingRequestImportDto(pydantic.BaseModel):
     seperate_contact: SeperateContactImportDto = pydantic.Field(
         default_factory=SeperateContactImportDto.default
     )
+    labels: list[LabelImportDto] = pydantic.Field(default_factory=list)
 
 
 class FundingRequestImportListDto(pydantic.BaseModel):
