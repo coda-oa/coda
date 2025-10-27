@@ -1,84 +1,20 @@
-import types
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping, Sequence
-from typing import Any, TypeVar, Union, get_args, get_origin
+from typing import Any, get_args
 
 import pydantic
 from pydantic.fields import FieldInfo
 
-M = TypeVar("M", bound=pydantic.BaseModel)
-
-DEFAULT_FIELD_SEPARATOR = "-"
-SEQUENCE_COUNTER_PREFIX = "#"
-_SEQUENCE_LENGTH = f"{SEQUENCE_COUNTER_PREFIX}{DEFAULT_FIELD_SEPARATOR}{{field_name}}"
-
-MAX_SEQUENCE_LENGTH = 10000
-MAX_RECURSION_DEPTH = 50
-
-
-class CannotProcessField(Exception):
-    """Base exception raised when a processor cannot handle a field."""
-
-    pass
-
-
-class FieldAlreadyExists(CannotProcessField):
-    """Raised when a field already exists in the data."""
-
-    pass
-
-
-class ValidationFailed(Exception):
-    """Raised when field validation fails during processing."""
-
-    pass
-
-
-class KeyMatcher:
-    """Utility class for handling key matching and prefix operations in form data."""
-
-    def __init__(self, separator: str = DEFAULT_FIELD_SEPARATOR):
-        self.separator = separator
-
-    def strip_prefix(self, data: dict[str, Any], prefix: str) -> dict[str, Any]:
-        """Remove prefix from all keys in data and return new dict."""
-        if not prefix:
-            return data.copy()
-
-        strip = prefix + self.separator
-        return {k.removeprefix(strip): v for k, v in data.items()}
-
-    def get_keys_with_prefix(self, data: dict[str, Any], prefix: str) -> dict[str, Any]:
-        """Get all key-value pairs where key starts with prefix."""
-        prefix_with_separator = prefix + self.separator
-        return {k: v for k, v in data.items() if k.startswith(prefix_with_separator)}
-
-    def build_sequence_key(self, field_name: str, index: int) -> str:
-        """Build key for sequence item: field_name-index."""
-        return f"{field_name}{self.separator}{index}"
-
-    def build_counter_key(self, field_name: str) -> str:
-        """Build counter key: #-field_name."""
-        return _SEQUENCE_LENGTH.format(field_name=field_name)
-
-    def matches_field_pattern(self, key: str, field_name: str) -> bool:
-        """Check if key matches field pattern (exact match or starts with field_name-)."""
-        return (
-            key == field_name
-            or key.startswith(field_name + self.separator)
-            or key == self.build_counter_key(field_name)
-        )
-
-
-def with_union_support(type_checker_func: Callable[[Any], bool]) -> Callable[[Any], bool]:
-    """Decorator to automatically handle union types in type checkers."""
-
-    def wrapper(annotation: Any) -> bool:
-        if _is_union(annotation):
-            return any(type_checker_func(arg) for arg in get_args(annotation))
-        return type_checker_func(annotation)
-
-    return wrapper
+from ._annotations import (
+    get_all_model_types,
+    get_matching_model_type,
+    is_dict,
+    is_pydantic_model,
+    is_sequence_field,
+    is_union,
+)
+from ._errors import CannotProcessField, FieldAlreadyExists, ValidationFailed
+from ._keys import KeyMatcher
+from ._mapper import map_to_model
 
 
 class FieldProcessor(ABC):
@@ -191,9 +127,10 @@ class ProcessorChain:
 class SequenceFieldProcessor(FieldProcessor):
     """Processor for sequence fields (lists, tuples, etc.)."""
 
-    def __init__(self) -> None:
+    def __init__(self, max_sequence_length: int) -> None:
         super().__init__()
         self.model_processor = ModelFieldProcessor()
+        self.max_sequence_length = max_sequence_length
 
     def can_handle_field(
         self, data: dict[str, Any], field_name: str, field_info: FieldInfo
@@ -205,7 +142,7 @@ class SequenceFieldProcessor(FieldProcessor):
         1. Sequence type annotation (list, tuple, etc.)
         2. Sequence counter pattern in data (field-# key exists)
         """
-        if not (field_info.annotation and _is_sequence_field(field_info.annotation)):
+        if not (field_info.annotation and is_sequence_field(field_info.annotation)):
             return False
 
         counter_key = self.key_matcher.build_counter_key(field_name)
@@ -250,14 +187,14 @@ class SequenceFieldProcessor(FieldProcessor):
                 f"Sequence counter cannot be negative for field '{field_name}': {number_of_fields}"
             )
 
-        if number_of_fields > MAX_SEQUENCE_LENGTH:
+        if number_of_fields > self.max_sequence_length:
             raise ValidationFailed(
-                f"Sequence too large for field '{field_name}': {number_of_fields} > {MAX_SEQUENCE_LENGTH}"
+                f"Sequence too large for field '{field_name}': {number_of_fields} > {self.max_sequence_length}"
             )
 
         annotation = field_info.annotation
         annotation_args = get_args(annotation)
-        has_pydantic_models = any(_is_pydantic_model(arg) for arg in annotation_args)
+        has_pydantic_models = any(is_pydantic_model(arg) for arg in annotation_args)
 
         field_values = []
         for i in range(1, number_of_fields + 1):
@@ -304,19 +241,19 @@ class ModelFieldProcessor(FieldProcessor):
         if not prefixed_keys:
             return False
 
-        if _is_union(field_info.annotation):
+        if is_union(field_info.annotation):
             return self._analyze_union_data_patterns(field_info)
 
-        return _is_pydantic_model(field_info.annotation)
+        return is_pydantic_model(field_info.annotation)
 
     def _analyze_union_data_patterns(self, field_info: FieldInfo) -> bool:
         """
         Quick structural check for union types - can potentially handle if there's a model in the union.
         """
-        if _is_union(field_info.annotation):
-            return any(_is_pydantic_model(arg) for arg in get_args(field_info.annotation))
+        if is_union(field_info.annotation):
+            return any(is_pydantic_model(arg) for arg in get_args(field_info.annotation))
 
-        return _is_pydantic_model(field_info.annotation)
+        return is_pydantic_model(field_info.annotation)
 
     def process_model_field(
         self, data: dict[str, Any], field_key: str, annotation: Any
@@ -332,7 +269,7 @@ class ModelFieldProcessor(FieldProcessor):
         Returns:
             Model instance if successfully processed, None otherwise
         """
-        possible_models = _get_all_model_types(annotation)
+        possible_models = get_all_model_types(annotation)
         if not possible_models:
             return None
 
@@ -341,7 +278,7 @@ class ModelFieldProcessor(FieldProcessor):
             return None
 
         nested_prefix = field_key + self.key_matcher.separator
-        model_type = _get_matching_model_type(possible_models, nested_data, nested_prefix)
+        model_type = get_matching_model_type(possible_models, nested_data, nested_prefix)
 
         if not model_type:
             return None
@@ -398,10 +335,10 @@ class MappingFieldProcessor(FieldProcessor):
         if not field_info.annotation:
             return False
 
-        if _is_union(field_info.annotation):
-            return any(_is_dict(arg) for arg in get_args(field_info.annotation))
+        if is_union(field_info.annotation):
+            return any(is_dict(arg) for arg in get_args(field_info.annotation))
 
-        return _is_dict(field_info.annotation)
+        return is_dict(field_info.annotation)
 
     def try_process_field(
         self, data: dict[str, Any], field_name: str, field_info: FieldInfo, **kwargs: Any
@@ -433,115 +370,14 @@ class MappingFieldProcessor(FieldProcessor):
                 new_key = k.removeprefix(mapping_prefix)
                 result_dict[new_key] = v
 
-        if not _is_union(field_info.annotation):
-            if _is_dict(field_info.annotation):
+        if not is_union(field_info.annotation):
+            if is_dict(field_info.annotation):
                 return result_dict
             else:
                 raise CannotProcessField(f"Field '{field_name}' is not a dict type")
 
         for union_arg in get_args(field_info.annotation):
-            if _is_dict(union_arg):
+            if is_dict(union_arg):
                 return result_dict
 
         raise CannotProcessField(f"No dict type found in union for field '{field_name}'")
-
-
-def map_to_model(model: type[M], data: dict[str, Any], prefix: str = "") -> M:
-    key_matcher = KeyMatcher()
-    input_data = key_matcher.strip_prefix(data, prefix)
-
-    processor_chain = ProcessorChain(
-        [
-            SequenceFieldProcessor(),
-            ModelFieldProcessor(),
-            MappingFieldProcessor(),
-        ]
-    )
-
-    processed_data = processor_chain.process_all_fields(input_data, model.model_fields, model=model)
-
-    return model(**processed_data)
-
-
-@with_union_support
-def _is_dict(annotation: Any) -> bool:
-    origin = get_origin(annotation) or annotation
-    try:
-        return origin is dict or issubclass(origin, Mapping)
-    except TypeError:
-        return False
-
-
-@with_union_support
-def _is_sequence_field(annotation: Any) -> bool:
-    origin = get_origin(annotation) or annotation
-
-    if origin in (list, tuple):
-        return True
-
-    try:
-        return issubclass(origin, Sequence) and origin is not str
-    except TypeError:
-        return False
-
-
-@with_union_support
-def _is_pydantic_model(annotation: Any) -> bool:
-    origin = get_origin(annotation) or annotation
-    try:
-        return issubclass(origin, pydantic.BaseModel)
-    except TypeError:
-        return False
-
-
-def _is_union(annotation: Any) -> bool:
-    return get_origin(annotation) in (Union, getattr(types, "UnionType", None))
-
-
-def _get_matching_model_type(
-    candidates: list[type[pydantic.BaseModel]], data: dict[str, Any], prefix: str
-) -> type[pydantic.BaseModel] | None:
-    for c in candidates:
-        if _keys_match_model_fields(c, data, prefix):
-            return c
-
-    return None
-
-
-def _keys_match_model_fields(
-    model: type[pydantic.BaseModel], data: dict[str, Any], prefix: str
-) -> bool:
-    """Check if data keys match the model's field structure after prefix removal."""
-    key_matcher = KeyMatcher()
-    model_fields = model.model_fields
-
-    for key in data.keys():
-        stripped = key.removeprefix(prefix)
-
-        matched = False
-        for field_name in model_fields.keys():
-            if key_matcher.matches_field_pattern(stripped, field_name):
-                matched = True
-                break
-
-        if not matched:
-            return False
-
-    return True
-
-
-def _get_all_model_types(annotation: Any) -> list[type[pydantic.BaseModel]]:
-    """Extract all Pydantic model types from an annotation (including unions)."""
-    if _is_union(annotation):
-        models: list[type[pydantic.BaseModel]] = []
-        for arg in get_args(annotation):
-            models.extend(_get_all_model_types(arg))
-        return models
-
-    try:
-        if issubclass(annotation, pydantic.BaseModel):
-            return [annotation]
-    except TypeError:
-        pass
-
-    return []
