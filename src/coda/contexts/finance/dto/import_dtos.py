@@ -4,11 +4,11 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from annotated_types import Len
-from pydantic import BaseModel, PlainValidator, ValidationError, model_validator
-
+from pydantic import BaseModel, PlainValidator, model_validator
 
 from coda.domain.fundingrequest.identity import InvalidFundingRequestId, PublicFundingRequestId
-from coda.domain.invoice import ContractCostType, PaymentStatus, PublicationCostType
+from coda.domain.finance.invoice import PaymentStatus
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.money import Currency
 
 DEFAULT_TAX_RATE = Decimal("19.00")
@@ -35,14 +35,14 @@ def _validate_request_id(value: str | None) -> str | None:
         id_ = PublicFundingRequestId.from_str(value)
         return str(id_)
     except InvalidFundingRequestId:
-        raise ValidationError(f"Invalid request ID: {value}")
+        raise ValueError(f"Invalid request ID: {value}")
 
 
 type FundingRequestId = Annotated[str | None, PlainValidator(_validate_request_id)]
 
 
 class PublicationPositionImportDto(CommonPositionImportDto):
-    type: Literal["publication"] = "publication"
+    type: PositionType = "publication"
     request_id: FundingRequestId = None
     legacy_request_id: str | None = None
     cost_type: PublicationCostType = PublicationCostType.Publication_Charge
@@ -50,20 +50,20 @@ class PublicationPositionImportDto(CommonPositionImportDto):
     @model_validator(mode="after")
     def validate_request_id(self) -> "PublicationPositionImportDto":
         if not self.request_id and not self.legacy_request_id:
-            raise ValidationError("Either request_id or legacy_request_id must be provided.")
+            raise ValueError("Either request_id or legacy_request_id must be provided.")
 
         return self
 
 
 class ContractPositionImportDto(CommonPositionImportDto):
-    type: Literal["contract"] = "contract"
+    type: PositionType = "contract"
     contract_name: str
     contract_year: int
     cost_type: ContractCostType
 
 
 class FreePositionImportDto(CommonPositionImportDto):
-    type: Literal["free"] = "free"
+    type: PositionType = "free"
     description: str = ""
     cost_type: PublicationCostType = PublicationCostType.Other
 

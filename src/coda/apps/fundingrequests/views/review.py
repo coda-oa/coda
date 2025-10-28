@@ -5,10 +5,10 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.services import checks
-from coda.domain.fundingrequest import FundingRequestId, Review
-from coda.domain.fundingrequest.review import ReviewResult
-from coda.domain.money import Currency, Money
+from coda.apps.fundingrequests.dto import UpdateReviewDto
+from coda.apps.fundingrequests.services import checks, fundingrequests
+from coda.domain.fundingrequest import FundingRequestId
+from coda.domain.money import Currency
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
@@ -31,27 +31,19 @@ def review_page(request: HttpRequest, pk: int) -> HttpResponse:
 @login_required
 @require_POST
 def review_submit(request: HttpRequest, pk: int) -> HttpResponse:
-    id = FundingRequestId(pk)
-    review = repository.get_review(id)
-    review = process_review(review, request)
-    repository.save_review(review)
-    return redirect(reverse("fundingrequests:detail", kwargs={"pk": id}))
+    fid = FundingRequestId(pk)
+    process_review(fid, request)
+    return redirect(reverse("fundingrequests:detail", kwargs={"pk": fid}))
 
 
-def process_review(review: Review, request: HttpRequest) -> Review:
-    funding = Money(
-        request.POST["decided_funding_amount"],
-        Currency.from_code(request.POST["decided_funding_currency"]),
-    )
-    remarks = request.POST["reviewer_remarks"]
-
+def process_review(fid: FundingRequestId, request: HttpRequest) -> None:
     action = request.POST["action"]
+    review_result = action if action != "return" else ""
+    dto = UpdateReviewDto(
+        decided_funding_amount=float(request.POST["decided_funding_amount"]),
+        decided_funding_currency=request.POST["decided_funding_currency"],
+        reviewer_remarks=request.POST["reviewer_remarks"],
+        result=review_result,
+    )
 
-    if action == "return":
-        review = review.update_review(decided_funding=funding, remarks=remarks)
-
-    else:
-        result = ReviewResult.of(action)
-        review = review.update_review(result, funding, remarks)
-
-    return review
+    fundingrequests.update_review(fid, dto)

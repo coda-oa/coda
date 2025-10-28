@@ -2,7 +2,7 @@
 
 from django.db import migrations
 
-from coda.domain.invoice import ContractCostType, PublicationCostType
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 
 
 def migrate_contract_position_cost_type_to_publish(apps, schema_editor):

@@ -1,29 +1,26 @@
-import datetime
+from dataclasses import asdict
 from typing import Any, TypedDict
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
+from coda import formdata
+from coda.apps.fundingrequests import repository
 from coda.apps.invoices.models import FundingSource
-from coda.apps.invoices.views.position_dtos.edit_position_dtos import (
+from coda.apps.publications.models import Publication
+from coda.contexts.finance.dto.edit_position_dtos import (
     AnyPositionDto,
     ContractPositionDto,
     FreePositionDto,
+    PositionList,
     PublicationPositionDto,
     RelatedFundingRequest,
-    get_position_type,
 )
-from coda.apps.publications.models import Publication
-from coda.domain.invoice import (
-    AnyPosition,
-    ContractCostType,
-    CreditorId,
-    Invoice,
-    Positions,
-    PublicationCostType,
-)
+from coda.contexts.finance.services import invoice_parser
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.money import Currency
+from coda.domain.publication.publication import PublicationId
 
 _PublicationCostTypes = [ct.value for ct in PublicationCostType]
 _ContractCostTypes = [ct.value for ct in ContractCostType]
@@ -49,83 +46,35 @@ def switch_position_tab(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def add_position(request: HttpRequest) -> HttpResponse:
-    positions = existing_positions(request) + added_positions(request)
-    return render_positions(request, positions)
+    position_list = formdata.map_to_model(PositionList, request.POST)
+    position_list.positions.extend(added_positions(request))
+    return render_positions(request, position_list)
 
 
 @login_required
 def remove_position(request: HttpRequest) -> HttpResponse:
-    positions = existing_positions(request)
+    position_list = formdata.map_to_model(PositionList, request.POST)
     if remove_position := request.POST.get("remove-position"):
-        positions.pop(int(remove_position) - 1)
+        index = int(remove_position) - 1
+        position_list.positions.pop(index)
 
-    return render_positions(request, positions)
+    return render_positions(request, position_list)
 
 
 @login_required
 def invoice_total(request: HttpRequest) -> HttpResponse:
-    positions = existing_positions(request)
+    position_list = formdata.map_to_model(PositionList, request.POST)
+    currency = Currency.from_code(request.POST.get("currency", "EUR"))
     return render(
         request,
         "invoices/position_summary.html",
-        invoice_total_context(positions, request.POST.get("currency", "EUR")),
+        asdict(invoice_parser.invoice_total(position_list.positions, currency)),
     )
-
-
-def temp_invoice(positions: list[AnyPositionDto], currency: Currency) -> Invoice:
-    return Invoice.new(
-        number="",
-        date=datetime.date.today(),
-        creditor=CreditorId(1),
-        positions=parse_into_position_list(positions, currency, parse_safe=True),
-        comment="",
-    )
-
-
-def parse_into_position_list(
-    positions: list[AnyPositionDto],
-    currency: Currency,
-    *,
-    parse_safe: bool = False,
-) -> Positions:
-    return [
-        parse_position(index, position, currency, parse_safe=parse_safe)
-        for index, position in enumerate(positions, start=1)
-    ]
-
-
-def parse_position(
-    index: int,
-    position: AnyPositionDto,
-    currency: Currency,
-    *,
-    parse_safe: bool = False,
-) -> AnyPosition:
-    try:
-        return position.to_position(currency, parse_safe=parse_safe)
-    except Exception as e:
-        raise PositionError(index, e)
 
 
 def added_positions(request: HttpRequest) -> list[AnyPositionDto]:
     _positions = [parser(request) for parser in _ADD_POSITION_PARSERS.values()]
     return [p for p in _positions if p is not None]
-
-
-def existing_positions(request: HttpRequest) -> list[AnyPositionDto]:
-    number_of_positions = int(request.POST.get("number-of-positions", 0))
-    _positions = [parse_position_data(request, i) for i in range(1, number_of_positions + 1)]
-    positions = [p for p in _positions if p is not None]
-    return positions
-
-
-def parse_position_data(request: HttpRequest, index: int) -> AnyPositionDto | None:
-    position_type_str = request.POST.get(f"position-{index}-type")
-    if not position_type_str:
-        return None
-
-    position_type = get_position_type(position_type_str)
-    return position_type.from_request(request.POST, f"position-{index}-")
 
 
 def parse_added_publication_position(request: HttpRequest) -> PublicationPositionDto | None:
@@ -135,20 +84,18 @@ def parse_added_publication_position(request: HttpRequest) -> PublicationPositio
 
     publication = Publication.objects.get(pk=publication_id)
     return PublicationPositionDto(
-        id=publication.id,
+        id=publication.pk,
         title=publication.title,
         funding_request=maybe_request_context(publication),
     )
 
 
 def maybe_request_context(publication: Publication) -> RelatedFundingRequest:
-    if hasattr(publication, "fundingrequest"):
-        return RelatedFundingRequest(
-            request_id=publication.fundingrequest.request_id,
-            url=publication.fundingrequest.get_absolute_url(),
-        )
-    else:
-        return RelatedFundingRequest(request_id=None)
+    reference = repository.find_reference_by_publication(PublicationId(publication.pk))
+    if reference:
+        return RelatedFundingRequest(request_id=reference.request_id, url=reference.url)
+
+    return RelatedFundingRequest()
 
 
 def parse_added_contract_position(request: HttpRequest) -> ContractPositionDto | None:
@@ -165,14 +112,15 @@ def parse_added_free_position(request: HttpRequest) -> FreePositionDto | None:
     return FreePositionDto.from_request(request.POST, prefix="free-position-")
 
 
-def render_positions(request: HttpRequest, positions: list[AnyPositionDto]) -> HttpResponse:
+def render_positions(request: HttpRequest, position_list: PositionList) -> HttpResponse:
+    currency = Currency.from_code(request.POST.get("currency", "EUR"))
     return render(
         request,
         "invoices/invoice_positions.html",
-        {"positions": positions}
+        {"position_list": position_list}
         | _DefaultContext
         | funding_sources_context()
-        | invoice_total_context(positions, request.POST.get("currency", "EUR")),
+        | asdict(invoice_parser.invoice_total(position_list.positions, currency)),
     )
 
 
@@ -180,31 +128,11 @@ def funding_sources_context() -> dict[str, Any]:
     return {"funding_sources": FundingSource.objects.all()}
 
 
-def invoice_total_context(positions: list[AnyPositionDto], currency: str) -> dict[str, Any]:
-    _currency = Currency.from_code(currency)
-    _tmp_invoice = temp_invoice(positions, _currency)
-    return {
-        "net": _tmp_invoice.net().amount,
-        "tax": _tmp_invoice.tax().amount,
-        "total": _tmp_invoice.total().amount,
-    }
-
-
 _ADD_POSITION_PARSERS = {
     "publication": parse_added_publication_position,
     "contract": parse_added_contract_position,
     "free": parse_added_free_position,
 }
-
-
-class PositionError(Exception):
-    def __init__(self, position: int, inner: Exception, *args: Any) -> None:
-        super().__init__(*args)
-        self.position = position
-        self.inner = inner
-
-    def message(self) -> str:
-        return str(self.inner)
 
 
 _DefaultContext = {

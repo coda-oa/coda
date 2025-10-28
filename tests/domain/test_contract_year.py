@@ -4,7 +4,7 @@ import pytest
 
 from coda.domain.contract import Contract, ContractYear, PublisherId
 from coda.domain.date import DateRange
-from coda.lazyiterable import LazyCachedIterable
+from coda.coda_itertools import LazyCachedIterable
 from coda.domain.string import NonEmptyStr
 
 

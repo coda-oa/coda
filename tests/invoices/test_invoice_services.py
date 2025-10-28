@@ -1,12 +1,14 @@
-import dataclasses
 from typing import cast
 
 import pytest
 
-from coda.apps.invoices import repository, services
+from coda.apps.invoices import repository
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
-from coda.domain.invoice import AnyPosition, CreditorId, Invoice, InvoiceId
+from coda.contexts.finance.services import invoice_service
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
+from coda.domain.finance.invoice_positions import AnyPosition, PublicationItem, Position
 from coda.domain.publication.payment import Payment, PublicationPayments
 from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
@@ -16,7 +18,7 @@ from tests import domainfactory, modelfactory
 def test__unpaid_invoice_with_publication__save__publication_has_invoice_received() -> None:
     publication = create_publication()
     invoice = unpaid_invoice_for_publications(publication)
-    invoice.id = services.save(invoice)
+    invoice.id = invoice_service.save(invoice)
 
     assert_invoice_received(invoice, publication)
 
@@ -37,7 +39,7 @@ def test__paid_invoice__save__publications_are_paid() -> None:
     invoice = unpaid_invoice_for_publications(publication_1, publication_2)
     invoice.pay()
 
-    invoice.id = services.save(invoice)
+    invoice.id = invoice_service.save(invoice)
 
     assert_publication_paid(publication_1, invoice)
     assert_publication_paid(publication_2, invoice)
@@ -60,9 +62,9 @@ def assert_publication_paid(publication: PublicationId, *invoices: Invoice) -> N
 @pytest.mark.django_db
 def test__invoice__pay_invoice__invoice_is_paid() -> None:
     invoice = unpaid_invoice_for_publications()
-    invoice.id = services.save(invoice)
+    invoice.id = invoice_service.save(invoice)
 
-    services.pay_invoice(invoice.id)
+    invoice_service.pay_invoice(invoice.id)
 
     actual = repository.get_by_id(invoice.id)
     assert actual.is_paid()
@@ -75,7 +77,7 @@ def test__invoice__pay_invoice_with_publications__all_publication_paid() -> None
     invoice = unpaid_invoice_for_publications(publication_1, publication_2)
     invoice.id = repository.create(invoice)
 
-    services.pay_invoice(invoice.id)
+    invoice_service.pay_invoice(invoice.id)
 
     assert_publication_paid(publication_1, invoice)
     assert_publication_paid(publication_2, invoice)
@@ -86,7 +88,7 @@ def test__paid_invoice__reset_payment__invoice_is_not_paid() -> None:
     invoice = unpaid_invoice_for_publications()
     invoice.id = repository.create(invoice)
 
-    services.reset_payment(invoice.id)
+    invoice_service.reset_payment(invoice.id)
 
     actual = repository.get_by_id(invoice.id)
     assert not actual.is_paid()
@@ -101,8 +103,8 @@ def test__paid_invoice_with_publications__reset_payment__all_publication_have_in
     invoice = unpaid_invoice_for_publications(publication_1, publication_2)
     invoice.id = repository.create(invoice)
 
-    services.pay_invoice(invoice.id)
-    services.reset_payment(invoice.id)
+    invoice_service.pay_invoice(invoice.id)
+    invoice_service.reset_payment(invoice.id)
 
     assert_invoice_received(invoice, publication_1)
     assert_invoice_received(invoice, publication_2)
@@ -113,7 +115,7 @@ def test__invoice__delete_invoice__invoice_is_deleted() -> None:
     invoice = unpaid_invoice_for_publications()
     invoice.id = repository.create(invoice)
 
-    services.delete_invoice(invoice.id)
+    invoice_service.delete_invoice(invoice.id)
 
     with pytest.raises(Exception):
         repository.get_by_id(invoice.id)
@@ -125,9 +127,9 @@ def test__invoice_with_publications__delete_invoice__publications_are_unpaid() -
     publication_2 = create_publication()
     invoice = unpaid_invoice_for_publications(publication_1, publication_2)
     invoice.id = repository.create(invoice)
-    services.pay_invoice(invoice.id)
+    invoice_service.pay_invoice(invoice.id)
 
-    services.delete_invoice(invoice.id)
+    invoice_service.delete_invoice(invoice.id)
 
     assert_publication_unpaid(publication_1)
     assert_publication_unpaid(publication_2)
@@ -146,10 +148,10 @@ def test__paid_invoice_with_publication__delete_publication_position__publicatio
     publication = create_publication()
     invoice = unpaid_invoice_for_publications(publication)
     invoice.id = repository.create(invoice)
-    services.pay_invoice(invoice.id)
+    invoice_service.pay_invoice(invoice.id)
 
     invoice.positions = []
-    services.save(invoice)
+    invoice_service.save(invoice)
 
     assert_publication_unpaid(publication)
 
@@ -160,15 +162,25 @@ def test__paid_invoice_with_two_equal_publication_positions__delete_one__publica
 ):
     publication = create_publication()
     position = domainfactory.publication_position(publication)
-    equal_position = dataclasses.replace(position)
+    equal_position = copy_position(position)
 
     invoice = paid_invoice(position, equal_position)
-    invoice.id = services.save(invoice)
+    invoice.id = invoice_service.save(invoice)
 
     invoice.positions = [equal_position]
-    services.save(invoice)
+    invoice_service.save(invoice)
 
     assert_publication_paid(publication, invoice)
+
+
+def copy_position(position: Position[PublicationItem]) -> Position[PublicationItem]:
+    return invoice_positions.create(
+        item=position.item,
+        cost=position.cost,
+        tax_rate=position.tax_rate,
+        funding_source=position.funding_source,
+        external_position_id=position.external_position_id,
+    )
 
 
 @pytest.mark.django_db
@@ -178,13 +190,13 @@ def test__two_paid_invoices_have_the_same_publication__removing_publication_from
     publication = create_publication()
 
     invoice = paid_invoice_for_publication(publication)
-    invoice.id = services.save(invoice)
+    invoice.id = invoice_service.save(invoice)
 
     invoice2 = paid_invoice_for_publication(publication)
-    invoice2.id = services.save(invoice2)
+    invoice2.id = invoice_service.save(invoice2)
 
     invoice2.positions = []
-    services.save(invoice2)
+    invoice_service.save(invoice2)
 
     assert_publication_paid(publication, invoice)
 
@@ -195,13 +207,13 @@ def test__one_invoice_paid_one_invoice_unpaid__removing_publication_from_paid_in
 ):
     publication = create_publication()
     invoice = paid_invoice_for_publication(publication)
-    invoice.id = services.save(invoice)
+    invoice.id = invoice_service.save(invoice)
 
     invoice2 = unpaid_invoice_for_publications(publication)
-    invoice2.id = services.save(invoice2)
+    invoice2.id = invoice_service.save(invoice2)
 
     invoice.positions = []
-    services.save(invoice)
+    invoice_service.save(invoice)
 
     assert_invoice_received(invoice2, publication)
 
@@ -213,16 +225,16 @@ def test__publication_on_paid_unpaid_and_paid_invoice__removing_publication_from
     publication = create_publication()
 
     first_paid = paid_invoice_for_publication(publication)
-    first_paid.id = services.save(first_paid)
+    first_paid.id = invoice_service.save(first_paid)
 
     unpaid = unpaid_invoice_for_publications(publication)
-    unpaid.id = services.save(unpaid)
+    unpaid.id = invoice_service.save(unpaid)
 
     second_paid = paid_invoice_for_publication(publication)
-    second_paid.id = services.save(second_paid)
+    second_paid.id = invoice_service.save(second_paid)
 
     first_paid.positions = []
-    services.save(first_paid)
+    invoice_service.save(first_paid)
 
     assert_publication_partially_paid(publication, unpaid, second_paid)
 
@@ -254,14 +266,14 @@ def paid_invoice_for_publication(publication: PublicationId) -> Invoice:
 
 
 def paid_invoice(*positions: AnyPosition) -> Invoice:
-    creditor = CreditorId(modelfactory.creditor().id)
+    creditor = CreditorId(modelfactory.creditor().pk)
     invoice = domainfactory.invoice(positions=tuple(positions), creditor=creditor)
     invoice.pay()
     return invoice
 
 
 def unpaid_invoice_for_publications(*publication_ids: PublicationId) -> Invoice:
-    creditor = CreditorId(modelfactory.creditor().id)
+    creditor = CreditorId(modelfactory.creditor().pk)
     positions = tuple(
         domainfactory.publication_position(publication_id) for publication_id in publication_ids
     )
@@ -272,7 +284,7 @@ def unpaid_invoice_for_publications(*publication_ids: PublicationId) -> Invoice:
 
 
 def create_publication() -> PublicationId:
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     publication = domainfactory.publication(journal)
     publication.id = publication_repository.create(publication)
     return publication.id

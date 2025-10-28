@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from coda.apps.invoices import repository
 from coda.apps.preferences.models import GlobalPreferences
-from coda.domain.invoice import CreditorId, Invoice, InvoiceId
+from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.money._currency import Currency
 from tests import domainfactory, modelfactory
 from tests.invoices.test_create_invoice_view import invoice_post_data
@@ -76,7 +76,7 @@ def test__invoice_with_foreign_currency_and_conversion__is_saved__invoice_has_co
 def test__saved_invoice_with_conversion__form_field_for_exchange_rate_is_cleared_and_invoice_is_saved__ivoice_has_no_conversion(
     client: Client,
 ) -> None:
-    creditor = CreditorId(modelfactory.creditor().id)
+    creditor = CreditorId(modelfactory.creditor().pk)
     invoice = domainfactory.invoice(creditor=creditor, positions=())
     invoice.add_conversion(Decimal("2.0"), Currency.JPY)
     invoice.id = repository.create(invoice)

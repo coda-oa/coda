@@ -2,7 +2,7 @@ import datetime
 from dataclasses import dataclass
 from decimal import Decimal
 
-from coda.domain.invoice import CreditorId, InvoiceId, PaymentStatus
+from coda.domain.finance.invoice import CreditorId, InvoiceId, PaymentStatus
 from coda.domain.money import Currency, Money
 
 

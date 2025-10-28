@@ -8,8 +8,10 @@ import pytest
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-from coda.apps.invoices import importservice, repository
-from coda.apps.invoices.importservice.dto import (
+from coda.apps.invoices import repository
+from coda.apps.invoices.models import Creditor, FundingSource
+from coda.apps.publications.services import publications
+from coda.contexts.finance.dto.import_dtos import (
     CommonPositionImportDto,
     ContractPositionImportDto,
     ConversionImportDto,
@@ -18,24 +20,21 @@ from coda.apps.invoices.importservice.dto import (
     InvoiceListImportDto,
     PublicationPositionImportDto,
 )
-from coda.apps.invoices.models import Creditor, FundingSource
-from coda.apps.publications.services import publications
+from coda.contexts.finance.services import import_service
 from coda.domain.contract import Contract
 from coda.domain.date import DateRange
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
+from coda.domain.finance.invoice_positions import (
+    AnyPosition,
+    ContractItem,
+    FreeItem,
+    PublicationItem,
+)
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest, FundingOrganizationId
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
-from coda.domain.invoice import (
-    AnyPosition,
-    ContractCostType,
-    ContractPosition,
-    CreditorId,
-    FundingSourceId,
-    Invoice,
-    PaymentStatus,
-    Position,
-    PublicationCostType,
-    TaxRate,
-)
 from coda.domain.money import Currency, Money
 from coda.domain.publication import JournalId, PublicationId
 from coda.domain.publication.payment import (
@@ -155,7 +154,7 @@ def test__multiple_invalid_invoices__import_invoices__returns_errors_per_invoice
     import json
 
     json_stream = io.StringIO(json.dumps(invalid_data))
-    actual = importservice.import_invoices(json_stream)
+    actual = import_service.import_invoices(json_stream)
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 2
@@ -184,7 +183,7 @@ def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
     import json
 
     json_stream = io.StringIO(json.dumps(invalid_data))
-    actual = importservice.import_invoices(json_stream)
+    actual = import_service.import_invoices(json_stream)
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 1
@@ -242,9 +241,9 @@ def assert_valid_invoice_imported(valid_dto: InvoiceImportDto) -> None:
     assert_invoice_eq(expected, actual)
 
 
-def import_invoices(import_dto: InvoiceListImportDto) -> importservice.InvoiceImportReport:
+def import_invoices(import_dto: InvoiceListImportDto) -> import_service.InvoiceImportReport:
     temp_stream = io.StringIO(import_dto.model_dump_json())
-    return importservice.import_invoices(temp_stream)
+    return import_service.import_invoices(temp_stream)
 
 
 def publication_position_import_dto(
@@ -258,7 +257,7 @@ def publication_position_import_dto(
         amount=Decimal("100.00"),
         funding_source="publication-funding-source",
         external_id="external-publication-position",
-        cost_type=PublicationCostType.Reprint.value,
+        cost_type=PublicationCostType.Reprint,
     )
 
 
@@ -267,14 +266,14 @@ def non_existing_publication_position_import_dto() -> PublicationPositionImportD
         legacy_request_id="non-existing-legacy-request-id",
         tax_rate=Decimal("19.00"),
         amount=Decimal("100.00"),
-        cost_type=PublicationCostType.Gold_OA.value,
+        cost_type=PublicationCostType.Gold_OA,
     )
 
 
 def create_funding_request() -> AnyFundingRequest:
     fundingrequest = domainfactory.fundingrequest(
-        journal_id=JournalId(modelfactory.journal().id),
-        funding_org_id=FundingOrganizationId(modelfactory.funding_organization().id),
+        journal_id=JournalId(modelfactory.journal().pk),
+        funding_org_id=FundingOrganizationId(modelfactory.funding_organization().pk),
     )
     fundingrequest.id = fundingrequest_repository.create(fundingrequest)
     return fundingrequest
@@ -292,7 +291,7 @@ def contract_position_import_dto() -> ContractPositionImportDto:
         amount=Decimal("200.00"),
         funding_source="contract-funding-source",
         external_id="external-contract-position",
-        cost_type=ContractCostType.Read.value,
+        cost_type=ContractCostType.Read,
     )
 
 
@@ -304,7 +303,7 @@ def free_position_import_dto() -> FreePositionImportDto:
         amount=Decimal("50.00"),
         funding_source="free-position-funding-source",
         external_id="external-free-position",
-        cost_type=PublicationCostType.Other.value,
+        cost_type=PublicationCostType.Other,
     )
 
 
@@ -348,13 +347,15 @@ def expected_publication_position(import_dto: PublicationPositionImportDto) -> A
         PublicFundingRequestId.from_str(str(import_dto.request_id))
     )
     publication_id = cast(PublicationId, request.publication.id)
-    return Position(
-        item=publication_id,
+    return invoice_positions.create(
+        item=PublicationItem(
+            publication_id,
+            cost_type=PublicationCostType(import_dto.cost_type),
+        ),
         cost=Money(import_dto.amount, Currency.BBD),
         tax_rate=TaxRate.from_percentage(import_dto.tax_rate),
-        funding_source=FundingSourceId(funding_source.id),
+        funding_source=FundingSourceId(funding_source.pk),
         external_position_id=import_dto.external_id,
-        cost_type=PublicationCostType(import_dto.cost_type),
     )
 
 
@@ -366,13 +367,15 @@ def expected_contract_position(import_dto: ContractPositionImportDto) -> AnyPosi
     assert contract is not None, "Contract should have been created by import service"
 
     contract_year = contract.in_year(import_dto.contract_year)
-    return ContractPosition(
-        item=contract_year,
+    return invoice_positions.create(
+        item=ContractItem(
+            contract_year,
+            cost_type=ContractCostType(import_dto.cost_type),
+        ),
         cost=Money(import_dto.amount, Currency.BBD),
         tax_rate=TaxRate.from_percentage(import_dto.tax_rate),
-        funding_source=FundingSourceId(funding_source.id),
+        funding_source=FundingSourceId(funding_source.pk),
         external_position_id=import_dto.external_id,
-        cost_type=ContractCostType(import_dto.cost_type),
     )
 
 
@@ -382,13 +385,15 @@ def expected_free_position(import_dto: FreePositionImportDto) -> AnyPosition:
         funding_source is not None
     ), f"FundingSource '{import_dto.funding_source}' should exist in the database"
     description = import_dto.description
-    return Position(
-        item=description,
+    return invoice_positions.create(
+        item=FreeItem(
+            description,
+            cost_type=PublicationCostType(import_dto.cost_type),
+        ),
         cost=Money(import_dto.amount, Currency.BBD),
         tax_rate=TaxRate.from_percentage(import_dto.tax_rate),
-        funding_source=FundingSourceId(funding_source.id),
+        funding_source=FundingSourceId(funding_source.pk),
         external_position_id=import_dto.external_id,
-        cost_type=PublicationCostType(import_dto.cost_type),
     )
 
 
@@ -405,7 +410,7 @@ def expected_invoice(import_dto: InvoiceImportDto) -> Invoice:
     expected_invoice = Invoice.new(
         number=import_dto.number,
         date=import_dto.date,
-        creditor=CreditorId(creditor.id),
+        creditor=CreditorId(creditor.pk),
         status=PaymentStatus.Unpaid,
         external_invoice_id="external-invoice-id",
         comment="Test invoice comment",

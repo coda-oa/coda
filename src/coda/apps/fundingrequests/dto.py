@@ -112,10 +112,11 @@ class ExtraInformationDto(CodaBaseDto):
     request_remarks: str = ""
 
 
-class ReviewDto(CodaBaseDto):
+class UpdateReviewDto(CodaBaseDto):
     decided_funding_amount: float
     decided_funding_currency: str
     reviewer_remarks: str
+    result: str
 
 
 class CreateFundingRequestDto(CodaBaseDto):

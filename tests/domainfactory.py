@@ -9,6 +9,18 @@ from coda.domain import orcid
 from coda.domain.author import Author, AuthorId, AuthorNames, InstitutionId, Role
 from coda.domain.contract import Contract, ContractId, ContractYear, PublisherId
 from coda.domain.date import DateRange
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.invoice import (
+    CreditorId,
+    FundingSourceId,
+    Invoice,
+    InvoiceId,
+    PaymentStatus,
+    Positions,
+)
+from coda.domain.finance.invoice_positions import ContractItem, FreeItem, Position, PublicationItem
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -20,19 +32,6 @@ from coda.domain.fundingrequest import (
     Review,
 )
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
-from coda.domain.invoice import (
-    ContractCostType,
-    ContractPosition,
-    CreditorId,
-    FundingSourceId,
-    Invoice,
-    InvoiceId,
-    PaymentStatus,
-    Position,
-    Positions,
-    PublicationCostType,
-    TaxRate,
-)
 from coda.domain.money import Currency, Money
 from coda.domain.publication import (
     Authors,
@@ -132,18 +131,22 @@ def invoice(
         ),
         status=status,
         external_invoice_id=str(_faker.uuid4()),
+        comment=_faker.sentence(),
     )
 
 
 def publication_position(
     publication: PublicationId | None = None,
     currency: Currency | None = None,
+    cost_type: PublicationCostType | None = None,
     funding_source: FundingSourceId | None = None,
-) -> Position[PublicationId]:
-    return Position(
-        item=publication or PublicationId(random.randint(1, 1000)),
+) -> Position[PublicationItem]:
+    return invoice_positions.create(
+        item=PublicationItem(
+            publication or PublicationId(random.randint(1, 1000)),
+            cost_type=cost_type or random.choice(list(PublicationCostType)),
+        ),
         cost=random_money(currency),
-        cost_type=random.choice(list(PublicationCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),
@@ -153,23 +156,30 @@ def publication_position(
 def contract_position(
     contract: ContractYear,
     currency: Currency | None = None,
+    cost_type: ContractCostType | None = None,
     funding_source: FundingSourceId | None = None,
-) -> ContractPosition:
-    return ContractPosition(
-        item=contract,
+) -> Position[ContractItem]:
+    return invoice_positions.create(
+        item=ContractItem(
+            contract,
+            cost_type=cost_type or random.choice(list(ContractCostType)),
+        ),
         cost=random_money(currency),
-        cost_type=random.choice(list(ContractCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),
     )
 
 
-def free_position(currency: Currency | None = None) -> Position[str]:
-    return Position(
-        item=_faker.sentence(),
+def free_position(
+    currency: Currency | None = None, cost_type: PublicationCostType | None = None
+) -> Position[FreeItem]:
+    return invoice_positions.create(
+        item=FreeItem(
+            _faker.sentence(),
+            cost_type=cost_type or random.choice(list(PublicationCostType)),
+        ),
         cost=random_money(currency),
-        cost_type=random.choice(list(PublicationCostType)),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         external_position_id=str(_faker.uuid4()),
     )

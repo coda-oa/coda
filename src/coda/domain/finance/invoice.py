@@ -1,125 +1,28 @@
 import dataclasses
 import datetime
 import enum
-from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Generic, NewType, Self, TypeVar
+from typing import TYPE_CHECKING, NewType, Self
 
-from coda.domain.contract import ContractYear
-from coda.domain.errors import DomainError
-from coda.domain.money import Currency, Money
-from coda.domain.money._money import CurrencyExchange
-from coda.domain.publication import PublicationId
+from coda.domain.money import Currency, CurrencyExchange, Money
+
+if TYPE_CHECKING:
+    from coda.domain.finance.invoice_positions import AnyPosition
 
 InvoiceId = NewType("InvoiceId", int)
 CreditorId = NewType("CreditorId", int)
 FundingSourceId = NewType("FundingSourceId", int)
 
 
-class PublicationCostType(enum.Enum):
-    """
-    Enum representing the cost type based on the OpenCost schema.
-    """
-
-    Gold_OA = "gold-oa"
-    Hybrid_OA = "hybrid-oa"
-    Vat = "vat"
-    Colour_Charge = "colour charge"
-    Page_Charge = "page charge"
-    Permission = "permission"
-    Publication_Charge = "publication charge"
-    Reprint = "reprint"
-    Submission_Fee = "submission fee"
-    Payment_Fee = "payment fee"
-    Other = "other"
-
-
-class ContractCostType(enum.Enum):
-    """
-    Enum representing the cost type for contracts based on the OpenCost schema.
-    """
-
-    Publish = "publish"
-    Read = "read"
-    Vat = "vat"
-
-
-class TaxRate(Decimal):
-    __slots__ = ()
-
-    def __new__(cls, value: Decimal | float | str) -> Self:
-        v = Decimal(value)
-        if v < 0:
-            raise DomainError("Tax rate must be positive")
-
-        return super().__new__(cls, v.quantize(Decimal("0.0000")))
-
-    @classmethod
-    def from_percentage(cls, value: Decimal | float | str) -> "TaxRate":
-        return TaxRate(cls(value) / 100)
-
-    def percentage(self) -> Decimal:
-        return self * 100
-
-
-ItemType = PublicationId | ContractYear | str
-CostType = PublicationCostType | ContractCostType
-BaseItemT = TypeVar("BaseItemT", covariant=True)
-BaseCostTypeT = TypeVar("BaseCostTypeT", covariant=True, bound=enum.Enum)
-PublicationItemType = TypeVar("PublicationItemType", bound=PublicationId | str, covariant=True)
-type AnyPosition = "CommonPosition[ItemType, CostType]"
-Positions = Iterable[AnyPosition]
+type Positions = Iterable[AnyPosition]
 
 
 class PaymentStatus(enum.Enum):
     Paid = "paid"
     Unpaid = "unpaid"
     Rejected = "rejected"
-
-
-@dataclass(slots=True, frozen=True, kw_only=True)
-class CommonPosition(ABC, Generic[BaseItemT, BaseCostTypeT]):
-    cost: Money
-    tax_rate: TaxRate = TaxRate(0)
-    funding_source: FundingSourceId | None = None
-    external_position_id: str = ""
-
-    @property
-    @abstractmethod
-    def item(self) -> BaseItemT:
-        ...
-
-    @property
-    @abstractmethod
-    def cost_type(self) -> BaseCostTypeT:
-        ...
-
-    def net(self) -> Money:
-        if self.cost_type.value == "vat":
-            return Money(0, self.cost.currency)
-        return self.cost
-
-    def tax(self) -> Money:
-        if self.cost_type.value == "vat":
-            return self.cost
-        return self.cost * self.tax_rate
-
-    def total(self) -> Money:
-        return self.net() + self.tax()
-    
-    
-@dataclass(slots=True, frozen=True, kw_only=True)
-class Position(CommonPosition[PublicationItemType, PublicationCostType]):
-    item: PublicationItemType
-    cost_type: PublicationCostType
-
-
-@dataclass(slots=True, frozen=True, kw_only=True)
-class ContractPosition(CommonPosition[ContractYear, ContractCostType]):
-    item: ContractYear
-    cost_type: ContractCostType
 
 
 def _internal_exchange(exchange_rates: dict[Currency, Decimal]) -> CurrencyExchange:
@@ -218,10 +121,8 @@ class Invoice:
             raise NoSuchConversion(to)
 
         exchange = _internal_exchange(self.conversions())
-        converted_positions = [
-            dataclasses.replace(pos, cost=pos.cost.convert_to(to, exchange))
-            for pos in self.positions
-        ]
+
+        converted_positions = [pos.convert(to, exchange) for pos in self.positions]
         converted = dataclasses.replace(self, positions=converted_positions)
         converted._conversions = self._convert_exchange_rates(to)
 

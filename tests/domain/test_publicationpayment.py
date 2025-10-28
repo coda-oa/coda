@@ -1,5 +1,5 @@
 import pytest
-from coda.domain.invoice import InvoiceId
+from coda.domain.finance.invoice import InvoiceId
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import PublicationPayments, Payment
 

@@ -7,7 +7,7 @@ from coda.apps.invoices import repository as invoice_repository
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
 from coda.domain.contract import ContractYear, PublicationBilling
-from coda.domain.invoice import CreditorId, Invoice, InvoiceId
+from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.publication.payment import (
     InvoiceReceived,
     InvoicePaymentReset,

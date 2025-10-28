@@ -3,7 +3,7 @@ from coda.domain.contract import Contract, ContractId, PublicationBilling, Publi
 from coda.domain.date import DateRange
 from coda.domain.publication.publication import JournalId
 from coda.domain.string import NonEmptyStr
-from coda.lazyiterable import LazyCachedIterable
+from coda.coda_itertools import LazyCachedIterable
 
 
 def as_domain_object(contract_model: ContractModel) -> Contract:

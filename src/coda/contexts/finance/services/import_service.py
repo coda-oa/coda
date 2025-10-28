@@ -9,26 +9,31 @@ from django.db.models import Q
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices import repository
-from coda.apps.invoices.importservice.dto import (
+from coda.apps.invoices.models import Creditor, FundingSource
+from coda.apps.publications.services import publications
+from coda.contexts.finance.dto.import_dtos import (
     CommonPositionImportDto,
     ContractPositionImportDto,
     FreePositionImportDto,
     InvoiceImportDto,
     PublicationPositionImportDto,
 )
-from coda.apps.invoices.models import Creditor, FundingSource
-from coda.apps.publications.services import publications
+from coda.domain import errors
 from coda.domain.contract import Contract
-from coda.domain.invoice import (
-    AnyPosition,
-    ContractPosition,
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.invoice import (
     CreditorId,
     FundingSourceId,
     Invoice,
     InvoiceId,
-    Position,
-    TaxRate,
 )
+from coda.domain.finance.invoice_positions import (
+    AnyPosition,
+    ContractItem,
+    FreeItem,
+    PublicationItem,
+)
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
 from coda.domain.publication.payment import InvoiceReceived, PaymentEvent, PublicationPaid
@@ -58,10 +63,11 @@ def import_invoices(json_stream: TextIO | BinaryIO) -> InvoiceImportReport:
     invoice_dtos, validation_errors = _validate_invoices(data["invoices"])
 
     if validation_errors:
+        _errors = dict(e.unpack() for e in validation_errors)
         return InvoiceImportReport(
             valid_invoices=0,
             invalid_invoices=len(validation_errors),
-            errors=validation_errors,
+            errors=_errors,
         )
 
     processed_invoices, processing_errors = _process_invoices(invoice_dtos)
@@ -73,9 +79,26 @@ def import_invoices(json_stream: TextIO | BinaryIO) -> InvoiceImportReport:
     )
 
 
+class InvoiceProcessingError(errors.DomainError):
+    def __init__(self, invoice_number: str, reasons: list[str]) -> None:
+        super().__init__()
+        self.invoice_number = invoice_number
+        self.reasons = reasons or []
+
+    def unpack(self) -> tuple[str, list[str]]:
+        return self.invoice_number, self.reasons
+
+
+def _validate_invoice(invoice_number: str, raw_invoice: dict[str, Any]) -> InvoiceImportDto:
+    try:
+        return InvoiceImportDto.model_validate(raw_invoice)
+    except (ValueError, AttributeError) as e:
+        raise InvoiceProcessingError(invoice_number, _format_validation_error(e))
+
+
 def _validate_invoices(
     raw_invoices: list[dict[str, Any]],
-) -> tuple[list[InvoiceImportDto], dict[str, list[str]]]:
+) -> tuple[list[InvoiceImportDto], list[InvoiceProcessingError]]:
     """
     Validate a list of raw invoice data and return valid DTOs and validation errors.
 
@@ -83,18 +106,15 @@ def _validate_invoices(
         Tuple of (valid_invoice_dtos, validation_errors_by_invoice_number)
     """
     invoice_numbers = _extract_invoice_numbers(raw_invoices)
-    invoice_dtos = []
-    errors = {}
 
-    for i, raw_invoice in enumerate(raw_invoices):
-        try:
-            dto = InvoiceImportDto.model_validate(raw_invoice)
-            invoice_dtos.append(dto)
-        except (ValueError, AttributeError) as e:
-            invoice_number = invoice_numbers[i]
-            errors[invoice_number] = _format_validation_error(e)
+    with errors.capture(InvoiceProcessingError) as capture:
+        parsed = errors.results(
+            capture(_validate_invoice, invoice_numbers[i], raw_invoice)
+            for i, raw_invoice in enumerate(raw_invoices)
+        )
 
-    return invoice_dtos, errors
+    invoice_dtos, errors_ = parsed.split()
+    return invoice_dtos, errors_
 
 
 def _extract_invoice_numbers(raw_invoices: list[dict[str, Any]]) -> list[str]:
@@ -237,31 +257,37 @@ def _parse_into_position(
     match p:
         case PublicationPositionImportDto():
             id_type = cast(str, p.request_id or p.legacy_request_id)
-            position = Position(
-                item=lookups.request_id_lookup[id_type],
+            position = invoice_positions.create(
+                item=PublicationItem(
+                    lookups.request_id_lookup[id_type],
+                    cost_type=p.cost_type,
+                ),
                 cost=cost,
                 tax_rate=tax_rate,
                 funding_source=funding_source,
                 external_position_id=external_id,
-                cost_type=p.cost_type,
             )
         case ContractPositionImportDto():
-            position = ContractPosition(
-                item=lookups.contract_lookup[p.contract_name].in_year(p.contract_year),
+            position = invoice_positions.create(
+                item=ContractItem(
+                    lookups.contract_lookup[p.contract_name].in_year(p.contract_year),
+                    cost_type=p.cost_type,
+                ),
                 cost=cost,
                 tax_rate=tax_rate,
                 funding_source=funding_source,
                 external_position_id=external_id,
-                cost_type=p.cost_type,
             )
         case FreePositionImportDto():
-            position = Position(
-                item=p.description,
+            position = invoice_positions.create(
+                item=FreeItem(
+                    p.description,
+                    cost_type=p.cost_type,
+                ),
                 cost=cost,
                 tax_rate=tax_rate,
                 funding_source=funding_source,
                 external_position_id=external_id,
-                cost_type=p.cost_type,
             )
         case _:
             raise ValueError(f"Unknown position type: {p.type}.\n{p}")
@@ -354,11 +380,11 @@ def _bulk_create_creditors(creditors: Iterable[str]) -> dict[str, CreditorId]:
 def _bulk_create_funding_sources(funding_sources: Iterable[str]) -> dict[str, FundingSourceId]:
     funding_sources = set(funding_sources)
     existing = FundingSource.objects.filter(name__in=funding_sources)
-    existing_map = {fs.name: FundingSourceId(fs.id) for fs in existing}
+    existing_map = {fs.name: FundingSourceId(fs.pk) for fs in existing}
     to_create = [FundingSource(name=name) for name in funding_sources if name not in existing_map]
     if to_create:
         created = FundingSource.objects.bulk_create(to_create)
-        existing_map.update({fs.name: FundingSourceId(fs.id) for fs in created})
+        existing_map.update({fs.name: FundingSourceId(fs.pk) for fs in created})
 
     return existing_map
 
@@ -380,7 +406,7 @@ def _update_publication_payment_statuses(invoices: list[Invoice]) -> None:
 
 
 def _publication_positions(invoice: Invoice) -> list[PublicationId]:
-    return [p.item for p in invoice.positions if isinstance(p.item, PublicationId)]
+    return [p.item.item for p in invoice.positions if isinstance(p.item.item, PublicationId)]
 
 
 def _create_payment(invoice: Invoice) -> PaymentEvent:

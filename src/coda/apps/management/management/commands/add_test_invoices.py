@@ -3,7 +3,7 @@ from coda.apps.publications.repositories import publication_repository
 from tests import domainfactory, modelfactory
 
 from coda.apps.invoices import repository
-from coda.domain.invoice import CreditorId
+from coda.domain.finance.invoice import CreditorId
 from coda.domain.money import Currency
 from coda.domain.publication import JournalId, PublicationId
 

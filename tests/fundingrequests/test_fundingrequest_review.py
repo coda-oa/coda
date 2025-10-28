@@ -129,6 +129,31 @@ def test__closed_fundingrequest__re_opening__stores_in_database(client: Client) 
     assert actual.review_remarks == remarks
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__action_return__updates_without_changing_result(client: Client) -> None:
+    fr = fundingrequest()
+    fr.id = repository.create(fr)
+    review = Review(fr.id).update_review(ReviewResult.Approved)
+    repository.save_review(review)
+
+    remarks = "Some new remarks"
+
+    client.post(
+        reverse("fundingrequests:review_submit", kwargs={"pk": fr.id}),
+        {
+            "action": "return",
+            "reviewer_remarks": remarks,
+            "decided_funding_amount": 0,
+            "decided_funding_currency": "EUR",
+        },
+    )
+
+    actual = repository.get_by_id(fr.id)
+    assert actual.review() == ReviewResult.Approved
+    assert actual.review_remarks == remarks
+
+
 def fundingrequest() -> FundingRequest[Publication]:
     journal_id = JournalId(modelfactory.journal().pk)
     organization_id = FundingOrganizationId(modelfactory.funding_organization().pk)

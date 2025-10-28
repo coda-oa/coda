@@ -3,15 +3,16 @@ from decimal import Decimal
 
 import pytest
 
-from coda.domain.invoice import (
-    PublicationCostType,
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.invoice import (
     CreditorId,
     Invoice,
     NoSuchConversion,
-    Position,
     Positions,
-    TaxRate,
 )
+from coda.domain.finance.costtypes import PublicationCostType
+from coda.domain.finance.invoice_positions import Position, PublicationItem
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 from coda.domain.money._money import CurrencyExchange
 from coda.domain.publication import PublicationId
@@ -22,11 +23,10 @@ def make_sut(positions: Positions) -> Invoice:
     return Invoice.new("invoice-#1234", datetime.date.today(), CreditorId(1), positions)
 
 
-def position(cost: Money, tax_rate: TaxRate = TaxRate(0)) -> Position[PublicationId]:
-    return Position(
-        item=PublicationId(1),
+def position(cost: Money, tax_rate: TaxRate = TaxRate(0)) -> Position[PublicationItem]:
+    return invoice_positions.create(
+        item=PublicationItem(PublicationId(1), cost_type=PublicationCostType.Gold_OA),
         cost=cost,
-        cost_type=PublicationCostType.Gold_OA,
         tax_rate=tax_rate,
     )
 
