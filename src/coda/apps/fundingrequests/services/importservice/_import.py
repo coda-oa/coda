@@ -10,7 +10,6 @@ from coda.apps.fundingrequests.services.importservice.dto._fundingrequest import
 )
 from coda.apps.fundingrequests.services.labels import label_get_or_create, label_attach
 from coda.checks.nullcheckfactory import NullCheckFactory
-from coda.domain.color import Color
 
 from .dto import FundingRequestImportListDto
 from .dtoparsers import fundingrequestdto, publicationdto, reviewdto
@@ -60,8 +59,7 @@ def import_fundingrequests(json: TextIO | BinaryIO) -> FundingRequestImportRepor
         try:
             funding_request = FundingRequestModel.objects.get(id=fundingrequest_id)
             for label_dto in request.labels:
-                color = Color.from_hex(label_dto.color)
-                label = label_get_or_create(label_dto.name, color)
+                label = label_get_or_create(label_dto)
                 label_attach(funding_request, label)
         except Exception as e:
             error_key = request.legacy_request_id or request.publication.title
