@@ -171,7 +171,7 @@
                 },
                 "labels": {
                     "items": {
-                        "$ref": "#/$defs/LabelImportDto"
+                        "type": "string"
                     },
                     "title": "Labels",
                     "type": "array"
@@ -182,25 +182,6 @@
                 "publication"
             ],
             "title": "FundingRequestImportDto",
-            "type": "object"
-        },
-        "LabelImportDto": {
-            "properties": {
-                "name": {
-                    "title": "Name",
-                    "type": "string"
-                },
-                "color": {
-                    "default": "#007bff",
-                    "pattern": "^#[a-fA-F0-9]{6}$",
-                    "title": "Color",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "name"
-            ],
-            "title": "LabelImportDto",
             "type": "object"
         },
         "License": {
