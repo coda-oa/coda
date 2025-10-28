@@ -1,10 +1,10 @@
 import abc
 from decimal import Decimal
-from typing import Annotated, Generic, Self, TypeVar
+from typing import Annotated, Any, Generic, Self, TypeVar
 
 import pydantic
 from django.urls import reverse
-from pydantic import BeforeValidator
+from pydantic import ValidatorFunctionWrapHandler, WrapValidator
 
 from coda.apps.dto import CodaBaseDto
 from coda.domain.contract import ContractYear
@@ -19,23 +19,27 @@ type AnyPositionDto = "PublicationPositionDto | ContractPositionDto | FreePositi
 DEFAULT_TAX_RATE_PERCENTAGE = 19
 
 
-def try_int(value: str) -> int | None:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
+def fallback(v: Any) -> WrapValidator:
+    def _handler(value: Any, handler: ValidatorFunctionWrapHandler) -> Any:
+        try:
+            return handler(value)
+        except (TypeError, ValueError):
+            return v
+
+    return WrapValidator(_handler)
 
 
-Int = Annotated[int, BeforeValidator(int)]
-IntOrNone = Annotated[int | None, BeforeValidator(try_int)]
+IntOrDefault = Annotated[int, fallback(0)]
+DecimalOrDefault = Annotated[Decimal, fallback(Decimal(0))]
+IntOrNone = Annotated[int | None, fallback(None)]
 
 
 class CommonPositionDto(abc.ABC, CodaBaseDto, Generic[ItemT, CostT]):
     type: str
     funding_source: IntOrNone = None
     cost_type: str = PublicationCostType.Publication_Charge.value
-    cost_amount: Decimal = Decimal("0.00")
-    tax_rate: Decimal = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
+    cost_amount: DecimalOrDefault = Decimal("0.00")
+    tax_rate: DecimalOrDefault = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
     external_position_id: str = ""
 
     @classmethod
@@ -57,23 +61,23 @@ class RelatedFundingRequest(CodaBaseDto):
 
 class PublicationPositionDto(CommonPositionDto[PublicationId, PublicationCostType]):
     type: str = "publication"
-    id: Int
-    title: str
+    id: IntOrDefault = 0
+    title: str = ""
     funding_request: RelatedFundingRequest = RelatedFundingRequest()
 
 
 class FreePositionDto(CommonPositionDto[str, PublicationCostType]):
     type: str = "free"
-    description: str
+    description: str = ""
 
 
 class ContractPositionDto(CommonPositionDto[ContractYear, ContractCostType]):
     """DTO for a contract position already added to an invoice."""
 
     type: str = "contract"
-    id: Int
-    name: str
-    year: int
+    id: IntOrDefault = 0
+    name: str = ""
+    year: IntOrDefault = 0
     cost_type: str = ContractCostType.Publish.value
 
     def contract_url(self) -> str:
