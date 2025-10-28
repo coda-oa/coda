@@ -18,6 +18,9 @@
                value="{{ position.funding_request.url }}">
     {% endif %}
     <input type="hidden"
+           name="positions-{{ counter }}-id"
+           value="{{ position.id }}">
+    <input type="hidden"
            name="positions-{{ counter }}-title"
            value="{{ position.title }}">
 {% endblock position_type_specifics %}

@@ -24,6 +24,9 @@
         {% endwith %}
     {% endwith %}
     <input type="hidden"
+           name="positions-{{ counter }}-id"
+           value="{{ position.id }}">
+    <input type="hidden"
            name="positions-{{ counter }}-name"
            value="{{ position.name }}">
 {% endblock position_type_specifics %}
