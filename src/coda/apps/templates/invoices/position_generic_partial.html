@@ -8,32 +8,21 @@
     <div class="form-row">
         <label for="id-positions-{{ counter }}-funding-source"
                class="form-row-item-sm">Funding Source</label>
-        {% if editable != None %}
-            <input type="text"
-                   id="id-positions-{{ counter }}-external-position-id"
-                   name="positions-{{ counter }}-external_position_id"
-                   {% for fs in funding_sources %} {% if position.funding_source == fs.id %}value="{{ fs.name }}"{% endif %}
-                   {% endfor %}
-                   readonly>
-        {% else %}
-            <select name="positions-{{ counter }}-funding_source"
-                    id="id-positions-{{ counter }}-funding-source"
-                    {% if editable != None %}readonly{% endif %}>
-                <option value>-------</option>
-                {% for fs in funding_sources %}
-                    <option value="{{ fs.id }}"
-                            {% if position.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
-                {% endfor %}
-            </select>
-        {% endif %}
+        <select name="positions-{{ counter }}-funding_source"
+                id="id-positions-{{ counter }}-funding-source">
+            <option value>-------</option>
+            {% for fs in funding_sources %}
+                <option value="{{ fs.id }}"
+                        {% if position.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
+            {% endfor %}
+        </select>
     </div>
     <div class="form-row">
         <label for="id-positions-{{ counter }}-external-position-id">External Position ID</label>
         <input type="text"
                id="id-positions-{{ counter }}-external-position-id"
                name="positions-{{ counter }}-external_position_id"
-               value="{{ position.external_position_id }}"
-               {% if editable != None %}readonly{% endif %}>
+               value="{{ position.external_position_id }}">
     </div>
 </div>
 <div class="common-position-grid">
@@ -45,8 +34,7 @@
                min="-1000000000000000"
                max="1000000000000000"
                step="0.0001"
-               value="{{ position.cost_amount }}"
-               {% if editable != None %}readonly{% endif %}>
+               value="{{ position.cost_amount }}">
     </div>
     <div class="form-row tax-rate" id="tax-rate-wrapper-{{ counter }}">
         {% if position.cost_type != "vat" %}
@@ -55,34 +43,25 @@
     </div>
     <div class="form-row cost-type">
         <label for="id-positions-{{ counter }}-cost-type" class="form-row-item-sm">Cost Type</label>
-        {% if editable != None %}
-            <input type="text"
-                   readonly
-                   id="id-positions-{{ counter }}-cost-type"
-                   name="positions-{{ counter }}-cost_type"
-                   value="{{ position.cost_type }}">
-        {% else %}
-            <select id="id-positions-{{ counter }}-cost-type"
-                    name="positions-{{ counter }}-cost_type"
-                    hx-get="{% url 'invoices:position_cost_type_options' %}"
-                    hx-target="#tax-rate-wrapper-{{ counter }}"
-                    hx-swap="innerHTML"
-                    hx-trigger="change"
-                    hx-include="[name='positions-{{ counter }}-cost_type']"
-                    hx-vals='{"counter": "{{ counter }}"}'
-                    {% if editable != None %}readonly{% endif %}>
-                {% if position.type == "contract" %}
-                    {% for type in contract_cost_types %}
-                        <option value="{{ type }}"
-                                {% if type == position.cost_type %}selected{% endif %}>{{ type }}</option>
-                    {% endfor %}
-                {% else %}
-                    {% for type in publication_cost_types %}
-                        <option value="{{ type }}"
-                                {% if type == position.cost_type %}selected{% endif %}>{{ type }}</option>
-                    {% endfor %}
-                {% endif %}
-            </select>
-        {% endif %}
+        <select id="id-positions-{{ counter }}-cost-type"
+                name="positions-{{ counter }}-cost_type"
+                hx-get="{% url 'invoices:position_cost_type_options' %}"
+                hx-target="#tax-rate-wrapper-{{ counter }}"
+                hx-swap="innerHTML"
+                hx-trigger="change"
+                hx-include="[name='positions-{{ counter }}-cost_type']"
+                hx-vals='{"counter": "{{ counter }}"}'>
+            {% if position.type == "contract" %}
+                {% for type in contract_cost_types %}
+                    <option value="{{ type }}"
+                            {% if type == position.cost_type %}selected{% endif %}>{{ type }}</option>
+                {% endfor %}
+            {% else %}
+                {% for type in publication_cost_types %}
+                    <option value="{{ type }}"
+                            {% if type == position.cost_type %}selected{% endif %}>{{ type }}</option>
+                {% endfor %}
+            {% endif %}
+        </select>
     </div>
 </div>

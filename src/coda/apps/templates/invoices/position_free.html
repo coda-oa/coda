@@ -8,7 +8,6 @@
         <input id="id-positions-{{ counter }}-description"
                type="text"
                name="positions-{{ counter }}-description"
-               value="{{ position.description }}"
-               {% if editable != None %}readonly{% endif %}>
+               value="{{ position.description }}">
     </div>
 {% endblock position_type_specifics %}

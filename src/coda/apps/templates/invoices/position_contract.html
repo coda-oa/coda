@@ -19,8 +19,7 @@
                        id="id-positions-{{ counter }}-year"
                        name="positions-{{ counter }}-year"
                        value="{{ position.year }}"
-                       {% if error_key in errors %}aria-invalid="true"{% endif %}
-                       {% if editable != None %}readonly{% endif %}>
+                       {% if error_key in errors %}aria-invalid="true"{% endif %}>
             </div>
         {% endwith %}
     {% endwith %}
