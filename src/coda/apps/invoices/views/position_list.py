@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
+from coda import formdata
 from coda.apps.fundingrequests import repository
 from coda.apps.invoices.models import FundingSource
 from coda.apps.publications.models import Publication
@@ -12,6 +13,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     AnyPositionDto,
     ContractPositionDto,
     FreePositionDto,
+    PositionList,
     PublicationPositionDto,
     RelatedFundingRequest,
 )
@@ -44,49 +46,35 @@ def switch_position_tab(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def add_position(request: HttpRequest) -> HttpResponse:
-    positions = existing_positions(request) + added_positions(request)
-    return render_positions(request, positions)
+    position_list = formdata.map_to_model(PositionList, request.POST)
+    position_list.positions.extend(added_positions(request))
+    return render_positions(request, position_list)
 
 
 @login_required
 def remove_position(request: HttpRequest) -> HttpResponse:
-    positions = existing_positions(request)
+    position_list = formdata.map_to_model(PositionList, request.POST)
     if remove_position := request.POST.get("remove-position"):
-        positions.pop(int(remove_position) - 1)
+        index = int(remove_position) - 1
+        position_list.positions.pop(index)
 
-    return render_positions(request, positions)
+    return render_positions(request, position_list)
 
 
 @login_required
 def invoice_total(request: HttpRequest) -> HttpResponse:
-    positions = existing_positions(request)
+    position_list = formdata.map_to_model(PositionList, request.POST)
     currency = Currency.from_code(request.POST.get("currency", "EUR"))
     return render(
         request,
         "invoices/position_summary.html",
-        asdict(invoice_parser.invoice_total(positions, currency)),
+        asdict(invoice_parser.invoice_total(position_list.positions, currency)),
     )
 
 
 def added_positions(request: HttpRequest) -> list[AnyPositionDto]:
     _positions = [parser(request) for parser in _ADD_POSITION_PARSERS.values()]
     return [p for p in _positions if p is not None]
-
-
-def existing_positions(request: HttpRequest) -> list[AnyPositionDto]:
-    number_of_positions = int(request.POST.get("number-of-positions", 0))
-    _positions = [parse_position_dtos(request, i) for i in range(1, number_of_positions + 1)]
-    positions = [p for p in _positions if p is not None]
-    return positions
-
-
-def parse_position_dtos(request: HttpRequest, index: int) -> AnyPositionDto | None:
-    position_type_str = request.POST.get(f"position-{index}-type")
-    if not position_type_str:
-        return None
-
-    position_type = invoice_parser.get_position_type(position_type_str)
-    return position_type.from_request(request.POST, f"position-{index}-")
 
 
 def parse_added_publication_position(request: HttpRequest) -> PublicationPositionDto | None:
@@ -124,15 +112,15 @@ def parse_added_free_position(request: HttpRequest) -> FreePositionDto | None:
     return FreePositionDto.from_request(request.POST, prefix="free-position-")
 
 
-def render_positions(request: HttpRequest, positions: list[AnyPositionDto]) -> HttpResponse:
+def render_positions(request: HttpRequest, position_list: PositionList) -> HttpResponse:
     currency = Currency.from_code(request.POST.get("currency", "EUR"))
     return render(
         request,
         "invoices/invoice_positions.html",
-        {"positions": positions}
+        {"position_list": position_list}
         | _DefaultContext
         | funding_sources_context()
-        | asdict(invoice_parser.invoice_total(positions, currency)),
+        | asdict(invoice_parser.invoice_total(position_list.positions, currency)),
     )
 
 

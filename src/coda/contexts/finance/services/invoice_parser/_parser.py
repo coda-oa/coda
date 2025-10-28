@@ -5,7 +5,6 @@ from typing import Any, Protocol
 
 from coda.contexts.finance.dto.edit_position_dtos import (
     AnyPositionDto,
-    CommonPositionDto,
     ContractPositionDto,
     FreePositionDto,
     PublicationPositionDto,
@@ -13,7 +12,6 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.domain import errors
 from coda.domain.contract import ContractYear
-from coda.domain.finance.costtypes import CostType
 from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.finance.invoice_positions import AnyPosition, ItemType
 from coda.domain.money._currency import Currency
@@ -84,7 +82,7 @@ def get_position_type(type_name: str) -> type[AnyPositionDto]:
     return _position_type_registry[type_name]
 
 
-_position_type_registry: dict[str, type[CommonPositionDto[ItemType, CostType]]] = {
+_position_type_registry: dict[str, type[AnyPositionDto]] = {
     "publication": PublicationPositionDto,
     "free": FreePositionDto,
     "contract": ContractPositionDto,

@@ -4,15 +4,12 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 
+from coda import formdata
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.views.position_list import (
-    ErrorDict,
-    _DefaultContext,
-    existing_positions,
-    parse_position_dtos,
-)
+from coda.apps.invoices.views.position_list import ErrorDict, _DefaultContext
 from coda.apps.preferences.models import GlobalPreferences
+from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser, invoice_service
 from coda.domain.finance.invoice import InvoiceId
 from coda.domain.money import Currency
@@ -44,8 +41,8 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
         {
             "mode_name": "Create",
             "form": InvoiceForm(request.POST if request.POST else None),
-            "positions": existing_positions(request),
             "home_currency_ceate": home_currency.code,
+            "position_list": formdata.map_to_model(PositionList, request.POST),
         }
         | _DefaultContext
         | errors,
@@ -62,12 +59,10 @@ def save_invoice(
     if not form.is_valid():
         return None, ErrorDict(errors={})
 
-    number_of_positions = int(request.POST.get("number-of-positions", 0))
-    _positions = [parse_position_dtos(request, i) for i in range(1, number_of_positions + 1)]
-    positions = [p for p in _positions if p is not None]
+    position_list = formdata.map_to_model(PositionList, request.POST)
 
     try:
-        invoice = invoice_parser.parse_invoice(form.invoice_head(), positions)
+        invoice = invoice_parser.parse_invoice(form.invoice_head(), position_list.positions)
         invoice.id = invoice_id
         for currency, rate in conversions.items():
             invoice.add_conversion(rate, currency)
@@ -76,8 +71,8 @@ def save_invoice(
     except invoice_parser.InvoiceParseError as e:
         return None, ErrorDict(
             errors={
-                f"position-{i}-error": err.message()
-                for i, p in enumerate(positions, start=1)
+                f"positions-{i}-error": err.message()
+                for i, p in enumerate(position_list.positions, start=1)
                 if (err := e.error_for(p)) is not None
             }
         )

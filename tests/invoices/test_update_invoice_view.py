@@ -1,5 +1,4 @@
 import datetime
-import random
 from typing import Any, cast
 
 import pytest
@@ -8,35 +7,33 @@ from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from coda import formdata
 from coda.apps.contracts import repository as contract_services
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.repository import create
 from coda.apps.publications.repositories import publication_repository
+from coda.contexts.finance.dto.edit_position_dtos import ContractPositionDto, PositionList
 from coda.contexts.finance.services import invoice_parser
-from coda.domain.contract import Contract
 from coda.domain.finance import invoice_positions
-from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
-from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId, PaymentStatus
-from coda.domain.finance.invoice_positions import ContractItem, FreeItem, Position, PublicationItem
-from coda.domain.finance.taxrate import TaxRate
-from coda.domain.money import Currency, Money
-from coda.domain.publication import JournalId, Publication, PublicationId
-from tests import domainfactory, modelfactory
-from tests.invoices.test_create_invoice_view import (
-    InvalidContractYear,
-    _random_funding_source,
-    create_contract_position_input,
-    expect_existing_contract_position,
-    number_of_positions,
+from coda.domain.finance.costtypes import PublicationCostType
+from coda.domain.finance.invoice import (
+    CreditorId,
+    Invoice,
+    InvoiceId,
+    PaymentStatus,
 )
+from coda.domain.finance.invoice_positions import PublicationItem
+from coda.domain.money import Currency
+from coda.domain.publication import JournalId
+from tests import domainfactory, modelfactory
 from tests.invoices.test_invoice_repository import assert_invoice_eq
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__given_invoice__goto_update_view__has_invoice_head_in_form(client: Client) -> None:
-    _free_position = free_position()
+    _free_position = domainfactory.free_position()
     creditor = modelfactory.creditor()
     invoice = Invoice.new(
         number="123",
@@ -63,16 +60,19 @@ def test__given_invoice__goto_update_view__has_invoice_head_in_form(client: Clie
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__given_invoice__goto_update_view__has_invoice_positions_in_context(client: Client) -> None:
+def test__given_invoice__goto_update_view__has_invoice_positions_in_context___position_list(
+    client: Client,
+) -> None:
     a_publication = domainfactory.publication(JournalId(modelfactory.journal().pk))
     a_publication.id = publication_repository.create(a_publication)
-    _publication_position = publication_position(a_publication)
+    _publication_position = domainfactory.publication_position(a_publication.id, Currency.AFN)
 
     a_contract = domainfactory.contract()
     a_contract.id = contract_services.create(a_contract)
-    _contract_position = contract_position(a_contract)
+    contract_year = a_contract.in_first_year()
+    _contract_position = domainfactory.contract_position(contract_year, Currency.AFN)
 
-    _free_position = free_position()
+    _free_position = domainfactory.free_position(Currency.AFN)
 
     creditor = modelfactory.creditor()
     invoice = Invoice.new(
@@ -86,16 +86,17 @@ def test__given_invoice__goto_update_view__has_invoice_positions_in_context(clie
 
     response = goto_update_view(client, invoice.id)
 
-    assert response.context["positions"] == [
-        invoice_parser.position_to_dto(_publication_position),
-        invoice_parser.position_to_dto(_contract_position),
-        invoice_parser.position_to_dto(_free_position),
-    ]
+    expected = PositionList(
+        positions=[invoice_parser.position_to_dto(p) for p in invoice.positions]
+    )
+    assert response.context["position_list"] == expected
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__given_invoice__saving_updated_invoice__updates_invoice(client: Client) -> None:
+def test__given_invoice__saving_updated_invoice__updates_invoice___position_list(
+    client: Client,
+) -> None:
     creditor = modelfactory.creditor()
     first_position = domainfactory.free_position(currency=Currency.EUR)
     invoice = Invoice.new(
@@ -121,24 +122,22 @@ def test__given_invoice__saving_updated_invoice__updates_invoice(client: Client)
         external_invoice_id="external",
     )
 
-    post_data = (
-        {
-            "number": expected.number,
-            "creditor": expected.creditor,
-            "date": expected.date,
-            "status": expected.status.value,
-            "comment": expected.comment,
-            "currency": expected.currency().code,
-            "external_invoice_id": expected.external_invoice_id,
-        }
-        | number_of_positions(2)
-        | invoice_parser.position_to_dto(first_position).to_post_data(
-            prefix="position-1", underscores_to_dash=True
-        )
-        | invoice_parser.position_to_dto(second_position).to_post_data(
-            prefix="position-2", underscores_to_dash=True
-        )
+    position_list = PositionList(
+        positions=[
+            invoice_parser.position_to_dto(first_position),
+            invoice_parser.position_to_dto(second_position),
+        ]
     )
+
+    post_data = {
+        "number": expected.number,
+        "creditor": expected.creditor,
+        "date": expected.date,
+        "status": expected.status.value,
+        "comment": expected.comment,
+        "currency": expected.currency().code,
+        "external_invoice_id": expected.external_invoice_id,
+    } | formdata.map_to_dict(position_list)
 
     response = save_invoice_view(client, invoice.id, post_data)
 
@@ -192,26 +191,22 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
 
     contract = domainfactory.contract()
     contract.id = contract_services.create(contract)
-    contract_year = InvalidContractYear(contract, 1)
-    contract_input = create_contract_position_input(contract_year, 1)
+    contract_year = ContractPositionDto(id=contract.id, name=contract.name, year=1)
+    position_list = PositionList(positions=[contract_year])
 
-    post_data = (
-        {
-            "number": invoice.number,
-            "creditor": invoice.creditor,
-            "date": invoice.date,
-            "status": invoice.status.value,
-            "comment": invoice.comment,
-            "currency": invoice.currency().code,
-            "external_invoice_id": invoice.external_invoice_id,
-        }
-        | number_of_positions(1)
-        | contract_input
-    )
+    post_data = {
+        "number": invoice.number,
+        "creditor": invoice.creditor,
+        "date": invoice.date,
+        "status": invoice.status.value,
+        "comment": invoice.comment,
+        "currency": invoice.currency().code,
+        "external_invoice_id": invoice.external_invoice_id,
+    } | formdata.map_to_dict(position_list)
 
     response = save_invoice_view(client, invoice.id, post_data)
 
-    assert response.context["positions"] == [expect_existing_contract_position(contract_input)]
+    assert response.context["position_list"] == position_list
 
 
 @pytest.mark.django_db
@@ -221,7 +216,7 @@ def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_
 ) -> None:
     a_publication = domainfactory.publication(JournalId(modelfactory.journal().pk))
     a_publication.id = publication_repository.create(a_publication)
-    some_position = publication_position(a_publication)
+    some_position = domainfactory.publication_position(a_publication.id)
     vat_position = invoice_positions.create(
         item=PublicationItem(some_position.item.item, cost_type=PublicationCostType.Vat),
         cost=some_position.cost,
@@ -243,7 +238,8 @@ def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_
 
     response = goto_update_view(client, invoice.id)
 
-    assert response.context["positions"][0].tax_rate == 0
+    position_list = response.context["position_list"]
+    assert position_list.positions[0].tax_rate == 0
 
 
 def save_invoice_view(
@@ -252,37 +248,6 @@ def save_invoice_view(
     return cast(
         TemplateResponse,
         client.post(reverse("invoices:update", kwargs={"pk": invoice_id}), post_data),
-    )
-
-
-def publication_position(a_publication: Publication) -> Position[PublicationItem]:
-    cost_type = random.choice(list(PublicationCostType))
-    return invoice_positions.create(
-        item=PublicationItem(cast(PublicationId, a_publication.id), cost_type=cost_type),
-        funding_source=_random_funding_source(),
-        cost=Money(200, Currency.EUR),
-        tax_rate=TaxRate.from_percentage(19),
-        external_position_id=f"external-publication-{a_publication.id}",
-    )
-
-
-def contract_position(a_contract: Contract) -> Position[ContractItem]:
-    return invoice_positions.create(
-        item=ContractItem(a_contract.in_first_year(), cost_type=ContractCostType.Publish),
-        funding_source=_random_funding_source(),
-        cost=Money(100, Currency.EUR),
-        tax_rate=TaxRate.from_percentage(19),
-        external_position_id=f"external-contract-{a_contract.id}",
-    )
-
-
-def free_position() -> Position[FreeItem]:
-    return invoice_positions.create(
-        item=FreeItem("Free position", cost_type=PublicationCostType.Other),
-        funding_source=_random_funding_source(),
-        cost=Money(50, Currency.EUR),
-        tax_rate=TaxRate.from_percentage(7),
-        external_position_id="external-free",
     )
 
 

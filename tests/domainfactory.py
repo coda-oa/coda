@@ -131,6 +131,7 @@ def invoice(
         ),
         status=status,
         external_invoice_id=str(_faker.uuid4()),
+        comment=_faker.sentence(),
     )
 
 

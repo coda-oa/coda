@@ -6,18 +6,18 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET
 
+from coda import formdata
 from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.views.create import save_invoice
-from coda.contexts.finance.dto.edit_position_dtos import AnyPositionDto
 from coda.apps.invoices.views.position_list import (
     ErrorDict,
     _DefaultContext,
-    existing_positions,
     funding_sources_context,
 )
 from coda.apps.preferences.models import GlobalPreferences
+from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser
 from coda.domain.finance.invoice import Invoice, InvoiceId
 from coda.domain.money._currency import Currency
@@ -38,7 +38,8 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
 
     if request.method == "GET":
         positions = [invoice_parser.position_to_dto(p) for p in invoice.positions]
-        return render_edit_view(request, invoice, positions)
+        position_list = PositionList(positions=positions)
+        return render_edit_view(request, invoice, position_list)
 
     update_conversions(invoice, request.POST)
 
@@ -51,7 +52,8 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     if invoice_id:
         return redirect("invoices:detail", pk=invoice_id)
 
-    return render_edit_view(request, invoice, existing_positions(request), errors=errors)
+    position_list = formdata.map_to_model(PositionList, request.POST)
+    return render_edit_view(request, invoice, position_list, errors=errors)
 
 
 @require_GET
@@ -100,7 +102,7 @@ def update_conversions(
 def render_edit_view(
     request: HttpRequest,
     invoice: Invoice,
-    positions: list[AnyPositionDto],
+    position_list: PositionList,
     errors: ErrorDict | None = None,
 ) -> HttpResponse:
     home_currency = GlobalPreferences.get_home_currency()
@@ -116,12 +118,11 @@ def render_edit_view(
         "invoices/create.html",
         _DefaultContext
         | funding_sources_context()
-        | asdict(invoice_parser.invoice_total(positions, invoice.currency()))
+        | asdict(invoice_parser.invoice_total(position_list.positions, invoice.currency()))
         | errors
         | {
             "mode_name": "Edit",
             "form": _restore_form(request, invoice),
-            "positions": positions,
             "invoice_id": invoice.id,
             "conversions": invoice.conversions(),
             "invoice_currency": invoice.currency().code,
@@ -129,6 +130,7 @@ def render_edit_view(
             "conversion_currency": conversion_currency.code if conversion_currency else None,
             "exchange_rate": exchange_rate,
             "selected_currency": invoice.currency().code,
+            "position_list": position_list,
         },
     )
 

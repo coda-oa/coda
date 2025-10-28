@@ -1,8 +1,8 @@
 import abc
-from collections.abc import Iterable
 from decimal import Decimal
 from typing import Annotated, Generic, Self, TypeVar
 
+import pydantic
 from django.urls import reverse
 from pydantic import BeforeValidator
 
@@ -14,8 +14,7 @@ from coda.domain.publication import PublicationId
 
 ItemT = TypeVar("ItemT", bound=ItemType, covariant=True)
 CostT = TypeVar("CostT", bound=CostType, covariant=True)
-type AnyPositionDto = "CommonPositionDto[ItemType, CostType]"
-type PositionDtos = Iterable["CommonPositionDto[ItemType, CostType]"]
+type AnyPositionDto = "PublicationPositionDto | ContractPositionDto | FreePositionDto"
 
 DEFAULT_TAX_RATE_PERCENTAGE = 19
 
@@ -48,7 +47,7 @@ class CommonPositionDto(abc.ABC, CodaBaseDto, Generic[ItemT, CostT]):
                 if key.startswith(prefix)
             }
 
-        return cls(**post_data)
+        return cls.model_validate(post_data)
 
 
 class RelatedFundingRequest(CodaBaseDto):
@@ -80,3 +79,9 @@ class ContractPositionDto(CommonPositionDto[ContractYear, ContractCostType]):
     def contract_url(self) -> str:
         url = reverse("contracts:detail", kwargs={"pk": self.id})
         return url
+
+
+class PositionList(pydantic.BaseModel):
+    positions: list[
+        PublicationPositionDto | ContractPositionDto | FreePositionDto
+    ] = pydantic.Field(default_factory=list)
