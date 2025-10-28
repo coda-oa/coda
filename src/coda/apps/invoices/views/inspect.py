@@ -197,7 +197,7 @@ def pay_invoice(request: HttpRequest, pk: int) -> HttpResponse:
 @login_required
 def position_cost_type_options(request: HttpRequest) -> HttpResponse:
     counter = request.GET.get("counter")
-    cost_type_key = f"position-{counter}-cost-type"
+    cost_type_key = f"positions-{counter}-cost_type"
     cost_type = request.GET.get(cost_type_key)
     if cost_type == "vat":
         return HttpResponse("")
