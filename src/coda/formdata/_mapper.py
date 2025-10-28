@@ -34,5 +34,7 @@ def map_to_model(model: type[M], data: dict[str, Any], prefix: str = "") -> M:
     return model(**processed_data)
 
 
-def map_to_dict(obj: pydantic.BaseModel, skip_none: bool = False) -> dict[str, str]:
-    return flatten_dict(obj.model_dump(), prefix="", skip_none=skip_none)
+def map_to_dict(
+    obj: pydantic.BaseModel, *, prefix: str = "", skip_none: bool = False
+) -> dict[str, str]:
+    return flatten_dict(obj.model_dump(mode="json"), prefix=prefix, skip_none=skip_none)

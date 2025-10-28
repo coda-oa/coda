@@ -1,3 +1,4 @@
+import enum
 import pydantic
 import pytest
 
@@ -103,6 +104,25 @@ def test__model_field_with_nested_dict_field__chains_dict_keys_to_model_field() 
         "nested-a_dict-first": "1",
         "nested-a_dict-second": "2",
     }
+
+    assert actual == expected
+
+
+class TheEnum(enum.Enum):
+    a = "a"
+    b = "b"
+
+
+class EnumFieldModel(pydantic.BaseModel):
+    enum: TheEnum
+
+
+def test__model_with_enum_field__maps_enum_value_to_dict() -> None:
+    data = EnumFieldModel(enum=TheEnum.a)
+
+    actual = formdata.map_to_dict(data)
+
+    expected = {"enum": "a"}
 
     assert actual == expected
 
@@ -356,3 +376,18 @@ def test__mixed_none_and_values__both_modes() -> None:
         "items-2": "c",
     }
     assert actual_true == expected_true
+
+
+def test__map_to_dict_with_prefix__adds_prefix_to_all_keys() -> None:
+    data = MixedModel(required="some-value", optional=None, items=["a", None, "c"])
+
+    actual = formdata.map_to_dict(data, prefix="the-prefix", skip_none=True)
+
+    expected = {
+        "the-prefix-required": "some-value",
+        "the-prefix-#-items": "2",
+        "the-prefix-items-1": "a",
+        "the-prefix-items-2": "c",
+    }
+
+    assert actual == expected
