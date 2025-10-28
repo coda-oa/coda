@@ -11,13 +11,13 @@
     </h4>
     {% if position.funding_request.url %}
         <input type="hidden"
-               name="position-{{ counter }}-fundingrequest-id"
+               name="positions-{{ counter }}-funding_request-request_id"
                value="{{ position.funding_request.request_id }}">
         <input type="hidden"
-               name="position-{{ counter }}-fundingrequest-url"
+               name="positions-{{ counter }}-funding_request-url"
                value="{{ position.funding_request.url }}">
     {% endif %}
     <input type="hidden"
-           name="position-{{ counter }}-title"
+           name="positions-{{ counter }}-title"
            value="{{ position.title }}">
 {% endblock position_type_specifics %}

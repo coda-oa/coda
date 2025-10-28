@@ -8,15 +8,13 @@
                     {% block position_type %}
                     {% endblock position_type %}
                 </h3>
-                {% if mode_name == "Edit" %}
-                    <button type="button"
-                            name="remove-position"
-                            class="my-0 outline danger"
-                            value="{{ forloop.counter }}"
-                            hx-post="{% url 'invoices:remove_position' %}"
-                            hx-target="#positions"
-                            hx-swap="outerHTML">Remove</button>
-                {% endif %}
+                <button type="button"
+                        name="remove-position"
+                        class="my-0 outline danger"
+                        value="{{ forloop.counter }}"
+                        hx-post="{% url 'invoices:remove_position' %}"
+                        hx-target="#positions"
+                        hx-swap="outerHTML">Remove</button>
             </div>
         </summary>
         {% block position_type_specifics %}

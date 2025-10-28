@@ -1,12 +1,12 @@
 <article id="positions">
     <h2>Invoice Positions</h2>
-    {% if positions %}
+    {% if position_list %}
         <input type="hidden"
-               name="number-of-positions"
-               value="{{ positions|length }}">
+               name="#-positions"
+               value="{{ position_list.positions|length }}">
     {% endif %}
     <section id="positions__list">
-        {% for position in positions %}
+        {% for position in position_list.positions %}
             {% if position.type == "publication" %}
                 {% include "invoices/position_publication.html" with counter=forloop.counter %}
             {% elif position.type == "contract" %}
@@ -16,7 +16,7 @@
             {% endif %}
             <hr>
         {% endfor %}
-        {% if positions %}
+        {% if position_list %}
             {% include "invoices/position_summary.html" with net=net tax=tax total=total %}
         {% endif %}
     </section>

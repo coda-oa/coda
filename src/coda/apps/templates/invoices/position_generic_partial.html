@@ -1,23 +1,23 @@
 <input type="hidden"
-       name="position-{{ counter }}-type"
+       name="positions-{{ counter }}-type"
        value="{{ position.type }}">
 <input type="hidden"
-       name="position-{{ counter }}-id"
+       name="positions-{{ counter }}-id"
        value="{{ position.id }}">
 <div class="grid">
     <div class="form-row">
-        <label for="id-position-{{ counter }}-funding-source"
+        <label for="id-positions-{{ counter }}-funding-source"
                class="form-row-item-sm">Funding Source</label>
         {% if editable != None %}
             <input type="text"
-                   id="id-position-{{ counter }}-external-position-id"
-                   name="position-{{ counter }}-external-position-id"
+                   id="id-positions-{{ counter }}-external-position-id"
+                   name="positions-{{ counter }}-external_position_id"
                    {% for fs in funding_sources %} {% if position.funding_source == fs.id %}value="{{ fs.name }}"{% endif %}
                    {% endfor %}
                    readonly>
         {% else %}
-            <select name="position-{{ counter }}-funding-source"
-                    id="id-position-{{ counter }}-funding-source"
+            <select name="positions-{{ counter }}-funding_source"
+                    id="id-positions-{{ counter }}-funding-source"
                     {% if editable != None %}readonly{% endif %}>
                 <option value>-------</option>
                 {% for fs in funding_sources %}
@@ -28,20 +28,20 @@
         {% endif %}
     </div>
     <div class="form-row">
-        <label for="id-position-{{ counter }}-external-position-id">External Position ID</label>
+        <label for="id-positions-{{ counter }}-external-position-id">External Position ID</label>
         <input type="text"
-               id="id-position-{{ counter }}-external-position-id"
-               name="position-{{ counter }}-external-position-id"
+               id="id-positions-{{ counter }}-external-position-id"
+               name="positions-{{ counter }}-external_position_id"
                value="{{ position.external_position_id }}"
                {% if editable != None %}readonly{% endif %}>
     </div>
 </div>
 <div class="common-position-grid">
     <div class="form-row amount">
-        <label for="id-position-{{ counter }}-cost-amount" class="form-row-item-sm">Amount</label>
+        <label for="id-positions-{{ counter }}-cost-amount" class="form-row-item-sm">Amount</label>
         <input type="number"
-               id="id-position-{{ counter }}-cost-amount"
-               name="position-{{ counter }}-cost-amount"
+               id="id-positions-{{ counter }}-cost-amount"
+               name="positions-{{ counter }}-cost_amount"
                min="-1000000000000000"
                max="1000000000000000"
                step="0.0001"
@@ -54,21 +54,21 @@
         {% endif %}
     </div>
     <div class="form-row cost-type">
-        <label for="id-position-{{ counter }}-cost-type" class="form-row-item-sm">Cost Type</label>
+        <label for="id-positions-{{ counter }}-cost-type" class="form-row-item-sm">Cost Type</label>
         {% if editable != None %}
             <input type="text"
                    readonly
-                   id="id-position-{{ counter }}-cost-type"
-                   name="position-{{ counter }}-cost-type"
+                   id="id-positions-{{ counter }}-cost-type"
+                   name="positions-{{ counter }}-cost_type"
                    value="{{ position.cost_type }}">
         {% else %}
-            <select id="id-position-{{ counter }}-cost-type"
-                    name="position-{{ counter }}-cost-type"
+            <select id="id-positions-{{ counter }}-cost-type"
+                    name="positions-{{ counter }}-cost_type"
                     hx-get="{% url 'invoices:position_cost_type_options' %}"
                     hx-target="#tax-rate-wrapper-{{ counter }}"
                     hx-swap="innerHTML"
                     hx-trigger="change"
-                    hx-include="[name='position-{{ counter }}-cost-type']"
+                    hx-include="[name='positions-{{ counter }}-cost_type']"
                     hx-vals='{"counter": "{{ counter }}"}'
                     {% if editable != None %}readonly{% endif %}>
                 {% if position.type == "contract" %}

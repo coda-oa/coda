@@ -4,10 +4,10 @@
 {% endblock position_type %}
 {% block position_type_specifics %}
     <div class="form-row">
-        <label for="id-position-{{ counter }}-description" class="form-row-item-sm">Description</label>
-        <input id="id-position-{{ counter }}-description"
+        <label for="id-positions-{{ counter }}-description" class="form-row-item-sm">Description</label>
+        <input id="id-positions-{{ counter }}-description"
                type="text"
-               name="position-{{ counter }}-description"
+               name="positions-{{ counter }}-description"
                value="{{ position.description }}"
                {% if editable != None %}readonly{% endif %}>
     </div>
