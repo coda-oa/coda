@@ -282,7 +282,6 @@ def test__given_existing_related_entities_with_multiple_duplicate_names__import_
     assert request is not None
     assert isinstance(request.publication, Publication)
 
-    id = cast(FundingRequestId, request.id)
     journal = journal_services.get_by_pk(request.publication.journal)
     assert journal.publisher.id == publisher.pk
 
@@ -292,7 +291,8 @@ def test__given_existing_related_entities_with_multiple_duplicate_names__import_
     author, *_ = request.publication.relevant_authors
     assert author.affiliation == institution.pk
 
-    request_model = FundingRequestModel.objects.get(id=id)
+    request_id = cast(FundingRequestId, request.id)
+    request_model = FundingRequestModel.objects.get(id=request_id)
     attached_label, *_ = request_model.labels.all()
     assert attached_label.id == label.pk
 
