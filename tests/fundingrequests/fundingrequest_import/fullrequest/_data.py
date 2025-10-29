@@ -58,6 +58,7 @@ FUNDINGREQUEST_IMPORT = FundingRequestImportListDto(
             seperate_contact=SeperateContactImportDto(
                 name="Mr. Secretary", email="secretary@example.com"
             ),
+            labels=["important", "external"],
             publication=PublicationImportDto(
                 title="My article",
                 kind="article",

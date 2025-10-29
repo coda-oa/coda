@@ -9,6 +9,7 @@ import pytest
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests.models import FundingOrganization
+from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.services.checks import get_checkrun
 from coda.apps.fundingrequests.services.importservice import import_fundingrequests
 from coda.apps.fundingrequests.services.importservice.dto import (
@@ -93,11 +94,18 @@ def test__import_fundingrequest__saves_fundingrequest_and_creates_missing_entiti
         import_fundingrequests(json_file)
 
     fundingrequest = fundingrequest_repository.first()
+
     assert fundingrequest is not None
     id = cast(FundingRequestId, fundingrequest.id)
     review = fundingrequest_repository.get_review(id)
+
+    request_model = FundingRequestModel.objects.get(id=id)
+    expected_label_names = set(request_variant.importdata.requests[0].labels)
+    actual_label_names = set(request_model.labels.values_list("name", flat=True))
+
     assert_fundingrequest_eq(fundingrequest, request_variant.expected_request())
     assert_review_eq(review, request_variant.expected_review())
+    assert actual_label_names == expected_label_names
 
 
 @pytest.mark.django_db
