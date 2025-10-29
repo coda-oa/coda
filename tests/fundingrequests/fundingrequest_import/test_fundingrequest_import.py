@@ -8,17 +8,19 @@ import pytest
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-from coda.apps.fundingrequests.models import FundingOrganization
+from coda.apps.fundingrequests.models import FundingOrganization, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.services.checks import get_checkrun
 from coda.apps.fundingrequests.services.importservice import import_fundingrequests
 from coda.apps.fundingrequests.services.importservice.dto import (
     FundingRequestImportListDto,
 )
+from coda.apps.fundingrequests.services import labels as label_services
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers.models import Publisher
+from coda.domain.color import Color
 from coda.domain.contract import Contract, PublisherId
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest import FundingRequestId, Review
@@ -32,6 +34,7 @@ from tests.fundingrequests.fundingrequest_import.entitynames import (
     IMPORT_CONTRACT_NAME,
     IMPORT_JOURNAL_ISSN,
     IMPORT_JOURNAL_NAME,
+    IMPORT_LABEL_NAME,
     IMPORT_PUBLISHER_NAME,
     IMPORT_RESEARCH_FUNDER_NAME,
 )
@@ -234,6 +237,7 @@ def test__import_article_fundingrequests__saves_fundingrequests_without_creating
     contract_repository.create(contract)
     institution_repository.create(IMPORT_AUTHOR_AFFILIATION)
     modelfactory.funding_organization(IMPORT_RESEARCH_FUNDER_NAME)
+    label_services.label_create(name=IMPORT_LABEL_NAME, color=Color.from_hex("#FF0000"))
 
     with JSON_PATH.open() as json_file:
         import_fundingrequests(json_file)
@@ -243,6 +247,7 @@ def test__import_article_fundingrequests__saves_fundingrequests_without_creating
     assert_no_publisher_created_on_import()
     assert_no_contract_created_on_import()
     assert_no_research_funder_created_on_import()
+    assert_no_label_created_on_import()
 
     fundingrequest = fundingrequest_repository.first()
     assert_fundingrequest_eq(fundingrequest, fullrequest.expected_article_request())
@@ -267,12 +272,17 @@ def test__given_existing_related_entities_with_multiple_duplicate_names__import_
     funding_org = modelfactory.funding_organization(name=IMPORT_RESEARCH_FUNDER_NAME)
     _ = modelfactory.funding_organization(name=IMPORT_RESEARCH_FUNDER_NAME)
 
+    label = label_services.label_create(name=IMPORT_LABEL_NAME, color=Color.from_hex("#00FF00"))
+    _ = label_services.label_create(name=IMPORT_LABEL_NAME, color=Color.from_hex("#00FF00"))
+
     with JSON_PATH.open() as json_file:
         import_fundingrequests(json_file)
 
     request = fundingrequest_repository.first()
     assert request is not None
     assert isinstance(request.publication, Publication)
+
+    id = cast(FundingRequestId, request.id)
     journal = journal_services.get_by_pk(request.publication.journal)
     assert journal.publisher.id == publisher.pk
 
@@ -281,6 +291,10 @@ def test__given_existing_related_entities_with_multiple_duplicate_names__import_
 
     author, *_ = request.publication.relevant_authors
     assert author.affiliation == institution.pk
+
+    request_model = FundingRequestModel.objects.get(id=id)
+    attached_label, *_ = request_model.labels.all()
+    assert attached_label.id == label.pk
 
 
 def assert_no_journal_created_on_import() -> None:
@@ -304,3 +318,7 @@ def assert_no_research_funder_created_on_import() -> None:
 
 def assert_no_institution_created_on_import() -> None:
     assert Institution.objects.filter(name=IMPORT_AUTHOR_AFFILIATION).count() == 1
+
+
+def assert_no_label_created_on_import() -> None:
+    assert Label.objects.filter(name=IMPORT_LABEL_NAME).count() == 1
