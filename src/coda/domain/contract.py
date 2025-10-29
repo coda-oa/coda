@@ -55,6 +55,9 @@ class Contract:
         return year in range(self.period.start.year, self.period.end.year + 1)
 
     def in_year(self, year: int) -> "ContractYear":
+        if not self.is_active_in_year(year):
+            raise InvalidContractYearError(year, self)
+
         return ContractYear(year, self)
 
     def in_year_or_first(self, year: int) -> "ContractYear":
@@ -76,10 +79,6 @@ class ContractYear:
 
     year: int
     contract: Contract
-
-    def __post_init__(self) -> None:
-        if not self.contract.is_active_in_year(self.year):
-            raise InvalidContractYearError(self.year, self.contract)
 
     def _contract_years(self) -> range:
         return range(self.contract.period.start.year, self.contract.period.end.year + 1)
