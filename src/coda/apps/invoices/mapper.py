@@ -7,6 +7,7 @@ from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.invoices import models as invoice_models
 from coda.coda_itertools import LazyCachedIterable
 from coda.domain.author import InstitutionId
+from coda.domain.contract import ContractYear
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
@@ -273,7 +274,7 @@ def _get_item_from_position_model(position: invoice_models.Position) -> Position
     if position.contract and position.contract_year:
         contract = contract_mapper.as_domain_object(position.contract)
         return ContractItem(
-            contract.in_year(position.contract_year), ContractCostType(position.cost_type)
+            ContractYear(position.contract_year, contract), ContractCostType(position.cost_type)
         )
     elif position.publication:
         return PublicationItem(

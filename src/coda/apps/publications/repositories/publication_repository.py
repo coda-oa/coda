@@ -207,7 +207,7 @@ def _common_args(model: PublicationModel) -> "_CommonPublicationArgs":
         other_authors=AuthorNames.from_str(model.author_list or ""),
         publication_state=_deserialize_publication_state(model),
         contracts=tuple(
-            contract_mapper.as_domain_object(c.contract).in_year(c.contract_year)
+            ContractYear(c.contract_year, contract_mapper.as_domain_object(c.contract))
             for c in model.attached_contracts.all()
         ),
         links=_deserialize_links(model.links.all()),
