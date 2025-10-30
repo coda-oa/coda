@@ -168,6 +168,13 @@
                 },
                 "seperate_contact": {
                     "$ref": "#/$defs/SeperateContactImportDto"
+                },
+                "labels": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "title": "Labels",
+                    "type": "array"
                 }
             },
             "required": [

@@ -47,6 +47,7 @@ class FundingRequestImportDto(pydantic.BaseModel):
     seperate_contact: SeperateContactImportDto = pydantic.Field(
         default_factory=SeperateContactImportDto.default
     )
+    labels: list[str] = pydantic.Field(default_factory=list)
 
 
 class FundingRequestImportListDto(pydantic.BaseModel):
