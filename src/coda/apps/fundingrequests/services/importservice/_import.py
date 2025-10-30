@@ -3,12 +3,14 @@ from typing import BinaryIO, TextIO
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import CreateFundingRequestDto
-from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.services.fundingrequests import bulk_create_fundingrequests
 from coda.apps.fundingrequests.services.importservice.dto._fundingrequest import (
     FundingRequestImportDto,
 )
-from coda.apps.fundingrequests.services.labels import label_get_or_create, label_attach
+from coda.apps.fundingrequests.services.labels import (
+    label_bulk_get_or_create,
+    label_attach_bulk_by_id,
+)
 from coda.checks.nullcheckfactory import NullCheckFactory
 
 from .dto import FundingRequestImportListDto
@@ -52,17 +54,24 @@ def import_fundingrequests(json: TextIO | BinaryIO) -> FundingRequestImportRepor
     for e in create_errors:
         errors.setdefault(e.request_key, []).append(e.reason)
 
+    all_label_names = set()
+    for request in import_request_list.requests:
+        all_label_names.update(request.labels)
+
+    available_labels = label_bulk_get_or_create(all_label_names)
+
     for fundingrequest_id, request in zip(ids, import_request_list.requests):
         review = reviewdto.parse_dto(request.review, fundingrequest_id)
         repository.save_review(review)
 
-        try:
-            funding_request = FundingRequestModel.objects.get(id=fundingrequest_id)
-            for label_dto in request.labels:
-                label = label_get_or_create(label_dto)
-                label_attach(funding_request, label)
-        except Exception as e:
-            error_key = request.legacy_request_id or request.publication.title
-            errors.setdefault(error_key, []).append(f"Failed to process labels: {str(e)}")
+        if request.labels:
+            try:
+                labels_for_request = [
+                    available_labels[name] for name in request.labels if name in available_labels
+                ]
+                label_attach_bulk_by_id(fundingrequest_id, labels_for_request)
+            except Exception as e:
+                error_key = request.legacy_request_id or request.publication.title
+                errors.setdefault(error_key, []).append(f"Failed to process labels: {str(e)}")
 
     return FundingRequestImportReport(len(tuple(ids)), len(errors), errors)
