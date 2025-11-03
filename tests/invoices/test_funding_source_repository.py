@@ -2,7 +2,7 @@ import pytest
 
 from coda.apps.invoices import funding_source_repository
 from coda.domain.author import InstitutionId
-from coda.domain.funding_sources import Budget, SplitSource
+from coda.domain.finance.funding_sources import Budget, SplitSource
 from tests import modelfactory
 
 

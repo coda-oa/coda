@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from coda.domain.author import InstitutionId
-from coda.domain.invoice import FundingSourceId
+from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.string import NonEmptyStr
 
 

@@ -14,8 +14,7 @@ from coda.domain.finance.invoice import (
 )
 from coda.domain.finance.invoice_positions import Position, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
-from coda.domain.money import Currency, Money
-from coda.domain.money._money import CurrencyExchange
+from coda.domain.money import Currency, CurrencyExchange, Money
 from coda.domain.publication import PublicationId
 from tests.invoices.test_invoice_repository import assert_invoice_eq
 

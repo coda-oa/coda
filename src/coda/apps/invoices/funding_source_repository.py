@@ -2,8 +2,8 @@ from typing import cast
 
 from coda.apps.invoices.models import FundingSource
 from coda.domain.author import InstitutionId
-from coda.domain.funding_sources import Budget, SplitSource
-from coda.domain.invoice import FundingSourceId
+from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.finance.funding_sources import Budget, SplitSource
 from coda.domain.string import NonEmptyStr
 
 
