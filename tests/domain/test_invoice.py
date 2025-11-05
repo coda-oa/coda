@@ -73,7 +73,7 @@ def test__unpaid_invoice__can_add_split_position_with_unassigned_costs() -> None
     sut = make_sut([position(Money(100, Currency.EUR))])
 
     p = position(Money(100, Currency.EUR))
-    p.add_split(FundingSourceId(2), Decimal(20))
+    p.assign_funding(FundingSourceId(2), Decimal(20))
 
     sut.positions = [p]
 

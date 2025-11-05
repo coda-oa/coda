@@ -125,6 +125,12 @@ class VatCalculation:
 ItemT = TypeVar("ItemT", PublicationItem, ContractItem, FreeItem, covariant=True)
 
 
+@dataclass(frozen=True)
+class FundingAssignment:
+    funding_source: FundingSourceId | None
+    amount: Money
+
+
 class _CommonPosition(Generic[ItemT]):
     def __init__(
         self,
@@ -139,7 +145,7 @@ class _CommonPosition(Generic[ItemT]):
 
         self._item: ItemT = item
         self._cost_calculation = cost_calculation
-        self._splits: list[tuple[FundingSourceId | None, Money]] = []
+        self._splits: list[FundingAssignment] = []
 
     @property
     def cost(self) -> Money:
@@ -175,16 +181,16 @@ class _CommonPosition(Generic[ItemT]):
             return Money(0, self.cost.currency)
         return self._get_split_remainder()
 
-    def add_split(self, funding_source: FundingSourceId, amount: Decimal) -> None:
+    def assign_funding(self, funding_source: FundingSourceId, amount: Decimal) -> None:
         if self._is_invalid_split_amount(amount):
             raise InvalidSplitAmount()
 
-        self._splits.append((funding_source, Money(amount, self.cost.currency)))
+        self._splits.append(FundingAssignment(funding_source, Money(amount, self.cost.currency)))
 
-    def participants(self) -> list[tuple[FundingSourceId | None, Money]]:
+    def funding_assignments(self) -> list[FundingAssignment]:
         remaining_costs = self._get_split_remainder()
 
-        return [(self.funding_source, remaining_costs)] + self._splits
+        return [FundingAssignment(self.funding_source, remaining_costs)] + self._splits
 
     def _is_invalid_split_amount(self, amount: Decimal) -> bool:
         sign_not_equal = _sign(self.cost.amount) != _sign(amount)
@@ -193,13 +199,13 @@ class _CommonPosition(Generic[ItemT]):
 
     def _get_split_remainder(self) -> Money:
         split_costs = sum(
-            (amount for _, amount in self._splits), start=Money(0, self.cost.currency)
+            (fund.amount for fund in self._splits), start=Money(0, self.cost.currency)
         )
         remaining_costs = self.cost - split_costs
         return remaining_costs
 
     def _funding_sources(self) -> set[FundingSourceId | None]:
-        fs = {fs for fs, _ in self._splits}
+        fs = {funds.funding_source for funds in self._splits}
         fs.add(self.funding_source)
         return fs
 
@@ -310,8 +316,8 @@ class Position(Protocol[ItemT]):
     def unassigned_costs(self) -> Money:
         ...
 
-    def add_split(self, funding_source: FundingSourceId, amount: Decimal) -> None:
+    def assign_funding(self, funding_source: FundingSourceId, amount: Decimal) -> None:
         ...
 
-    def participants(self) -> list[tuple[FundingSourceId | None, Money]]:
+    def funding_assignments(self) -> list[FundingAssignment]:
         ...
