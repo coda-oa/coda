@@ -1,6 +1,10 @@
 from typing_extensions import TypeIs
 
-from coda.contexts.finance.dto.edit_position_dtos import AnyPositionDto, FreePositionDto
+from coda.contexts.finance.dto.edit_position_dtos import (
+    AnyPositionDto,
+    FreePositionDto,
+    FundingAssignmentDto,
+)
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.costtypes import PublicationCostType
@@ -21,7 +25,7 @@ def parse_cost_type(position: FreePositionDto) -> PublicationCostType:
 def to_position(
     position: FreePositionDto, currency: Currency, *, parse_safe: bool = False
 ) -> Position[FreeItem]:
-    return invoice_positions.create(
+    _position = invoice_positions.create(
         item=FreeItem(
             parse_item(position, parse_safe=parse_safe),
             cost_type=parse_cost_type(position),
@@ -34,6 +38,12 @@ def to_position(
         external_position_id=position.external_position_id,
     )
 
+    for f in position.funding_assignments:
+        fid = FundingSourceId(f.funding_source) if f.funding_source else None
+        _position.assign_funding(fid, f.amount)
+
+    return _position
+
 
 def position_to_dto(position: Position[FreeItem]) -> FreePositionDto:
     return FreePositionDto(
@@ -43,6 +53,10 @@ def position_to_dto(position: Position[FreeItem]) -> FreePositionDto:
         cost_type=position.item.cost_type.value,
         tax_rate=position.tax_rate.percentage(),
         external_position_id=position.external_position_id,
+        funding_assignments=[
+            FundingAssignmentDto(funding_source=f.funding_source, amount=f.amount.amount)
+            for f in position.funding_assignments()
+        ],
     )
 
 

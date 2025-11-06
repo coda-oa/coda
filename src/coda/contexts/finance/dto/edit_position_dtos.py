@@ -4,7 +4,7 @@ from typing import Annotated, Any, Generic, Self, TypeVar
 
 import pydantic
 from django.urls import reverse
-from pydantic import ValidatorFunctionWrapHandler, WrapValidator
+from pydantic import Field, ValidatorFunctionWrapHandler, WrapValidator
 
 from coda.apps.dto import CodaBaseDto
 from coda.domain.contract import ContractYear
@@ -34,6 +34,11 @@ DecimalOrDefault = Annotated[Decimal, fallback(Decimal(0))]
 IntOrNone = Annotated[int | None, fallback(None)]
 
 
+class FundingAssignmentDto(CodaBaseDto):
+    funding_source: IntOrNone
+    amount: DecimalOrDefault
+
+
 class CommonPositionDto(abc.ABC, CodaBaseDto, Generic[ItemT, CostT]):
     type: str
     funding_source: IntOrNone = None
@@ -41,6 +46,7 @@ class CommonPositionDto(abc.ABC, CodaBaseDto, Generic[ItemT, CostT]):
     cost_amount: DecimalOrDefault = Decimal("0.00")
     tax_rate: DecimalOrDefault = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
     external_position_id: str = ""
+    funding_assignments: list[FundingAssignmentDto] = Field(default_factory=list)
 
     @classmethod
     def from_request(cls, post_data: dict[str, str], prefix: str = "") -> Self:

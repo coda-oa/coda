@@ -7,6 +7,7 @@ from coda.apps.contracts import repository
 from coda.contexts.finance.services import invoice_parser
 from coda.domain.contract import ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.invoice_positions import AnyPosition
 from coda.domain.publication.publication import PublicationId
 from tests import domainfactory, modelfactory
@@ -72,3 +73,18 @@ def test__vat_position__converted_to_dto__has_only_tax_amount(
 
     assert dto.cost_amount == position.tax().amount
     assert dto.tax_rate == Decimal(0)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("create_position", Positions)
+def test__position_with_funding_assignments__convert_to_dto_and_back__keeps_assignments(
+    create_position: Callable[[], AnyPosition],
+) -> None:
+    position = create_position()
+    position.assign_funding(FundingSourceId(1), position.net().amount)
+
+    dto = invoice_parser.position_to_dto(position)
+
+    actual = invoice_parser.to_position(dto, currency=position.cost.currency)
+
+    assert position == actual

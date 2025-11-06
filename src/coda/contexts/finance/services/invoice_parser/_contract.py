@@ -4,6 +4,7 @@ from coda.apps.contracts import repository
 from coda.contexts.finance.dto.edit_position_dtos import (
     AnyPositionDto,
     ContractPositionDto,
+    FundingAssignmentDto,
 )
 from coda.domain.contract import ContractId, ContractYear
 from coda.domain.finance import invoice_positions
@@ -34,7 +35,7 @@ def to_position(
     item = parse_item(position, parse_safe=parse_safe)
     cost_type = parse_cost_type(position)
 
-    return invoice_positions.create(
+    _position = invoice_positions.create(
         item=ContractItem(item, cost_type=cost_type),
         cost=Money(position.cost_amount, currency),
         tax_rate=TaxRate.from_percentage(position.tax_rate),
@@ -43,6 +44,12 @@ def to_position(
         else None,
         external_position_id=position.external_position_id,
     )
+
+    for f in position.funding_assignments:
+        fid = FundingSourceId(f.funding_source) if f.funding_source else None
+        _position.assign_funding(fid, f.amount)
+
+    return _position
 
 
 def position_to_dto(position: Position[ContractItem]) -> ContractPositionDto:
@@ -61,6 +68,10 @@ def position_to_dto(position: Position[ContractItem]) -> ContractPositionDto:
         cost_type=position.item.cost_type.value,
         tax_rate=position.tax_rate.percentage(),
         external_position_id=position.external_position_id,
+        funding_assignments=[
+            FundingAssignmentDto(funding_source=f.funding_source, amount=f.amount.amount)
+            for f in position.funding_assignments()
+        ],
     )
 
 

@@ -6,6 +6,7 @@ from coda.apps.fundingrequests import repository
 from coda.apps.publications.repositories import publication_repository
 from coda.contexts.finance.dto.edit_position_dtos import (
     AnyPositionDto,
+    FundingAssignmentDto,
     PublicationPositionDto,
     RelatedFundingRequest,
 )
@@ -30,7 +31,7 @@ def parse_cost_type(position: PublicationPositionDto) -> PublicationCostType:
 def to_position(
     position: PublicationPositionDto, currency: Currency, *, parse_safe: bool = False
 ) -> Position[PublicationItem]:
-    return invoice_positions.create(
+    _position = invoice_positions.create(
         item=PublicationItem(
             parse_item(position, parse_safe=parse_safe),
             cost_type=parse_cost_type(position),
@@ -42,6 +43,11 @@ def to_position(
         if position.funding_source
         else None,
     )
+    for f in position.funding_assignments:
+        fid = FundingSourceId(f.funding_source) if f.funding_source else None
+        _position.assign_funding(fid, f.amount)
+
+    return _position
 
 
 def position_to_dto(position: Position[PublicationItem]) -> PublicationPositionDto:
@@ -64,6 +70,10 @@ def position_to_dto(position: Position[PublicationItem]) -> PublicationPositionD
         tax_rate=Decimal("0.00") if is_vat else position.tax_rate.percentage(),
         external_position_id=position.external_position_id,
         funding_request=funding_request,
+        funding_assignments=[
+            FundingAssignmentDto(funding_source=f.funding_source, amount=f.amount.amount)
+            for f in position.funding_assignments()
+        ],
     )
 
 
