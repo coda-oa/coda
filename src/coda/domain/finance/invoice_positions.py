@@ -181,20 +181,18 @@ class _CommonPosition(Generic[ItemT]):
             return Money(0, self.cost.currency)
         return self._get_split_remainder()
 
-    def assign_funding(self, funding_source: FundingSourceId, amount: Decimal) -> None:
+    def assign_funding(self, funding_source: FundingSourceId | None, amount: Decimal) -> None:
         if self._is_invalid_split_amount(amount):
             raise InvalidSplitAmount()
 
         self._splits.append(FundingAssignment(funding_source, Money(amount, self.cost.currency)))
 
     def funding_assignments(self) -> list[FundingAssignment]:
-        remaining_costs = self._get_split_remainder()
-
-        return [FundingAssignment(self.funding_source, remaining_costs)] + self._splits
+        return self._splits
 
     def _is_invalid_split_amount(self, amount: Decimal) -> bool:
         sign_not_equal = _sign(self.cost.amount) != _sign(amount)
-        split_too_large = abs(amount) >= abs(self._get_split_remainder().amount)
+        split_too_large = abs(amount) > abs(self._get_split_remainder().amount)
         return sign_not_equal or split_too_large
 
     def _get_split_remainder(self) -> Money:
@@ -219,6 +217,7 @@ class _CommonPosition(Generic[ItemT]):
             and self.tax_rate == value.tax_rate
             and self.funding_source == value.funding_source
             and self.external_position_id == value.external_position_id
+            and self.funding_assignments() == value.funding_assignments()
         )
 
     def __hash__(self) -> int:
@@ -233,7 +232,8 @@ class _CommonPosition(Generic[ItemT]):
             cost={self.cost},
             tax_rate={self.tax_rate},
             funding_source={self.funding_source},
-            external_position_id={self.external_position_id}
+            external_position_id={self.external_position_id},
+            funding_assignments={repr(self.funding_assignments())},
         )
         """
 
@@ -316,7 +316,7 @@ class Position(Protocol[ItemT]):
     def unassigned_costs(self) -> Money:
         ...
 
-    def assign_funding(self, funding_source: FundingSourceId, amount: Decimal) -> None:
+    def assign_funding(self, funding_source: FundingSourceId | None, amount: Decimal) -> None:
         ...
 
     def funding_assignments(self) -> list[FundingAssignment]:

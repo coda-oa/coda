@@ -78,7 +78,13 @@ class Invoice:
 
     @positions.setter
     def positions(self, value: Positions) -> None:
+        if self.is_paid() and not self._all_costs_assigned(value):
+            raise UnassignedCosts()
+
         self._positions = tuple(value)
+
+    def _all_costs_assigned(self, positions: Positions) -> bool:
+        return all(p.unassigned_costs() == Money(0, self.currency()) for p in positions)
 
     def currency(self) -> Currency:
         if not self.positions:
@@ -99,6 +105,9 @@ class Invoice:
         return self.status == PaymentStatus.Paid
 
     def pay(self) -> None:
+        if not self._all_costs_assigned(self.positions):
+            raise UnassignedCosts()
+
         self.status = PaymentStatus.Paid
 
     def reset_payment(self) -> None:
