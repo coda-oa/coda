@@ -1,8 +1,12 @@
 <div class="flex justify-between align-start">
     <div class="form-row">
-        <label class="my-0" for="">Funding Source</label>
+        <label class="my-0"
+               for="id-positions-{{ counter }}-funding_assignments-{{ split_counter }}-funding_source">
+            Funding Source
+        </label>
         <select class="my-0"
-                name="position-{{ counter }}-split-{{ split_counter }}-funding-source">
+                id="id-positions-{{ counter }}-funding_assignments-{{ split_counter }}-funding_source"
+                name="positions-{{ counter }}-funding_assignments-{{ split_counter }}-funding_source">
             <option value>-------</option>
             {% for fs in funding_sources %}
                 <option value="{{ fs.id }}"
@@ -11,26 +15,13 @@
         </select>
     </div>
     <div class="form-row">
-        <label for="" class="my-0">Amount</label>
+        <label for="id-positions-{{ counter }}-funding_assignments-{{ split_counter }}-amount"
+               class="my-0">Amount</label>
         <input type="number"
                class="my-0"
-               name="position-{{ counter }}-split-{{ split_counter }}-amount"
+               id="id-positions-{{ counter }}-funding_assignments-{{ split_counter }}-amount"
+               name="positions-{{ counter }}-funding_assignments-{{ split_counter }}-amount"
                value="">
-    </div>
-    <div class="form-row">
-        <label for="">Gross</label>
-        <input type="number"
-               name="position-{{ counter }}-split-{{ split_counter }}-gross"
-               value=""
-               readonly>
-    </div>
-    <div class="form-row">
-        <label for="id-position-{{ counter }}-split-{{ split_counter }}-external-position-id">External Position ID</label>
-        <input type="text"
-               id="id-position-{{ counter }}-split-{{ split_counter }}-external-position-id"
-               name="position-{{ counter }}-split-{{ split_counter }}-external-position-id"
-               value="{{ position.external_position_id }}"
-               {% if editable != None %}readonly{% endif %}>
     </div>
     <div>
         <button type="button" class="my-0 danger">Remove</button>

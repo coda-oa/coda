@@ -3,9 +3,11 @@
         <h4>Funding Sources</h4>
         <button type="button" class="secondary">Add</button>
     </div>
-    {% include "invoices/position_funding_source_row.html" %}
-    {% include "invoices/position_cost_split_row.html" %}
-    {% for split in splits %}
-        {% include "invoices/position_cost_split_row.html" %}
-    {% endfor %}
+    {% if not position.funding_assignments %}
+        {% include "invoices/position_no_split_row.html" %}
+    {% else %}
+        {% for split in position.funding_assignments %}
+            {% include "invoices/position_cost_split_row.html" %}
+        {% endfor %}
+    {% endif %}
 </div>
