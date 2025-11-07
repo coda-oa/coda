@@ -234,7 +234,7 @@ def create(invoice: Invoice) -> InvoiceId:
     invoice_model.save()
     invoice_mapper.synchronize_relationships(invoice, invoice_model)
 
-    return InvoiceId(invoice_model.id)
+    return InvoiceId(invoice_model.pk)
 
 
 @transaction.atomic

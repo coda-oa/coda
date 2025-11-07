@@ -1,14 +1,14 @@
 from typing_extensions import TypeIs
 
 from coda.contexts.finance.dto.edit_position_dtos import (
-    AnyPositionDto,
+    PositionDto,
     FreePositionDto,
     FundingAssignmentDto,
 )
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.costtypes import PublicationCostType
-from coda.domain.finance.invoice_positions import AnyPosition, FreeItem, Position
+from coda.domain.finance.invoice_positions import FreeItem, Position
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 
@@ -24,7 +24,7 @@ def parse_cost_type(position: FreePositionDto) -> PublicationCostType:
 
 def to_position(
     position: FreePositionDto, currency: Currency, *, parse_safe: bool = False
-) -> Position[FreeItem]:
+) -> Position:
     _position = invoice_positions.create(
         item=FreeItem(
             parse_item(position, parse_safe=parse_safe),
@@ -45,7 +45,7 @@ def to_position(
     return _position
 
 
-def position_to_dto(position: Position[FreeItem]) -> FreePositionDto:
+def position_to_dto(position: Position) -> FreePositionDto:
     return FreePositionDto(
         description=position.item.item,
         funding_source=position.funding_source,
@@ -60,18 +60,18 @@ def position_to_dto(position: Position[FreeItem]) -> FreePositionDto:
     )
 
 
-def _is_freeitem(p: AnyPosition) -> TypeIs[Position[FreeItem]]:
+def _is_freeitem(p: Position) -> TypeIs[Position]:
     return isinstance(p.item, FreeItem)
 
 
 class FreeParser:
     def to_position(
-        self, position: AnyPositionDto, currency: Currency, *, parse_safe: bool = False
-    ) -> AnyPosition:
+        self, position: PositionDto, currency: Currency, *, parse_safe: bool = False
+    ) -> Position:
         assert isinstance(position, FreePositionDto)
         return to_position(position, currency, parse_safe=parse_safe)
 
-    def position_to_dto(self, position: AnyPosition) -> AnyPositionDto:
+    def position_to_dto(self, position: Position) -> PositionDto:
         assert _is_freeitem(position)
         return position_to_dto(position)
 

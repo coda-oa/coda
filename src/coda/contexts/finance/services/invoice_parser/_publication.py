@@ -5,7 +5,7 @@ from typing_extensions import TypeIs
 from coda.apps.fundingrequests import repository
 from coda.apps.publications.repositories import publication_repository
 from coda.contexts.finance.dto.edit_position_dtos import (
-    AnyPositionDto,
+    PositionDto,
     FundingAssignmentDto,
     PublicationPositionDto,
     RelatedFundingRequest,
@@ -13,7 +13,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice import FundingSourceId
-from coda.domain.finance.invoice_positions import AnyPosition, Position, PublicationItem
+from coda.domain.finance.invoice_positions import Position, PositionItemType, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 from coda.domain.publication.publication import PublicationId
@@ -30,7 +30,7 @@ def parse_cost_type(position: PublicationPositionDto) -> PublicationCostType:
 
 def to_position(
     position: PublicationPositionDto, currency: Currency, *, parse_safe: bool = False
-) -> Position[PublicationItem]:
+) -> Position:
     _position = invoice_positions.create(
         item=PublicationItem(
             parse_item(position, parse_safe=parse_safe),
@@ -50,7 +50,8 @@ def to_position(
     return _position
 
 
-def position_to_dto(position: Position[PublicationItem]) -> PublicationPositionDto:
+def position_to_dto(position: Position) -> PublicationPositionDto:
+    assert _is_publicationitem(position.item)
     publication = publication_repository.get_by_id(position.item.item)
     assert publication.id is not None
 
@@ -77,19 +78,18 @@ def position_to_dto(position: Position[PublicationItem]) -> PublicationPositionD
     )
 
 
-def _is_publicationitem(p: AnyPosition) -> TypeIs[Position[PublicationItem]]:
-    return isinstance(p.item, PublicationItem)
+def _is_publicationitem(item: PositionItemType) -> TypeIs[PublicationItem]:
+    return isinstance(item, PublicationItem)
 
 
 class PublicationParser:
     def to_position(
-        self, position: AnyPositionDto, currency: Currency, *, parse_safe: bool = False
-    ) -> AnyPosition:
+        self, position: PositionDto, currency: Currency, *, parse_safe: bool = False
+    ) -> Position:
         assert isinstance(position, PublicationPositionDto)
         return to_position(position, currency, parse_safe=parse_safe)
 
-    def position_to_dto(self, position: AnyPosition) -> AnyPositionDto:
-        assert _is_publicationitem(position)
+    def position_to_dto(self, position: Position) -> PositionDto:
         return position_to_dto(position)
 
 

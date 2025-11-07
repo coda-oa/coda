@@ -57,7 +57,6 @@ class FreeItem(Item[str, PublicationCostType]):
 
 type ItemType = PublicationId | ContractYear | str
 type PositionItemType = PublicationItem | ContractItem | FreeItem
-type AnyPosition = "Position[PublicationItem] | Position[ContractItem] | Position[FreeItem]"
 
 
 class CostCalculation(Protocol):
@@ -131,11 +130,11 @@ class FundingAssignment:
     amount: Money
 
 
-class _CommonPosition(Generic[ItemT]):
+class Position:
     def __init__(
         self,
         *,
-        item: ItemT,
+        item: PositionItemType,
         funding_source: FundingSourceId | None = None,
         external_position_id: str = "",
         cost_calculation: CostCalculation,
@@ -143,7 +142,7 @@ class _CommonPosition(Generic[ItemT]):
         self.funding_source = funding_source
         self.external_position_id = external_position_id
 
-        self._item: ItemT = item
+        self._item = item
         self._cost_calculation = cost_calculation
         self._splits: list[FundingAssignment] = []
 
@@ -152,7 +151,7 @@ class _CommonPosition(Generic[ItemT]):
         return self._cost_calculation.cost
 
     @property
-    def item(self) -> ItemT:
+    def item(self) -> PositionItemType:
         return self._item
 
     @property
@@ -168,8 +167,8 @@ class _CommonPosition(Generic[ItemT]):
     def total(self) -> Money:
         return self._cost_calculation.total()
 
-    def convert(self, to: Currency, exchange: CurrencyExchange) -> "Position[ItemT]":
-        return _CommonPosition(
+    def convert(self, to: Currency, exchange: CurrencyExchange) -> "Position":
+        return Position(
             item=self._item,
             funding_source=self.funding_source,
             external_position_id=self.external_position_id,
@@ -239,12 +238,12 @@ class _CommonPosition(Generic[ItemT]):
 
 
 def create(
-    item: ItemT,
+    item: PositionItemType,
     cost: Money,
     tax_rate: TaxRate,
     funding_source: FundingSourceId | None = None,
     external_position_id: str = "",
-) -> "Position[ItemT]":
+) -> "Position":
     if item.cost_type.is_vat():
         return vat(item, cost, funding_source, external_position_id)
 
@@ -252,13 +251,13 @@ def create(
 
 
 def regular(
-    item: ItemT,
+    item: PositionItemType,
     cost: Money,
     tax_rate: TaxRate,
     funding_source: FundingSourceId | None = None,
     external_position_id: str = "",
-) -> "Position[ItemT]":
-    return _CommonPosition(
+) -> "Position":
+    return Position(
         item=item,
         funding_source=funding_source,
         external_position_id=external_position_id,
@@ -267,57 +266,14 @@ def regular(
 
 
 def vat(
-    item: ItemT,
+    item: PositionItemType,
     cost: Money,
     funding_source: FundingSourceId | None = None,
     external_position_id: str = "",
-) -> "Position[ItemT]":
-    return _CommonPosition(
+) -> "Position":
+    return Position(
         item=item,
         funding_source=funding_source,
         external_position_id=external_position_id,
         cost_calculation=VatCalculation(cost),
     )
-
-
-class Position(Protocol[ItemT]):
-    @property
-    def funding_source(self) -> FundingSourceId | None:
-        ...
-
-    @property
-    def external_position_id(self) -> str:
-        ...
-
-    @property
-    def cost(self) -> Money:
-        ...
-
-    @property
-    def item(self) -> ItemT:
-        ...
-
-    @property
-    def tax_rate(self) -> TaxRate:
-        ...
-
-    def net(self) -> Money:
-        ...
-
-    def tax(self) -> Money:
-        ...
-
-    def total(self) -> Money:
-        ...
-
-    def convert(self, to: Currency, exchange: CurrencyExchange) -> "Position[ItemT]":
-        ...
-
-    def unassigned_costs(self) -> Money:
-        ...
-
-    def assign_funding(self, funding_source: FundingSourceId | None, amount: Decimal) -> None:
-        ...
-
-    def funding_assignments(self) -> list[FundingAssignment]:
-        ...

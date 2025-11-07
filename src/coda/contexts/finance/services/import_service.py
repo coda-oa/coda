@@ -28,7 +28,7 @@ from coda.domain.finance.invoice import (
     InvoiceId,
 )
 from coda.domain.finance.invoice_positions import (
-    AnyPosition,
+    Position,
     ContractItem,
     FreeItem,
     PublicationItem,
@@ -236,7 +236,7 @@ def _funding_sources(invoice_dtos: Iterable[InvoiceImportDto]) -> Iterable[str]:
 
 def _build_positions_lookup(
     invoice_dtos: list[InvoiceImportDto], lookups: RelatedEntityLookups
-) -> dict[str, list[AnyPosition]]:
+) -> dict[str, list[Position]]:
     return {
         _invoice_key(invoice_dto): [
             _parse_into_position(p, Currency.from_code(invoice_dto.currency), lookups)
@@ -248,12 +248,12 @@ def _build_positions_lookup(
 
 def _parse_into_position(
     p: CommonPositionImportDto, currency: Currency, lookups: RelatedEntityLookups
-) -> AnyPosition:
+) -> Position:
     cost = Money(p.amount, currency)
     tax_rate = TaxRate.from_percentage(p.tax_rate)
     funding_source = lookups.funding_sources_lookup[p.funding_source] if p.funding_source else None
     external_id = p.external_id
-    position: AnyPosition
+    position: Position
     match p:
         case PublicationPositionImportDto():
             id_type = cast(str, p.request_id or p.legacy_request_id)
@@ -302,7 +302,7 @@ def _invoice_key(invoice_dto: InvoiceImportDto) -> str:
 def _new_invoice(
     invoice_dto: InvoiceImportDto,
     creditor: CreditorId,
-    positions: list[AnyPosition],
+    positions: list[Position],
 ) -> Invoice:
     invoice = Invoice.new(
         number=invoice_dto.number,

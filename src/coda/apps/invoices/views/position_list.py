@@ -10,7 +10,7 @@ from coda.apps.fundingrequests import repository
 from coda.apps.invoices.models import FundingSource
 from coda.apps.publications.models import Publication
 from coda.contexts.finance.dto.edit_position_dtos import (
-    AnyPositionDto,
+    PositionDto,
     ContractPositionDto,
     FreePositionDto,
     PositionList,
@@ -72,7 +72,7 @@ def invoice_total(request: HttpRequest) -> HttpResponse:
     )
 
 
-def added_positions(request: HttpRequest) -> list[AnyPositionDto]:
+def added_positions(request: HttpRequest) -> list[PositionDto]:
     _positions = [parser(request) for parser in _ADD_POSITION_PARSERS.values()]
     return [p for p in _positions if p is not None]
 

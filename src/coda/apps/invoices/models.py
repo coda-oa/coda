@@ -53,6 +53,21 @@ class Position(models.Model):
     external_position_id = models.CharField(max_length=255, blank=True)
 
 
+class FundingAssignment(models.Model):
+    position = models.ForeignKey(
+        Position,
+        related_name="funding_assignments",
+        on_delete=models.CASCADE,
+    )
+    funding_source = models.ForeignKey(
+        FundingSource,
+        related_name="funding_assignments",
+        on_delete=models.PROTECT,
+        null=True,
+    )
+    amount = models.DecimalField(max_digits=20, decimal_places=4)
+
+
 class CurrencyConversion(models.Model):
     target_currency = models.CharField(max_length=3)
     exchange_rate = models.DecimalField(max_digits=11, decimal_places=4)

@@ -218,7 +218,7 @@ def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_
     a_publication.id = publication_repository.create(a_publication)
     some_position = domainfactory.publication_position(a_publication.id)
     vat_position = invoice_positions.create(
-        item=PublicationItem(some_position.item.item, cost_type=PublicationCostType.Vat),
+        item=PublicationItem(a_publication.id, cost_type=PublicationCostType.Vat),
         cost=some_position.cost,
         tax_rate=some_position.tax_rate,
         funding_source=some_position.funding_source,

@@ -8,7 +8,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 )
 from coda.contexts.finance.services import invoice_parser
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
-from coda.domain.finance.invoice_positions import AnyPosition
+from coda.domain.finance.invoice_positions import Position
 
 
 class UnsupportedPositionTypeError(Exception):
@@ -32,11 +32,11 @@ class PositionDetailDto:
     net_costs: Decimal = Decimal("0.00")
 
     @classmethod
-    def to_position_detail_dto(cls, position: AnyPosition) -> "PositionDetailDto":
+    def to_position_detail_dto(cls, position: Position) -> "PositionDetailDto":
         return build_position_detail_dto(position)
 
 
-def build_position_detail_dto(position: AnyPosition) -> PositionDetailDto:
+def build_position_detail_dto(position: Position) -> PositionDetailDto:
     dto = invoice_parser.position_to_dto(position)
 
     if isinstance(dto, PublicationPositionDto):
@@ -51,9 +51,7 @@ def build_position_detail_dto(position: AnyPosition) -> PositionDetailDto:
     )
 
 
-def _from_publication_dto(
-    dto: PublicationPositionDto, position: AnyPosition
-) -> "PositionDetailDto":
+def _from_publication_dto(dto: PublicationPositionDto, position: Position) -> "PositionDetailDto":
     is_vat = dto.cost_type == PublicationCostType.Vat.value
     return PositionDetailDto(
         type=dto.type,
@@ -67,7 +65,7 @@ def _from_publication_dto(
     )
 
 
-def _from_contract_dto(dto: ContractPositionDto, position: AnyPosition) -> "PositionDetailDto":
+def _from_contract_dto(dto: ContractPositionDto, position: Position) -> "PositionDetailDto":
     is_vat = dto.cost_type == ContractCostType.Vat.value
     return PositionDetailDto(
         type=dto.type,
@@ -81,7 +79,7 @@ def _from_contract_dto(dto: ContractPositionDto, position: AnyPosition) -> "Posi
     )
 
 
-def _from_free_dto(dto: FreePositionDto, position: AnyPosition) -> "PositionDetailDto":
+def _from_free_dto(dto: FreePositionDto, position: Position) -> "PositionDetailDto":
     return PositionDetailDto(
         type=dto.type,
         title=dto.description,

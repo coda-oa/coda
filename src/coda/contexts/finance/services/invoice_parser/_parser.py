@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any, Protocol
 
 from coda.contexts.finance.dto.edit_position_dtos import (
-    AnyPositionDto,
+    PositionDto,
     ContractPositionDto,
     FreePositionDto,
     PublicationPositionDto,
@@ -13,7 +13,7 @@ from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.domain import errors
 from coda.domain.contract import ContractYear
 from coda.domain.finance.invoice import CreditorId, Invoice
-from coda.domain.finance.invoice_positions import AnyPosition, ItemType
+from coda.domain.finance.invoice_positions import Position, ItemType
 from coda.domain.money._currency import Currency
 from coda.domain.publication.publication import PublicationId
 
@@ -22,15 +22,15 @@ from . import _contract, _free, _publication
 
 class PositionParser(Protocol):
     def to_position(
-        self, position: AnyPositionDto, currency: Currency, *, parse_safe: bool = True
-    ) -> AnyPosition:
+        self, position: PositionDto, currency: Currency, *, parse_safe: bool = True
+    ) -> Position:
         ...
 
-    def position_to_dto(self, position: AnyPosition) -> AnyPositionDto:
+    def position_to_dto(self, position: Position) -> PositionDto:
         ...
 
 
-def parse_invoice(invoice_head: InvoiceHeadDto, positions: list[AnyPositionDto]) -> Invoice:
+def parse_invoice(invoice_head: InvoiceHeadDto, positions: list[PositionDto]) -> Invoice:
     currency = invoice_head.currency
     with errors.capture(ValueError) as capture:
         parsed_positions = errors.results(
@@ -55,7 +55,7 @@ class InvoiceTotal:
     total: Decimal
 
 
-def invoice_total(positions: list[AnyPositionDto], currency: Currency) -> InvoiceTotal:
+def invoice_total(positions: list[PositionDto], currency: Currency) -> InvoiceTotal:
     parsed = [to_position(p, currency, parse_safe=True) for p in positions]
     invoice = Invoice.new("", datetime.date.today(), CreditorId(0), parsed)
 
@@ -66,23 +66,21 @@ def invoice_total(positions: list[AnyPositionDto], currency: Currency) -> Invoic
     )
 
 
-def to_position(
-    position: AnyPositionDto, currency: Currency, *, parse_safe: bool = False
-) -> AnyPosition:
+def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool = False) -> Position:
     parser = _dto_parser_registry[position.type]
     return parser.to_position(position, currency, parse_safe=parse_safe)
 
 
-def position_to_dto(position: AnyPosition) -> AnyPositionDto:
+def position_to_dto(position: Position) -> PositionDto:
     parser = _position_converters[type(position.item.item)]
     return parser.position_to_dto(position)
 
 
-def get_position_type(type_name: str) -> type[AnyPositionDto]:
+def get_position_type(type_name: str) -> type[PositionDto]:
     return _position_type_registry[type_name]
 
 
-_position_type_registry: dict[str, type[AnyPositionDto]] = {
+_position_type_registry: dict[str, type[PositionDto]] = {
     "publication": PublicationPositionDto,
     "free": FreePositionDto,
     "contract": ContractPositionDto,
@@ -102,7 +100,7 @@ _position_converters: dict[type[ItemType], PositionParser] = {
 
 
 class PositionParseError(Exception):
-    def __init__(self, inner: Exception, position: AnyPositionDto, *args: Any) -> None:
+    def __init__(self, inner: Exception, position: PositionDto, *args: Any) -> None:
         super().__init__(*args)
         self.position = position
         self.inner = inner
@@ -116,7 +114,7 @@ class InvoiceParseError(RuntimeError):
         super().__init__()
         self.position_errors = position_errors
 
-    def error_for(self, position: AnyPositionDto) -> PositionParseError | None:
+    def error_for(self, position: PositionDto) -> PositionParseError | None:
         for err in self.position_errors:
             if position == err.position:
                 return err

@@ -8,7 +8,7 @@ from coda.apps.publications.services import publications
 from coda.contexts.finance.services import invoice_service
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
-from coda.domain.finance.invoice_positions import AnyPosition, PublicationItem, Position
+from coda.domain.finance.invoice_positions import Position
 from coda.domain.publication.payment import Payment, PublicationPayments
 from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
@@ -173,7 +173,7 @@ def test__paid_invoice_with_two_equal_publication_positions__delete_one__publica
     assert_publication_paid(publication, invoice)
 
 
-def copy_position(position: Position[PublicationItem]) -> Position[PublicationItem]:
+def copy_position(position: Position) -> Position:
     return invoice_positions.create(
         item=position.item,
         cost=position.cost,
@@ -265,7 +265,7 @@ def paid_invoice_for_publication(publication: PublicationId) -> Invoice:
     return paid_invoice(position)
 
 
-def paid_invoice(*positions: AnyPosition) -> Invoice:
+def paid_invoice(*positions: Position) -> Invoice:
     creditor = CreditorId(modelfactory.creditor().pk)
     invoice = domainfactory.invoice(positions=tuple(positions), creditor=creditor)
     invoice.pay()

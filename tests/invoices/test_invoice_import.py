@@ -27,7 +27,7 @@ from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
 from coda.domain.finance.invoice_positions import (
-    AnyPosition,
+    Position,
     ContractItem,
     FreeItem,
     PublicationItem,
@@ -338,7 +338,7 @@ def paid_invoice_dto(
     return dto
 
 
-def expected_publication_position(import_dto: PublicationPositionImportDto) -> AnyPosition:
+def expected_publication_position(import_dto: PublicationPositionImportDto) -> Position:
     funding_source = FundingSource.objects.filter(name=import_dto.funding_source).first()
     assert (
         funding_source is not None
@@ -359,7 +359,7 @@ def expected_publication_position(import_dto: PublicationPositionImportDto) -> A
     )
 
 
-def expected_contract_position(import_dto: ContractPositionImportDto) -> AnyPosition:
+def expected_contract_position(import_dto: ContractPositionImportDto) -> Position:
     funding_source = FundingSource.objects.filter(name=import_dto.funding_source).first()
     assert funding_source is not None, f"FundingSource '{import_dto.funding_source}' should exist"
 
@@ -379,7 +379,7 @@ def expected_contract_position(import_dto: ContractPositionImportDto) -> AnyPosi
     )
 
 
-def expected_free_position(import_dto: FreePositionImportDto) -> AnyPosition:
+def expected_free_position(import_dto: FreePositionImportDto) -> Position:
     funding_source = FundingSource.objects.filter(name=import_dto.funding_source).first()
     assert (
         funding_source is not None

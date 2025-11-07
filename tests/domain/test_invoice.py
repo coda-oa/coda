@@ -24,7 +24,7 @@ def make_sut(positions: Positions) -> Invoice:
     return Invoice.new("invoice-#1234", datetime.date.today(), CreditorId(1), positions)
 
 
-def position(cost: Money, tax_rate: TaxRate = TaxRate(0)) -> Position[PublicationItem]:
+def position(cost: Money, tax_rate: TaxRate = TaxRate(0)) -> Position:
     return invoice_positions.create(
         item=PublicationItem(PublicationId(1), cost_type=PublicationCostType.Gold_OA),
         cost=cost,

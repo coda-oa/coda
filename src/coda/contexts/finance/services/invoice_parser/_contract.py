@@ -2,7 +2,7 @@ from typing_extensions import TypeIs
 
 from coda.apps.contracts import repository
 from coda.contexts.finance.dto.edit_position_dtos import (
-    AnyPositionDto,
+    PositionDto,
     ContractPositionDto,
     FundingAssignmentDto,
 )
@@ -10,7 +10,7 @@ from coda.domain.contract import ContractId, ContractYear
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import ContractCostType
 from coda.domain.finance.invoice import FundingSourceId
-from coda.domain.finance.invoice_positions import AnyPosition, ContractItem, Position
+from coda.domain.finance.invoice_positions import Position, ContractItem, PositionItemType
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 
@@ -31,7 +31,7 @@ def parse_cost_type(position: ContractPositionDto) -> ContractCostType:
 
 def to_position(
     position: ContractPositionDto, currency: Currency, *, parse_safe: bool = False
-) -> Position[ContractItem]:
+) -> Position:
     item = parse_item(position, parse_safe=parse_safe)
     cost_type = parse_cost_type(position)
 
@@ -52,7 +52,8 @@ def to_position(
     return _position
 
 
-def position_to_dto(position: Position[ContractItem]) -> ContractPositionDto:
+def position_to_dto(position: Position) -> ContractPositionDto:
+    assert _is_contractitem(position.item)
     if not position.item.item.contract_id:
         raise ValueError("Contract ID is required for ContractPosition")
 
@@ -75,19 +76,19 @@ def position_to_dto(position: Position[ContractItem]) -> ContractPositionDto:
     )
 
 
-def _is_contractitem(p: AnyPosition) -> TypeIs[Position[ContractItem]]:
-    return isinstance(p.item, ContractItem)
+def _is_contractitem(item: PositionItemType) -> TypeIs[ContractItem]:
+    return isinstance(item, ContractItem)
 
 
 class ContractParser:
     def to_position(
-        self, position: AnyPositionDto, currency: Currency, *, parse_safe: bool = False
-    ) -> AnyPosition:
+        self, position: PositionDto, currency: Currency, *, parse_safe: bool = False
+    ) -> Position:
         assert isinstance(position, ContractPositionDto)
         return to_position(position, currency, parse_safe=parse_safe)
 
-    def position_to_dto(self, position: AnyPosition) -> AnyPositionDto:
-        assert _is_contractitem(position)
+    def position_to_dto(self, position: Position) -> PositionDto:
+        assert _is_contractitem(position.item)
         return position_to_dto(position)
 
 

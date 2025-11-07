@@ -14,7 +14,7 @@ from coda.domain.publication import PublicationId
 
 ItemT = TypeVar("ItemT", bound=ItemType, covariant=True)
 CostT = TypeVar("CostT", bound=CostType, covariant=True)
-type AnyPositionDto = "PublicationPositionDto | ContractPositionDto | FreePositionDto"
+type PositionDto = "PublicationPositionDto | ContractPositionDto | FreePositionDto"
 
 DEFAULT_TAX_RATE_PERCENTAGE = 19
 

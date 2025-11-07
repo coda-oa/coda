@@ -16,7 +16,7 @@ from coda.domain.finance.invoice import (
     PaymentStatus,
 )
 from coda.domain.finance.invoice_positions import (
-    AnyPosition,
+    Position,
     ContractItem,
     FreeItem,
     PositionItemType,
@@ -109,7 +109,7 @@ def as_django_model(invoice: Invoice) -> invoice_models.Invoice:
 
 
 def _as_position_django_model(
-    invoice_model: invoice_models.Invoice, position: AnyPosition
+    invoice_model: invoice_models.Invoice, position: Position
 ) -> invoice_models.Position:
     """Convert position domain object to PositionModel."""
     match position.item:
@@ -171,19 +171,31 @@ def synchronize_relationships(invoice: Invoice, invoice_model: invoice_models.In
     conversions = _create_currency_conversions(invoice, invoice_model)
     invoice_models.CurrencyConversion.objects.bulk_create(conversions)
 
+    funding_assignments = [
+        invoice_models.FundingAssignment(
+            position=position_model,
+            funding_source_id=funding.funding_source,
+            amount=funding.amount.amount,
+        )
+        for position, position_model in zip(invoice.positions, positions)
+        for funding in position.funding_assignments()
+    ]
+    invoice_models.FundingAssignment.objects.bulk_create(funding_assignments)
 
-def _as_position_domain_object(position: invoice_models.Position) -> AnyPosition:
+
+def _as_position_domain_object(position: invoice_models.Position) -> Position:
     """Convert PositionModel to position domain object."""
     item = _get_item_from_position_model(position)
     common_args = _extract_common_position_args(position)
+    _position = invoice_positions.create(item=item, **common_args)
 
-    match item:
-        case ContractItem():
-            return invoice_positions.create(item=item, **common_args)
-        case PublicationItem():
-            return invoice_positions.create(item=item, **common_args)
-        case FreeItem():
-            return invoice_positions.create(item=item, **common_args)
+    for funding in position.funding_assignments.all():
+        _position.assign_funding(
+            FundingSourceId(funding.funding_source.pk) if funding.funding_source else None,
+            funding.amount,
+        )
+
+    return _position
 
 
 def _extract_common_position_args(position: invoice_models.Position) -> _CommonPositionArgs:

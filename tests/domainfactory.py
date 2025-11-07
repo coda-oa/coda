@@ -140,7 +140,7 @@ def publication_position(
     currency: Currency | None = None,
     cost_type: PublicationCostType | None = None,
     funding_source: FundingSourceId | None = None,
-) -> Position[PublicationItem]:
+) -> Position:
     return invoice_positions.create(
         item=PublicationItem(
             publication or PublicationId(random.randint(1, 1000)),
@@ -158,7 +158,7 @@ def contract_position(
     currency: Currency | None = None,
     cost_type: ContractCostType | None = None,
     funding_source: FundingSourceId | None = None,
-) -> Position[ContractItem]:
+) -> Position:
     return invoice_positions.create(
         item=ContractItem(
             contract,
@@ -173,7 +173,7 @@ def contract_position(
 
 def free_position(
     currency: Currency | None = None, cost_type: PublicationCostType | None = None
-) -> Position[FreeItem]:
+) -> Position:
     return invoice_positions.create(
         item=FreeItem(
             _faker.sentence(),

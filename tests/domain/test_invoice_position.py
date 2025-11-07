@@ -6,7 +6,7 @@ from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.invoice_positions import (
-    AnyPosition,
+    Position,
     FundingAssignment,
     InvalidSplitAmount,
     PublicationItem,
@@ -19,7 +19,7 @@ from coda.domain.publication.publication import PublicationId
 
 def make_sut(
     funding_source: FundingSourceId | None = None, amount: Decimal = Decimal(100)
-) -> AnyPosition:
+) -> Position:
     sut = invoice_positions.create(
         item=PublicationItem(
             PublicationId(1),

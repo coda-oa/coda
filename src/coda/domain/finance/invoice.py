@@ -8,14 +8,14 @@ from coda.domain import errors
 from coda.domain.money import Currency, CurrencyExchange, Money
 
 if TYPE_CHECKING:
-    from coda.domain.finance.invoice_positions import AnyPosition
+    from coda.domain.finance.invoice_positions import Position
 
 InvoiceId = NewType("InvoiceId", int)
 CreditorId = NewType("CreditorId", int)
 FundingSourceId = NewType("FundingSourceId", int)
 
 
-type Positions = Iterable[AnyPosition]
+type Positions = Iterable[Position]
 
 
 class PaymentStatus(enum.Enum):
