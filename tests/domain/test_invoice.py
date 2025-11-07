@@ -9,7 +9,9 @@ from coda.domain.finance.invoice import (
     CreditorId,
     FundingSourceId,
     Invoice,
+    InvoiceId,
     NoSuchConversion,
+    PaymentStatus,
     Positions,
     UnassignedCosts,
 )
@@ -88,6 +90,21 @@ def test__unpaid_invoice_with_unassigned_costs__pay__raises_error() -> None:
 
     with pytest.raises(UnassignedCosts):
         sut.pay()
+
+
+def test__invoice_with_unassigned_costs_cannot_be_created_as_paid() -> None:
+    p = position(Money(100, Currency.EUR))
+    p.assign_funding(FundingSourceId(1), Decimal(50))
+
+    with pytest.raises(UnassignedCosts):
+        _ = Invoice(
+            id=InvoiceId(0),
+            number="1234",
+            date=datetime.date.today(),
+            creditor=CreditorId(1),
+            status=PaymentStatus.Paid,
+            positions=[p],
+        )
 
 
 def test__paid_invoice__cannot_add_position_with_unassigned_costs() -> None:

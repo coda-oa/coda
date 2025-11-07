@@ -59,6 +59,9 @@ class Invoice:
         self.external_invoice_id = external_invoice_id
         self._conversions: dict[Currency, Decimal] = {}
 
+        if self.is_paid() and not self._all_costs_assigned(positions):
+            raise UnassignedCosts()
+
     @classmethod
     def new(
         cls,
