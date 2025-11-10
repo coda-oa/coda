@@ -24,6 +24,13 @@
                value="">
     </div>
     <div>
-        <button type="button" class="my-0 danger">Remove</button>
+        <button type="button"
+                class="my-0 danger outline"
+                name="remove_funding_assignment"
+                value="{{ counter }}::{{ split_counter }}"
+                hx-post="{% url "invoices:position_remove_funding_assignment" %}"
+                hx-target="#positions"
+                hx-swap="outerHTML"
+                hx-include="#invoice-form">Remove</button>
     </div>
 </div>

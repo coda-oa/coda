@@ -1,13 +1,23 @@
-<div class="my-2">
+<div id="funding_assignments_list" class="my-2">
     <div class="flex justify-between align-center">
         <h4>Funding Sources</h4>
-        <button type="button" class="secondary">Add</button>
+        <button type="button"
+                class="secondary"
+                name="add_funding_assignment_to_position"
+                value="{{ counter }}"
+                hx-post="{% url "invoices:position_add_funding_assignment" %}"
+                hx-target="#positions"
+                hx-swap="outerHTML"
+                hx-include="#invoice-form">Add</button>
     </div>
     {% if not position.funding_assignments %}
         {% include "invoices/position_no_split_row.html" %}
     {% else %}
+        <input type="hidden"
+               name="positions-{{ counter }}-#-funding_assignments"
+               value="{{ position.funding_assignments|length }}">
         {% for split in position.funding_assignments %}
-            {% include "invoices/position_cost_split_row.html" %}
+            {% include "invoices/position_cost_split_row.html" with split_counter=forloop.counter %}
         {% endfor %}
     {% endif %}
 </div>

@@ -18,13 +18,15 @@ from coda.apps.invoices.views.importview import import_invoices
 from coda.apps.invoices.views.inspect import (
     invoice_detail,
     invoice_list,
-    pay_invoice,
     load_conversion_section,
+    pay_invoice,
     position_cost_type_options,
 )
 from coda.apps.invoices.views.position_list import (
+    add_funding_assignment,
     add_position,
     invoice_total,
+    remove_funding_assignment,
     remove_position,
     switch_position_tab,
 )
@@ -43,6 +45,16 @@ urlpatterns = [
     path("create/tab-switch/", switch_position_tab, name="tab_switch"),
     path("create/add-position/", add_position, name="add_position"),
     path("create/remove-position/", remove_position, name="remove_position"),
+    path(
+        "create/add-funding-asssignment",
+        add_funding_assignment,
+        name="position_add_funding_assignment",
+    ),
+    path(
+        "create/remove-funding-asssignment",
+        remove_funding_assignment,
+        name="position_remove_funding_assignment",
+    ),
     path("create/total/", invoice_total, name="get_total"),
     path("update/<int:pk>/", update_invoice, name="update"),
     path("creditors/", CreditorListView.as_view(), name="creditor_list"),

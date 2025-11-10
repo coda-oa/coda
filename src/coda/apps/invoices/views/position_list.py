@@ -10,9 +10,10 @@ from coda.apps.fundingrequests import repository
 from coda.apps.invoices.models import FundingSource
 from coda.apps.publications.models import Publication
 from coda.contexts.finance.dto.edit_position_dtos import (
-    PositionDto,
     ContractPositionDto,
     FreePositionDto,
+    FundingAssignmentDto,
+    PositionDto,
     PositionList,
     PublicationPositionDto,
     RelatedFundingRequest,
@@ -70,6 +71,36 @@ def invoice_total(request: HttpRequest) -> HttpResponse:
         "invoices/position_summary.html",
         asdict(invoice_parser.invoice_total(position_list.positions, currency)),
     )
+
+
+@login_required
+def add_funding_assignment(request: HttpRequest) -> HttpResponse:
+    position_list = formdata.map_to_model(PositionList, request.POST)
+    try:
+        position_index = int(request.POST["add_funding_assignment_to_position"]) - 1
+        position = position_list.positions[position_index]
+    except (IndexError, KeyError, ValueError):
+        return render_positions(request, position_list)
+
+    position.funding_assignments.append(FundingAssignmentDto())
+    return render_positions(request, position_list)
+
+
+@login_required
+def remove_funding_assignment(request: HttpRequest) -> HttpResponse:
+    position_list = formdata.map_to_model(PositionList, request.POST)
+    try:
+        remove_index = request.POST["remove_funding_assignment"]
+        position_index_str, funding_index_str = remove_index.split("::")
+        position_index = int(position_index_str) - 1
+        funding_index = int(funding_index_str) - 1
+        position_list.positions[position_index].funding_assignments.pop(funding_index)
+    except (IndexError, KeyError, ValueError):
+        # we need to render the position_list no matter what
+        # so there is no need to do any additional error handling here
+        pass
+
+    return render_positions(request, position_list)
 
 
 def added_positions(request: HttpRequest) -> list[PositionDto]:

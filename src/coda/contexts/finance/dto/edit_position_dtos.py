@@ -35,8 +35,8 @@ IntOrNone = Annotated[int | None, fallback(None)]
 
 
 class FundingAssignmentDto(CodaBaseDto):
-    funding_source: IntOrNone
-    amount: DecimalOrDefault
+    funding_source: IntOrNone = None
+    amount: DecimalOrDefault = Decimal(0)
 
 
 class CommonPositionDto(abc.ABC, CodaBaseDto, Generic[ItemT, CostT]):
