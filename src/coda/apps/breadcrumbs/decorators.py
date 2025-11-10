@@ -1,6 +1,6 @@
-from functools import wraps
-from typing import Any
 from collections.abc import Callable
+from functools import wraps
+from typing import Any, TypeVar
 from urllib.parse import parse_qs, urlparse
 
 from django.http import HttpRequest, HttpResponse
@@ -10,13 +10,16 @@ from django.utils.http import urlencode as django_urlencode
 # Type for title - can be string or callable that takes request, *args, **kwargs
 TitleType = str | Callable[[HttpRequest, Any, Any], str]
 
+# Type variable for preserving function signatures through the decorator
+F = TypeVar("F", bound=Callable[..., Any])
+
 
 def breadcrumb(
     title: TitleType,
     parent_url_name: str | Callable[[HttpRequest, Any, Any], str] | None = None,
     preserve_filters: bool = True,
     exclude_params: list[str] | None = None,
-) -> Callable[[Any], Any]:
+) -> Callable[[F], F]:
     """
     Decorator to add breadcrumb navigation to Django views.
     Works with both function-based and class-based views.
