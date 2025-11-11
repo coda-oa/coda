@@ -183,7 +183,7 @@ def payment_status_viewmodel(
             "url": reverse("contracts:detail", kwargs={"pk": payment_status.contract_id}),
         }
 
-    invoice_list_url = f"{reverse('invoices:list')}?{urlencode({'generic_search': request_id})}"
+    invoice_list_url = f"{reverse('invoices:list')}?{urlencode({'search_term': request_id})}"
     if not payment_status.payments():
         return {
             "status": "Unpaid",
