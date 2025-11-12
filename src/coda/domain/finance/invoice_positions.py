@@ -1,19 +1,14 @@
-import enum
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Generic, Protocol, TypeVar
+from typing import Protocol
 
 from coda.domain import errors
 from coda.domain.contract import ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.taxrate import TaxRate
-from coda.domain.money import Currency
-from coda.domain.money._money import CurrencyExchange, Money
+from coda.domain.money import Currency, CurrencyExchange, Money
 from coda.domain.publication.publication import PublicationId
-
-BaseItemT = TypeVar("BaseItemT")
-BaseCostTypeT = TypeVar("BaseCostTypeT", bound=enum.Enum)
 
 
 class SplitTooLarge(errors.DomainError):
@@ -32,25 +27,20 @@ def _sign(x: Decimal) -> int:
     return 1 if x >= 0 else -1
 
 
-class Item(Protocol, Generic[BaseItemT, BaseCostTypeT]):
-    item: BaseItemT
-    cost_type: BaseCostTypeT
-
-
 @dataclass(slots=True)
-class PublicationItem(Item[PublicationId, PublicationCostType]):
+class PublicationItem:
     item: PublicationId
     cost_type: PublicationCostType
 
 
 @dataclass(slots=True)
-class ContractItem(Item[ContractYear, ContractCostType]):
+class ContractItem:
     item: ContractYear
     cost_type: ContractCostType
 
 
 @dataclass(slots=True)
-class FreeItem(Item[str, PublicationCostType]):
+class FreeItem:
     item: str
     cost_type: PublicationCostType
 
@@ -79,6 +69,9 @@ class CostCalculation(Protocol):
     def convert(self, to: Currency, exchange: CurrencyExchange) -> "CostCalculation":
         ...
 
+    def normalize(self, amount: Decimal, *, is_gross: bool) -> Decimal:
+        ...
+
 
 @dataclass(slots=True, frozen=True)
 class RegularCostCalculation:
@@ -100,6 +93,9 @@ class RegularCostCalculation:
     def convert(self, to: Currency, exchange: CurrencyExchange) -> CostCalculation:
         return RegularCostCalculation(self.cost.convert_to(to, exchange), self.tax_rate())
 
+    def normalize(self, amount: Decimal, *, is_gross: bool) -> Decimal:
+        return amount / (Decimal(1) + self.tax_rate()) if is_gross else amount
+
 
 @dataclass(slots=True, frozen=True)
 class VatCalculation:
@@ -120,8 +116,9 @@ class VatCalculation:
     def convert(self, to: Currency, exchange: CurrencyExchange) -> CostCalculation:
         return VatCalculation(self.cost.convert_to(to, exchange))
 
-
-ItemT = TypeVar("ItemT", PublicationItem, ContractItem, FreeItem, covariant=True)
+    def normalize(self, amount: Decimal, *, is_gross: bool) -> Decimal:
+        _ = is_gross
+        return amount
 
 
 @dataclass(frozen=True)
@@ -180,7 +177,11 @@ class Position:
             return Money(0, self.cost.currency)
         return self._get_split_remainder()
 
-    def assign_funding(self, funding_source: FundingSourceId | None, amount: Decimal) -> None:
+    def assign_funding(
+        self, funding_source: FundingSourceId | None, amount: Decimal, *, is_gross: bool = False
+    ) -> None:
+        amount = self._cost_calculation.normalize(amount, is_gross=is_gross)
+
         if self._is_invalid_split_amount(amount):
             raise InvalidSplitAmount()
 

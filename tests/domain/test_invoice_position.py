@@ -27,9 +27,17 @@ def make_sut(
         ),
         cost=Money(amount, Currency.EUR),
         funding_source=funding_source,
-        tax_rate=TaxRate.from_percentage(0),
+        tax_rate=TaxRate.from_percentage(19),
     )
     return sut
+
+
+def make_vat(amount: Decimal = Decimal(100)) -> Position:
+    return invoice_positions.create(
+        item=PublicationItem(PublicationId(1), PublicationCostType.Vat),
+        cost=Money(amount, Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
+    )
 
 
 def test__position__equals_other_position_with_same_data() -> None:
@@ -59,6 +67,30 @@ def test__position__all_costs_assigned__no_remaining_costs() -> None:
     sut = make_sut()
 
     sut.assign_funding(FundingSourceId(1), Decimal(100))
+
+    assert sut.unassigned_costs() == Money(0, Currency.EUR)
+    assert sut.funding_assignments() == [
+        FundingAssignment(FundingSourceId(1), Money(100, Currency.EUR)),
+    ]
+
+
+def test__position__all_costs_assigned_as_gross__no_remaining_costs() -> None:
+    sut = make_sut(amount=Decimal("5000.00"))
+
+    sut.assign_funding(FundingSourceId(1), Decimal("2000.00"), is_gross=True)
+    sut.assign_funding(FundingSourceId(2), Decimal("3319.33"), is_gross=False)
+
+    assert sut.unassigned_costs() == Money(0, Currency.EUR)
+    assert sut.funding_assignments() == [
+        FundingAssignment(FundingSourceId(1), Money("1680.6722689076", Currency.EUR)),
+        FundingAssignment(FundingSourceId(2), Money("3319.33", Currency.EUR)),
+    ]
+
+
+def test__vat_position__all_costs_assigned_as_gross__assignments_stay_unchanged() -> None:
+    sut = make_vat()
+
+    sut.assign_funding(FundingSourceId(1), Decimal(100), is_gross=True)
 
     assert sut.unassigned_costs() == Money(0, Currency.EUR)
     assert sut.funding_assignments() == [
