@@ -6,6 +6,7 @@ from coda.domain import errors
 from coda.domain.contract import ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.finance.taxable_money import CostBasis, NetMoney
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, CurrencyExchange, Money
 from coda.domain.publication.publication import PublicationId
@@ -69,32 +70,41 @@ class CostCalculation(Protocol):
     def convert(self, to: Currency, exchange: CurrencyExchange) -> "CostCalculation":
         ...
 
-    def normalize(self, amount: Decimal, *, is_gross: bool) -> Decimal:
+    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> NetMoney:
         ...
 
 
 @dataclass(slots=True, frozen=True)
 class RegularCostCalculation:
-    cost: Money
-    the_tax_rate: TaxRate
+    net_cost: NetMoney
+
+    @property
+    def cost(self) -> Money:
+        return self.net_cost.base
 
     def tax_rate(self) -> TaxRate:
-        return self.the_tax_rate
+        return self.net_cost.tax_rate
 
     def net(self) -> Money:
         return self.cost
 
     def tax(self) -> Money:
-        return Money(self.cost.amount * self.the_tax_rate, self.cost.currency)
+        return self.net_cost.tax_only()
 
     def total(self) -> Money:
-        return self.net() + self.tax()
+        return self.net_cost.as_gross()
 
     def convert(self, to: Currency, exchange: CurrencyExchange) -> CostCalculation:
-        return RegularCostCalculation(self.cost.convert_to(to, exchange), self.tax_rate())
+        net = NetMoney.from_money(self.cost.convert_to(to, exchange), self.tax_rate())
+        return RegularCostCalculation(net)
 
-    def normalize(self, amount: Decimal, *, is_gross: bool) -> Decimal:
-        return amount / (Decimal(1) + self.tax_rate()) if is_gross else amount
+    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> NetMoney:
+        money = Money(amount, self.net_cost.currency)
+        net_money = NetMoney.from_basis(tax_mode, money, self.tax_rate())
+        return net_money
+
+    def to_tax_mode(self, amount: Money, mode: CostBasis) -> Money:
+        return NetMoney.from_money(amount, self.tax_rate()).amount_in(mode)
 
 
 @dataclass(slots=True, frozen=True)
@@ -116,9 +126,9 @@ class VatCalculation:
     def convert(self, to: Currency, exchange: CurrencyExchange) -> CostCalculation:
         return VatCalculation(self.cost.convert_to(to, exchange))
 
-    def normalize(self, amount: Decimal, *, is_gross: bool) -> Decimal:
-        _ = is_gross
-        return amount
+    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> NetMoney:
+        _ = tax_mode
+        return NetMoney(amount, self.cost.currency, self.tax_rate())
 
 
 @dataclass(frozen=True)
@@ -172,39 +182,33 @@ class Position:
             cost_calculation=self._cost_calculation.convert(to, exchange),
         )
 
-    def as_gross(self, amount: Decimal) -> Decimal:
-        return amount * (Decimal(1) + self.tax_rate)
-
-    def unassigned_costs(self, *, as_gross: bool = False) -> Money:
+    def unassigned_costs(self, tax_mode: CostBasis = CostBasis.net) -> Money:
         if not self._splits:
             return Money(0, self.cost.currency)
-        remainder = self._get_split_remainder()
-
-        if as_gross:
-            remainder = self._to_gross(remainder)
-
-        return remainder
+        remainder = NetMoney.from_money(self._get_split_remainder(), self.tax_rate)
+        return remainder.amount_in(tax_mode)
 
     def assign_funding(
-        self, funding_source: FundingSourceId | None, amount: Decimal, *, is_gross: bool = False
+        self,
+        funding_source: FundingSourceId | None,
+        amount: Decimal,
+        tax_mode: CostBasis = CostBasis.net,
     ) -> None:
-        amount = self._cost_calculation.normalize(amount, is_gross=is_gross)
+        normalized = self._cost_calculation.normalize(amount, tax_mode)
 
-        if self._is_invalid_split_amount(amount):
+        if self._is_invalid_split_amount(normalized.amount):
             raise InvalidSplitAmount()
 
-        self._splits.append(FundingAssignment(funding_source, Money(amount, self.cost.currency)))
+        self._splits.append(FundingAssignment(funding_source, normalized.base))
 
-    def funding_assignments(self, *, as_gross: bool = False) -> list[FundingAssignment]:
-        if as_gross:
-            return [
-                FundingAssignment(f.funding_source, self._to_gross(f.amount)) for f in self._splits
-            ]
-
-        return self._splits
-
-    def _to_gross(self, amount: Money) -> Money:
-        return Money(amount.amount * (Decimal(1) + self.tax_rate), amount.currency)
+    def funding_assignments(self, tax_mode: CostBasis = CostBasis.net) -> list[FundingAssignment]:
+        return [
+            FundingAssignment(
+                f.funding_source,
+                NetMoney.from_money(f.amount, self.tax_rate).amount_in(tax_mode),
+            )
+            for f in self._splits
+        ]
 
     def _is_invalid_split_amount(self, amount: Decimal) -> bool:
         sign_not_equal = _sign(self.cost.amount) != _sign(amount)
@@ -256,21 +260,19 @@ class Position:
 
 def create(
     item: PositionItemType,
-    cost: Money,
-    tax_rate: TaxRate,
+    cost: NetMoney,
     funding_source: FundingSourceId | None = None,
     external_position_id: str = "",
 ) -> "Position":
     if item.cost_type.is_vat():
-        return vat(item, cost, funding_source, external_position_id)
+        return vat(item, cost.base, funding_source, external_position_id)
 
-    return regular(item, cost, tax_rate, funding_source, external_position_id)
+    return regular(item, cost, funding_source, external_position_id)
 
 
 def regular(
     item: PositionItemType,
-    cost: Money,
-    tax_rate: TaxRate,
+    cost: NetMoney,
     funding_source: FundingSourceId | None = None,
     external_position_id: str = "",
 ) -> "Position":
@@ -278,7 +280,7 @@ def regular(
         item=item,
         funding_source=funding_source,
         external_position_id=external_position_id,
-        cost_calculation=RegularCostCalculation(cost, tax_rate),
+        cost_calculation=RegularCostCalculation(cost),
     )
 
 

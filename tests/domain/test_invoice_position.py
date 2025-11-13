@@ -11,6 +11,7 @@ from coda.domain.finance.invoice_positions import (
     InvalidSplitAmount,
     PublicationItem,
 )
+from coda.domain.finance.taxable_money import CostBasis, NetMoney
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
@@ -25,9 +26,8 @@ def make_sut(
             PublicationId(1),
             cost_type=PublicationCostType.Gold_OA,
         ),
-        cost=Money(amount, Currency.EUR),
+        cost=NetMoney(amount, Currency.EUR, TaxRate.from_percentage(19)),
         funding_source=funding_source,
-        tax_rate=TaxRate.from_percentage(19),
     )
     return sut
 
@@ -35,8 +35,7 @@ def make_sut(
 def make_vat(amount: Decimal = Decimal(100)) -> Position:
     return invoice_positions.create(
         item=PublicationItem(PublicationId(1), PublicationCostType.Vat),
-        cost=Money(amount, Currency.EUR),
-        tax_rate=TaxRate.from_percentage(19),
+        cost=NetMoney(amount, Currency.EUR, TaxRate.from_percentage(19)),
     )
 
 
@@ -77,8 +76,8 @@ def test__position__all_costs_assigned__no_remaining_costs() -> None:
 def test__position__all_costs_assigned_as_net_and_gross__no_remaining_costs() -> None:
     sut = make_sut(amount=Decimal("5000.00"))
 
-    sut.assign_funding(FundingSourceId(1), Decimal("2000.00"), is_gross=True)
-    sut.assign_funding(FundingSourceId(2), Decimal("3319.33"), is_gross=False)
+    sut.assign_funding(FundingSourceId(1), Decimal("2000.00"), CostBasis.gross)
+    sut.assign_funding(FundingSourceId(2), Decimal("3319.33"), CostBasis.net)
 
     assert sut.unassigned_costs() == Money(0, Currency.EUR)
     assert sut.funding_assignments() == [
@@ -87,15 +86,19 @@ def test__position__all_costs_assigned_as_net_and_gross__no_remaining_costs() ->
     ]
 
 
-def test__vat_position__all_costs_assigned_as_gross__assignments_stay_unchanged() -> None:
+def test__vat_position__all_costs_assigned__assignments_do_not_change_for_tax_mode() -> None:
     sut = make_vat()
 
-    sut.assign_funding(FundingSourceId(1), Decimal(100), is_gross=True)
+    sut.assign_funding(FundingSourceId(1), Decimal(30), CostBasis.gross)
+    sut.assign_funding(FundingSourceId(2), Decimal(70), CostBasis.net)
 
     assert sut.unassigned_costs() == Money(0, Currency.EUR)
     assert sut.funding_assignments() == [
-        FundingAssignment(FundingSourceId(1), Money(100, Currency.EUR)),
+        FundingAssignment(FundingSourceId(1), Money(30, Currency.EUR)),
+        FundingAssignment(FundingSourceId(2), Money(70, Currency.EUR)),
     ]
+    assert sut.unassigned_costs(CostBasis.net) == sut.unassigned_costs(CostBasis.gross)
+    assert sut.funding_assignments(CostBasis.net) == sut.funding_assignments(CostBasis.gross)
 
 
 def test__position__all_costs_assigned__can_retrieve_assignments_as_gross() -> None:
@@ -104,7 +107,7 @@ def test__position__all_costs_assigned__can_retrieve_assignments_as_gross() -> N
     sut.assign_funding(FundingSourceId(1), Decimal(20))
     sut.assign_funding(FundingSourceId(2), Decimal(80))
 
-    assert sut.funding_assignments(as_gross=True) == [
+    assert sut.funding_assignments(CostBasis.gross) == [
         FundingAssignment(FundingSourceId(1), Money("23.8", Currency.EUR)),
         FundingAssignment(FundingSourceId(2), Money("95.2", Currency.EUR)),
     ]
@@ -126,7 +129,7 @@ def test__postion__partially_assigned_costs__can_retrieve_unassigned_costs_as_gr
 
     sut.assign_funding(FundingSourceId(1), Decimal(50))
 
-    assert sut.unassigned_costs(as_gross=True) == Money("59.50", Currency.EUR)
+    assert sut.unassigned_costs(CostBasis.gross) == Money("59.50", Currency.EUR)
 
 
 def test__position__assigned_all_costs_between_multiple_funding_sources__no_unassigned_costs() -> (
