@@ -74,7 +74,7 @@ def test__position__all_costs_assigned__no_remaining_costs() -> None:
     ]
 
 
-def test__position__all_costs_assigned_as_gross__no_remaining_costs() -> None:
+def test__position__all_costs_assigned_as_net_and_gross__no_remaining_costs() -> None:
     sut = make_sut(amount=Decimal("5000.00"))
 
     sut.assign_funding(FundingSourceId(1), Decimal("2000.00"), is_gross=True)
@@ -98,6 +98,18 @@ def test__vat_position__all_costs_assigned_as_gross__assignments_stay_unchanged(
     ]
 
 
+def test__position__all_costs_assigned__can_retrieve_assignments_as_gross() -> None:
+    sut = make_sut()
+
+    sut.assign_funding(FundingSourceId(1), Decimal(20))
+    sut.assign_funding(FundingSourceId(2), Decimal(80))
+
+    assert sut.funding_assignments(as_gross=True) == [
+        FundingAssignment(FundingSourceId(1), Money("23.8", Currency.EUR)),
+        FundingAssignment(FundingSourceId(2), Money("95.2", Currency.EUR)),
+    ]
+
+
 def test__position__costs_assigned_partially__has_unassigned_costs() -> None:
     sut = make_sut()
 
@@ -107,6 +119,14 @@ def test__position__costs_assigned_partially__has_unassigned_costs() -> None:
     assert sut.funding_assignments() == [
         FundingAssignment(FundingSourceId(1), Money(30, Currency.EUR)),
     ]
+
+
+def test__postion__partially_assigned_costs__can_retrieve_unassigned_costs_as_gross() -> None:
+    sut = make_sut()
+
+    sut.assign_funding(FundingSourceId(1), Decimal(50))
+
+    assert sut.unassigned_costs(as_gross=True) == Money("59.50", Currency.EUR)
 
 
 def test__position__assigned_all_costs_between_multiple_funding_sources__no_unassigned_costs() -> (

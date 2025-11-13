@@ -172,10 +172,18 @@ class Position:
             cost_calculation=self._cost_calculation.convert(to, exchange),
         )
 
-    def unassigned_costs(self) -> Money:
+    def as_gross(self, amount: Decimal) -> Decimal:
+        return amount * (Decimal(1) + self.tax_rate)
+
+    def unassigned_costs(self, *, as_gross: bool = False) -> Money:
         if not self._splits:
             return Money(0, self.cost.currency)
-        return self._get_split_remainder()
+        remainder = self._get_split_remainder()
+
+        if as_gross:
+            remainder = self._to_gross(remainder)
+
+        return remainder
 
     def assign_funding(
         self, funding_source: FundingSourceId | None, amount: Decimal, *, is_gross: bool = False
@@ -187,8 +195,16 @@ class Position:
 
         self._splits.append(FundingAssignment(funding_source, Money(amount, self.cost.currency)))
 
-    def funding_assignments(self) -> list[FundingAssignment]:
+    def funding_assignments(self, *, as_gross: bool = False) -> list[FundingAssignment]:
+        if as_gross:
+            return [
+                FundingAssignment(f.funding_source, self._to_gross(f.amount)) for f in self._splits
+            ]
+
         return self._splits
+
+    def _to_gross(self, amount: Money) -> Money:
+        return Money(amount.amount * (Decimal(1) + self.tax_rate), amount.currency)
 
     def _is_invalid_split_amount(self, amount: Decimal) -> bool:
         sign_not_equal = _sign(self.cost.amount) != _sign(amount)
