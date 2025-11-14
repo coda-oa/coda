@@ -47,6 +47,7 @@ class CommonPositionDto(abc.ABC, CodaBaseDto, Generic[ItemT, CostT]):
     tax_rate: DecimalOrDefault = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
     external_position_id: str = ""
     funding_assignments: list[FundingAssignmentDto] = Field(default_factory=list)
+    unassigned_costs: DecimalOrDefault = Decimal(0)
 
     @classmethod
     def from_request(cls, post_data: dict[str, str], prefix: str = "") -> Self:

@@ -8,7 +8,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.costtypes import PublicationCostType
-from coda.domain.finance.invoice_positions import FreeItem, Position
+from coda.domain.finance.invoice_positions import FreeItem, Position, PositionItemType
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 
@@ -46,6 +46,7 @@ def to_position(
 
 
 def position_to_dto(position: Position) -> FreePositionDto:
+    assert _is_freeitem(position.item)
     return FreePositionDto(
         description=position.item.item,
         funding_source=position.funding_source,
@@ -57,11 +58,12 @@ def position_to_dto(position: Position) -> FreePositionDto:
             FundingAssignmentDto(funding_source=f.funding_source, amount=f.amount.amount)
             for f in position.funding_assignments()
         ],
+        unassigned_costs=position.unassigned_costs().amount,
     )
 
 
-def _is_freeitem(p: Position) -> TypeIs[Position]:
-    return isinstance(p.item, FreeItem)
+def _is_freeitem(item: PositionItemType) -> TypeIs[FreeItem]:
+    return isinstance(item, FreeItem)
 
 
 class FreeParser:
@@ -72,7 +74,6 @@ class FreeParser:
         return to_position(position, currency, parse_safe=parse_safe)
 
     def position_to_dto(self, position: Position) -> PositionDto:
-        assert _is_freeitem(position)
         return position_to_dto(position)
 
 

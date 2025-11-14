@@ -88,3 +88,18 @@ def test__position_with_funding_assignments__convert_to_dto_and_back__keeps_assi
     actual = invoice_parser.to_position(dto, currency=position.cost.currency)
 
     assert position == actual
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("create_position", Positions)
+def test__position_with_funding_assignments__convert_to_dto__dto_contains_unassigned_costs(
+    create_position: Callable[[], Position],
+) -> None:
+    position = create_position()
+
+    less = position.net().amount - 1
+    position.assign_funding(FundingSourceId(1), less)
+
+    dto = invoice_parser.position_to_dto(position)
+
+    assert dto.unassigned_costs == Decimal(1)

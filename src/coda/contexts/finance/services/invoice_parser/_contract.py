@@ -73,6 +73,7 @@ def position_to_dto(position: Position) -> ContractPositionDto:
             FundingAssignmentDto(funding_source=f.funding_source, amount=f.amount.amount)
             for f in position.funding_assignments()
         ],
+        unassigned_costs=position.unassigned_costs().amount,
     )
 
 
