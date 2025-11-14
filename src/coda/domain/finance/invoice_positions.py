@@ -203,6 +203,11 @@ class Position:
 
         self._splits.append(FundingAssignment(funding_source, normalized.base))
 
+    def assign_remaining(self, to: FundingSourceId | None) -> None:
+        remainder = self._get_split_remainder()
+        if remainder.amount > 0:
+            self._splits.append(FundingAssignment(to, remainder))
+
     def funding_assignments(self, tax_mode: CostBasis = CostBasis.net) -> list[FundingAssignment]:
         return [
             FundingAssignment(
@@ -223,11 +228,6 @@ class Position:
         )
         remaining_costs = self.cost - split_costs
         return remaining_costs
-
-    def _funding_sources(self) -> set[FundingSourceId | None]:
-        fs = {funds.funding_source for funds in self._splits}
-        fs.add(self.funding_source)
-        return fs
 
     def __eq__(self, value: object, /) -> bool:
         if not isinstance(value, self.__class__):

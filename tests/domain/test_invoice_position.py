@@ -201,3 +201,42 @@ def test__position_with_negative_amount__split_positive_amount__is_not_allowed()
 
     with pytest.raises(InvalidSplitAmount):
         sut.assign_funding(FundingSourceId(1), Decimal(1))
+
+
+def test__position_without_assignments__assign_remaining__assigns_everything_to_funding_source() -> (
+    None
+):
+    sut = make_sut()
+
+    sut.assign_remaining(FundingSourceId(1))
+
+    assert sut.unassigned_costs() == Money(0, Currency.EUR)
+    assert sut.funding_assignments() == [
+        FundingAssignment(FundingSourceId(1), Money(100, Currency.EUR))
+    ]
+
+
+def test__position_with_partial_assignment__assign_remaining__assigns_rest_to_funding_source() -> (
+    None
+):
+    sut = make_sut()
+
+    sut.assign_funding(FundingSourceId(1), Decimal("73.24"))
+    sut.assign_remaining(FundingSourceId(2))
+
+    assert sut.unassigned_costs() == Money(0, Currency.EUR)
+    assert sut.funding_assignments() == [
+        FundingAssignment(FundingSourceId(1), Money("73.24", Currency.EUR)),
+        FundingAssignment(FundingSourceId(2), Money("26.76", Currency.EUR)),
+    ]
+
+
+def test__position_all_funding_assigned__assign_remaining__does_not_change_assignments() -> None:
+    sut = make_sut()
+    sut.assign_remaining(FundingSourceId(1))
+
+    sut.assign_remaining(FundingSourceId(2))
+
+    assert sut.funding_assignments() == [
+        FundingAssignment(FundingSourceId(1), Money(100, Currency.EUR))
+    ]
