@@ -70,7 +70,7 @@ class CostCalculation(Protocol):
     def convert(self, to: Currency, exchange: CurrencyExchange) -> "CostCalculation":
         ...
 
-    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> NetMoney:
+    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> Money:
         ...
 
 
@@ -98,10 +98,10 @@ class RegularCostCalculation:
         net = NetMoney.from_money(self.cost.convert_to(to, exchange), self.tax_rate())
         return RegularCostCalculation(net)
 
-    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> NetMoney:
+    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> Money:
         money = Money(amount, self.net_cost.currency)
         net_money = NetMoney.from_basis(tax_mode, money, self.tax_rate())
-        return net_money
+        return net_money.base
 
     def to_tax_mode(self, amount: Money, mode: CostBasis) -> Money:
         return NetMoney.from_money(amount, self.tax_rate()).amount_in(mode)
@@ -126,9 +126,9 @@ class VatCalculation:
     def convert(self, to: Currency, exchange: CurrencyExchange) -> CostCalculation:
         return VatCalculation(self.cost.convert_to(to, exchange))
 
-    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> NetMoney:
+    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> Money:
         _ = tax_mode
-        return NetMoney(amount, self.cost.currency, self.tax_rate())
+        return Money(amount, self.cost.currency)
 
 
 @dataclass(frozen=True)
@@ -194,7 +194,9 @@ class Position:
         amount: Decimal,
         tax_mode: CostBasis = CostBasis.net,
     ) -> None:
-        normalized = self._cost_calculation.normalize(amount, tax_mode)
+        normalized = NetMoney.from_money(
+            self._cost_calculation.normalize(amount, tax_mode), self.tax_rate
+        )
 
         if self._is_invalid_split_amount(normalized.amount):
             raise InvalidSplitAmount()
@@ -260,14 +262,15 @@ class Position:
 
 def create(
     item: PositionItemType,
-    cost: NetMoney,
+    cost: Money,
+    tax_rate: TaxRate,
     funding_source: FundingSourceId | None = None,
     external_position_id: str = "",
 ) -> "Position":
     if item.cost_type.is_vat():
-        return vat(item, cost.base, funding_source, external_position_id)
+        return vat(item, cost, funding_source, external_position_id)
 
-    return regular(item, cost, funding_source, external_position_id)
+    return regular(item, NetMoney.from_money(cost, tax_rate), funding_source, external_position_id)
 
 
 def regular(

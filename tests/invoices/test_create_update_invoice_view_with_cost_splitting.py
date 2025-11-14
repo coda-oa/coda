@@ -26,7 +26,7 @@ def test__create_invoice_with_positions_with_split_costs__saves_to_db(client: Cl
     position.assign_funding(funding_source_1, Decimal(position.cost.amount) / Decimal(3))
     position.assign_funding(funding_source_2, Decimal(position.cost.amount) / Decimal(3))
 
-    expected = domainfactory.invoice(creditor=creditor, positions=None)
+    expected = domainfactory.invoice(creditor=creditor, positions=[])
     expected.positions = [position]
     expected.reset_payment()
 
@@ -55,7 +55,7 @@ def test__existing_invoice__update_with_positions_with_split_costs__saves_to_db(
     creditor = CreditorId(modelfactory.creditor().pk)
 
     position = domainfactory.free_position(Currency.EUR)
-    expected = domainfactory.invoice(creditor=creditor, positions=None)
+    expected = domainfactory.invoice(creditor=creditor, positions=[])
     expected.positions = [position]
     expected.reset_payment()
     expected.id = invoice_service.save(expected)

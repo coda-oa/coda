@@ -6,12 +6,12 @@ from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.invoice_positions import (
-    Position,
     FundingAssignment,
     InvalidSplitAmount,
+    Position,
     PublicationItem,
 )
-from coda.domain.finance.taxable_money import CostBasis, NetMoney
+from coda.domain.finance.taxable_money import CostBasis
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
@@ -26,7 +26,8 @@ def make_sut(
             PublicationId(1),
             cost_type=PublicationCostType.Gold_OA,
         ),
-        cost=NetMoney(amount, Currency.EUR, TaxRate.from_percentage(19)),
+        cost=Money(amount, Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
         funding_source=funding_source,
     )
     return sut
@@ -35,7 +36,8 @@ def make_sut(
 def make_vat(amount: Decimal = Decimal(100)) -> Position:
     return invoice_positions.create(
         item=PublicationItem(PublicationId(1), PublicationCostType.Vat),
-        cost=NetMoney(amount, Currency.EUR, TaxRate.from_percentage(19)),
+        cost=Money(amount, Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
     )
 
 
