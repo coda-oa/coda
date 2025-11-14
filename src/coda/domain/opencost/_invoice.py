@@ -1,15 +1,8 @@
 from decimal import Decimal
-from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field
 
-from coda.domain.opencost._common import NonEmptyString
-from coda.domain.opencost._contract import ContractCostType, DateFormat
-from coda.domain.opencost._publication import (
-    PublicationCostType,
-)
-
-Currency = Annotated[str, StringConstraints(pattern=r"[A-Z]{3}")]
+from ._types import NonEmptyString, Currency, DateFormat, ContractCostType, PublicationCostType
 
 
 class PublicationAmountPaidType(BaseModel):

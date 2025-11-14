@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 from enum import Enum
 
 from pydantic import BaseModel
 
-from ._common import NonEmptyString
-from ._contract import ContractPrimaryIdentifier
+from ._types import NonEmptyString
 from ._institution import InstitutionType
 from ._invoice import PublicationInvoiceType
 
@@ -104,21 +105,6 @@ class CoarPublicationType(Enum):
     workflow = "workflow"
 
 
-class PublicationCostType(Enum):
-    gold_oa = "gold-oa"
-    vat = "vat"
-    colour_charge = "colour charge"
-    cover_charge = "cover charge"
-    hybrid_oa = "hybrid-oa"
-    other = "other"
-    page_charge = "page charge"
-    permission = "permission"
-    publication_charge = "publication charge"
-    reprint = "reprint"
-    submission_fee = "submission fee"
-    payment_fee = "payment fee"
-
-
 class PublicationSecondaryIdTypeEnum(Enum):
     doi = "doi"
     handle = "handle"
@@ -168,3 +154,12 @@ class PublicationType(BaseModel):
     publication_type: CoarPublicationType
     external_costsplitting: bool | None = None
     cost_data: PublicationCostDataType
+
+
+# Import after all models are defined to avoid circular import during module loading
+# Then rebuild models that have forward references
+from ._contract import ContractPrimaryIdentifier  # noqa: E402
+
+PartOfContractType.model_rebuild()
+PublicationCostDataType.model_rebuild()
+PublicationType.model_rebuild()
