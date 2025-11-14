@@ -1,9 +1,8 @@
 from enum import Enum
-from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field
 
-from ._common import NonEmptyString
+from ._types import NonEmptyString, DateFormat
 from ._institution import InstitutionType
 from ._invoice import ContractCostDataType
 
@@ -28,17 +27,8 @@ class ContractSecondaryIdType(BaseModel):
     type: ContractSecondaryIdTypeEnum
 
 
-class ContractCostType(Enum):
-    publish = "publish"
-    read = "read"
-    vat = "vat"
-
-
 class ContractSecondaryIdentifiersType(BaseModel):
     id: list[ContractSecondaryIdType]
-
-
-DateFormat = Annotated[str, StringConstraints(pattern=r"[0-9]{4}(-[0-9]{2}){0,2}")]
 
 
 class ParticipationType(BaseModel):

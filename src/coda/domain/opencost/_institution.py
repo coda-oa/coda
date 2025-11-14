@@ -1,8 +1,7 @@
 from enum import Enum
-from coda.domain.opencost._common import NonEmptyString
-
-
 from pydantic import BaseModel
+
+from ._types import NonEmptyString
 
 
 class InstitutionIdType(Enum):
