@@ -10,7 +10,7 @@
             <option value>-------</option>
             {% for fs in funding_sources %}
                 <option value="{{ fs.id }}"
-                        {% if position.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
+                        {% if split.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
             {% endfor %}
         </select>
     </div>
@@ -21,7 +21,7 @@
                class="my-0"
                id="id-positions-{{ counter }}-funding_assignments-{{ split_counter }}-amount"
                name="positions-{{ counter }}-funding_assignments-{{ split_counter }}-amount"
-               value="">
+               value="{{ split.amount }}">
     </div>
     <div>
         <button type="button"

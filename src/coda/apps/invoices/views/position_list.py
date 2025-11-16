@@ -77,12 +77,20 @@ def invoice_total(request: HttpRequest) -> HttpResponse:
 def add_funding_assignment(request: HttpRequest) -> HttpResponse:
     position_list = formdata.map_to_model(PositionList, request.POST)
     try:
+        currency = Currency.from_code(request.POST["currency"])
         position_index = int(request.POST["add_funding_assignment_to_position"]) - 1
-        position = position_list.positions[position_index]
+        position_dto = position_list.positions[position_index]
     except (IndexError, KeyError, ValueError):
         return render_positions(request, position_list)
 
-    position.funding_assignments.append(FundingAssignmentDto())
+    position = invoice_parser.to_position(position_dto, currency)
+    if not position.funding_assignments() or position.unassigned_costs().amount > 0:
+        position.assign_remaining(None)
+        position_dto = invoice_parser.position_to_dto(position)
+        position_list.positions[position_index] = position_dto
+    else:
+        position_dto.funding_assignments.append(FundingAssignmentDto())
+
     return render_positions(request, position_list)
 
 
