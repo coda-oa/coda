@@ -1,4 +1,6 @@
+import logging
 from dataclasses import asdict
+from decimal import Decimal
 from typing import Any, TypedDict
 
 from django.contrib.auth.decorators import login_required
@@ -19,7 +21,9 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     RelatedFundingRequest,
 )
 from coda.contexts.finance.services import invoice_parser
+from coda.contexts.finance.services.invoice_parser._parser import InvoiceTotal
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.invoice_positions import InvalidSplitAmount
 from coda.domain.money import Currency
 from coda.domain.publication.publication import PublicationId
 
@@ -64,13 +68,20 @@ def remove_position(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def invoice_total(request: HttpRequest) -> HttpResponse:
-    position_list = formdata.map_to_model(PositionList, request.POST)
-    currency = Currency.from_code(request.POST.get("currency", "EUR"))
     return render(
         request,
         "invoices/position_summary.html",
-        asdict(invoice_parser.invoice_total(position_list.positions, currency)),
+        asdict(_invoice_total_from_request(request)),
     )
+
+
+def _invoice_total_from_request(request: HttpRequest) -> InvoiceTotal:
+    position_list = formdata.map_to_model(PositionList, request.POST)
+    currency = Currency.from_code(request.POST.get("currency", "EUR"))
+    try:
+        return invoice_parser.invoice_total(position_list.positions, currency)
+    except InvalidSplitAmount:
+        return InvoiceTotal(Decimal(0), Decimal(0), Decimal(0))
 
 
 @login_required
@@ -80,8 +91,9 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
         currency = Currency.from_code(request.POST["currency"])
         position_index = int(request.POST["add_funding_assignment_to_position"]) - 1
         position_dto = position_list.positions[position_index]
-    except (IndexError, KeyError, ValueError):
-        return render_positions(request, position_list)
+    except (IndexError, KeyError, ValueError) as e:
+        logging.info("position_list::add_funding_assignment:\n%s", e)
+        return render_positions(request, PositionList())
 
     position = invoice_parser.to_position(position_dto, currency)
     if not position.funding_assignments() or position.unassigned_costs().amount > 0:
@@ -91,6 +103,7 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
     else:
         position_dto.funding_assignments.append(FundingAssignmentDto())
 
+    logging.info("position_list::add_funding_assignment position_list=%s", position_list)
     return render_positions(request, position_list)
 
 
@@ -109,6 +122,36 @@ def remove_funding_assignment(request: HttpRequest) -> HttpResponse:
         pass
 
     return render_positions(request, position_list)
+
+
+@login_required
+def refresh_unassigned_costs(request: HttpRequest) -> HttpResponse:
+    errors: ErrorDict | None = None
+    try:
+        position_list = formdata.map_to_model(PositionList, request.POST)
+    except ValueError:
+        return render_positions(request, PositionList())
+
+    try:
+        position_index_str = request.POST["refresh_position_index"]
+        position_index = int(position_index_str) - 1
+        position_dto = position_list.positions[position_index]
+    except (IndexError, KeyError):
+        return render_positions(request, PositionList())
+
+    try:
+        position = invoice_parser.to_position(
+            position_dto, Currency.from_code(request.POST["currency"])
+        )
+        position_dto.unassigned_costs = position.unassigned_costs().amount
+    except InvalidSplitAmount:
+        errors = ErrorDict(
+            errors={
+                f"positions-{position_index_str}-funding_assignments-errors": "Invalid funding assignment!"
+            }
+        )
+
+    return render_positions(request, position_list, errors)
 
 
 def added_positions(request: HttpRequest) -> list[PositionDto]:
@@ -151,15 +194,18 @@ def parse_added_free_position(request: HttpRequest) -> FreePositionDto | None:
     return FreePositionDto.from_request(request.POST, prefix="free-position-")
 
 
-def render_positions(request: HttpRequest, position_list: PositionList) -> HttpResponse:
-    currency = Currency.from_code(request.POST.get("currency", "EUR"))
+def render_positions(
+    request: HttpRequest, position_list: PositionList, errors: ErrorDict | None = None
+) -> HttpResponse:
+    errors = errors if errors else {"errors": {}}
     return render(
         request,
         "invoices/invoice_positions.html",
         {"position_list": position_list}
         | _DefaultContext
+        | errors
         | funding_sources_context()
-        | asdict(invoice_parser.invoice_total(position_list.positions, currency)),
+        | asdict(_invoice_total_from_request(request)),
     )
 
 
