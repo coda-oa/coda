@@ -1,4 +1,3 @@
-import logging
 from dataclasses import asdict
 from decimal import Decimal
 from typing import Any, TypedDict
@@ -91,8 +90,7 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
         currency = Currency.from_code(request.POST["currency"])
         position_index = int(request.POST["add_funding_assignment_to_position"]) - 1
         position_dto = position_list.positions[position_index]
-    except (IndexError, KeyError, ValueError) as e:
-        logging.info("position_list::add_funding_assignment:\n%s", e)
+    except (IndexError, KeyError, ValueError):
         return render_positions(request, PositionList())
 
     position = invoice_parser.to_position(position_dto, currency)
@@ -103,7 +101,6 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
     else:
         position_dto.funding_assignments.append(FundingAssignmentDto())
 
-    logging.info("position_list::add_funding_assignment position_list=%s", position_list)
     return render_positions(request, position_list)
 
 

@@ -2,20 +2,16 @@ from typing_extensions import TypeIs
 
 from coda.apps.contracts import repository
 from coda.contexts.finance.dto.edit_position_dtos import (
-    PositionDto,
     ContractPositionDto,
     FundingAssignmentDto,
+    PositionDto,
 )
 from coda.domain.contract import ContractId, ContractYear
-from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import ContractCostType
-from coda.domain.finance.invoice import FundingSourceId
-from coda.domain.finance.invoice_positions import Position, ContractItem, PositionItemType
-from coda.domain.finance.taxrate import TaxRate
-from coda.domain.money import Currency, Money
+from coda.domain.finance.invoice_positions import ContractItem, Position, PositionItemType
 
 
-def parse_item(position: ContractPositionDto, *, parse_safe: bool = False) -> ContractYear:
+def _parse_item(position: ContractPositionDto, *, parse_safe: bool = False) -> ContractYear:
     contract = repository.get_by_id(ContractId(position.id))
     if not parse_safe:
         item = contract.in_year(position.year)
@@ -25,31 +21,12 @@ def parse_item(position: ContractPositionDto, *, parse_safe: bool = False) -> Co
     return item
 
 
-def parse_cost_type(position: ContractPositionDto) -> ContractCostType:
+def _parse_cost_type(position: ContractPositionDto) -> ContractCostType:
     return ContractCostType(position.cost_type)
 
 
-def to_position(
-    position: ContractPositionDto, currency: Currency, *, parse_safe: bool = False
-) -> Position:
-    item = parse_item(position, parse_safe=parse_safe)
-    cost_type = parse_cost_type(position)
-
-    _position = invoice_positions.create(
-        item=ContractItem(item, cost_type=cost_type),
-        cost=Money(position.cost_amount, currency),
-        tax_rate=TaxRate.from_percentage(position.tax_rate),
-        funding_source=FundingSourceId(position.funding_source)
-        if position.funding_source
-        else None,
-        external_position_id=position.external_position_id,
-    )
-
-    for f in position.funding_assignments:
-        fid = FundingSourceId(f.funding_source) if f.funding_source else None
-        _position.assign_funding(fid, f.amount)
-
-    return _position
+def parse_item_from(position: ContractPositionDto, *, parse_safe: bool = False) -> PositionItemType:
+    return ContractItem(_parse_item(position, parse_safe=parse_safe), _parse_cost_type(position))
 
 
 def position_to_dto(position: Position) -> ContractPositionDto:
@@ -82,15 +59,15 @@ def _is_contractitem(item: PositionItemType) -> TypeIs[ContractItem]:
 
 
 class ContractParser:
-    def to_position(
-        self, position: PositionDto, currency: Currency, *, parse_safe: bool = False
-    ) -> Position:
-        assert isinstance(position, ContractPositionDto)
-        return to_position(position, currency, parse_safe=parse_safe)
-
     def position_to_dto(self, position: Position) -> PositionDto:
         assert _is_contractitem(position.item)
         return position_to_dto(position)
+
+    def parse_item_from(
+        self, position: PositionDto, *, parse_safe: bool = False
+    ) -> PositionItemType:
+        assert isinstance(position, ContractPositionDto)
+        return parse_item_from(position, parse_safe=parse_safe)
 
 
 parser = ContractParser()

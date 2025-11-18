@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 
 from coda.apps.contracts import repository
+from coda.contexts.finance.dto.edit_position_dtos import FundingAssignmentDto
 from coda.contexts.finance.services import invoice_parser
 from coda.domain.contract import ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
@@ -103,3 +104,16 @@ def test__position_with_funding_assignments__convert_to_dto__dto_contains_unassi
     dto = invoice_parser.position_to_dto(position)
 
     assert dto.unassigned_costs == Decimal(1)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("create_position", Positions)
+def test__position_dto_with_empty_funding_assignment__does_not_assign_to_domain_object(
+    create_position: Callable[[], Position],
+) -> None:
+    position = create_position()
+    dto = invoice_parser.position_to_dto(position)
+
+    dto.funding_assignments.append(FundingAssignmentDto())
+
+    assert invoice_parser.to_position(dto, position.cost.currency) == position

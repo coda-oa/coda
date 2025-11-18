@@ -1,6 +1,6 @@
 import abc
 from decimal import Decimal
-from typing import Annotated, Any, Generic, Self, TypeVar
+from typing import Annotated, Any, Generic, Literal, Self, TypeVar
 
 import pydantic
 from django.urls import reverse
@@ -35,6 +35,7 @@ IntOrNone = Annotated[int | None, fallback(None)]
 
 
 class FundingAssignmentDto(CodaBaseDto):
+    funding_source_type: Literal["budget", "institution"] = "budget"
     funding_source: IntOrNone = None
     amount: DecimalOrDefault = Decimal(0)
 

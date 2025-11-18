@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Any, Protocol
 
 from coda.contexts.finance.dto.edit_position_dtos import (
+    FundingAssignmentDto,
     PositionDto,
     ContractPositionDto,
     FreePositionDto,
@@ -12,21 +13,24 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.domain import errors
 from coda.domain.contract import ContractYear
-from coda.domain.finance.invoice import CreditorId, Invoice
-from coda.domain.finance.invoice_positions import Position, ItemType
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice
+from coda.domain.finance.invoice_positions import Position, ItemType, PositionItemType
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money._currency import Currency
+from coda.domain.money._money import Money
 from coda.domain.publication.publication import PublicationId
 
 from . import _contract, _free, _publication
 
 
 class PositionParser(Protocol):
-    def to_position(
-        self, position: PositionDto, currency: Currency, *, parse_safe: bool = True
-    ) -> Position:
+    def position_to_dto(self, position: Position) -> PositionDto:
         ...
 
-    def position_to_dto(self, position: Position) -> PositionDto:
+    def parse_item_from(
+        self, position: PositionDto, *, parse_safe: bool = False
+    ) -> PositionItemType:
         ...
 
 
@@ -68,7 +72,26 @@ def invoice_total(positions: list[PositionDto], currency: Currency) -> InvoiceTo
 
 def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool = False) -> Position:
     parser = _dto_parser_registry[position.type]
-    return parser.to_position(position, currency, parse_safe=parse_safe)
+
+    _position = invoice_positions.create(
+        item=parser.parse_item_from(position, parse_safe=parse_safe),
+        cost=Money(position.cost_amount, currency),
+        tax_rate=TaxRate.from_percentage(position.tax_rate),
+        external_position_id=position.external_position_id,
+        funding_source=FundingSourceId(position.funding_source)
+        if position.funding_source
+        else None,
+    )
+
+    _empty = FundingAssignmentDto()
+    for f in position.funding_assignments:
+        if f == _empty:
+            continue
+
+        fid = FundingSourceId(f.funding_source) if f.funding_source else None
+        _position.assign_funding(fid, f.amount)
+
+    return _position
 
 
 def position_to_dto(position: Position) -> PositionDto:
