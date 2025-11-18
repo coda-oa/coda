@@ -34,7 +34,7 @@
                    value="{{ position.unassigned_costs }}"
                    readonly
                    hx-post="{% url "invoices:position_refresh_funding_assignment" %}"
-                   hx-trigger="change from:#id-positions-{{ counter }}-funding_assignemnts-list input"
+                   hx-trigger="change from:(#id-positions-{{ counter }}-funding_assignemnts-list input.cost-amount)"
                    hx-target="#positions"
                    hx-swap="outerHTML"
                    hx-include="#invoice-form"
