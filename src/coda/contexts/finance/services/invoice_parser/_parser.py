@@ -3,8 +3,11 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Protocol
 
+from coda.apps.invoices import funding_source_repository
 from coda.contexts.finance.dto.edit_position_dtos import (
+    CommonPositionDto,
     FundingAssignmentDto,
+    ItemDto,
     PositionDto,
     ContractPositionDto,
     FreePositionDto,
@@ -25,7 +28,7 @@ from . import _contract, _free, _publication
 
 
 class PositionParser(Protocol):
-    def position_to_dto(self, position: Position) -> PositionDto:
+    def to_itemdto(self, position: Position) -> ItemDto:
         ...
 
     def parse_item_from(
@@ -96,7 +99,35 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
 
 def position_to_dto(position: Position) -> PositionDto:
     parser = _position_converters[type(position.item.item)]
-    return parser.position_to_dto(position)
+    dto = _position_to_dto(position, parser.to_itemdto(position))
+    fs = [
+        fa.funding_source for fa in position.funding_assignments() if fa.funding_source is not None
+    ]
+    fs_types = funding_source_repository.types_for(fs)
+
+    for fa_dto in dto.funding_assignments:
+        if not fa_dto.funding_source:
+            continue
+
+        fs_type = fs_types.get(FundingSourceId(fa_dto.funding_source), "budget")
+        fa_dto.funding_source_type = fs_type
+
+    return dto
+
+
+def _position_to_dto(position: Position, item_dto: ItemDto) -> CommonPositionDto:
+    return CommonPositionDto(
+        item=item_dto,
+        cost_amount=position.cost.amount,
+        cost_type=position.item.cost_type.value,
+        tax_rate=position.tax_rate.percentage(),
+        external_position_id=position.external_position_id,
+        funding_assignments=[
+            FundingAssignmentDto(funding_source=f.funding_source, amount=f.amount.amount)
+            for f in position.funding_assignments()
+        ],
+        unassigned_costs=position.unassigned_costs().amount,
+    )
 
 
 def get_position_type(type_name: str) -> type[PositionDto]:

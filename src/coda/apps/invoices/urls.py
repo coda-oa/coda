@@ -29,6 +29,7 @@ from coda.apps.invoices.views.position_list import (
     refresh_unassigned_costs,
     remove_funding_assignment,
     remove_position,
+    switch_funding_source_type,
     switch_position_tab,
 )
 from coda.apps.invoices.views.search import search_contracts, search_publications
@@ -60,6 +61,11 @@ urlpatterns = [
         "create/refresh-funding-asssignment",
         refresh_unassigned_costs,
         name="position_refresh_funding_assignment",
+    ),
+    path(
+        "create/switch_funding_source_type",
+        switch_funding_source_type,
+        name="switch_funding_source_type",
     ),
     path("create/total/", invoice_total, name="get_total"),
     path("update/<int:pk>/", update_invoice, name="update"),

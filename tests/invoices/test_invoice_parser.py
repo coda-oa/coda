@@ -4,10 +4,13 @@ from decimal import Decimal
 import pytest
 
 from coda.apps.contracts import repository
+from coda.apps.invoices import funding_source_repository
 from coda.contexts.finance.dto.edit_position_dtos import FundingAssignmentDto
 from coda.contexts.finance.services import invoice_parser
+from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.funding_sources import SplitSource
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.invoice_positions import Position
 from coda.domain.publication.publication import PublicationId
@@ -81,8 +84,9 @@ def test__vat_position__converted_to_dto__has_only_tax_amount(
 def test__position_with_funding_assignments__convert_to_dto_and_back__keeps_assignments(
     create_position: Callable[[], Position],
 ) -> None:
+    funding_source = FundingSourceId(modelfactory.funding_source().pk)
     position = create_position()
-    position.assign_funding(FundingSourceId(1), position.net().amount)
+    position.assign_funding(funding_source, position.net().amount)
 
     dto = invoice_parser.position_to_dto(position)
 
@@ -96,10 +100,11 @@ def test__position_with_funding_assignments__convert_to_dto_and_back__keeps_assi
 def test__position_with_funding_assignments__convert_to_dto__dto_contains_unassigned_costs(
     create_position: Callable[[], Position],
 ) -> None:
+    funding_source = FundingSourceId(modelfactory.funding_source().pk)
     position = create_position()
 
     less = position.net().amount - 1
-    position.assign_funding(FundingSourceId(1), less)
+    position.assign_funding(funding_source, less)
 
     dto = invoice_parser.position_to_dto(position)
 
@@ -117,3 +122,21 @@ def test__position_dto_with_empty_funding_assignment__does_not_assign_to_domain_
     dto.funding_assignments.append(FundingAssignmentDto())
 
     assert invoice_parser.to_position(dto, position.cost.currency) == position
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("create_position", Positions)
+def test__position_with_funding_assignment__convert_to_dto__contains_budget_type(
+    create_position: Callable[[], Position],
+) -> None:
+    institution = InstitutionId(modelfactory.institution().pk)
+    funding_source = SplitSource.new(institution, "some-name")
+    funding_source.id = funding_source_repository.create(funding_source)
+
+    position = create_position()
+    position.assign_remaining(funding_source.id)
+
+    dto = invoice_parser.position_to_dto(position)
+
+    funding_assignment = dto.funding_assignments[0]
+    assert funding_assignment.funding_source_type == "institution"

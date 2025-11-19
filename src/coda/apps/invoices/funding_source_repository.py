@@ -1,4 +1,5 @@
-from typing import cast
+from collections.abc import Iterable
+from typing import Literal, cast
 
 from coda.apps.invoices.models import FundingSource
 from coda.domain.author import InstitutionId
@@ -34,3 +35,10 @@ def create(source: Budget | SplitSource) -> FundingSourceId:
 
     model = FundingSource.objects.create(type=type, name=source.name, institution_id=institution_id)
     return FundingSourceId(model.pk)
+
+
+def types_for(
+    ids: Iterable[FundingSourceId],
+) -> dict[FundingSourceId, Literal["budget", "institution"]]:
+    fs = FundingSource.objects.filter(pk__in=ids).values_list("pk", "type")
+    return {FundingSourceId(pk): cast(Literal["budget", "institution"], t) for pk, t in fs}

@@ -3,20 +3,22 @@ from decimal import Decimal
 from typing import Any, TypedDict
 
 from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseNotFound
 from django.shortcuts import render
 
 from coda import formdata
 from coda.apps.fundingrequests import repository
+from coda.apps.institutions.models import Institution
 from coda.apps.invoices.models import FundingSource
 from coda.apps.publications.models import Publication
 from coda.contexts.finance.dto.edit_position_dtos import (
+    CommonPositionDto,
     ContractPositionDto,
     FreePositionDto,
     FundingAssignmentDto,
     PositionDto,
     PositionList,
-    PublicationPositionDto,
+    PublicationItemDto,
     RelatedFundingRequest,
 )
 from coda.contexts.finance.services import invoice_parser
@@ -151,21 +153,41 @@ def refresh_unassigned_costs(request: HttpRequest) -> HttpResponse:
     return render_positions(request, position_list, errors)
 
 
+@login_required
+def switch_funding_source_type(request: HttpRequest) -> HttpResponse:
+    key = ""
+    for k in request.GET.keys():
+        if k.endswith("funding_source_type"):
+            key = k
+            break
+
+    funding_source_type = request.GET.get(key)
+    template_name = "invoices/position_cost_split_funding_source_select_choices.html"
+    if funding_source_type == "budget":
+        return render(request, template_name, funding_sources_context())
+    elif funding_source_type == "institution":
+        return render(request, template_name, {"funding_sources": Institution.objects.all()})
+
+    return HttpResponseNotFound()
+
+
 def added_positions(request: HttpRequest) -> list[PositionDto]:
     _positions = [parser(request) for parser in _ADD_POSITION_PARSERS.values()]
     return [p for p in _positions if p is not None]
 
 
-def parse_added_publication_position(request: HttpRequest) -> PublicationPositionDto | None:
+def parse_added_publication_position(request: HttpRequest) -> PositionDto | None:
     publication_id = request.POST.get("add-publication-position")
     if publication_id is None:
         return None
 
     publication = Publication.objects.get(pk=publication_id)
-    return PublicationPositionDto(
-        id=publication.pk,
-        title=publication.title,
-        funding_request=maybe_request_context(publication),
+    return CommonPositionDto(
+        item=PublicationItemDto(
+            id=publication.pk,
+            title=publication.title,
+            funding_request=maybe_request_context(publication),
+        )
     )
 
 

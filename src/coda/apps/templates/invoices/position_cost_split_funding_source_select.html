@@ -1,0 +1,17 @@
+<div class="form-row">
+    <select class="my-0"
+            name="positions-{{ counter }}-funding_assignments-{{ split_counter }}-funding_source_type"
+            hx-get="{% url 'invoices:switch_funding_source_type' %}"
+            hx-target="#id-positions-{{ counter }}-funding_assignments-{{ split_counter }}-funding_source"
+            hx-swap="innerHTML">
+        <option value="budget"
+                {% if split.funding_source_type == "budget" %}selected{% endif %}>Budget</option>
+        <option value="institution"
+                {% if split.funding_source_type == "institution" %}selected{% endif %}>Institution</option>
+    </select>
+    <select class="my-0"
+            id="id-positions-{{ counter }}-funding_assignments-{{ split_counter }}-funding_source"
+            name="positions-{{ counter }}-funding_assignments-{{ split_counter }}-funding_source">
+        {% include "invoices/position_cost_split_funding_source_select_choices.html" %}
+    </select>
+</div>

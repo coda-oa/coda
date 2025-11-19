@@ -1,22 +1,5 @@
 <div class="flex justify-between align-start">
-    <div class="form-row">
-        <select class="my-0"
-                name="positions-{{ counter }}-funding_assignments-{{ split_counter }}-funding_source_type">
-            <option value="budget"
-                    {% if split.funding_source_type == "budget" %}selected{% endif %}>Budget</option>
-            <option value="institution"
-                    {% if split.funding_source_type == "institution" %}selected{% endif %}>Institution</option>
-        </select>
-        <select class="my-0"
-                id="id-positions-{{ counter }}-funding_assignments-{{ split_counter }}-funding_source"
-                name="positions-{{ counter }}-funding_assignments-{{ split_counter }}-funding_source">
-            <option value>-------</option>
-            {% for fs in funding_sources %}
-                <option value="{{ fs.id }}"
-                        {% if split.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
-            {% endfor %}
-        </select>
-    </div>
+    {% include "invoices/position_cost_split_funding_source_select.html" %}
     <div class="form-row">
         <label for="id-positions-{{ counter }}-funding_assignments-{{ split_counter }}-amount"
                class="my-0">Amount</label>

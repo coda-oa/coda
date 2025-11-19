@@ -1,0 +1,5 @@
+<option value>-------</option>
+{% for fs in funding_sources %}
+    <option value="{{ fs.id }}"
+            {% if split.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
+{% endfor %}
