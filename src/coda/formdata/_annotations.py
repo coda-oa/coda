@@ -1,6 +1,6 @@
 import types
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Union, get_args, get_origin
+from typing import Any, TypeAliasType, Union, get_args, get_origin
 
 import pydantic
 
@@ -9,10 +9,30 @@ from ._keys import KeyMatcher
 _key_matcher = KeyMatcher()
 
 
+def unwrap_type_alias(annotation: Any) -> Any:
+    """
+    Unwrap PEP 695 type aliases (Python 3.12+) to get the actual type.
+
+    In Python 3.12+, the new syntax `type X = Y` creates a TypeAliasType object.
+    This function unwraps it to get the actual type Y.
+
+    Args:
+        annotation: A type annotation that might be a TypeAliasType
+
+    Returns:
+        The unwrapped type, or the original annotation if not a TypeAliasType
+    """
+    if isinstance(annotation, TypeAliasType):
+        return annotation.__value__
+    return annotation
+
+
 def with_union_support(type_checker_func: Callable[[Any], bool]) -> Callable[[Any], bool]:
     """Decorator to automatically handle union types in type checkers."""
 
     def wrapper(annotation: Any) -> bool:
+        annotation = unwrap_type_alias(annotation)
+
         if is_union(annotation):
             return any(type_checker_func(arg) for arg in get_args(annotation))
         return type_checker_func(annotation)
@@ -52,6 +72,7 @@ def is_pydantic_model(annotation: Any) -> bool:
 
 
 def is_union(annotation: Any) -> bool:
+    annotation = unwrap_type_alias(annotation)
     return get_origin(annotation) in (Union, getattr(types, "UnionType", None))
 
 
@@ -67,6 +88,8 @@ def get_matching_model_type(
 
 def get_all_model_types(annotation: Any) -> list[type[pydantic.BaseModel]]:
     """Extract all Pydantic model types from an annotation (including unions)."""
+    annotation = unwrap_type_alias(annotation)
+
     if is_union(annotation):
         models: list[type[pydantic.BaseModel]] = []
         for arg in get_args(annotation):

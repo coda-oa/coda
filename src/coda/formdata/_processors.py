@@ -11,6 +11,7 @@ from ._annotations import (
     is_pydantic_model,
     is_sequence_field,
     is_union,
+    unwrap_type_alias,
 )
 from ._errors import CannotProcessField, FieldAlreadyExists, ValidationFailed
 from ._keys import KeyMatcher
@@ -193,7 +194,9 @@ class SequenceFieldProcessor(FieldProcessor):
             )
 
         annotation = field_info.annotation
-        annotation_args = get_args(annotation)
+        # Unwrap PEP 695 type aliases before getting args
+        unwrapped = unwrap_type_alias(annotation)
+        annotation_args = get_args(unwrapped)
         has_pydantic_models = any(is_pydantic_model(arg) for arg in annotation_args)
 
         field_values = []
@@ -250,10 +253,13 @@ class ModelFieldProcessor(FieldProcessor):
         """
         Quick structural check for union types - can potentially handle if there's a model in the union.
         """
-        if is_union(field_info.annotation):
-            return any(is_pydantic_model(arg) for arg in get_args(field_info.annotation))
+        # Unwrap PEP 695 type aliases before checking
+        annotation = unwrap_type_alias(field_info.annotation)
 
-        return is_pydantic_model(field_info.annotation)
+        if is_union(annotation):
+            return any(is_pydantic_model(arg) for arg in get_args(annotation))
+
+        return is_pydantic_model(annotation)
 
     def process_model_field(
         self, data: dict[str, Any], field_key: str, annotation: Any
@@ -335,10 +341,13 @@ class MappingFieldProcessor(FieldProcessor):
         if not field_info.annotation:
             return False
 
-        if is_union(field_info.annotation):
-            return any(is_dict(arg) for arg in get_args(field_info.annotation))
+        # Unwrap PEP 695 type aliases before checking
+        annotation = unwrap_type_alias(field_info.annotation)
 
-        return is_dict(field_info.annotation)
+        if is_union(annotation):
+            return any(is_dict(arg) for arg in get_args(annotation))
+
+        return is_dict(annotation)
 
     def try_process_field(
         self, data: dict[str, Any], field_name: str, field_info: FieldInfo, **kwargs: Any
@@ -370,13 +379,16 @@ class MappingFieldProcessor(FieldProcessor):
                 new_key = k.removeprefix(mapping_prefix)
                 result_dict[new_key] = v
 
-        if not is_union(field_info.annotation):
-            if is_dict(field_info.annotation):
+        # Unwrap PEP 695 type aliases before checking
+        annotation = unwrap_type_alias(field_info.annotation)
+
+        if not is_union(annotation):
+            if is_dict(annotation):
                 return result_dict
             else:
                 raise CannotProcessField(f"Field '{field_name}' is not a dict type")
 
-        for union_arg in get_args(field_info.annotation):
+        for union_arg in get_args(annotation):
             if is_dict(union_arg):
                 return result_dict
 
