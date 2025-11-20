@@ -17,10 +17,11 @@ from coda.apps.invoices import repository
 from coda.apps.publications.models import Publication
 from coda.contexts.finance.dto.edit_position_dtos import (
     DEFAULT_TAX_RATE_PERCENTAGE,
-    ContractPositionDto,
-    FreePositionDto,
+    ContractItemDto,
+    FreeItemDto,
+    PositionDto,
     PositionList,
-    PublicationPositionDto,
+    PublicationItemDto,
     RelatedFundingRequest,
 )
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
@@ -86,8 +87,7 @@ def test__add_free_position__returns_position_in_response(client: Client) -> Non
     expected = expect_new_free_position()
     response = client.post(
         reverse("invoices:add_position"),
-        {"action": "add-free-position"}
-        | expected.to_post_data(prefix="free-position", underscores_to_dash=True),
+        {"action": "add-free-position"} | formdata.map_to_dict(expected, prefix="free-position"),
     )
 
     assert expected in response.context["position_list"].positions
@@ -209,11 +209,12 @@ def test__given_position_with_invalid_contract_year__create__returns_error___pos
     client: Client,
 ) -> None:
     contract = contract_mapper.as_domain_object(modelfactory.contract())
-    contract_dto = ContractPositionDto(
+    contract_item_dto = ContractItemDto(
         id=cast(int, contract.id),
         name=contract.name,
         year=1,
     )
+    contract_dto = PositionDto(item=contract_item_dto)
     position_list = PositionList(positions=[contract_dto])
 
     invoice_head = InvoiceHeadDto(
@@ -231,7 +232,7 @@ def test__given_position_with_invalid_contract_year__create__returns_error___pos
     )
 
     expected = {
-        "positions-1-error": f"Contract {contract.name} is not active in {contract_dto.year}",
+        "positions-1-error": f"Contract {contract_item_dto.name} is not active in {contract_item_dto.year}",
     }
     assert expected == response.context["errors"]
 
@@ -259,7 +260,7 @@ def add_publication_position(
 
 def add_contract_position(
     client: Client,
-    contract_position: ContractPositionDto,
+    contract_position: PositionDto,
     /,
     other_post_data: dict[str, Any] | None = None,
 ) -> TemplateResponse:
@@ -268,7 +269,7 @@ def add_contract_position(
         client.post(
             reverse("invoices:add_position"),
             {"action": "add-contract-position"}
-            | contract_position.to_post_data(prefix="contract")
+            | formdata.map_to_dict(contract_position, prefix="contract")
             | (other_post_data or {}),
         ),
     )
@@ -290,38 +291,41 @@ def _random_cost() -> str:
     return str(_faker.pyfloat(max_value=100_000, right_digits=2, positive=True))
 
 
-def expect_new_free_position() -> FreePositionDto:
-    return FreePositionDto(
-        description=_faker.sentence(),
+def expect_new_free_position() -> PositionDto:
+    return PositionDto(
+        item=FreeItemDto(
+            description=_faker.sentence(),
+            cost_type=_random_publication_cost_type(),
+        ),
         cost_amount=Decimal(_random_cost()),
-        cost_type=_random_publication_cost_type(),
         tax_rate=Decimal(_random_tax_rate()),
     )
 
 
-def expect_new_contract_position(contract_year: ContractYear) -> ContractPositionDto:
+def expect_new_contract_position(contract_year: ContractYear) -> PositionDto:
     contract_id = cast(ContractId, contract_year.contract_id)
     year = contract_year.year
     contract_name = contract_year.name
-    return ContractPositionDto(
-        id=contract_id,
-        name=contract_name,
-        year=year,
+    return PositionDto(
+        item=ContractItemDto(
+            id=contract_id, name=contract_name, year=year, cost_type=ContractCostType.Publish.value
+        ),
         cost_amount=Decimal("0.00"),
-        cost_type=ContractCostType.Publish.value,
         tax_rate=Decimal(DEFAULT_TAX_RATE_PERCENTAGE),
     )
 
 
-def expect_new_publication_position(publication: Publication) -> PublicationPositionDto:
+def expect_new_publication_position(publication: Publication) -> PositionDto:
     ref = fundingrequest_repository.find_reference_by_publication(PublicationId(publication.pk))
     assert ref is not None
-    return PublicationPositionDto(
-        id=publication.pk,
-        title=publication.title,
-        funding_request=RelatedFundingRequest(request_id=ref.request_id, url=ref.url),
+    return PositionDto(
+        item=PublicationItemDto(
+            id=publication.pk,
+            title=publication.title,
+            funding_request=RelatedFundingRequest(request_id=ref.request_id, url=ref.url),
+            cost_type=PublicationCostType.Publication_Charge.value,
+        ),
         cost_amount=Decimal("0.00"),
-        cost_type=PublicationCostType.Publication_Charge.value,
         tax_rate=Decimal(DEFAULT_TAX_RATE_PERCENTAGE),
     )
 

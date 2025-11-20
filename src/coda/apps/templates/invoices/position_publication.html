@@ -5,22 +5,22 @@
 {% block position_type_specifics %}
     <h4>
         Publication Title:
-        <a href="{{ position.funding_request.url }}"
+        <a href="{{ position.item.funding_request.url }}"
            target="_blank"
            class="outline secondary">{{ position.title }} ↗</a>
     </h4>
     {% if position.funding_request.url %}
         <input type="hidden"
-               name="positions-{{ counter }}-funding_request-request_id"
-               value="{{ position.funding_request.request_id }}">
+               name="positions-{{ counter }}-item-funding_request-request_id"
+               value="{{ position.item.funding_request.request_id }}">
         <input type="hidden"
-               name="positions-{{ counter }}-funding_request-url"
-               value="{{ position.funding_request.url }}">
+               name="positions-{{ counter }}-item-funding_request-url"
+               value="{{ position.item.funding_request.url }}">
     {% endif %}
     <input type="hidden"
-           name="positions-{{ counter }}-id"
-           value="{{ position.id }}">
+           name="positions-{{ counter }}-item-id"
+           value="{{ position.item.id }}">
     <input type="hidden"
-           name="positions-{{ counter }}-title"
-           value="{{ position.title }}">
+           name="positions-{{ counter }}-item-title"
+           value="{{ position.item.title }}">
 {% endblock position_type_specifics %}

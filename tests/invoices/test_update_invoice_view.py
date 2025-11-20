@@ -13,7 +13,11 @@ from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.repository import create
 from coda.apps.publications.repositories import publication_repository
-from coda.contexts.finance.dto.edit_position_dtos import ContractPositionDto, PositionList
+from coda.contexts.finance.dto.edit_position_dtos import (
+    PositionDto,
+    ContractItemDto,
+    PositionList,
+)
 from coda.contexts.finance.services import invoice_parser
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
@@ -191,7 +195,7 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
 
     contract = domainfactory.contract()
     contract.id = contract_services.create(contract)
-    contract_year = ContractPositionDto(id=contract.id, name=contract.name, year=1)
+    contract_year = PositionDto(item=ContractItemDto(id=contract.id, name=contract.name, year=1))
     position_list = PositionList(positions=[contract_year])
 
     post_data = {

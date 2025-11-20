@@ -19,7 +19,7 @@ def _parse_item(position: PositionDto, *, parse_safe: bool = False) -> ContractY
 
 
 def _parse_cost_type(position: PositionDto) -> ContractCostType:
-    return ContractCostType(position.cost_type)
+    return ContractCostType(position.item.cost_type)
 
 
 def parse_item_from(position: PositionDto, *, parse_safe: bool = False) -> PositionItemType:
@@ -37,6 +37,7 @@ def to_itemdto(position: Position) -> ItemDto:
         id=contract.id,
         name=contract.name,
         cost_type=position.item.cost_type.value,
+        year=position.item.item.year,
     )
 
 

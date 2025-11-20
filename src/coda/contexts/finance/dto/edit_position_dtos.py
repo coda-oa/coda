@@ -3,7 +3,6 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal, Self, TypeVar
 
 import pydantic
-from django.urls import reverse
 from pydantic import Field, ValidatorFunctionWrapHandler, WrapValidator
 
 from coda.apps.dto import CodaBaseDto
@@ -12,9 +11,6 @@ from coda.domain.finance.invoice_positions import ItemType
 
 ItemT = TypeVar("ItemT", bound=ItemType, covariant=True)
 CostT = TypeVar("CostT", bound=CostType, covariant=True)
-type PositionDto = (
-    "PublicationPositionDto | ContractPositionDto | FreePositionDto | CommonPositionDto"
-)
 
 DEFAULT_TAX_RATE_PERCENTAGE = 19
 
@@ -76,10 +72,9 @@ class FundingAssignmentDto(CodaBaseDto):
     amount: DecimalOrDefault = Decimal(0)
 
 
-class CommonPositionDto(abc.ABC, CodaBaseDto):
+class PositionDto(abc.ABC, CodaBaseDto):
     item: ItemDto = Field(discriminator="type")
     funding_source: IntOrNone = None
-    cost_type: str = PublicationCostType.Publication_Charge.value
     cost_amount: DecimalOrDefault = Decimal("0.00")
     tax_rate: DecimalOrDefault = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
     external_position_id: str = ""
@@ -102,33 +97,5 @@ class CommonPositionDto(abc.ABC, CodaBaseDto):
         return self.item.type
 
 
-class PublicationPositionDto(CommonPositionDto):
-    # DEPRECATED: Use UnifiedPositionDto instead
-    id: IntOrDefault = 0
-    title: str = ""
-    funding_request: RelatedFundingRequest = RelatedFundingRequest()
-
-
-class FreePositionDto(CommonPositionDto):
-    # DEPRECATED: Use UnifiedPositionDto instead
-    description: str = ""
-
-
-class ContractPositionDto(CommonPositionDto):
-    # DEPRECATED: Use UnifiedPositionDto instead
-    """DTO for a contract position already added to an invoice."""
-
-    id: IntOrDefault = 0
-    name: str = ""
-    year: IntOrDefault = 0
-    cost_type: str = ContractCostType.Publish.value
-
-    def contract_url(self) -> str:
-        url = reverse("contracts:detail", kwargs={"pk": self.id})
-        return url
-
-
 class PositionList(pydantic.BaseModel):
-    """Container for list of position DTOs. Accepts both old and new DTO types during migration."""
-
-    positions: list[CommonPositionDto] = pydantic.Field(default_factory=list)
+    positions: list[PositionDto] = pydantic.Field(default_factory=list)

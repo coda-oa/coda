@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import asdict
 from decimal import Decimal
 from typing import Any, TypedDict
@@ -12,9 +13,6 @@ from coda.apps.institutions.models import Institution
 from coda.apps.invoices.models import FundingSource
 from coda.apps.publications.models import Publication
 from coda.contexts.finance.dto.edit_position_dtos import (
-    CommonPositionDto,
-    ContractPositionDto,
-    FreePositionDto,
     FundingAssignmentDto,
     PositionDto,
     PositionList,
@@ -182,7 +180,7 @@ def parse_added_publication_position(request: HttpRequest) -> PositionDto | None
         return None
 
     publication = Publication.objects.get(pk=publication_id)
-    return CommonPositionDto(
+    return PositionDto(
         item=PublicationItemDto(
             id=publication.pk,
             title=publication.title,
@@ -197,20 +195,6 @@ def maybe_request_context(publication: Publication) -> RelatedFundingRequest:
         return RelatedFundingRequest(request_id=reference.request_id, url=reference.url)
 
     return RelatedFundingRequest()
-
-
-def parse_added_contract_position(request: HttpRequest) -> ContractPositionDto | None:
-    if request.POST.get("action") != "add-contract-position":
-        return None
-
-    return ContractPositionDto.from_request(request.POST, prefix="contract-")
-
-
-def parse_added_free_position(request: HttpRequest) -> FreePositionDto | None:
-    if request.POST.get("action") != "add-free-position":
-        return None
-
-    return FreePositionDto.from_request(request.POST, prefix="free-position-")
 
 
 def render_positions(
@@ -232,10 +216,21 @@ def funding_sources_context() -> dict[str, Any]:
     return {"funding_sources": FundingSource.objects.all()}
 
 
+def _generic_position_parser(prefix: str) -> Callable[[HttpRequest], PositionDto | None]:
+    def parse(request: HttpRequest) -> PositionDto | None:
+        filtered_by_prefix = {k: v for k, v in request.POST.items() if k.startswith(prefix)}
+        if not filtered_by_prefix:
+            return None
+
+        return formdata.map_to_model(PositionDto, filtered_by_prefix, prefix=prefix)
+
+    return parse
+
+
 _ADD_POSITION_PARSERS = {
     "publication": parse_added_publication_position,
-    "contract": parse_added_contract_position,
-    "free": parse_added_free_position,
+    "contract": _generic_position_parser("contract"),
+    "free": _generic_position_parser("free-position"),
 }
 
 

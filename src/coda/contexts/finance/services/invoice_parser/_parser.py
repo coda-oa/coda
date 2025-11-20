@@ -5,20 +5,16 @@ from typing import Any, Protocol
 
 from coda.apps.invoices import funding_source_repository
 from coda.contexts.finance.dto.edit_position_dtos import (
-    CommonPositionDto,
     FundingAssignmentDto,
     ItemDto,
     PositionDto,
-    ContractPositionDto,
-    FreePositionDto,
-    PublicationPositionDto,
 )
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.domain import errors
 from coda.domain.contract import ContractYear
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice
-from coda.domain.finance.invoice_positions import Position, ItemType, PositionItemType
+from coda.domain.finance.invoice_positions import ItemType, Position, PositionItemType
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
@@ -115,11 +111,10 @@ def position_to_dto(position: Position) -> PositionDto:
     return dto
 
 
-def _position_to_dto(position: Position, item_dto: ItemDto) -> CommonPositionDto:
-    return CommonPositionDto(
+def _position_to_dto(position: Position, item_dto: ItemDto) -> PositionDto:
+    return PositionDto(
         item=item_dto,
         cost_amount=position.cost.amount,
-        cost_type=position.item.cost_type.value,
         tax_rate=position.tax_rate.percentage(),
         external_position_id=position.external_position_id,
         funding_assignments=[
@@ -129,16 +124,6 @@ def _position_to_dto(position: Position, item_dto: ItemDto) -> CommonPositionDto
         unassigned_costs=position.unassigned_costs().amount,
     )
 
-
-def get_position_type(type_name: str) -> type[PositionDto]:
-    return _position_type_registry[type_name]
-
-
-_position_type_registry: dict[str, type[PositionDto]] = {
-    "publication": PublicationPositionDto,
-    "free": FreePositionDto,
-    "contract": ContractPositionDto,
-}
 
 _dto_parser_registry: dict[str, PositionParser] = {
     "publication": _publication.parser,

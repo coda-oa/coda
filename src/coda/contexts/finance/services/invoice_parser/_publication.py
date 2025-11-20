@@ -20,7 +20,7 @@ def _parse_item(position: PositionDto, *, parse_safe: bool = True) -> Publicatio
 
 
 def _parse_cost_type(position: PositionDto) -> PublicationCostType:
-    return PublicationCostType(position.cost_type)
+    return PublicationCostType(position.item.cost_type)
 
 
 def parse_item_from(position: PositionDto, *, parse_safe: bool = False) -> PositionItemType:
