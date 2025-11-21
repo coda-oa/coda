@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any, TypedDict
 
 from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse, HttpResponseNotFound
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
 from coda import formdata
@@ -161,12 +161,11 @@ def switch_funding_source_type(request: HttpRequest) -> HttpResponse:
 
     funding_source_type = request.GET.get(key)
     template_name = "invoices/position_cost_split_funding_source_select_choices.html"
-    if funding_source_type == "budget":
-        return render(request, template_name, funding_sources_context())
-    elif funding_source_type == "institution":
-        return render(request, template_name, {"funding_sources": Institution.objects.all()})
-
-    return HttpResponseNotFound()
+    return render(
+        request,
+        template_name,
+        funding_sources_context() | {"funding_source_type": funding_source_type},
+    )
 
 
 def added_positions(request: HttpRequest) -> list[PositionDto]:
@@ -213,7 +212,10 @@ def render_positions(
 
 
 def funding_sources_context() -> dict[str, Any]:
-    return {"funding_sources": FundingSource.objects.all()}
+    return {
+        "funding_sources": FundingSource.objects.all(),
+        "institutions": Institution.objects.all(),
+    }
 
 
 def _generic_position_parser(prefix: str) -> Callable[[HttpRequest], PositionDto | None]:

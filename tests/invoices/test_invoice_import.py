@@ -65,7 +65,7 @@ def test__full_invoice__related_entities_already_exist__is_not_created_again() -
     contract_position = contract_position_import_dto()
     import_dto = invoice_import_list_dto([contract_position])
 
-    modelfactory.funding_source(name=contract_position.funding_source)
+    modelfactory.budget(name=contract_position.funding_source)
     modelfactory.creditor(name=import_dto.invoices[0].creditor)
     create_contract_from(contract_position)
 

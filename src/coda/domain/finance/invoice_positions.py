@@ -5,6 +5,7 @@ from typing import Protocol
 from coda.domain import errors
 from coda.domain.contract import ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.funding_sources import FundingSource
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.taxable_money import CostBasis, NetMoney
 from coda.domain.finance.taxrate import TaxRate
@@ -133,7 +134,7 @@ class VatCalculation:
 
 @dataclass(frozen=True)
 class FundingAssignment:
-    funding_source: FundingSourceId | None
+    funding_source: FundingSource | None
     amount: Money
 
 
@@ -190,7 +191,7 @@ class Position:
 
     def assign_funding(
         self,
-        funding_source: FundingSourceId | None,
+        funding_source: FundingSource | None,
         amount: Decimal,
         tax_mode: CostBasis = CostBasis.net,
     ) -> None:
@@ -203,7 +204,7 @@ class Position:
 
         self._splits.append(FundingAssignment(funding_source, normalized.base))
 
-    def assign_remaining(self, to: FundingSourceId | None) -> None:
+    def assign_remaining(self, to: FundingSource | None) -> None:
         remainder = self._get_split_remainder()
         if remainder.amount > 0:
             self._splits.append(FundingAssignment(to, remainder))

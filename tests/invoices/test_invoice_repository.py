@@ -6,7 +6,8 @@ import pytest
 
 from coda.apps.contracts import repository as contract_services
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-from coda.apps.invoices import repository
+from coda.apps.invoices import funding_source_repository, repository
+from coda.domain.author import InstitutionId
 from coda.domain.contract import Contract, ContractYear, PublisherId
 from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
 from coda.domain.finance.invoice_positions import Position
@@ -113,7 +114,7 @@ def full_invoice() -> Invoice:
 
 
 def publication_position(publication: PublicationId) -> Position:
-    funding_source_id = FundingSourceId(modelfactory.funding_source().pk)
+    funding_source_id = FundingSourceId(modelfactory.budget().pk)
     position = domainfactory.publication_position(
         publication=publication,
         funding_source=funding_source_id,
@@ -125,7 +126,7 @@ def publication_position(publication: PublicationId) -> Position:
 
 
 def contract_position(contract: ContractYear) -> Position:
-    funding_source_id = FundingSourceId(modelfactory.funding_source().pk)
+    funding_source_id = FundingSourceId(modelfactory.budget().pk)
     position = domainfactory.contract_position(
         contract=contract,
         funding_source=funding_source_id,
@@ -142,13 +143,21 @@ def free_position() -> Position:
 
 
 def _assign_funding(position: Position) -> None:
+    institution = modelfactory.institution()
     position_total = position.net().amount
     partial = position_total / Decimal(3)
-    position.assign_funding(FundingSourceId(modelfactory.funding_source().pk), partial)
-    position.assign_funding(FundingSourceId(modelfactory.funding_source().pk), partial)
+    budget_1 = domainfactory.budget()
+    budget_2 = domainfactory.budget()
+    institution_source = domainfactory.split_source(InstitutionId(institution.pk), institution.name)
+    budget_1.id = funding_source_repository.create(budget_1)
+    budget_2.id = funding_source_repository.create(budget_2)
+    institution_source.id = funding_source_repository.create(institution_source)
+
+    position.assign_funding(budget_1, partial)
+    position.assign_funding(budget_2, partial)
 
     remainder = position.unassigned_costs().amount
-    position.assign_funding(FundingSourceId(modelfactory.funding_source().pk), remainder)
+    position.assign_funding(institution_source, remainder)
 
 
 def random_publication(publisher_id: int | None = None) -> PublicationId:

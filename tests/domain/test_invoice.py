@@ -7,7 +7,6 @@ from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice import (
     CreditorId,
-    FundingSourceId,
     Invoice,
     InvoiceId,
     NoSuchConversion,
@@ -19,6 +18,7 @@ from coda.domain.finance.invoice_positions import Position, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, CurrencyExchange, Money
 from coda.domain.publication import PublicationId
+from tests import domainfactory
 from tests.invoices.test_invoice_repository import assert_invoice_eq
 
 
@@ -76,7 +76,7 @@ def test__unpaid_invoice__can_add_split_position_with_unassigned_costs() -> None
     sut = make_sut([position(Money(100, Currency.EUR))])
 
     p = position(Money(100, Currency.EUR))
-    p.assign_funding(FundingSourceId(2), Decimal(20))
+    p.assign_funding(domainfactory.budget(), Decimal(20))
 
     sut.positions = [p]
 
@@ -85,7 +85,7 @@ def test__unpaid_invoice__can_add_split_position_with_unassigned_costs() -> None
 
 def test__unpaid_invoice_with_unassigned_costs__pay__raises_error() -> None:
     p = position(Money(100, Currency.EUR))
-    p.assign_funding(FundingSourceId(2), Decimal(20))
+    p.assign_funding(domainfactory.budget(), Decimal(20))
     sut = make_sut([p])
 
     with pytest.raises(UnassignedCosts):
@@ -94,7 +94,7 @@ def test__unpaid_invoice_with_unassigned_costs__pay__raises_error() -> None:
 
 def test__invoice_with_unassigned_costs_cannot_be_created_as_paid() -> None:
     p = position(Money(100, Currency.EUR))
-    p.assign_funding(FundingSourceId(1), Decimal(50))
+    p.assign_funding(domainfactory.budget(), Decimal(50))
 
     with pytest.raises(UnassignedCosts):
         _ = Invoice(
@@ -112,7 +112,7 @@ def test__paid_invoice__cannot_add_position_with_unassigned_costs() -> None:
     sut.pay()
 
     p = position(Money(50, Currency.EUR))
-    p.assign_funding(FundingSourceId(1), Decimal(10))
+    p.assign_funding(domainfactory.budget(), Decimal(10))
 
     with pytest.raises(UnassignedCosts):
         sut.positions = [p]

@@ -11,7 +11,6 @@ from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.funding_sources import SplitSource
-from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.invoice_positions import Position
 from coda.domain.publication.publication import PublicationId
 from tests import domainfactory, modelfactory
@@ -84,9 +83,14 @@ def test__vat_position__converted_to_dto__has_only_tax_amount(
 def test__position_with_funding_assignments__convert_to_dto_and_back__keeps_assignments(
     create_position: Callable[[], Position],
 ) -> None:
-    funding_source = FundingSourceId(modelfactory.funding_source().pk)
+    institution = modelfactory.institution()
+    funding_source = domainfactory.budget()
+    funding_source.id = funding_source_repository.create(funding_source)
+    funding_source_2 = SplitSource.new(InstitutionId(institution.pk), institution.name)
     position = create_position()
-    position.assign_funding(funding_source, position.net().amount)
+
+    position.assign_funding(funding_source, position.net().amount / 2)
+    position.assign_remaining(funding_source_2)
 
     dto = invoice_parser.position_to_dto(position)
 
@@ -100,7 +104,8 @@ def test__position_with_funding_assignments__convert_to_dto_and_back__keeps_assi
 def test__position_with_funding_assignments__convert_to_dto__dto_contains_unassigned_costs(
     create_position: Callable[[], Position],
 ) -> None:
-    funding_source = FundingSourceId(modelfactory.funding_source().pk)
+    funding_source = domainfactory.budget()
+    funding_source.id = funding_source_repository.create(funding_source)
     position = create_position()
 
     less = position.net().amount - 1
@@ -134,7 +139,7 @@ def test__position_with_funding_assignment__convert_to_dto__contains_budget_type
     funding_source.id = funding_source_repository.create(funding_source)
 
     position = create_position()
-    position.assign_remaining(funding_source.id)
+    position.assign_remaining(funding_source)
 
     dto = invoice_parser.position_to_dto(position)
 

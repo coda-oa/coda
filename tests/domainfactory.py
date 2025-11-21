@@ -11,6 +11,7 @@ from coda.domain.contract import Contract, ContractId, ContractYear, PublisherId
 from coda.domain.date import DateRange
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.funding_sources import Budget, SplitSource
 from coda.domain.finance.invoice import (
     CreditorId,
     FundingSourceId,
@@ -182,6 +183,16 @@ def free_position(
         cost=random_money(currency),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         external_position_id=str(_faker.uuid4()),
+    )
+
+
+def budget(id: FundingSourceId | None = None) -> Budget:
+    return Budget(id, _faker.company())
+
+
+def split_source(institution: InstitutionId | None = None, name: str = "") -> SplitSource:
+    return SplitSource.new(
+        institution or InstitutionId(_faker.random_int(min=1)), name or _faker.company()
     )
 
 

@@ -1,5 +1,6 @@
 from coda.apps.invoices import repository
 from coda.apps.publications.services import publications
+from coda.contexts.finance.services.funding_source_service import resolve_funding_source
 from coda.domain.finance.invoice import Invoice, InvoiceId
 from coda.domain.publication.payment import InvoiceReceived, PaymentEvent, PublicationPaid
 from coda.domain.publication.publication import PublicationId
@@ -7,6 +8,14 @@ from coda.domain.publication.publication import PublicationId
 
 def save(invoice: Invoice) -> InvoiceId:
     _unpay_deleted_publication_positions(invoice)
+    for position in invoice.positions:
+        for fs in position.funding_assignments():
+            if not fs.funding_source:
+                continue
+
+            funding_source = resolve_funding_source(fs.funding_source)
+            fs.funding_source.id = funding_source.id
+
     id = _save_invoice(invoice)
 
     if invoice.is_paid():

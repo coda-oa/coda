@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Protocol
 
-from coda.apps.invoices import funding_source_repository
 from coda.contexts.finance.dto.edit_position_dtos import (
     FundingAssignmentDto,
     ItemDto,
@@ -11,8 +10,10 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 )
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.domain import errors
+from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
 from coda.domain.finance import invoice_positions
+from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice
 from coda.domain.finance.invoice_positions import ItemType, Position, PositionItemType
 from coda.domain.finance.taxrate import TaxRate
@@ -87,8 +88,22 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
         if f == _empty:
             continue
 
-        fid = FundingSourceId(f.funding_source) if f.funding_source else None
-        _position.assign_funding(fid, f.amount)
+        fs: FundingSource
+        match f:
+            case FundingAssignmentDto(
+                funding_source_type="budget", funding_source=int(funding_source)
+            ):
+                fs_id = FundingSourceId(funding_source)
+                fs = Budget(fs_id, "")
+            case FundingAssignmentDto(
+                funding_source_type="institution", funding_source=int(funding_source)
+            ):
+                inst_id = InstitutionId(funding_source)
+                fs = SplitSource.new(inst_id, "")
+            case _:
+                fs = Budget.new("")
+
+        _position.assign_funding(fs, f.amount)
 
     return _position
 
@@ -96,17 +111,6 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
 def position_to_dto(position: Position) -> PositionDto:
     parser = _position_converters[type(position.item.item)]
     dto = _position_to_dto(position, parser.to_itemdto(position))
-    fs = [
-        fa.funding_source for fa in position.funding_assignments() if fa.funding_source is not None
-    ]
-    fs_types = funding_source_repository.types_for(fs)
-
-    for fa_dto in dto.funding_assignments:
-        if not fa_dto.funding_source:
-            continue
-
-        fs_type = fs_types.get(FundingSourceId(fa_dto.funding_source), "budget")
-        fa_dto.funding_source_type = fs_type
 
     return dto
 
@@ -118,8 +122,13 @@ def _position_to_dto(position: Position, item_dto: ItemDto) -> PositionDto:
         tax_rate=position.tax_rate.percentage(),
         external_position_id=position.external_position_id,
         funding_assignments=[
-            FundingAssignmentDto(funding_source=f.funding_source, amount=f.amount.amount)
+            FundingAssignmentDto(
+                funding_source=f.funding_source.identity(),
+                funding_source_type=f.funding_source.kind(),
+                amount=f.amount.amount,
+            )
             for f in position.funding_assignments()
+            if f.funding_source
         ],
         unassigned_costs=position.unassigned_costs().amount,
     )

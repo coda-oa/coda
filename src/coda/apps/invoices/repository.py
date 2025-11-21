@@ -246,7 +246,7 @@ def bulk_create(invoices: Iterable[Invoice]) -> list[InvoiceId]:
     for invoice, invoice_model in zip(invoices, models):
         invoice_mapper.synchronize_relationships(invoice, invoice_model)
 
-    return [InvoiceId(m.id) for m in models]
+    return [InvoiceId(m.pk) for m in models]
 
 
 def update(invoice: Invoice) -> None:

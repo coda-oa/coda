@@ -1,13 +1,15 @@
 from decimal import Decimal
-from typing import TypedDict
+from typing import TypedDict, cast
 
 from django.urls import reverse
 
 from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.invoices import models as invoice_models
 from coda.coda_itertools import LazyCachedIterable
+from coda.domain.author import InstitutionId
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import (
     CreditorId,
     FundingSourceId,
@@ -16,9 +18,9 @@ from coda.domain.finance.invoice import (
     PaymentStatus,
 )
 from coda.domain.finance.invoice_positions import (
-    Position,
     ContractItem,
     FreeItem,
+    Position,
     PositionItemType,
     PublicationItem,
 )
@@ -174,13 +176,35 @@ def synchronize_relationships(invoice: Invoice, invoice_model: invoice_models.In
     funding_assignments = [
         invoice_models.FundingAssignment(
             position=position_model,
-            funding_source_id=funding.funding_source,
+            funding_source_id=_funding_source_id(funding.funding_source),
             amount=funding.amount.amount,
         )
         for position, position_model in zip(invoice.positions, positions)
         for funding in position.funding_assignments()
     ]
     invoice_models.FundingAssignment.objects.bulk_create(funding_assignments)
+
+
+def as_domain_funding_source(model: invoice_models.FundingSource) -> FundingSource:
+    if model.type == "budget":
+        return Budget(FundingSourceId(model.pk), model.name)
+    elif model.type == "institution":
+        return SplitSource(
+            FundingSourceId(model.pk),
+            cast(InstitutionId, model.institution_id),
+            model.name,
+        )
+    raise ValueError("Invalid model type")
+
+
+def _funding_source_id(fs: FundingSource | None) -> FundingSourceId | None:
+    if not fs:
+        return None
+
+    if not fs.id:
+        raise ValueError(f"Attempting to save position with unsaved funding source {fs}")
+
+    return fs.id
 
 
 def _as_position_domain_object(position: invoice_models.Position) -> Position:
@@ -191,7 +215,7 @@ def _as_position_domain_object(position: invoice_models.Position) -> Position:
 
     for funding in position.funding_assignments.all():
         _position.assign_funding(
-            FundingSourceId(funding.funding_source.pk) if funding.funding_source else None,
+            as_domain_funding_source(funding.funding_source) if funding.funding_source else None,
             funding.amount,
         )
 

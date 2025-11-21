@@ -6,12 +6,34 @@ from coda.apps.invoices import repository
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
 from coda.contexts.finance.services import invoice_service
+from coda.domain.author import InstitutionId
 from coda.domain.finance import invoice_positions
+from coda.domain.finance.funding_sources import SplitSource
 from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.finance.invoice_positions import Position
 from coda.domain.publication.payment import Payment, PublicationPayments
 from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
+from tests.invoices.test_invoice_repository import assert_invoice_eq
+
+
+@pytest.mark.django_db
+def test__invoice_with_position_with_institution_funding__saves_institution_funding_implicitly() -> (
+    None
+):
+    institution = modelfactory.institution()
+    invoice = domainfactory.invoice(creditor=CreditorId(modelfactory.creditor().pk))
+    position = domainfactory.free_position()
+
+    split_source = SplitSource.new(InstitutionId(institution.pk), institution.name)
+    position.assign_remaining(split_source)
+    invoice.positions = [position]
+
+    invoice.id = invoice_service.save(invoice)
+
+    first = repository.first()
+    assert first is not None
+    assert_invoice_eq(invoice, first)
 
 
 @pytest.mark.django_db

@@ -12,6 +12,6 @@
     <select class="my-0"
             id="id-positions-{{ counter }}-funding_assignments-{{ split_counter }}-funding_source"
             name="positions-{{ counter }}-funding_assignments-{{ split_counter }}-funding_source">
-        {% include "invoices/position_cost_split_funding_source_select_choices.html" %}
+        {% include "invoices/position_cost_split_funding_source_select_choices.html" with funding_source_type=split.funding_source_type %}
     </select>
 </div>
