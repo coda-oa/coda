@@ -1,103 +1,81 @@
-from coda.domain.opencost import (
-    PublicationType,
-    PublicationPrimaryIdentifier,
+from decimal import Decimal
+from coda.apps.opencost.models import OpenCostReportPublication
+from coda.domain.opencost._institution import InstitutionName, InstitutionNameType, InstitutionType
+from coda.domain.opencost._invoice import (
+    AmountInvoice,
+    Dates,
+    PublicationAmountPaidType,
+    PublicationInvoiceType,
+)
+from coda.domain.opencost._publication import (
     BibliographicInformation,
     CoarPublicationType,
     PublicationCostDataType,
-    InstitutionType,
-    PublicationSecondaryIdentifiers,
+    PublicationPrimaryIdentifier,
     PublicationSecondaryIdType,
     PublicationSecondaryIdTypeEnum,
-    PublicationInvoiceType,
+    PublicationSecondaryIdentifiers,
+    PublicationType,
 )
-from coda.apps.publications.models import Publication as PublicationModel
-from coda.domain.opencost._contract import ContractPrimaryIdentifier, ContractPrimaryIdentifierType
-from coda.domain.opencost._invoice import AmountInvoice, PublicationAmountPaidType, Dates
-from decimal import Decimal
-from coda.apps.invoices.models import Position
-from coda.domain.opencost._publication import PartOfContractType
 
 
-def to_publication(publication_data: PublicationModel) -> PublicationType:
-    doi_value = _get_doi(publication_data)
+def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> PublicationType:
+    if report_pub.doi:
+        primary_identifier = PublicationPrimaryIdentifier(doi=report_pub.doi)
+    else:
+        bib_info = BibliographicInformation(
+            Title=report_pub.title,
+            Publisher=report_pub.publisher or "Unknown Publisher",
+            isPartOf=report_pub.journal if report_pub.journal else "N/A",
+        )
+        primary_identifier = PublicationPrimaryIdentifier(bibliographic_information=bib_info)
 
-    primary_identifier = PublicationPrimaryIdentifier(
-        doi=doi_value,
-        bibliographic_information=BibliographicInformation(
-            Title=publication_data.title or "Unknown Title",
-            Publisher=_get_publisher_name(publication_data),
-            isPartOf=_get_journal_name(publication_data),
-        ),
+    secondary_identifiers = _get_secondary_identifiers(report_pub)
+
+    # TODO: Build institution from snapshot (we'll need to add institution_name to snapshot model)
+    # For now, use institution name as placeholder
+    institution = InstitutionType(
+        name=[InstitutionName(value="Placeholder Institution", type=InstitutionNameType.full)],
+        id=None,
     )
 
-    secondary_identifiers = _get_secondary_identifiers(publication_data)
+    publication_type = _get_publication_type(report_pub)
 
-    institution = InstitutionType(name=None, id=None)  # DUMMY
+    invoice_data = _get_invoice_data(report_pub)
 
-    publication_type = _get_publication_type(publication_data)
+    # TODO: Build cost_data (contracts) - TODO: Add contract transformation
 
-    # external cost splitting still missing
+    cost_data = PublicationCostDataType(invoice=invoice_data, part_of_contract=None)
 
-    invoice_data = _get_invoice_data(publication_data)
-
-    # contract data - returns dummy data still
-    contract_data = _get_contract_data(publication_data)
-
-    cost_data = PublicationCostDataType(invoice=invoice_data, part_of_contract=contract_data)
-
-    return PublicationType(
+    publication = PublicationType(
         primary_identifier=primary_identifier,
         secondary_identifiers=secondary_identifiers,
         institution=institution,
         publication_type=publication_type,
-        external_costsplitting=False,  # DUMMY
+        external_costsplitting=report_pub.external_costsplitting,
         cost_data=cost_data,
     )
 
-
-def _get_doi(publication: PublicationModel) -> str | None:
-    for link in publication.links.all():
-        if link.type.name.lower() == "doi":
-            return link.value
-    return None
+    return publication
 
 
-def _get_publisher_name(publication: PublicationModel) -> str:
-    if publication.monograph_publisher:
-        return str(publication.monograph_publisher.name)
-    if publication.article_journal and getattr(publication.article_journal, "publisher", None):
-        return str(publication.article_journal.publisher.name)
-    return "Unknown Publisher"
-
-
-def _get_journal_name(publication: PublicationModel) -> str:
-    if publication.article_journal:
-        return str(publication.article_journal.title)
-    return "Unknown Journal"
-
-
-def _get_publication_type(publication: PublicationModel) -> CoarPublicationType:
-    if publication.publication_type:
+def _get_publication_type(report_pub: OpenCostReportPublication) -> CoarPublicationType:
+    if report_pub.publication_type:
         try:
-            return CoarPublicationType(publication.publication_type.name)
+            return CoarPublicationType(report_pub.publication_type)
         except ValueError:
             pass
-    return CoarPublicationType.other  # Default fallback
+    return CoarPublicationType.other
 
 
 def _get_secondary_identifiers(
-    publication: PublicationModel,
+    report_pub: OpenCostReportPublication,
 ) -> PublicationSecondaryIdentifiers | None:
     secondary_ids: list[PublicationSecondaryIdType] = []
 
-    for link in publication.links.all():
-        link_type_name = link.type.name.lower()
-
-        if link_type_name == "doi":
-            continue
-
+    for link in report_pub.links.all():
         try:
-            id_type = PublicationSecondaryIdTypeEnum(link_type_name)
+            id_type = PublicationSecondaryIdTypeEnum(link.link_type)
             secondary_ids.append(PublicationSecondaryIdType(value=link.value, type=id_type))
         except ValueError:
             continue
@@ -108,48 +86,43 @@ def _get_secondary_identifiers(
     return PublicationSecondaryIdentifiers(id=secondary_ids)
 
 
-def _get_invoice_data(publication: PublicationModel) -> list[PublicationInvoiceType] | None:
-    invoices_dict: dict[int, list[Position]] = {}
-    for position in publication.position_set.all():
-        invoice_id = position.invoice.id
-        if invoice_id not in invoices_dict:
-            invoices_dict[invoice_id] = []
-        invoices_dict[invoice_id].append(position)
+def _get_invoice_data(report_pub: OpenCostReportPublication) -> list[PublicationInvoiceType] | None:
+    report_invoices = report_pub.invoices.all()
 
-    if not invoices_dict:
+    if not report_invoices:
         return None
 
     invoice_list = []
-    for invoice_id, positions in invoices_dict.items():
-        invoice = positions[0].invoice
+    for report_invoice in report_invoices:
+        report_positions = report_invoice.positions.all()
+
+        if not report_positions:
+            continue
 
         amounts_paid = []
-        for position in positions:
-            try:
-                cost_type = position.cost_type
-            except (ValueError, AttributeError):
-                cost_type = "other"
-
+        for report_position in report_positions:
             amounts_paid.append(
                 PublicationAmountPaidType(
-                    amount=Decimal(str(position.cost_amount)),
-                    currency=position.cost_currency,
-                    cost_type=cost_type,
-                    vat=Decimal(str(position.cost_amount))
-                    * (Decimal(str(position.tax_rate)) if position.tax_rate else Decimal("0")),
+                    amount=report_position.amount,
+                    currency=report_position.currency,
+                    cost_type=report_position.cost_type,
+                    vat=report_position.vat or Decimal("0"),
                 )
             )
 
-        dates = Dates(invoice=str(invoice.date) if invoice.date else None, paid=None)
+        dates = Dates(
+            invoice=str(report_invoice.invoice_date) if report_invoice.invoice_date else None,
+            paid=None,
+        )
 
-        total_amount = sum(position.cost_amount for position in positions)
-        currency = positions[0].cost_currency if positions else None
+        total_amount = sum(pos.amount for pos in report_positions)
+        currency = report_positions[0].currency if report_positions else None
         amount_invoice = AmountInvoice(amount=total_amount, currency=currency)
 
         invoice_list.append(
             PublicationInvoiceType(
-                invoice_number=invoice.number,
-                creditor=invoice.creditor.name,
+                invoice_number=report_invoice.invoice_number,
+                creditor=report_invoice.creditor,
                 amounts_paid=amounts_paid,
                 dates=dates,
                 amount_invoice=amount_invoice,
@@ -157,13 +130,3 @@ def _get_invoice_data(publication: PublicationModel) -> list[PublicationInvoiceT
         )
 
     return invoice_list if invoice_list else None
-
-
-# Still DUMMY
-def _get_contract_data(publication: PublicationModel) -> PartOfContractType | None:
-    return PartOfContractType(
-        group_id=None,
-        primary_identifier=ContractPrimaryIdentifier(
-            value="DUMMY-ESAC-VALUE", type=ContractPrimaryIdentifierType.ESAC
-        ),
-    )
