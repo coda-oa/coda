@@ -1,56 +1,54 @@
-from datetime import date
-from decimal import Decimal
 import pytest
 
-from coda.apps.opencost.transformers import report_publication_to_pydantic
-from coda.apps.publications.models._attachedentities import PublicationAttachedConcept
+from coda.apps.contracts.models import Contract
+from coda.apps.opencost.live_export import to_publication
+from coda.apps.publications.models._attachedentities import (
+    AttachedContract,
+    PublicationAttachedConcept,
+)
 from coda.apps.publications.models._vocabulary import Vocabulary
-from coda.domain.opencost._publication import PublicationSecondaryIdTypeEnum, PublicationType
-from coda.domain.opencost._types import PublicationCostType
+from coda.domain.opencost import PublicationType
 from tests import modelfactory
+from coda.apps.publications.models import LinkType, Link
+from coda.apps.publications.models import Publication as PublicationModel
+from coda.domain.opencost import CoarPublicationType
+from coda.domain.opencost import PublicationSecondaryIdTypeEnum
+from coda.domain.opencost._types import PublicationCostType
 from tests.opencost.helpers import (
     create_creditor,
+    create_publication_with_invoice,
     create_invoice,
     create_position,
-    create_publication_with_invoice,
-    create_opencost_report,
 )
-from coda.apps.publications.models import Publication as PublicationModel
-from coda.apps.publications.models import LinkType, Link
-from coda.domain.opencost import CoarPublicationType
+from decimal import Decimal
+from datetime import date
 
 
 @pytest.mark.django_db
-def test__report_article_publication__transforming_to_opencost__returns_valid_opencost_publication() -> (
+def test__coda_article_publication__transforming_to_opencost__returns_valid_opencost_publication() -> (
     None
 ):
-    publication = modelfactory.publication(title="Invoice Test Publication")
-    publication.online_publication_date = date(2024, 5, 15)
-    publication.save()
+    publication = modelfactory.publication(title="Test Article About Costs")
 
-    create_publication_with_invoice(
-        publication,
-        invoice_date=date(2024, 6, 1),
-        invoice_number="INV-2024-001",
-        creditor_name="Invoice Creditor",
-    )
-
-    report = create_opencost_report()
-
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    result = report_publication_to_pydantic(report_publication)
+    result = to_publication(publication)
 
     assert isinstance(result, PublicationType)
     assert result.primary_identifier.bibliographic_information is not None
-    assert result.primary_identifier.bibliographic_information.Title == "Invoice Test Publication"
-    assert result.primary_identifier.bibliographic_information.Publisher != ""
-    assert result.primary_identifier.bibliographic_information.Publisher is not None
+    assert result.primary_identifier.bibliographic_information.Title == "Test Article About Costs"
+
+    assert publication.article_journal is not None
+    assert (
+        publication.article_journal.publisher.name
+        in result.primary_identifier.bibliographic_information.Publisher
+    )
+    assert (
+        publication.article_journal.title
+        in result.primary_identifier.bibliographic_information.isPartOf
+    )
 
 
 @pytest.mark.django_db
-def test__report_monograph_publication__transforming_to_opencost__returns_valid_opencost_publication() -> (
+def test__coda_monograph_publication__transforming_to_opencost__returns_valid_opencost_publication() -> (
     None
 ):
     publisher = modelfactory.publisher(name="Academic Press")
@@ -59,18 +57,7 @@ def test__report_monograph_publication__transforming_to_opencost__returns_valid_
         monograph_publisher=publisher,
     )
 
-    create_publication_with_invoice(
-        publication,
-        invoice_date=date(2024, 5, 20),
-        invoice_number="INV-MONO-001",
-        cost_amount=Decimal("2000.00"),
-        cost_type="other",
-    )
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    result = report_publication_to_pydantic(report_publication)
+    result = to_publication(publication)
 
     assert isinstance(result, PublicationType)
     assert result.primary_identifier.bibliographic_information is not None
@@ -79,33 +66,24 @@ def test__report_monograph_publication__transforming_to_opencost__returns_valid_
 
 
 @pytest.mark.django_db
-def test__report_publication_with_doi__transforming_to_opencost__doi_is_included_in_primary_identifier() -> (
+def test__publication_with_doi__transforming_to_opencost__doi_is_included_in_primary_identifier() -> (
     None
 ):
     publication = modelfactory.publication(title="Test Publication with DOI")
-
     doi_type, _ = LinkType.objects.get_or_create(name="DOI")
     Link.objects.create(
         publication=publication,
         type=doi_type,
         value="10.1234/test.doi",
     )
-    create_publication_with_invoice(
-        publication,
-        invoice_date=date(2024, 5, 20),
-        invoice_number="INV-DOI-001",
-    )
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
 
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = to_publication(publication)
 
     assert oc_publication.primary_identifier.doi == "10.1234/test.doi"
 
 
 @pytest.mark.django_db
-def test__report_publication_with_publication_type__transforming_to_opencost__publication_type_is_included() -> (
+def test__publication_with_publication_types__transforming_to_opencost__publication_types_are_included() -> (
     None
 ):
     publication = modelfactory.publication(title="Test Publication with a COAR publication type")
@@ -118,23 +96,38 @@ def test__report_publication_with_publication_type__transforming_to_opencost__pu
     publication.publication_type = coar_concept
     publication.save()
 
-    create_publication_with_invoice(
-        publication,
-        invoice_date=date(2024, 5, 20),
-        invoice_number="INV-COAR-001",
-    )
-
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = to_publication(publication)
 
     assert oc_publication.publication_type == CoarPublicationType.conference_paper
 
 
 @pytest.mark.django_db
-def test__report_publication_with_secondary_identifiers__transforming_to_opencost__secondary_identifiers_are_included() -> (
+def test__publication_with_no_doi_but_bibliographic_info__transforming_to_opencost__bibliographic_info_is_included() -> (
+    None
+):
+    publication = modelfactory.publication(title="Publication without DOI")
+
+    oc_publication = to_publication(publication)
+
+    assert oc_publication.primary_identifier.bibliographic_information is not None
+    assert (
+        oc_publication.primary_identifier.bibliographic_information.Title
+        == "Publication without DOI"
+    )
+    # Joural Info
+    assert publication.article_journal is not None
+    assert (
+        publication.article_journal.publisher.name
+        in oc_publication.primary_identifier.bibliographic_information.Publisher
+    )
+    assert (
+        publication.article_journal.title
+        in oc_publication.primary_identifier.bibliographic_information.isPartOf
+    )
+
+
+@pytest.mark.django_db
+def test__publication_with_secondary_identifiers__transforming_to_opencost__secondary_identifiers_are_included() -> (
     None
 ):
     publication = modelfactory.publication(title="Publication with Secondary IDs")
@@ -145,17 +138,7 @@ def test__report_publication_with_secondary_identifiers__transforming_to_opencos
     urn_type, _ = LinkType.objects.get_or_create(name="URN")
     Link.objects.create(publication=publication, type=urn_type, value="urn:nbn:de:1234-5678")
 
-    create_publication_with_invoice(
-        publication,
-        invoice_date=date(2024, 5, 20),
-        invoice_number="INV-COAR-001",
-    )
-
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = to_publication(publication)
 
     assert oc_publication.secondary_identifiers is not None
     assert len(oc_publication.secondary_identifiers.id) == 2
@@ -178,7 +161,7 @@ def test__report_publication_with_secondary_identifiers__transforming_to_opencos
 
 
 @pytest.mark.django_db
-def test__report_publication_with_invoice__transforming_to_opencost__cost_data_includes_invoice_with_correct_position_data() -> (
+def test__publication_with_invoice__transforming_to_opencost__cost_data_includes_invoice_with_correct_position_data() -> (
     None
 ):
     publication = modelfactory.publication(title="Publication with Invoice")
@@ -191,11 +174,7 @@ def test__report_publication_with_invoice__transforming_to_opencost__cost_data_i
         cost_amount=Decimal("1500.00"),
     )
 
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = to_publication(publication)
 
     assert oc_publication.cost_data is not None
     assert oc_publication.cost_data.invoice is not None
@@ -219,7 +198,7 @@ def test__report_publication_with_invoice__transforming_to_opencost__cost_data_i
 
 
 @pytest.mark.django_db
-def test__report_publication_with_invoice_multiple_positions__transforming_to_opencost__amount_invoice_and_amounts_paid_are_correct() -> (
+def test__publication_with_invoice_multiple_positions__transforming_to_opencost__amount_invoice_and_amounts_paid_are_correct() -> (
     None
 ):
     publication = modelfactory.publication(title="Publication with Invoice and Multiple Positions")
@@ -241,22 +220,21 @@ def test__report_publication_with_invoice_multiple_positions__transforming_to_op
         cost_amount=Decimal("500.00"),
     )
 
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = to_publication(publication)
 
     assert oc_publication.cost_data is not None
     assert oc_publication.cost_data.invoice is not None
 
+    # oc invoice
     invoice_data = oc_publication.cost_data.invoice[0]
     assert invoice_data.invoice_number == "INV-2024-002"
 
+    # Verify amount_invoice
     assert invoice_data.amount_invoice is not None
     assert invoice_data.amount_invoice.amount == Decimal("1500.00")  # 1000 + 500
     assert invoice_data.amount_invoice.currency == "EUR"
 
+    # Verify amounts_paid
     assert len(invoice_data.amounts_paid) == 2
     amounts = sorted(invoice_data.amounts_paid, key=lambda x: x.amount)
     assert amounts[0].amount == Decimal("500.00")
@@ -264,7 +242,7 @@ def test__report_publication_with_invoice_multiple_positions__transforming_to_op
 
 
 @pytest.mark.django_db
-def test__report_publication_with_multiple_invoices__transforming_to_opencost__all_invoices_are_included() -> (
+def test__publication_with_multiple_invoices__transforming_to_opencost__all_invoices_are_included() -> (
     None
 ):
     publication = modelfactory.publication(title="Publication with Multiple Invoices")
@@ -291,11 +269,7 @@ def test__report_publication_with_multiple_invoices__transforming_to_opencost__a
         cost_amount=Decimal("700.00"),
     )
 
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = to_publication(publication)
 
     assert oc_publication.cost_data is not None
     assert oc_publication.cost_data.invoice is not None
@@ -306,11 +280,22 @@ def test__report_publication_with_multiple_invoices__transforming_to_opencost__a
     assert "INV-2024-102" in invoice_numbers
 
 
-@pytest.mark.skip(reason="TODO: Implement contract/part_of_contract transformation")
 @pytest.mark.django_db
 def test__publication_with_contract__transforming_to_opencost__publication_cost_data_includes_contract() -> (
     None
 ):
-    # TODO: Need to add contract data to OpenCostReportPublication model
-    # TODO: Need to implement part_of_contract transformation
-    pass
+    publication = modelfactory.publication(title="Publication with Contract")
+
+    contract = Contract.objects.create(
+        name="Test Transformative Agreement",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+    )
+
+    AttachedContract.objects.create(publication=publication, contract=contract, contract_year=2024)
+
+    oc_publication = to_publication(publication)
+
+    assert oc_publication.cost_data is not None
+    assert oc_publication.cost_data.part_of_contract is not None
+    assert oc_publication.cost_data.part_of_contract.primary_identifier is not None
