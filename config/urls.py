@@ -32,6 +32,7 @@ urlpatterns = [
     path("preferences/", include("coda.apps.preferences.urls", namespace="preferences")),
     path("blocklist/", include("coda.apps.blocklist.urls", namespace="blocklist")),
     path("infopage/", include("coda.apps.infopage.urls", namespace="infopage")),
+    path("opencost/", include("coda.apps.opencost.urls", namespace="opencost")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
