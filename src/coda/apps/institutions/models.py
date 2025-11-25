@@ -16,3 +16,19 @@ class Institution(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class InstitutionLinkType(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class InstitutionLink(models.Model):
+    type = models.ForeignKey(InstitutionLinkType, on_delete=models.CASCADE)
+    value = models.TextField()
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name="links")
+
+    def __str__(self) -> str:
+        return f"{self.type.name}: {self.value}"
