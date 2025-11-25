@@ -7,7 +7,11 @@ from django.shortcuts import redirect, render
 from coda import formdata
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.views.position_list import ErrorDict, _DefaultContext
+from coda.apps.invoices.views.position_list import (
+    ErrorDict,
+    _DefaultContext,
+    funding_sources_context,
+)
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser, invoice_service
@@ -45,6 +49,7 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
             "position_list": formdata.map_to_model(PositionList, request.POST),
         }
         | _DefaultContext
+        | funding_sources_context()
         | errors,
     )
 
