@@ -1,0 +1,19 @@
+<article>
+    <div class="flex justify-between align-center">
+        <div>
+            <h2>{{ entity.title }}</h2>
+            <p>
+                <small>Generated: {{ entity.generated_at }}</small>
+            </p>
+            <p>
+                <strong>Period:</strong> {{ entity.period_start }} to {{ entity.period_end }}
+                <br>
+            </p>
+            <p>
+                <strong>Publications:</strong> {{ entity.publications.count }}
+            </p>
+        </div>
+        <a href="{% url 'opencost:download' entity.id %}"
+           class="button secondary">Download XML</a>
+    </div>
+</article>
