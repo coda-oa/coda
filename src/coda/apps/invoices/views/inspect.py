@@ -13,7 +13,10 @@ from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices import repository
 from coda.apps.invoices.models import Creditor
-from coda.apps.invoices.views.position_list import _DefaultContext, funding_sources_context
+from coda.apps.invoices.views.position_context import (
+    DefaultContext as _DefaultContext,
+    funding_sources_context,
+)
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 from coda.contexts.finance.dto.detail_position_dtos import PositionDetailDto

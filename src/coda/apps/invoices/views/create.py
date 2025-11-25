@@ -7,11 +7,11 @@ from django.shortcuts import redirect, render
 from coda import formdata
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.views.position_list import (
-    ErrorDict,
-    _DefaultContext,
+from coda.apps.invoices.views.position_context import (
+    DefaultContext as _DefaultContext,
     funding_sources_context,
 )
+from coda.apps.invoices.views.position_views import ErrorDict
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser, invoice_service

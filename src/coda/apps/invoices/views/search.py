@@ -6,7 +6,7 @@ from django.shortcuts import render
 from django.urls import reverse
 
 from coda.apps.contracts.models import Contract
-from coda.apps.invoices.views.position_list import maybe_request_context
+from coda.apps.invoices.views.position_parsers import maybe_request_context
 from coda.apps.publications.models import Publication
 
 

@@ -22,15 +22,17 @@ from coda.apps.invoices.views.inspect import (
     pay_invoice,
     position_cost_type_options,
 )
-from coda.apps.invoices.views.position_list import (
-    add_funding_assignment,
+from coda.apps.invoices.views.position_views import (
     add_position,
     invoice_total,
+    remove_position,
+    switch_position_tab,
+)
+from coda.apps.invoices.views.funding_assignment_views import (
+    add_funding_assignment,
     refresh_unassigned_costs,
     remove_funding_assignment,
-    remove_position,
     switch_funding_source_type,
-    switch_position_tab,
 )
 from coda.apps.invoices.views.search import search_contracts, search_publications
 from coda.apps.invoices.views.update import free_position_cost_type_options, update_invoice
