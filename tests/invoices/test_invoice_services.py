@@ -21,6 +21,10 @@ from tests.invoices.test_invoice_repository import assert_invoice_eq
 def test__invoice_with_position_with_institution_funding__saves_institution_funding_implicitly() -> (
     None
 ):
+    """
+    This behavior used to be ensured by the service itself, but has moved to the repository layer.
+    We keep this test around anyway for documentation and to ensure this requirement is always fulfilled
+    """
     institution = modelfactory.institution()
     invoice = domainfactory.invoice(creditor=CreditorId(modelfactory.creditor().pk))
     position = domainfactory.free_position()

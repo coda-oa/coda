@@ -20,6 +20,7 @@ from coda.domain.finance.invoice import (
 from coda.domain.finance.invoice_positions import (
     ContractItem,
     FreeItem,
+    FundingAssignment,
     Position,
     PositionItemType,
     PublicationItem,
@@ -172,11 +173,14 @@ def synchronize_relationships(invoice: Invoice, invoice_model: invoice_models.In
 
     conversions = _create_currency_conversions(invoice, invoice_model)
     invoice_models.CurrencyConversion.objects.bulk_create(conversions)
+    funding_source_lookup = _resolve_institution_funding_sources(
+        [fa for position in invoice.positions for fa in position.funding_assignments()]
+    )
 
     funding_assignments = [
         invoice_models.FundingAssignment(
             position=position_model,
-            funding_source_id=_funding_source_id(funding.funding_source),
+            funding_source_id=_funding_source_id(funding.funding_source, funding_source_lookup),
             amount=funding.amount.amount,
         )
         for position, position_model in zip(invoice.positions, positions)
@@ -197,14 +201,50 @@ def as_domain_funding_source(model: invoice_models.FundingSource) -> FundingSour
     raise ValueError("Invalid model type")
 
 
-def _funding_source_id(fs: FundingSource | None) -> FundingSourceId | None:
+def _resolve_institution_funding_sources(
+    funding_assignments: list[FundingAssignment],
+) -> dict[InstitutionId, FundingSourceId]:
+    institution_assignments = {
+        f.funding_source.institution: f.funding_source.name
+        for f in funding_assignments
+        if isinstance(f.funding_source, SplitSource)
+    }
+
+    existing = invoice_models.FundingSource.objects.filter(
+        institution_id__in=institution_assignments.keys(), type="institution"
+    )
+    existing_map = {
+        InstitutionId(fs.institution_id): FundingSourceId(fs.pk)
+        for fs in existing
+        if fs.institution_id
+    }
+
+    created = invoice_models.FundingSource.objects.bulk_create(
+        invoice_models.FundingSource(type="institution", institution_id=institution, name=name)
+        for institution, name in institution_assignments.items()
+        if institution not in existing_map
+    )
+
+    return existing_map | {
+        InstitutionId(fs.institution_id): FundingSourceId(fs.pk)
+        for fs in created
+        if fs.institution_id
+    }
+
+
+def _funding_source_id(
+    fs: FundingSource | None, lookup: dict[InstitutionId, FundingSourceId]
+) -> FundingSourceId | None:
     if not fs:
         return None
 
-    if not fs.id:
-        raise ValueError(f"Attempting to save position with unsaved funding source {fs}")
+    if isinstance(fs, Budget):
+        if not fs.id:
+            raise ValueError(f"Attempting to save position with unsaved funding source {fs}")
 
-    return fs.id
+        return fs.id
+    elif isinstance(fs, SplitSource):
+        return lookup[fs.institution]
 
 
 def _as_position_domain_object(position: invoice_models.Position) -> Position:

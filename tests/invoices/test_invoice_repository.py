@@ -143,21 +143,29 @@ def free_position() -> Position:
 
 
 def _assign_funding(position: Position) -> None:
-    institution = modelfactory.institution()
     position_total = position.net().amount
-    partial = position_total / Decimal(3)
+    partial = position_total / Decimal(5)
+
     budget_1 = domainfactory.budget()
     budget_2 = domainfactory.budget()
-    institution_source = domainfactory.split_source(InstitutionId(institution.pk), institution.name)
     budget_1.id = funding_source_repository.create(budget_1)
     budget_2.id = funding_source_repository.create(budget_2)
-    institution_source.id = funding_source_repository.create(institution_source)
+
+    institution = modelfactory.institution()
+    saved_institution_source = domainfactory.split_source(
+        InstitutionId(institution.pk), institution.name
+    )
+    saved_institution_source.id = funding_source_repository.create(saved_institution_source)
+
+    institution_2 = modelfactory.institution()
+    unsaved_institution_source = domainfactory.split_source(
+        InstitutionId(institution_2.pk), institution_2.name
+    )
 
     position.assign_funding(budget_1, partial)
     position.assign_funding(budget_2, partial)
-
-    remainder = position.unassigned_costs().amount
-    position.assign_funding(institution_source, remainder)
+    position.assign_funding(saved_institution_source, partial)
+    position.assign_remaining(unsaved_institution_source)
 
 
 def random_publication(publisher_id: int | None = None) -> PublicationId:
