@@ -47,6 +47,12 @@ class OpenCostReportPublication(models.Model):
         null=True, blank=True, help_text="Whether publication has multi-institutional cost sharing"
     )
 
+    institution_name = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Institution name (snapshot)",
+    )
+
     snapshot_date = models.DateTimeField(
         default=timezone.now, help_text="When this snapshot was created"
     )
@@ -59,6 +65,36 @@ class OpenCostReportPublication(models.Model):
 
     def __str__(self) -> str:
         return f"{self.title} (in {self.report.title})"
+
+
+class OpenCostReportInstitutionIdentifier(models.Model):
+    report_publication = models.ForeignKey(
+        OpenCostReportPublication,
+        on_delete=models.CASCADE,
+        related_name="institution_identifiers",
+        help_text="The report publication this institution identifier belongs to",
+    )
+
+    identifier_type = models.CharField(
+        max_length=50,
+        help_text="Type of identifier: ror, isni, or ringold (snapshot)",
+    )
+    value = models.CharField(
+        max_length=500,
+        help_text="Institution identifier value (snapshot)",
+    )
+
+    snapshot_date = models.DateTimeField(
+        default=timezone.now, help_text="When this snapshot was created"
+    )
+
+    class Meta:
+        ordering = ["identifier_type", "value"]
+        verbose_name = "Report Institution Identifier"
+        verbose_name_plural = "Report Institution Identifiers"
+
+    def __str__(self) -> str:
+        return f"{self.identifier_type}: {self.value}"
 
 
 class OpenCostReportPublicationLink(models.Model):

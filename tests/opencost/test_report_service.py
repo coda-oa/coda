@@ -1,11 +1,13 @@
 import pytest
 
+from coda.apps.authors.models import Author
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportInvoice,
     OpenCostReportInvoicePosition,
     OpenCostReportPublication,
 )
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models._attachedentities import PublicationAttachedConcept
 from coda.apps.publications.models._links import Link, LinkType
 from coda.apps.publications.models._vocabulary import Vocabulary
@@ -14,6 +16,7 @@ from tests.opencost.helpers import create_publication_with_invoice, create_openc
 from datetime import date
 from decimal import Decimal
 from tests.opencost.helpers import create_creditor, create_invoice, create_position
+from coda.apps.institutions.models import Institution, InstitutionLinkType, InstitutionLink
 
 
 @pytest.mark.django_db
@@ -344,3 +347,136 @@ def test__publication_with_invoices_inside_and_outside_period__generate_report__
     assert "INV-Q2-001" in invoice_numbers
     assert "INV-Q2-002" in invoice_numbers
     assert "INV-Q3-001" not in invoice_numbers
+
+
+@pytest.mark.django_db
+def test__publication_with_institution_identifiers__generate_report__identifier_snapshots_created() -> (
+    None
+):
+    author_institution = Institution.objects.create(name="Department of Chemistry")
+    ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
+    InstitutionLink.objects.create(
+        institution=author_institution, type=ror_type, value="https://ror.org/author123"
+    )
+    isni_type, _ = InstitutionLinkType.objects.get_or_create(name="ISNI")
+    InstitutionLink.objects.create(
+        institution=author_institution,
+        type=isni_type,
+        value="https://isni.org/isni/0000000121032683",
+    )
+    publication = modelfactory.publication(title="Test Publication")
+    _corresponding_author = Author.objects.create(
+        name="John Doe",
+        email="john@example.com",
+        publication=publication,
+        affiliation=author_institution,
+        roles="CORRESPONDING_AUTHOR",
+    )
+    create_publication_with_invoice(
+        publication,
+        invoice_date=date(2024, 6, 15),
+        invoice_number="INV-2024-001",
+    )
+
+    report = create_opencost_report()
+
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    identifier_snapshots = report_publication.institution_identifiers.all()
+    assert identifier_snapshots.count() == 2
+    assert identifier_snapshots.filter(
+        identifier_type="ror", value="https://ror.org/author123"
+    ).exists()
+    assert identifier_snapshots.filter(
+        identifier_type="isni", value="https://isni.org/isni/0000000121032683"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test__publication_with_corresponding_author_no_institution_identifiers__generate_report__uses_global_preference_identifiers() -> (
+    None
+):
+    author_institution = Institution.objects.create(name="Department Without Identifiers")
+    prefs, _ = GlobalPreferences.objects.get_or_create()
+    prefs.home_institution_identifier = "https://ror.org/home456"
+    prefs.save()
+    publication = modelfactory.publication(title="Test Publication")
+    Author.objects.create(
+        name="John Doe",
+        email="john@example.com",
+        publication=publication,
+        affiliation=author_institution,
+        roles="CORRESPONDING_AUTHOR",
+    )
+    create_publication_with_invoice(
+        publication,
+        invoice_date=date(2024, 6, 15),
+        invoice_number="INV-2024-001",
+    )
+
+    report = create_opencost_report()
+
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    identifier_snapshots = report_publication.institution_identifiers.all()
+    assert identifier_snapshots.count() == 1
+    assert identifier_snapshots.filter(
+        identifier_type="ror", value="https://ror.org/home456"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test__publication_with_author_with_different_institution_identifiers__generate_report__only_ror_isni_ringold_identifier_snapshots_created() -> (
+    None
+):
+    author_institution = Institution.objects.create(name="Department of Various Identifiers")
+    ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
+    InstitutionLink.objects.create(
+        institution=author_institution, type=ror_type, value="https://ror.org/various123"
+    )
+    isni_type, _ = InstitutionLinkType.objects.get_or_create(name="ISNI")
+    InstitutionLink.objects.create(
+        institution=author_institution,
+        type=isni_type,
+        value="https://isni.org/isni/0000000121032684",
+    )
+    ringold_type, _ = InstitutionLinkType.objects.get_or_create(name="Ringold")
+    InstitutionLink.objects.create(
+        institution=author_institution, type=ringold_type, value="https://ringold.com/id/987654"
+    )
+    other_type, _ = InstitutionLinkType.objects.get_or_create(name="OtherID")
+    InstitutionLink.objects.create(
+        institution=author_institution, type=other_type, value="https://otherid.com/id/555555"
+    )
+    publication = modelfactory.publication(title="Test Publication")
+    Author.objects.create(
+        name="Jane Smith",
+        email="jane.smith@example.com",
+        publication=publication,
+        affiliation=author_institution,
+        roles="CORRESPONDING_AUTHOR",
+    )
+    create_publication_with_invoice(
+        publication,
+        invoice_date=date(2024, 6, 15),
+        invoice_number="INV-2024-002",
+    )
+
+    report = create_opencost_report()
+
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    identifier_snapshots = report_publication.institution_identifiers.all()
+    assert identifier_snapshots.count() == 3
+    assert identifier_snapshots.filter(
+        identifier_type="ror", value="https://ror.org/various123"
+    ).exists()
+    assert identifier_snapshots.filter(
+        identifier_type="isni", value="https://isni.org/isni/0000000121032684"
+    ).exists()
+    assert identifier_snapshots.filter(
+        identifier_type="ringold", value="https://ringold.com/id/987654"
+    ).exists()
+    assert not identifier_snapshots.filter(
+        identifier_type="otherid", value="https://otherid.com/id/555555"
+    ).exists()
