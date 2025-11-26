@@ -1,6 +1,12 @@
 from decimal import Decimal
 from coda.apps.opencost.models import OpenCostReportPublication
-from coda.domain.opencost._institution import InstitutionName, InstitutionNameType, InstitutionType
+from coda.domain.opencost._institution import (
+    InstitutionId,
+    InstitutionIdType,
+    InstitutionName,
+    InstitutionNameType,
+    InstitutionType,
+)
 from coda.domain.opencost._invoice import (
     AmountInvoice,
     Dates,
@@ -32,12 +38,7 @@ def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> Pub
 
     secondary_identifiers = _get_secondary_identifiers(report_pub)
 
-    # TODO: Build institution from snapshot (we'll need to add institution_name to snapshot model)
-    # For now, use institution name as placeholder
-    institution = InstitutionType(
-        name=[InstitutionName(value="Placeholder Institution", type=InstitutionNameType.full)],
-        id=None,
-    )
+    institution = _get_institution(report_pub)
 
     publication_type = _get_publication_type(report_pub)
 
@@ -130,3 +131,24 @@ def _get_invoice_data(report_pub: OpenCostReportPublication) -> list[Publication
         )
 
     return invoice_list if invoice_list else None
+
+
+def _get_institution(report_pub: OpenCostReportPublication) -> InstitutionType:
+    names = []
+    if report_pub.institution_name:
+        names.append(
+            InstitutionName(value=report_pub.institution_name, type=InstitutionNameType.full)
+        )
+
+    identifiers = []
+    for inst_id in report_pub.institution_identifiers.all():
+        try:
+            id_type = InstitutionIdType(inst_id.identifier_type)
+            identifiers.append(InstitutionId(value=inst_id.value, type=id_type))
+        except ValueError:
+            continue
+
+    return InstitutionType(
+        name=names if names else None,
+        id=identifiers if identifiers else None,
+    )

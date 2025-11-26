@@ -4,11 +4,14 @@ from coda.apps.invoices.models import Position
 from coda.apps.opencost.data_aggregation import get_publications_for_period
 from coda.apps.opencost.models import (
     OpenCostReport,
+    OpenCostReportInstitutionIdentifier,
     OpenCostReportInvoicePosition,
     OpenCostReportPublication,
     OpenCostReportInvoice,
     OpenCostReportPublicationLink,
 )
+from coda.apps.publications.models import Publication
+from coda.apps.preferences.models import GlobalPreferences
 
 
 def generate_report(title: str, period_start: date, period_end: date) -> OpenCostReport:
@@ -37,6 +40,8 @@ def generate_report(title: str, period_start: date, period_end: date) -> OpenCos
 
         pub_type_name = publication.publication_type.name if publication.publication_type else ""
 
+        institution_name, institution_identifiers = _get_institution_data(publication)
+
         report_publication = OpenCostReportPublication.objects.create(
             report=report,
             publication=publication,
@@ -46,7 +51,15 @@ def generate_report(title: str, period_start: date, period_end: date) -> OpenCos
             publisher=publisher_name,
             journal=journal_name,
             external_costsplitting=None,  # Will implement with cost sharing later
+            institution_name=institution_name,
         )
+
+        for identifier_type, identifier_value in institution_identifiers:
+            OpenCostReportInstitutionIdentifier.objects.create(
+                report_publication=report_publication,
+                identifier_type=identifier_type,
+                value=identifier_value,
+            )
 
         for link in publication.links.all():
             link_type_name = link.type.name.lower()
@@ -92,3 +105,36 @@ def generate_report(title: str, period_start: date, period_end: date) -> OpenCos
                 )
 
     return report
+
+
+def _get_institution_data(publication: Publication) -> tuple[str, list[tuple[str, str]]]:
+    corresponding_author = publication.relevant_authors.filter(
+        roles__contains="CORRESPONDING_AUTHOR"
+    ).first()
+
+    if corresponding_author and corresponding_author.affiliation:
+        institution = corresponding_author.affiliation
+        institution_name = institution.name
+
+        identifiers = []
+        for link in institution.links.filter(type__name__in=["ROR", "ISNI", "Ringold"]):
+            identifier_type = link.type.name.lower()
+            identifiers.append((identifier_type, link.value))
+
+        if identifiers:
+            return institution_name, identifiers
+
+    home_identifier = GlobalPreferences.get_home_institution_identifier()
+
+    if home_identifier:
+        identifier_lower = home_identifier.lower()
+        if "ror.org" in identifier_lower:
+            identifier_type = "ror"
+        elif "isni" in identifier_lower or " " in home_identifier:
+            identifier_type = "isni"
+        else:
+            identifier_type = "ringold"
+
+        return "Home Institution", [(identifier_type, home_identifier)]
+
+    return "", []

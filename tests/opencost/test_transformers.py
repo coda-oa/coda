@@ -19,6 +19,10 @@ from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.models import LinkType, Link
 from coda.domain.opencost import CoarPublicationType
 
+from coda.apps.institutions.models import Institution, InstitutionLinkType, InstitutionLink
+from coda.apps.authors.models import Author
+from coda.domain.opencost._institution import InstitutionIdType, InstitutionNameType
+
 
 @pytest.mark.django_db
 def test__report_article_publication__transforming_to_opencost__returns_valid_opencost_publication() -> (
@@ -175,6 +179,55 @@ def test__report_publication_with_secondary_identifiers__transforming_to_opencos
     ]
     assert len(urn_ids) == 1
     assert urn_ids[0].value == "urn:nbn:de:1234-5678"
+
+
+@pytest.mark.django_db
+def test__report_publication_with_institution_data__transforming_to_opencost__institution_data_is_included() -> (
+    None
+):
+    institution = Institution.objects.create(name="Test University")
+    ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
+    InstitutionLink.objects.create(
+        institution=institution, type=ror_type, value="https://ror.org/test123"
+    )
+    isni_type, _ = InstitutionLinkType.objects.get_or_create(name="ISNI")
+    InstitutionLink.objects.create(
+        institution=institution, type=isni_type, value="0000 0001 2345 6789"
+    )
+    publication = modelfactory.publication(title="Test Publication")
+    Author.objects.create(
+        name="Test Author",
+        email="test@example.com",
+        publication=publication,
+        affiliation=institution,
+        roles="CORRESPONDING_AUTHOR",
+    )
+    create_publication_with_invoice(
+        publication,
+        invoice_date=date(2024, 6, 15),
+        invoice_number="INV-2024-001",
+    )
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+
+    oc_publication = report_publication_to_pydantic(report_publication)
+
+    assert oc_publication.institution is not None
+    assert oc_publication.institution.name is not None
+
+    assert oc_publication.institution.name[0].value == "Test University"
+    assert oc_publication.institution.name[0].type == InstitutionNameType.full
+
+    assert oc_publication.institution.id is not None
+
+    ror_ids = [i for i in oc_publication.institution.id if i.type == InstitutionIdType.ror]
+    assert len(ror_ids) == 1
+    assert ror_ids[0].value == "https://ror.org/test123"
+
+    isni_ids = [i for i in oc_publication.institution.id if i.type == InstitutionIdType.isni]
+    assert len(isni_ids) == 1
+    assert isni_ids[0].value == "0000 0001 2345 6789"
 
 
 @pytest.mark.django_db
