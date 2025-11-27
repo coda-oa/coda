@@ -8,6 +8,7 @@ from django.db.models import Q
 
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.domain.date import DateRange
+from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication.publication import OpenAccessType
 
@@ -199,6 +200,18 @@ class EntityTypeCriteria:
                 return Q(publication__monograph_publisher__isnull=False)
             case _:
                 return Q()
+
+
+@dataclass
+class PaymentMethodCriteria:
+    payment_methods: list[PaymentMethod] = field(default_factory=list)
+
+    def _to_query(self) -> Q:
+        if not self.payment_methods:
+            return Q()
+
+        payment_methods = [method.value.lower() for method in self.payment_methods]
+        return Q(payment_method__in=payment_methods)
 
 
 class FundingRequestSearchCriteria(Protocol):

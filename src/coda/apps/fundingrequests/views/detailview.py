@@ -39,6 +39,7 @@ class RequestViewModel(NamedTuple):
     request_date: datetime.date
     updated_at: datetime.date
     estimated_cost: Money
+    payment_method: str
     review_status: str
     review_remarks: str
     funding_amount: Money
@@ -100,6 +101,7 @@ def request_viewmodel(fr: FundingRequestModel) -> RequestViewModel:
         request_date=fr.request_date,
         updated_at=fr.updated_at,
         estimated_cost=Money(fr.estimated_cost, Currency[fr.estimated_cost_currency]),
+        payment_method=fr.payment_method,
         review_status=ReviewResult.of(fr.review.review_result).value,
         review_remarks=fr.review.remarks,
         funding_amount=Money(
