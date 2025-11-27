@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from annotated_types import Len
-from pydantic import BaseModel, PlainValidator, model_validator
+from pydantic import BaseModel, Field, PlainValidator, model_validator
 
 from coda.domain.fundingrequest.identity import InvalidFundingRequestId, PublicFundingRequestId
 from coda.domain.finance.invoice import PaymentStatus
@@ -19,12 +19,19 @@ NonEmptyStr = Annotated[str, Len(min_length=1)]
 type PositionType = Literal["publication", "contract", "free"]
 
 
+class FundingAssignmentImportDto(BaseModel):
+    type: Literal["budget", "institution"] = "budget"
+    name: str
+    amount: Decimal | None = None
+
+
 class CommonPositionImportDto(BaseModel, ABC):
     type: PositionType
     amount: Decimal
     tax_rate: Decimal = DEFAULT_TAX_RATE
     funding_source: str = ""
     external_id: str = ""
+    funding_assignments: list[FundingAssignmentImportDto] = Field(default_factory=list)
 
 
 def _validate_request_id(value: str | None) -> str | None:

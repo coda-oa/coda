@@ -1,3 +1,5 @@
+from decimal import Decimal
+from functools import cache
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -8,8 +10,9 @@ from django.db.models import Q
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.invoices import repository
-from coda.apps.invoices.models import Creditor, FundingSource
+from coda.apps.invoices import funding_source_repository, repository
+from coda.apps.invoices.models import Creditor
+from coda.apps.invoices.models import FundingSource as FundingSourceModel
 from coda.apps.publications.services import publications
 from coda.contexts.finance.dto.import_dtos import (
     CommonPositionImportDto,
@@ -21,6 +24,7 @@ from coda.contexts.finance.dto.import_dtos import (
 from coda.domain import errors
 from coda.domain.contract import Contract
 from coda.domain.finance import invoice_positions
+from coda.domain.finance.funding_sources import Budget, FundingSource
 from coda.domain.finance.invoice import (
     CreditorId,
     FundingSourceId,
@@ -28,9 +32,9 @@ from coda.domain.finance.invoice import (
     InvoiceId,
 )
 from coda.domain.finance.invoice_positions import (
-    Position,
     ContractItem,
     FreeItem,
+    Position,
     PublicationItem,
 )
 from coda.domain.finance.taxrate import TaxRate
@@ -251,7 +255,9 @@ def _parse_into_position(
 ) -> Position:
     cost = Money(p.amount, currency)
     tax_rate = TaxRate.from_percentage(p.tax_rate)
-    funding_source = lookups.funding_sources_lookup[p.funding_source] if p.funding_source else None
+    funding_source_id = (
+        lookups.funding_sources_lookup[p.funding_source] if p.funding_source else None
+    )
     external_id = p.external_id
     position: Position
     match p:
@@ -264,7 +270,6 @@ def _parse_into_position(
                 ),
                 cost=cost,
                 tax_rate=tax_rate,
-                funding_source=funding_source,
                 external_position_id=external_id,
             )
         case ContractPositionImportDto():
@@ -275,7 +280,6 @@ def _parse_into_position(
                 ),
                 cost=cost,
                 tax_rate=tax_rate,
-                funding_source=funding_source,
                 external_position_id=external_id,
             )
         case FreePositionImportDto():
@@ -286,13 +290,39 @@ def _parse_into_position(
                 ),
                 cost=cost,
                 tax_rate=tax_rate,
-                funding_source=funding_source,
                 external_position_id=external_id,
             )
         case _:
             raise ValueError(f"Unknown position type: {p.type}.\n{p}")
 
+    if p.funding_source:
+        position.assign_remaining(Budget(funding_source_id, p.funding_source))
+    else:
+        implicit_assignments = [fa for fa in p.funding_assignments if fa.amount is None]
+        partial_assignment = Decimal(0)
+        if implicit_assignments:
+            total_explicit = sum(fa.amount for fa in p.funding_assignments if fa.amount is not None)
+            remaining = p.amount - total_explicit
+            partial_assignment = remaining / Decimal(len(implicit_assignments))
+
+        for fa in p.funding_assignments:
+            funding_source = _get_funding_source_by_name(fa.name)
+            assignment_amount = fa.amount if fa.amount is not None else partial_assignment
+            position.assign_funding(funding_source, assignment_amount)
+
     return position
+
+
+@cache
+def _get_funding_source_by_name(funding_source_name: str) -> FundingSource:
+    try:
+        funding_source = funding_source_repository.get_by_name(funding_source_name)
+    except funding_source_repository.FundingSourceNotFound:
+        funding_source = Budget.new(funding_source_name)
+        funding_source.id = funding_source_repository.create(funding_source)
+        print("created new funding source", funding_source)
+
+    return funding_source
 
 
 def _invoice_key(invoice_dto: InvoiceImportDto) -> str:
@@ -379,11 +409,13 @@ def _bulk_create_creditors(creditors: Iterable[str]) -> dict[str, CreditorId]:
 
 def _bulk_create_funding_sources(funding_sources: Iterable[str]) -> dict[str, FundingSourceId]:
     funding_sources = set(funding_sources)
-    existing = FundingSource.objects.filter(name__in=funding_sources)
+    existing = FundingSourceModel.objects.filter(name__in=funding_sources)
     existing_map = {fs.name: FundingSourceId(fs.pk) for fs in existing}
-    to_create = [FundingSource(name=name) for name in funding_sources if name not in existing_map]
+    to_create = [
+        FundingSourceModel(name=name) for name in funding_sources if name not in existing_map
+    ]
     if to_create:
-        created = FundingSource.objects.bulk_create(to_create)
+        created = FundingSourceModel.objects.bulk_create(to_create)
         existing_map.update({fs.name: FundingSourceId(fs.pk) for fs in created})
 
     return existing_map

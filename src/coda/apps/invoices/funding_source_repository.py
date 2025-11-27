@@ -10,8 +10,15 @@ from coda.domain.string import NonEmptyStr
 
 
 class FundingSourceNotFound(ValueError):
-    def __init__(self, id: int) -> None:
-        super().__init__(f"FundingSource with {id=} does not exist")
+    def __init__(self, id: int | None = None, name: str = "") -> None:
+        if id:
+            msg = f"FundingSource with {id=} does not exist"
+        elif name:
+            msg = f"FundingSource with {name=} does not exist"
+        else:
+            msg = "FundingSource not found"
+
+        super().__init__(msg)
 
 
 def get_by_id(id: FundingSourceId) -> FundingSource:
@@ -30,6 +37,15 @@ def get_by_institution(id: InstitutionId) -> SplitSource:
         raise FundingSourceNotFound(id) from e
 
     return SplitSource(FundingSourceId(model.pk), id, NonEmptyStr(model.name))
+
+
+def get_by_name(name: str) -> FundingSource:
+    try:
+        model = FundingSourceModel.objects.get(name=name)
+    except FundingSourceModel.DoesNotExist as e:
+        raise FundingSourceNotFound(name=name) from e
+
+    return invoice_mapper.as_domain_funding_source(model)
 
 
 def create(source: FundingSource) -> FundingSourceId:

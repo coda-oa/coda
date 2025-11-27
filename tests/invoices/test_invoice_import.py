@@ -1,5 +1,6 @@
 import datetime
 import io
+import json
 from collections.abc import Callable, Iterable
 from decimal import Decimal
 from typing import cast
@@ -8,7 +9,7 @@ import pytest
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-from coda.apps.invoices import repository
+from coda.apps.invoices import funding_source_repository, repository
 from coda.apps.invoices.models import Creditor, FundingSource
 from coda.apps.publications.services import publications
 from coda.contexts.finance.dto.import_dtos import (
@@ -16,6 +17,7 @@ from coda.contexts.finance.dto.import_dtos import (
     ContractPositionImportDto,
     ConversionImportDto,
     FreePositionImportDto,
+    FundingAssignmentImportDto,
     InvoiceImportDto,
     InvoiceListImportDto,
     PublicationPositionImportDto,
@@ -25,11 +27,12 @@ from coda.domain.contract import Contract
 from coda.domain.date import DateRange
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
 from coda.domain.finance.invoice_positions import (
-    Position,
     ContractItem,
     FreeItem,
+    Position,
     PublicationItem,
 )
 from coda.domain.finance.taxrate import TaxRate
@@ -52,7 +55,7 @@ def test__full_invoice__import__is_saved_to_database() -> None:
 
     report = import_invoices(import_dto)
 
-    expected = expected_invoice(import_dto.invoices[0])
+    expected = expected_full_invoice(import_dto.invoices[0])
     actual = repository.first()
     assert actual is not None, "Invoice should have been created by import service"
     assert_invoice_eq(expected, actual)
@@ -74,6 +77,52 @@ def test__full_invoice__related_entities_already_exist__is_not_created_again() -
     assert FundingSource.objects.count() == 1
     assert Creditor.objects.count() == 1
     assert len(contract_repository.all()) == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "assignments",
+    [
+        [
+            FundingAssignmentImportDto(type="budget", name="split 1", amount=Decimal(10)),
+            FundingAssignmentImportDto(type="budget", name="split 2", amount=Decimal(20)),
+        ],
+        [
+            FundingAssignmentImportDto(type="budget", name="split 1"),
+            FundingAssignmentImportDto(type="budget", name="split 2", amount=Decimal(20)),
+        ],
+    ],
+    ids=["explicit assignments", "partial implicit assignments"],
+)
+def test__invoice_with_split_position_with_explicit_assignments__import_invoice__imports_with_splits(
+    assignments: list[FundingAssignmentImportDto],
+) -> None:
+    position_dto = free_position_import_dto()
+    position_dto.funding_source = ""
+    position_dto.amount = Decimal(30)
+    position_dto.funding_assignments = assignments
+    import_dto = invoice_import_list_dto([position_dto])
+
+    _ = import_invoices(import_dto)
+
+    invoice_dto = import_dto.invoices[0]
+    expected = expected_invoice_head(invoice_dto)
+    position = invoice_positions.create(
+        item=FreeItem(position_dto.description, cost_type=position_dto.cost_type),
+        cost=Money(30, Currency.from_code(invoice_dto.currency)),
+        tax_rate=TaxRate.from_percentage(position_dto.tax_rate),
+        external_position_id=position_dto.external_id,
+    )
+
+    split_1 = funding_source_repository.get_by_name("split 1")
+    split_2 = funding_source_repository.get_by_name("split 2")
+    position.assign_funding(split_1, Decimal(10))
+    position.assign_funding(split_2, Decimal(20))
+
+    expected.positions = [position]
+    actual = repository.first()
+    assert actual is not None
+    assert_invoice_eq(expected, actual)
 
 
 @pytest.mark.django_db
@@ -150,9 +199,6 @@ def test__multiple_invalid_invoices__import_invoices__returns_errors_per_invoice
         ]
     }
 
-    import io
-    import json
-
     json_stream = io.StringIO(json.dumps(invalid_data))
     actual = import_service.import_invoices(json_stream)
 
@@ -178,9 +224,6 @@ def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
             }
         ]
     }
-
-    import io
-    import json
 
     json_stream = io.StringIO(json.dumps(invalid_data))
     actual = import_service.import_invoices(json_stream)
@@ -235,7 +278,7 @@ def test__unpaid_invoice_with_publication_position_import_invoices_funding_reque
 
 def assert_valid_invoice_imported(valid_dto: InvoiceImportDto) -> None:
     all_invoices = repository.all()
-    expected = expected_invoice(valid_dto)
+    expected = expected_full_invoice(valid_dto)
     assert len(all_invoices) == 1
     actual = all_invoices[0]
     assert_invoice_eq(expected, actual)
@@ -316,17 +359,17 @@ def invoice_dto(
 ) -> InvoiceImportDto:
     return InvoiceImportDto(
         number=number,
-        date="2023-10-01",
+        date=datetime.date(2023, 10, 1),
         creditor="creditor-name",
         currency=Currency.BBD.code,
-        status="unpaid",
+        status=PaymentStatus.Unpaid,
         external_id="external-invoice-id",
         comment="Test invoice comment",
         conversion=ConversionImportDto(
             target_currency=Currency.EUR.code,
             exchange_rate=Decimal("5.00"),
         ),
-        positions=positions,
+        positions=list(positions),
     )
 
 
@@ -347,16 +390,19 @@ def expected_publication_position(import_dto: PublicationPositionImportDto) -> P
         PublicFundingRequestId.from_str(str(import_dto.request_id))
     )
     publication_id = cast(PublicationId, request.publication.id)
-    return invoice_positions.create(
+    position = invoice_positions.create(
         item=PublicationItem(
             publication_id,
             cost_type=PublicationCostType(import_dto.cost_type),
         ),
         cost=Money(import_dto.amount, Currency.BBD),
         tax_rate=TaxRate.from_percentage(import_dto.tax_rate),
-        funding_source=FundingSourceId(funding_source.pk),
         external_position_id=import_dto.external_id,
     )
+
+    budget = Budget(FundingSourceId(funding_source.pk), funding_source.name)
+    position.assign_remaining(budget)
+    return position
 
 
 def expected_contract_position(import_dto: ContractPositionImportDto) -> Position:
@@ -367,16 +413,18 @@ def expected_contract_position(import_dto: ContractPositionImportDto) -> Positio
     assert contract is not None, "Contract should have been created by import service"
 
     contract_year = contract.in_year(import_dto.contract_year)
-    return invoice_positions.create(
+    position = invoice_positions.create(
         item=ContractItem(
             contract_year,
             cost_type=ContractCostType(import_dto.cost_type),
         ),
         cost=Money(import_dto.amount, Currency.BBD),
         tax_rate=TaxRate.from_percentage(import_dto.tax_rate),
-        funding_source=FundingSourceId(funding_source.pk),
         external_position_id=import_dto.external_id,
     )
+    budget = Budget(FundingSourceId(funding_source.pk), funding_source.name)
+    position.assign_remaining(budget)
+    return position
 
 
 def expected_free_position(import_dto: FreePositionImportDto) -> Position:
@@ -385,19 +433,21 @@ def expected_free_position(import_dto: FreePositionImportDto) -> Position:
         funding_source is not None
     ), f"FundingSource '{import_dto.funding_source}' should exist in the database"
     description = import_dto.description
-    return invoice_positions.create(
+    position = invoice_positions.create(
         item=FreeItem(
             description,
             cost_type=PublicationCostType(import_dto.cost_type),
         ),
         cost=Money(import_dto.amount, Currency.BBD),
         tax_rate=TaxRate.from_percentage(import_dto.tax_rate),
-        funding_source=FundingSourceId(funding_source.pk),
         external_position_id=import_dto.external_id,
     )
+    budget = Budget(FundingSourceId(funding_source.pk), funding_source.name)
+    position.assign_remaining(budget)
+    return position
 
 
-def expected_invoice(import_dto: InvoiceImportDto) -> Invoice:
+def expected_full_invoice(import_dto: InvoiceImportDto) -> Invoice:
     positions = [
         expected_publication_position(cast(PublicationPositionImportDto, import_dto.positions[0])),
         expected_contract_position(cast(ContractPositionImportDto, import_dto.positions[1])),
@@ -407,17 +457,26 @@ def expected_invoice(import_dto: InvoiceImportDto) -> Invoice:
     creditor = Creditor.objects.filter(name=import_dto.creditor).first()
     assert creditor is not None, "Creditor should have been created by import service"
 
-    expected_invoice = Invoice.new(
+    expected_invoice = expected_invoice_head(import_dto)
+    expected_invoice.positions = positions
+    return expected_invoice
+
+
+def expected_invoice_head(import_dto: InvoiceImportDto) -> Invoice:
+    creditor = Creditor.objects.filter(name=import_dto.creditor).first()
+    assert creditor is not None, "Creditor should have been created by import service"
+
+    invoice = Invoice.new(
         number=import_dto.number,
         date=import_dto.date,
         creditor=CreditorId(creditor.pk),
         status=PaymentStatus.Unpaid,
         external_invoice_id="external-invoice-id",
         comment="Test invoice comment",
-        positions=positions,
+        positions=[],
     )
-    expected_invoice.add_conversion(Decimal("5.00"), Currency.EUR)
-    return expected_invoice
+    invoice.add_conversion(Decimal("5.00"), Currency.EUR)
+    return invoice
 
 
 def create_position_dtos() -> list[CommonPositionImportDto]:
