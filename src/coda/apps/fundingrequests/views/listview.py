@@ -14,6 +14,7 @@ from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.views.detailview import payment_status_viewmodel
 from coda.apps.publications.services import publications
 from coda.apps.views import EntityListView
+from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
 from coda.domain.publication.payment import PublicationPaymentStatus
@@ -72,6 +73,8 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
         publication_types = [(et.value, et.value) for et in fq.PublicationEntityType]
         selected_publication_types = self.request.GET.get("publication_type")
 
+        payment_methods = [(pm.value, pm.value) for pm in PaymentMethod]
+
         return ctx | {
             "labels": labels,
             "exlude_labels": labels,
@@ -81,6 +84,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestL
             "payment_status_choices": _payment_status_choices,
             "publication_types": publication_types,
             "selected_publication_types": selected_publication_types,
+            "payment_methods": payment_methods,
         }
 
 
@@ -95,6 +99,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     requested_payment_statuses = [
         _payment_status_map[status] for status in request.GET.getlist("payment_status")
     ]
+    payment_methods = [PaymentMethod(pm) for pm in request.GET.getlist("payment_methods")]
 
     return cast(
         QuerySet[FundingRequestModel],
@@ -115,6 +120,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
                 map_or_none(int, request.GET.get("contract_name")),
                 map_or_none(int, request.GET.get("contract_year")),
             ),
+            fq.PaymentMethodCriteria(payment_methods),
             sort_order=fq.SortOrder.try_parse(request.GET.get("sort_by")),
         ),
     )

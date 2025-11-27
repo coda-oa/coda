@@ -1,0 +1,15 @@
+<details class="dropdown">
+    <summary>Payment Method</summary>
+    <ul class="undecorated">
+        {% for value, label in payment_methods %}
+            <li>
+                <input type="checkbox"
+                       id="payment-method-{{ value }}"
+                       name="payment_methods"
+                       value="{{ value }}"
+                       {% if value in request.GET.payment_methods %}checked{% endif %}>
+                <label for="payment-method-{{ value }}">{{ label }}</label>
+            </li>
+        {% endfor %}
+    </ul>
+</details>

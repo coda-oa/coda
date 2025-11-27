@@ -199,6 +199,10 @@
                             <th scope="row">Decided Funding Amount</th>
                             <td>{{ funding_request.funding_amount }}</td>
                         </tr>
+                        <tr>
+                            <th scope="row">Payment Method</th>
+                            <td colspan="3">{{ funding_request.payment_method|title }}</td>
+                        </tr>
                     </tbody>
                 </table>
                 <h3 class="mt-1_5">External Research Funding</h3>

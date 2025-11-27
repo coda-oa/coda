@@ -139,6 +139,28 @@ def test__searching_for_funding_requests_by_date__shows_matching_funding_request
     assert_contains(response.context, requests)
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_for_funding_requests_by_payment_method__shows_matching_funding_requests(
+    client: Client,
+) -> None:
+    matching_request = modelfactory.fundingrequest()
+    matching_request.payment_method = "direct"
+    matching_request.save()
+
+    non_matching_request = modelfactory.fundingrequest()
+    non_matching_request.payment_method = "reimbursement"
+    non_matching_request.save()
+
+    query = {"payment_methods": ["direct"]}
+    response = search_fundingrequests(
+        client,
+        query,
+    )
+
+    assert_contains(response.context, {matching_request})
+
+
 def search_fundingrequests(client: Client, query: dict[str, Any] | None = None) -> TemplateResponse:
     return cast(TemplateResponse, client.get(reverse("fundingrequests:list"), data=query))
 
