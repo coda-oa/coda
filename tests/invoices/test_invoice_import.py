@@ -23,6 +23,7 @@ from coda.contexts.finance.dto.import_dtos import (
     PublicationPositionImportDto,
 )
 from coda.contexts.finance.services import import_service
+from coda.domain.author import InstitutionId
 from coda.domain.contract import Contract
 from coda.domain.date import DateRange
 from coda.domain.finance import invoice_positions
@@ -60,7 +61,7 @@ def test__full_invoice__import__is_saved_to_database() -> None:
     assert actual is not None, "Invoice should have been created by import service"
     assert_invoice_eq(expected, actual)
     assert report.valid_invoices == 1
-    assert report.errors == {}
+    assert report.errors == []
 
 
 @pytest.mark.django_db
@@ -92,7 +93,7 @@ def test__full_invoice__related_entities_already_exist__is_not_created_again() -
             FundingAssignmentImportDto(type="budget", name="split 2", amount=Decimal(20)),
         ],
     ],
-    ids=["explicit assignments", "partial implicit assignments"],
+    ids=["explicit assignments", "partial explicit assignments"],
 )
 def test__invoice_with_split_position_with_explicit_assignments__import_invoice__imports_with_splits(
     assignments: list[FundingAssignmentImportDto],
@@ -126,6 +127,78 @@ def test__invoice_with_split_position_with_explicit_assignments__import_invoice_
 
 
 @pytest.mark.django_db
+def test__invoice_with_split_position_with_implicit_assignments__import_invoice__imports_with_splits() -> (
+    None
+):
+    position_dto = free_position_import_dto()
+    position_dto.funding_source = ""
+    position_dto.amount = Decimal(30)
+    position_dto.funding_assignments = [
+        FundingAssignmentImportDto(type="budget", name="split 1"),
+        FundingAssignmentImportDto(type="budget", name="split 2"),
+    ]
+    import_dto = invoice_import_list_dto([position_dto])
+
+    _ = import_invoices(import_dto)
+
+    invoice_dto = import_dto.invoices[0]
+    expected = expected_invoice_head(invoice_dto)
+    position = invoice_positions.create(
+        item=FreeItem(position_dto.description, cost_type=position_dto.cost_type),
+        cost=Money(30, Currency.from_code(invoice_dto.currency)),
+        tax_rate=TaxRate.from_percentage(position_dto.tax_rate),
+        external_position_id=position_dto.external_id,
+    )
+
+    split_1 = funding_source_repository.get_by_name("split 1")
+    split_2 = funding_source_repository.get_by_name("split 2")
+    position.assign_funding(split_1, Decimal(15))
+    position.assign_funding(split_2, Decimal(15))
+
+    expected.positions = [position]
+    actual = repository.first()
+    assert actual is not None
+    assert_invoice_eq(expected, actual)
+
+
+@pytest.mark.django_db
+def test__invoice_with_split_institution_position__import_invoices__creates_institution_source_on_import() -> (
+    None
+):
+    institution_1 = modelfactory.institution()
+    institution_2 = modelfactory.institution()
+    position_dto = free_position_import_dto()
+    position_dto.funding_source = ""
+    position_dto.amount = Decimal(30)
+    position_dto.funding_assignments = [
+        FundingAssignmentImportDto(type="institution", name=institution_1.name),
+        FundingAssignmentImportDto(type="institution", name=institution_2.name),
+    ]
+    import_dto = invoice_import_list_dto([position_dto])
+
+    _ = import_invoices(import_dto)
+
+    invoice_dto = import_dto.invoices[0]
+    expected = expected_invoice_head(invoice_dto)
+    position = invoice_positions.create(
+        item=FreeItem(position_dto.description, cost_type=position_dto.cost_type),
+        cost=Money(30, Currency.from_code(invoice_dto.currency)),
+        tax_rate=TaxRate.from_percentage(position_dto.tax_rate),
+        external_position_id=position_dto.external_id,
+    )
+
+    split_1 = funding_source_repository.get_by_institution(InstitutionId(institution_1.pk))
+    split_2 = funding_source_repository.get_by_institution(InstitutionId(institution_2.pk))
+    position.assign_funding(split_1, Decimal(15))
+    position.assign_funding(split_2, Decimal(15))
+
+    expected.positions = [position]
+    actual = repository.first()
+    assert actual is not None
+    assert_invoice_eq(expected, actual)
+
+
+@pytest.mark.django_db
 def test__one_invoice_with_non_existing_publication_position__import_invoices__still_imports_other_invoices() -> (
     None
 ):
@@ -139,7 +212,7 @@ def test__one_invoice_with_non_existing_publication_position__import_invoices__s
     assert_valid_invoice_imported(valid_dto)
     assert actual.valid_invoices == 1
     assert actual.invalid_invoices == 1
-    assert "INV-001" in actual.errors
+    assert "INV-001" in actual.invoices_with_errors()
 
 
 @pytest.mark.django_db
@@ -158,7 +231,7 @@ def test__invoice_with_non_existing_publication_position__import_invoices__does_
 
 
 @pytest.mark.django_db
-def test__invalid_dto_data__import_invoices__returns_error_report() -> None:
+def test__invalid_invoice_head_data__import_invoices__returns_error_report() -> None:
     invalid_dto = InvoiceImportDto.model_construct(
         number="INV-001",
         date=datetime.date.today(),
@@ -172,7 +245,46 @@ def test__invalid_dto_data__import_invoices__returns_error_report() -> None:
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 1
-    assert "INV-001" in actual.errors
+    assert "INV-001" in actual.invoices_with_errors()
+
+
+@pytest.mark.django_db
+def test__invalid_split_amount_in_invoice__import_invoices__returns_error_report() -> None:
+    position_dto = free_position_import_dto()
+    position_dto.funding_source = ""
+    position_dto.amount = Decimal(30)
+    position_dto.funding_assignments = [
+        FundingAssignmentImportDto(type="budget", name="split 1", amount=Decimal(20)),
+        FundingAssignmentImportDto(type="budget", name="split 2", amount=Decimal(40)),
+    ]
+    import_dto = invoice_import_list_dto([position_dto])
+    invoice_dto = import_dto.invoices[0]
+
+    actual = import_invoices(import_dto)
+
+    assert actual.valid_invoices == 0
+    assert actual.invalid_invoices == 1
+    assert invoice_dto.number in actual.invoices_with_errors()
+
+
+@pytest.mark.django_db
+def test__non_existing_institution_in_invoice_position__import_invoices__returns_error_report() -> (
+    None
+):
+    position_dto = free_position_import_dto()
+    position_dto.funding_source = ""
+    position_dto.amount = Decimal(30)
+    position_dto.funding_assignments = [
+        FundingAssignmentImportDto(type="institution", name="does not exist")
+    ]
+    import_dto = invoice_import_list_dto([position_dto])
+    invoice_dto = import_dto.invoices[0]
+
+    actual = import_invoices(import_dto)
+
+    assert actual.valid_invoices == 0
+    assert actual.invalid_invoices == 1
+    assert invoice_dto.number in actual.invoices_with_errors()
 
 
 @pytest.mark.django_db
@@ -204,8 +316,8 @@ def test__multiple_invalid_invoices__import_invoices__returns_errors_per_invoice
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 2
-    assert "INV-001" in actual.errors
-    assert "INV-002" in actual.errors
+    assert "INV-001" in actual.invoices_with_errors()
+    assert "INV-002" in actual.invoices_with_errors()
     assert len(actual.errors) == 2
 
 
@@ -230,7 +342,7 @@ def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 1
-    assert "<unknown-0>" in actual.errors  # Fallback key when number is missing
+    assert "<unknown-0>" in actual.invoices_with_errors()  # Fallback key when number is missing
 
 
 PaidInvoicePaymentFixture = (

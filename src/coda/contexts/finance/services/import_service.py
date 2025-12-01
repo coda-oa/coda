@@ -1,8 +1,7 @@
-from decimal import Decimal
-from functools import cache
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, BinaryIO, TextIO, cast
 
 import pydantic
@@ -10,6 +9,7 @@ from django.db.models import Q
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.institutions.models import Institution
 from coda.apps.invoices import funding_source_repository, repository
 from coda.apps.invoices.models import Creditor
 from coda.apps.invoices.models import FundingSource as FundingSourceModel
@@ -22,9 +22,10 @@ from coda.contexts.finance.dto.import_dtos import (
     PublicationPositionImportDto,
 )
 from coda.domain import errors
+from coda.domain.author import InstitutionId
 from coda.domain.contract import Contract
 from coda.domain.finance import invoice_positions
-from coda.domain.finance.funding_sources import Budget, FundingSource
+from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import (
     CreditorId,
     FundingSourceId,
@@ -45,11 +46,24 @@ from coda.domain.publication.publication import PublicationId
 from coda.domain.string import NonEmptyStr
 
 
+class InvoiceProcessingError(errors.DomainError):
+    def __init__(self, invoice_number: str, reasons: list[str]) -> None:
+        super().__init__()
+        self.invoice_number = invoice_number
+        self.reasons = reasons or []
+
+    def unpack(self) -> tuple[str, list[str]]:
+        return self.invoice_number, self.reasons
+
+
 @dataclass
 class InvoiceImportReport:
     valid_invoices: int
     invalid_invoices: int
-    errors: dict[str, list[str]]
+    errors: list[InvoiceProcessingError]
+
+    def invoices_with_errors(self) -> list[str]:
+        return [err.invoice_number for err in self.errors]
 
 
 @dataclass
@@ -58,6 +72,7 @@ class RelatedEntityLookups:
     funding_sources_lookup: dict[str, FundingSourceId]
     request_id_lookup: dict[str, PublicationId]
     contract_lookup: dict[str, Contract]
+    funding_assignments_lookup: dict[str, FundingSource]
 
 
 def import_invoices(json_stream: TextIO | BinaryIO) -> InvoiceImportReport:
@@ -67,11 +82,10 @@ def import_invoices(json_stream: TextIO | BinaryIO) -> InvoiceImportReport:
     invoice_dtos, validation_errors = _validate_invoices(data["invoices"])
 
     if validation_errors:
-        _errors = dict(e.unpack() for e in validation_errors)
         return InvoiceImportReport(
             valid_invoices=0,
             invalid_invoices=len(validation_errors),
-            errors=_errors,
+            errors=validation_errors,
         )
 
     processed_invoices, processing_errors = _process_invoices(invoice_dtos)
@@ -81,16 +95,6 @@ def import_invoices(json_stream: TextIO | BinaryIO) -> InvoiceImportReport:
         invalid_invoices=len(invoice_dtos) - len(processed_invoices),
         errors=processing_errors,
     )
-
-
-class InvoiceProcessingError(errors.DomainError):
-    def __init__(self, invoice_number: str, reasons: list[str]) -> None:
-        super().__init__()
-        self.invoice_number = invoice_number
-        self.reasons = reasons or []
-
-    def unpack(self) -> tuple[str, list[str]]:
-        return self.invoice_number, self.reasons
 
 
 def _validate_invoice(invoice_number: str, raw_invoice: dict[str, Any]) -> InvoiceImportDto:
@@ -139,7 +143,7 @@ def _format_validation_error(error: Exception) -> list[str]:
 
 def _process_invoices(
     invoice_dtos: list[InvoiceImportDto],
-) -> tuple[list[Invoice], dict[str, list[str]]]:
+) -> tuple[list[Invoice], list[InvoiceProcessingError]]:
     """
     Process validated invoice DTOs into domain objects and persist them.
 
@@ -160,17 +164,17 @@ def _process_invoices(
         )
 
     lookups = _build_entity_lookups(valid_invoice_dtos, request_id_lookup)
-    invoices = _create_invoices(valid_invoice_dtos, lookups)
+    invoices, invoice_processing_errors = _create_invoices(valid_invoice_dtos, lookups)
 
     invoice_ids = repository.bulk_create(invoices)
     _assign_invoice_ids(invoices, invoice_ids)
     _update_publication_payment_statuses(invoices)
 
-    processing_errors = _build_missing_publication_errors(
+    publication_processing_errors = _build_missing_publication_errors(
         invoice_dtos, invoices_with_missing_publications
     )
 
-    return invoices, processing_errors
+    return invoices, invoice_processing_errors + publication_processing_errors
 
 
 def _assign_invoice_ids(invoices: list[Invoice], invoice_ids: list[InvoiceId]) -> None:
@@ -187,34 +191,51 @@ def _build_entity_lookups(
         funding_sources_lookup=_bulk_create_funding_sources(_funding_sources(invoice_dtos)),
         request_id_lookup=request_id_lookup,
         contract_lookup=_find_contracts(_contracts(invoice_dtos)),
+        funding_assignments_lookup=_build_funding_assignments_lookup(invoice_dtos),
     )
 
 
 def _create_invoices(
     invoice_dtos: list[InvoiceImportDto], lookups: RelatedEntityLookups
-) -> list[Invoice]:
+) -> tuple[list[Invoice], list[InvoiceProcessingError]]:
     """Create domain invoice objects from DTOs and lookups."""
     positions_lookup = _build_positions_lookup(invoice_dtos, lookups)
+    invoices_with_errors = [
+        err
+        for results in positions_lookup.values()
+        for err in results.errors()
+        if results.has_errors()
+    ]
+    valid_invoice_positions = {
+        invoice_key: results.values()
+        for invoice_key, results in positions_lookup.items()
+        if not results.has_errors()
+    }
 
-    return [
+    parsed_invoices = [
         _new_invoice(
             invoice_dto,
             lookups.creditor_lookup[invoice_dto.creditor],
-            positions_lookup[_invoice_key(invoice_dto)],
+            valid_invoice_positions[_invoice_key(invoice_dto)],
         )
         for invoice_dto in invoice_dtos
+        if _invoice_key(invoice_dto) in valid_invoice_positions
     ]
+
+    return parsed_invoices, invoices_with_errors
 
 
 def _build_missing_publication_errors(
     all_invoice_dtos: list[InvoiceImportDto], invoices_with_missing_publications: set[str]
-) -> dict[str, list[str]]:
+) -> list[InvoiceProcessingError]:
     """Build error dictionary for invoices with missing publications."""
-    return {
-        invoice_dto.number: ["Invoice contains position with non-existing publication"]
+    return [
+        InvoiceProcessingError(
+            invoice_dto.number, ["Invoice contains position with non-existing publication"]
+        )
         for invoice_dto in all_invoice_dtos
         if invoice_dto.number in invoices_with_missing_publications
-    }
+    ]
 
 
 def _creditors(invoice_dtos: Iterable[InvoiceImportDto]) -> Iterable[str]:
@@ -238,16 +259,87 @@ def _funding_sources(invoice_dtos: Iterable[InvoiceImportDto]) -> Iterable[str]:
     )
 
 
+def _funding_assignment_sources(
+    invoice_dtos: Iterable[InvoiceImportDto],
+) -> Iterable[tuple[str, str]]:
+    return (
+        (fa.type, fa.name)
+        for invoice in invoice_dtos
+        for position in invoice.positions
+        for fa in position.funding_assignments
+    )
+
+
+def _build_funding_assignments_lookup(
+    invoice_dtos: list[InvoiceImportDto],
+) -> dict[str, FundingSource]:
+    """Build lookup of funding sources for split assignments, creating them if needed.
+
+    Skips institutions that don't exist - these will cause KeyError during position parsing.
+    """
+    # Collect all unique (type, name) pairs
+    unique_assignments = set(_funding_assignment_sources(invoice_dtos))
+    if not unique_assignments:
+        return {}
+
+    # Separate budgets and institutions
+    budgets = [name for type_, name in unique_assignments if type_ == "budget"]
+    institutions_names = [name for type_, name in unique_assignments if type_ == "institution"]
+
+    # Build domain objects for creation
+    funding_sources_to_create: list[FundingSource] = []
+    lookup_keys: list[str] = []
+
+    # Add budgets
+    for name in budgets:
+        funding_sources_to_create.append(Budget.new(name))
+        lookup_keys.append(name)
+
+    # Add institutions (need to fetch institution IDs first)
+    if institutions_names:
+        institutions = {
+            inst.name: InstitutionId(inst.pk)
+            for inst in Institution.objects.filter(name__in=institutions_names)
+        }
+        for name in institutions_names:
+            if name in institutions:
+                funding_sources_to_create.append(SplitSource.new(institutions[name], name))
+                lookup_keys.append(name)
+            # If institution doesn't exist, skip it - will cause KeyError during parsing
+
+    # Bulk create funding sources
+    if not funding_sources_to_create:
+        return {}
+
+    funding_source_ids = funding_source_repository.create_many(funding_sources_to_create)
+
+    # Assign IDs back to domain objects
+    for funding_source, funding_source_id in zip(funding_sources_to_create, funding_source_ids):
+        funding_source.id = funding_source_id
+
+    # Return lookup by name
+    return {name: fs for name, fs in zip(lookup_keys, funding_sources_to_create)}
+
+
 def _build_positions_lookup(
     invoice_dtos: list[InvoiceImportDto], lookups: RelatedEntityLookups
-) -> dict[str, list[Position]]:
-    return {
-        _invoice_key(invoice_dto): [
-            _parse_into_position(p, Currency.from_code(invoice_dto.currency), lookups)
-            for p in invoice_dto.positions
-        ]
-        for invoice_dto in invoice_dtos
-    }
+) -> dict[str, errors.ResultCollection[Position, InvoiceProcessingError]]:
+    def to_processing_error(
+        ex: ValueError,
+        invoice_dto: InvoiceImportDto,
+    ) -> InvoiceProcessingError:
+        return InvoiceProcessingError(invoice_dto.number, [str(ex)])
+
+    with errors.capture(ValueError) as capture:
+        return {
+            _invoice_key(invoice_dto): errors.results(
+                capture(
+                    _parse_into_position, p, Currency.from_code(invoice_dto.currency), lookups
+                ).map_err(to_processing_error, invoice_dto)
+                for p in invoice_dto.positions
+            )
+            for invoice_dto in invoice_dtos
+        }
 
 
 def _parse_into_position(
@@ -306,23 +398,15 @@ def _parse_into_position(
             partial_assignment = remaining / Decimal(len(implicit_assignments))
 
         for fa in p.funding_assignments:
-            funding_source = _get_funding_source_by_name(fa.name)
+            try:
+                funding_source = lookups.funding_assignments_lookup[fa.name]
+            except KeyError:
+                # Institution doesn't exist - raise error that will be caught
+                raise ValueError(f"Institution '{fa.name}' does not exist")
             assignment_amount = fa.amount if fa.amount is not None else partial_assignment
             position.assign_funding(funding_source, assignment_amount)
 
     return position
-
-
-@cache
-def _get_funding_source_by_name(funding_source_name: str) -> FundingSource:
-    try:
-        funding_source = funding_source_repository.get_by_name(funding_source_name)
-    except funding_source_repository.FundingSourceNotFound:
-        funding_source = Budget.new(funding_source_name)
-        funding_source.id = funding_source_repository.create(funding_source)
-        print("created new funding source", funding_source)
-
-    return funding_source
 
 
 def _invoice_key(invoice_dto: InvoiceImportDto) -> str:
@@ -369,11 +453,16 @@ def _find_publication_ids(
         Q(request_id__in=publication_ids) | Q(legacy_request_id__in=publication_ids)
     ).prefetch_related("publication")
 
+    found_publication_ids = set()
+    for req in requests:
+        found_publication_ids.add(req.request_id)
+        if req.legacy_request_id:
+            found_publication_ids.add(req.legacy_request_id)
+
     invoices_with_missing_publications = {
         invoice_number
         for invoice_number, publication in invoices_with_publications
-        if requests.filter(Q(request_id=publication) | Q(legacy_request_id=publication)).count()
-        == 0
+        if publication not in found_publication_ids
     }
 
     return {req.request_id: PublicationId(req.publication.id) for req in requests} | {

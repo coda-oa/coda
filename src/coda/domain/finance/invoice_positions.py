@@ -18,7 +18,8 @@ class SplitTooLarge(errors.DomainError):
 
 
 class InvalidSplitAmount(errors.DomainError):
-    pass
+    def __init__(self, amount: Decimal, remaining_costs: Decimal) -> None:
+        super().__init__(f"{amount} exceeds the remaining costs of {remaining_costs}")
 
 
 class SameFundingSource(errors.DomainError):
@@ -200,7 +201,7 @@ class Position:
         )
 
         if self._is_invalid_split_amount(normalized.amount):
-            raise InvalidSplitAmount()
+            raise InvalidSplitAmount(normalized.amount, self.unassigned_costs().amount)
 
         self._splits.append(FundingAssignment(funding_source, normalized.base))
 
