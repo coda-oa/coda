@@ -54,7 +54,7 @@ def generate_report(request: HttpRequest) -> HttpResponse:
 
             messages.success(
                 request,
-                f"Report '{report.title}' generated successfully with {report.publications.count()} publications.",
+                f"Report '{report.title}' generated successfully with {report.publications.count()} publications and {report.contracts.count()} contracts.",
             )
 
             return redirect("opencost:list")
@@ -87,3 +87,12 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
     except Exception as e:
         messages.error(request, f"Error generating XML: {str(e)}")
         return redirect("opencost:list")
+
+
+@login_required
+def delete_report(request: HttpRequest, report_id: int) -> HttpResponse:
+    report = get_object_or_404(OpenCostReport, pk=report_id)
+    report_title = report.title
+    report.delete()
+    messages.success(request, f"Report '{report_title}' deleted successfully.")
+    return redirect("opencost:list")
