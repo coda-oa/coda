@@ -4,6 +4,7 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
+from coda.apps.contracts.models import Contract
 from tests import modelfactory
 from tests.opencost.helpers import (
     create_creditor,
@@ -14,6 +15,7 @@ from tests.opencost.helpers import (
 )
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.publications.models import LinkType, Link
+from coda.apps.preferences.models import GlobalPreferences
 
 
 @pytest.mark.django_db
@@ -205,3 +207,72 @@ def test__publication_with_multiple_invoices__generate_xml__creates_valid_openco
 
 
 # TODO: Publication with contract
+
+
+@pytest.mark.django_db
+def test__report_with_standalone_contract_with_institution__generate_xml__creates_valid_opencost_xml() -> (
+    None
+):
+    prefs, _ = GlobalPreferences.objects.get_or_create()
+    prefs.home_institution_identifier = "https://ror.org/contract123"
+    prefs.save()
+
+    contract = Contract.objects.create(
+        name="Standalone Contract for XML Test",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+    )
+
+    creditor = create_creditor(name="Invoice Creditor")
+    invoice = create_invoice(
+        creditor=creditor, invoice_date=date(2024, 6, 1), number="INV-2024-002"
+    )
+    _contract_position = create_position(
+        invoice,
+        contract=contract,
+        description="Service fee for contract",
+        cost_amount=Decimal("2000.00"),
+        cost_type="publish",
+    )
+
+    report = create_opencost_report(period_start=date(2024, 1, 1), period_end=date(2024, 12, 31))
+
+    xml_string = generate_xml(report)
+
+    assert xml_string is not None
+    assert len(xml_string) > 0
+
+    # Debug: print the XML
+    # print("\n" + xml_string)
+
+    root = ET.fromstring(xml_string)
+
+    ns = {"oc": "https://opencost.de"}
+
+    assert root.tag == "{https://opencost.de}data"
+
+    contracts = root.findall("oc:contract", ns)
+    assert len(contracts) == 1
+    xml_contract = contracts[0]
+    assert xml_contract is not None
+
+    contract_name_elem = xml_contract.find("oc:contract_name", ns)
+    assert contract_name_elem is not None
+    assert contract_name_elem.text == "Standalone Contract for XML Test"
+
+    institution = xml_contract.find("oc:institution", ns)
+    assert institution is not None
+
+    institution_name = institution.find("oc:name/oc:value", ns)
+    assert institution_name is not None
+    assert institution_name.text == "Home Institution"
+
+    institution_ids = institution.findall("oc:id", ns)
+    assert len(institution_ids) == 1
+
+    id_type = institution_ids[0].find("oc:type", ns)
+    id_value = institution_ids[0].find("oc:value", ns)
+    assert id_type is not None
+    assert id_value is not None
+    assert id_type.text == "ror"
+    assert id_value.text == "https://ror.org/contract123"

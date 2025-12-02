@@ -2,7 +2,12 @@ from datetime import date
 from decimal import Decimal
 import pytest
 
-from coda.apps.opencost.transformers import report_publication_to_pydantic
+from coda.apps.opencost.models import (
+    OpenCostReport,
+    OpenCostReportContract,
+    OpenCostReportContractInstitutionIdentifier,
+)
+from coda.apps.opencost.transformers import report_publication_to_pydantic, to_opencost
 from coda.apps.publications.models._attachedentities import PublicationAttachedConcept
 from coda.apps.publications.models._vocabulary import Vocabulary
 from coda.domain.opencost._publication import PublicationSecondaryIdTypeEnum, PublicationType
@@ -359,11 +364,69 @@ def test__report_publication_with_multiple_invoices__transforming_to_opencost__a
     assert "INV-2024-102" in invoice_numbers
 
 
-@pytest.mark.skip(reason="TODO: Implement contract/part_of_contract transformation")
 @pytest.mark.django_db
-def test__publication_with_contract__transforming_to_opencost__publication_cost_data_includes_contract() -> (
+def test__report_standalone_contract_with_institution_data__transforming_to_opencost__contract_data_is_included() -> (
     None
 ):
-    # TODO: Need to add contract data to OpenCostReportPublication model
-    # TODO: Need to implement part_of_contract transformation
-    pass
+    # Create base report
+    report = OpenCostReport.objects.create(
+        title="Test Report 2024",
+        period_start=date(2024, 1, 1),
+        period_end=date(2024, 12, 31),
+    )
+
+    # Create contract snapshot with institution data
+    contract = modelfactory.contract()
+    report_contract = OpenCostReportContract.objects.create(
+        report=report,
+        contract=contract,
+        contract_name="Test Transform Agreement",
+        institution_name="University of Testing",
+        participation_from=date(2024, 1, 1),
+        participation_to=date(2024, 12, 31),
+        primary_identifier_value="",
+    )
+
+    # Add institution identifiers
+    OpenCostReportContractInstitutionIdentifier.objects.create(
+        report_contract=report_contract,
+        identifier_type="ror",
+        value="https://ror.org/test123",
+    )
+    OpenCostReportContractInstitutionIdentifier.objects.create(
+        report_contract=report_contract,
+        identifier_type="isni",
+        value="0000 0001 2345 6789",
+    )
+
+    # Transform
+    opencost_data = to_opencost(report)
+
+    # Verify contract in output
+    assert opencost_data.contract is not None
+    assert len(opencost_data.contract) == 1
+
+    contract_data = opencost_data.contract[0]
+
+    assert contract_data.contract_name == "Test Transform Agreement"
+
+    assert contract_data.institution is not None
+    assert contract_data.institution.name is not None
+    assert len(contract_data.institution.name) == 1
+    assert contract_data.institution.name[0].value == "University of Testing"
+    assert contract_data.institution.name[0].type == InstitutionNameType.full
+
+    assert contract_data.institution.id is not None
+    assert len(contract_data.institution.id) == 2
+
+    ror_ids = [i for i in contract_data.institution.id if i.type == InstitutionIdType.ror]
+    assert len(ror_ids) == 1
+    assert ror_ids[0].value == "https://ror.org/test123"
+
+    isni_ids = [i for i in contract_data.institution.id if i.type == InstitutionIdType.isni]
+    assert len(isni_ids) == 1
+    assert isni_ids[0].value == "0000 0001 2345 6789"
+
+    assert contract_data.participation is not None
+    assert contract_data.participation.from_ == "2024-01-01"
+    assert contract_data.participation.to == "2024-12-31"

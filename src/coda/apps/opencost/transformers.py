@@ -1,5 +1,16 @@
 from decimal import Decimal
-from coda.apps.opencost.models import OpenCostReportPublication
+from coda.apps.opencost.models import (
+    OpenCostReport,
+    OpenCostReportContract,
+    OpenCostReportPublication,
+)
+from coda.domain.opencost import Data
+from coda.domain.opencost._contract import (
+    ContractPrimaryIdentifier,
+    ContractPrimaryIdentifierType,
+    ContractType,
+    ParticipationType,
+)
 from coda.domain.opencost._institution import (
     InstitutionId,
     InstitutionIdType,
@@ -9,6 +20,7 @@ from coda.domain.opencost._institution import (
 )
 from coda.domain.opencost._invoice import (
     AmountInvoice,
+    ContractCostDataType,
     Dates,
     PublicationAmountPaidType,
     PublicationInvoiceType,
@@ -142,6 +154,77 @@ def _get_institution(report_pub: OpenCostReportPublication) -> InstitutionType:
 
     identifiers = []
     for inst_id in report_pub.institution_identifiers.all():
+        try:
+            id_type = InstitutionIdType(inst_id.identifier_type)
+            identifiers.append(InstitutionId(value=inst_id.value, type=id_type))
+        except ValueError:
+            continue
+
+    return InstitutionType(
+        name=names if names else None,
+        id=identifiers if identifiers else None,
+    )
+
+
+def to_opencost(report: OpenCostReport) -> Data:
+    publications = [
+        report_publication_to_pydantic(report_pub) for report_pub in report.publications.all()
+    ]
+
+    contracts = [
+        report_contract_to_pydantic(report_contract) for report_contract in report.contracts.all()
+    ]
+
+    return Data(
+        publication=publications if publications else None,
+        contract=contracts if contracts else None,
+    )
+
+
+def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> ContractType:
+    institution = _get_contract_institution(report_contract)
+
+    participation = ParticipationType(
+        **{
+            "from": str(report_contract.participation_from)
+            if report_contract.participation_from
+            else None,
+            "to": str(report_contract.participation_to)
+            if report_contract.participation_to
+            else None,
+        }
+    )
+
+    # Primary identifier (ESAC ID)
+    primary_identifier = ContractPrimaryIdentifier(
+        value=report_contract.primary_identifier_value or "UNKNOWN",
+        type=ContractPrimaryIdentifierType.ESAC,
+    )
+
+    # TODO: Implement secondary_identifiers
+
+    # Cost data - minimal placeholder
+    cost_data = ContractCostDataType(invoice_group=[])  # TODO: Implement properly
+
+    return ContractType(
+        contract_name=report_contract.contract_name,
+        institution=institution,
+        participation=participation,
+        primary_identifier=primary_identifier,
+        secondary_identifiers=None,
+        cost_data=cost_data,
+    )
+
+
+def _get_contract_institution(report_contract: OpenCostReportContract) -> InstitutionType:
+    names = []
+    if report_contract.institution_name:
+        names.append(
+            InstitutionName(value=report_contract.institution_name, type=InstitutionNameType.full)
+        )
+
+    identifiers = []
+    for inst_id in report_contract.institution_identifiers.all():
         try:
             id_type = InstitutionIdType(inst_id.identifier_type)
             identifiers.append(InstitutionId(value=inst_id.value, type=id_type))
