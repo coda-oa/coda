@@ -195,3 +195,197 @@ class OpenCostReportInvoicePosition(models.Model):
 
     def __str__(self) -> str:
         return f"{self.amount} {self.currency} ({self.cost_type})"
+
+
+class OpenCostReportContract(models.Model):
+    report = models.ForeignKey(
+        OpenCostReport,
+        on_delete=models.CASCADE,
+        related_name="contracts",
+        help_text="The report this contract belongs to",
+    )
+
+    contract = models.ForeignKey(
+        "contracts.Contract",
+        on_delete=models.CASCADE,
+        help_text="Original CODA contract (for navigation links)",
+    )
+
+    contract_name = models.CharField(max_length=255, help_text="Contract name (snapshot)")
+
+    institution_name = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Institution name (snapshot)",
+    )
+
+    participation_from = models.DateField(
+        null=True, blank=True, help_text="Contract participation start date (snapshot)"
+    )
+    participation_to = models.DateField(
+        null=True, blank=True, help_text="Contract participation end date (snapshot)"
+    )
+
+    primary_identifier_value = models.CharField(
+        max_length=500, blank=True, help_text="Primary identifier value (ESAC ID) (snapshot)"
+    )
+
+    snapshot_date = models.DateTimeField(
+        default=timezone.now, help_text="When this snapshot was created"
+    )
+
+    class Meta:
+        ordering = ["contract_name"]
+        unique_together = ("report", "contract")
+        verbose_name = "Report Contract"
+        verbose_name_plural = "Report Contracts"
+
+    def __str__(self) -> str:
+        return f"{self.contract_name} (in {self.report.title})"
+
+
+class OpenCostReportContractInstitutionIdentifier(models.Model):
+    report_contract = models.ForeignKey(
+        OpenCostReportContract,
+        on_delete=models.CASCADE,
+        related_name="institution_identifiers",
+        help_text="The report contract this institution identifier belongs to",
+    )
+
+    identifier_type = models.CharField(
+        max_length=50,
+        help_text="Type of identifier: ror, isni, or ringold (snapshot)",
+    )
+    value = models.CharField(
+        max_length=500,
+        help_text="Institution identifier value (snapshot)",
+    )
+
+    snapshot_date = models.DateTimeField(
+        default=timezone.now, help_text="When this snapshot was created"
+    )
+
+    class Meta:
+        ordering = ["identifier_type", "value"]
+        verbose_name = "Report Contract Institution Identifier"
+        verbose_name_plural = "Report Contract Institution Identifiers"
+
+    def __str__(self) -> str:
+        return f"{self.identifier_type}: {self.value}"
+
+
+class OpenCostReportContractSecondaryIdentifier(models.Model):
+    report_contract = models.ForeignKey(
+        OpenCostReportContract,
+        on_delete=models.CASCADE,
+        related_name="secondary_identifiers",
+        help_text="The report contract this secondary identifier belongs to",
+    )
+
+    identifier_type = models.CharField(
+        max_length=50,
+        help_text="Type of identifier: oai, ezb, or local (snapshot)",
+    )
+    value = models.CharField(
+        max_length=500,
+        help_text="Secondary identifier value (snapshot)",
+    )
+
+    snapshot_date = models.DateTimeField(
+        default=timezone.now, help_text="When this snapshot was created"
+    )
+
+    class Meta:
+        ordering = ["identifier_type", "value"]
+        verbose_name = "Report Contract Secondary Identifier"
+        verbose_name_plural = "Report Contract Secondary Identifiers"
+
+    def __str__(self) -> str:
+        return f"{self.identifier_type}: {self.value}"
+
+
+class OpenCostReportContractInvoice(models.Model):
+    report_contract = models.ForeignKey(
+        OpenCostReportContract,
+        on_delete=models.CASCADE,
+        related_name="invoices",
+        help_text="The report contract this invoice belongs to",
+    )
+
+    invoice = models.ForeignKey(
+        "invoices.Invoice",
+        on_delete=models.CASCADE,
+        help_text="Original CODA invoice (for navigation links)",
+    )
+
+    invoice_number = models.CharField(
+        max_length=255, blank=True, help_text="Invoice number (snapshot)"
+    )
+    creditor = models.CharField(
+        max_length=255, blank=True, help_text="Creditor/publisher name (snapshot)"
+    )
+    invoice_date = models.DateField(null=True, blank=True, help_text="Invoice date (snapshot)")
+
+    amount_invoice = models.DecimalField(
+        max_digits=20,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="Total invoice amount (snapshot)",
+    )
+    amount_invoice_currency = models.CharField(
+        max_length=3, blank=True, help_text="Invoice amount currency (snapshot)"
+    )
+
+    snapshot_date = models.DateTimeField(
+        default=timezone.now, help_text="When this snapshot was created"
+    )
+
+    class Meta:
+        ordering = ["invoice_number"]
+        unique_together = ("report_contract", "invoice")
+        verbose_name = "Report Contract Invoice"
+        verbose_name_plural = "Report Contract Invoices"
+
+    def __str__(self) -> str:
+        return f"Invoice {self.invoice_number} for {self.report_contract.contract_name}"
+
+
+class OpenCostReportContractInvoicePosition(models.Model):
+    report_contract_invoice = models.ForeignKey(
+        OpenCostReportContractInvoice,
+        on_delete=models.CASCADE,
+        related_name="positions",
+        help_text="The report contract invoice this position belongs to",
+    )
+
+    position = models.ForeignKey(
+        "invoices.Position", on_delete=models.CASCADE, help_text="Original CODA position"
+    )
+
+    amount = models.DecimalField(
+        max_digits=20, decimal_places=4, help_text="Cost amount (snapshot)"
+    )
+    currency = models.CharField(max_length=3, help_text="Currency code (snapshot)")
+    cost_type = models.CharField(
+        max_length=50, help_text="OpenCost contract cost type (publish/read/vat) (snapshot)"
+    )
+    vat = models.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="VAT/tax amount (snapshot)",
+    )
+
+    snapshot_date = models.DateTimeField(
+        default=timezone.now, help_text="When this snapshot was created"
+    )
+
+    class Meta:
+        ordering = ["amount"]
+        verbose_name = "Report Contract Invoice Position"
+        verbose_name_plural = "Report Contract Invoice Positions"
+
+    def __str__(self) -> str:
+        return f"{self.amount} {self.currency} ({self.cost_type})"

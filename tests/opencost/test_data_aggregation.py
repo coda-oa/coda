@@ -125,3 +125,30 @@ def test__invoices_with_different_dates__querying_specific_time_range__only_retu
     assert invoice_in_period_2 in query_results
     assert invoice_before_period not in query_results
     assert invoice_after_period not in query_results
+
+
+@pytest.mark.django_db
+def test__paid_and_unpaid_invoices__querying_invoices_for_period__returns_only_paid_invoices() -> (
+    None
+):
+    creditor = create_creditor(name="Creditor E")
+    paid_invoice = create_invoice(
+        creditor=creditor,
+        invoice_date=date(2024, 5, 15),
+        number="INV-PAID",
+        status="paid",
+    )
+    unpaid_invoice = create_invoice(
+        creditor=creditor,
+        invoice_date=date(2024, 5, 20),
+        number="INV-UNPAID",
+        status="unpaid",
+    )
+
+    query_results = get_invoices_for_period(
+        start_date=date(2024, 5, 1),
+        end_date=date(2024, 5, 31),
+    )
+
+    assert paid_invoice in query_results
+    assert unpaid_invoice not in query_results

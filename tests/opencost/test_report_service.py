@@ -3,6 +3,8 @@ import pytest
 from coda.apps.authors.models import Author
 from coda.apps.opencost.models import (
     OpenCostReport,
+    OpenCostReportContract,
+    OpenCostReportContractInvoice,
     OpenCostReportInvoice,
     OpenCostReportInvoicePosition,
     OpenCostReportPublication,
@@ -480,3 +482,67 @@ def test__publication_with_author_with_different_institution_identifiers__genera
     assert not identifier_snapshots.filter(
         identifier_type="otherid", value="https://otherid.com/id/555555"
     ).exists()
+
+
+@pytest.mark.django_db
+def test__standalone_contract_with_invoice_positions__generate_report__contract_data_is_snapshotted() -> (
+    None
+):
+    contract = modelfactory.contract()
+
+    creditor = create_creditor(name="Contract Creditor")
+    invoice = create_invoice(
+        creditor=creditor, invoice_date=date(2024, 5, 10), number="INV-CONTRACT-001"
+    )
+
+    create_position(
+        invoice=invoice,
+        contract=contract,
+        contract_year=2024,
+        description="Read access fee",
+        cost_amount=Decimal("5000.00"),
+        cost_type="read",
+    )
+    create_position(
+        invoice=invoice,
+        contract=contract,
+        contract_year=2024,
+        description="Publish fee",
+        cost_amount=Decimal("3000.00"),
+        cost_type="publish",
+    )
+
+    report = create_opencost_report(title="Test Report with Contract Data 2024")
+
+    report_contracts = OpenCostReportContract.objects.filter(report=report)
+    assert report_contracts.count() == 1
+
+    report_contract = report_contracts.first()
+    assert report_contract is not None
+    assert report_contract.contract == contract
+    assert report_contract.contract_name == contract.name
+    assert report_contract.participation_from == contract.start_date
+    assert report_contract.participation_to == contract.end_date
+
+    contract_invoices = OpenCostReportContractInvoice.objects.filter(
+        report_contract=report_contract
+    )
+
+    contract_invoice = contract_invoices.first()
+    assert contract_invoice is not None
+    assert contract_invoice.invoice == invoice
+    assert contract_invoice.invoice_number == "INV-CONTRACT-001"
+    assert contract_invoice.creditor == "Contract Creditor"
+    assert contract_invoice.amount_invoice == Decimal("8000.00")  # 5000 + 3000
+    assert contract_invoice.amount_invoice_currency == "EUR"
+
+    contract_positions = contract_invoice.positions.all()
+    assert contract_positions.count() == 2
+
+    amounts = {pos.amount for pos in contract_positions}
+    assert Decimal("5000.00") in amounts
+    assert Decimal("3000.00") in amounts
+
+    cost_types = {pos.cost_type for pos in contract_positions}
+    assert "read" in cost_types
+    assert "publish" in cost_types

@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
+from coda.apps.contracts.models import Contract
 from coda.apps.invoices.models import Creditor, Invoice, Position
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.report_service import generate_report
@@ -30,16 +31,20 @@ def create_invoice(
 
 def create_position(
     invoice: Invoice,
-    publication: Publication,
+    publication: Publication | None = None,
+    contract: Contract | None = None,
     description: str = "APC for test article",
     cost_amount: Decimal = Decimal("1500.00"),
     cost_currency: str = "EUR",
     cost_type: str = "gold-oa",
     tax_rate: Decimal = Decimal("0.19"),
+    contract_year: int | None = None,
 ) -> Position:
     return Position.objects.create(
         invoice=invoice,
         publication=publication,
+        contract=contract,
+        contract_year=contract_year,
         description=description,
         cost_amount=cost_amount,
         cost_currency=cost_currency,
