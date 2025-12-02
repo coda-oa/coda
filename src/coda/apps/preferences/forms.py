@@ -9,3 +9,4 @@ class GlobalPreferencesForm(forms.ModelForm[GlobalPreferences]):
         model = GlobalPreferences
         fields = "__all__"
         widgets = {"home_currency": forms.Select(choices=[(c.code, c.code) for c in Currency])}
+        help_texts = {field.name: "" for field in GlobalPreferences._meta.get_fields()}

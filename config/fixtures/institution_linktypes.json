@@ -1,0 +1,23 @@
+[
+    {
+        "model": "institutions.InstitutionLinkType",
+        "pk": 1,
+        "fields": {
+            "name": "ROR"
+        }
+    },
+    {
+        "model": "institutions.InstitutionLinkType",
+        "pk": 2,
+        "fields": {
+            "name": "ISNI"
+        }
+    },
+    {
+        "model": "institutions.InstitutionLinkType",
+        "pk": 3,
+        "fields": {
+            "name": "Ringgold"
+        }
+    }
+]
