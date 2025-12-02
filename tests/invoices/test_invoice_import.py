@@ -22,7 +22,7 @@ from coda.contexts.finance.dto.import_dtos import (
     InvoiceListImportDto,
     PublicationPositionImportDto,
 )
-from coda.contexts.finance.services import import_service
+from coda.contexts.finance.services.invoice_import import InvoiceImportReport, import_invoices
 from coda.domain.author import InstitutionId
 from coda.domain.contract import Contract
 from coda.domain.date import DateRange
@@ -30,20 +30,13 @@ from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
-from coda.domain.finance.invoice_positions import (
-    ContractItem,
-    FreeItem,
-    Position,
-    PublicationItem,
-)
+from coda.domain.finance.invoice_positions import ContractItem, FreeItem, Position, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest, FundingOrganizationId
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.money import Currency, Money
 from coda.domain.publication import JournalId, PublicationId
-from coda.domain.publication.payment import (
-    PublicationPayments,
-)
+from coda.domain.publication.payment import PublicationPayments
 from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
 from tests.invoices import payment_assertions
@@ -54,7 +47,7 @@ from tests.invoices.test_invoice_repository import assert_invoice_eq
 def test__full_invoice__import__is_saved_to_database() -> None:
     import_dto = invoice_import_list_dto(create_position_dtos())
 
-    report = import_invoices(import_dto)
+    report = import_invoices_from_dto_json(import_dto)
 
     expected = expected_full_invoice(import_dto.invoices[0])
     actual = repository.first()
@@ -73,7 +66,7 @@ def test__full_invoice__related_entities_already_exist__is_not_created_again() -
     modelfactory.creditor(name=import_dto.invoices[0].creditor)
     create_contract_from(contract_position)
 
-    import_invoices(import_dto)
+    import_invoices_from_dto_json(import_dto)
 
     assert FundingSource.objects.count() == 1
     assert Creditor.objects.count() == 1
@@ -104,7 +97,7 @@ def test__invoice_with_split_position_with_explicit_assignments__import_invoice_
     position_dto.funding_assignments = assignments
     import_dto = invoice_import_list_dto([position_dto])
 
-    _ = import_invoices(import_dto)
+    _ = import_invoices_from_dto_json(import_dto)
 
     invoice_dto = import_dto.invoices[0]
     expected = expected_invoice_head(invoice_dto)
@@ -139,7 +132,7 @@ def test__invoice_with_split_position_with_implicit_assignments__import_invoice_
     ]
     import_dto = invoice_import_list_dto([position_dto])
 
-    _ = import_invoices(import_dto)
+    _ = import_invoices_from_dto_json(import_dto)
 
     invoice_dto = import_dto.invoices[0]
     expected = expected_invoice_head(invoice_dto)
@@ -176,7 +169,7 @@ def test__invoice_with_split_institution_position__import_invoices__creates_inst
     ]
     import_dto = invoice_import_list_dto([position_dto])
 
-    _ = import_invoices(import_dto)
+    _ = import_invoices_from_dto_json(import_dto)
 
     invoice_dto = import_dto.invoices[0]
     expected = expected_invoice_head(invoice_dto)
@@ -207,7 +200,7 @@ def test__one_invoice_with_non_existing_publication_position__import_invoices__s
     )
     valid_dto = invoice_dto(number="INV-002", positions=create_position_dtos())
 
-    actual = import_invoices(InvoiceListImportDto(invoices=[invalid_dto, valid_dto]))
+    actual = import_invoices_from_dto_json(InvoiceListImportDto(invoices=[invalid_dto, valid_dto]))
 
     assert_valid_invoice_imported(valid_dto)
     assert actual.valid_invoices == 1
@@ -223,7 +216,7 @@ def test__invoice_with_non_existing_publication_position__import_invoices__does_
         number="INV-001", positions=[non_existing_publication_position_import_dto()]
     )
 
-    _ = import_invoices(InvoiceListImportDto(invoices=[invalid_dto]))
+    _ = import_invoices_from_dto_json(InvoiceListImportDto(invoices=[invalid_dto]))
 
     assert FundingSource.objects.count() == 0
     assert Creditor.objects.count() == 0
@@ -241,7 +234,7 @@ def test__invalid_invoice_head_data__import_invoices__returns_error_report() -> 
         positions=[],
     )
 
-    actual = import_invoices(InvoiceListImportDto(invoices=[invalid_dto]))
+    actual = import_invoices_from_dto_json(InvoiceListImportDto(invoices=[invalid_dto]))
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 1
@@ -260,7 +253,7 @@ def test__invalid_split_amount_in_invoice__import_invoices__returns_error_report
     import_dto = invoice_import_list_dto([position_dto])
     invoice_dto = import_dto.invoices[0]
 
-    actual = import_invoices(import_dto)
+    actual = import_invoices_from_dto_json(import_dto)
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 1
@@ -280,11 +273,30 @@ def test__non_existing_institution_in_invoice_position__import_invoices__returns
     import_dto = invoice_import_list_dto([position_dto])
     invoice_dto = import_dto.invoices[0]
 
-    actual = import_invoices(import_dto)
+    actual = import_invoices_from_dto_json(import_dto)
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 1
     assert invoice_dto.number in actual.invoices_with_errors()
+
+
+@pytest.mark.django_db
+def test__invoice_with_budget_and_non_existing_institution__import_invoices__does_not_create_budget() -> (
+    None
+):
+    position_dto = free_position_import_dto()
+    position_dto.funding_source = ""
+    position_dto.amount = Decimal(30)
+    position_dto.funding_assignments = [
+        FundingAssignmentImportDto(type="budget", name="valid budget"),
+        FundingAssignmentImportDto(type="institution", name="does not exist"),
+    ]
+    import_dto = invoice_import_list_dto([position_dto])
+
+    _ = import_invoices_from_dto_json(import_dto)
+
+    with pytest.raises(funding_source_repository.FundingSourceNotFound):
+        funding_source_repository.get_by_name("valid budget")
 
 
 @pytest.mark.django_db
@@ -312,7 +324,7 @@ def test__multiple_invalid_invoices__import_invoices__returns_errors_per_invoice
     }
 
     json_stream = io.StringIO(json.dumps(invalid_data))
-    actual = import_service.import_invoices(json_stream)
+    actual = import_invoices(json_stream)
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 2
@@ -338,7 +350,7 @@ def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
     }
 
     json_stream = io.StringIO(json.dumps(invalid_data))
-    actual = import_service.import_invoices(json_stream)
+    actual = import_invoices(json_stream)
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 1
@@ -375,7 +387,7 @@ def test__unpaid_invoice_with_publication_position_import_invoices_funding_reque
     funding_request = create_funding_request()
     import_dto = InvoiceListImportDto(invoices=[invoice_dto(funding_request)])
 
-    _ = import_invoices(import_dto)
+    _ = import_invoices_from_dto_json(import_dto)
 
     publication_id = cast(PublicationId, funding_request.publication.id)
     payment_status = publications.get_payment_status(publication_id)
@@ -396,9 +408,9 @@ def assert_valid_invoice_imported(valid_dto: InvoiceImportDto) -> None:
     assert_invoice_eq(expected, actual)
 
 
-def import_invoices(import_dto: InvoiceListImportDto) -> import_service.InvoiceImportReport:
+def import_invoices_from_dto_json(import_dto: InvoiceListImportDto) -> InvoiceImportReport:
     temp_stream = io.StringIO(import_dto.model_dump_json())
-    return import_service.import_invoices(temp_stream)
+    return import_invoices(temp_stream)
 
 
 def publication_position_import_dto(
