@@ -399,9 +399,17 @@ def test__publication_with_corresponding_author_no_institution_identifiers__gene
     None
 ):
     author_institution = Institution.objects.create(name="Department Without Identifiers")
+
+    home_institution = Institution.objects.create(name="Home Institution")
+    ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
+    InstitutionLink.objects.create(
+        institution=home_institution, type=ror_type, value="https://ror.org/home456"
+    )
+
     prefs, _ = GlobalPreferences.objects.get_or_create()
-    prefs.home_institution_identifier = "https://ror.org/home456"
+    prefs.home_institution = home_institution
     prefs.save()
+
     publication = modelfactory.publication(title="Test Publication")
     Author.objects.create(
         name="John Doe",

@@ -9,12 +9,12 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
-from django.views.generic import CreateView
+from django.views.generic import CreateView, UpdateView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.institutions import services
 from coda.apps.institutions.forms import InstitutionForm
-from coda.apps.institutions.models import Institution
+from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from coda.apps.views import SimpleSearchEntityListView
 
 
@@ -41,20 +41,76 @@ institution_list_view = InstitutionListView.as_view()
 
 @breadcrumb("Create Institution", parent_url_name="institutions:list")
 class CreateInstitutionView(LoginRequiredMixin, CreateView[Institution, InstitutionForm]):
-    template_name = "generic_form_view.html"
+    template_name = "institutions/institution_form.html"
     model = Institution
     form_class = InstitutionForm
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context["title"] = "Create Institution"
+        context["link_types"] = InstitutionLinkType.objects.all()
         return context
+
+    def form_valid(self, form: InstitutionForm) -> HttpResponse:
+        self.object = form.save()
+
+        link_types = self.request.POST.getlist("link_type")
+        link_values = self.request.POST.getlist("link_value")
+
+        for type_id, value in zip(link_types, link_values):
+            if type_id and value:
+                InstitutionLink.objects.create(
+                    institution=self.object,
+                    type_id=type_id,
+                    value=value,
+                )
+
+        messages.success(self.request, "Institution created successfully")
+        return redirect(self.get_success_url())
 
     def get_success_url(self) -> str:
         return reverse("institutions:list")
 
 
 create_institution_view = CreateInstitutionView.as_view()
+
+
+@breadcrumb("Edit Institution", parent_url_name="institutions:list")
+class UpdateInstitutionView(LoginRequiredMixin, UpdateView[Institution, InstitutionForm]):
+    template_name = "institutions/institution_form.html"
+    model = Institution
+    form_class = InstitutionForm
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Edit Institution"
+        context["link_types"] = InstitutionLinkType.objects.all()
+        return context
+
+    def form_valid(self, form: InstitutionForm) -> HttpResponse:
+        self.object = form.save()
+
+        InstitutionLink.objects.filter(institution=self.object).delete()
+
+        link_types = self.request.POST.getlist("link_type")
+        link_values = self.request.POST.getlist("link_value")
+
+        for type_id, value in zip(link_types, link_values):
+            if type_id and value:
+                InstitutionLink.objects.create(
+                    institution=self.object,
+                    type_id=type_id,
+                    value=value,
+                )
+
+        messages.success(self.request, "Institution updated successfully")
+        return redirect(self.get_success_url())
+
+    def get_success_url(self) -> str:
+        return reverse("institutions:list")
+
+
+update_institution_view = UpdateInstitutionView.as_view()
 
 
 @login_required
@@ -84,3 +140,12 @@ def import_from_file(request: HttpRequest) -> HttpResponse:
 
     messages.success(request, "Institutions imported successfully")
     return redirect("institutions:list")
+
+
+@login_required
+def add_institution_linkrow(request: HttpRequest) -> HttpResponse:
+    return render(
+        request,
+        "institutions/partials/institution_linkrow.html",
+        {"link_types": InstitutionLinkType.objects.all()},
+    )

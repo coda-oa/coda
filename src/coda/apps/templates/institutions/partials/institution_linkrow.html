@@ -1,0 +1,16 @@
+<tr>
+    <td>
+        <select name="link_type">
+            {% for t in link_types %}
+                <option value="{{ t.id }}"
+                        {% if link and link.type_id == t.id %}selected{% endif %}>{{ t.name }}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td>
+        <input type="text" name="link_value" value="{{ link.value|default:'' }}">
+    </td>
+    <td>
+        <button type="button" onclick="this.closest('tr').remove()">Remove</button>
+    </td>
+</tr>

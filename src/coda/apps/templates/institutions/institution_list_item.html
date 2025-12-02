@@ -1,4 +1,4 @@
-<article class="grid align-center">
+<article class="flex justify-between align-center">
     <div>
         <p class="my-0">{{ entity.name }}</p>
         {% if entity.parent %}
@@ -7,16 +7,18 @@
             </p>
         {% endif %}
     </div>
-    <div class="justify-self-end">
-        <label for="id-institution-selectable">
+    <div class="flex align-center">
+        <label for="id-institution-selectable-{{ entity.id }}">
             <span class="mr-1">Usable as author affiliation</span>
             <input type="checkbox"
                    role="switch"
-                   id="id-institution-selectable"
+                   id="id-institution-selectable-{{ entity.id }}"
                    name="institution-selectable"
                    hx-post="{% url 'institutions:toggle_selectable' pk=entity.id %}"
                    hx-swap="none"
                    {% if not entity.virtual %}checked{% endif %}>
         </label>
+        <a href="{% url 'institutions:edit' pk=entity.id %}"
+           class="button secondary">Edit</a>
     </div>
 </article>

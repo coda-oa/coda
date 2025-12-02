@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+    <section class="my-2">
+        <h1>{{ title }}</h1>
+        <form method="post">
+            {% csrf_token %}
+            <article>
+                <h2>Basic Information</h2>
+                {{ form.as_div }}
+                <h2 class="mt-2">Institution Identifiers</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <td>Link Type</td>
+                            <td>Value</td>
+                            <td>
+                                <button type="button"
+                                        hx-post="{% url 'institutions:partial_add_linkrow' %}"
+                                        hx-target="#institution-linktable"
+                                        hx-swap="beforeend">Add</button>
+                            </td>
+                        </tr>
+                    </thead>
+                    <tbody id="institution-linktable">
+                        {% for link in object.links.all %}
+                            {% include "institutions/partials/institution_linkrow.html" %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </article>
+            <div class="grid wizard-nav">
+                <a href="{% url "institutions:list" %}"
+                   class="button danger text-center">Cancel</a>
+                <button type="submit">Save</button>
+            </div>
+        </form>
+    </section>
+{% endblock content %}

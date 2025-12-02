@@ -30,11 +30,12 @@ def default_publication_type_vocabulary() -> int:
 
 class GlobalPreferences(models.Model):
     home_currency = models.CharField(max_length=255, default=Currency.EUR.code)
-    home_institution_identifier = models.CharField(
-        max_length=500,
-        default="",
+    home_institution = models.ForeignKey(
+        "institutions.Institution",
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        help_text="Primary institution identifier (ROR, ISNI, or Ringold)",
+        help_text="Home institution",
     )
     subject_classification_vocabulary = models.ForeignKey(
         VocabularyModel,
@@ -74,11 +75,6 @@ class GlobalPreferences(models.Model):
     def get_home_currency() -> Currency:
         prefs, _ = GlobalPreferences.objects.get_or_create()
         return Currency.from_code(prefs.home_currency)
-
-    @staticmethod
-    def get_home_institution_identifier() -> str:
-        prefs, _ = GlobalPreferences.objects.get_or_create()
-        return prefs.home_institution_identifier
 
     @staticmethod
     def set_subject_classification_vocabulary(vocabulary: VocabularyProtocol) -> None:

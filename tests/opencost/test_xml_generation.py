@@ -5,6 +5,7 @@ from xml.etree import ElementTree as ET
 import pytest
 
 from coda.apps.contracts.models import Contract
+from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from tests import modelfactory
 from tests.opencost.helpers import (
     create_creditor,
@@ -213,8 +214,14 @@ def test__publication_with_multiple_invoices__generate_xml__creates_valid_openco
 def test__report_with_standalone_contract_with_institution__generate_xml__creates_valid_opencost_xml() -> (
     None
 ):
+    home_institution = Institution.objects.create(name="Contract Test University")
+    ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
+    InstitutionLink.objects.create(
+        institution=home_institution, type=ror_type, value="https://ror.org/contract123"
+    )
+
     prefs, _ = GlobalPreferences.objects.get_or_create()
-    prefs.home_institution_identifier = "https://ror.org/contract123"
+    prefs.home_institution = home_institution
     prefs.save()
 
     contract = Contract.objects.create(
@@ -265,7 +272,7 @@ def test__report_with_standalone_contract_with_institution__generate_xml__create
 
     institution_name = institution.find("oc:name/oc:value", ns)
     assert institution_name is not None
-    assert institution_name.text == "Home Institution"
+    assert institution_name.text == "Contract Test University"
 
     institution_ids = institution.findall("oc:id", ns)
     assert len(institution_ids) == 1

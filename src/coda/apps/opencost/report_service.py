@@ -33,7 +33,7 @@ def generate_report(title: str, period_start: date, period_end: date) -> OpenCos
     )
 
     for publication in publications:
-        _snapshot_publication(report, publication, period_start, period_end)
+        _snapshot_publication(report, publication)
 
     contracts = get_contracts_for_period(
         start_date=period_start,
@@ -41,7 +41,7 @@ def generate_report(title: str, period_start: date, period_end: date) -> OpenCos
     )
 
     for contract in contracts:
-        _snapshot_contract(report, contract, period_start, period_end)
+        _snapshot_contract(report, contract)
 
     return report
 
@@ -49,8 +49,6 @@ def generate_report(title: str, period_start: date, period_end: date) -> OpenCos
 def _snapshot_publication(
     report: OpenCostReport,
     publication: Publication,
-    period_start: date,
-    period_end: date,
 ) -> None:
     doi_link = publication.links.filter(type__name="DOI").first()
     doi_value = doi_link.value if doi_link else ""
@@ -99,14 +97,12 @@ def _snapshot_publication(
             value=link.value,
         )
 
-    _snapshot_publication_invoices(report_publication, publication, period_start, period_end)
+    _snapshot_publication_invoices(report_publication, publication)
 
 
 def _snapshot_publication_invoices(
     report_publication: OpenCostReportPublication,
     publication: Publication,
-    period_start: date,
-    period_end: date,
 ) -> None:
     invoices_dict: dict[int, list[Position]] = {}
     for position in publication.position_set.all():
@@ -142,8 +138,6 @@ def _snapshot_publication_invoices(
 def _snapshot_contract(
     report: OpenCostReport,
     contract: Contract,
-    period_start: date,
-    period_end: date,
 ) -> None:
     institution_name, institution_identifiers = _get_institution_data_for_contract(contract)
 
@@ -166,14 +160,12 @@ def _snapshot_contract(
 
     # TODO: Implement secondary identifiers (oai, ezb, local) when available
 
-    _snapshot_contract_invoices(report_contract, contract, period_start, period_end)
+    _snapshot_contract_invoices(report_contract, contract)
 
 
 def _snapshot_contract_invoices(
     report_contract: OpenCostReportContract,
     contract: Contract,
-    period_start: date,
-    period_end: date,
 ) -> None:
     contract_invoices_dict: dict[int, list[Position]] = {}
     for position in contract.position_set.all():
@@ -186,7 +178,6 @@ def _snapshot_contract_invoices(
     for invoice_id, positions in contract_invoices_dict.items():
         invoice = positions[0].invoice
 
-        # Calculate total invoice amount
         total_amount = sum(Decimal(str(p.cost_amount)) for p in positions)
         currency = positions[0].cost_currency if positions else ""
 
@@ -206,7 +197,7 @@ def _snapshot_contract_invoices(
                 position=position,
                 amount=position.cost_amount,
                 currency=position.cost_currency,
-                cost_type=position.cost_type,  # Already in OpenCost format
+                cost_type=position.cost_type,
                 vat=Decimal(str(position.cost_amount))
                 * (Decimal(str(position.tax_rate)) if position.tax_rate else Decimal("0")),
             )
@@ -229,34 +220,24 @@ def _get_institution_data(publication: Publication) -> tuple[str, list[tuple[str
         if identifiers:
             return institution_name, identifiers
 
-    home_identifier = GlobalPreferences.get_home_institution_identifier()
-
-    if home_identifier:
-        identifier_lower = home_identifier.lower()
-        if "ror.org" in identifier_lower:
-            identifier_type = "ror"
-        elif "isni" in identifier_lower or " " in home_identifier:
-            identifier_type = "isni"
-        else:
-            identifier_type = "ringold"
-
-        return "Home Institution", [(identifier_type, home_identifier)]  # PLACEHOLER
-
-    return "", []
+    return _get_home_institution_data()
 
 
 def _get_institution_data_for_contract(contract: Contract) -> tuple[str, list[tuple[str, str]]]:
-    home_identifier = GlobalPreferences.get_home_institution_identifier()
+    return _get_home_institution_data()
 
-    if home_identifier:
-        identifier_lower = home_identifier.lower()
-        if "ror.org" in identifier_lower:
-            identifier_type = "ror"
-        elif "isni" in identifier_lower or " " in home_identifier:
-            identifier_type = "isni"
-        else:
-            identifier_type = "ringold"
 
-        return "Home Institution", [(identifier_type, home_identifier)]  # PLACEHOLER
+def _get_home_institution_data() -> tuple[str, list[tuple[str, str]]]:
+    prefs = GlobalPreferences.objects.first()
+    if not prefs or not prefs.home_institution:
+        return "", []
 
-    return "", []
+    institution = prefs.home_institution
+    institution_name = institution.name
+
+    identifiers = []
+    for link in institution.links.filter(type__name__in=["ROR", "ISNI", "Ringold"]):
+        identifier_type = link.type.name.lower()
+        identifiers.append((identifier_type, link.value))
+
+    return institution_name, identifiers
