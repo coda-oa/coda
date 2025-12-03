@@ -12,6 +12,9 @@
             <p>
                 <strong>Publications:</strong> {{ entity.publications.count }}
             </p>
+            <p>
+                <strong>Contracts:</strong> {{ entity.contracts.count }}
+            </p>
         </div>
         <div>
             <a href="{% url 'opencost:download' entity.id %}"
