@@ -4,7 +4,6 @@ This module handles the transformation of import DTOs into domain objects,
 including position parsing and invoice construction.
 """
 
-from decimal import Decimal
 from typing import cast
 
 from coda.contexts.finance.dto.import_dtos import (
@@ -21,6 +20,7 @@ from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.finance.invoice_positions import (
     ContractItem,
     FreeItem,
+    PartialAssignment,
     Position,
     PublicationItem,
 )
@@ -89,17 +89,15 @@ def parse_into_position(
     if p.funding_source:
         position.assign_remaining(Budget(funding_source_id, p.funding_source))
     else:
-        implicit_assignments = [fa for fa in p.funding_assignments if fa.amount is None]
-        partial_assignment = Decimal(0)
-        if implicit_assignments:
-            total_explicit = sum(fa.amount for fa in p.funding_assignments if fa.amount is not None)
-            remaining = p.amount - total_explicit
-            partial_assignment = remaining / Decimal(len(implicit_assignments))
-
-        for fa in p.funding_assignments:
-            funding_source = lookups.funding_assignments_lookup[fa.name]
-            assignment_amount = fa.amount if fa.amount is not None else partial_assignment
-            position.assign_funding(funding_source, assignment_amount)
+        position.assign_many(
+            [
+                PartialAssignment(
+                    lookups.funding_assignments_lookup[fa.name],
+                    fa.amount,
+                )
+                for fa in p.funding_assignments
+            ]
+        )
 
     return position
 

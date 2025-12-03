@@ -24,11 +24,6 @@ from coda.domain.finance.invoice_positions import Position
 from coda.domain.money._currency import Currency
 from coda.domain.publication.publication import PublicationId
 
-from .types import (
-    ImportLookups,
-    InvoiceImportReport,
-    InvoiceProcessingError,
-)
 from ._entity_creation import (
     build_funding_assignments_lookup,
     bulk_create_creditors,
@@ -49,6 +44,11 @@ from ._validation import (
     find_invoices_with_missing_institutions,
     find_publication_ids,
     validate_invoices,
+)
+from .types import (
+    ImportLookups,
+    InvoiceImportReport,
+    InvoiceProcessingError,
 )
 
 

@@ -9,6 +9,7 @@ from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.invoice_positions import (
     FundingAssignment,
     InvalidSplitAmount,
+    PartialAssignment,
     Position,
     PublicationItem,
 )
@@ -261,3 +262,61 @@ def test__position_all_funding_assigned__assign_remaining__does_not_change_assig
     sut.assign_remaining(budget_2)
 
     assert sut.funding_assignments() == [FundingAssignment(budget_1, Money(100, Currency.EUR))]
+
+
+def test__position__assign_partial_assignments_explicitly__has_corresponding_funding_assignments() -> (
+    None
+):
+    sut = make_sut()
+    budget_1 = domainfactory.budget(FundingSourceId(1))
+    budget_2 = domainfactory.budget(FundingSourceId(2))
+
+    assignments = [
+        PartialAssignment(budget_1, Decimal(30)),
+        PartialAssignment(budget_2, Decimal(70)),
+    ]
+    sut.assign_many(assignments)
+
+    assert sut.funding_assignments() == [
+        FundingAssignment(budget_1, Money(30, Currency.EUR)),
+        FundingAssignment(budget_2, Money(70, Currency.EUR)),
+    ]
+
+
+def test__position__assign_partial_assignments_implicitly__splits_everything_evenly() -> None:
+    sut = make_sut()
+    budget_1 = domainfactory.budget(FundingSourceId(1))
+    budget_2 = domainfactory.budget(FundingSourceId(2))
+
+    assignments = [
+        PartialAssignment(budget_1),
+        PartialAssignment(budget_2),
+    ]
+    sut.assign_many(assignments)
+
+    assert sut.funding_assignments() == [
+        FundingAssignment(budget_1, Money(50, Currency.EUR)),
+        FundingAssignment(budget_2, Money(50, Currency.EUR)),
+    ]
+
+
+def test__position__assign_partial_assignments_mixed__splits_implicit_remaining_amount_between_implicit_assignments() -> (
+    None
+):
+    sut = make_sut()
+    budget_1 = domainfactory.budget(FundingSourceId(1))
+    budget_2 = domainfactory.budget(FundingSourceId(2))
+    budget_3 = domainfactory.budget(FundingSourceId(3))
+
+    assignments = [
+        PartialAssignment(budget_1),
+        PartialAssignment(budget_2, Decimal(20)),
+        PartialAssignment(budget_3),
+    ]
+    sut.assign_many(assignments)
+
+    assert sut.funding_assignments() == [
+        FundingAssignment(budget_1, Money(40, Currency.EUR)),
+        FundingAssignment(budget_2, Money(20, Currency.EUR)),
+        FundingAssignment(budget_3, Money(40, Currency.EUR)),
+    ]

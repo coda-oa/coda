@@ -139,6 +139,12 @@ class FundingAssignment:
     amount: Money
 
 
+@dataclass(frozen=True)
+class PartialAssignment:
+    funding_source: FundingSource
+    amount: Decimal | None = None
+
+
 class Position:
     def __init__(
         self,
@@ -209,6 +215,16 @@ class Position:
         remainder = self._get_split_remainder()
         if remainder.amount > 0:
             self._splits.append(FundingAssignment(to, remainder))
+
+    def assign_many(self, assignments: list[PartialAssignment]) -> None:
+        sum_explicit = sum(a.amount for a in assignments if a.amount is not None)
+        remaining = self.cost.amount - sum_explicit
+
+        number_of_implicits = len([a for a in assignments if a.amount is None])
+        implicit_amount = remaining / number_of_implicits if number_of_implicits > 0 else Decimal(0)
+
+        for a in assignments:
+            self.assign_funding(a.funding_source, a.amount or implicit_amount)
 
     def funding_assignments(self, tax_mode: CostBasis = CostBasis.net) -> list[FundingAssignment]:
         return [
