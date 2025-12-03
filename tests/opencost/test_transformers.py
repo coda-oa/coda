@@ -28,6 +28,10 @@ from coda.apps.institutions.models import Institution, InstitutionLinkType, Inst
 from coda.apps.authors.models import Author
 from coda.domain.opencost._institution import InstitutionIdType, InstitutionNameType
 
+from coda.apps.opencost.report_service import generate_report
+from coda.apps.contracts.models import Contract
+from coda.domain.contract import PublicationBilling
+
 
 @pytest.mark.django_db
 def test__report_article_publication__transforming_to_opencost__returns_valid_opencost_publication() -> (
@@ -430,3 +434,124 @@ def test__report_standalone_contract_with_institution_data__transforming_to_open
     assert contract_data.participation is not None
     assert contract_data.participation.from_ == "2024-01-01"
     assert contract_data.participation.to == "2024-12-31"
+
+
+@pytest.mark.django_db
+def test__report_standalone_contract_with_invoice_data__transforming_to_opencost__invoice_data_is_included() -> (
+    None
+):
+    contract = Contract.objects.create(
+        name="Test Invoice Contract",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+        publication_billing=PublicationBilling.Individually.value,
+    )
+
+    invoice = create_invoice(
+        creditor=create_creditor(name="Contract Creditor"),
+        invoice_date=date(2024, 7, 1),
+        number="INV-CONTRACT-001",
+        status="paid",
+    )
+
+    create_position(
+        invoice,
+        contract=contract,
+        description="Service Fee Part 1",
+        cost_amount=Decimal("1200.00"),
+        cost_type="publish",
+    )
+
+    report = generate_report(
+        title="Test Report 2024",
+        period_start=date(2024, 1, 1),
+        period_end=date(2024, 12, 31),
+    )
+
+    opencost_data = to_opencost(report)
+
+    assert opencost_data.contract is not None
+    assert len(opencost_data.contract) == 1
+
+    contract_data = opencost_data.contract[0]
+
+    assert contract_data.cost_data is not None
+    assert contract_data.cost_data.invoice_group is not None
+    assert len(contract_data.cost_data.invoice_group) == 1
+
+    opencost_invoice = contract_data.cost_data.invoice_group[0]
+
+    assert opencost_invoice.invoice is not None
+    assert len(opencost_invoice.invoice) == 1
+    assert opencost_invoice.invoice[0].invoice_number == "INV-CONTRACT-001"
+    assert opencost_invoice.invoice[0].creditor == "Contract Creditor"
+    assert opencost_invoice.invoice[0].dates.invoice == "2024-07-01"
+    assert opencost_invoice.invoice[0].amount_invoice is not None
+    assert opencost_invoice.invoice[0].amount_invoice.amount == Decimal("1200.00")
+    assert opencost_invoice.invoice[0].amount_invoice.currency == "EUR"
+
+
+@pytest.mark.django_db
+def test__report_standalone_contract_with_invoice_multiple_positions__transforming_to_opencost__amount_invoice_and_amounts_paid_are_correct() -> (
+    None
+):
+    contract = Contract.objects.create(
+        name="Test Invoice Contract Multiple Positions",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+        publication_billing=PublicationBilling.Individually.value,
+    )
+
+    invoice = create_invoice(
+        creditor=create_creditor(name="Contract Creditor"),
+        invoice_date=date(2024, 8, 1),
+        number="INV-CONTRACT-002",
+        status="paid",
+    )
+
+    create_position(
+        invoice,
+        contract=contract,
+        description="Service Fee Part 1",
+        cost_amount=Decimal("700.00"),
+        cost_type="publish",
+    )
+    create_position(
+        invoice,
+        contract=contract,
+        description="Service Fee Part 2",
+        cost_amount=Decimal("500.00"),
+        cost_type="publish",
+    )
+
+    report = generate_report(
+        title="Test Report 2024",
+        period_start=date(2024, 1, 1),
+        period_end=date(2024, 12, 31),
+    )
+
+    opencost_data = to_opencost(report)
+
+    assert opencost_data.contract is not None
+    assert len(opencost_data.contract) == 1
+
+    contract_data = opencost_data.contract[0]
+
+    assert contract_data.cost_data is not None
+    assert contract_data.cost_data.invoice_group is not None
+    assert len(contract_data.cost_data.invoice_group) == 1
+
+    opencost_invoice = contract_data.cost_data.invoice_group[0]
+
+    assert opencost_invoice.invoice is not None
+    assert len(opencost_invoice.invoice) == 1
+    assert opencost_invoice.invoice[0].invoice_number == "INV-CONTRACT-002"
+
+    assert opencost_invoice.invoice[0].amount_invoice is not None
+    assert opencost_invoice.invoice[0].amount_invoice.amount == Decimal("1200.00")  # 700 + 500
+    assert opencost_invoice.invoice[0].amount_invoice.currency == "EUR"
+
+    assert len(opencost_invoice.invoice[0].amounts_paid) == 2
+    amounts = sorted(opencost_invoice.invoice[0].amounts_paid, key=lambda x: x.amount)
+    assert amounts[0].amount == Decimal("500.00")
+    assert amounts[1].amount == Decimal("700.00")

@@ -20,7 +20,10 @@ from coda.domain.opencost._institution import (
 )
 from coda.domain.opencost._invoice import (
     AmountInvoice,
+    ContractAmountPaidType,
     ContractCostDataType,
+    ContractInvoiceGroupType,
+    ContractInvoiceType,
     Dates,
     PublicationAmountPaidType,
     PublicationInvoiceType,
@@ -203,8 +206,7 @@ def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> Cont
 
     # TODO: Implement secondary_identifiers
 
-    # Cost data - minimal placeholder
-    cost_data = ContractCostDataType(invoice_group=[])  # TODO: Implement properly
+    cost_data = _get_contract_cost_data(report_contract)
 
     return ContractType(
         contract_name=report_contract.contract_name,
@@ -235,3 +237,59 @@ def _get_contract_institution(report_contract: OpenCostReportContract) -> Instit
         name=names if names else None,
         id=identifiers if identifiers else None,
     )
+
+
+def _get_contract_cost_data(report_contract: OpenCostReportContract) -> ContractCostDataType:
+    report_invoices = report_contract.invoices.all()
+
+    if not report_invoices:
+        return ContractCostDataType(invoice_group=[])
+
+    invoice_list = []
+    for report_invoice in report_invoices:
+        report_positions = report_invoice.positions.all()
+
+        if not report_positions:
+            continue
+
+        amounts_paid = []
+        for report_position in report_positions:
+            amounts_paid.append(
+                ContractAmountPaidType(
+                    amount=report_position.amount,
+                    currency=report_position.currency,
+                    cost_type=report_position.cost_type,
+                    vat=report_position.vat or Decimal("0"),
+                )
+            )
+
+        dates = Dates(
+            invoice=str(report_invoice.invoice_date) if report_invoice.invoice_date else None,
+            paid=None,
+        )
+
+        amount_invoice = AmountInvoice(
+            amount=report_invoice.amount_invoice,
+            currency=report_invoice.amount_invoice_currency,
+        )
+
+        invoice_list.append(
+            ContractInvoiceType(
+                invoice_number=report_invoice.invoice_number,
+                creditor=report_invoice.creditor,
+                amounts_paid=amounts_paid,
+                dates=dates,
+                amount_invoice=amount_invoice,
+            )
+        )
+
+    # TODO: Implement grouping logic
+    # For now, create a single invoice group with all invoices
+    # In the future, we might group by period or other criteria
+    invoice_group = ContractInvoiceGroupType(
+        group_id=None,  # TODO grouping identifier
+        invoices_period=None,  # TODO period specification
+        invoice=invoice_list if invoice_list else None,
+    )
+
+    return ContractCostDataType(invoice_group=[invoice_group])
