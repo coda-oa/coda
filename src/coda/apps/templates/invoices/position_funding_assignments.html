@@ -22,9 +22,6 @@
                 <input type="hidden"
                        name="positions-{{ counter }}-funding_assignments-1-amount"
                        value="all">
-                <input type="hidden"
-                       name="positions-{{ counter }}-funding_assignments-1-funding_source_type"
-                       value="budget">
                 {# Funding source type selector #}
                 <select class="my-0"
                         name="positions-{{ counter }}-funding_assignments-1-funding_source_type"
@@ -106,21 +103,6 @@
                 </div>
             {% endwith %}
         </div>
-        {# Unassigned costs display #}
-        <div class="form-row">
-            <label for="id-positions-{{ counter }}-unassigned_costs">Unassigned costs</label>
-            <input type="text"
-                   id="id-positions-{{ counter }}-unassigned_costs"
-                   value="{{ position.unassigned_costs }}"
-                   readonly
-                   hx-post="{% url "invoices:position_refresh_funding_assignment" %}"
-                   hx-trigger="change from:(#id-positions-{{ counter }}-funding_assignemnts-list input.cost-amount)"
-                   hx-target="#position-{{ counter }}"
-                   hx-swap="outerHTML"
-                   hx-include="#position-{{ counter }}, [name='currency']"
-                   hx-vals='{"position_index": "{{ counter }}"}'
-                   {% if position.unassigned_costs != 0 %}aria-invalid="true"{% endif %}>
-        </div>
     {% else %}
         {# STATE 3: Multiple explicit assignments - user has split costs across multiple sources #}
         <input type="hidden"
@@ -199,7 +181,9 @@
                 </div>
             {% endfor %}
         </div>
-        {# Unassigned costs display #}
+    {% endif %}
+    {# Unassigned costs display - shown for STATE 2 and STATE 3 only #}
+    {% if position.funding_assignments %}
         <div class="form-row">
             <label for="id-positions-{{ counter }}-unassigned_costs">Unassigned costs</label>
             <input type="text"
@@ -207,7 +191,7 @@
                    value="{{ position.unassigned_costs }}"
                    readonly
                    hx-post="{% url "invoices:position_refresh_funding_assignment" %}"
-                   hx-trigger="change from:(#id-positions-{{ counter }}-funding_assignemnts-list input.cost-amount)"
+                   hx-trigger="change from:(#id-positions-{{ counter }}-funding_assignemnts-list input.cost-amount), change from:(#id-positions-{{ counter }}-cost-amount)"
                    hx-target="#position-{{ counter }}"
                    hx-swap="outerHTML"
                    hx-include="#position-{{ counter }}, [name='currency']"
