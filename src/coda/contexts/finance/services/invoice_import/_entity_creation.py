@@ -6,22 +6,31 @@ funding assignments.
 """
 
 from collections.abc import Iterable
+from typing import cast
+
+from django.db.models import Q
 
 from coda.apps.contracts import repository as contract_repository
+from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.institutions.models import Institution
 from coda.apps.invoices import funding_source_repository
 from coda.apps.invoices.models import Creditor
 from coda.apps.invoices.models import FundingSource as FundingSourceModel
-from coda.contexts.finance.dto.import_dtos import ContractPositionImportDto, InvoiceImportDto
+from coda.contexts.finance.dto.import_dtos import (
+    ContractPositionImportDto,
+    InvoiceImportDto,
+    PublicationPositionImportDto,
+)
 from coda.domain.author import InstitutionId
 from coda.domain.contract import Contract
 from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import CreditorId, FundingSourceId
+from coda.domain.publication.publication import PublicationId
 from coda.domain.string import NonEmptyStr
 
 
-def bulk_create_creditors(invoice_dtos: Iterable[InvoiceImportDto]) -> dict[str, CreditorId]:
-    """Find or create creditors and return lookup dictionary.
+def build_creditor_lookup(invoice_dtos: Iterable[InvoiceImportDto]) -> dict[str, CreditorId]:
+    """Build creditor lookup dictionary, creating creditors if needed.
 
     Args:
         invoice_dtos: Invoice DTOs to extract creditor names from
@@ -39,10 +48,10 @@ def bulk_create_creditors(invoice_dtos: Iterable[InvoiceImportDto]) -> dict[str,
     return {name: CreditorId(existing_map[name].pk) for name in creditors}
 
 
-def bulk_create_funding_sources(
+def build_funding_source_lookup(
     invoice_dtos: Iterable[InvoiceImportDto],
 ) -> dict[str, FundingSourceId]:
-    """Find or create funding sources and return lookup dictionary.
+    """Build funding source lookup dictionary, creating sources if needed.
 
     Args:
         invoice_dtos: Invoice DTOs to extract funding source names from
@@ -63,8 +72,8 @@ def bulk_create_funding_sources(
     return existing_map
 
 
-def find_contracts(invoice_dtos: Iterable[InvoiceImportDto]) -> dict[str, Contract]:
-    """Find or create contracts and return lookup dictionary.
+def build_contract_lookup(invoice_dtos: Iterable[InvoiceImportDto]) -> dict[str, Contract]:
+    """Build contract lookup dictionary, creating contracts if needed.
 
     Args:
         invoice_dtos: Invoice DTOs to extract contract names from
@@ -82,6 +91,44 @@ def find_contracts(invoice_dtos: Iterable[InvoiceImportDto]) -> dict[str, Contra
         created = contract_repository.create_many(to_create)
         existing_map.update({c.name: c for c in created})
     return {name: existing_map[name] for name in contracts}
+
+
+def build_publication_lookup(
+    invoice_dtos: Iterable[InvoiceImportDto],
+) -> dict[str, PublicationId]:
+    """Build lookup mapping request IDs to publication IDs.
+
+    Note: Assumes all publications exist. Call find_invoices_with_missing_publications()
+    first to validate.
+
+    Args:
+        invoice_dtos: Invoice DTOs to extract request IDs from
+
+    Returns:
+        Dictionary mapping request_id to PublicationId
+    """
+    # Extract request IDs from publication positions
+    request_ids = {
+        cast(str, position.request_id or position.legacy_request_id)
+        for invoice_dto in invoice_dtos
+        for position in invoice_dto.positions
+        if isinstance(position, PublicationPositionImportDto)
+    }
+
+    if not request_ids:
+        return {}
+
+    # Query funding requests with publications
+    requests = FundingRequest.objects.filter(
+        Q(request_id__in=request_ids) | Q(legacy_request_id__in=request_ids)
+    ).prefetch_related("publication")
+
+    # Build lookup for both request_id and legacy_request_id
+    return {req.request_id: PublicationId(req.publication.id) for req in requests} | {
+        req.legacy_request_id: PublicationId(req.publication.id)
+        for req in requests
+        if req.legacy_request_id
+    }
 
 
 def build_funding_assignments_lookup(

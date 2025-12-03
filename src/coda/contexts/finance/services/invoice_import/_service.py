@@ -18,38 +18,25 @@ from typing import BinaryIO, TextIO
 
 from coda.apps.invoices import repository
 from coda.contexts.finance.dto.import_dtos import InvoiceImportDto
-from coda.domain import errors
 from coda.domain.finance.invoice import Invoice, InvoiceId
-from coda.domain.finance.invoice_positions import Position
-from coda.domain.money._currency import Currency
-from coda.domain.publication.publication import PublicationId
 
 from ._entity_creation import (
+    build_contract_lookup,
+    build_creditor_lookup,
     build_funding_assignments_lookup,
-    bulk_create_creditors,
-    bulk_create_funding_sources,
-    find_contracts,
+    build_funding_source_lookup,
+    build_publication_lookup,
 )
-from ._parsing import (
-    create_invoice,
-    invoice_key,
-    parse_into_position,
-)
-from ._payment_updates import (
-    update_publication_payment_statuses,
-)
+from ._parsing import create_invoices_from_dtos
+from ._payment_updates import update_publication_payment_statuses
 from ._validation import (
     build_missing_institution_errors,
     build_missing_publication_errors,
     find_invoices_with_missing_institutions,
-    find_publication_ids,
+    find_invoices_with_missing_publications,
     validate_invoices,
 )
-from .types import (
-    ImportLookups,
-    InvoiceImportReport,
-    InvoiceProcessingError,
-)
+from .types import ImportLookups, InvoiceImportReport, InvoiceProcessingError
 
 
 def import_invoices(json_stream: TextIO | BinaryIO) -> InvoiceImportReport:
@@ -91,10 +78,9 @@ def _process_invoices(
     Returns:
         Tuple of (created_invoices, processing_errors_by_invoice_number)
     """
-    request_id_lookup, invoices_with_missing_publications = find_publication_ids(invoice_dtos)
+    invoices_with_missing_publications = find_invoices_with_missing_publications(invoice_dtos)
     invoices_with_missing_institutions = find_invoices_with_missing_institutions(invoice_dtos)
 
-    # Filter out invoices with missing publications OR missing institutions
     invalid_invoice_numbers = (
         invoices_with_missing_publications | invoices_with_missing_institutions
     )
@@ -111,8 +97,8 @@ def _process_invoices(
             + build_missing_institution_errors(invoice_dtos, invoices_with_missing_institutions)
         )
 
-    lookups = _build_entity_lookups(valid_invoice_dtos, request_id_lookup)
-    invoices, invoice_processing_errors = _create_invoices(valid_invoice_dtos, lookups)
+    lookups = _build_entity_lookups(valid_invoice_dtos)
+    invoices, invoice_processing_errors = create_invoices_from_dtos(valid_invoice_dtos, lookups)
 
     invoice_ids = repository.bulk_create(invoices)
     _assign_invoice_ids(invoices, invoice_ids)
@@ -132,65 +118,12 @@ def _assign_invoice_ids(invoices: list[Invoice], invoice_ids: list[InvoiceId]) -
         invoice.id = invoice_id
 
 
-def _build_entity_lookups(
-    invoice_dtos: list[InvoiceImportDto], request_id_lookup: dict[str, PublicationId]
-) -> ImportLookups:
+def _build_entity_lookups(invoice_dtos: list[InvoiceImportDto]) -> ImportLookups:
     """Build all necessary entity lookups for invoice processing."""
     return ImportLookups(
-        creditor_lookup=bulk_create_creditors(invoice_dtos),
-        funding_sources_lookup=bulk_create_funding_sources(invoice_dtos),
-        request_id_lookup=request_id_lookup,
-        contract_lookup=find_contracts(invoice_dtos),
+        creditor_lookup=build_creditor_lookup(invoice_dtos),
+        funding_sources_lookup=build_funding_source_lookup(invoice_dtos),
+        request_id_lookup=build_publication_lookup(invoice_dtos),
+        contract_lookup=build_contract_lookup(invoice_dtos),
         funding_assignments_lookup=build_funding_assignments_lookup(invoice_dtos),
     )
-
-
-def _create_invoices(
-    invoice_dtos: list[InvoiceImportDto], lookups: ImportLookups
-) -> tuple[list[Invoice], list[InvoiceProcessingError]]:
-    """Create domain invoice objects from DTOs and lookups."""
-    positions_lookup = _build_positions_lookup(invoice_dtos, lookups)
-    invoices_with_errors = [
-        err
-        for results in positions_lookup.values()
-        for err in results.errors()
-        if results.has_errors()
-    ]
-    valid_invoice_positions = {
-        invoice_key: results.values()
-        for invoice_key, results in positions_lookup.items()
-        if not results.has_errors()
-    }
-
-    parsed_invoices = [
-        create_invoice(
-            invoice_dto,
-            lookups.creditor_lookup[invoice_dto.creditor],
-            valid_invoice_positions[invoice_key(invoice_dto)],
-        )
-        for invoice_dto in invoice_dtos
-        if invoice_key(invoice_dto) in valid_invoice_positions
-    ]
-
-    return parsed_invoices, invoices_with_errors
-
-
-def _build_positions_lookup(
-    invoice_dtos: list[InvoiceImportDto], lookups: ImportLookups
-) -> dict[str, errors.ResultCollection[Position, InvoiceProcessingError]]:
-    def to_processing_error(
-        ex: ValueError,
-        invoice_dto: InvoiceImportDto,
-    ) -> InvoiceProcessingError:
-        return InvoiceProcessingError(invoice_dto.number, [str(ex)])
-
-    with errors.capture(ValueError) as capture:
-        return {
-            invoice_key(invoice_dto): errors.results(
-                capture(
-                    parse_into_position, p, Currency.from_code(invoice_dto.currency), lookups
-                ).map_err(to_processing_error, invoice_dto)
-                for p in invoice_dto.positions
-            )
-            for invoice_dto in invoice_dtos
-        }

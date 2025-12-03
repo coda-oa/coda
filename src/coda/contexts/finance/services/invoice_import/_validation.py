@@ -14,7 +14,6 @@ from coda.contexts.finance.dto.import_dtos import (
 )
 from coda.contexts.finance.services.invoice_import.types import InvoiceProcessingError
 from coda.domain import errors
-from coda.domain.publication.publication import PublicationId
 
 
 def validate_invoices(
@@ -129,24 +128,26 @@ def find_invoices_with_missing_institutions(
     return invoices_with_missing
 
 
-def find_publication_ids(
-    invoices: Iterable[InvoiceImportDto],
-) -> tuple[dict[str, Any], set[str]]:
+def find_invoices_with_missing_publications(
+    invoice_dtos: Iterable[InvoiceImportDto],
+) -> set[str]:
     """
-    Find publications by request ID, returning both a lookup dict and error info.
+    Find invoices that reference non-existing publications.
 
     Returns:
-        Tuple of (request_id_to_publication_id_lookup, invoice_numbers_with_missing_publications)
+        Set of invoice numbers that reference missing publications
     """
-
     invoices_with_publications = [
         (invoice_dto.number, cast(str, position.request_id or position.legacy_request_id))
-        for invoice_dto in invoices
+        for invoice_dto in invoice_dtos
         for position in invoice_dto.positions
         if isinstance(position, PublicationPositionImportDto)
     ]
 
     publication_ids = {publication for _, publication in invoices_with_publications}
+
+    if not publication_ids:
+        return set()
 
     requests = FundingRequest.objects.filter(
         Q(request_id__in=publication_ids) | Q(legacy_request_id__in=publication_ids)
@@ -164,8 +165,4 @@ def find_publication_ids(
         if publication not in found_publication_ids
     }
 
-    return {req.request_id: PublicationId(req.publication.id) for req in requests} | {
-        req.legacy_request_id: PublicationId(req.publication.id)
-        for req in requests
-        if req.legacy_request_id
-    }, invoices_with_missing_publications
+    return invoices_with_missing_publications

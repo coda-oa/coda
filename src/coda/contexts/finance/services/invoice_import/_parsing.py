@@ -13,7 +13,11 @@ from coda.contexts.finance.dto.import_dtos import (
     InvoiceImportDto,
     PublicationPositionImportDto,
 )
-from coda.contexts.finance.services.invoice_import.types import ImportLookups
+from coda.contexts.finance.services.invoice_import.types import (
+    ImportLookups,
+    InvoiceProcessingError,
+)
+from coda.domain import errors
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import CreditorId, Invoice
@@ -148,3 +152,72 @@ def invoice_key(invoice_dto: InvoiceImportDto) -> str:
         Hash string uniquely identifying this invoice
     """
     return str(hash(invoice_dto.model_dump_json()))
+
+
+def build_positions_for_invoices(
+    invoice_dtos: list[InvoiceImportDto], lookups: ImportLookups
+) -> dict[str, errors.ResultCollection[Position, InvoiceProcessingError]]:
+    """Build positions for all invoices with error capture.
+
+    Args:
+        invoice_dtos: Invoice DTOs to parse positions from
+        lookups: Entity lookups for references
+
+    Returns:
+        Dictionary mapping invoice keys to ResultCollection of positions with errors
+    """
+
+    def to_processing_error(
+        ex: ValueError,
+        invoice_dto: InvoiceImportDto,
+    ) -> InvoiceProcessingError:
+        return InvoiceProcessingError(invoice_dto.number, [str(ex)])
+
+    with errors.capture(ValueError) as capture:
+        return {
+            invoice_key(invoice_dto): errors.results(
+                capture(
+                    parse_into_position, p, Currency.from_code(invoice_dto.currency), lookups
+                ).map_err(to_processing_error, invoice_dto)
+                for p in invoice_dto.positions
+            )
+            for invoice_dto in invoice_dtos
+        }
+
+
+def create_invoices_from_dtos(
+    invoice_dtos: list[InvoiceImportDto], lookups: ImportLookups
+) -> tuple[list[Invoice], list[InvoiceProcessingError]]:
+    """Create domain invoice objects from DTOs and lookups.
+
+    Args:
+        invoice_dtos: Invoice DTOs to transform
+        lookups: Entity lookups for references
+
+    Returns:
+        Tuple of (created_invoices, processing_errors)
+    """
+    positions_lookup = build_positions_for_invoices(invoice_dtos, lookups)
+    invoices_with_errors = [
+        err
+        for results in positions_lookup.values()
+        for err in results.errors()
+        if results.has_errors()
+    ]
+    valid_invoice_positions = {
+        invoice_key: results.values()
+        for invoice_key, results in positions_lookup.items()
+        if not results.has_errors()
+    }
+
+    parsed_invoices = [
+        create_invoice(
+            invoice_dto,
+            lookups.creditor_lookup[invoice_dto.creditor],
+            valid_invoice_positions[invoice_key(invoice_dto)],
+        )
+        for invoice_dto in invoice_dtos
+        if invoice_key(invoice_dto) in valid_invoice_positions
+    ]
+
+    return parsed_invoices, invoices_with_errors
