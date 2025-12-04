@@ -2,6 +2,29 @@
 <div id="funding_assignments_list" class="my-2">
     <div class="flex justify-between align-center">
         <h4>Funding Sources</h4>
+        {# Net/Gross mode selector - only show when explicit assignments exist #}
+        {% if position.funding_assignments %}
+            <div class="form-row">
+                <label for="id-positions-{{ counter }}-cost_basis_mode">Input mode</label>
+                <select id="id-positions-{{ counter }}-cost_basis_mode"
+                        name="positions-{{ counter }}-cost_basis_mode"
+                        hx-post="{% url "invoices:position_switch_cost_basis_mode" %}"
+                        hx-trigger="change"
+                        hx-target="#position-{{ counter }}"
+                        hx-swap="outerHTML"
+                        hx-include="#position-{{ counter }}, [name='currency']"
+                        hx-vals='{"position_index": "{{ counter }}"}'>
+                    <option value="net"
+                            {% if position.cost_basis_mode.value == "net" %}selected{% endif %}>
+                        Net (excl. tax)
+                    </option>
+                    <option value="gross"
+                            {% if position.cost_basis_mode.value == "gross" %}selected{% endif %}>
+                        Gross (incl. tax)
+                    </option>
+                </select>
+            </div>
+        {% endif %}
         <button type="button"
                 class="secondary"
                 name="add_funding_assignment_to_position"
@@ -185,7 +208,14 @@
     {# Unassigned costs display - shown for STATE 2 and STATE 3 only #}
     {% if position.funding_assignments %}
         <div class="form-row">
-            <label for="id-positions-{{ counter }}-unassigned_costs">Unassigned costs</label>
+            <label for="id-positions-{{ counter }}-unassigned_costs">
+                Unassigned costs
+                {% if position.cost_basis_mode.value == "gross" %}
+                    (incl. tax)
+                {% else %}
+                    (excl. tax)
+                {% endif %}
+            </label>
             <input type="text"
                    id="id-positions-{{ counter }}-unassigned_costs"
                    value="{{ position.unassigned_costs }}"

@@ -14,6 +14,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 )
 from coda.contexts.finance.services import invoice_parser
 from coda.domain.finance.invoice_positions import InvalidSplitAmount
+from coda.domain.finance.taxable_money import CostBasis
 from coda.domain.money import Currency
 
 from coda.apps.invoices.views.position_context import funding_sources_context
@@ -40,6 +41,9 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
             PositionDto, request.POST, prefix=f"positions-{position_index}"
         )
 
+        # Get display mode (form values match this mode)
+        display_mode = CostBasis(position_dto.cost_basis_mode)
+
         # Process and render single position
         # Filter out implicit assignments (STATE 1) which have amount=0
         # An assignment is explicit if it has a non-zero amount (funding_source can still be None)
@@ -48,17 +52,22 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
 
         if not explicit_assignments:
             position = invoice_parser.to_position(position_dto, currency)
-            amount_to_assign = position.cost.amount
+            # Pre-fill with total cost in display mode
+            amount_to_assign = (
+                position.cost.amount if display_mode == CostBasis.net else position.total().amount
+            )
         else:
             position = invoice_parser.to_position(position_dto, currency)
-            amount_to_assign = position.unassigned_costs().amount
+            # Pre-fill with unassigned costs in display mode
+            amount_to_assign = position.unassigned_costs(display_mode).amount
 
         position_dto.funding_assignments.append(FundingAssignmentDto(amount=amount_to_assign))
 
-        # Recalculate unassigned costs after adding new assignment
+        # Recalculate and convert to display mode
         try:
             position = invoice_parser.to_position(position_dto, currency)
-            position_dto.unassigned_costs = position.unassigned_costs().amount
+            # Convert back to display mode (domain handles conversion)
+            position_dto = invoice_parser.position_to_dto(position, display_mode)
         except InvalidSplitAmount:
             position_dto.unassigned_costs = Decimal(0)
 
@@ -85,16 +94,20 @@ def remove_funding_assignment(request: HttpRequest) -> HttpResponse:
             PositionDto, request.POST, prefix=f"positions-{position_index}"
         )
 
+        # Get display mode (form values match this mode)
+        display_mode = CostBasis(position_dto.cost_basis_mode)
+
         # Remove the specified assignment
         try:
             position_dto.funding_assignments.pop(assignment_index)
         except IndexError:
             pass  # Assignment doesn't exist, render as-is
 
-        # Recalculate unassigned costs after removal
+        # Recalculate and convert to display mode
         try:
             position = invoice_parser.to_position(position_dto, currency)
-            position_dto.unassigned_costs = position.unassigned_costs().amount
+            # Convert back to display mode (domain handles conversion)
+            position_dto = invoice_parser.position_to_dto(position, display_mode)
         except InvalidSplitAmount:
             # If assignments are invalid, set unassigned_costs to 0 to avoid confusion
             position_dto.unassigned_costs = Decimal(0)
@@ -126,16 +139,65 @@ def refresh_unassigned_costs(request: HttpRequest) -> HttpResponse:
             PositionDto, request.POST, prefix=f"positions-{position_index}"
         )
 
-        # Calculate unassigned costs
+        # Get display mode (form values match this mode)
+        display_mode = CostBasis(position_dto.cost_basis_mode)
+
+        # Calculate unassigned costs and convert to display mode
         try:
+            # Parser interprets amounts according to display_mode
             position = invoice_parser.to_position(position_dto, currency)
-            position_dto.unassigned_costs = position.unassigned_costs().amount
+            # Convert back to display mode (domain handles conversion)
+            position_dto = invoice_parser.position_to_dto(position, display_mode)
         except InvalidSplitAmount:
             errors = {
                 f"positions-{position_index}-funding_assignments-errors": "Invalid funding assignment!"
             }
 
         return render_single_position(request, position_dto, position_index, errors)
+
+    except (IndexError, KeyError, ValueError):
+        return render_positions(request, PositionList())
+
+
+@login_required
+def switch_cost_basis_mode(request: HttpRequest) -> HttpResponse:
+    """Switch between net and gross display modes for funding assignments.
+
+    Converts assignment amounts between modes for display. Since there are only
+    two modes (net and gross), the old mode is always the opposite of the selected mode.
+
+    This endpoint is specifically for mode selector changes. Amount field changes
+    should use refresh_unassigned_costs() instead.
+
+    Expects position_index in POST data for granular updates.
+    Only re-renders the affected position + OOB summary update.
+    """
+    try:
+        currency = Currency.from_code(request.POST["currency"])
+        position_index = int(request.POST["position_index"])
+
+        # Parse position DTO from form
+        position_dto = formdata.map_to_model(
+            PositionDto, request.POST, prefix=f"positions-{position_index}"
+        )
+
+        # Get newly selected mode
+        new_mode = CostBasis(position_dto.cost_basis_mode)
+
+        # Since there are only 2 modes, old mode is the opposite of new mode
+        old_mode = CostBasis.net if new_mode == CostBasis.gross else CostBasis.gross
+
+        # Form values are in OLD mode, temporarily override for correct parsing
+        position_dto.cost_basis_mode = old_mode
+        position = invoice_parser.to_position(position_dto, currency)
+
+        # Convert to NEW mode for display
+        position_dto = invoice_parser.position_to_dto(position, new_mode)
+
+        # Ensure cost_basis_mode reflects the selected mode
+        position_dto.cost_basis_mode = new_mode
+
+        return render_single_position(request, position_dto, position_index)
 
     except (IndexError, KeyError, ValueError):
         return render_positions(request, PositionList())

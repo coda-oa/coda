@@ -32,6 +32,7 @@ from coda.apps.invoices.views.funding_assignment_views import (
     add_funding_assignment,
     refresh_unassigned_costs,
     remove_funding_assignment,
+    switch_cost_basis_mode,
     switch_funding_source_type,
 )
 from coda.apps.invoices.views.search import search_contracts, search_publications
@@ -63,6 +64,11 @@ urlpatterns = [
         "create/refresh-funding-asssignment",
         refresh_unassigned_costs,
         name="position_refresh_funding_assignment",
+    ),
+    path(
+        "create/switch-cost-basis-mode",
+        switch_cost_basis_mode,
+        name="position_switch_cost_basis_mode",
     ),
     path(
         "create/switch_funding_source_type",
