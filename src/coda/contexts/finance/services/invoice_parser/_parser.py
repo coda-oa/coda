@@ -16,6 +16,7 @@ from coda.domain.finance import invoice_positions
 from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice
 from coda.domain.finance.invoice_positions import ItemType, Position, PositionItemType
+from coda.domain.finance.taxable_money import CostBasis
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
@@ -103,19 +104,19 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
             case _:
                 fs = Budget.new("")
 
-        _position.assign_funding(fs, f.amount)
+        _position.assign_funding(fs, f.amount, position.cost_basis_mode)
 
     return _position
 
 
-def position_to_dto(position: Position) -> PositionDto:
+def position_to_dto(position: Position, cost_basis: CostBasis = CostBasis.net) -> PositionDto:
     parser = _position_converters[type(position.item.item)]
-    dto = _position_to_dto(position, parser.to_itemdto(position))
+    dto = _position_to_dto(position, parser.to_itemdto(position), cost_basis)
 
     return dto
 
 
-def _position_to_dto(position: Position, item_dto: ItemDto) -> PositionDto:
+def _position_to_dto(position: Position, item_dto: ItemDto, cost_basis: CostBasis) -> PositionDto:
     return PositionDto(
         item=item_dto,
         cost_amount=position.cost.amount,
@@ -127,10 +128,11 @@ def _position_to_dto(position: Position, item_dto: ItemDto) -> PositionDto:
                 funding_source_type=f.funding_source.kind(),
                 amount=f.amount.amount,
             )
-            for f in position.funding_assignments()
+            for f in position.funding_assignments(cost_basis)
             if f.funding_source
         ],
-        unassigned_costs=position.unassigned_costs().amount,
+        unassigned_costs=position.unassigned_costs(cost_basis).amount,
+        cost_basis_mode=cost_basis,
     )
 
 

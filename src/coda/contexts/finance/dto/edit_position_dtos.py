@@ -8,6 +8,7 @@ from pydantic import Field, ValidatorFunctionWrapHandler, WrapValidator
 from coda.apps.dto import CodaBaseDto
 from coda.domain.finance.costtypes import ContractCostType, CostType, PublicationCostType
 from coda.domain.finance.invoice_positions import ItemType
+from coda.domain.finance.taxable_money import CostBasis
 
 ItemT = TypeVar("ItemT", bound=ItemType, covariant=True)
 CostT = TypeVar("CostT", bound=CostType, covariant=True)
@@ -78,6 +79,7 @@ class PositionDto(abc.ABC, CodaBaseDto):
     cost_amount: DecimalOrDefault = Decimal("0.00")
     tax_rate: DecimalOrDefault = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
     external_position_id: str = ""
+    cost_basis_mode: CostBasis = CostBasis.net
     funding_assignments: list[FundingAssignmentDto] = Field(default_factory=list)
     unassigned_costs: DecimalOrDefault = Decimal(0)
 

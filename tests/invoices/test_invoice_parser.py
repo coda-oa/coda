@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from decimal import Decimal
+from typing import cast
 
 import pytest
 
@@ -10,8 +11,9 @@ from coda.contexts.finance.services import invoice_parser
 from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
-from coda.domain.finance.funding_sources import SplitSource
-from coda.domain.finance.invoice_positions import Position
+from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
+from coda.domain.finance.invoice_positions import FundingAssignment, Position
+from coda.domain.finance.taxable_money import CostBasis
 from coda.domain.publication.publication import PublicationId
 from tests import domainfactory, modelfactory
 
@@ -145,3 +147,67 @@ def test__position_with_funding_assignment__convert_to_dto__contains_budget_type
 
     funding_assignment = dto.funding_assignments[0]
     assert funding_assignment.funding_source_type == "institution"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("create_position", Positions)
+def test__position_dto_with_funding_assignment_in_gross__convert_to_position__position_has_funding_assignments(
+    create_position: Callable[[], Position],
+) -> None:
+    budget = Budget.new("my budget")
+    budget.id = funding_source_repository.create(budget)
+
+    position = create_position()
+    dto = invoice_parser.position_to_dto(position)
+
+    total = position.total().amount
+    dto.cost_basis_mode = CostBasis.gross
+    dto.funding_assignments.append(FundingAssignmentDto(funding_source=budget.id, amount=total))
+
+    actual = invoice_parser.to_position(dto, position.cost.currency)
+
+    assert actual.funding_assignments(CostBasis.gross) == [
+        FundingAssignment(budget, position.total())
+    ]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("create_position", Positions)
+def test__position_with_funding_assignments__convert_to_dto_as_gross__returns_dto_with_assignments_as_gross(
+    create_position: Callable[[], Position],
+) -> None:
+    budget_1 = Budget.new("my budget")
+    budget_1.id = funding_source_repository.create(budget_1)
+    budget_2 = Budget.new("another budget")
+    budget_2.id = funding_source_repository.create(budget_2)
+
+    position = create_position()
+    position.assign_funding(budget_1, position.net().amount / 3)
+    position.assign_funding(budget_1, position.net().amount / 3)
+
+    dto = invoice_parser.position_to_dto(position, CostBasis.gross)
+
+    assert dto.cost_basis_mode == CostBasis.gross
+    assert dto.funding_assignments == [
+        FundingAssignmentDto(
+            funding_source=cast(FundingSource, fa.funding_source).id,
+            amount=fa.amount.amount,
+        )
+        for fa in position.funding_assignments(CostBasis.gross)
+    ]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("create_position", Positions)
+def test__position_with_unassigned_costs__convert_to_dto_as_gross__returns_dto_unassigned_costs_as_gross(
+    create_position: Callable[[], Position],
+) -> None:
+    budget = Budget.new("my budget")
+    budget.id = funding_source_repository.create(budget)
+
+    position = create_position()
+    position.assign_funding(budget, position.total().amount / 2, CostBasis.gross)
+
+    dto = invoice_parser.position_to_dto(position, CostBasis.gross)
+
+    assert dto.unassigned_costs == position.unassigned_costs(CostBasis.gross).amount
