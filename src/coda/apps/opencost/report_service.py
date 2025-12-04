@@ -12,6 +12,7 @@ from coda.apps.opencost.models import (
     OpenCostReportContractInstitutionIdentifier,
     OpenCostReportContractInvoice,
     OpenCostReportContractInvoicePosition,
+    OpenCostReportContractSecondaryIdentifier,
     OpenCostReportInstitutionIdentifier,
     OpenCostReportInvoicePosition,
     OpenCostReportPublication,
@@ -140,6 +141,7 @@ def _snapshot_contract(
     contract: Contract,
 ) -> None:
     institution_name, institution_identifiers = _get_institution_data_for_contract(contract)
+    primary_id = _get_contract_primary_identifier(contract)
 
     report_contract = OpenCostReportContract.objects.create(
         report=report,
@@ -148,7 +150,7 @@ def _snapshot_contract(
         institution_name=institution_name,
         participation_from=contract.start_date,
         participation_to=contract.end_date,
-        primary_identifier_value="",  # TODO: Implement ESAC ID lookup
+        primary_identifier_value=primary_id,
     )
 
     for identifier_type, identifier_value in institution_identifiers:
@@ -158,7 +160,13 @@ def _snapshot_contract(
             value=identifier_value,
         )
 
-    # TODO: Implement secondary identifiers (oai, ezb, local) when available
+    contract_identifiers = _get_contract_secondary_identifiers(contract)
+    for identifier_type, identifier_value in contract_identifiers:
+        OpenCostReportContractSecondaryIdentifier.objects.create(
+            report_contract=report_contract,
+            identifier_type=identifier_type,
+            value=identifier_value,
+        )
 
     _snapshot_contract_invoices(report_contract, contract)
 
@@ -241,3 +249,18 @@ def _get_home_institution_data() -> tuple[str, list[tuple[str, str]]]:
         identifiers.append((identifier_type, link.value))
 
     return institution_name, identifiers
+
+
+def _get_contract_primary_identifier(contract: Contract) -> str:
+    esac = contract.links.filter(type__name="ESAC").first()
+    if esac:
+        return esac.value
+    return ""
+
+
+def _get_contract_secondary_identifiers(contract: Contract) -> list[tuple[str, str]]:
+    identifiers = []
+    for link in contract.links.filter(type__name__in=["OAI", "EZB", "Local"]):
+        identifier_type = link.type.name.lower()
+        identifiers.append((identifier_type, link.value))
+    return identifiers

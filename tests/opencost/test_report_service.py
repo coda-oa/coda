@@ -1,6 +1,7 @@
 import pytest
 
 from coda.apps.authors.models import Author
+from coda.apps.contracts.models import ContractLink, ContractLinkType
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
@@ -554,3 +555,85 @@ def test__standalone_contract_with_invoice_positions__generate_report__contract_
     cost_types = {pos.cost_type for pos in contract_positions}
     assert "read" in cost_types
     assert "publish" in cost_types
+
+
+@pytest.mark.django_db
+def test__contract_with_esac_id__generate_report__primary_identifier_snapshotted() -> None:
+    contract = modelfactory.contract()
+
+    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
+    ContractLink.objects.create(
+        contract=contract, type=esac_type, value="https://esac.org/id/123456"
+    )
+
+    creditor = create_creditor(name="Test Creditor")
+    invoice = create_invoice(
+        creditor=creditor, invoice_date=date(2024, 5, 10), number="INV-001", status="paid"
+    )
+    create_position(
+        invoice=invoice,
+        contract=contract,
+        cost_amount=Decimal("1000.00"),
+        cost_type="publish",
+    )
+
+    report = create_opencost_report(title="Test Report with Contract ESAC ID 2024")
+
+    report_contracts = OpenCostReportContract.objects.filter(report=report)
+    assert report_contracts.count() == 1
+
+    report_contract = report_contracts.first()
+    assert report_contract is not None
+
+    assert report_contract.primary_identifier_value == "https://esac.org/id/123456"
+
+
+@pytest.mark.django_db
+def test__contract_with_secondary_ids__generate_report__secondary_identifier_snapshots_created() -> (
+    None
+):
+    contract = modelfactory.contract()
+
+    oai_type, _ = ContractLinkType.objects.get_or_create(name="OAI")
+    ContractLink.objects.create(
+        contract=contract, type=oai_type, value="https://services.dnb.de/oai/repository/789012"
+    )
+
+    ezb_type, _ = ContractLinkType.objects.get_or_create(name="EZB")
+    ContractLink.objects.create(
+        contract=contract, type=ezb_type, value="https://ezb.uni-regensburg.de/id/456789"
+    )
+
+    local_type, _ = ContractLinkType.objects.get_or_create(name="Local")
+    ContractLink.objects.create(contract=contract, type=local_type, value="LOCAL-ID-001")
+
+    creditor = create_creditor(name="Test Creditor")
+    invoice = create_invoice(
+        creditor=creditor, invoice_date=date(2024, 5, 10), number="INV-002", status="paid"
+    )
+    create_position(
+        invoice=invoice,
+        contract=contract,
+        cost_amount=Decimal("2000.00"),
+        cost_type="read",
+    )
+
+    report = create_opencost_report(title="Test Report with Contract Secondary IDs 2024")
+
+    report_contracts = OpenCostReportContract.objects.filter(report=report)
+    assert report_contracts.count() == 1
+
+    report_contract = report_contracts.first()
+    assert report_contract is not None
+
+    identifier_snapshots = report_contract.secondary_identifiers.all()
+
+    assert identifier_snapshots.filter(
+        identifier_type="oai", value="https://services.dnb.de/oai/repository/789012"
+    ).exists()
+
+    assert identifier_snapshots.filter(
+        identifier_type="ezb", value="https://ezb.uni-regensburg.de/id/456789"
+    ).exists()
+
+    assert identifier_snapshots.filter(identifier_type="local", value="LOCAL-ID-001").exists()

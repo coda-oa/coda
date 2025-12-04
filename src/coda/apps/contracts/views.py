@@ -12,7 +12,7 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts import repository
 from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.contracts.forms import ContractForm, EntityFormset
-from coda.apps.contracts.models import Contract as ContractModel
+from coda.apps.contracts.models import Contract as ContractModel, ContractLink, ContractLinkType
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
@@ -81,6 +81,21 @@ def edit_contract_view(request: HttpRequest, pk: int | None = None) -> HttpRespo
 
         if all(form.is_valid() for form in forms):
             contract_id = save_contract(contract_form, publisher_formset, journal_formset)
+
+            contract_model = ContractModel.objects.get(pk=contract_id)
+            ContractLink.objects.filter(contract=contract_model).delete()
+
+            link_types = request.POST.getlist("link_type")
+            link_values = request.POST.getlist("link_value")
+
+            for type_id, value in zip(link_types, link_values):
+                if type_id and value:
+                    ContractLink.objects.create(
+                        contract=contract_model,
+                        type_id=type_id,
+                        value=value,
+                    )
+
             return redirect("contracts:detail", contract_id)
 
     return render(request, "contracts/contract_create.html", context)
@@ -124,7 +139,18 @@ def get_context(
         if initial_contract is None
         else reverse("contracts:update", kwargs={"pk": initial_contract.id})
     )
-    return {"title": title} | {"url": url} | get_forms(request, initial_contract=initial_contract)
+
+    contract_model = None
+    if initial_contract is not None and initial_contract.id is not None:
+        contract_model = ContractModel.objects.get(pk=initial_contract.id)
+
+    return (
+        {"title": title}
+        | {"url": url}
+        | {"link_types": ContractLinkType.objects.all()}
+        | {"contract": contract_model}
+        | get_forms(request, initial_contract=initial_contract)
+    )
 
 
 def get_forms(request: HttpRequest, initial_contract: Contract | None = None) -> dict[str, Any]:
@@ -160,3 +186,12 @@ def get_forms(request: HttpRequest, initial_contract: Contract | None = None) ->
         "publisher_formset": publisher_formset,
         "journal_formset": journal_formset,
     }
+
+
+@login_required
+def add_contract_linkrow(request: HttpRequest) -> HttpResponse:
+    return render(
+        request,
+        "contracts/partials/contract_linkrow.html",
+        {"link_types": ContractLinkType.objects.all()},
+    )

@@ -2,7 +2,12 @@ from django.urls import path
 
 from coda.apps.contracts import partials
 from coda.apps.contracts.forms import EntityFormset
-from coda.apps.contracts.views import ContractListView, contract_detail, edit_contract_view
+from coda.apps.contracts.views import (
+    ContractListView,
+    contract_detail,
+    edit_contract_view,
+    add_contract_linkrow,
+)
 
 management_view = EntityFormset.get_management_view()
 
@@ -19,4 +24,5 @@ urlpatterns = [
     ),
     path("partial/search-publisher", partials.search_publisher, name="search_publisher"),
     path("partial/search-journal", partials.search_journal, name="search_journal"),
+    path("partial/add-contract-linkrow/", add_contract_linkrow, name="partial_add_linkrow"),
 ]

@@ -4,7 +4,7 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
-from coda.apps.contracts.models import Contract
+from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from tests import modelfactory
 from tests.opencost.helpers import (
@@ -229,6 +229,16 @@ def test__report_with_standalone_contract_with_institution__generate_xml__create
         start_date=date(2024, 1, 1),
         end_date=date(2024, 12, 31),
     )
+    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
+    ContractLink.objects.create(
+        contract=contract, type=esac_type, value="https://esac.org/id/123456"
+    )
+    oai_type, _ = ContractLinkType.objects.get_or_create(name="OAI")
+    ContractLink.objects.create(contract=contract, type=oai_type, value="https://oai.org/id/123456")
+    local_type, _ = ContractLinkType.objects.get_or_create(name="Local")
+    ContractLink.objects.create(
+        contract=contract, type=local_type, value="https://local.org/id/123456"
+    )
 
     creditor = create_creditor(name="Invoice Creditor")
     invoice = create_invoice(
@@ -250,7 +260,7 @@ def test__report_with_standalone_contract_with_institution__generate_xml__create
     assert len(xml_string) > 0
 
     # Debug: print the XML
-    # print("\n" + xml_string)
+    print("\n" + xml_string)
 
     root = ET.fromstring(xml_string)
 
@@ -283,3 +293,16 @@ def test__report_with_standalone_contract_with_institution__generate_xml__create
     assert id_value is not None
     assert id_type.text == "ror"
     assert id_value.text == "https://ror.org/contract123"
+
+    primary_id = xml_contract.find("oc:primary_identifier", ns)
+    primary_id_type = primary_id.find("oc:type", ns) if primary_id is not None else None
+    primary_id_value = primary_id.find("oc:value", ns) if primary_id is not None else None
+    assert primary_id_type is not None
+    assert primary_id_value is not None
+    assert primary_id_value.text == "https://esac.org/id/123456"
+    assert primary_id_type.text == "ESAC"
+
+    secondary_ids = xml_contract.find("oc:secondary_identifiers", ns)
+    assert secondary_ids is not None
+    secondary_id_list = secondary_ids.findall("oc:id", ns)
+    assert len(secondary_id_list) == 2
