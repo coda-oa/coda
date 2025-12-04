@@ -8,6 +8,9 @@ from coda.domain.opencost import Data
 from coda.domain.opencost._contract import (
     ContractPrimaryIdentifier,
     ContractPrimaryIdentifierType,
+    ContractSecondaryIdentifiersType,
+    ContractSecondaryIdType,
+    ContractSecondaryIdTypeEnum,
     ContractType,
     ParticipationType,
 )
@@ -198,13 +201,12 @@ def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> Cont
         }
     )
 
-    # Primary identifier (ESAC ID)
     primary_identifier = ContractPrimaryIdentifier(
         value=report_contract.primary_identifier_value or "UNKNOWN",
         type=ContractPrimaryIdentifierType.ESAC,
     )
 
-    # TODO: Implement secondary_identifiers
+    contract_secondary_identifiers = _get_contract_secondary_identifiers(report_contract)
 
     cost_data = _get_contract_cost_data(report_contract)
 
@@ -213,7 +215,7 @@ def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> Cont
         institution=institution,
         participation=participation,
         primary_identifier=primary_identifier,
-        secondary_identifiers=None,
+        secondary_identifiers=contract_secondary_identifiers,
         cost_data=cost_data,
     )
 
@@ -293,3 +295,21 @@ def _get_contract_cost_data(report_contract: OpenCostReportContract) -> Contract
     )
 
     return ContractCostDataType(invoice_group=[invoice_group])
+
+
+def _get_contract_secondary_identifiers(
+    report_contract: OpenCostReportContract,
+) -> ContractSecondaryIdentifiersType | None:
+    secondary_ids: list[ContractSecondaryIdType] = []
+
+    for identifier in report_contract.secondary_identifiers.all():
+        try:
+            id_type = ContractSecondaryIdTypeEnum(identifier.identifier_type)
+            secondary_ids.append(ContractSecondaryIdType(value=identifier.value, type=id_type))
+        except ValueError:
+            continue
+
+    if not secondary_ids:
+        return None
+
+    return ContractSecondaryIdentifiersType(id=secondary_ids)

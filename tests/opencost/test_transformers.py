@@ -10,6 +10,10 @@ from coda.apps.opencost.models import (
 from coda.apps.opencost.transformers import report_publication_to_pydantic, to_opencost
 from coda.apps.publications.models._attachedentities import PublicationAttachedConcept
 from coda.apps.publications.models._vocabulary import Vocabulary
+from coda.domain.opencost._contract import (
+    ContractPrimaryIdentifierType,
+    ContractSecondaryIdTypeEnum,
+)
 from coda.domain.opencost._publication import PublicationSecondaryIdTypeEnum, PublicationType
 from coda.domain.opencost._types import PublicationCostType
 from tests import modelfactory
@@ -29,7 +33,7 @@ from coda.apps.authors.models import Author
 from coda.domain.opencost._institution import InstitutionIdType, InstitutionNameType
 
 from coda.apps.opencost.report_service import generate_report
-from coda.apps.contracts.models import Contract
+from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
 from coda.domain.contract import PublicationBilling
 
 
@@ -555,3 +559,111 @@ def test__report_standalone_contract_with_invoice_multiple_positions__transformi
     amounts = sorted(opencost_invoice.invoice[0].amounts_paid, key=lambda x: x.amount)
     assert amounts[0].amount == Decimal("500.00")
     assert amounts[1].amount == Decimal("700.00")
+
+
+@pytest.mark.django_db
+def test__report_standalone_contract_with_esac_id__transforming_to_opencost__primary_identifier_value_is_set() -> (
+    None
+):
+    other_type, _ = ContractLinkType.objects.get_or_create(name="OtherID")
+    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
+
+    contract = modelfactory.contract()
+    ContractLink.objects.create(
+        contract=contract, type=esac_type, value="https://esac.org/id/123456"
+    )
+    ContractLink.objects.create(
+        contract=contract, type=other_type, value="https://otherid.com/id/555555"
+    )
+
+    invoice = create_invoice(
+        creditor=create_creditor(name="Contract Creditor"),
+        invoice_date=date(2024, 8, 1),
+        number="INV-CONTRACT-002",
+        status="paid",
+    )
+
+    create_position(
+        invoice,
+        contract=contract,
+        description="Service Fee Part 1",
+        cost_amount=Decimal("700.00"),
+        cost_type="publish",
+    )
+
+    report = create_opencost_report(title="Test Report with Contract ESAC ID 2024")
+    opencost_data = to_opencost(report)
+
+    assert opencost_data.contract is not None
+    contract_data = opencost_data.contract[0]
+
+    contract_primary_id = contract_data.primary_identifier
+    assert contract_primary_id is not None
+    assert contract_primary_id.type == ContractPrimaryIdentifierType.ESAC
+    assert contract_primary_id.value == "https://esac.org/id/123456"
+    assert contract_primary_id.value != "https://otherid.com/id/555555"
+
+
+@pytest.mark.django_db
+def test__report_standalone_contract_with_secondary_identifiers__transforming_to_opencost__secondary_identifiers_are_included() -> (
+    None
+):
+    contract = modelfactory.contract()
+
+    oai_type, _ = ContractLinkType.objects.get_or_create(name="OAI")
+    ContractLink.objects.create(
+        contract=contract, type=oai_type, value="https://services.dnb.de/oai/repository/789012"
+    )
+
+    ezb_type, _ = ContractLinkType.objects.get_or_create(name="EZB")
+    ContractLink.objects.create(
+        contract=contract, type=ezb_type, value="https://ezb.uni-regensburg.de/id/456789"
+    )
+
+    local_type, _ = ContractLinkType.objects.get_or_create(name="Local")
+    ContractLink.objects.create(contract=contract, type=local_type, value="LOCAL-ID-001")
+
+    invoice = create_invoice(
+        creditor=create_creditor(name="Contract Creditor"),
+        invoice_date=date(2024, 8, 1),
+        number="INV-CONTRACT-002",
+        status="paid",
+    )
+
+    create_position(
+        invoice,
+        contract=contract,
+        description="Service Fee Part 1",
+        cost_amount=Decimal("700.00"),
+        cost_type="publish",
+    )
+
+    report = create_opencost_report(title="Test Report with Contract Secondary IDs 2024")
+    opencost_data = to_opencost(report)
+
+    assert opencost_data.contract is not None
+    assert len(opencost_data.contract) == 1
+
+    contract_data = opencost_data.contract[0]
+
+    assert contract_data.secondary_identifiers is not None
+    assert len(contract_data.secondary_identifiers.id) == 3
+
+    oai_ids = [
+        sid
+        for sid in contract_data.secondary_identifiers.id
+        if sid.type == ContractSecondaryIdTypeEnum.oai
+    ]
+    assert oai_ids[0].value == "https://services.dnb.de/oai/repository/789012"
+    ezb_ids = [
+        sid
+        for sid in contract_data.secondary_identifiers.id
+        if sid.type == ContractSecondaryIdTypeEnum.ezb
+    ]
+    assert ezb_ids[0].value == "https://ezb.uni-regensburg.de/id/456789"
+    local_ids = [
+        sid
+        for sid in contract_data.secondary_identifiers.id
+        if sid.type == ContractSecondaryIdTypeEnum.local
+    ]
+    assert local_ids[0].value == "LOCAL-ID-001"
