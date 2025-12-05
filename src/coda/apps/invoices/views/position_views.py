@@ -139,6 +139,9 @@ def render_single_position(
     position_list = formdata.map_to_model(PositionList, request.POST)
     position_list.positions[counter - 1] = position_dto
 
+    currency = Currency.from_code(request.POST.get("currency", "EUR"))
+    invoice_total = _invoice_total(position_list.positions, currency)
+
     error_dict = {"errors": errors if errors else {}}
 
     context = (
@@ -149,7 +152,7 @@ def render_single_position(
         | DefaultContext
         | funding_sources_context()
         | error_dict
-        | asdict(_invoice_total_from_request(request))
+        | asdict(invoice_total)
     )
 
     return render(request, "invoices/position_single_with_summary.html", context)

@@ -43,6 +43,7 @@
         <label for="id-positions-{{ counter }}-cost-type" class="form-row-item-sm">Cost Type</label>
         <select id="id-positions-{{ counter }}-cost-type"
                 name="positions-{{ counter }}-item-cost_type"
+                class="cost-type"
                 hx-get="{% url 'invoices:position_cost_type_options' %}"
                 hx-target="#tax-rate-wrapper-{{ counter }}"
                 hx-swap="innerHTML"
