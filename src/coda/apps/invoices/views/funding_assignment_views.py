@@ -3,7 +3,7 @@
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render
 
 from coda import formdata
@@ -73,8 +73,8 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
 
         return render_single_position(request, position_dto, position_index)
 
-    except (IndexError, KeyError, ValueError):
-        return render_positions(request, PositionList())
+    except (IndexError, KeyError, ValueError) as e:
+        return HttpResponseBadRequest(str(e))
 
 
 @login_required
