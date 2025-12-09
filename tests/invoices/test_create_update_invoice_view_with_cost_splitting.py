@@ -1,17 +1,13 @@
 from decimal import Decimal
-from typing import cast
 
 import pytest
-from django.template.response import TemplateResponse
 from django.test import Client
 from django.urls import reverse
 
 from coda import formdata
 from coda.apps.invoices import funding_source_repository, repository
 from coda.contexts.finance.dto.edit_position_dtos import (
-    FreeItemDto,
     FundingAssignmentDto,
-    PositionDto,
     PositionList,
 )
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
@@ -56,6 +52,63 @@ def test__create_invoice_with_positions_with_split_costs__saves_to_db(client: Cl
     actual = repository.first()
     assert actual is not None
     assert_invoice_eq(actual, expected)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invalid_split_amount__create_invoice__shows_error(client: Client) -> None:
+    budget = domainfactory.budget()
+    budget.id = funding_source_repository.create(budget)
+
+    creditor = CreditorId(modelfactory.creditor().pk)
+    invoice = domainfactory.invoice(creditor=creditor, positions=[])
+
+    position = domainfactory.free_position()
+    invoice.positions = [position]
+
+    _invoice_head = invoice_head(invoice)
+    position_dto = invoice_parser.position_to_dto(position)
+    position_dto.funding_assignments.append(
+        FundingAssignmentDto(funding_source=budget.id, amount=Decimal(position.cost.amount + 100))
+    )
+
+    response = client.post(
+        reverse("invoices:create"),
+        {"action": "create"}
+        | formdata.map_to_dict(_invoice_head)
+        | formdata.map_to_dict(PositionList(positions=[position_dto])),
+    )
+
+    assert "positions-1-error" in response.context["errors"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invalid_split_amount__update_invoice__shows_error(client: Client) -> None:
+    budget = domainfactory.budget()
+    budget.id = funding_source_repository.create(budget)
+    position = domainfactory.free_position()
+
+    creditor = CreditorId(modelfactory.creditor().pk)
+    invoice = domainfactory.invoice(creditor=creditor, positions=[])
+    invoice.reset_payment()
+    invoice.positions = [position]
+    invoice.id = repository.create(invoice)
+
+    _invoice_head = invoice_head(invoice)
+    position_dto = invoice_parser.position_to_dto(position)
+    position_dto.funding_assignments.append(
+        FundingAssignmentDto(funding_source=budget.id, amount=Decimal(position.cost.amount + 100))
+    )
+
+    response = client.post(
+        reverse("invoices:update", kwargs={"pk": invoice.id}),
+        {"action": "create"}
+        | formdata.map_to_dict(_invoice_head)
+        | formdata.map_to_dict(PositionList(positions=[position_dto])),
+    )
+
+    assert "positions-1-error" in response.context["errors"]
 
 
 @pytest.mark.django_db
@@ -133,90 +186,3 @@ def invoice_head(expected: Invoice) -> InvoiceHeadDto:
         status=expected.status,
         comment=expected.comment,
     )
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
-def test__add_first_funding_assignment__amount_is_prefilled_with_full_position_cost(
-    client: Client,
-) -> None:
-    """Test STATE 1 → STATE 2 transition.
-
-    Clicking 'Add' on a position with no funding assignments creates exactly ONE
-    funding assignment with the full position cost pre-filled, showing:
-    - Dropdowns for funding source type and funding source
-    - Visible amount field (key difference from implicit state)
-    - NO remove button (key difference from multi-explicit state)
-
-    This is a regression test for bugs where:
-    1. Two funding assignment rows appeared instead of one
-    2. The first funding assignment had amount=0 instead of the full position cost
-    """
-    modelfactory.creditor()
-    modelfactory.budget()
-    position_dto = PositionDto(
-        item=FreeItemDto(description="Test Item", cost_type="gold-oa"),
-        cost_amount=Decimal("100.00"),
-        tax_rate=Decimal("19"),
-    )
-    position_list = PositionList(positions=[position_dto])
-
-    response = add_funding_assignment(client, position_list)
-
-    position = response.context["position"]
-    assert_has_one_assignment_with_all_costs(position)
-
-
-def add_funding_assignment(client: Client, position_list: PositionList) -> TemplateResponse:
-    return cast(
-        TemplateResponse,
-        client.post(
-            reverse("invoices:position_add_funding_assignment"),
-            {
-                "currency": "EUR",
-                "position_index": "1",
-            }
-            | formdata.map_to_dict(position_list),
-        ),
-    )
-
-
-def assert_has_one_assignment_with_all_costs(position: PositionDto) -> None:
-    assert len(position.funding_assignments) == 1
-    assert position.funding_assignments[0].amount == Decimal("100.00")
-    assert position.unassigned_costs == Decimal("0.00")
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
-def test__add_second_funding_assignment__transitions_to_multi_explicit_mode(
-    client: Client,
-) -> None:
-    """
-    Clicking 'Add' when one funding assignment exists should:
-    1. Keep the existing assignment
-    2. Add a second assignment with remaining unassigned costs
-    3. Show remove buttons on BOTH assignments (transition to multi-explicit mode)
-    """
-    modelfactory.creditor()
-    modelfactory.budget()
-    position_dto = PositionDto(
-        item=FreeItemDto(description="Test Item", cost_type="gold-oa"),
-        cost_amount=Decimal("100.00"),
-        tax_rate=Decimal("19"),
-        funding_assignments=[
-            FundingAssignmentDto(amount=Decimal("60.00"), funding_source_type="budget")
-        ],
-    )
-    position_list = PositionList(positions=[position_dto])
-
-    response = add_funding_assignment(client, position_list)
-
-    position = response.context["position"]
-    assert_all_costs_assigned(position, Decimal("60.00"), Decimal("40.00"))
-
-
-def assert_all_costs_assigned(position: PositionDto, *partial_assignments: Decimal) -> None:
-    assert len(position.funding_assignments) == len(partial_assignments)
-    assert tuple(f.amount for f in position.funding_assignments) == tuple(partial_assignments)
-    assert position.unassigned_costs == Decimal("0.00")

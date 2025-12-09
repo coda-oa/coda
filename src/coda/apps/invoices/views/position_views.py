@@ -85,7 +85,7 @@ def invoice_total(request: HttpRequest) -> HttpResponse:
     )
 
 
-def _invoice_total(positions: list[PositionDto], currency: Currency) -> InvoiceTotal:
+def safe_invoice_total(positions: list[PositionDto], currency: Currency) -> InvoiceTotal:
     """Calculate invoice total from position list and currency.
 
     Returns InvoiceTotal with calculated amounts, or zero amounts if
@@ -107,7 +107,7 @@ def _invoice_total_from_request(request: HttpRequest) -> InvoiceTotal:
     """
     position_list = formdata.map_to_model(PositionList, request.POST)
     currency = Currency.from_code(request.POST.get("currency", "EUR"))
-    return _invoice_total(position_list.positions, currency)
+    return safe_invoice_total(position_list.positions, currency)
 
 
 def render_single_position(
@@ -140,7 +140,7 @@ def render_single_position(
     position_list.positions[counter - 1] = position_dto
 
     currency = Currency.from_code(request.POST.get("currency", "EUR"))
-    invoice_total = _invoice_total(position_list.positions, currency)
+    invoice_total = safe_invoice_total(position_list.positions, currency)
 
     error_dict = {"errors": errors if errors else {}}
 
@@ -172,7 +172,7 @@ def render_positions(
     """
     error_dict = {"errors": errors if errors else {}}
     currency = Currency.from_code(request.POST.get("currency", "EUR"))
-    invoice_total = _invoice_total(position_list.positions, currency)
+    invoice_total = safe_invoice_total(position_list.positions, currency)
 
     return render(
         request,
