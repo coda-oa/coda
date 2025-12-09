@@ -11,7 +11,10 @@ from coda.apps.opencost.models import (
     OpenCostReportPublication,
 )
 from coda.apps.preferences.models import GlobalPreferences
-from coda.apps.publications.models._attachedentities import PublicationAttachedConcept
+from coda.apps.publications.models._attachedentities import (
+    AttachedContract,
+    PublicationAttachedConcept,
+)
 from coda.apps.publications.models._links import Link, LinkType
 from coda.apps.publications.models._vocabulary import Vocabulary
 from tests import modelfactory
@@ -637,3 +640,115 @@ def test__contract_with_secondary_ids__generate_report__secondary_identifier_sna
     ).exists()
 
     assert identifier_snapshots.filter(identifier_type="local", value="LOCAL-ID-001").exists()
+
+
+@pytest.mark.django_db
+def test__publication_linked_to_contract__generate_report__publication_and_contract_snapshots_created() -> (
+    None
+):
+    contract = modelfactory.contract()
+
+    creditor = create_creditor(name="Contract Creditor")
+    invoice = create_invoice(
+        creditor=creditor, invoice_date=date(2024, 5, 10), number="INV-CONTRACT-003"
+    )
+
+    create_position(
+        invoice=invoice,
+        contract=contract,
+        contract_year=2024,
+        description="Publish fee",
+        cost_amount=Decimal("4000.00"),
+        cost_type="publish",
+    )
+
+    publication = modelfactory.publication(title="Publication Linked to Contract")
+    create_publication_with_invoice(
+        publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-PUB-001",
+        creditor_name="Publication Creditor",
+        cost_amount=Decimal("1500.00"),
+        cost_type="APC",
+    )
+
+    AttachedContract.objects.create(
+        contract=contract,
+        publication=publication,
+        contract_year=2024,
+    )
+
+    report = create_opencost_report(title="Test Report with Publication and Contract 2024")
+
+    assert OpenCostReportPublication.objects.filter(report=report, publication=publication).exists()
+    assert OpenCostReportContract.objects.filter(report=report, contract=contract).exists()
+
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    assert report_publication.linked_contracts.filter(contract=contract).exists()
+
+
+@pytest.mark.django_db
+def test__publication_linked_to_contract__generate_report__publication_has_link_to_contract() -> (
+    None
+):
+    contract = modelfactory.contract()
+
+    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
+    ContractLink.objects.create(
+        contract=contract, type=esac_type, value="https://esac.org/id/654321"
+    )
+
+    creditor = create_creditor(name="Contract Creditor")
+    invoice = create_invoice(
+        creditor=creditor, invoice_date=date(2024, 5, 10), number="INV-CONTRACT-004"
+    )
+
+    create_position(
+        invoice=invoice,
+        contract=contract,
+        contract_year=2024,
+        description="Read access fee",
+        cost_amount=Decimal("6000.00"),
+        cost_type="read",
+    )
+
+    publication = modelfactory.publication(title="Publication Linked to Contract with ESAC ID")
+    create_publication_with_invoice(
+        publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-PUB-002",
+        creditor_name="Publication Creditor",
+        cost_amount=Decimal("1800.00"),
+        cost_type="gold-oa",
+    )
+
+    AttachedContract.objects.create(
+        contract=contract,
+        publication=publication,
+        contract_year=2024,
+    )
+
+    report = create_opencost_report(title="Test Report with Publication and Contract ESAC ID 2024")
+
+    assert OpenCostReportPublication.objects.filter(report=report, publication=publication).exists()
+    assert OpenCostReportContract.objects.filter(report=report, contract=contract).exists()
+
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    assert report_publication.linked_contracts.filter(contract=contract).exists()
+
+    linked_contract = report_publication.linked_contracts.first()
+    assert linked_contract is not None
+    assert linked_contract.contract == contract
+    assert linked_contract.contract_year == 2024
+
+    assert linked_contract.group_id is not None
+    assert linked_contract.group_id != ""
+    assert len(linked_contract.group_id) == 36
+
+    report_contract = report.contracts.filter(contract=contract).first()
+    assert report_contract is not None
+    contract_invoice = report_contract.invoices.first()
+    assert contract_invoice is not None
+    assert contract_invoice.group_id == linked_contract.group_id

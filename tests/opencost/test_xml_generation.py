@@ -207,7 +207,102 @@ def test__publication_with_multiple_invoices__generate_xml__creates_valid_openco
     assert len(invoices) == 2
 
 
-# TODO: Publication with contract
+@pytest.mark.django_db
+def test__publication_with_linked_contract__generate_xml__part_of_contract_is_included() -> None:
+    # Create contract with ESAC identifier and invoice
+    contract = modelfactory.contract()
+    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
+    ContractLink.objects.create(
+        contract=contract, type=esac_type, value="https://esac.org/id/test-contract-999"
+    )
+
+    # Add invoice to contract (needed for contract to be included)
+    creditor = create_creditor(name="Contract Creditor")
+    contract_invoice = create_invoice(
+        creditor=creditor, invoice_date=date(2024, 5, 1), number="INV-CONTRACT-999"
+    )
+    create_position(
+        contract_invoice,
+        contract=contract,
+        description="Contract service fee",
+        cost_amount=Decimal("5000.00"),
+        cost_type="read",
+    )
+
+    # Create publication and link it to the contract
+    publication = modelfactory.publication(title="Publication Linked to Contract")
+    publication.attached_contracts.create(contract=contract, contract_year=2024)
+
+    create_publication_with_invoice(
+        publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-2024-LINKED-001",
+        creditor_name="Invoice Creditor",
+        cost_amount=Decimal("1500.00"),
+    )
+
+    report = create_opencost_report()
+
+    xml_string = generate_xml(report)
+
+    assert xml_string is not None
+    assert len(xml_string) > 0
+
+    # Debug: print the XML
+    # print("\n" + xml_string)
+
+    root = ET.fromstring(xml_string)
+    ns = {"oc": "https://opencost.de"}
+
+    publications = root.findall("oc:publication", ns)
+    assert len(publications) == 1
+
+    pub = publications[0]
+    cost_data = pub.find("oc:cost_data", ns)
+    assert cost_data is not None
+
+    invoice = cost_data.find("oc:invoice", ns)
+    assert invoice is not None
+
+    part_of_contract = cost_data.find("oc:part_of_contract", ns)
+    assert part_of_contract is not None
+
+    primary_id = part_of_contract.find("oc:primary_identifier", ns)
+    assert primary_id is not None
+
+    id_value = primary_id.find("oc:value", ns)
+    assert id_value is not None
+    assert id_value.text == "https://esac.org/id/test-contract-999"
+
+    id_type = primary_id.find("oc:type", ns)
+    assert id_type is not None
+    assert id_type.text == "ESAC"
+
+    part_of_contract_group_id = part_of_contract.find("oc:group_id", ns)
+    assert part_of_contract_group_id is not None
+    assert part_of_contract_group_id.text is not None
+    assert len(part_of_contract_group_id.text) == 36
+
+    contracts = root.findall("oc:contract", ns)
+    assert len(contracts) == 1
+
+    contract_elem = contracts[0]
+    contract_primary_id = contract_elem.find("oc:primary_identifier", ns)
+    assert contract_primary_id is not None
+
+    contract_id_value = contract_primary_id.find("oc:value", ns)
+    assert contract_id_value is not None
+    assert contract_id_value.text == "https://esac.org/id/test-contract-999"
+
+    contract_cost_data = contract_elem.find("oc:cost_data", ns)
+    assert contract_cost_data is not None
+
+    invoice_group = contract_cost_data.find("oc:invoice_group", ns)
+    assert invoice_group is not None
+
+    contract_group_id = invoice_group.find("oc:group_id", ns)
+    assert contract_group_id is not None
+    assert contract_group_id.text == part_of_contract_group_id.text
 
 
 @pytest.mark.django_db

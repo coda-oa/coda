@@ -667,3 +667,47 @@ def test__report_standalone_contract_with_secondary_identifiers__transforming_to
         if sid.type == ContractSecondaryIdTypeEnum.local
     ]
     assert local_ids[0].value == "LOCAL-ID-001"
+
+
+@pytest.mark.django_db
+def test__publication_with_linked_contract__transforming_to_opencost__attached_contract_is_included_in_report_publication() -> (
+    None
+):
+    contract = modelfactory.contract()
+    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
+    ContractLink.objects.create(
+        contract=contract, type=esac_type, value="https://esac.org/id/test-contract-123"
+    )
+
+    publication = modelfactory.publication(title="Publication with Attached Contract")
+    publication.attached_contracts.create(contract=contract, contract_year=2024)
+
+    create_publication_with_invoice(
+        publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-2024-001",
+        creditor_name="Invoice Creditor",
+    )
+
+    report = create_opencost_report()
+    opencost_data = to_opencost(report)
+
+    assert opencost_data.publication is not None
+    assert len(opencost_data.publication) == 1
+
+    publication_data = opencost_data.publication[0]
+
+    assert publication_data.cost_data is not None
+    assert publication_data.cost_data.invoice is not None
+    assert len(publication_data.cost_data.invoice) == 1
+
+    assert publication_data.cost_data.part_of_contract is not None
+    assert publication_data.cost_data.part_of_contract.primary_identifier is not None
+    assert (
+        publication_data.cost_data.part_of_contract.primary_identifier.type
+        == ContractPrimaryIdentifierType.ESAC
+    )
+    assert (
+        publication_data.cost_data.part_of_contract.primary_identifier.value
+        == "https://esac.org/id/test-contract-123"
+    )

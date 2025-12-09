@@ -34,6 +34,7 @@ from coda.domain.opencost._invoice import (
 from coda.domain.opencost._publication import (
     BibliographicInformation,
     CoarPublicationType,
+    PartOfContractType,
     PublicationCostDataType,
     PublicationPrimaryIdentifier,
     PublicationSecondaryIdType,
@@ -62,9 +63,9 @@ def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> Pub
 
     invoice_data = _get_invoice_data(report_pub)
 
-    # TODO: Build cost_data (contracts) - TODO: Add contract transformation
+    part_of_contract = _get_part_of_contract(report_pub)
 
-    cost_data = PublicationCostDataType(invoice=invoice_data, part_of_contract=None)
+    cost_data = PublicationCostDataType(invoice=invoice_data, part_of_contract=part_of_contract)
 
     publication = PublicationType(
         primary_identifier=primary_identifier,
@@ -103,6 +104,31 @@ def _get_secondary_identifiers(
         return None
 
     return PublicationSecondaryIdentifiers(id=secondary_ids)
+
+
+def _get_part_of_contract(report_pub: OpenCostReportPublication) -> PartOfContractType | None:
+    linked_contracts = report_pub.linked_contracts.all()
+
+    if not linked_contracts:
+        return None
+
+    linked_contract = linked_contracts[0]
+    contract = linked_contract.contract
+
+    esac_link = contract.links.filter(type__name="ESAC").first()
+
+    if not esac_link:
+        return None
+
+    primary_identifier = ContractPrimaryIdentifier(
+        value=esac_link.value,
+        type=ContractPrimaryIdentifierType.ESAC,
+    )
+
+    return PartOfContractType(
+        primary_identifier=primary_identifier,
+        group_id=linked_contract.group_id if linked_contract.group_id else None,
+    )
 
 
 def _get_invoice_data(report_pub: OpenCostReportPublication) -> list[PublicationInvoiceType] | None:
@@ -285,12 +311,14 @@ def _get_contract_cost_data(report_contract: OpenCostReportContract) -> Contract
             )
         )
 
-    # TODO: Implement grouping logic
-    # For now, create a single invoice group with all invoices
-    # In the future, we might group by period or other criteria
+    group_id = None
+    if invoice_list and report_invoices:
+        first_invoice = report_invoices[0]
+        group_id = first_invoice.group_id if first_invoice.group_id else None
+
     invoice_group = ContractInvoiceGroupType(
-        group_id=None,  # TODO grouping identifier
-        invoices_period=None,  # TODO period specification
+        group_id=group_id,
+        invoices_period=None,  # TODO: period specification
         invoice=invoice_list if invoice_list else None,
     )
 

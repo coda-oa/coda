@@ -123,6 +123,46 @@ class OpenCostReportPublicationLink(models.Model):
         return f"{self.link_type}: {self.value}"
 
 
+class OpenCostReportPublicationContract(models.Model):
+    """Snapshot of publication-contract relationship for part_of_contract in OpenCost."""
+
+    report_publication = models.ForeignKey(
+        OpenCostReportPublication,
+        on_delete=models.CASCADE,
+        related_name="linked_contracts",
+        help_text="The report publication this contract link belongs to",
+    )
+
+    contract = models.ForeignKey(
+        "contracts.Contract",
+        on_delete=models.CASCADE,
+        help_text="Contract this publication is part of",
+    )
+
+    contract_year = models.IntegerField(
+        help_text="Year of contract participation (snapshot from AttachedContract)"
+    )
+
+    group_id = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Optional group ID for OpenCost part_of_contract",
+    )
+
+    snapshot_date = models.DateTimeField(
+        default=timezone.now, help_text="When this snapshot was created"
+    )
+
+    class Meta:
+        ordering = ["contract_year"]
+        unique_together = ("report_publication", "contract")
+        verbose_name = "Report Publication Contract"
+        verbose_name_plural = "Report Publication Contracts"
+
+    def __str__(self) -> str:
+        return f"{self.report_publication.title} -> {self.contract.name} ({self.contract_year})"
+
+
 class OpenCostReportInvoice(models.Model):
     report_publication = models.ForeignKey(
         OpenCostReportPublication,
@@ -335,6 +375,12 @@ class OpenCostReportContractInvoice(models.Model):
     )
     amount_invoice_currency = models.CharField(
         max_length=3, blank=True, help_text="Invoice amount currency (snapshot)"
+    )
+
+    group_id = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="UUID4 to group invoices and link to publications (for part_of_contract)",
     )
 
     snapshot_date = models.DateTimeField(
