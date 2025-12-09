@@ -752,3 +752,54 @@ def test__publication_linked_to_contract__generate_report__publication_has_link_
     contract_invoice = report_contract.invoices.first()
     assert contract_invoice is not None
     assert contract_invoice.group_id == linked_contract.group_id
+
+
+@pytest.mark.django_db
+def test__publication_linked_to_contract_with_no_own_invoice_positions__generate_report__publication_is_included() -> (
+    None
+):
+    contract = modelfactory.contract()
+
+    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
+    ContractLink.objects.create(
+        contract=contract, type=esac_type, value="https://esac.org/id/777777"
+    )
+
+    creditor = create_creditor(name="Contract Creditor")
+    invoice = create_invoice(
+        creditor=creditor, invoice_date=date(2024, 5, 15), number="INV-CONTRACT-005"
+    )
+    create_position(
+        invoice=invoice,
+        contract=contract,
+        contract_year=2024,
+        description="Transformative agreement fee",
+        cost_amount=Decimal("10000.00"),
+        cost_type="read",
+    )
+
+    publication = modelfactory.publication(
+        title="Publication Fully Covered by Contract - No Individual Invoice Positions"
+    )
+    AttachedContract.objects.create(
+        contract=contract,
+        publication=publication,
+        contract_year=2024,
+    )
+
+    report = create_opencost_report(title="Test Report with Publication Covered by Contract 2024")
+
+    assert OpenCostReportPublication.objects.filter(report=report, publication=publication).exists()
+
+    assert OpenCostReportContract.objects.filter(report=report, contract=contract).exists()
+
+    report_publication = report.publications.filter(publication=publication).first()
+    assert report_publication is not None
+    assert report_publication.linked_contracts.filter(contract=contract).exists()
+
+    assert report_publication.invoices.count() == 0
+
+    linked_contract = report_publication.linked_contracts.first()
+    assert linked_contract is not None
+    assert linked_contract.group_id is not None
+    assert linked_contract.group_id != ""
