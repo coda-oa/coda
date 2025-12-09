@@ -132,8 +132,19 @@ def serialize_publication_cost_data(cost_data: PublicationCostDataType) -> ET.El
             cost_data_elem.append(invoice_elem)
 
     if cost_data.part_of_contract:
-        # TODO: Implement part_of_contract serialization
-        pass
+        part_of_contract_elem = ET.SubElement(cost_data_elem, "part_of_contract")
+
+        if cost_data.part_of_contract.group_id:
+            group_id_elem = ET.SubElement(part_of_contract_elem, "group_id")
+            group_id_elem.text = cost_data.part_of_contract.group_id
+
+        primary_id_elem = ET.SubElement(part_of_contract_elem, "primary_identifier")
+
+        value_elem = ET.SubElement(primary_id_elem, "value")
+        value_elem.text = cost_data.part_of_contract.primary_identifier.value
+
+        type_elem = ET.SubElement(primary_id_elem, "type")
+        type_elem.text = cost_data.part_of_contract.primary_identifier.type.value
 
     return cost_data_elem
 

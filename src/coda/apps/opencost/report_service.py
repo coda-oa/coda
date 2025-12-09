@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 from decimal import Decimal
 from coda.apps.contracts.models import Contract
@@ -16,6 +17,7 @@ from coda.apps.opencost.models import (
     OpenCostReportInstitutionIdentifier,
     OpenCostReportInvoicePosition,
     OpenCostReportPublication,
+    OpenCostReportPublicationContract,
     OpenCostReportInvoice,
     OpenCostReportPublicationLink,
 )
@@ -44,7 +46,33 @@ def generate_report(title: str, period_start: date, period_end: date) -> OpenCos
     for contract in contracts:
         _snapshot_contract(report, contract)
 
+    referenced_contract_ids = set(
+        report.publications.values_list("linked_contracts__contract_id", flat=True)
+    )
+    already_snapshotted_contract_ids = set(report.contracts.values_list("contract_id", flat=True))
+    missing_contract_ids = referenced_contract_ids - already_snapshotted_contract_ids
+
+    if missing_contract_ids:
+        missing_contracts = Contract.objects.filter(id__in=missing_contract_ids)
+        for contract in missing_contracts:
+            _snapshot_contract(report, contract)
+
+    _update_publication_contract_group_ids(report)
+
     return report
+
+
+def _update_publication_contract_group_ids(report: OpenCostReport) -> None:
+    for pub_contract_link in OpenCostReportPublicationContract.objects.filter(
+        report_publication__report=report
+    ):
+        report_contract = report.contracts.filter(contract=pub_contract_link.contract).first()
+
+        if report_contract:
+            first_invoice = report_contract.invoices.first()
+            if first_invoice and first_invoice.group_id:
+                pub_contract_link.group_id = first_invoice.group_id
+                pub_contract_link.save()
 
 
 def _snapshot_publication(
@@ -96,6 +124,14 @@ def _snapshot_publication(
             report_publication=report_publication,
             link_type=link_type_name,
             value=link.value,
+        )
+
+    for attached in publication.attached_contracts.all():
+        OpenCostReportPublicationContract.objects.create(
+            report_publication=report_publication,
+            contract=attached.contract,
+            contract_year=attached.contract_year,
+            group_id="",  # Optional, can be set later if needed
         )
 
     _snapshot_publication_invoices(report_publication, publication)
@@ -168,12 +204,14 @@ def _snapshot_contract(
             value=identifier_value,
         )
 
-    _snapshot_contract_invoices(report_contract, contract)
+    group_id = str(uuid.uuid4())
+    _snapshot_contract_invoices(report_contract, contract, group_id)
 
 
 def _snapshot_contract_invoices(
     report_contract: OpenCostReportContract,
     contract: Contract,
+    group_id: str,
 ) -> None:
     contract_invoices_dict: dict[int, list[Position]] = {}
     for position in contract.position_set.all():
@@ -197,6 +235,7 @@ def _snapshot_contract_invoices(
             invoice_date=invoice.date,
             amount_invoice=total_amount,
             amount_invoice_currency=currency,
+            group_id=group_id,
         )
 
         for position in positions:
