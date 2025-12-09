@@ -7,6 +7,8 @@ from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render
 
 from coda import formdata
+from coda.apps.invoices.views.position_context import funding_sources_context
+from coda.apps.invoices.views.position_views import render_positions, render_single_position
 from coda.contexts.finance.dto.edit_position_dtos import (
     FundingAssignmentDto,
     PositionDto,
@@ -16,9 +18,6 @@ from coda.contexts.finance.services import invoice_parser
 from coda.domain.finance.invoice_positions import InvalidSplitAmount
 from coda.domain.finance.taxable_money import CostBasis
 from coda.domain.money import Currency
-
-from coda.apps.invoices.views.position_context import funding_sources_context
-from coda.apps.invoices.views.position_views import render_positions, render_single_position
 
 
 @login_required
@@ -36,43 +35,23 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
         currency = Currency.from_code(request.POST["currency"])
         position_index = int(request.POST["position_index"])
 
-        # Parse only the targeted position using prefix
         position_dto = formdata.map_to_model(
             PositionDto, request.POST, prefix=f"positions-{position_index}"
         )
 
-        # Get display mode (form values match this mode)
         display_mode = CostBasis(position_dto.cost_basis_mode)
+        position = invoice_parser.to_position(position_dto, currency)
 
-        # Process and render single position
-        # Filter out implicit assignments (STATE 1) which have amount=0
-        # An assignment is explicit if it has a non-zero amount (funding_source can still be None)
-        explicit_assignments = [fa for fa in position_dto.funding_assignments if fa.amount != 0]
-        position_dto.funding_assignments = explicit_assignments
+        add_empty_assignment = (
+            position.unassigned_costs().amount == 0 and len(position.funding_assignments()) != 0
+        )
+        position.assign_remaining(None)
 
-        if not explicit_assignments:
-            position = invoice_parser.to_position(position_dto, currency)
-            # Pre-fill with total cost in display mode
-            amount_to_assign = (
-                position.cost.amount if display_mode == CostBasis.net else position.total().amount
-            )
-        else:
-            position = invoice_parser.to_position(position_dto, currency)
-            # Pre-fill with unassigned costs in display mode
-            amount_to_assign = position.unassigned_costs(display_mode).amount
-
-        position_dto.funding_assignments.append(FundingAssignmentDto(amount=amount_to_assign))
-
-        # Recalculate and convert to display mode
-        try:
-            position = invoice_parser.to_position(position_dto, currency)
-            # Convert back to display mode (domain handles conversion)
-            position_dto = invoice_parser.position_to_dto(position, display_mode)
-        except InvalidSplitAmount:
-            position_dto.unassigned_costs = Decimal(0)
+        position_dto = invoice_parser.position_to_dto(position, display_mode)
+        if add_empty_assignment:
+            position_dto.funding_assignments.append(FundingAssignmentDto(amount=Decimal(0)))
 
         return render_single_position(request, position_dto, position_index)
-
     except (IndexError, KeyError, ValueError) as e:
         return HttpResponseBadRequest(str(e))
 
@@ -114,8 +93,8 @@ def remove_funding_assignment(request: HttpRequest) -> HttpResponse:
 
         return render_single_position(request, position_dto, position_index)
 
-    except (IndexError, KeyError, ValueError):
-        return render_positions(request, PositionList())
+    except (IndexError, KeyError, ValueError) as e:
+        return HttpResponseBadRequest(str(e))
 
 
 @login_required

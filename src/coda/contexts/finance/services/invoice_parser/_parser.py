@@ -86,7 +86,7 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
 
     _empty = FundingAssignmentDto()
     for f in position.funding_assignments:
-        if f == _empty:
+        if f.funding_source is None and f.amount == 0:
             continue
 
         fs: FundingSource
@@ -124,12 +124,12 @@ def _position_to_dto(position: Position, item_dto: ItemDto, cost_basis: CostBasi
         external_position_id=position.external_position_id,
         funding_assignments=[
             FundingAssignmentDto(
-                funding_source=f.funding_source.identity(),
-                funding_source_type=f.funding_source.kind(),
+                funding_source=f.funding_source.identity() if f.funding_source else None,
+                funding_source_type=f.funding_source.kind() if f.funding_source else "budget",
                 amount=f.amount.amount,
             )
             for f in position.funding_assignments(cost_basis)
-            if f.funding_source
+            if f.funding_source or f.amount.amount != 0
         ],
         unassigned_costs=position.unassigned_costs(cost_basis).amount,
         cost_basis_mode=cost_basis,
