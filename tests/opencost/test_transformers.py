@@ -494,6 +494,10 @@ def test__report_standalone_contract_with_invoice_data__transforming_to_opencost
     assert opencost_invoice.invoice[0].amount_invoice.amount == Decimal("1200.00")
     assert opencost_invoice.invoice[0].amount_invoice.currency == "EUR"
 
+    assert opencost_invoice.invoices_period is not None
+    assert opencost_invoice.invoices_period.from_ == "2024-01-01"
+    assert opencost_invoice.invoices_period.to == "2024-12-31"
+
 
 @pytest.mark.django_db
 def test__report_standalone_contract_with_invoice_multiple_positions__transforming_to_opencost__amount_invoice_and_amounts_paid_are_correct() -> (

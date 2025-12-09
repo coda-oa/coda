@@ -401,3 +401,19 @@ def test__report_with_standalone_contract_with_institution__generate_xml__create
     assert secondary_ids is not None
     secondary_id_list = secondary_ids.findall("oc:id", ns)
     assert len(secondary_id_list) == 2
+
+    cost_data = xml_contract.find("oc:cost_data", ns)
+    assert cost_data is not None
+
+    invoice_group = cost_data.find("oc:invoice_group", ns)
+    assert invoice_group is not None
+
+    invoices_period = invoice_group.find("oc:invoices_period", ns)
+    assert invoices_period is not None
+
+    period_from = invoices_period.find("oc:from", ns)
+    period_to = invoices_period.find("oc:to", ns)
+    assert period_from is not None
+    assert period_to is not None
+    assert period_from.text == "2024-01-01"
+    assert period_to.text == "2024-12-31"

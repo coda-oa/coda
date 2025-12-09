@@ -30,6 +30,7 @@ from coda.domain.opencost._invoice import (
     Dates,
     PublicationAmountPaidType,
     PublicationInvoiceType,
+    ContractInvoicePeriodType,
 )
 from coda.domain.opencost._publication import (
     BibliographicInformation,
@@ -316,9 +317,18 @@ def _get_contract_cost_data(report_contract: OpenCostReportContract) -> Contract
         first_invoice = report_invoices[0]
         group_id = first_invoice.group_id if first_invoice.group_id else None
 
+    invoices_period = None
+    if report_contract.report:
+        invoices_period = ContractInvoicePeriodType(
+            **{
+                "from": str(report_contract.report.period_start),
+                "to": str(report_contract.report.period_end),
+            }
+        )
+
     invoice_group = ContractInvoiceGroupType(
         group_id=group_id,
-        invoices_period=None,  # TODO: period specification
+        invoices_period=invoices_period,
         invoice=invoice_list if invoice_list else None,
     )
 
