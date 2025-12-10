@@ -104,7 +104,7 @@ def _snapshot_publication(
         publication_type=pub_type_name,
         publisher=publisher_name,
         journal=journal_name,
-        external_costsplitting=None,  # Will implement with cost sharing later
+        external_costsplitting=publication.external_costsplitting,
         institution_name=institution_name,
     )
 

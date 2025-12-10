@@ -417,3 +417,71 @@ def test__report_with_standalone_contract_with_institution__generate_xml__create
     assert period_to is not None
     assert period_from.text == "2024-01-01"
     assert period_to.text == "2024-12-31"
+
+
+@pytest.mark.django_db
+def test__report_publication_with_external_costsplitting__generate_xml__includes_external_costsplitting_element() -> (
+    None
+):
+    publication_with_splitting = modelfactory.publication(
+        title="Publication with Cost Splitting",
+    )
+    publication_with_splitting.external_costsplitting = True
+    publication_with_splitting.save()
+
+    create_publication_with_invoice(
+        publication_with_splitting,
+        invoice_date=date(2024, 6, 15),
+        invoice_number="INV-SPLIT-001",
+        creditor_name="Split Creditor",
+        cost_amount=Decimal("1000.00"),
+    )
+
+    report = create_opencost_report()
+
+    xml_string = generate_xml(report)
+
+    assert xml_string is not None
+    assert len(xml_string) > 0
+
+    root = ET.fromstring(xml_string)
+    ns = {"oc": "https://opencost.de"}
+
+    publications = root.findall("oc:publication", ns)
+
+    pub_with_splitting = publications[0]
+
+    assert pub_with_splitting is not None
+    external_costsplitting_elem = pub_with_splitting.find("oc:external_costsplitting", ns)
+    assert external_costsplitting_elem is not None
+    assert external_costsplitting_elem.text == "true"
+
+
+@pytest.mark.django_db
+def test__report_publication_without_external_costsplitting__generate_xml__costsplitting_element_is_omitted() -> (
+    None
+):
+    publication_without_cost_splitting = modelfactory.publication(
+        title="Publication without Cost Splitting",
+    )
+
+    create_publication_with_invoice(
+        publication_without_cost_splitting,
+        invoice_date=date(2024, 8, 10),
+        invoice_number="INV-No-Split-001",
+        creditor_name="Creditor",
+        cost_amount=Decimal("1200.00"),
+    )
+
+    report = create_opencost_report()
+
+    xml_string = generate_xml(report)
+
+    root = ET.fromstring(xml_string)
+    ns = {"oc": "https://opencost.de"}
+
+    publications = root.findall("oc:publication", ns)
+
+    pub_without_cost_splitting = publications[0]
+    external_costsplitting_elem = pub_without_cost_splitting.find("oc:external_costsplitting", ns)
+    assert external_costsplitting_elem is None
