@@ -1,0 +1,10 @@
+{% load getitem %}
+{# Display funding assignment validation errors #}
+{# Parameters: #}
+{#   - counter: Position index #}
+{#   - errors: Error dictionary (optional) #}
+{% with index=counter|stringformat:"s" %}
+    {% with error_key="positions-"|add:index|add:"-funding_assignments-errors" %}
+        {% if error_key in errors %}<p class="messages error">{{ errors|getitem:error_key }}</p>{% endif %}
+    {% endwith %}
+{% endwith %}

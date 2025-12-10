@@ -82,5 +82,20 @@ details[open] .position-collapsed {
 .funding-assignment-row {
   display: grid;
   grid-template-columns: 1fr 1fr 0.15fr;
+  grid-template-areas:
+    "assignment-funding-source assignment-amount assignment-button";
+
   gap: var(--coda-spacing);
+}
+
+.funding-assignment-source {
+  grid-area: assignment-funding-source;
+}
+
+.funding-assignment-amount {
+  grid-area: assignment-amount;
+}
+
+.funding-assignment-button {
+  grid-area: assignment-button;
 }

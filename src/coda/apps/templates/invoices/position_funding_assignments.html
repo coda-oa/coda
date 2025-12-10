@@ -1,10 +1,11 @@
 {% load getitem %}
 <div id="funding_assignments_list" class="my-2">
+    {# HEADER: Title + Mode Selector + Add Button #}
     <div class="funding-assignment-row align-center">
-        <h4>Funding Sources</h4>
+        <h4 class="funding-assignment-source">Funding Sources</h4>
         {# Net/Gross mode selector - only show when explicit assignments exist #}
         {% if position.funding_assignments %}
-            <div class="form-row">
+            <div class="form-row funding-assignment-amount">
                 <label for="id-positions-{{ counter }}-cost_basis_mode">Input mode</label>
                 <select id="id-positions-{{ counter }}-cost_basis_mode"
                         name="positions-{{ counter }}-cost_basis_mode"
@@ -26,42 +27,32 @@
             </div>
         {% endif %}
         <button type="button"
-                class="secondary"
+                class="secondary funding-assignment-button"
                 name="add_funding_assignment_to_position"
                 value="{{ counter }}"
                 hx-post="{% url "invoices:position_add_funding_assignment" %}"
                 hx-target="#position-{{ counter }}"
                 hx-swap="outerHTML"
                 hx-include="#position-{{ counter }}, [name='currency']"
-                hx-vals='{"position_index": "{{ counter }}"}'>Add</button>
+                hx-vals='{"position_index": "{{ counter }}"}'>
+            {% if not position.funding_assignments %}
+                Split
+            {% else %}
+                Add
+            {% endif %}
+        </button>
     </div>
+    {# BODY: Funding assignment(s) - three possible states #}
     {% if not position.funding_assignments %}
         {# STATE 1: Implicit funding assignment - auto-assigns entire amount to single source #}
         <div class="grid">
-            <div class="form-row">
-                <input type="hidden"
-                       name="positions-{{ counter }}-#-funding_assignments"
-                       value="1">
-                <input type="hidden"
-                       name="positions-{{ counter }}-funding_assignments-1-amount"
-                       value="all">
-                {# Funding source type selector #}
-                <select class="my-0 form-row-item-sm"
-                        name="positions-{{ counter }}-funding_assignments-1-funding_source_type"
-                        hx-get="{% url 'invoices:switch_funding_source_type' %}"
-                        hx-target="#id-positions-{{ counter }}-funding_assignments-1-funding_source"
-                        hx-swap="innerHTML">
-                    <option value="budget" selected>Budget</option>
-                    <option value="institution">Institution</option>
-                </select>
-                {# Funding source selector - defaults to budget #}
-                <select class="my-0"
-                        id="id-positions-{{ counter }}-funding_assignments-1-funding_source"
-                        name="positions-{{ counter }}-funding_assignments-1-funding_source">
-                    <option value>-------</option>
-                    {% for fs in funding_sources %}<option value="{{ fs.id }}">{{ fs.name }}</option>{% endfor %}
-                </select>
-            </div>
+            <input type="hidden"
+                   name="positions-{{ counter }}-#-funding_assignments"
+                   value="1">
+            <input type="hidden"
+                   name="positions-{{ counter }}-funding_assignments-1-amount"
+                   value="all">
+            {% include "invoices/partials/funding_source_selector.html" with assignment_index=1 split=None %}
         </div>
     {% elif position.funding_assignments|length == 1 %}
         {# STATE 2: Single explicit assignment - shows dropdowns + amount field, no remove button #}
@@ -70,60 +61,9 @@
                value="1">
         <div id="id-positions-{{ counter }}-funding_assignemnts-list">
             {# Display errors if any #}
-            {% with index=counter|stringformat:"s" %}
-                {% with error_key="positions-"|add:index|add:"-funding_assignments-errors" %}
-                    {% if error_key in errors %}<p class="messages error">{{ errors|getitem:error_key }}</p>{% endif %}
-                {% endwith %}
-            {% endwith %}
+            {% include "invoices/partials/funding_assignment_errors.html" %}
             {% with split=position.funding_assignments.0 %}
-                <div class="funding-assignment-row">
-                    {# Funding source type selector #}
-                    <div class="form-row">
-                        <select class="my-0 form-row-item-sm"
-                                name="positions-{{ counter }}-funding_assignments-1-funding_source_type"
-                                hx-get="{% url 'invoices:switch_funding_source_type' %}"
-                                hx-target="#id-positions-{{ counter }}-funding_assignments-1-funding_source"
-                                hx-swap="innerHTML">
-                            <option value="budget"
-                                    {% if split.funding_source_type == "budget" %}selected{% endif %}>Budget</option>
-                            <option value="institution"
-                                    {% if split.funding_source_type == "institution" %}selected{% endif %}>
-                                Institution
-                            </option>
-                        </select>
-                        {# Funding source selector - content depends on type #}
-                        <select class="my-0"
-                                id="id-positions-{{ counter }}-funding_assignments-1-funding_source"
-                                name="positions-{{ counter }}-funding_assignments-1-funding_source">
-                            {% if split.funding_source_type == "budget" %}
-                                <option value>-------</option>
-                                {% for fs in funding_sources %}
-                                    <option value="{{ fs.id }}"
-                                            {% if split.funding_source == fs.id %}selected{% endif %}>
-                                        {{ fs.name }}
-                                    </option>
-                                {% endfor %}
-                            {% else %}
-                                {% for inst in institutions %}
-                                    <option value="{{ inst.id }}"
-                                            {% if split.funding_source == inst.id %}selected{% endif %}>
-                                        {{ inst.name }}
-                                    </option>
-                                {% endfor %}
-                            {% endif %}
-                        </select>
-                    </div>
-                    {# Amount input - visible in single mode #}
-                    <div class="form-row">
-                        <label for="id-positions-{{ counter }}-funding_assignments-1-amount"
-                               class="my-0">Amount</label>
-                        <input type="number"
-                               class="my-0 cost-amount"
-                               id="id-positions-{{ counter }}-funding_assignments-1-amount"
-                               name="positions-{{ counter }}-funding_assignments-1-amount"
-                               value="{{ split.amount }}">
-                    </div>
-                </div>
+                {% include "invoices/partials/funding_assignment_row.html" with assignment_index=1 show_remove_button=False %}
             {% endwith %}
         </div>
     {% else %}
@@ -133,79 +73,14 @@
                value="{{ position.funding_assignments|length }}">
         <div id="id-positions-{{ counter }}-funding_assignemnts-list">
             {# Display errors if any #}
-            {% with index=counter|stringformat:"s" %}
-                {% with error_key="positions-"|add:index|add:"-funding_assignments-errors" %}
-                    {% if error_key in errors %}<p class="messages error">{{ errors|getitem:error_key }}</p>{% endif %}
-                {% endwith %}
-            {% endwith %}
+            {% include "invoices/partials/funding_assignment_errors.html" %}
             {# Loop through each funding assignment #}
             {% for split in position.funding_assignments %}
-                <div class="funding-assignment-row">
-                    {# Funding source type selector #}
-                    <div class="form-row">
-                        <select class="my-0 form-row-item-sm"
-                                name="positions-{{ counter }}-funding_assignments-{{ forloop.counter }}-funding_source_type"
-                                hx-get="{% url 'invoices:switch_funding_source_type' %}"
-                                hx-target="#id-positions-{{ counter }}-funding_assignments-{{ forloop.counter }}-funding_source"
-                                hx-swap="innerHTML">
-                            <option value="budget"
-                                    {% if split.funding_source_type == "budget" %}selected{% endif %}>Budget</option>
-                            <option value="institution"
-                                    {% if split.funding_source_type == "institution" %}selected{% endif %}>
-                                Institution
-                            </option>
-                        </select>
-                        {# Funding source selector - content depends on type #}
-                        <select class="my-0"
-                                id="id-positions-{{ counter }}-funding_assignments-{{ forloop.counter }}-funding_source"
-                                name="positions-{{ counter }}-funding_assignments-{{ forloop.counter }}-funding_source">
-                            {% if split.funding_source_type == "budget" %}
-                                <option value>-------</option>
-                                {% for fs in funding_sources %}
-                                    <option value="{{ fs.id }}"
-                                            {% if split.funding_source == fs.id %}selected{% endif %}>
-                                        {{ fs.name }}
-                                    </option>
-                                {% endfor %}
-                            {% else %}
-                                {% for inst in institutions %}
-                                    <option value="{{ inst.id }}"
-                                            {% if split.funding_source == inst.id %}selected{% endif %}>
-                                        {{ inst.name }}
-                                    </option>
-                                {% endfor %}
-                            {% endif %}
-                        </select>
-                    </div>
-                    {# Amount input #}
-                    <div class="form-row">
-                        <label for="id-positions-{{ counter }}-funding_assignments-{{ forloop.counter }}-amount"
-                               class="my-0">Amount</label>
-                        <input type="number"
-                               class="my-0 cost-amount"
-                               id="id-positions-{{ counter }}-funding_assignments-{{ forloop.counter }}-amount"
-                               name="positions-{{ counter }}-funding_assignments-{{ forloop.counter }}-amount"
-                               value="{{ split.amount }}">
-                    </div>
-                    {# Remove button #}
-                    <div>
-                        <button type="button"
-                                class="my-0 danger outline"
-                                name="remove_funding_assignment"
-                                value="{{ forloop.counter }}"
-                                hx-post="{% url "invoices:position_remove_funding_assignment" %}"
-                                hx-target="#position-{{ counter }}"
-                                hx-swap="outerHTML"
-                                hx-include="#position-{{ counter }}, [name='currency']"
-                                hx-vals='{"position_index": "{{ counter }}", "assignment_index": "{{ forloop.counter }}"}'>
-                            Remove
-                        </button>
-                    </div>
-                </div>
+                {% include "invoices/partials/funding_assignment_row.html" with assignment_index=forloop.counter show_remove_button=True %}
             {% endfor %}
         </div>
     {% endif %}
-    {# Unassigned costs display - shown for STATE 2 and STATE 3 only #}
+    {# FOOTER: Unassigned costs display - shown for STATE 2 and STATE 3 only #}
     {% if position.funding_assignments %}
         <div class="form-row">
             <label for="id-positions-{{ counter }}-unassigned_costs">

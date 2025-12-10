@@ -1,0 +1,14 @@
+{# Amount input for funding assignment #}
+{# Parameters: #}
+{#   - counter: Position index #}
+{#   - assignment_index: Assignment index (1-based) #}
+{#   - amount: Current amount value #}
+<div class="form-row">
+    <label for="id-positions-{{ counter }}-funding_assignments-{{ assignment_index }}-amount"
+           class="my-0">Amount</label>
+    <input type="number"
+           class="my-0 cost-amount"
+           id="id-positions-{{ counter }}-funding_assignments-{{ assignment_index }}-amount"
+           name="positions-{{ counter }}-funding_assignments-{{ assignment_index }}-amount"
+           value="{{ amount }}">
+</div>
