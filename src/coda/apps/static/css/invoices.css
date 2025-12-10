@@ -78,3 +78,9 @@ details[open] .position-collapsed {
         border-bottom-right-radius: var(--coda-border-radius);
     }
 }
+
+.funding-assignment-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.15fr;
+  gap: var(--coda-spacing);
+}

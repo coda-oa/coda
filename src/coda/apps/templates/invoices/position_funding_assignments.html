@@ -1,6 +1,6 @@
 {% load getitem %}
 <div id="funding_assignments_list" class="my-2">
-    <div class="flex justify-between align-center">
+    <div class="funding-assignment-row align-center">
         <h4>Funding Sources</h4>
         {# Net/Gross mode selector - only show when explicit assignments exist #}
         {% if position.funding_assignments %}
@@ -46,7 +46,7 @@
                        name="positions-{{ counter }}-funding_assignments-1-amount"
                        value="all">
                 {# Funding source type selector #}
-                <select class="my-0"
+                <select class="my-0 form-row-item-sm"
                         name="positions-{{ counter }}-funding_assignments-1-funding_source_type"
                         hx-get="{% url 'invoices:switch_funding_source_type' %}"
                         hx-target="#id-positions-{{ counter }}-funding_assignments-1-funding_source"
@@ -76,10 +76,10 @@
                 {% endwith %}
             {% endwith %}
             {% with split=position.funding_assignments.0 %}
-                <div class="grid">
+                <div class="funding-assignment-row">
                     {# Funding source type selector #}
                     <div class="form-row">
-                        <select class="my-0"
+                        <select class="my-0 form-row-item-sm"
                                 name="positions-{{ counter }}-funding_assignments-1-funding_source_type"
                                 hx-get="{% url 'invoices:switch_funding_source_type' %}"
                                 hx-target="#id-positions-{{ counter }}-funding_assignments-1-funding_source"
@@ -140,10 +140,10 @@
             {% endwith %}
             {# Loop through each funding assignment #}
             {% for split in position.funding_assignments %}
-                <div class="flex justify-between align-start">
+                <div class="funding-assignment-row">
                     {# Funding source type selector #}
                     <div class="form-row">
-                        <select class="my-0"
+                        <select class="my-0 form-row-item-sm"
                                 name="positions-{{ counter }}-funding_assignments-{{ forloop.counter }}-funding_source_type"
                                 hx-get="{% url 'invoices:switch_funding_source_type' %}"
                                 hx-target="#id-positions-{{ counter }}-funding_assignments-{{ forloop.counter }}-funding_source"
