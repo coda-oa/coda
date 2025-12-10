@@ -19,12 +19,5 @@
         "fields": {
             "name": "EZB"
         }
-    },
-    {
-        "model": "contracts.ContractLinkType",
-        "pk": 4,
-        "fields": {
-            "name": "Local"
-        }
     }
 ]
