@@ -203,6 +203,14 @@
                             <th scope="row">Payment Method</th>
                             <td colspan="3">{{ funding_request.payment_method|title }}</td>
                         </tr>
+                        <tr>
+                            <th scope="row">External Cost Splitting</th>
+                            {% if funding_request.external_costsplitting %}
+                                <td>Yes</td>
+                            {% else %}
+                                <td>No</td>
+                            {% endif %}
+                        </tr>
                     </tbody>
                 </table>
                 <h3 class="mt-1_5">External Research Funding</h3>
