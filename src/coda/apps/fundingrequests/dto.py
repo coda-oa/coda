@@ -27,11 +27,13 @@ class PaymentDto(CodaBaseDto):
         estimated_cost (float): The estimated cost of the payment.
         currency_code: str
         method (str): The method of payment.
+        external_costsplitting (bool | None): Whether external cost splitting occurred.
     """
 
     amount: float
     currency: str
     method: str
+    external_costsplitting: bool | None = None
 
     @classmethod
     def from_payment(cls, payment: Payment) -> "PaymentDto":

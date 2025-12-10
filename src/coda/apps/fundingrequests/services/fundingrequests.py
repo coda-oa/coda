@@ -40,9 +40,13 @@ def create_fundingrequest(
     *,
     request_id_generator: RequestIdGenerator = PublicFundingRequestId.create,
     checkfactory: CheckFactory | None = None,
+    external_costsplitting: bool | None = None,
 ) -> FundingRequestId:
+    publication = creation_dto.publication.to_publication()
+    publication.external_costsplitting = external_costsplitting
+
     fr = FundingRequest.new(
-        creation_dto.publication.to_publication(),
+        publication,
         creation_dto.payment.to_payment(),
         request_id=_find_unused_request_id(request_id_generator, creation_dto.request_date),
         external_funding=[f.to_external_funding() for f in creation_dto.funding],
@@ -148,12 +152,24 @@ def update_funding(
     payment: PaymentDto,
     funding: Iterable[ExternalFundingDto] = (),
     checkfactory: CheckFactory | None = None,
+    external_costsplitting: bool | None = None,
 ) -> None:
     repository.save_funding(
         fundingrequest_id,
         payment.to_payment(),
         map(ExternalFundingDto.to_external_funding, funding),
     )
+
+    # Update external_costsplitting on the publication if provided
+    if external_costsplitting is not None:
+        from coda.apps.publications.repositories import publication_repository
+
+        fr = repository.get_by_id(fundingrequest_id)
+        assert fr.publication.id is not None
+        pub = publication_repository.get_by_id(fr.publication.id)
+        pub.external_costsplitting = external_costsplitting
+        publication_repository.update(pub)
+
     run_checks(fundingrequest_id, checkfactory=checkfactory)
 
 
