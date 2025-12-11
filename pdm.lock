@@ -5,7 +5,7 @@
 groups = ["default", "dev", "docs"]
 strategy = []
 lock_version = "4.5.0"
-content_hash = "sha256:c143c746f68abbb460800e775109f4363313a6e7722428fcefa515138900ced7"
+content_hash = "sha256:3fc062e97568220f33577cc4f0b467cdcf4d6e2c990eb9fc26036e0c7c9ae7bb"
 
 [[metadata.targets]]
 requires_python = ">=3.11"
@@ -581,6 +581,19 @@ dependencies = [
 files = [
     {file = "django_stubs-5.1.3-py3-none-any.whl", hash = "sha256:716758ced158b439213062e52de6df3cff7c586f9f9ad7ab59210efbea5dfe78"},
     {file = "django_stubs-5.1.3.tar.gz", hash = "sha256:8c230bc5bebee6da282ba8a27ad1503c84a0c4cd2f46e63d149e76d2a63e639a"},
+]
+
+[[package]]
+name = "django-test-migrations"
+version = "1.5.0"
+requires_python = "<4.0,>=3.10"
+summary = "Test django schema and data migrations, including ordering"
+dependencies = [
+    "typing-extensions>=4.0",
+]
+files = [
+    {file = "django_test_migrations-1.5.0-py3-none-any.whl", hash = "sha256:96a08f085fc8bfaa53d44618341d82a2d22fd194c821cd81b147b66f0bec0da8"},
+    {file = "django_test_migrations-1.5.0.tar.gz", hash = "sha256:1cbff04b1e82c5564a6f635284907b381cc11a2ff883adff46776d9126824f07"},
 ]
 
 [[package]]
