@@ -255,15 +255,12 @@ class Position:
             self.item == value.item
             and self.cost == value.cost
             and self.tax_rate == value.tax_rate
-            and self.funding_source == value.funding_source
             and self.external_position_id == value.external_position_id
             and self.funding_assignments() == value.funding_assignments()
         )
 
     def __hash__(self) -> int:
-        return hash(
-            (self.item, self.cost, self.tax_rate, self.funding_source, self.external_position_id)
-        )
+        return hash((self.item, self.cost, self.tax_rate, self.external_position_id))
 
     def __repr__(self) -> str:
         return f"""

@@ -124,7 +124,6 @@ def _as_position_django_model(
                 cost_currency=position.cost.currency.code,
                 cost_type=cost_type.value,
                 tax_rate=position.tax_rate,
-                funding_source_id=position.funding_source,
                 invoice_id=invoice_model.pk,
                 external_position_id=position.external_position_id,
             )
@@ -135,7 +134,6 @@ def _as_position_django_model(
                 cost_currency=position.cost.currency.code,
                 cost_type=cost_type.value,
                 tax_rate=position.tax_rate,
-                funding_source_id=position.funding_source,
                 invoice_id=invoice_model.pk,
                 external_position_id=position.external_position_id,
             )
@@ -146,7 +144,6 @@ def _as_position_django_model(
                 cost_currency=position.cost.currency.code,
                 cost_type=cost_type.value,
                 tax_rate=position.tax_rate,
-                funding_source_id=position.funding_source,
                 invoice_id=invoice_model.pk,
                 external_position_id=position.external_position_id,
             )
@@ -157,7 +154,6 @@ def _as_position_django_model(
 class _CommonPositionArgs(TypedDict):
     cost: Money
     tax_rate: TaxRate
-    funding_source: FundingSourceId | None
     external_position_id: str
 
 
@@ -267,9 +263,6 @@ def _extract_common_position_args(position: invoice_models.Position) -> _CommonP
     return {
         "cost": Money(position.cost_amount, Currency[position.cost_currency]),
         "tax_rate": TaxRate(position.tax_rate),
-        "funding_source": (
-            FundingSourceId(position.funding_source.pk) if position.funding_source else None
-        ),
         "external_position_id": position.external_position_id,
     }
 

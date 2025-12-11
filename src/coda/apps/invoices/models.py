@@ -48,7 +48,6 @@ class Position(models.Model):
     cost_currency = models.CharField(max_length=3)
     cost_type = models.CharField(max_length=255, default="other")
     tax_rate = models.DecimalField(max_digits=10, decimal_places=4, default=0)
-    funding_source = models.ForeignKey(FundingSource, on_delete=models.CASCADE, null=True)
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="positions")
     external_position_id = models.CharField(max_length=255, blank=True)
 
