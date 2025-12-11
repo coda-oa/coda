@@ -320,3 +320,24 @@ def test__position__assign_partial_assignments_mixed__splits_implicit_remaining_
         FundingAssignment(budget_2, Money(20, Currency.EUR)),
         FundingAssignment(budget_3, Money(40, Currency.EUR)),
     ]
+
+
+def test__position_with_assignments__convert_to_different_currency__converts_assignments() -> None:
+    budget_1 = domainfactory.budget(FundingSourceId(1))
+    budget_2 = domainfactory.budget(FundingSourceId(2))
+
+    sut = make_sut()
+
+    sut.assign_funding(budget_1, Decimal(20))
+    sut.assign_funding(budget_2, Decimal(80))
+
+    def exchange(origin: Currency, target: Currency) -> Decimal:
+        _, _ = origin, target
+        return Decimal(2)
+
+    actual = sut.convert(Currency.USD, exchange)
+
+    assert actual.funding_assignments() == [
+        FundingAssignment(budget_1, Money(40, Currency.USD)),
+        FundingAssignment(budget_2, Money(160, Currency.USD)),
+    ]

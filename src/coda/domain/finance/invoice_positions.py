@@ -183,12 +183,17 @@ class Position:
         return self._cost_calculation.total()
 
     def convert(self, to: Currency, exchange: CurrencyExchange) -> "Position":
-        return Position(
+        converted = Position(
             item=self._item,
             funding_source=self.funding_source,
             external_position_id=self.external_position_id,
             cost_calculation=self._cost_calculation.convert(to, exchange),
         )
+
+        for f in self.funding_assignments():
+            converted.assign_funding(f.funding_source, f.amount.convert_to(to, exchange).amount)
+
+        return converted
 
     def unassigned_costs(self, tax_mode: CostBasis = CostBasis.net) -> Money:
         if not self._splits:
