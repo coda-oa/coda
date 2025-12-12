@@ -2,6 +2,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 from coda.apps.contracts.models import Contract
+from coda.apps.institutions.models import Institution
 from coda.apps.invoices.models import Position
 from coda.apps.opencost.data_aggregation import (
     get_publications_for_period,
@@ -256,16 +257,20 @@ def _get_institution_data(publication: Publication) -> tuple[str, list[tuple[str
     ).first()
 
     if corresponding_author and corresponding_author.affiliation:
-        institution = corresponding_author.affiliation
-        institution_name = institution.name
+        current_institution: Institution | None = corresponding_author.affiliation
 
-        identifiers = []
-        for link in institution.links.filter(type__name__in=["ROR", "ISNI", "Ringold"]):
-            identifier_type = link.type.name.lower()
-            identifiers.append((identifier_type, link.value))
+        while current_institution:
+            institution_name = current_institution.name
+            identifiers = []
 
-        if identifiers:
-            return institution_name, identifiers
+            for link in current_institution.links.filter(type__name__in=["ROR", "ISNI", "Ringold"]):
+                identifier_type = link.type.name.lower()
+                identifiers.append((identifier_type, link.value))
+
+            if identifiers:
+                return institution_name, identifiers
+
+            current_institution = current_institution.parent
 
     return _get_home_institution_data()
 

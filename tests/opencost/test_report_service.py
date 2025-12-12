@@ -497,6 +497,50 @@ def test__publication_with_author_with_different_institution_identifiers__genera
 
 
 @pytest.mark.django_db
+def test__publication_with_author_from_child_institution_without_identifiers__generate_report__walks_up_to_parent_institution() -> (
+    None
+):
+    university = Institution.objects.create(name="Test University")
+    ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
+    InstitutionLink.objects.create(
+        institution=university, type=ror_type, value="https://ror.org/university123"
+    )
+
+    faculty = Institution.objects.create(name="Faculty of Science", parent=university)
+    ror_type_faculty, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
+    InstitutionLink.objects.create(
+        institution=faculty, type=ror_type_faculty, value="https://ror.org/faculty123"
+    )
+
+    department = Institution.objects.create(name="Department of Physics", parent=faculty)
+
+    publication = modelfactory.publication(title="Test Publication from Department")
+    Author.objects.create(
+        name="Dr. Smith",
+        email="smith@physics.example.com",
+        publication=publication,
+        affiliation=department,
+        roles="CORRESPONDING_AUTHOR",
+    )
+    create_publication_with_invoice(
+        publication,
+        invoice_date=date(2024, 6, 15),
+        invoice_number="INV-2024-HIERARCHY-001",
+    )
+
+    report = create_opencost_report()
+
+    report_publication = report.publications.first()
+    assert report_publication is not None
+
+    assert report_publication.institution_name == "Faculty of Science"
+    identifier_snapshots = report_publication.institution_identifiers.all()
+    assert identifier_snapshots.filter(
+        identifier_type="ror", value="https://ror.org/faculty123"
+    ).exists()
+
+
+@pytest.mark.django_db
 def test__standalone_contract_with_invoice_positions__generate_report__contract_data_is_snapshotted() -> (
     None
 ):
