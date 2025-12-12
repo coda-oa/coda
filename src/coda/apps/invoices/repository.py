@@ -90,6 +90,7 @@ def search(
     sort_by: str = "date_desc",
     contract_id: str | int | None = None,
     contract_year: str | int | None = None,
+    contract_positions_only: bool = False,
 ) -> Sequence[InvoiceListItem]:
     query = (
         generic_search_criterion(generic_search)
@@ -97,8 +98,8 @@ def search(
         & date_range_criterion(date_range)
         & funding_source_criterion(funding_source)
         & external_id_criterion(has_external_id)
-        & contract_criterion(contract_id)
-        & contract_year_criterion(contract_year)
+        & contract_criterion(contract_id, contract_positions_only)
+        & contract_year_criterion(contract_year, contract_positions_only)
     )
 
     logging.info("Query: %s", query)
@@ -185,18 +186,22 @@ def foreign_currency_without_conversion_queryset(
     ).distinct()
 
 
-@empty_if_none
-def contract_criterion(contract_id: str | int) -> Q:
-    return Q(positions__contract_id=contract_id) | Q(
-        positions__publication__attached_contracts__contract_id=contract_id
-    )
+def contract_criterion(contract_id: str | int | None, positions_only: bool = False) -> Q:
+    if contract_id is None:
+        return Q()
+    query = Q(positions__contract_id=contract_id)
+    if not positions_only:
+        query |= Q(positions__publication__attached_contracts__contract_id=contract_id)
+    return query
 
 
-@empty_if_none
-def contract_year_criterion(contract_year: str | int) -> Q:
-    return Q(positions__contract_year=contract_year) | Q(
-        positions__publication__attached_contracts__contract_year=contract_year
-    )
+def contract_year_criterion(contract_year: str | int | None, positions_only: bool = False) -> Q:
+    if contract_year is None:
+        return Q()
+    query = Q(positions__contract_year=contract_year)
+    if not positions_only:
+        query |= Q(positions__publication__attached_contracts__contract_year=contract_year)
+    return query
 
 
 def get_sorted_list_items(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[InvoiceListItem]:
