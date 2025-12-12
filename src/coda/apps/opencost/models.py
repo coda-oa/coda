@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils import timezone
 
+from coda.apps.opencost.validation import validate_report
+
 
 class OpenCostReport(models.Model):
     title = models.CharField(max_length=255)
@@ -19,6 +21,17 @@ class OpenCostReport(models.Model):
 
     def __str__(self) -> str:
         return f"{self.title} ({self.period_start} to {self.period_end})"
+
+    def has_issues(self) -> bool:
+        warnings = validate_report(self)
+        return len(warnings) > 0
+
+    def get_issue_counts(self) -> dict[str, int]:
+        warnings = validate_report(self)
+        return {
+            "errors": sum(1 for w in warnings if w.level == "error"),
+            "warnings": sum(1 for w in warnings if w.level == "warning"),
+        }
 
 
 class OpenCostReportPublication(models.Model):

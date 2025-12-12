@@ -1,7 +1,29 @@
+{% load static %}
 <article>
     <div class="flex justify-between align-center">
         <div>
-            <h2>{{ entity.title }}</h2>
+            <div class="flex align-center">
+                <h2 class="mb-1">
+                    <a href="{% url 'opencost:detail' entity.id %}">{{ entity.title }}</a>
+                </h2>
+                {% if entity.has_issues %}
+                    {% with counts=entity.get_issue_counts %}
+                        {% if counts.errors > 0 and counts.warnings == 0 %}
+                            <a data-tooltip="This report has {{ counts.errors }} error{{ counts.errors|pluralize }}">
+                                <img src="{% static "assets/exclamation.svg" %}" alt="This report has {{ counts.errors }} error{{ counts.errors|pluralize }}" height="auto" width="auto" class="mb-1">
+                            </a>
+                        {% elif counts.warnings > 0 and counts.errors == 0 %}
+                            <a data-tooltip="This report has {{ counts.warnings }} warning{{ counts.warnings|pluralize }}">
+                                <img src="{% static "assets/exclamation.svg" %}" alt="This report has {{ counts.warnings }} warning{{ counts.warnings|pluralize }}" height="auto" width="auto" class="mb-1">
+                            </a>
+                        {% elif counts.errors > 0 and counts.warnings > 0 %}
+                            <a data-tooltip="This report has {{ counts.errors }} error{{ counts.errors|pluralize }} and {{ counts.warnings }} warning{{ counts.warnings|pluralize }}">
+                                <img src="{% static "assets/exclamation.svg" %}" alt="This report has {{ counts.errors }} error{{ counts.errors|pluralize }} and {{ counts.warnings }} warning{{ counts.warnings|pluralize }}" height="auto" width="auto" class="mb-1">
+                            </a>
+                        {% endif %}
+                    {% endwith %}
+                {% endif %}
+            </div>
             <p>
                 <small>Generated: {{ entity.generated_at }}</small>
             </p>
