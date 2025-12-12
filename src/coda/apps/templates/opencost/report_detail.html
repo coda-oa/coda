@@ -159,7 +159,7 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <a href="{% url 'invoices:list' %}?contract_name={{ contract.contract.id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}">View Invoices ({{ contract.invoices.count }})</a>
+                                        <a href="{% url 'invoices:list' %}?contract_name={{ contract.contract.id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}&amp;contract_positions_only=true">View Invoices ({{ contract.invoices.count }})</a>
                                     </td>
                                 </tr>
                             {% endfor %}
