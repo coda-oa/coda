@@ -4,12 +4,15 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse
+from django.utils.safestring import mark_safe
 
+from coda.apps.opencost.models import OpenCostReport
+from coda.apps.opencost.validation import validate_report
+from coda.apps.opencost.report_service import generate_report as generate_report_service
+from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.views import SimpleSearchEntityListView
 
-from .models import OpenCostReport
-from .report_service import generate_report as generate_report_service
-from .xml_generation import generate_xml
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
@@ -27,6 +30,37 @@ class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostRepo
 
 
 report_list_view = ReportListView.as_view()
+
+
+@login_required
+@breadcrumb("Report Details", parent_url_name="opencost:list")
+def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
+    report = get_object_or_404(OpenCostReport, pk=report_id)
+
+    publications = report.publications.prefetch_related(
+        "linked_contracts__contract",
+        "invoices__positions",
+    ).all()
+
+    contracts = report.contracts.prefetch_related(
+        "invoices__positions",
+    ).all()
+
+    warnings = validate_report(report)
+    errors = [w for w in warnings if w.level == "error"]
+    warnings_only = [w for w in warnings if w.level == "warning"]
+
+    context = {
+        "report": report,
+        "publications": publications,
+        "contracts": contracts,
+        "warnings": warnings,
+        "errors": errors,
+        "warnings_only": warnings_only,
+        "has_issues": len(warnings) > 0,
+    }
+
+    return render(request, "opencost/report_detail.html", context)
 
 
 @login_required
@@ -52,10 +86,35 @@ def generate_report(request: HttpRequest) -> HttpResponse:
                 period_end=period_end,
             )
 
-            messages.success(
-                request,
-                f"Report '{report.title}' generated successfully with {report.publications.count()} publications and {report.contracts.count()} contracts.",
-            )
+            issue_counts = report.get_issue_counts()
+            has_issues = report.has_issues()
+
+            if has_issues:
+                detail_url = reverse("opencost:detail", args=[report.id])
+
+                issue_parts = []
+                if issue_counts["errors"] > 0:
+                    issue_parts.append(
+                        f"{issue_counts['errors']} error{'s' if issue_counts['errors'] != 1 else ''}"
+                    )
+                if issue_counts["warnings"] > 0:
+                    issue_parts.append(
+                        f"{issue_counts['warnings']} warning{'s' if issue_counts['warnings'] != 1 else ''}"
+                    )
+
+                issue_text = " and ".join(issue_parts)
+
+                messages.warning(
+                    request,
+                    mark_safe(
+                        f"Report '{report.title}' generated with {report.publications.count()} publications and {report.contracts.count()} contracts, but has {issue_text}. <a href='{detail_url}'>View details</a>"
+                    ),
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Report '{report.title}' generated successfully with {report.publications.count()} publications and {report.contracts.count()} contracts.",
+                )
 
             return redirect("opencost:list")
 
