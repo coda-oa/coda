@@ -177,14 +177,14 @@ def serialize_publication_invoice(invoice: PublicationInvoiceType) -> ET.Element
         currency_elem.text = invoice.amount_invoice.currency
 
         amount_elem = ET.SubElement(amount_invoice_elem, "amount")
-        amount_elem.text = str(invoice.amount_invoice.amount)
+        amount_elem.text = f"{invoice.amount_invoice.amount:.2f}"
 
     amounts_paid_elem = ET.SubElement(invoice_elem, "amounts_paid")
     for amount_paid in invoice.amounts_paid:
         amount_paid_elem_position = ET.SubElement(amounts_paid_elem, "amount_paid")
 
         amount_elem = ET.SubElement(amount_paid_elem_position, "amount")
-        amount_elem.text = str(amount_paid.amount)
+        amount_elem.text = f"{amount_paid.amount:.2f}"
 
         currency_elem = ET.SubElement(amount_paid_elem_position, "currency")
         currency_elem.text = amount_paid.currency
@@ -194,7 +194,7 @@ def serialize_publication_invoice(invoice: PublicationInvoiceType) -> ET.Element
 
         if amount_paid.vat is not None:
             vat_elem = ET.SubElement(amount_paid_elem_position, "vat")
-            vat_elem.text = str(amount_paid.vat)
+            vat_elem.text = f"{amount_paid.vat:.2f}"
 
     return invoice_elem
 
@@ -321,14 +321,14 @@ def serialize_contract_invoice(invoice: ContractInvoiceType) -> ET.Element:
         currency_elem.text = invoice.amount_invoice.currency
 
         amount_elem = ET.SubElement(amount_invoice_elem, "amount")
-        amount_elem.text = str(invoice.amount_invoice.amount)
+        amount_elem.text = f"{invoice.amount_invoice.amount:.2f}"
 
     amounts_paid_elem = ET.SubElement(invoice_elem, "amounts_paid")
     for amount_paid in invoice.amounts_paid:
         amount_paid_elem_position = ET.SubElement(amounts_paid_elem, "amount_paid")
 
         amount_elem = ET.SubElement(amount_paid_elem_position, "amount")
-        amount_elem.text = str(amount_paid.amount)
+        amount_elem.text = f"{amount_paid.amount:.2f}"
 
         currency_elem = ET.SubElement(amount_paid_elem_position, "currency")
         currency_elem.text = amount_paid.currency
@@ -338,7 +338,7 @@ def serialize_contract_invoice(invoice: ContractInvoiceType) -> ET.Element:
 
         if amount_paid.vat is not None:
             vat_elem = ET.SubElement(amount_paid_elem_position, "vat")
-            vat_elem.text = str(amount_paid.vat)
+            vat_elem.text = f"{amount_paid.vat:.2f}"
 
     return invoice_elem
 

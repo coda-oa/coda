@@ -95,7 +95,7 @@ def test__publication_with_all_info_and_invoice__generate_xml__creates_valid_ope
     assert amount_invoice is not None
     amount_invoice_amount = amount_invoice.find("oc:amount", ns)
     assert amount_invoice_amount is not None
-    assert amount_invoice_amount.text == "1800.0000"
+    assert amount_invoice_amount.text == "1800.00"
 
     amounts_paid = invoice.find("oc:amounts_paid", ns)
     assert amounts_paid is not None
@@ -103,7 +103,7 @@ def test__publication_with_all_info_and_invoice__generate_xml__creates_valid_ope
     assert amount_paid is not None
     amount_paid_amount = amount_paid.find("oc:amount", ns)
     assert amount_paid_amount is not None
-    assert amount_paid_amount.text == "1800.0000"
+    assert amount_paid_amount.text == "1800.00"
     amount_paid_currency = amount_paid.find("oc:currency", ns)
     assert amount_paid_currency is not None
     assert amount_paid_currency.text == "EUR"
@@ -112,7 +112,7 @@ def test__publication_with_all_info_and_invoice__generate_xml__creates_valid_ope
     assert cost_type.text == "gold-oa"
     vat = amount_paid.find("oc:vat", ns)
     assert vat is not None
-    assert vat.text == "342.0000"
+    assert vat.text == "342.00"
 
 
 # Invoice with two Positions (amount paid)
@@ -163,7 +163,7 @@ def test__publication_with_invoice_multiple_positions__generate_xml__opencost_xm
     assert amount_invoice is not None
     amount_invoice_amount = amount_invoice.find("oc:amount", ns)
     assert amount_invoice_amount is not None
-    assert amount_invoice_amount.text == "1500.0000"
+    assert amount_invoice_amount.text == "1500.00"
 
 
 @pytest.mark.django_db
