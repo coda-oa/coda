@@ -6,12 +6,15 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from django.utils.safestring import mark_safe
+from django.db.models import Q
+from collections.abc import Sequence
 
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.validation import validate_report
 from coda.apps.opencost.report_service import generate_report as generate_report_service
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.views import SimpleSearchEntityListView
+from coda.apps.domainqueryset import DomainQuerySet
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
@@ -27,6 +30,20 @@ class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostRepo
     search_fields = ["title"]
     search_placeholder = "Search by report title"
     entity_create_url = "opencost:generate"
+    ordering = ["-generated_at"]
+
+    def get_entities(self, request: HttpRequest) -> Sequence[OpenCostReport]:
+        search_term = request.GET.get("query", "").strip()
+        queryset = self.model.objects.all()
+
+        if search_term:
+            query = Q()
+            for field in self.search_fields:
+                query |= Q(**{f"{field}__icontains": search_term})
+            queryset = queryset.filter(query)
+
+        queryset = queryset.order_by(*self.ordering)
+        return DomainQuerySet(queryset, lambda x: x)
 
 
 report_list_view = ReportListView.as_view()
