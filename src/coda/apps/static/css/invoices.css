@@ -99,3 +99,18 @@ details[open] .position-collapsed {
 .funding-assignment-button {
   grid-area: assignment-button;
 }
+
+/* Funding assignment display in invoice detail view */
+.funding-assignments-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.funding-assignments-list li {
+  padding: calc(var(--coda-spacing) * 0.125) 0;
+}
+
+.funding-assignment-empty {
+  color: var(--coda-disabled-text-color);
+}
