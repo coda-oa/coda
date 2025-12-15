@@ -189,10 +189,11 @@ def as_domain_funding_source(model: invoice_models.FundingSource) -> FundingSour
     if model.type == "budget":
         return Budget(FundingSourceId(model.pk), model.name)
     elif model.type == "institution":
+        assert model.institution is not None
         return SplitSource(
             FundingSourceId(model.pk),
-            cast(InstitutionId, model.institution_id),
-            model.name,
+            cast(InstitutionId, model.institution.pk),
+            model.institution.name,
         )
     raise ValueError("Invalid model type")
 

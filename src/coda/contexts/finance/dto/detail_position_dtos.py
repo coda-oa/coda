@@ -4,9 +4,9 @@ from decimal import Decimal
 from django.urls import reverse
 
 from coda.contexts.finance.dto.edit_position_dtos import (
-    PositionDto,
     ContractItemDto,
     FreeItemDto,
+    PositionDto,
     PublicationItemDto,
 )
 from coda.contexts.finance.services import invoice_parser
@@ -56,50 +56,20 @@ def _build_funding_assignments(position: Position) -> list[FundingAssignmentDeta
     Note: Amounts are already in the correct currency because the position
     has been converted via invoice.convert(display_currency) before reaching this point.
     """
-    from coda.apps.invoices.models import FundingSource as FundingSourceModel
 
     assignments = position.funding_assignments()
     if not assignments:
         return []
 
-    # Collect funding source IDs to load in bulk
-    from coda.domain.finance.funding_sources import Budget, SplitSource
-
-    fs_ids = []
-    for a in assignments:
-        if a.funding_source:
-            fs = a.funding_source
-            # Use isinstance to narrow the union type for mypy
-            if isinstance(fs, (Budget, SplitSource)) and fs.id:
-                fs_ids.append(fs.id)
-
-    # Load funding sources in bulk to avoid N+1 queries
-    fs_lookup = {fs.pk: fs.name for fs in FundingSourceModel.objects.filter(id__in=fs_ids)}
-
-    # Build DTOs with resolved names
-    result = []
-    for a in assignments:
-        fs_id = None
-        fs_name = "Unassigned"
-
-        if a.funding_source:
-            fs = a.funding_source
-            # Use isinstance to narrow the union type for mypy
-            if isinstance(fs, (Budget, SplitSource)):
-                fs_id = fs.id
-                fs_name = fs_lookup.get(fs_id, "Unknown") if fs_id else "Unknown"
-            else:
-                fs_name = "Unknown"
-
-        result.append(
-            FundingAssignmentDetailDto(
-                funding_source_id=fs_id,
-                funding_source_name=fs_name,
-                amount=a.amount.amount,
-            )
+    return [
+        FundingAssignmentDetailDto(
+            funding_source_id=fs.funding_source.id,
+            funding_source_name=fs.funding_source.name,
+            amount=fs.amount.amount,
         )
-
-    return result
+        for fs in assignments
+        if fs.funding_source is not None
+    ]
 
 
 def build_position_detail_dto(position: Position) -> PositionDetailDto:
