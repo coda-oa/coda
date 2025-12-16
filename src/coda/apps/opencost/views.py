@@ -1,6 +1,8 @@
 from datetime import datetime
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
+from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.http import require_http_methods
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -50,6 +52,7 @@ report_list_view = ReportListView.as_view()
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 @breadcrumb("Report Details", parent_url_name="opencost:list")
 def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
     report = get_object_or_404(OpenCostReport, pk=report_id)
@@ -81,6 +84,7 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 @breadcrumb("Generate New Report", parent_url_name="opencost:list")
 def generate_report(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
@@ -146,6 +150,7 @@ def generate_report(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_GET
 def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
     report = get_object_or_404(OpenCostReport, pk=report_id)
 
@@ -166,9 +171,13 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def delete_report(request: HttpRequest, report_id: int) -> HttpResponse:
     report = get_object_or_404(OpenCostReport, pk=report_id)
     report_title = report.title
     report.delete()
     messages.success(request, f"Report '{report_title}' deleted successfully.")
-    return redirect("opencost:list")
+
+    response = HttpResponse(status=200)
+    response["HX-Redirect"] = reverse("opencost:list")
+    return response

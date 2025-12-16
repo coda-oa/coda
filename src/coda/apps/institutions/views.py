@@ -143,6 +143,7 @@ def import_from_file(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def add_institution_linkrow(request: HttpRequest) -> HttpResponse:
     return render(
         request,
