@@ -46,6 +46,7 @@ def test__full_publication_with_invoice_data__generate_report__creates_report_pu
 ):
     publication = modelfactory.publication(title="Test Publication")
     publication.online_publication_date = date(2024, 6, 1)
+    publication.external_costsplitting = False
     publication.save()
 
     doi_type, _ = LinkType.objects.get_or_create(name="DOI")
@@ -81,9 +82,7 @@ def test__full_publication_with_invoice_data__generate_report__creates_report_pu
     assert publication.article_journal is not None
     assert report_publication.publisher == publication.article_journal.publisher.name
     assert report_publication.journal == publication.article_journal.title
-
-    # TODO external_costsplitting - we'll implement this later with cost sharing
-    assert report_publication.external_costsplitting is None
+    assert report_publication.external_costsplitting is False
 
 
 @pytest.mark.django_db

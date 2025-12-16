@@ -149,7 +149,9 @@ def serialize_publication_cost_data(cost_data: PublicationCostDataType) -> ET.El
     return cost_data_elem
 
 
-def serialize_publication_invoice(invoice: PublicationInvoiceType) -> ET.Element:
+def serialize_invoice(
+    invoice: PublicationInvoiceType | ContractInvoiceType,
+) -> ET.Element:
     invoice_elem = ET.Element("invoice")
 
     if invoice.invoice_number:
@@ -197,6 +199,10 @@ def serialize_publication_invoice(invoice: PublicationInvoiceType) -> ET.Element
             vat_elem.text = f"{amount_paid.vat:.2f}"
 
     return invoice_elem
+
+
+def serialize_publication_invoice(invoice: PublicationInvoiceType) -> ET.Element:
+    return serialize_invoice(invoice)
 
 
 def serialize_contract(contract: ContractType) -> ET.Element:
@@ -294,53 +300,7 @@ def serialize_contract_invoice_group(
 
 
 def serialize_contract_invoice(invoice: ContractInvoiceType) -> ET.Element:
-    invoice_elem = ET.Element("invoice")
-
-    if invoice.invoice_number:
-        invoice_number_elem = ET.SubElement(invoice_elem, "invoice_number")
-        invoice_number_elem.text = invoice.invoice_number
-
-    if invoice.creditor:
-        creditor_elem = ET.SubElement(invoice_elem, "creditor")
-        creditor_elem.text = invoice.creditor
-
-    dates_elem = ET.SubElement(invoice_elem, "dates")
-
-    if invoice.dates.invoice:
-        invoice_date_elem = ET.SubElement(dates_elem, "invoice")
-        invoice_date_elem.text = invoice.dates.invoice
-
-    if invoice.dates.paid:
-        paid_date_elem = ET.SubElement(dates_elem, "paid")
-        paid_date_elem.text = invoice.dates.paid
-
-    if invoice.amount_invoice:
-        amount_invoice_elem = ET.SubElement(invoice_elem, "amount_invoice")
-
-        currency_elem = ET.SubElement(amount_invoice_elem, "currency")
-        currency_elem.text = invoice.amount_invoice.currency
-
-        amount_elem = ET.SubElement(amount_invoice_elem, "amount")
-        amount_elem.text = f"{invoice.amount_invoice.amount:.2f}"
-
-    amounts_paid_elem = ET.SubElement(invoice_elem, "amounts_paid")
-    for amount_paid in invoice.amounts_paid:
-        amount_paid_elem_position = ET.SubElement(amounts_paid_elem, "amount_paid")
-
-        amount_elem = ET.SubElement(amount_paid_elem_position, "amount")
-        amount_elem.text = f"{amount_paid.amount:.2f}"
-
-        currency_elem = ET.SubElement(amount_paid_elem_position, "currency")
-        currency_elem.text = amount_paid.currency
-
-        cost_type_elem = ET.SubElement(amount_paid_elem_position, "cost_type")
-        cost_type_elem.text = amount_paid.cost_type.value
-
-        if amount_paid.vat is not None:
-            vat_elem = ET.SubElement(amount_paid_elem_position, "vat")
-            vat_elem.text = f"{amount_paid.vat:.2f}"
-
-    return invoice_elem
+    return serialize_invoice(invoice)
 
 
 def generate_xml(report: OpenCostReport) -> str:
