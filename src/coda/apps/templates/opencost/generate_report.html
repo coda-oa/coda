@@ -3,7 +3,7 @@
     <div class="flex justify-between align-center my-2">
         <h1 class="my-2">Generate New Report</h1>
     </div>
-    <form method="post">
+    <form method="post" action="{% url 'opencost:generate_submit' %}">
         {% csrf_token %}
         <article>
             <h2>Report Parameters</h2>
