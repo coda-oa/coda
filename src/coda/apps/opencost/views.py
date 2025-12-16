@@ -89,6 +89,34 @@ def generate_report_form(request: HttpRequest) -> HttpResponse:
     return render(request, "opencost/generate_report.html")
 
 
+def _build_issue_message(report: OpenCostReport, detail_url: str) -> str:
+    issue_counts = report.get_issue_counts()
+    issue_parts = []
+
+    if issue_counts["errors"] > 0:
+        error_text = "error" if issue_counts["errors"] == 1 else "errors"
+        issue_parts.append(f"{issue_counts['errors']} {error_text}")
+
+    if issue_counts["warnings"] > 0:
+        warning_text = "warning" if issue_counts["warnings"] == 1 else "warnings"
+        issue_parts.append(f"{issue_counts['warnings']} {warning_text}")
+
+    issue_text = " and ".join(issue_parts)
+
+    return mark_safe(
+        f"Report '{report.title}' generated with {report.publications.count()} publications "
+        f"and {report.contracts.count()} contracts, but has {issue_text}. "
+        f"<a href='{detail_url}'>View details</a>"
+    )
+
+
+def _build_success_message(report: OpenCostReport) -> str:
+    return (
+        f"Report '{report.title}' generated successfully with {report.publications.count()} "
+        f"publications and {report.contracts.count()} contracts."
+    )
+
+
 @login_required
 @require_POST
 def generate_report(request: HttpRequest) -> HttpResponse:
@@ -111,35 +139,13 @@ def generate_report(request: HttpRequest) -> HttpResponse:
             period_end=period_end,
         )
 
-        issue_counts = report.get_issue_counts()
-        has_issues = report.has_issues()
-
-        if has_issues:
+        if report.has_issues():
             detail_url = reverse("opencost:detail", args=[report.id])
-
-            issue_parts = []
-            if issue_counts["errors"] > 0:
-                issue_parts.append(
-                    f"{issue_counts['errors']} error{'s' if issue_counts['errors'] != 1 else ''}"
-                )
-            if issue_counts["warnings"] > 0:
-                issue_parts.append(
-                    f"{issue_counts['warnings']} warning{'s' if issue_counts['warnings'] != 1 else ''}"
-                )
-
-            issue_text = " and ".join(issue_parts)
-
-            messages.warning(
-                request,
-                mark_safe(
-                    f"Report '{report.title}' generated with {report.publications.count()} publications and {report.contracts.count()} contracts, but has {issue_text}. <a href='{detail_url}'>View details</a>"
-                ),
-            )
+            message = _build_issue_message(report, detail_url)
+            messages.warning(request, message)
         else:
-            messages.success(
-                request,
-                f"Report '{report.title}' generated successfully with {report.publications.count()} publications and {report.contracts.count()} contracts.",
-            )
+            message = _build_success_message(report)
+            messages.success(request, message)
 
         return redirect("opencost:list")
 
