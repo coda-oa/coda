@@ -66,9 +66,7 @@ class OpenCostReportPublication(models.Model):
         help_text="Institution name (snapshot)",
     )
 
-    snapshot_date = models.DateTimeField(
-        default=timezone.now, help_text="When this snapshot was created"
-    )
+    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["title"]
@@ -97,9 +95,7 @@ class OpenCostReportInstitutionIdentifier(models.Model):
         help_text="Institution identifier value (snapshot)",
     )
 
-    snapshot_date = models.DateTimeField(
-        default=timezone.now, help_text="When this snapshot was created"
-    )
+    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["identifier_type", "value"]
@@ -123,9 +119,7 @@ class OpenCostReportPublicationLink(models.Model):
     )
     value = models.CharField(max_length=500, help_text="Link value/identifier (snapshot)")
 
-    snapshot_date = models.DateTimeField(
-        default=timezone.now, help_text="When this snapshot was created"
-    )
+    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["link_type", "value"]
@@ -162,9 +156,7 @@ class OpenCostReportPublicationContract(models.Model):
         help_text="Optional group ID for OpenCost part_of_contract",
     )
 
-    snapshot_date = models.DateTimeField(
-        default=timezone.now, help_text="When this snapshot was created"
-    )
+    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["contract_year"]
@@ -198,9 +190,7 @@ class OpenCostReportInvoice(models.Model):
     )
     invoice_date = models.DateField(null=True, blank=True, help_text="Invoice date (snapshot)")
 
-    snapshot_date = models.DateTimeField(
-        default=timezone.now, help_text="When this snapshot was created"
-    )
+    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["invoice_number"]
@@ -237,9 +227,7 @@ class OpenCostReportInvoicePosition(models.Model):
         help_text="VAT/tax amount (snapshot)",
     )
 
-    snapshot_date = models.DateTimeField(
-        default=timezone.now, help_text="When this snapshot was created"
-    )
+    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["amount"]
@@ -283,9 +271,7 @@ class OpenCostReportContract(models.Model):
         max_length=500, blank=True, help_text="Primary identifier value (ESAC ID) (snapshot)"
     )
 
-    snapshot_date = models.DateTimeField(
-        default=timezone.now, help_text="When this snapshot was created"
-    )
+    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["contract_name"]
@@ -314,9 +300,7 @@ class OpenCostReportContractInstitutionIdentifier(models.Model):
         help_text="Institution identifier value (snapshot)",
     )
 
-    snapshot_date = models.DateTimeField(
-        default=timezone.now, help_text="When this snapshot was created"
-    )
+    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["identifier_type", "value"]
@@ -344,9 +328,7 @@ class OpenCostReportContractSecondaryIdentifier(models.Model):
         help_text="Secondary identifier value (snapshot)",
     )
 
-    snapshot_date = models.DateTimeField(
-        default=timezone.now, help_text="When this snapshot was created"
-    )
+    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["identifier_type", "value"]
@@ -396,9 +378,7 @@ class OpenCostReportContractInvoice(models.Model):
         help_text="UUID4 to group invoices and link to publications (for part_of_contract)",
     )
 
-    snapshot_date = models.DateTimeField(
-        default=timezone.now, help_text="When this snapshot was created"
-    )
+    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["invoice_number"]
@@ -437,9 +417,7 @@ class OpenCostReportContractInvoicePosition(models.Model):
         help_text="VAT/tax amount (snapshot)",
     )
 
-    snapshot_date = models.DateTimeField(
-        default=timezone.now, help_text="When this snapshot was created"
-    )
+    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["amount"]
