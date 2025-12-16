@@ -9,6 +9,7 @@ class PublicationCostType(enum.Enum):
     Gold_OA = "gold-oa"
     Hybrid_OA = "hybrid-oa"
     Vat = "vat"
+    Cover_Charge = "cover charge"
     Colour_Charge = "colour charge"
     Page_Charge = "page charge"
     Permission = "permission"
@@ -29,6 +30,8 @@ class ContractCostType(enum.Enum):
 
     Publish = "publish"
     Read = "read"
+    Publish_And_Read = "publish and read"
+    Service_Fee = "service fee"
     Vat = "vat"
 
     def is_vat(self) -> bool:
