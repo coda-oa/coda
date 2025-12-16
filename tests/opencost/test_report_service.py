@@ -1,7 +1,7 @@
+from datetime import date
+from decimal import Decimal
 import pytest
 
-from coda.apps.authors.models import Author
-from coda.apps.contracts.models import ContractLink, ContractLinkType
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
@@ -18,10 +18,16 @@ from coda.apps.publications.models._attachedentities import (
 from coda.apps.publications.models._links import Link, LinkType
 from coda.apps.publications.models._vocabulary import Vocabulary
 from tests import modelfactory
-from tests.opencost.helpers import create_publication_with_invoice, create_opencost_report
-from datetime import date
-from decimal import Decimal
-from tests.opencost.helpers import create_creditor, create_invoice, create_position
+from tests.opencost.helpers import (
+    create_creditor,
+    create_invoice,
+    create_position,
+    create_publication_with_invoice,
+    create_opencost_report,
+    create_institution_with_identifiers,
+    create_corresponding_author,
+    create_contract_with_identifiers,
+)
 from coda.apps.institutions.models import Institution, InstitutionLinkType, InstitutionLink
 
 
@@ -358,25 +364,20 @@ def test__publication_with_invoices_inside_and_outside_period__generate_report__
 def test__publication_with_institution_identifiers__generate_report__identifier_snapshots_created() -> (
     None
 ):
-    author_institution = Institution.objects.create(name="Department of Chemistry")
-    ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
-    InstitutionLink.objects.create(
-        institution=author_institution, type=ror_type, value="https://ror.org/author123"
+    author_institution = create_institution_with_identifiers(
+        name="Department of Chemistry",
+        ror="https://ror.org/author123",
+        isni="https://isni.org/isni/0000000121032683",
     )
-    isni_type, _ = InstitutionLinkType.objects.get_or_create(name="ISNI")
-    InstitutionLink.objects.create(
-        institution=author_institution,
-        type=isni_type,
-        value="https://isni.org/isni/0000000121032683",
-    )
+
     publication = modelfactory.publication(title="Test Publication")
-    _corresponding_author = Author.objects.create(
+    create_corresponding_author(
+        publication=publication,
         name="John Doe",
         email="john@example.com",
-        publication=publication,
         affiliation=author_institution,
-        roles="CORRESPONDING_AUTHOR",
     )
+
     create_publication_with_invoice(
         publication,
         invoice_date=date(2024, 6, 15),
@@ -403,10 +404,9 @@ def test__publication_with_corresponding_author_no_institution_identifiers__gene
 ):
     author_institution = Institution.objects.create(name="Department Without Identifiers")
 
-    home_institution = Institution.objects.create(name="Home Institution")
-    ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
-    InstitutionLink.objects.create(
-        institution=home_institution, type=ror_type, value="https://ror.org/home456"
+    home_institution = create_institution_with_identifiers(
+        name="Home Institution",
+        ror="https://ror.org/home456",
     )
 
     prefs, _ = GlobalPreferences.objects.get_or_create()
@@ -414,13 +414,13 @@ def test__publication_with_corresponding_author_no_institution_identifiers__gene
     prefs.save()
 
     publication = modelfactory.publication(title="Test Publication")
-    Author.objects.create(
+    create_corresponding_author(
+        publication=publication,
         name="John Doe",
         email="john@example.com",
-        publication=publication,
         affiliation=author_institution,
-        roles="CORRESPONDING_AUTHOR",
     )
+
     create_publication_with_invoice(
         publication,
         invoice_date=date(2024, 6, 15),
@@ -442,33 +442,27 @@ def test__publication_with_corresponding_author_no_institution_identifiers__gene
 def test__publication_with_author_with_different_institution_identifiers__generate_report__only_ror_isni_ringold_identifier_snapshots_created() -> (
     None
 ):
-    author_institution = Institution.objects.create(name="Department of Various Identifiers")
-    ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
-    InstitutionLink.objects.create(
-        institution=author_institution, type=ror_type, value="https://ror.org/various123"
+    author_institution = create_institution_with_identifiers(
+        name="Department of Various Identifiers",
+        ror="https://ror.org/various123",
+        isni="https://isni.org/isni/0000000121032684",
+        ringold="https://ringold.com/id/987654",
     )
-    isni_type, _ = InstitutionLinkType.objects.get_or_create(name="ISNI")
-    InstitutionLink.objects.create(
-        institution=author_institution,
-        type=isni_type,
-        value="https://isni.org/isni/0000000121032684",
-    )
-    ringold_type, _ = InstitutionLinkType.objects.get_or_create(name="Ringold")
-    InstitutionLink.objects.create(
-        institution=author_institution, type=ringold_type, value="https://ringold.com/id/987654"
-    )
+
+    # Add an "other" type identifier that should not be included
     other_type, _ = InstitutionLinkType.objects.get_or_create(name="OtherID")
     InstitutionLink.objects.create(
         institution=author_institution, type=other_type, value="https://otherid.com/id/555555"
     )
+
     publication = modelfactory.publication(title="Test Publication")
-    Author.objects.create(
+    create_corresponding_author(
+        publication=publication,
         name="Jane Smith",
         email="jane.smith@example.com",
-        publication=publication,
         affiliation=author_institution,
-        roles="CORRESPONDING_AUTHOR",
     )
+
     create_publication_with_invoice(
         publication,
         invoice_date=date(2024, 6, 15),
@@ -499,28 +493,27 @@ def test__publication_with_author_with_different_institution_identifiers__genera
 def test__publication_with_author_from_child_institution_without_identifiers__generate_report__walks_up_to_parent_institution() -> (
     None
 ):
-    university = Institution.objects.create(name="Test University")
-    ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
-    InstitutionLink.objects.create(
-        institution=university, type=ror_type, value="https://ror.org/university123"
+    university = create_institution_with_identifiers(
+        name="Test University",
+        ror="https://ror.org/university123",
     )
 
-    faculty = Institution.objects.create(name="Faculty of Science", parent=university)
-    ror_type_faculty, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
-    InstitutionLink.objects.create(
-        institution=faculty, type=ror_type_faculty, value="https://ror.org/faculty123"
+    faculty = create_institution_with_identifiers(
+        name="Faculty of Science",
+        ror="https://ror.org/faculty123",
+        parent=university,
     )
 
     department = Institution.objects.create(name="Department of Physics", parent=faculty)
 
     publication = modelfactory.publication(title="Test Publication from Department")
-    Author.objects.create(
+    create_corresponding_author(
+        publication=publication,
         name="Dr. Smith",
         email="smith@physics.example.com",
-        publication=publication,
         affiliation=department,
-        roles="CORRESPONDING_AUTHOR",
     )
+
     create_publication_with_invoice(
         publication,
         invoice_date=date(2024, 6, 15),
@@ -605,11 +598,8 @@ def test__standalone_contract_with_invoice_positions__generate_report__contract_
 
 @pytest.mark.django_db
 def test__contract_with_esac_id__generate_report__primary_identifier_snapshotted() -> None:
-    contract = modelfactory.contract()
-
-    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
-    ContractLink.objects.create(
-        contract=contract, type=esac_type, value="https://esac.org/id/123456"
+    contract = create_contract_with_identifiers(
+        esac="https://esac.org/id/123456",
     )
 
     creditor = create_creditor(name="Test Creditor")
@@ -638,20 +628,11 @@ def test__contract_with_esac_id__generate_report__primary_identifier_snapshotted
 def test__contract_with_secondary_ids__generate_report__secondary_identifier_snapshots_created() -> (
     None
 ):
-    contract = modelfactory.contract()
-
-    oai_type, _ = ContractLinkType.objects.get_or_create(name="OAI")
-    ContractLink.objects.create(
-        contract=contract, type=oai_type, value="https://services.dnb.de/oai/repository/789012"
+    contract = create_contract_with_identifiers(
+        oai="https://services.dnb.de/oai/repository/789012",
+        ezb="https://ezb.uni-regensburg.de/id/456789",
+        local="LOCAL-ID-001",
     )
-
-    ezb_type, _ = ContractLinkType.objects.get_or_create(name="EZB")
-    ContractLink.objects.create(
-        contract=contract, type=ezb_type, value="https://ezb.uni-regensburg.de/id/456789"
-    )
-
-    local_type, _ = ContractLinkType.objects.get_or_create(name="Local")
-    ContractLink.objects.create(contract=contract, type=local_type, value="LOCAL-ID-001")
 
     creditor = create_creditor(name="Test Creditor")
     invoice = create_invoice(
@@ -735,11 +716,8 @@ def test__publication_linked_to_contract__generate_report__publication_and_contr
 def test__publication_linked_to_contract__generate_report__publication_has_link_to_contract() -> (
     None
 ):
-    contract = modelfactory.contract()
-
-    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
-    ContractLink.objects.create(
-        contract=contract, type=esac_type, value="https://esac.org/id/654321"
+    contract = create_contract_with_identifiers(
+        esac="https://esac.org/id/654321",
     )
 
     creditor = create_creditor(name="Contract Creditor")
@@ -801,11 +779,8 @@ def test__publication_linked_to_contract__generate_report__publication_has_link_
 def test__publication_linked_to_contract_with_no_own_invoice_positions__generate_report__publication_is_included() -> (
     None
 ):
-    contract = modelfactory.contract()
-
-    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
-    ContractLink.objects.create(
-        contract=contract, type=esac_type, value="https://esac.org/id/777777"
+    contract = create_contract_with_identifiers(
+        esac="https://esac.org/id/777777",
     )
 
     creditor = create_creditor(name="Contract Creditor")
