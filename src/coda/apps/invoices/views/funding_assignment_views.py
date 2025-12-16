@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render
+from django.views.decorators.http import require_GET, require_POST
 
 from coda import formdata
 from coda.apps.invoices.views.position_context import funding_sources_context
@@ -21,6 +22,7 @@ from coda.domain.money import Currency
 
 
 @login_required
+@require_POST
 def add_funding_assignment(request: HttpRequest) -> HttpResponse:
     """Add a funding assignment to a position.
 
@@ -57,6 +59,7 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def remove_funding_assignment(request: HttpRequest) -> HttpResponse:
     """Remove a funding assignment from a position.
 
@@ -98,6 +101,7 @@ def remove_funding_assignment(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def refresh_unassigned_costs(request: HttpRequest) -> HttpResponse:
     """Recalculate unassigned costs for a position.
 
@@ -139,6 +143,7 @@ def refresh_unassigned_costs(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def switch_cost_basis_mode(request: HttpRequest) -> HttpResponse:
     """Switch between net and gross display modes for funding assignments.
 
@@ -183,6 +188,7 @@ def switch_cost_basis_mode(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_GET
 def switch_funding_source_type(request: HttpRequest) -> HttpResponse:
     """Switch funding source type dropdown options.
 

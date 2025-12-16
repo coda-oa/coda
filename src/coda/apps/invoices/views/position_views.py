@@ -1,24 +1,21 @@
 """Position CRUD views for invoice positions."""
 
 from dataclasses import asdict
+from decimal import Decimal
+from typing import TypedDict
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from django.views.decorators.http import require_GET, require_POST
 
 from coda import formdata
+from coda.apps.invoices.views.position_context import DefaultContext, funding_sources_context
+from coda.apps.invoices.views.position_parsers import added_positions
 from coda.contexts.finance.dto.edit_position_dtos import PositionDto, PositionList
 from coda.contexts.finance.services.invoice_parser._parser import InvoiceTotal
 from coda.domain.finance.invoice_positions import InvalidSplitAmount
 from coda.domain.money import Currency
-
-from coda.apps.invoices.views.position_context import DefaultContext, funding_sources_context
-from coda.apps.invoices.views.position_parsers import added_positions
-
-from decimal import Decimal
-
-
-from typing import TypedDict
 
 
 class ErrorDict(TypedDict):
@@ -28,6 +25,7 @@ class ErrorDict(TypedDict):
 
 
 @login_required
+@require_GET
 def switch_position_tab(request: HttpRequest) -> HttpResponse:
     """Switch between position tabs (publication/contract/free).
 
@@ -46,6 +44,7 @@ def switch_position_tab(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def add_position(request: HttpRequest) -> HttpResponse:
     """Add a new position to the position list.
 
@@ -58,6 +57,7 @@ def add_position(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def remove_position(request: HttpRequest) -> HttpResponse:
     """Remove a position from the position list.
 
@@ -73,6 +73,7 @@ def remove_position(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def invoice_total(request: HttpRequest) -> HttpResponse:
     """Calculate and render invoice total.
 
