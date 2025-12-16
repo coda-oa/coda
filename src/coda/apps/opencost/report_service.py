@@ -47,17 +47,6 @@ def generate_report(title: str, period_start: date, period_end: date) -> OpenCos
     for contract in contracts:
         _snapshot_contract(report, contract)
 
-    referenced_contract_ids = set(
-        report.publications.values_list("linked_contracts__contract_id", flat=True)
-    )
-    already_snapshotted_contract_ids = set(report.contracts.values_list("contract_id", flat=True))
-    missing_contract_ids = referenced_contract_ids - already_snapshotted_contract_ids
-
-    if missing_contract_ids:
-        missing_contracts = Contract.objects.filter(id__in=missing_contract_ids)
-        for contract in missing_contracts:
-            _snapshot_contract(report, contract)
-
     _update_publication_contract_group_ids(report)
 
     return report
