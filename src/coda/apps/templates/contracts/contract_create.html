@@ -27,14 +27,14 @@
                 <table>
                     <thead>
                         <tr>
-                            <td>Identifier Type</td>
-                            <td>Value</td>
-                            <td>
+                            <th>Identifier Type</th>
+                            <th>Value</th>
+                            <th>
                                 <button type="button"
                                         hx-post="{% url 'contracts:partial_add_linkrow' %}"
                                         hx-target="#contract-linktable"
                                         hx-swap="beforeend">Add</button>
-                            </td>
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="contract-linktable">

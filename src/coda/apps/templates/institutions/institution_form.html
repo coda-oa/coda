@@ -11,14 +11,14 @@
                 <table>
                     <thead>
                         <tr>
-                            <td>Link Type</td>
-                            <td>Value</td>
-                            <td>
+                            <th>Link Type</th>
+                            <th>Value</th>
+                            <th>
                                 <button type="button"
                                         hx-post="{% url 'institutions:partial_add_linkrow' %}"
                                         hx-target="#institution-linktable"
                                         hx-swap="beforeend">Add</button>
-                            </td>
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="institution-linktable">
