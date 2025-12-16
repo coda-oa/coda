@@ -166,7 +166,7 @@ def _snapshot_contract(
     report: OpenCostReport,
     contract: Contract,
 ) -> None:
-    institution_name, institution_identifiers = _get_institution_data_for_contract(contract)
+    institution_name, institution_identifiers = _get_home_institution_data()
     primary_id = _get_contract_primary_identifier(contract)
 
     report_contract = OpenCostReportContract.objects.create(
@@ -261,10 +261,6 @@ def _get_institution_data(publication: Publication) -> tuple[str, list[tuple[str
 
             current_institution = current_institution.parent
 
-    return _get_home_institution_data()
-
-
-def _get_institution_data_for_contract(contract: Contract) -> tuple[str, list[tuple[str, str]]]:
     return _get_home_institution_data()
 
 
