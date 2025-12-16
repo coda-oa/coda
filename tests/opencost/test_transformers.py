@@ -23,13 +23,14 @@ from tests.opencost.helpers import (
     create_position,
     create_publication_with_invoice,
     create_opencost_report,
+    create_institution_with_identifiers,
+    create_corresponding_author,
+    create_contract_with_identifiers,
 )
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.models import LinkType, Link
 from coda.domain.opencost import CoarPublicationType
 
-from coda.apps.institutions.models import Institution, InstitutionLinkType, InstitutionLink
-from coda.apps.authors.models import Author
 from coda.domain.opencost._institution import InstitutionIdType, InstitutionNameType
 
 from coda.apps.opencost.report_service import generate_report
@@ -198,23 +199,20 @@ def test__report_publication_with_secondary_identifiers__transforming_to_opencos
 def test__report_publication_with_institution_data__transforming_to_opencost__institution_data_is_included() -> (
     None
 ):
-    institution = Institution.objects.create(name="Test University")
-    ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
-    InstitutionLink.objects.create(
-        institution=institution, type=ror_type, value="https://ror.org/test123"
+    institution = create_institution_with_identifiers(
+        name="Test University",
+        ror="https://ror.org/test123",
+        isni="0000 0001 2345 6789",
     )
-    isni_type, _ = InstitutionLinkType.objects.get_or_create(name="ISNI")
-    InstitutionLink.objects.create(
-        institution=institution, type=isni_type, value="0000 0001 2345 6789"
-    )
+
     publication = modelfactory.publication(title="Test Publication")
-    Author.objects.create(
+    create_corresponding_author(
+        publication=publication,
         name="Test Author",
         email="test@example.com",
-        publication=publication,
         affiliation=institution,
-        roles="CORRESPONDING_AUTHOR",
     )
+
     create_publication_with_invoice(
         publication,
         invoice_date=date(2024, 6, 15),
@@ -569,13 +567,12 @@ def test__report_standalone_contract_with_invoice_multiple_positions__transformi
 def test__report_standalone_contract_with_esac_id__transforming_to_opencost__primary_identifier_value_is_set() -> (
     None
 ):
-    other_type, _ = ContractLinkType.objects.get_or_create(name="OtherID")
-    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
-
-    contract = modelfactory.contract()
-    ContractLink.objects.create(
-        contract=contract, type=esac_type, value="https://esac.org/id/123456"
+    contract = create_contract_with_identifiers(
+        esac="https://esac.org/id/123456",
     )
+
+    # Add OtherID to verify it's not used
+    other_type, _ = ContractLinkType.objects.get_or_create(name="OtherID")
     ContractLink.objects.create(
         contract=contract, type=other_type, value="https://otherid.com/id/555555"
     )
@@ -612,20 +609,11 @@ def test__report_standalone_contract_with_esac_id__transforming_to_opencost__pri
 def test__report_standalone_contract_with_secondary_identifiers__transforming_to_opencost__secondary_identifiers_are_included() -> (
     None
 ):
-    contract = modelfactory.contract()
-
-    oai_type, _ = ContractLinkType.objects.get_or_create(name="OAI")
-    ContractLink.objects.create(
-        contract=contract, type=oai_type, value="https://services.dnb.de/oai/repository/789012"
+    contract = create_contract_with_identifiers(
+        oai="https://services.dnb.de/oai/repository/789012",
+        ezb="https://ezb.uni-regensburg.de/id/456789",
+        local="LOCAL-ID-001",
     )
-
-    ezb_type, _ = ContractLinkType.objects.get_or_create(name="EZB")
-    ContractLink.objects.create(
-        contract=contract, type=ezb_type, value="https://ezb.uni-regensburg.de/id/456789"
-    )
-
-    local_type, _ = ContractLinkType.objects.get_or_create(name="Local")
-    ContractLink.objects.create(contract=contract, type=local_type, value="LOCAL-ID-001")
 
     invoice = create_invoice(
         creditor=create_creditor(name="Contract Creditor"),
@@ -677,10 +665,8 @@ def test__report_standalone_contract_with_secondary_identifiers__transforming_to
 def test__publication_with_linked_contract__transforming_to_opencost__attached_contract_is_included_in_report_publication() -> (
     None
 ):
-    contract = modelfactory.contract()
-    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
-    ContractLink.objects.create(
-        contract=contract, type=esac_type, value="https://esac.org/id/test-contract-123"
+    contract = create_contract_with_identifiers(
+        esac="https://esac.org/id/test-contract-123",
     )
 
     publication = modelfactory.publication(title="Publication with Attached Contract")

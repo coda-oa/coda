@@ -1,7 +1,9 @@
 from datetime import date
 from decimal import Decimal
 
-from coda.apps.contracts.models import Contract
+from coda.apps.authors.models import Author
+from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
+from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from coda.apps.invoices.models import Creditor, Invoice, Position
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.report_service import generate_report
@@ -90,3 +92,82 @@ def create_opencost_report(
         period_start=period_start,
         period_end=period_end,
     )
+
+
+def create_institution_with_identifiers(
+    name: str = "Test Institution",
+    ror: str | None = None,
+    isni: str | None = None,
+    ringold: str | None = None,
+    parent: Institution | None = None,
+) -> Institution:
+    """Create an institution with optional ROR, ISNI, and Ringold identifiers."""
+    institution = Institution.objects.create(name=name, parent=parent)
+
+    if ror:
+        ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
+        InstitutionLink.objects.create(institution=institution, type=ror_type, value=ror)
+
+    if isni:
+        isni_type, _ = InstitutionLinkType.objects.get_or_create(name="ISNI")
+        InstitutionLink.objects.create(institution=institution, type=isni_type, value=isni)
+
+    if ringold:
+        ringold_type, _ = InstitutionLinkType.objects.get_or_create(name="Ringold")
+        InstitutionLink.objects.create(institution=institution, type=ringold_type, value=ringold)
+
+    return institution
+
+
+def create_corresponding_author(
+    publication: Publication,
+    name: str = "Test Author",
+    email: str = "test@example.com",
+    affiliation: Institution | None = None,
+) -> Author:
+    """Create a corresponding author for a publication."""
+    return Author.objects.create(
+        name=name,
+        email=email,
+        publication=publication,
+        affiliation=affiliation,
+        roles="CORRESPONDING_AUTHOR",
+    )
+
+
+def create_contract_with_identifiers(
+    name: str = "Test Contract",
+    start_date: date = date(2024, 1, 1),
+    end_date: date = date(2024, 12, 31),
+    esac: str | None = None,
+    oai: str | None = None,
+    ezb: str | None = None,
+    local: str | None = None,
+) -> Contract:
+    """Create a contract with optional ESAC, OAI, EZB, and Local identifiers."""
+    from coda.domain.contract import PublicationBilling
+
+    contract = Contract.objects.create(
+        name=name,
+        start_date=start_date,
+        end_date=end_date,
+        publication_billing=PublicationBilling.Individually.value,
+    )
+
+    if esac:
+        esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
+        ContractLink.objects.create(contract=contract, type=esac_type, value=esac)
+
+    if oai:
+        oai_type, _ = ContractLinkType.objects.get_or_create(name="OAI")
+        ContractLink.objects.create(contract=contract, type=oai_type, value=oai)
+
+    if ezb:
+        ezb_type, _ = ContractLinkType.objects.get_or_create(name="EZB")
+        ContractLink.objects.create(contract=contract, type=ezb_type, value=ezb)
+
+    if local:
+        local_type, _ = ContractLinkType.objects.get_or_create(name="Local")
+        ContractLink.objects.create(contract=contract, type=local_type, value=local)
+
+    return contract
