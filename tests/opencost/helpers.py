@@ -7,7 +7,9 @@ from coda.apps.institutions.models import Institution, InstitutionLink, Institut
 from coda.apps.invoices.models import Creditor, Invoice, Position
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.report_service import generate_report
+from coda.apps.opencost.transformers import report_publication_to_pydantic
 from coda.apps.publications.models import Publication
+from coda.domain.opencost._publication import PublicationType
 
 
 def create_creditor(name: str = "Test Creditor") -> Creditor:
@@ -92,6 +94,24 @@ def create_opencost_report(
         period_start=period_start,
         period_end=period_end,
     )
+
+
+def transform_first_publication_to_pydantic() -> PublicationType:
+    """
+    Helper to create an OpenCost report and transform its first publication to pydantic.
+
+    This eliminates the repeated pattern of:
+    - Creating a report
+    - Getting the first publication
+    - Asserting it's not None
+    - Transforming it to pydantic
+
+    Returns the transformed PublicationType for assertions.
+    """
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    return report_publication_to_pydantic(report_publication)
 
 
 def create_institution_with_identifiers(

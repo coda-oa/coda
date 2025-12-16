@@ -7,7 +7,7 @@ from coda.apps.opencost.models import (
     OpenCostReportContract,
     OpenCostReportContractInstitutionIdentifier,
 )
-from coda.apps.opencost.transformers import report_publication_to_pydantic, to_opencost
+from coda.apps.opencost.transformers import to_opencost
 from coda.apps.publications.models._attachedentities import PublicationAttachedConcept
 from coda.apps.publications.models._vocabulary import Vocabulary
 from coda.domain.opencost._contract import (
@@ -26,6 +26,7 @@ from tests.opencost.helpers import (
     create_institution_with_identifiers,
     create_corresponding_author,
     create_contract_with_identifiers,
+    transform_first_publication_to_pydantic,
 )
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.models import LinkType, Link
@@ -53,12 +54,7 @@ def test__report_article_publication__transforming_to_opencost__returns_valid_op
         creditor_name="Invoice Creditor",
     )
 
-    report = create_opencost_report()
-
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    result = report_publication_to_pydantic(report_publication)
+    result = transform_first_publication_to_pydantic()
 
     assert isinstance(result, PublicationType)
     assert result.primary_identifier.bibliographic_information is not None
@@ -84,11 +80,8 @@ def test__report_monograph_publication__transforming_to_opencost__returns_valid_
         cost_amount=Decimal("2000.00"),
         cost_type="other",
     )
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
 
-    result = report_publication_to_pydantic(report_publication)
+    result = transform_first_publication_to_pydantic()
 
     assert isinstance(result, PublicationType)
     assert result.primary_identifier.bibliographic_information is not None
@@ -113,11 +106,8 @@ def test__report_publication_with_doi__transforming_to_opencost__doi_is_included
         invoice_date=date(2024, 5, 20),
         invoice_number="INV-DOI-001",
     )
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
 
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = transform_first_publication_to_pydantic()
 
     assert oc_publication.primary_identifier.doi == "10.1234/test.doi"
 
@@ -142,11 +132,7 @@ def test__report_publication_with_publication_type__transforming_to_opencost__pu
         invoice_number="INV-COAR-001",
     )
 
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = transform_first_publication_to_pydantic()
 
     assert oc_publication.publication_type == CoarPublicationType.conference_paper
 
@@ -169,11 +155,7 @@ def test__report_publication_with_secondary_identifiers__transforming_to_opencos
         invoice_number="INV-COAR-001",
     )
 
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = transform_first_publication_to_pydantic()
 
     assert oc_publication.secondary_identifiers is not None
     assert len(oc_publication.secondary_identifiers.id) == 2
@@ -218,11 +200,8 @@ def test__report_publication_with_institution_data__transforming_to_opencost__in
         invoice_date=date(2024, 6, 15),
         invoice_number="INV-2024-001",
     )
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
 
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = transform_first_publication_to_pydantic()
 
     assert oc_publication.institution is not None
     assert oc_publication.institution.name is not None
@@ -255,11 +234,7 @@ def test__report_publication_with_invoice__transforming_to_opencost__cost_data_i
         cost_amount=Decimal("1500.00"),
     )
 
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = transform_first_publication_to_pydantic()
 
     assert oc_publication.cost_data is not None
     assert oc_publication.cost_data.invoice is not None
@@ -305,11 +280,7 @@ def test__report_publication_with_invoice_multiple_positions__transforming_to_op
         cost_amount=Decimal("500.00"),
     )
 
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = transform_first_publication_to_pydantic()
 
     assert oc_publication.cost_data is not None
     assert oc_publication.cost_data.invoice is not None
@@ -355,11 +326,7 @@ def test__report_publication_with_multiple_invoices__transforming_to_opencost__a
         cost_amount=Decimal("700.00"),
     )
 
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-
-    oc_publication = report_publication_to_pydantic(report_publication)
+    oc_publication = transform_first_publication_to_pydantic()
 
     assert oc_publication.cost_data is not None
     assert oc_publication.cost_data.invoice is not None
