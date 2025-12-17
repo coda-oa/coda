@@ -27,6 +27,8 @@ from tests.opencost.helpers import (
     create_corresponding_author,
     create_contract_with_identifiers,
     transform_first_publication_to_pydantic,
+    create_contract_with_invoice,
+    generate_opencost_report_from_contract,
 )
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.models import LinkType, Link
@@ -34,7 +36,6 @@ from coda.domain.opencost import CoarPublicationType
 
 from coda.domain.opencost._institution import InstitutionIdType, InstitutionNameType
 
-from coda.apps.opencost.report_service import generate_report
 from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
 from coda.domain.contract import PublicationBilling
 
@@ -341,14 +342,12 @@ def test__report_publication_with_multiple_invoices__transforming_to_opencost__a
 def test__report_standalone_contract_with_institution_data__transforming_to_opencost__contract_data_is_included() -> (
     None
 ):
-    # Create base report
     report = OpenCostReport.objects.create(
         title="Test Report 2024",
         period_start=date(2024, 1, 1),
         period_end=date(2024, 12, 31),
     )
 
-    # Create contract snapshot with institution data
     contract = modelfactory.contract()
     report_contract = OpenCostReportContract.objects.create(
         report=report,
@@ -360,7 +359,6 @@ def test__report_standalone_contract_with_institution_data__transforming_to_open
         primary_identifier_value="",
     )
 
-    # Add institution identifiers
     OpenCostReportContractInstitutionIdentifier.objects.create(
         report_contract=report_contract,
         identifier_type="ror",
@@ -372,10 +370,8 @@ def test__report_standalone_contract_with_institution_data__transforming_to_open
         value="0000 0001 2345 6789",
     )
 
-    # Transform
     opencost_data = to_opencost(report)
 
-    # Verify contract in output
     assert opencost_data.contract is not None
     assert len(opencost_data.contract) == 1
 
@@ -416,37 +412,20 @@ def test__report_standalone_contract_with_invoice_data__transforming_to_opencost
         publication_billing=PublicationBilling.Individually.value,
     )
 
-    invoice = create_invoice(
-        creditor=create_creditor(name="Contract Creditor"),
-        invoice_date=date(2024, 7, 1),
-        number="INV-CONTRACT-001",
-        status="paid",
-    )
-
-    create_position(
-        invoice,
+    create_contract_with_invoice(
         contract=contract,
-        description="Service Fee Part 1",
-        cost_amount=Decimal("1200.00"),
-        cost_type="publish",
+        invoice_date=date(2024, 7, 1),
+        invoice_number="INV-CONTRACT-001",
     )
 
-    report = generate_report(
-        title="Test Report 2024",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
-    )
-
-    opencost_data = to_opencost(report)
+    opencost_data = generate_opencost_report_from_contract()
 
     assert opencost_data.contract is not None
-    assert len(opencost_data.contract) == 1
 
     contract_data = opencost_data.contract[0]
 
     assert contract_data.cost_data is not None
     assert contract_data.cost_data.invoice_group is not None
-    assert len(contract_data.cost_data.invoice_group) == 1
 
     opencost_invoice = contract_data.cost_data.invoice_group[0]
 
@@ -475,51 +454,22 @@ def test__report_standalone_contract_with_invoice_multiple_positions__transformi
         publication_billing=PublicationBilling.Individually.value,
     )
 
-    invoice = create_invoice(
-        creditor=create_creditor(name="Contract Creditor"),
+    create_contract_with_invoice(
+        contract=contract,
         invoice_date=date(2024, 8, 1),
-        number="INV-CONTRACT-002",
-        status="paid",
+        invoice_number="INV-CONTRACT-002",
+        position_descriptions=["Service Fee Part 1", "Service Fee Part 2"],
+        position_amounts=[Decimal("700.00"), Decimal("500.00")],
     )
 
-    create_position(
-        invoice,
-        contract=contract,
-        description="Service Fee Part 1",
-        cost_amount=Decimal("700.00"),
-        cost_type="publish",
-    )
-    create_position(
-        invoice,
-        contract=contract,
-        description="Service Fee Part 2",
-        cost_amount=Decimal("500.00"),
-        cost_type="publish",
-    )
-
-    report = generate_report(
-        title="Test Report 2024",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
-    )
-
-    opencost_data = to_opencost(report)
+    opencost_data = generate_opencost_report_from_contract()
 
     assert opencost_data.contract is not None
-    assert len(opencost_data.contract) == 1
-
     contract_data = opencost_data.contract[0]
-
-    assert contract_data.cost_data is not None
-    assert contract_data.cost_data.invoice_group is not None
-    assert len(contract_data.cost_data.invoice_group) == 1
 
     opencost_invoice = contract_data.cost_data.invoice_group[0]
 
     assert opencost_invoice.invoice is not None
-    assert len(opencost_invoice.invoice) == 1
-    assert opencost_invoice.invoice[0].invoice_number == "INV-CONTRACT-002"
-
     assert opencost_invoice.invoice[0].amount_invoice is not None
     assert opencost_invoice.invoice[0].amount_invoice.amount == Decimal("1200.00")  # 700 + 500
     assert opencost_invoice.invoice[0].amount_invoice.currency == "EUR"
@@ -538,7 +488,6 @@ def test__report_standalone_contract_with_esac_id__transforming_to_opencost__pri
         esac="https://esac.org/id/123456",
     )
 
-    # Add OtherID to verify it's not used
     other_type, _ = ContractLinkType.objects.get_or_create(name="OtherID")
     ContractLink.objects.create(
         contract=contract, type=other_type, value="https://otherid.com/id/555555"

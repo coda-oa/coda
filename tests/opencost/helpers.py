@@ -7,8 +7,9 @@ from coda.apps.institutions.models import Institution, InstitutionLink, Institut
 from coda.apps.invoices.models import Creditor, Invoice, Position
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.report_service import generate_report
-from coda.apps.opencost.transformers import report_publication_to_pydantic
+from coda.apps.opencost.transformers import report_publication_to_pydantic, to_opencost
 from coda.apps.publications.models import Publication
+from coda.domain.opencost import Data
 from coda.domain.opencost._publication import PublicationType
 
 
@@ -191,3 +192,65 @@ def create_contract_with_identifiers(
         ContractLink.objects.create(contract=contract, type=local_type, value=local)
 
     return contract
+
+
+def create_contract_with_invoice(
+    contract: Contract,
+    creditor_name: str = "Contract Creditor",
+    invoice_date: date = date(2024, 7, 1),
+    invoice_number: str = "INV-CONTRACT-001",
+    position_descriptions: list[str] | None = None,
+    position_amounts: list[Decimal] | None = None,
+    cost_type: str = "publish",
+) -> tuple[Invoice, list[Position]]:
+    """
+    Create an invoice with positions for a contract.
+
+    If position_descriptions and position_amounts are not provided,
+    creates a single position with default values.
+    """
+    creditor = create_creditor(name=creditor_name)
+    invoice = create_invoice(
+        creditor=creditor,
+        invoice_date=invoice_date,
+        number=invoice_number,
+        status="paid",
+    )
+
+    # Default to single position if not specified
+    if position_descriptions is None:
+        position_descriptions = ["Service Fee Part 1"]
+    if position_amounts is None:
+        position_amounts = [Decimal("1200.00")]
+
+    positions = []
+    for desc, amount in zip(position_descriptions, position_amounts):
+        position = create_position(
+            invoice,
+            contract=contract,
+            description=desc,
+            cost_amount=amount,
+            cost_type=cost_type,
+        )
+        positions.append(position)
+
+    return invoice, positions
+
+
+def generate_opencost_report_from_contract() -> Data:
+    """
+    Helper to generate an OpenCost report and transform to OpenCostData.
+
+    This eliminates the repeated pattern of:
+    - Generating a report with standard date range
+    - Transforming it to opencost format
+    - Initial contract assertions
+
+    Returns the transformed Data for assertions.
+    """
+    report = generate_report(
+        title="Test Report 2024",
+        period_start=date(2024, 1, 1),
+        period_end=date(2024, 12, 31),
+    )
+    return to_opencost(report)
