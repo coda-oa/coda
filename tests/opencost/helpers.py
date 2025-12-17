@@ -254,3 +254,71 @@ def generate_opencost_report_from_contract() -> Data:
         period_end=date(2024, 12, 31),
     )
     return to_opencost(report)
+
+
+def create_realistic_report_data(
+    num_publications: int = 100,
+    num_contracts: int = 10,
+    period_start: date = date(2024, 1, 1),
+    period_end: date = date(2024, 12, 31),
+) -> OpenCostReport:
+    """
+    Create realistic test data for performance testing.
+
+    Args:
+        num_publications: Number of publications to create
+        num_contracts: Number of contracts to create
+        period_start: Start of reporting period
+        period_end: End of reporting period
+
+    Returns:
+        OpenCostReport with realistic data volumes
+    """
+    from coda.apps.publications.models._attachedentities import AttachedContract
+    from tests import modelfactory
+
+    # Create contracts with invoices
+    contracts = []
+    for i in range(num_contracts):
+        contract = modelfactory.contract()
+        contract.name = f"Contract {i + 1}"
+        contract.save()
+        create_contract_with_invoice(
+            contract,
+            creditor_name=f"Contract Creditor {i + 1}",
+            invoice_date=date(2024, 6, (i % 28) + 1),
+            invoice_number=f"INV-CONTRACT-{i + 1:04d}",
+            position_amounts=[Decimal("5000.00"), Decimal("3000.00")],
+        )
+        contracts.append(contract)
+
+    # Create publications with invoices
+    publications = []
+    for i in range(num_publications):
+        publication = modelfactory.publication()
+        publication.title = f"Publication {i + 1}"
+        publication.save()
+        create_publication_with_invoice(
+            publication,
+            invoice_date=date(2024, 6, ((i * 7) % 28) + 1),
+            invoice_number=f"INV-PUB-{i + 1:04d}",
+            creditor_name=f"Publisher {(i % 20) + 1}",
+            cost_amount=Decimal("1500.00"),
+        )
+
+        # Link some publications to contracts (50% of publications)
+        if i % 2 == 0:
+            AttachedContract.objects.create(
+                contract=contracts[i % num_contracts],
+                publication=publication,
+                contract_year=2024,
+            )
+
+        publications.append(publication)
+
+    # Generate the report
+    return generate_report(
+        title=f"Performance Test Report ({num_publications} pubs, {num_contracts} contracts)",
+        period_start=period_start,
+        period_end=period_end,
+    )
