@@ -75,7 +75,6 @@ class FundingAssignmentDto(CodaBaseDto):
 
 class PositionDto(abc.ABC, CodaBaseDto):
     item: ItemDto = Field(discriminator="type")
-    funding_source: IntOrNone = None
     cost_amount: DecimalOrDefault = Decimal("0.00")
     tax_rate: DecimalOrDefault = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
     external_position_id: str = ""

@@ -79,12 +79,8 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
         cost=Money(position.cost_amount, currency),
         tax_rate=TaxRate.from_percentage(position.tax_rate),
         external_position_id=position.external_position_id,
-        funding_source=FundingSourceId(position.funding_source)
-        if position.funding_source
-        else None,
     )
 
-    _empty = FundingAssignmentDto()
     for f in position.funding_assignments:
         if f.funding_source is None and f.amount == 0:
             continue

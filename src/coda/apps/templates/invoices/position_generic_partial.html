@@ -3,18 +3,6 @@
        value="{{ position.item.type }}">
 <div class="grid">
     <div class="form-row">
-        <label for="id-positions-{{ counter }}-funding-source"
-               class="form-row-item-sm">Funding Source</label>
-        <select name="positions-{{ counter }}-funding_source"
-                id="id-positions-{{ counter }}-funding-source">
-            <option value>-------</option>
-            {% for fs in funding_sources %}
-                <option value="{{ fs.id }}"
-                        {% if position.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="form-row">
         <label for="id-positions-{{ counter }}-external-position-id">External Position ID</label>
         <input type="text"
                id="id-positions-{{ counter }}-external-position-id"
