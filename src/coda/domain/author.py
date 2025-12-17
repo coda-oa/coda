@@ -4,6 +4,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import Any, NewType
 
+from coda.domain import errors
 from coda.domain.orcid import Orcid
 from coda.domain.string import NonEmptyStr
 
@@ -11,11 +12,22 @@ AuthorId = NewType("AuthorId", int)
 InstitutionId = NewType("InstitutionId", int)
 
 
+class NoEmailForCorrespondingAuthor(errors.DomainError):
+    def __init__(self, author_name: str) -> None:
+        super().__init__(f"{author_name} is the corresponding author, but does not have an email")
+
+
 class Role(enum.Enum):
     SUBMITTER = "Submitter"
     CO_AUTHOR = "Co-author"
     CORRESPONDING_AUTHOR = "Corresponding author"
     SUBMITTING_CORRESPONDING_AUTHOR = "Submitting corresponding author"
+
+    def is_corresponding_role(self) -> bool:
+        return self in (Role.CORRESPONDING_AUTHOR, Role.SUBMITTING_CORRESPONDING_AUTHOR)
+
+    def is_submitting_role(self) -> bool:
+        return self in (Role.SUBMITTER, Role.SUBMITTING_CORRESPONDING_AUTHOR)
 
 
 @dataclass
@@ -36,6 +48,9 @@ class Author:
         affiliation: InstitutionId | None = None,
         role: Role = Role.CO_AUTHOR,
     ) -> "Author":
+        if role.is_corresponding_role() and not email:
+            raise NoEmailForCorrespondingAuthor(name)
+
         return cls(
             id=None,
             name=name,
@@ -46,10 +61,10 @@ class Author:
         )
 
     def is_corresponding_author(self) -> bool:
-        return Role.CORRESPONDING_AUTHOR == self.role
+        return self.role.is_corresponding_role()
 
     def is_submitter(self) -> bool:
-        return self.role in (Role.SUBMITTER, Role.SUBMITTING_CORRESPONDING_AUTHOR)
+        return self.role.is_submitting_role()
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Author):

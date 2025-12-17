@@ -1,3 +1,5 @@
+import pytest
+
 from coda.domain.author import Author, AuthorId, Role
 from coda.domain.orcid import Orcid
 from coda.domain.string import NonEmptyStr
@@ -29,3 +31,13 @@ def test__author_with_submitting_role__is_submitter() -> None:
 
     author = Author.new(name=NonEmptyStr("John Doe"), role=Role.SUBMITTING_CORRESPONDING_AUTHOR)
     assert author.is_submitter()
+
+
+@pytest.mark.parametrize("role", (Role.CORRESPONDING_AUTHOR, Role.SUBMITTING_CORRESPONDING_AUTHOR))
+def test__corresponding_author__must_have_an_email(role: Role) -> None:
+    with pytest.raises(ValueError):
+        _ = Author.new(NonEmptyStr("John Doe"), role=role)
+
+    with pytest.raises(ValueError):
+        sut = Author.new(NonEmptyStr("John Doe"), "j.doe@example.com", role=role)
+        sut.email = ""

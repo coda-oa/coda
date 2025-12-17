@@ -14,8 +14,9 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import LinkDto, MonographDto, PublicationDto
 from coda.apps.publications.forms import PublicationForm
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.domain.author import AuthorNames, InstitutionId, Role
+from coda.domain.author import Author, AuthorNames, InstitutionId, Role
 from coda.domain.publication import Authors
+from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import Vocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory
 from tests.authors.test__author import assert_author_eq
@@ -32,6 +33,27 @@ author_str = """John Doe, Jane Doe, John Smith,
 
 def assert_expected_authors(ctx: dict[str, list[str]]) -> None:
     assert list(ctx["authors"]) == ["John Doe", "Jane Doe", "John Smith", "Anna Smith"]
+
+
+@pytest.mark.django_db
+def test__publication_step__corresponding_author_without_email__is_invalid() -> None:
+    create_vocabularies()
+    sut = PublicationStep.for_article()
+    store = DictStore()
+
+    publication = domainfactory.publication(
+        publication_type=an_article_type(), subject_area=a_subject_area()
+    )
+    publication.relevant_authors = Authors(
+        [Author.new(NonEmptyStr("John Doe"), "j.doe@example.com", role=Role.CORRESPONDING_AUTHOR)]
+    )
+    publication_dto = PublicationDto.from_publication(publication)
+    publication_dto.relevant_authors[0].email = ""
+
+    stepdata = publication_step.stepdata(publication_dto)
+    request = request_factory.post("/", stepdata)
+
+    assert sut.is_valid(request, store) is False
 
 
 @pytest.mark.django_db
