@@ -18,7 +18,11 @@ class ValidationWarning:
 def validate_report(report: "OpenCostReport") -> list[ValidationWarning]:
     warnings: list[ValidationWarning] = []
 
-    for contract in report.contracts.all():
+    # Prefetch related data to eliminate N+1 queries
+    contracts = report.contracts.select_related("contract").all()
+    publications = report.publications.select_related("publication").all()
+
+    for contract in contracts:
         if not contract.primary_identifier_value:
             warnings.append(
                 ValidationWarning(
@@ -43,7 +47,7 @@ def validate_report(report: "OpenCostReport") -> list[ValidationWarning]:
                 )
             )
 
-    for pub in report.publications.all():
+    for pub in publications:
         if not pub.doi:
             warnings.append(
                 ValidationWarning(

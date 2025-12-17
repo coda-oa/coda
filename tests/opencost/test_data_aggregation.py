@@ -2,8 +2,17 @@ from datetime import date
 import pytest
 
 from tests import modelfactory
-from coda.apps.opencost.data_aggregation import get_invoices_for_period, get_publications_for_period
-from tests.opencost.helpers import create_creditor, create_publication_with_invoice, create_invoice
+from coda.apps.opencost.data_aggregation import (
+    get_invoices_for_period,
+    get_publications_for_period,
+    get_contracts_for_period,
+)
+from tests.opencost.helpers import (
+    create_creditor,
+    create_publication_with_invoice,
+    create_invoice,
+    create_contract_with_invoice,
+)
 from decimal import Decimal
 
 
@@ -152,3 +161,127 @@ def test__paid_and_unpaid_invoices__querying_invoices_for_period__returns_only_p
 
     assert paid_invoice in query_results
     assert unpaid_invoice not in query_results
+
+
+@pytest.mark.django_db
+def test_get_publications_for_period_works_without_invoice_parameter() -> None:
+    """
+    Verify backward compatibility: function should still work when called
+    without the invoices_in_period parameter.
+    """
+    # Create test data
+    publication = modelfactory.publication(title="Test Publication")
+    create_publication_with_invoice(
+        publication,
+        invoice_date=date(2024, 6, 15),
+        invoice_number="INV-TEST",
+        cost_amount=Decimal("1000.00"),
+        cost_type="APC",
+    )
+
+    # Call without invoice parameter (backward compatibility)
+    publications = get_publications_for_period(
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+    )
+
+    # Should still work
+    assert publications.count() == 1
+    assert publication in publications
+
+
+@pytest.mark.django_db
+def test_get_publications_for_period_works_with_invoice_parameter() -> None:
+    """
+    Verify new parameter works: function accepts pre-fetched invoices.
+    """
+    # Create test data
+    publication = modelfactory.publication(title="Test Publication")
+    create_publication_with_invoice(
+        publication,
+        invoice_date=date(2024, 6, 15),
+        invoice_number="INV-TEST",
+        cost_amount=Decimal("1000.00"),
+        cost_type="APC",
+    )
+
+    # Fetch invoices separately
+    invoices = get_invoices_for_period(
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+    )
+
+    # Call with invoice parameter
+    publications = get_publications_for_period(
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+        invoices_in_period=invoices,
+    )
+
+    # Should work with passed invoices
+    assert publications.count() == 1
+    assert publication in publications
+
+
+@pytest.mark.django_db
+def test_get_contracts_for_period_works_without_invoice_parameter() -> None:
+    """
+    Verify backward compatibility: function should still work when called
+    without the invoices_in_period parameter.
+    """
+    # Create test data
+    contract = modelfactory.contract()
+    contract.start_date = date(2024, 1, 1)
+    contract.end_date = date(2024, 12, 31)
+    contract.save()
+
+    create_contract_with_invoice(
+        contract,
+        invoice_date=date(2024, 6, 15),
+        invoice_number="INV-CONTRACT",
+    )
+
+    # Call without invoice parameter (backward compatibility)
+    contracts = get_contracts_for_period(
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+    )
+
+    # Should still work
+    assert contracts.count() == 1
+    assert contract in contracts
+
+
+@pytest.mark.django_db
+def test_get_contracts_for_period_works_with_invoice_parameter() -> None:
+    """
+    Verify new parameter works: function accepts pre-fetched invoices.
+    """
+    # Create test data
+    contract = modelfactory.contract()
+    contract.start_date = date(2024, 1, 1)
+    contract.end_date = date(2024, 12, 31)
+    contract.save()
+
+    create_contract_with_invoice(
+        contract,
+        invoice_date=date(2024, 6, 15),
+        invoice_number="INV-CONTRACT",
+    )
+
+    # Fetch invoices separately
+    invoices = get_invoices_for_period(
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+    )
+
+    # Call with invoice parameter
+    contracts = get_contracts_for_period(
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+        invoices_in_period=invoices,
+    )
+
+    # Should work with passed invoices
+    assert contracts.count() == 1
+    assert contract in contracts

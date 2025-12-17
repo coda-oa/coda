@@ -11,7 +11,6 @@ from django.db.models import Q
 from collections.abc import Sequence
 
 from coda.apps.opencost.models import OpenCostReport
-from coda.apps.opencost.validation import validate_report
 from coda.apps.opencost.report_service import generate_report as generate_report_service
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.views import SimpleSearchEntityListView
@@ -65,7 +64,7 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
         "invoices__positions",
     ).all()
 
-    warnings = validate_report(report)
+    warnings = report.validation_warnings
     errors = [w for w in warnings if w.level == "error"]
     warnings_only = [w for w in warnings if w.level == "warning"]
 
