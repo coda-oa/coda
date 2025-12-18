@@ -34,10 +34,10 @@ class Role(enum.Enum):
 class Author:
     id: AuthorId | None
     name: NonEmptyStr
-    email: str = ""
     orcid: Orcid | None = None
     affiliation: InstitutionId | None = None
-    role: Role = Role.CO_AUTHOR
+    _email: str = ""
+    _role: Role = Role.CO_AUTHOR
 
     @classmethod
     def new(
@@ -48,17 +48,59 @@ class Author:
         affiliation: InstitutionId | None = None,
         role: Role = Role.CO_AUTHOR,
     ) -> "Author":
-        if role.is_corresponding_role() and not email:
-            raise NoEmailForCorrespondingAuthor(name)
-
         return cls(
             id=None,
             name=name,
-            email=email,
+            _email=email,
             orcid=orcid,
             affiliation=affiliation,
-            role=role,
+            _role=role,
         )
+
+    @classmethod
+    def restore(
+        cls,
+        id: AuthorId | None,
+        name: NonEmptyStr,
+        email: str = "",
+        orcid: Orcid | None = None,
+        affiliation: InstitutionId | None = None,
+        role: Role = Role.CO_AUTHOR,
+    ) -> "Author":
+        return cls(
+            id=id,
+            name=name,
+            orcid=orcid,
+            affiliation=affiliation,
+            _email=email,
+            _role=role,
+        )
+
+    def __post_init__(self) -> None:
+        if self.role.is_corresponding_role() and not self.email:
+            raise NoEmailForCorrespondingAuthor(self.name)
+
+    @property
+    def email(self) -> str:
+        return self._email
+
+    @email.setter
+    def email(self, value: str) -> None:
+        if self.role.is_corresponding_role() and not value:
+            raise NoEmailForCorrespondingAuthor(self.name)
+
+        self._email = value
+
+    @property
+    def role(self) -> Role:
+        return self._role
+
+    @role.setter
+    def role(self, value: Role) -> None:
+        if value.is_corresponding_role() and not self.email:
+            raise NoEmailForCorrespondingAuthor(self.name)
+
+        self._role = value
 
     def is_corresponding_author(self) -> bool:
         return self.role.is_corresponding_role()

@@ -27,8 +27,8 @@ def get_by_id(author_id: AuthorId) -> Author:
 
 def as_domain_object(model: AuthorModel) -> Author:
     person_id = cast(PersonId, model.identifier)
-    return Author(
-        id=AuthorId(model.id),
+    return Author.restore(
+        id=AuthorId(model.pk),
         name=NonEmptyStr(model.name),
         email=model.email or "",
         orcid=Orcid(person_id.orcid) if person_id.orcid else None,
@@ -53,7 +53,7 @@ def author_create(author: Author, publication: PublicationId | None = None) -> A
         roles=roles,
         publication_id=publication,
     )
-    return AuthorId(_author.id)
+    return AuthorId(_author.pk)
 
 
 def create_many(authors: list[Author], publication: PublicationId | None = None) -> list[AuthorId]:
@@ -71,7 +71,7 @@ def create_many(authors: list[Author], publication: PublicationId | None = None)
         for a, pid, aff in zip(authors, person_ids, affiliations)
     ]
     created = AuthorModel.objects.bulk_create(author_models)
-    return [AuthorId(a.id) for a in created]
+    return [AuthorId(a.pk) for a in created]
 
 
 def _assign_person_ids_for_authors(authors: list[Author]) -> list[PersonId]:

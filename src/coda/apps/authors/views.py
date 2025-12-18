@@ -1,6 +1,7 @@
 from typing import Any
 
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.views.generic import DetailView, TemplateView
@@ -10,13 +11,13 @@ from coda.apps.authors.models import Author
 from coda.apps.authors.services import author_create
 
 
-class AuthorDetailView(DetailView[Author]):
+class AuthorDetailView(LoginRequiredMixin, DetailView[Author]):
     model = Author
     template_name = "authors/author_detail.html"
     context_object_name = "author"
 
 
-class AuthorCreateView(TemplateView):
+class AuthorCreateView(LoginRequiredMixin, TemplateView):
     template_name = "authors/author_create.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:

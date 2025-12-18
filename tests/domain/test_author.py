@@ -10,7 +10,7 @@ def test__can_create_author() -> None:
     _ = Author(
         id=AuthorId(8),
         name=NonEmptyStr("John Doe"),
-        email="john.doe@example.com",
+        _email="john.doe@example.com",
         orcid=Orcid(JOSIAH_CARBERRY),
     )
 
@@ -29,15 +29,37 @@ def test__author_with_submitting_role__is_submitter() -> None:
     author = Author.new(name=NonEmptyStr("John Doe"), role=Role.SUBMITTER)
     assert author.is_submitter()
 
-    author = Author.new(name=NonEmptyStr("John Doe"), role=Role.SUBMITTING_CORRESPONDING_AUTHOR)
+    author = Author.new(
+        name=NonEmptyStr("John Doe"),
+        role=Role.SUBMITTING_CORRESPONDING_AUTHOR,
+        email="j.doe@example.com",
+    )
     assert author.is_submitter()
 
 
 @pytest.mark.parametrize("role", (Role.CORRESPONDING_AUTHOR, Role.SUBMITTING_CORRESPONDING_AUTHOR))
-def test__corresponding_author__must_have_an_email(role: Role) -> None:
+def test__new_author__is_corresponding_author__must_have_an_email(role: Role) -> None:
     with pytest.raises(ValueError):
         _ = Author.new(NonEmptyStr("John Doe"), role=role)
 
+    sut = Author.new(NonEmptyStr("John Doe"), "j.doe@example.com", role=role)
     with pytest.raises(ValueError):
-        sut = Author.new(NonEmptyStr("John Doe"), "j.doe@example.com", role=role)
         sut.email = ""
+
+    sut = Author.new(NonEmptyStr("John Doe"), "")
+    with pytest.raises(ValueError):
+        sut.role = role
+
+
+@pytest.mark.parametrize("role", (Role.CORRESPONDING_AUTHOR, Role.SUBMITTING_CORRESPONDING_AUTHOR))
+def test__existing_author__is_corresponding_author__must_have_an_email(role: Role) -> None:
+    with pytest.raises(ValueError):
+        _ = Author(AuthorId(1), NonEmptyStr("John Doe"), _role=role)
+
+    sut = Author(AuthorId(1), NonEmptyStr("John Doe"), _email="j.doe@example.com", _role=role)
+    with pytest.raises(ValueError):
+        sut.email = ""
+
+    sut = Author(AuthorId(1), NonEmptyStr("John Doe"), _email="")
+    with pytest.raises(ValueError):
+        sut.role = role

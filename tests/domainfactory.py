@@ -78,7 +78,7 @@ def author(
     elif role is None:
         role = random_role()
 
-    return Author(
+    return Author.restore(
         id=id,
         name=NonEmptyStr(_faker.name()),
         email=_faker.email(),

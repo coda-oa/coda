@@ -59,7 +59,7 @@ class AuthorForm(CodaFormBase):
             self.add_error("email", str(e))
             return False
 
-        return False
+        return True
 
     def to_dto(self) -> AuthorDto:
         data = dict(self.cleaned_data)

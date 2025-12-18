@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from typing import cast
 
 import pytest
@@ -89,10 +88,9 @@ def test__updating_author__without_id__raises_error() -> None:
 def test__details_already_exist__reuses_existing_person(client: Client) -> None:
     author_create(JOSIAHS_DATA)
 
-    form_data = asdict(JOSIAHS_DATA)
-    form_data.pop("id")
-    form_data["affiliation"] = ""
-    client.post("/authors/create/", form_data)
+    form_data = AuthorDto.from_author(JOSIAHS_DATA)
+    form_data.affiliation = None
+    client.post("/authors/create/", form_data.to_post_data())
 
     assert PersonId.objects.count() == 1
 

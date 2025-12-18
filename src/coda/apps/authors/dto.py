@@ -22,7 +22,7 @@ class AuthorDto(CodaBaseDto):
         )
 
     def to_author(self, id: AuthorId | None = None) -> Author:
-        return Author(
+        return Author.restore(
             id=id,
             name=NonEmptyStr(self.name),
             email=self.email,
