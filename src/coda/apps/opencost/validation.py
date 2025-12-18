@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from typing import Literal, TYPE_CHECKING
+from collections.abc import Sequence
 
 if TYPE_CHECKING:
-    from .models import OpenCostReport
+    from .models import OpenCostReport, OpenCostReportContract, OpenCostReportPublication
 
 
 @dataclass
@@ -15,12 +16,29 @@ class ValidationWarning:
     fix_url: str | None = None
 
 
-def validate_report(report: "OpenCostReport") -> list[ValidationWarning]:
+def validate_report(
+    report: "OpenCostReport",
+    contracts: Sequence["OpenCostReportContract"] | None = None,
+    publications: Sequence["OpenCostReportPublication"] | None = None,
+) -> list[ValidationWarning]:
+    """
+    Validate a report for completeness issues.
+
+    Args:
+        report: The OpenCost report to validate
+        contracts: Optional pre-loaded contracts (avoids duplicate query)
+        publications: Optional pre-loaded publications (avoids duplicate query)
+
+    Returns:
+        List of validation warnings/errors
+    """
     warnings: list[ValidationWarning] = []
 
-    # Prefetch related data to eliminate N+1 queries
-    contracts = report.contracts.select_related("contract").all()
-    publications = report.publications.select_related("publication").all()
+    # Only fetch if not provided (for backwards compatibility)
+    if contracts is None:
+        contracts = list(report.contracts.select_related("contract").all())
+    if publications is None:
+        publications = list(report.publications.select_related("publication").all())
 
     for contract in contracts:
         if not contract.primary_identifier_value:

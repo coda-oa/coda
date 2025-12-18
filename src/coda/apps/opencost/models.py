@@ -16,6 +16,14 @@ class OpenCostReport(models.Model):
 
     xml_content = models.TextField(blank=True, help_text="Generated OpenCost XML")
 
+    # Validation summary (computed at generation time to avoid N+1 queries)
+    errors_count = models.IntegerField(
+        default=0, help_text="Number of validation errors in this report"
+    )
+    warnings_count = models.IntegerField(
+        default=0, help_text="Number of validation warnings in this report"
+    )
+
     class Meta:
         ordering = ["-generated_at"]
         verbose_name = "OpenCost Report"
@@ -30,12 +38,14 @@ class OpenCostReport(models.Model):
         return validate_report(self)
 
     def has_issues(self) -> bool:
-        return len(self.validation_warnings) > 0
+        """Check if report has any validation issues (uses cached counts)."""
+        return self.errors_count > 0 or self.warnings_count > 0
 
     def get_issue_counts(self) -> dict[str, int]:
+        """Get validation issue counts (uses cached counts)."""
         return {
-            "errors": sum(1 for w in self.validation_warnings if w.level == "error"),
-            "warnings": sum(1 for w in self.validation_warnings if w.level == "warning"),
+            "errors": self.errors_count,
+            "warnings": self.warnings_count,
         }
 
 

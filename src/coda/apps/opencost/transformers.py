@@ -116,7 +116,8 @@ def _get_part_of_contract(report_pub: OpenCostReportPublication) -> PartOfContra
     linked_contract = linked_contracts[0]
     contract = linked_contract.contract
 
-    esac_link = contract.links.filter(type__name="ESAC").first()
+    # Filter in Python to use prefetch cache instead of hitting database
+    esac_link = next((link for link in contract.links.all() if link.type.name == "ESAC"), None)
 
     if not esac_link:
         return None
@@ -199,14 +200,20 @@ def _get_institution(report_pub: OpenCostReportPublication) -> InstitutionType:
     )
 
 
-def to_opencost(report: OpenCostReport) -> Data:
-    publications = [
-        report_publication_to_pydantic(report_pub) for report_pub in report.publications.all()
-    ]
+def to_opencost(
+    report: OpenCostReport,
+    publications_list: list[OpenCostReportPublication] | None = None,
+    contracts_list: list[OpenCostReportContract] | None = None,
+) -> Data:
+    # Use pre-loaded data if provided, otherwise fetch (backwards compatible)
+    if publications_list is None:
+        publications_list = list(report.publications.all())
+    if contracts_list is None:
+        contracts_list = list(report.contracts.all())
 
-    contracts = [
-        report_contract_to_pydantic(report_contract) for report_contract in report.contracts.all()
-    ]
+    publications = [report_publication_to_pydantic(report_pub) for report_pub in publications_list]
+
+    contracts = [report_contract_to_pydantic(report_contract) for report_contract in contracts_list]
 
     return Data(
         publication=publications if publications else None,

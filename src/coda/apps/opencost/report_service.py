@@ -29,6 +29,7 @@ from coda.apps.opencost.models import (
     OpenCostReportInvoice,
     OpenCostReportPublicationLink,
 )
+from coda.apps.opencost.validation import validate_report
 from coda.apps.publications.models import Publication
 from coda.apps.preferences.models import GlobalPreferences
 
@@ -211,9 +212,24 @@ def generate_report(title: str, period_start: date, period_end: date) -> OpenCos
     logger.info("Updating publication-contract group IDs...")
     _update_publication_contract_group_ids(report)
 
+    # VALIDATION PHASE - Compute and cache validation counts
+    logger.info("Computing validation warnings...")
+
+    # Get already-created snapshots to avoid queries (extract values from dicts)
+    report_publications_list = list(report_publications.values())
+    report_contracts_list = list(report_contracts.values())
+
+    warnings = validate_report(
+        report, contracts=report_contracts_list, publications=report_publications_list
+    )
+    report.errors_count = sum(1 for w in warnings if w.level == "error")
+    report.warnings_count = sum(1 for w in warnings if w.level == "warning")
+    report.save(update_fields=["errors_count", "warnings_count"])
+
     logger.info(
         f"Completed OpenCost report generation: {report.id} "
-        f"({report.publications.count()} publications, {report.contracts.count()} contracts)"
+        f"({report.publications.count()} publications, {report.contracts.count()} contracts) "
+        f"[{report.errors_count} errors, {report.warnings_count} warnings]"
     )
 
     return report
