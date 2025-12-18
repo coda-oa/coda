@@ -4,6 +4,7 @@ from typing import Any
 
 from django import forms
 from django.forms.utils import ErrorList
+import pydantic
 
 from coda.apps import widgets
 from coda.apps.authors.dto import AuthorDto
@@ -11,7 +12,7 @@ from coda.apps.formbase import CodaFormBase
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 from coda.apps.institutions import repository
 from coda.apps.institutions.models import Institution
-from coda.domain.author import Author, InstitutionId, Role
+from coda.domain.author import Author, InstitutionId, NoEmailForCorrespondingAuthor, Role
 from coda.domain.orcid import Orcid
 from coda.domain.publication import Authors
 from coda.validation import as_validator
@@ -30,7 +31,7 @@ class AuthorForm(CodaFormBase):
     use_required_attribute = False
 
     name = forms.CharField(label="Name*")
-    email = forms.EmailField(label="Email*")
+    email = forms.EmailField(label="Email", required=False)
     orcid = OrcidField(required=False)
     affiliation = forms.ChoiceField(
         choices=lambda: (
@@ -44,6 +45,21 @@ class AuthorForm(CodaFormBase):
         choices=((role.name, role.value) for role in Role),
         required=False,
     )
+
+    def is_valid(self) -> bool:
+        valid = super().is_valid()
+        if not valid:
+            return False
+
+        try:
+            self.to_dto().to_author()
+        except pydantic.ValidationError:
+            return False
+        except NoEmailForCorrespondingAuthor as e:
+            self.add_error("email", str(e))
+            return False
+
+        return True
 
     def to_dto(self) -> AuthorDto:
         data = dict(self.cleaned_data)

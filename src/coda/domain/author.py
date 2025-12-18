@@ -1,14 +1,19 @@
 import enum
 import re
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
 from typing import Any, NewType
 
+from coda.domain import errors
 from coda.domain.orcid import Orcid
 from coda.domain.string import NonEmptyStr
 
 AuthorId = NewType("AuthorId", int)
 InstitutionId = NewType("InstitutionId", int)
+
+
+class NoEmailForCorrespondingAuthor(errors.DomainError):
+    def __init__(self, author_name: str) -> None:
+        super().__init__(f"{author_name} is the corresponding author, but does not have an email")
 
 
 class Role(enum.Enum):
@@ -17,15 +22,62 @@ class Role(enum.Enum):
     CORRESPONDING_AUTHOR = "Corresponding author"
     SUBMITTING_CORRESPONDING_AUTHOR = "Submitting corresponding author"
 
+    def is_corresponding_role(self) -> bool:
+        return self in (Role.CORRESPONDING_AUTHOR, Role.SUBMITTING_CORRESPONDING_AUTHOR)
 
-@dataclass
+    def is_submitting_role(self) -> bool:
+        return self in (Role.SUBMITTER, Role.SUBMITTING_CORRESPONDING_AUTHOR)
+
+
 class Author:
-    id: AuthorId | None
-    name: NonEmptyStr
-    email: str = ""
-    orcid: Orcid | None = None
-    affiliation: InstitutionId | None = None
-    role: Role = Role.CO_AUTHOR
+    """
+    Domain entity representing an author.
+
+    Use Author.new() to create new authors with validation.
+    Use Author.restore() to load existing authors from the database.
+    Direct instantiation is discouraged - use the factory methods instead.
+    """
+
+    def __init__(
+        self,
+        id: AuthorId | None,
+        name: NonEmptyStr,
+        orcid: Orcid | None = None,
+        affiliation: InstitutionId | None = None,
+        _email: str = "",
+        _role: Role = Role.CO_AUTHOR,
+        *,
+        _restore: bool = False,
+    ) -> None:
+        """
+        Initialize an Author instance.
+
+        Args:
+            id: Unique identifier for the author (None for new authors)
+            name: Author's name (must be non-empty)
+            orcid: Optional ORCID identifier
+            affiliation: Optional institution affiliation ID
+            _email: Author's email address (private field)
+            _role: Author's role (private field)
+            _restore: Internal flag to bypass validation when loading from database.
+                     WARNING: Do not use directly. Use Author.new() or Author.restore().
+                     This flag exists to allow loading legacy data that may not meet
+                     current validation rules.
+
+        Raises:
+            NoEmailForCorrespondingAuthor: If _restore=False and the author is a
+                corresponding author without an email address.
+        """
+        self.id = id
+        self.name = name
+        self.orcid = orcid
+        self.affiliation = affiliation
+        self._email = _email
+        self._role = _role
+
+        # Validate business rules only when not restoring legacy data
+        if not _restore and _role.is_corresponding_role() and not _email:
+            raise NoEmailForCorrespondingAuthor(name)
 
     @classmethod
     def new(
@@ -36,26 +88,110 @@ class Author:
         affiliation: InstitutionId | None = None,
         role: Role = Role.CO_AUTHOR,
     ) -> "Author":
+        """
+        Create a new author with validation.
+
+        This method enforces all business rules, including requiring an email
+        for corresponding authors.
+
+        Args:
+            name: Author's name (must be non-empty)
+            email: Author's email address (required for corresponding authors)
+            orcid: Optional ORCID identifier
+            affiliation: Optional institution affiliation ID
+            role: Author's role (default: CO_AUTHOR)
+
+        Returns:
+            A new Author instance with id=None
+
+        Raises:
+            NoEmailForCorrespondingAuthor: If the role is corresponding author
+                and email is empty.
+        """
         return cls(
             id=None,
             name=name,
-            email=email,
             orcid=orcid,
             affiliation=affiliation,
-            role=role,
+            _email=email,
+            _role=role,
+            _restore=False,
         )
 
+    @classmethod
+    def restore(
+        cls,
+        id: AuthorId | None,
+        name: NonEmptyStr,
+        email: str = "",
+        orcid: Orcid | None = None,
+        affiliation: InstitutionId | None = None,
+        role: Role = Role.CO_AUTHOR,
+    ) -> "Author":
+        """
+        Restore an existing author from the database without validation.
+
+        This method bypasses validation to allow loading legacy data that may
+        not meet current business rules (e.g., corresponding authors without emails).
+        Property setters will still enforce validation on subsequent updates.
+
+        Args:
+            id: Author's database ID
+            name: Author's name
+            email: Author's email address
+            orcid: Optional ORCID identifier
+            affiliation: Optional institution affiliation ID
+            role: Author's role
+
+        Returns:
+            An Author instance restored from the database
+        """
+        return cls(
+            id=id,
+            name=name,
+            orcid=orcid,
+            affiliation=affiliation,
+            _email=email,
+            _role=role,
+            _restore=True,
+        )
+
+    @property
+    def email(self) -> str:
+        return self._email
+
+    @email.setter
+    def email(self, value: str) -> None:
+        if self.role.is_corresponding_role() and not value:
+            raise NoEmailForCorrespondingAuthor(self.name)
+
+        self._email = value
+
+    @property
+    def role(self) -> Role:
+        return self._role
+
+    @role.setter
+    def role(self, value: Role) -> None:
+        if value.is_corresponding_role() and not self.email:
+            raise NoEmailForCorrespondingAuthor(self.name)
+
+        self._role = value
+
     def is_corresponding_author(self) -> bool:
-        return Role.CORRESPONDING_AUTHOR == self.role
+        return self.role.is_corresponding_role()
 
     def is_submitter(self) -> bool:
-        return self.role in (Role.SUBMITTER, Role.SUBMITTING_CORRESPONDING_AUTHOR)
+        return self.role.is_submitting_role()
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Author):
             return False
 
         return self.id == other.id
+
+    def __hash__(self) -> int:
+        return hash((self.__class__.__name__, self.id))
 
 
 def _parse_line(line: str, /, reverse_names: bool) -> list[str]:
