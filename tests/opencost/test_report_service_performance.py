@@ -43,6 +43,76 @@ from tests.opencost.helpers import (
 )
 
 
+def create_performance_test_dataset(num_publications: int = 1000, num_contracts: int = 10) -> None:
+    """
+    Create a realistic dataset for OpenCost performance testing.
+
+    Creates:
+    - Link types (DOI, Handle)
+    - Specified number of contracts with invoices
+    - Specified number of publications with invoices, links, and contract attachments
+
+    Args:
+        num_publications: Number of publications to create (default: 1000)
+        num_contracts: Number of contracts to create (default: 10)
+    """
+    from coda.apps.publications.models._links import LinkType, Link
+
+    # Setup: Create link types
+    doi_type, _ = LinkType.objects.get_or_create(name="DOI")
+    handle_type, _ = LinkType.objects.get_or_create(name="Handle")
+
+    # Create contracts with invoices
+    contracts = []
+    for i in range(num_contracts):
+        contract = modelfactory.contract()
+        contract.name = f"Test Contract {i + 1}"
+        contract.start_date = date(2024, 1, 1)
+        contract.end_date = date(2024, 12, 31)
+        contract.save()
+
+        creditor = create_creditor(name=f"Contract Creditor {i}")
+        invoice = create_invoice(
+            creditor=creditor,
+            invoice_date=date(2024, 6, 1),
+            number=f"INV-CONTRACT-{i:02d}",
+        )
+        create_position(
+            invoice=invoice,
+            contract=contract,
+            cost_amount=Decimal("5000.00"),
+        )
+
+        contracts.append(contract)
+
+    # Create publications with invoices, links, and contract attachments
+    for i in range(num_publications):
+        pub = modelfactory.publication()
+        pub.title = f"Test Article {i + 1}"
+        pub.save()
+
+        # Add DOI and Handle links
+        Link.objects.create(publication=pub, type=doi_type, value=f"10.1234/article{i}")
+        Link.objects.create(publication=pub, type=handle_type, value=f"hdl:1234/{i}")
+
+        # Create invoice with position
+        creditor = create_creditor(name=f"Publisher {i % 100}")  # 100 unique publishers
+        invoice = create_invoice(
+            creditor=creditor,
+            invoice_date=date(2024, 1, 1) + timedelta(days=i % 365),
+            number=f"INV-2024-{i:04d}",
+        )
+        create_position(
+            invoice=invoice,
+            publication=pub,
+            cost_amount=Decimal("1500.00"),
+        )
+
+        # Attach to a contract (round-robin)
+        contract = contracts[i % len(contracts)]
+        AttachedContract.objects.create(publication=pub, contract=contract, contract_year=2024)
+
+
 @pytest.mark.django_db
 def test_update_publication_contract_group_ids_with_no_contracts() -> None:
     """Verify function handles edge case of no contracts gracefully."""
@@ -225,63 +295,11 @@ def test_generate_report_bulk_operations_performance() -> None:
     Total: ~32-52 queries (actual may vary slightly)
     """
     import time
-    from coda.apps.publications.models._links import LinkType, Link
 
     start_time = time.time()
 
-    # Setup: Create link types
-    doi_type, _ = LinkType.objects.get_or_create(name="DOI")
-    handle_type, _ = LinkType.objects.get_or_create(name="Handle")
-
-    # Create 10 contracts with invoices
-    contracts = []
-    for i in range(10):
-        contract = modelfactory.contract()
-        contract.name = f"Test Contract {i + 1}"
-        contract.start_date = date(2024, 1, 1)
-        contract.end_date = date(2024, 12, 31)
-        contract.save()
-
-        creditor = create_creditor(name=f"Contract Creditor {i}")
-        invoice = create_invoice(
-            creditor=creditor,
-            invoice_date=date(2024, 6, 1),
-            number=f"INV-CONTRACT-{i:02d}",
-        )
-        create_position(
-            invoice=invoice,
-            contract=contract,
-            cost_amount=Decimal("5000.00"),
-        )
-
-        contracts.append(contract)
-
-    # Create 1,000 publications with invoices, links, and contract attachments
-    for i in range(1000):
-        pub = modelfactory.publication()
-        pub.title = f"Test Article {i + 1}"
-        pub.save()
-
-        # Add DOI and Handle links
-        Link.objects.create(publication=pub, type=doi_type, value=f"10.1234/article{i}")
-        Link.objects.create(publication=pub, type=handle_type, value=f"hdl:1234/{i}")
-
-        # Create invoice with position
-        creditor = create_creditor(name=f"Publisher {i % 100}")  # 100 unique publishers
-        invoice = create_invoice(
-            creditor=creditor,
-            invoice_date=date(2024, 1, 1) + timedelta(days=i % 365),
-            number=f"INV-2024-{i:04d}",
-        )
-        create_position(
-            invoice=invoice,
-            publication=pub,
-            cost_amount=Decimal("1500.00"),
-        )
-
-        # Attach to a contract (round-robin)
-        contract = contracts[i % len(contracts)]
-        AttachedContract.objects.create(publication=pub, contract=contract, contract_year=2024)
+    # Create test dataset: 1,000 publications + 10 contracts
+    create_performance_test_dataset(num_publications=1000, num_contracts=10)
 
     setup_time = time.time() - start_time
 
@@ -341,58 +359,8 @@ def test_validation_performance_and_caching() -> None:
     - Total for both calls: < 10 queries
     - 99.75% reduction from baseline (4,000 → 10 queries)
     """
-    from coda.apps.publications.models._links import LinkType, Link
-
-    # Setup: Reuse same data creation as Phase 5 test
-    doi_type, _ = LinkType.objects.get_or_create(name="DOI")
-    handle_type, _ = LinkType.objects.get_or_create(name="Handle")
-
-    # Create 10 contracts
-    contracts = []
-    for i in range(10):
-        contract = modelfactory.contract()
-        contract.name = f"Test Contract {i + 1}"
-        contract.start_date = date(2024, 1, 1)
-        contract.end_date = date(2024, 12, 31)
-        contract.save()
-
-        creditor = create_creditor(name=f"Contract Creditor {i}")
-        invoice = create_invoice(
-            creditor=creditor,
-            invoice_date=date(2024, 6, 1),
-            number=f"INV-CONTRACT-{i:02d}",
-        )
-        create_position(
-            invoice=invoice,
-            contract=contract,
-            cost_amount=Decimal("5000.00"),
-        )
-
-        contracts.append(contract)
-
-    # Create 1,000 publications
-    for i in range(1000):
-        pub = modelfactory.publication()
-        pub.title = f"Test Article {i + 1}"
-        pub.save()
-
-        Link.objects.create(publication=pub, type=doi_type, value=f"10.1234/article{i}")
-        Link.objects.create(publication=pub, type=handle_type, value=f"hdl:1234/{i}")
-
-        creditor = create_creditor(name=f"Publisher {i % 100}")
-        invoice = create_invoice(
-            creditor=creditor,
-            invoice_date=date(2024, 1, 1) + timedelta(days=i % 365),
-            number=f"INV-2024-{i:04d}",
-        )
-        create_position(
-            invoice=invoice,
-            publication=pub,
-            cost_amount=Decimal("1500.00"),
-        )
-
-        contract = contracts[i % len(contracts)]
-        AttachedContract.objects.create(publication=pub, contract=contract, contract_year=2024)
+    # Create test dataset: 1,000 publications + 10 contracts
+    create_performance_test_dataset(num_publications=1000, num_contracts=10)
 
     # Generate report
     report = generate_report(
