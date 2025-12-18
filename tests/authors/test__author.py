@@ -96,6 +96,7 @@ def test__details_already_exist__reuses_existing_person(client: Client) -> None:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__given_institution_exits__when_author_is_affiliated__author_is_saved_with_affiliation(
     client: Client,
 ) -> None:
