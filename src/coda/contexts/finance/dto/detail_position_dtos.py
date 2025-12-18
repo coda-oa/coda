@@ -37,7 +37,6 @@ class PositionDetailDto:
     type: str = ""
     title: str = ""
     url: str = ""
-    funding_source: int | None = None  # Legacy field, kept for backward compatibility
     funding_assignments: list[FundingAssignmentDetailDto] = field(default_factory=list)
     cost_type: str = PublicationCostType.Publication_Charge.value
     tax_rate: Decimal = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
@@ -63,12 +62,11 @@ def _build_funding_assignments(position: Position) -> list[FundingAssignmentDeta
 
     return [
         FundingAssignmentDetailDto(
-            funding_source_id=fs.funding_source.id,
-            funding_source_name=fs.funding_source.name,
+            funding_source_id=fs.funding_source.id if fs.funding_source else None,
+            funding_source_name=fs.funding_source.name if fs.funding_source else "unspecified",
             amount=fs.amount.amount,
         )
         for fs in assignments
-        if fs.funding_source is not None
     ]
 
 

@@ -26,13 +26,11 @@ from . import _contract, _free, _publication
 
 
 class PositionParser(Protocol):
-    def to_itemdto(self, position: Position) -> ItemDto:
-        ...
+    def to_itemdto(self, position: Position) -> ItemDto: ...
 
     def parse_item_from(
         self, position: PositionDto, *, parse_safe: bool = False
-    ) -> PositionItemType:
-        ...
+    ) -> PositionItemType: ...
 
 
 def parse_invoice(invoice_head: InvoiceHeadDto, positions: list[PositionDto]) -> Invoice:
@@ -85,7 +83,7 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
         if f.funding_source is None and f.amount == 0:
             continue
 
-        fs: FundingSource
+        fs: FundingSource | None
         match f:
             case FundingAssignmentDto(
                 funding_source_type="budget", funding_source=int(funding_source)
@@ -98,7 +96,7 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
                 inst_id = InstitutionId(funding_source)
                 fs = SplitSource.new(inst_id, "")
             case _:
-                fs = Budget.new("")
+                fs = None
 
         _position.assign_funding(fs, f.amount, position.cost_basis_mode)
 

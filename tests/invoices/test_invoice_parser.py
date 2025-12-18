@@ -211,3 +211,18 @@ def test__position_with_unassigned_costs__convert_to_dto_as_gross__returns_dto_u
     dto = invoice_parser.position_to_dto(position, CostBasis.gross)
 
     assert dto.unassigned_costs == position.unassigned_costs(CostBasis.gross).amount
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("create_position", Positions)
+def test__position_dto_with_unspecified_funding_source_in_assignment__converts_to_none_funding_source(
+    create_position: Callable[[], Position],
+) -> None:
+    position = create_position()
+    position.assign_remaining(None)
+
+    dto = invoice_parser.position_to_dto(position)
+    assert dto.funding_assignments[0].funding_source is None
+
+    position = invoice_parser.to_position(dto, position.cost.currency)
+    assert position.funding_assignments()[0].funding_source is None
