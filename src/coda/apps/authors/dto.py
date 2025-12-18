@@ -22,11 +22,21 @@ class AuthorDto(CodaBaseDto):
         )
 
     def to_author(self, id: AuthorId | None = None) -> Author:
-        return Author.restore(
-            id=id,
+        """
+        Convert DTO to Author domain object.
+
+        Uses Author.new() to ensure validation of business rules when converting
+        user-submitted form data. The id parameter is primarily for testing purposes,
+        as new authors from forms typically don't have IDs yet.
+        """
+        author = Author.new(
             name=NonEmptyStr(self.name),
             email=self.email,
             orcid=Orcid(self.orcid) if self.orcid else None,
             affiliation=self.affiliation,
             role=Role[self.role],
         )
+        # Set ID if provided (used in testing scenarios)
+        if id is not None:
+            author.id = id
+        return author

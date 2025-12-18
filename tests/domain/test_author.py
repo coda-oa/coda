@@ -7,18 +7,18 @@ from tests.test_orcid import JOSIAH_CARBERRY
 
 
 def test__can_create_author() -> None:
-    _ = Author(
+    _ = Author.restore(
         id=AuthorId(8),
         name=NonEmptyStr("John Doe"),
-        _email="john.doe@example.com",
+        email="john.doe@example.com",
         orcid=Orcid(JOSIAH_CARBERRY),
     )
 
 
 def test__authors_with_same_id_are_equal() -> None:
-    author1 = Author(id=AuthorId(8), name=NonEmptyStr("John Doe"))
-    author2 = Author(id=AuthorId(8), name=NonEmptyStr("Jane Doe"))
-    author3 = Author(id=AuthorId(1), name=NonEmptyStr("Jim Doe"))
+    author1 = Author.restore(id=AuthorId(8), name=NonEmptyStr("John Doe"))
+    author2 = Author.restore(id=AuthorId(8), name=NonEmptyStr("Jane Doe"))
+    author3 = Author.restore(id=AuthorId(1), name=NonEmptyStr("Jim Doe"))
 
     assert author1 == author2
     assert author1 != author3
@@ -52,14 +52,18 @@ def test__new_author__is_corresponding_author__must_have_an_email(role: Role) ->
 
 
 @pytest.mark.parametrize("role", (Role.CORRESPONDING_AUTHOR, Role.SUBMITTING_CORRESPONDING_AUTHOR))
-def test__existing_author__is_corresponding_author__must_have_an_email(role: Role) -> None:
-    with pytest.raises(ValueError):
-        _ = Author(AuthorId(1), NonEmptyStr("John Doe"), _role=role)
+def test__restored_corresponding_author_without_email__setting_role_or_email__raises_error(
+    role: Role,
+) -> None:
+    author = Author.restore(
+        id=AuthorId(1),
+        name=NonEmptyStr("John Doe"),
+        email="",
+        role=role,
+    )
 
-    sut = Author(AuthorId(1), NonEmptyStr("John Doe"), _email="j.doe@example.com", _role=role)
     with pytest.raises(ValueError):
-        sut.email = ""
+        author.email = ""
 
-    sut = Author(AuthorId(1), NonEmptyStr("John Doe"), _email="")
     with pytest.raises(ValueError):
-        sut.role = role
+        author.role = role
