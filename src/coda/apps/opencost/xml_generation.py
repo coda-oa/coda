@@ -1,6 +1,13 @@
+from typing import TYPE_CHECKING
 from xml.etree import ElementTree as ET
 
-from coda.apps.opencost.models import OpenCostReport
+if TYPE_CHECKING:
+    from coda.apps.opencost.models import (
+        OpenCostReport,
+        OpenCostReportPublication,
+        OpenCostReportContract,
+    )
+
 from coda.apps.opencost.transformers import to_opencost
 from coda.domain.opencost import (
     PublicationType,
@@ -303,7 +310,11 @@ def serialize_contract_invoice(invoice: ContractInvoiceType) -> ET.Element:
     return serialize_invoice(invoice)
 
 
-def generate_xml(report: OpenCostReport) -> str:
-    data = to_opencost(report)
+def generate_xml(
+    report: "OpenCostReport",
+    publications: list["OpenCostReportPublication"] | None = None,
+    contracts: list["OpenCostReportContract"] | None = None,
+) -> str:
+    data = to_opencost(report, publications, contracts)
     xml_string = pydantic_to_xml(data)
     return xml_string

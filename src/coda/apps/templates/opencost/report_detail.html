@@ -21,10 +21,10 @@
                         <strong>Period:</strong> {{ report.period_start }} to {{ report.period_end }}
                     </p>
                     <p>
-                        <strong>Publications:</strong> {{ report.publications.count }}
+                        <strong>Publications:</strong> {{ publications_count }}
                     </p>
                     <p>
-                        <strong>Contracts:</strong> {{ report.contracts.count }}
+                        <strong>Contracts:</strong> {{ contracts_count }}
                     </p>
                 </div>
             </section>
@@ -69,7 +69,7 @@
             {% endif %}
             <article class="my-2">
                 <header>
-                    <h2>Publications ({{ report.publications.count }})</h2>
+                    <h2>Publications ({{ publications_count }})</h2>
                 </header>
                 {% if publications %}
                     <table>
@@ -94,7 +94,7 @@
                                     <td>{{ pub.publication_type|default:"—" }}</td>
                                     <td>{{ pub.publisher|default:"—" }}</td>
                                     <td>
-                                        {% if pub.linked_contracts.count > 0 %}
+                                        {% if pub.linked_contracts_count > 0 %}
                                             {% for link in pub.linked_contracts.all %}
                                                 {{ link.contract.name }}
                                                 {% if not forloop.last %},{% endif %}
@@ -113,9 +113,9 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        {% if pub.invoices.count > 0 %}
-                                            <a href="{% url 'invoices:list' %}?search_term={{ pub.publication.fundingrequest.request_id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}">View Invoices ({{ pub.invoices.count }})</a>
-                                        {% elif pub.linked_contracts.count > 0 %}
+                                        {% if pub.invoices_count > 0 %}
+                                            <a href="{% url 'invoices:list' %}?search_term={{ pub.publication.fundingrequest.request_id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}">View Invoices ({{ pub.invoices_count }})</a>
+                                        {% elif pub.linked_contracts_count > 0 %}
                                             Covered by contract
                                         {% else %}
                                             —
@@ -133,7 +133,7 @@
             </article>
             <article class="my-2">
                 <header>
-                    <h2>Contracts ({{ report.contracts.count }})</h2>
+                    <h2>Contracts ({{ contracts_count }})</h2>
                 </header>
                 {% if contracts %}
                     <table>
@@ -162,7 +162,7 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <a href="{% url 'invoices:list' %}?contract_name={{ contract.contract.id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}&amp;contract_positions_only=true">View Invoices ({{ contract.invoices.count }})</a>
+                                        <a href="{% url 'invoices:list' %}?contract_name={{ contract.contract.id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}&amp;contract_positions_only=true">View Invoices ({{ contract.invoices_count }})</a>
                                     </td>
                                 </tr>
                             {% endfor %}
