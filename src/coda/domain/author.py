@@ -190,6 +190,9 @@ class Author:
 
         return self.id == other.id
 
+    def __hash__(self) -> int:
+        return hash((self.__class__.__name__, self.id))
+
 
 def _parse_line(line: str, /, reverse_names: bool) -> list[str]:
     line = line.strip().removeprefix("and ").removesuffix(" and")
