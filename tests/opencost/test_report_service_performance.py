@@ -20,18 +20,22 @@ After the bulk operations refactor, performance testing focuses on:
 
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from pytest_django.fixtures import DjangoAssertNumQueries
 
+from coda.apps.institutions.models import Institution
 from coda.apps.opencost.report_service import (
     _build_home_institution_cache,
     _update_publication_contract_group_ids,
     generate_report,
 )
+from coda.apps.publications.models import Publication
 from coda.apps.publications.models._attachedentities import AttachedContract
+from coda.apps.publications.models._links import LinkType, Link
 from tests import modelfactory
 from tests.opencost.helpers import (
     create_creditor,
@@ -41,6 +45,13 @@ from tests.opencost.helpers import (
     create_institution_with_identifiers,
     create_corresponding_author,
 )
+
+if TYPE_CHECKING:
+    from coda.apps.invoices.models import Creditor
+    from coda.apps.opencost.models import OpenCostReport
+
+
+from coda.apps.preferences.models import GlobalPreferences
 
 
 def create_performance_test_dataset(num_publications: int = 1000, num_contracts: int = 10) -> None:
@@ -56,7 +67,6 @@ def create_performance_test_dataset(num_publications: int = 1000, num_contracts:
         num_publications: Number of publications to create (default: 1000)
         num_contracts: Number of contracts to create (default: 10)
     """
-    from coda.apps.publications.models._links import LinkType, Link
 
     # Setup: Create link types
     doi_type, _ = LinkType.objects.get_or_create(name="DOI")
@@ -136,8 +146,6 @@ def test_home_institution_cache_avoids_repeated_queries() -> None:
 
     Expected: 1 query regardless of how many times cache is accessed.
     """
-    from coda.apps.institutions.models import Institution
-    from coda.apps.preferences.models import GlobalPreferences
 
     # Create home institution with identifiers
     institution = Institution.objects.create(name="Test University")
@@ -410,43 +418,13 @@ def test_validation_performance_and_caching() -> None:
     print(f"{'=' * 70}\n")
 
 
-@pytest.mark.django_db
-@pytest.mark.performance
-def test_phase6b_institution_hierarchy_cache_performance(
-    django_assert_num_queries: DjangoAssertNumQueries,
-) -> None:
+def _create_deep_tree_institutions() -> tuple[Institution, list[Institution]]:
     """
-    Phase 6B: Test that institution hierarchy cache eliminates N+1 queries.
+    Create a 6-level deep institution tree with identifiers at root and level 3.
 
-    Realistic scenario matching production:
-    - 1 deep tree (6 levels): Tests parent chain traversal
-    - 10 shallow trees (2-3 levels): Common hierarchy patterns
-    - 200 flat institutions (0-1 levels): Most common case
-    - 1,000 publications with corresponding authors
-
-    Expected: < 40 queries total (not ~3,800)
-    - Institution cache build: 2-3 queries
-    - Base report queries: ~30-35 queries
+    Returns:
+        Tuple of (root, leaf_institutions)
     """
-    from coda.apps.institutions.models import Institution
-    from coda.apps.preferences.models import GlobalPreferences
-    from coda.apps.publications.models import Publication
-
-    period_start = date(2024, 1, 1)
-    period_end = date(2024, 12, 31)
-
-    # Create creditor
-    creditor = create_creditor(name="Test Publisher")
-
-    # Create home institution for fallback
-    home_institution = create_institution_with_identifiers(
-        name="Home Institution", ror="https://ror.org/home123"
-    )
-    GlobalPreferences.objects.create(home_institution=home_institution)
-
-    # SCENARIO 1: One deep tree (6 levels)
-    # Root (level 5) has identifiers → level 4 → level 3 has identifiers → level 2 → level 1 → leaves
-    # This tests: publications at leaf level must walk up to find identifiers at level 3
     deep_tree_root = create_institution_with_identifiers(
         name="Deep Tree Root", ror="https://ror.org/deep-root", isni="ISNI-ROOT-001"
     )
@@ -456,12 +434,22 @@ def test_phase6b_institution_hierarchy_cache_performance(
     )
     deep_level2 = Institution.objects.create(name="Deep Level 2", parent=deep_level3)
     deep_level1 = Institution.objects.create(name="Deep Level 1", parent=deep_level2)
+
     # Create 50 leaf institutions at the bottom
     deep_leaves = [
         Institution.objects.create(name=f"Deep Leaf {i}", parent=deep_level1) for i in range(50)
     ]
 
-    # SCENARIO 2: 10 shallow trees (2-3 levels)
+    return deep_tree_root, deep_leaves
+
+
+def _create_shallow_tree_institutions() -> list[Institution]:
+    """
+    Create 10 shallow trees (2-3 levels) with identifiers at roots.
+
+    Returns:
+        List of leaf institutions (50 total, 5 per tree)
+    """
     shallow_leaves = []
     for tree_idx in range(10):
         # Root with identifiers
@@ -486,7 +474,18 @@ def test_phase6b_institution_hierarchy_cache_performance(
             )
             shallow_leaves.append(leaf)
 
-    # SCENARIO 3: 200 flat institutions (0-2 levels)
+    return shallow_leaves
+
+
+def _create_flat_institutions() -> list[Institution]:
+    """
+    Create 200 flat institutions with 0-2 level hierarchies.
+
+    Half have a parent with identifiers (2 levels), half are standalone with identifiers (1 level).
+
+    Returns:
+        List of leaf institutions (200 total)
+    """
     flat_institutions = []
     for i in range(200):
         if i % 2 == 0:
@@ -503,10 +502,21 @@ def test_phase6b_institution_hierarchy_cache_performance(
             )
             flat_institutions.append(inst)
 
-    # Collect all leaf institutions for publication assignment
-    all_leaf_institutions = deep_leaves + shallow_leaves + flat_institutions
+    return flat_institutions
 
-    # Create 1,000 publications with corresponding authors
+
+def _create_publications_with_authors(
+    all_leaf_institutions: list[Institution],
+) -> list[Publication]:
+    """
+    Create 1,000 publications with corresponding authors assigned to institutions.
+
+    Args:
+        all_leaf_institutions: Pool of institutions to assign authors to (round-robin)
+
+    Returns:
+        List of created publications
+    """
     publications = []
     for i in range(1000):
         # Assign corresponding author with institution
@@ -525,7 +535,20 @@ def test_phase6b_institution_hierarchy_cache_performance(
 
         publications.append(pub)
 
-    # Create invoices and positions (100 invoices, 10 publications each)
+    return publications
+
+
+def _create_invoices_for_publications(
+    publications: list[Publication], creditor: "Creditor", period_start: date
+) -> None:
+    """
+    Create invoices and positions for publications (100 invoices, 10 publications each).
+
+    Args:
+        publications: List of publications to create positions for
+        creditor: Creditor for invoices
+        period_start: Start date for invoice dates
+    """
     for i in range(0, 1000, 10):
         invoice = create_invoice(
             creditor=creditor,
@@ -544,33 +567,21 @@ def test_phase6b_institution_hierarchy_cache_performance(
                     cost_currency="EUR",
                 )
 
-    # ACT: Generate report with strict query budget
-    # Expected: < 40 queries
-    # - Home institution cache: 1 query
-    # - Invoices aggregation: ~5-8 queries
-    # - Publications aggregation: ~15-20 queries
-    # - Institution cache build: 2-3 queries
-    # - Contracts aggregation: ~5-8 queries
-    # - Report snapshot creation: ~5-8 queries
 
-    with CaptureQueriesContext(connection) as context:
-        report = generate_report(
-            title="Phase 6B Performance Test", period_start=period_start, period_end=period_end
-        )
+def _verify_institution_hierarchy_results(report: "OpenCostReport") -> None:
+    """
+    Verify that institution hierarchy cache correctly resolved identifiers.
 
-    query_count = len(context.captured_queries)
-    assert query_count < 40, f"Query count {query_count} exceeds target of < 40"
+    Checks all three scenarios: deep trees, shallow trees, and flat institutions.
 
-    # ASSERT: Verify report generated correctly
-    assert report.publications.count() == 1000
-
-    # Verify institution data was populated
+    Args:
+        report: OpenCostReport to verify
+    """
     report_pubs = list(report.publications.all())
 
     # Check deep tree publications resolved to level 3 (which has identifiers)
-    # 1000 publications cycle through 300 institutions, so deep leaves appear ~200 times
     deep_tree_pubs = [rp for rp in report_pubs if "Deep Leaf" in rp.title]
-    assert len(deep_tree_pubs) == 200  # 1000/300 * 50 deep leaves ≈ 167, but cycles give 200
+    assert len(deep_tree_pubs) == 200  # 1000/300 * 50 deep leaves
     # Sample check: first few should have found identifiers from level 3
     for rp in deep_tree_pubs[:10]:
         # Should have found identifiers from level 3
@@ -605,3 +616,61 @@ def test_phase6b_institution_hierarchy_cache_performance(
     print(f"With identifiers:   {len(pubs_with_identifiers)} / {len(flat_pubs)} flat pubs")
     print("Reduction:          99% from production baseline (~3,800 → <40 queries)")
     print(f"{'=' * 70}\n")
+
+
+@pytest.mark.django_db
+@pytest.mark.performance
+def test_phase6b_institution_hierarchy_cache_performance(
+    django_assert_num_queries: DjangoAssertNumQueries,
+) -> None:
+    """
+    Phase 6B: Test that institution hierarchy cache eliminates N+1 queries.
+
+    Realistic scenario matching production:
+    - 1 deep tree (6 levels): Tests parent chain traversal
+    - 10 shallow trees (2-3 levels): Common hierarchy patterns
+    - 200 flat institutions (0-1 levels): Most common case
+    - 1,000 publications with corresponding authors
+
+    Expected: < 40 queries total (not ~3,800)
+    - Institution cache build: 2-3 queries
+    - Base report queries: ~30-35 queries
+    """
+    from coda.apps.preferences.models import GlobalPreferences
+
+    period_start = date(2024, 1, 1)
+    period_end = date(2024, 12, 31)
+
+    # Setup: Create home institution and creditor
+    home_institution = create_institution_with_identifiers(
+        name="Home Institution", ror="https://ror.org/home123"
+    )
+    GlobalPreferences.objects.create(home_institution=home_institution)
+    creditor = create_creditor(name="Test Publisher")
+
+    # Phase 1: Create institution hierarchies (3 scenarios)
+    _, deep_leaves = _create_deep_tree_institutions()
+    shallow_leaves = _create_shallow_tree_institutions()
+    flat_institutions = _create_flat_institutions()
+
+    all_leaf_institutions = deep_leaves + shallow_leaves + flat_institutions
+
+    # Phase 2: Create publications with corresponding authors
+    publications = _create_publications_with_authors(all_leaf_institutions)
+
+    # Phase 3: Create invoices and positions
+    _create_invoices_for_publications(publications, creditor, period_start)
+
+    # Phase 4: Generate report with query counting
+    with CaptureQueriesContext(connection) as context:
+        report = generate_report(
+            title="Phase 6B Performance Test", period_start=period_start, period_end=period_end
+        )
+
+    # Phase 5: Assert performance and correctness
+    query_count = len(context.captured_queries)
+    assert query_count < 40, f"Query count {query_count} exceeds target of < 40"
+    assert report.publications.count() == 1000
+
+    # Phase 6: Verify institution hierarchy resolution
+    _verify_institution_hierarchy_results(report)
