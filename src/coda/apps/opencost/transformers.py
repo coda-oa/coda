@@ -52,7 +52,7 @@ def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> Pub
         bib_info = BibliographicInformation(
             Title=report_pub.title,
             Publisher=report_pub.publisher or "Unknown Publisher",
-            isPartOf=report_pub.journal if report_pub.journal else "N/A",
+            isPartOf=report_pub.journal if report_pub.journal else report_pub.title,
         )
         primary_identifier = PublicationPrimaryIdentifier(bibliographic_information=bib_info)
 
