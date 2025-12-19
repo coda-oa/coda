@@ -22,8 +22,10 @@
                         </tr>
                     </thead>
                     <tbody id="institution-linktable">
-                        {% for link in object.links.all %}
-                            {% include "institutions/partials/institution_linkrow.html" %}
+                        {% for link_context in links %}
+                            {% with link=link_context.link errors=link_context.errors %}
+                                {% include "institutions/partials/institution_linkrow.html" %}
+                            {% endwith %}
                         {% endfor %}
                     </tbody>
                 </table>
