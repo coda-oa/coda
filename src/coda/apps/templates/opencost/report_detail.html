@@ -39,14 +39,16 @@
                             <p>
                                 <em>These issues must be fixed for complete OpenCost data:</em>
                             </p>
-                            <ul>
-                                {% for error in errors %}
-                                    <li>
-                                        <strong>{{ error.entity_name }}</strong>: {{ error.message }}
-                                        {% if error.fix_url %}— <a href="{{ error.fix_url }}">Fix this</a>{% endif %}
-                                    </li>
-                                {% endfor %}
-                            </ul>
+                            <div class="scroll-container max-h-30">
+                                <ul>
+                                    {% for error in errors %}
+                                        <li>
+                                            <strong>{{ error.entity_name }}</strong>: {{ error.message }}
+                                            {% if error.fix_url %}— <a href="{{ error.fix_url }}">Fix this</a>{% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
                         </article>
                     {% endif %}
                     {% if warnings_only %}
@@ -55,14 +57,16 @@
                             <p>
                                 <em>Recommended improvements for better data quality:</em>
                             </p>
-                            <ul>
-                                {% for warning in warnings_only %}
-                                    <li>
-                                        <strong>{{ warning.entity_name }}</strong>: {{ warning.message }}
-                                        {% if warning.fix_url %}— <a href="{{ warning.fix_url }}">Fix this</a>{% endif %}
-                                    </li>
-                                {% endfor %}
-                            </ul>
+                            <div class="scroll-container max-h-30">
+                                <ul>
+                                    {% for warning in warnings_only %}
+                                        <li>
+                                            <strong>{{ warning.entity_name }}</strong>: {{ warning.message }}
+                                            {% if warning.fix_url %}— <a href="{{ warning.fix_url }}">Fix this</a>{% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
                         </article>
                     {% endif %}
                 </article>
@@ -72,59 +76,61 @@
                     <h2>Publications ({{ publications_count }})</h2>
                 </header>
                 {% if publications %}
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Title</th>
-                                <th>DOI</th>
-                                <th>Type</th>
-                                <th>Publisher</th>
-                                <th>Contracts</th>
-                                <th>Cost Splitting</th>
-                                <th>Invoices</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for pub in publications %}
+                    <div class="scroll-container max-h-30">
+                        <table>
+                            <thead>
                                 <tr>
-                                    <td>
-                                        <a href="{% url 'fundingrequests:detail' pub.publication.id %}">{{ pub.title|truncatewords:10 }}</a>
-                                    </td>
-                                    <td>{{ pub.doi|default:"—" }}</td>
-                                    <td>{{ pub.publication_type|default:"—" }}</td>
-                                    <td>{{ pub.publisher|default:"—" }}</td>
-                                    <td>
-                                        {% if pub.linked_contracts_count > 0 %}
-                                            {% for link in pub.linked_contracts.all %}
-                                                {{ link.contract.name }}
-                                                {% if not forloop.last %},{% endif %}
-                                            {% endfor %}
-                                        {% else %}
-                                            —
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if pub.external_costsplitting %}
-                                            Yes
-                                        {% elif pub.external_costsplitting is None %}
-                                            —
-                                        {% else %}
-                                            No
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if pub.invoices_count > 0 %}
-                                            <a href="{% url 'invoices:list' %}?search_term={{ pub.publication.fundingrequest.request_id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}">View Invoices ({{ pub.invoices_count }})</a>
-                                        {% elif pub.linked_contracts_count > 0 %}
-                                            Covered by contract
-                                        {% else %}
-                                            —
-                                        {% endif %}
-                                    </td>
+                                    <th>Title</th>
+                                    <th>DOI</th>
+                                    <th>Type</th>
+                                    <th>Publisher</th>
+                                    <th>Contracts</th>
+                                    <th>Cost Splitting</th>
+                                    <th>Invoices</th>
                                 </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {% for pub in publications %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'fundingrequests:detail' pub.publication.id %}">{{ pub.title|truncatewords:10 }}</a>
+                                        </td>
+                                        <td>{{ pub.doi|default:"—" }}</td>
+                                        <td>{{ pub.publication_type|default:"—" }}</td>
+                                        <td>{{ pub.publisher|default:"—" }}</td>
+                                        <td>
+                                            {% if pub.linked_contracts_count > 0 %}
+                                                {% for link in pub.linked_contracts.all %}
+                                                    {{ link.contract.name }}
+                                                    {% if not forloop.last %},{% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                —
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if pub.external_costsplitting %}
+                                                Yes
+                                            {% elif pub.external_costsplitting is None %}
+                                                —
+                                            {% else %}
+                                                No
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if pub.invoices_count > 0 %}
+                                                <a href="{% url 'invoices:list' %}?search_term={{ pub.publication.fundingrequest.request_id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}">View Invoices ({{ pub.invoices_count }})</a>
+                                            {% elif pub.linked_contracts_count > 0 %}
+                                                Covered by contract
+                                            {% else %}
+                                                —
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 {% else %}
                     <p>
                         <em>No publications in this report.</em>
@@ -136,38 +142,40 @@
                     <h2>Contracts ({{ contracts_count }})</h2>
                 </header>
                 {% if contracts %}
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Contract Name</th>
-                                <th>ESAC ID</th>
-                                <th>Institution</th>
-                                <th>Participation Period</th>
-                                <th>Invoices</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for contract in contracts %}
+                    <div class="scroll-container max-h-30">
+                        <table>
+                            <thead>
                                 <tr>
-                                    <td>
-                                        <a href="{% url 'contracts:detail' contract.contract.id %}">{{ contract.contract_name }}</a>
-                                    </td>
-                                    <td>{{ contract.primary_identifier_value|default:"—" }}</td>
-                                    <td>{{ contract.institution_name|default:"—" }}</td>
-                                    <td>
-                                        {% if contract.participation_from and contract.participation_to %}
-                                            {{ contract.participation_from }} - {{ contract.participation_to }}
-                                        {% else %}
-                                            —
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <a href="{% url 'invoices:list' %}?contract_name={{ contract.contract.id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}&amp;contract_positions_only=true">View Invoices ({{ contract.invoices_count }})</a>
-                                    </td>
+                                    <th>Contract Name</th>
+                                    <th>ESAC ID</th>
+                                    <th>Institution</th>
+                                    <th>Participation Period</th>
+                                    <th>Invoices</th>
                                 </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {% for contract in contracts %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'contracts:detail' contract.contract.id %}">{{ contract.contract_name }}</a>
+                                        </td>
+                                        <td>{{ contract.primary_identifier_value|default:"—" }}</td>
+                                        <td>{{ contract.institution_name|default:"—" }}</td>
+                                        <td>
+                                            {% if contract.participation_from and contract.participation_to %}
+                                                {{ contract.participation_from }} - {{ contract.participation_to }}
+                                            {% else %}
+                                                —
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'invoices:list' %}?contract_name={{ contract.contract.id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}&amp;contract_positions_only=true">View Invoices ({{ contract.invoices_count }})</a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 {% else %}
                     <p>
                         <em>No contracts in this report.</em>
