@@ -527,27 +527,19 @@ def _bulk_create_publication_children(
     _bulk_create_publication_invoices(pub_snapshots, report_publications)
 
 
-def _bulk_create_publication_invoices(
+def _collect_publication_invoice_data(
     pub_snapshots: list[PublicationSnapshotData],
     report_publications: dict[int, OpenCostReportPublication],
-) -> None:
+) -> tuple[list[OpenCostReportInvoice], list[tuple[int, int, list[Position]]]]:
     """
-    Bulk create invoice snapshots and positions for publications.
+    Collect invoice objects ready for bulk creation and track metadata.
 
-    This is complex because positions need invoice IDs, but we only get those
-    after bulk_create. We use index tracking to match positions to invoices.
-
-    Args:
-        pub_snapshots: List of collected publication data
-        report_publications: Mapping of publication_id -> OpenCostReportPublication
-
-    Performance: 2 queries (1 for invoices, 1 for positions)
+    Returns:
+        Tuple of (invoices_to_create, invoice_metadata)
+        where invoice_metadata is [(snap_idx, invoice_id, positions), ...]
     """
-    logger.debug("Bulk creating publication invoices and positions")
-
-    # PHASE 1: Collect all invoices and track metadata
     invoices_to_create = []
-    invoice_metadata = []  # Track: (snapshot_idx, invoice_id, positions)
+    invoice_metadata = []
 
     for snap_idx, snap in enumerate(pub_snapshots):
         report_pub = report_publications[snap.publication.id]
@@ -568,22 +560,21 @@ def _bulk_create_publication_invoices(
                 )
             )
 
-            # CRITICAL: Track which positions belong to THIS invoice (by index in list)
-            # This allows us to match created invoices to their positions later
+            # Track which positions belong to THIS invoice (by index in list)
             invoice_metadata.append((snap_idx, invoice_id, positions))
 
-    if not invoices_to_create:
-        logger.debug("No publication invoices to create")
-        return
+    return invoices_to_create, invoice_metadata
 
-    # PHASE 2: Bulk create invoices (1 query)
-    created_invoices = OpenCostReportInvoice.objects.bulk_create(
-        invoices_to_create, batch_size=1000
-    )
-    logger.debug(f"Created {len(created_invoices)} publication invoices")
 
-    # PHASE 3: Create positions using created invoice IDs
-    # KEY: Match by index - created_invoices[i] corresponds to invoice_metadata[i]
+def _create_publication_position_objects(
+    created_invoices: list[OpenCostReportInvoice],
+    invoice_metadata: list[tuple[int, int, list[Position]]],
+) -> list[OpenCostReportInvoicePosition]:
+    """
+    Create position objects using created invoice IDs.
+
+    Matches by index - created_invoices[i] corresponds to invoice_metadata[i].
+    """
     positions_to_create = []
 
     for invoice_idx, (snap_idx, invoice_id, positions) in enumerate(invoice_metadata):
@@ -603,7 +594,46 @@ def _bulk_create_publication_invoices(
                 )
             )
 
-    # PHASE 4: Bulk create positions (1 query)
+    return positions_to_create
+
+
+def _bulk_create_publication_invoices(
+    pub_snapshots: list[PublicationSnapshotData],
+    report_publications: dict[int, OpenCostReportPublication],
+) -> None:
+    """
+    Bulk create invoice snapshots and positions for publications.
+
+    This is complex because positions need invoice IDs, but we only get those
+    after bulk_create. We use index tracking to match positions to invoices.
+
+    Args:
+        pub_snapshots: List of collected publication data
+        report_publications: Mapping of publication_id -> OpenCostReportPublication
+
+    Performance: 2 queries (1 for invoices, 1 for positions)
+    """
+    logger.debug("Bulk creating publication invoices and positions")
+
+    # Phase 1: Collect invoices and metadata
+    invoices_to_create, invoice_metadata = _collect_publication_invoice_data(
+        pub_snapshots, report_publications
+    )
+
+    if not invoices_to_create:
+        logger.debug("No publication invoices to create")
+        return
+
+    # Phase 2: Bulk create invoices
+    created_invoices = OpenCostReportInvoice.objects.bulk_create(
+        invoices_to_create, batch_size=1000
+    )
+    logger.debug(f"Created {len(created_invoices)} publication invoices")
+
+    # Phase 3: Create position objects
+    positions_to_create = _create_publication_position_objects(created_invoices, invoice_metadata)
+
+    # Phase 4: Bulk create positions
     if positions_to_create:
         OpenCostReportInvoicePosition.objects.bulk_create(positions_to_create, batch_size=1000)
         logger.debug(f"Created {len(positions_to_create)} publication invoice positions")
@@ -725,26 +755,21 @@ def _bulk_create_contract_children(
     _bulk_create_contract_invoices(contract_snapshots, report_contracts)
 
 
-def _bulk_create_contract_invoices(
+def _collect_contract_invoice_data(
     contract_snapshots: list[ContractSnapshotData],
     report_contracts: dict[int, OpenCostReportContract],
-) -> None:
+) -> tuple[list[OpenCostReportContractInvoice], list[tuple[int, int, list[Position]]]]:
     """
-    Bulk create invoice snapshots and positions for contracts.
+    Collect contract invoice objects ready for bulk creation and track metadata.
 
     Similar to publication invoices but includes group_id and amount_invoice fields.
 
-    Args:
-        contract_snapshots: List of collected contract data
-        report_contracts: Mapping of contract_id -> OpenCostReportContract
-
-    Performance: 2 queries (1 for invoices, 1 for positions)
+    Returns:
+        Tuple of (invoices_to_create, invoice_metadata)
+        where invoice_metadata is [(snap_idx, invoice_id, positions), ...]
     """
-    logger.debug("Bulk creating contract invoices and positions")
-
-    # PHASE 1: Collect all invoices and track metadata
     invoices_to_create = []
-    invoice_metadata = []  # Track: (snapshot_idx, invoice_id, positions)
+    invoice_metadata = []
 
     for snap_idx, snap in enumerate(contract_snapshots):
         report_contract = report_contracts[snap.contract.id]
@@ -772,21 +797,21 @@ def _bulk_create_contract_invoices(
                 )
             )
 
-            # CRITICAL: Track which positions belong to THIS invoice (by index in list)
+            # Track which positions belong to THIS invoice (by index in list)
             invoice_metadata.append((snap_idx, invoice_id, positions))
 
-    if not invoices_to_create:
-        logger.debug("No contract invoices to create")
-        return
+    return invoices_to_create, invoice_metadata
 
-    # PHASE 2: Bulk create invoices (1 query)
-    created_invoices = OpenCostReportContractInvoice.objects.bulk_create(
-        invoices_to_create, batch_size=1000
-    )
-    logger.debug(f"Created {len(created_invoices)} contract invoices")
 
-    # PHASE 3: Create positions using created invoice IDs
-    # KEY: Match by index - created_invoices[i] corresponds to invoice_metadata[i]
+def _create_contract_position_objects(
+    created_invoices: list[OpenCostReportContractInvoice],
+    invoice_metadata: list[tuple[int, int, list[Position]]],
+) -> list[OpenCostReportContractInvoicePosition]:
+    """
+    Create contract position objects using created invoice IDs.
+
+    Matches by index - created_invoices[i] corresponds to invoice_metadata[i].
+    """
     positions_to_create = []
 
     for invoice_idx, (snap_idx, invoice_id, positions) in enumerate(invoice_metadata):
@@ -806,7 +831,45 @@ def _bulk_create_contract_invoices(
                 )
             )
 
-    # PHASE 4: Bulk create positions (1 query)
+    return positions_to_create
+
+
+def _bulk_create_contract_invoices(
+    contract_snapshots: list[ContractSnapshotData],
+    report_contracts: dict[int, OpenCostReportContract],
+) -> None:
+    """
+    Bulk create invoice snapshots and positions for contracts.
+
+    Similar to publication invoices but includes group_id and amount_invoice fields.
+
+    Args:
+        contract_snapshots: List of collected contract data
+        report_contracts: Mapping of contract_id -> OpenCostReportContract
+
+    Performance: 2 queries (1 for invoices, 1 for positions)
+    """
+    logger.debug("Bulk creating contract invoices and positions")
+
+    # Phase 1: Collect invoices and metadata
+    invoices_to_create, invoice_metadata = _collect_contract_invoice_data(
+        contract_snapshots, report_contracts
+    )
+
+    if not invoices_to_create:
+        logger.debug("No contract invoices to create")
+        return
+
+    # Phase 2: Bulk create invoices
+    created_invoices = OpenCostReportContractInvoice.objects.bulk_create(
+        invoices_to_create, batch_size=1000
+    )
+    logger.debug(f"Created {len(created_invoices)} contract invoices")
+
+    # Phase 3: Create position objects
+    positions_to_create = _create_contract_position_objects(created_invoices, invoice_metadata)
+
+    # Phase 4: Bulk create positions
     if positions_to_create:
         OpenCostReportContractInvoicePosition.objects.bulk_create(
             positions_to_create, batch_size=1000

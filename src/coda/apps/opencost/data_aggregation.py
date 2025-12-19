@@ -130,28 +130,8 @@ def get_contracts_for_period(
     )
 
 
-def build_institution_hierarchy_cache(
-    publications: QuerySet[Publication],
-) -> "InstitutionHierarchyCache":
-    """
-    Build cache of all institutions and parent hierarchies needed for publications.
-
-    Performs 2-3 queries total:
-    1. Iteratively walk up parent chains to find all ancestor institution IDs
-    2. Bulk fetch all institutions
-    3. Bulk fetch all institution links with types
-
-    Args:
-        publications: QuerySet with prefetched relevant_authors
-
-    Returns:
-        InstitutionHierarchyCache with O(1) lookups for institution data
-    """
-    from coda.apps.opencost.report_service import InstitutionHierarchyCache
-
-    cache = InstitutionHierarchyCache()
-
-    # Step 1: Collect initial institution IDs from corresponding authors (no query)
+def _collect_institution_ids_from_authors(publications: QuerySet[Publication]) -> set[int]:
+    """Extract institution IDs from corresponding authors (no database query)."""
     institution_ids: set[int] = set()
     for publication in publications:
         for author in publication.relevant_authors.all():
@@ -159,17 +139,19 @@ def build_institution_hierarchy_cache(
                 if author.affiliation_id:
                     institution_ids.add(author.affiliation_id)
                 break
+    return institution_ids
 
-    if not institution_ids:
-        logger.debug("No institutions found in publications, returning empty cache")
-        return cache
 
-    logger.debug(f"Found {len(institution_ids)} institutions from corresponding authors")
+def _walk_parent_chain(institution_ids: set[int]) -> tuple[set[int], int]:
+    """
+    Walk up parent chains to find all ancestor institution IDs.
 
-    # Step 2: Walk up parent chains to get ALL ancestor institution IDs
+    Returns:
+        Tuple of (all_institution_ids, hierarchy_levels)
+    """
     all_institution_ids: set[int] = set(institution_ids)
     current_ids: set[int] = institution_ids
-    max_iterations = 20  # Safety limit
+    max_iterations = 20
     iteration = 0
 
     while current_ids and iteration < max_iterations:
@@ -178,7 +160,6 @@ def build_institution_hierarchy_cache(
             f"Walking parent chain (iteration {iteration}): checking {len(current_ids)} institutions"
         )
 
-        # QUERY: Fetch parent_id for current batch
         institutions_batch = Institution.objects.filter(id__in=current_ids).values_list(
             "id", "parent_id"
         )
@@ -200,13 +181,11 @@ def build_institution_hierarchy_cache(
         f"total {len(all_institution_ids)} institutions"
     )
 
-    # Step 3: Bulk fetch all institutions
-    # QUERY: Fetch all institution objects
-    institutions = Institution.objects.filter(id__in=all_institution_ids).in_bulk()
-    logger.debug(f"Loaded {len(institutions)} institution objects")
+    return all_institution_ids, iteration
 
-    # Step 4: Bulk fetch all institution links with types
-    # QUERY: Fetch all links
+
+def _fetch_institution_links(all_institution_ids: set[int]) -> dict[int, list[tuple[str, str]]]:
+    """Fetch and group institution links by institution ID."""
     institution_links_qs = (
         InstitutionLink.objects.filter(
             institution_id__in=all_institution_ids, type__name__in=["ROR", "ISNI", "Ringold"]
@@ -215,7 +194,6 @@ def build_institution_hierarchy_cache(
         .values_list("institution_id", "type__name", "value")
     )
 
-    # Group links by institution ID
     links_by_institution: dict[int, list[tuple[str, str]]] = {}
     for institution_id, type_name, value in institution_links_qs:
         if institution_id not in links_by_institution:
@@ -225,15 +203,68 @@ def build_institution_hierarchy_cache(
     total_links = sum(len(links) for links in links_by_institution.values())
     logger.debug(f"Loaded {total_links} institution links")
 
-    # Step 5: Populate cache
+    return links_by_institution
+
+
+def _populate_institution_cache(
+    cache: "InstitutionHierarchyCache",
+    institutions: dict[int, Institution],
+    links_by_institution: dict[int, list[tuple[str, str]]],
+) -> None:
+    """Populate cache with institution data."""
     for inst_id, institution in institutions.items():
         links = links_by_institution.get(inst_id, [])
         inst_parent_id: int | None = institution.parent_id
         cache.add_institution(institution, links, inst_parent_id)
 
+
+def build_institution_hierarchy_cache(
+    publications: QuerySet[Publication],
+) -> "InstitutionHierarchyCache":
+    """
+    Build cache of all institutions and parent hierarchies needed for publications.
+
+    Performs 2-3 queries total:
+    1. Iteratively walk up parent chains to find all ancestor institution IDs
+    2. Bulk fetch all institutions
+    3. Bulk fetch all institution links with types
+
+    Args:
+        publications: QuerySet with prefetched relevant_authors
+
+    Returns:
+        InstitutionHierarchyCache with O(1) lookups for institution data
+    """
+    # Late import to avoid circular dependency
+    from coda.apps.opencost.report_service import InstitutionHierarchyCache
+
+    cache = InstitutionHierarchyCache()
+
+    # Step 1: Collect initial institution IDs from corresponding authors (no query)
+    institution_ids = _collect_institution_ids_from_authors(publications)
+
+    if not institution_ids:
+        logger.debug("No institutions found in publications, returning empty cache")
+        return cache
+
+    logger.debug(f"Found {len(institution_ids)} institutions from corresponding authors")
+
+    # Step 2: Walk up parent chains to get ALL ancestor institution IDs
+    all_institution_ids, hierarchy_levels = _walk_parent_chain(institution_ids)
+
+    # Step 3: Bulk fetch all institutions
+    institutions = Institution.objects.filter(id__in=all_institution_ids).in_bulk()
+    logger.debug(f"Loaded {len(institutions)} institution objects")
+
+    # Step 4: Bulk fetch all institution links with types
+    links_by_institution = _fetch_institution_links(all_institution_ids)
+
+    # Step 5: Populate cache
+    _populate_institution_cache(cache, institutions, links_by_institution)
+
     logger.info(
         f"Built institution hierarchy cache: {cache.size} institutions, "
-        f"{cache.total_links} links, {iteration} hierarchy levels"
+        f"{cache.total_links} links, {hierarchy_levels} hierarchy levels"
     )
 
     return cache
