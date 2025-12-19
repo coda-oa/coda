@@ -29,6 +29,7 @@ def fallback(v: Any) -> WrapValidator:
 IntOrDefault = Annotated[int, fallback(0)]
 DecimalOrDefault = Annotated[Decimal, fallback(Decimal(0))]
 IntOrNone = Annotated[int | None, fallback(None)]
+DecimalOrAll = Annotated[Decimal | Literal["all"], fallback(Decimal(0))]
 
 
 class RelatedFundingRequest(CodaBaseDto):
@@ -70,7 +71,7 @@ type ItemDto = PublicationItemDto | FreeItemDto | ContractItemDto
 class FundingAssignmentDto(CodaBaseDto):
     funding_source_type: Literal["budget", "institution"] = "budget"
     funding_source: IntOrNone = None
-    amount: DecimalOrDefault = Decimal(0)
+    amount: DecimalOrAll = Field(default=Decimal(0))
 
 
 class PositionDto(abc.ABC, CodaBaseDto):

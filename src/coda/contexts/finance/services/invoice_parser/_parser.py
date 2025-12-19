@@ -1,7 +1,9 @@
 import datetime
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
+
+from typing_extensions import TypeIs
 
 from coda.contexts.finance.dto.edit_position_dtos import (
     FundingAssignmentDto,
@@ -83,24 +85,32 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
         if f.funding_source is None and f.amount == 0:
             continue
 
+        amount = position.cost_amount if _is_all_amount(f.amount) else f.amount
+
         fs: FundingSource | None
         match f:
             case FundingAssignmentDto(
-                funding_source_type="budget", funding_source=int(funding_source)
+                funding_source_type="budget",
+                funding_source=int(funding_source),
             ):
                 fs_id = FundingSourceId(funding_source)
                 fs = Budget(fs_id, "")
             case FundingAssignmentDto(
-                funding_source_type="institution", funding_source=int(funding_source)
+                funding_source_type="institution",
+                funding_source=int(funding_source),
             ):
                 inst_id = InstitutionId(funding_source)
                 fs = SplitSource.new(inst_id, "")
             case _:
                 fs = None
 
-        _position.assign_funding(fs, f.amount, position.cost_basis_mode)
+        _position.assign_funding(fs, amount, position.cost_basis_mode)
 
     return _position
+
+
+def _is_all_amount(amount: Literal["all"] | Decimal) -> TypeIs[Literal["all"]]:
+    return amount == "all"
 
 
 def position_to_dto(position: Position, cost_basis: CostBasis = CostBasis.net) -> PositionDto:

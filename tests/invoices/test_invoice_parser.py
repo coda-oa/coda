@@ -226,3 +226,54 @@ def test__position_dto_with_unspecified_funding_source_in_assignment__converts_t
 
     position = invoice_parser.to_position(dto, position.cost.currency)
     assert position.funding_assignments()[0].funding_source is None
+
+
+def _budget() -> Budget:
+    budget = domainfactory.budget()
+    budget.id = funding_source_repository.create(budget)
+    return budget
+
+
+def _institution() -> SplitSource:
+    return domainfactory.split_source(InstitutionId(modelfactory.institution().pk))
+
+
+FundingSources = (_budget, _institution)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("create_position", Positions)
+@pytest.mark.parametrize("create_funding_source", FundingSources)
+def test__position_dto_with_amount_all_and_selected_funding_source__assigns_full_cost_to_selected_budget(
+    create_position: Callable[[], Position],
+    create_funding_source: Callable[[], FundingSource],
+) -> None:
+    """
+    When a funding assignment has amount="all" (from STATE 1 implicit assignment template)
+    and a budget is selected, the parser should assign the full cost to that budget.
+
+    This tests the bug where DecimalOrDefault converts "all" to Decimal(0), causing
+    the parser to create an invalid assignment with the selected budget but zero amount.
+    The correct behavior is to assign the full cost to the selected budget.
+    """
+    funding_source = create_funding_source()
+
+    position = create_position()
+    dto = invoice_parser.position_to_dto(position)
+
+    dto.funding_assignments.append(
+        FundingAssignmentDto(
+            funding_source=funding_source.identity(),
+            funding_source_type=funding_source.kind(),
+            amount="all",
+        )
+    )
+
+    parsed_position = invoice_parser.to_position(dto, position.cost.currency)
+
+    assert len(parsed_position.funding_assignments()) == 1
+    assignment = parsed_position.funding_assignments()[0]
+    assert assignment.funding_source is not None
+    assert assignment.funding_source.identity() == funding_source.identity()
+    assert assignment.amount == position.net()
+    assert parsed_position.unassigned_costs().amount == Decimal(0)
