@@ -9,10 +9,11 @@ from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.invoices import funding_source_repository, repository
 from coda.domain.author import InstitutionId
 from coda.domain.contract import Contract, ContractYear, PublisherId
+from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
 from coda.domain.finance.invoice_positions import Position
 from coda.domain.fundingrequest import FundingOrganizationId
-from coda.domain.money._currency import Currency
+from coda.domain.money import Currency, Money
 from coda.domain.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
 
@@ -83,6 +84,19 @@ def test__given_paid_invoice_with_publication__invoice_with_publication__returns
 
     assert actual is not None
     assert_invoice_eq(invoice, actual)
+
+
+@pytest.mark.django_db
+def test__invoice_with_vat_position__invoice_list_item__has_only_tax_costs() -> None:
+    creditor = CreditorId(modelfactory.creditor().pk)
+    position_1 = domainfactory.free_position(cost_type=PublicationCostType.Vat)
+    invoice = domainfactory.invoice(positions=[position_1], creditor=creditor)
+    invoice.id = repository.create(invoice)
+
+    actual, *_ = repository.search()
+
+    assert actual.net == Money(0, position_1.cost.currency)
+    assert actual.total == actual.tax == position_1.total()
 
 
 def create_invoice_with_publication(publication_id: PublicationId) -> Invoice:

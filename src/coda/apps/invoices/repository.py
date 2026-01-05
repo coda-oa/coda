@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import TypeVar
 
 from django.db import transaction
-from django.db.models import F, Q, QuerySet, Sum, Value
+from django.db.models import Case, DecimalField, F, Q, QuerySet, Sum, Value, When
 from django.db.models.functions import Coalesce
 
 from coda.apps.domainqueryset import DomainQuerySet
@@ -214,10 +214,38 @@ def get_sorted_list_items(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[
 
 
 def _annotate_position_based_data(qs: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
+    """
+    Annotate invoice queryset with aggregated position data.
+
+    This function mirrors the domain behavior for cost calculations:
+    - Regular positions: net = cost, tax = cost * tax_rate
+    - VAT positions: net = 0, tax = cost (full amount is tax)
+
+    This matches VatCalculation and RegularCostCalculation in invoice_positions.py.
+    """
     return qs.annotate(
-        net_total=Coalesce(Sum("positions__cost_amount"), Decimal("0")),
+        net_total=Coalesce(
+            Sum(
+                Case(
+                    When(positions__cost_type="vat", then=Value(0)),
+                    default=F("positions__cost_amount"),
+                    output_field=DecimalField(),
+                )
+            ),
+            Decimal("0"),
+        ),
         tax_total=Coalesce(
-            Sum(F("positions__cost_amount") * F("positions__tax_rate")), Decimal("0")
+            Sum(
+                Case(
+                    When(
+                        positions__cost_type="vat",
+                        then=F("positions__cost_amount"),
+                    ),
+                    default=F("positions__cost_amount") * F("positions__tax_rate"),
+                    output_field=DecimalField(),
+                )
+            ),
+            Decimal("0"),
         ),
         first_position_currency=Coalesce(
             "positions__cost_currency",
