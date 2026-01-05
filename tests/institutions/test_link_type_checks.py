@@ -1,6 +1,6 @@
 import pytest
 
-from coda.domain.institution.links import Isni, Ror
+from coda.domain.institution.links import Isni, Ringgold, Ror
 
 
 def test__can_create_valid_ror() -> None:
@@ -103,12 +103,12 @@ def test_isni_formatting_is_normalized() -> None:
     assert str(sut) == "0000000121032683"
 
 
-# Ringold Tests
-
-
 def test_can_create_valid_ringold() -> None:
-    """Ringold format: numeric identifier."""
-    pytest.skip("Ringold validation not yet implemented")
+    """Ringgold format: numeric identifier."""
+    sut = Ringgold("12345")
+
+    assert str(sut) == "12345"
+    assert sut.value() == "12345"
 
 
 @pytest.mark.parametrize(
@@ -120,7 +120,8 @@ def test_can_create_valid_ringold() -> None:
     ],
 )
 def test_valid_ringold_formats(valid_ringold: str) -> None:
-    pytest.skip("Ringold validation not yet implemented")
+    sut = Ringgold(valid_ringold)
+    assert str(sut) == valid_ringold
 
 
 @pytest.mark.parametrize(
@@ -134,47 +135,10 @@ def test_valid_ringold_formats(valid_ringold: str) -> None:
     ],
 )
 def test_invalid_ringold_formats(invalid_ringold: str) -> None:
-    pytest.skip("Ringold validation not yet implemented")
+    with pytest.raises(ValueError):
+        Ringgold(invalid_ringold)
 
 
 def test_ringold_with_whitespace_gets_trimmed() -> None:
-    pytest.skip("Ringold validation not yet implemented")
-
-
-# Handle Tests
-
-
-def test_can_create_valid_handle() -> None:
-    """Handle format: prefix/suffix pattern."""
-    pytest.skip("Handle validation not yet implemented")
-
-
-@pytest.mark.parametrize(
-    "valid_handle",
-    [
-        "1234/5678",
-        "10.1234/5678",
-        "hdl:1234/5678",
-        "https://hdl.handle.net/1234/5678",
-    ],
-)
-def test_valid_handle_formats(valid_handle: str) -> None:
-    pytest.skip("Handle validation not yet implemented")
-
-
-@pytest.mark.parametrize(
-    "invalid_handle",
-    [
-        "",
-        " ",
-        "1234",
-        "/5678",
-        "1234/",
-    ],
-)
-def test_invalid_handle_formats(invalid_handle: str) -> None:
-    pytest.skip("Handle validation not yet implemented")
-
-
-def test_handle_with_whitespace_gets_trimmed() -> None:
-    pytest.skip("Handle validation not yet implemented")
+    sut = Ringgold(" 12345 ")
+    assert str(sut) == "12345"

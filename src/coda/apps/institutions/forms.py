@@ -4,7 +4,14 @@ from django import forms
 from coda.apps import widgets
 
 from coda.apps.institutions.models import Institution, InstitutionLinkType
-from coda.domain.institution.links import InvalidIsni, InvalidRor, Isni, Ror
+from coda.domain.institution.links import (
+    InvalidIsni,
+    InvalidRinggold,
+    InvalidRor,
+    Isni,
+    Ringgold,
+    Ror,
+)
 
 
 class InstitutionForm(forms.ModelForm[Institution]):
@@ -35,10 +42,10 @@ class InstitutionLinkForm(forms.Form):
                 self.cleaned_data["link_value"] = Ror(value).value()
             elif link_type.name == "ISNI":
                 self.cleaned_data["link_value"] = Isni(value).value()
-            # elif link_type.name == "Ringold":
-            #     self.cleaned_data["link_value"] = Ringold(value).value()
+            elif link_type.name == "Ringgold":
+                self.cleaned_data["link_value"] = Ringgold(value).value()
 
-        except (InvalidRor, InvalidIsni) as err:
+        except (InvalidRor, InvalidIsni, InvalidRinggold) as err:
             self.add_error("link_value", str(err))
 
     def get_form_data(self) -> dict[str, Any]:
