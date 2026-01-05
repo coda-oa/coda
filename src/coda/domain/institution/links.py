@@ -23,6 +23,11 @@ class InvalidRor(DomainError):
         super().__init__(message, *args)
 
 
+class InvalidIsni(DomainError):
+    def __init__(self, message: str = "Invalid ISNI format", *args: object) -> None:
+        super().__init__(message, *args)
+
+
 class Ror:
     __match_args__ = ("_ror",)
 
@@ -75,3 +80,39 @@ class Ror:
 
     def __hash__(self) -> int:
         return hash((self._ror,))
+
+
+class Isni:
+    __match_args__ = ("_isni",)
+
+    def __init__(self, isni: str) -> None:
+        normalized = NonEmptyStr(isni).strip().replace(" ", "").replace("-", "")
+        self._isni = normalized.upper()
+        error_message = self._validate()
+        if error_message:
+            raise InvalidIsni(error_message)
+
+    @staticmethod
+    def type() -> str:
+        return "ISNI"
+
+    def _validate(self) -> str | None:
+        pattern = r"^\d{15}[\dX]$"
+        if not re.match(pattern, self._isni):
+            return "Invalid ISNI format: must be 16 characters (15 digits + check digit 0-9 or X)"
+
+        return None
+
+    def value(self) -> str:
+        return self._isni
+
+    def __str__(self) -> str:
+        return self._isni
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Isni):
+            return False
+        return self._isni == other._isni
+
+    def __hash__(self) -> int:
+        return hash((self._isni,))
