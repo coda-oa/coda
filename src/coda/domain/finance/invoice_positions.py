@@ -6,24 +6,15 @@ from coda.domain import errors
 from coda.domain.contract import ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.funding_sources import FundingSource
-from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.finance.taxable_money import CostBasis, NetMoney
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, CurrencyExchange, Money
 from coda.domain.publication.publication import PublicationId
 
 
-class SplitTooLarge(errors.DomainError):
-    pass
-
-
 class InvalidSplitAmount(errors.DomainError):
     def __init__(self, amount: Decimal, remaining_costs: Decimal) -> None:
         super().__init__(f"{amount} exceeds the remaining costs of {remaining_costs}")
-
-
-class SameFundingSource(errors.DomainError):
-    pass
 
 
 def _sign(x: Decimal) -> int:
@@ -150,11 +141,9 @@ class Position:
         self,
         *,
         item: PositionItemType,
-        funding_source: FundingSourceId | None = None,
         external_position_id: str = "",
         cost_calculation: CostCalculation,
     ) -> None:
-        self.funding_source = funding_source
         self.external_position_id = external_position_id
 
         self._item = item
@@ -185,7 +174,6 @@ class Position:
     def convert(self, to: Currency, exchange: CurrencyExchange) -> "Position":
         converted = Position(
             item=self._item,
-            funding_source=self.funding_source,
             external_position_id=self.external_position_id,
             cost_calculation=self._cost_calculation.convert(to, exchange),
         )
@@ -273,7 +261,6 @@ class Position:
             item={repr(self.item)},
             cost={self.cost},
             tax_rate={self.tax_rate},
-            funding_source={self.funding_source},
             external_position_id={self.external_position_id},
             funding_assignments={repr(self.funding_assignments())},
         )
@@ -284,24 +271,21 @@ def create(
     item: PositionItemType,
     cost: Money,
     tax_rate: TaxRate,
-    funding_source: FundingSourceId | None = None,
     external_position_id: str = "",
 ) -> "Position":
     if item.cost_type.is_vat():
-        return vat(item, cost, funding_source, external_position_id)
+        return vat(item, cost, external_position_id)
 
-    return regular(item, NetMoney.from_money(cost, tax_rate), funding_source, external_position_id)
+    return regular(item, NetMoney.from_money(cost, tax_rate), external_position_id)
 
 
 def regular(
     item: PositionItemType,
     cost: NetMoney,
-    funding_source: FundingSourceId | None = None,
     external_position_id: str = "",
 ) -> "Position":
     return Position(
         item=item,
-        funding_source=funding_source,
         external_position_id=external_position_id,
         cost_calculation=RegularCostCalculation(cost),
     )
@@ -310,12 +294,8 @@ def regular(
 def vat(
     item: PositionItemType,
     cost: Money,
-    funding_source: FundingSourceId | None = None,
     external_position_id: str = "",
 ) -> "Position":
     return Position(
-        item=item,
-        funding_source=funding_source,
-        external_position_id=external_position_id,
-        cost_calculation=VatCalculation(cost),
+        item=item, external_position_id=external_position_id, cost_calculation=VatCalculation(cost)
     )

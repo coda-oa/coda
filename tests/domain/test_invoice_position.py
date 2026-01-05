@@ -21,9 +21,7 @@ from coda.domain.publication.publication import PublicationId
 from tests import domainfactory
 
 
-def make_sut(
-    funding_source: FundingSourceId | None = None, amount: Decimal = Decimal(100)
-) -> Position:
+def make_sut(amount: Decimal = Decimal(100)) -> Position:
     sut = invoice_positions.create(
         item=PublicationItem(
             PublicationId(1),
@@ -31,7 +29,6 @@ def make_sut(
         ),
         cost=Money(amount, Currency.EUR),
         tax_rate=TaxRate.from_percentage(19),
-        funding_source=funding_source,
     )
     return sut
 
@@ -45,18 +42,18 @@ def make_vat(amount: Decimal = Decimal(100)) -> Position:
 
 
 def test__position__equals_other_position_with_same_data() -> None:
-    first = make_sut(FundingSourceId(1), amount=Decimal(12.50))
+    first = make_sut(amount=Decimal(12.50))
 
     first_budget = Budget(FundingSourceId(2), "my-budget")
     first.assign_funding(first_budget, Decimal(5))
 
-    second = make_sut(FundingSourceId(1), amount=Decimal(12.50))
+    second = make_sut(amount=Decimal(12.50))
     second_budget = Budget(FundingSourceId(2), "my-budget")
     second.assign_funding(second_budget, Decimal(5))
 
     other_amount = make_sut(amount=Decimal(30))
 
-    other_funding = make_sut(FundingSourceId(1), amount=Decimal(12.50))
+    other_funding = make_sut(amount=Decimal(12.50))
     other_budget = Budget(FundingSourceId(2), "my-budget")
     other_funding.assign_funding(other_budget, Decimal(3))
 

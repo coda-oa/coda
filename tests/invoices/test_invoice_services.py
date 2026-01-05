@@ -204,7 +204,6 @@ def copy_position(position: Position) -> Position:
         item=position.item,
         cost=position.cost,
         tax_rate=position.tax_rate,
-        funding_source=position.funding_source,
         external_position_id=position.external_position_id,
     )
 

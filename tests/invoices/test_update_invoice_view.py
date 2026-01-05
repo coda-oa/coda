@@ -225,7 +225,6 @@ def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_
         item=PublicationItem(a_publication.id, cost_type=PublicationCostType.Vat),
         cost=some_position.cost,
         tax_rate=some_position.tax_rate,
-        funding_source=some_position.funding_source,
         external_position_id=some_position.external_position_id,
     )
 

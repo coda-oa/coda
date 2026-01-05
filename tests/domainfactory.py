@@ -140,7 +140,6 @@ def publication_position(
     publication: PublicationId | None = None,
     currency: Currency | None = None,
     cost_type: PublicationCostType | None = None,
-    funding_source: FundingSourceId | None = None,
 ) -> Position:
     return invoice_positions.create(
         item=PublicationItem(
@@ -149,7 +148,6 @@ def publication_position(
         ),
         cost=random_money(currency),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
-        funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),
     )
 
@@ -158,7 +156,6 @@ def contract_position(
     contract: ContractYear,
     currency: Currency | None = None,
     cost_type: ContractCostType | None = None,
-    funding_source: FundingSourceId | None = None,
 ) -> Position:
     return invoice_positions.create(
         item=ContractItem(
@@ -167,7 +164,6 @@ def contract_position(
         ),
         cost=random_money(currency),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
-        funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),
     )
 

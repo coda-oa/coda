@@ -10,7 +10,7 @@ from coda.apps.invoices import funding_source_repository, repository
 from coda.domain.author import InstitutionId
 from coda.domain.contract import Contract, ContractYear, PublisherId
 from coda.domain.finance.costtypes import PublicationCostType
-from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice, PaymentStatus
+from coda.domain.finance.invoice import CreditorId, Invoice, PaymentStatus
 from coda.domain.finance.invoice_positions import Position
 from coda.domain.fundingrequest import FundingOrganizationId
 from coda.domain.money import Currency, Money
@@ -128,10 +128,8 @@ def full_invoice() -> Invoice:
 
 
 def publication_position(publication: PublicationId) -> Position:
-    funding_source_id = FundingSourceId(modelfactory.budget().pk)
     position = domainfactory.publication_position(
         publication=publication,
-        funding_source=funding_source_id,
         currency=Currency.FJD,
     )
     _assign_funding(position)
@@ -140,10 +138,8 @@ def publication_position(publication: PublicationId) -> Position:
 
 
 def contract_position(contract: ContractYear) -> Position:
-    funding_source_id = FundingSourceId(modelfactory.budget().pk)
     position = domainfactory.contract_position(
         contract=contract,
-        funding_source=funding_source_id,
         currency=Currency.FJD,
     )
     _assign_funding(position)
