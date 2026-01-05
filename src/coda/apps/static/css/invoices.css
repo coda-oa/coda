@@ -108,6 +108,7 @@ details[open] .position-collapsed {
 }
 
 .funding-assignments-list li {
+  list-style: none;
   padding: calc(var(--coda-spacing) * 0.125) 0;
 }
 

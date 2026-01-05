@@ -104,6 +104,9 @@ class Invoice:
     def total(self) -> Money:
         return self.net() + self.tax()
 
+    def unassigned_costs(self) -> Money:
+        return sum((p.unassigned_costs() for p in self.positions), start=Money(0, self.currency()))
+
     def is_paid(self) -> bool:
         return self.status == PaymentStatus.Paid
 

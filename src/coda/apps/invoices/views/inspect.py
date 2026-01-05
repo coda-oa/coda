@@ -182,6 +182,7 @@ def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
         comment=invoice.comment,
         external_invoice_id=invoice.external_invoice_id,
         conversions=invoice.conversions(),
+        unassigned_costs=invoice.unassigned_costs().amount,
     )
 
 
@@ -235,3 +236,4 @@ class InvoiceViewModel(NamedTuple):
     comment: str
     external_invoice_id: str
     conversions: dict[Currency, Decimal]
+    unassigned_costs: Decimal

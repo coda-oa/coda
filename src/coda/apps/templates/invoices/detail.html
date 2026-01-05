@@ -122,6 +122,11 @@
                 {% endfor %}
             </select>
         </fieldset>
+        {% if display_invoice.unassigned_costs > 0 %}
+            <p class="messages warning">
+                This invoice has unassigned costs of {{ display_invoice.unassigned_costs }} {{ display_invoice.currency.code }}
+            </p>
+        {% endif %}
         <table>
             <thead>
                 <tr>

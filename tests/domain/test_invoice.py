@@ -5,6 +5,7 @@ import pytest
 
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
+from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import (
     CreditorId,
     Invoice,
@@ -81,6 +82,17 @@ def test__unpaid_invoice__can_add_split_position_with_unassigned_costs() -> None
     sut.positions = [p]
 
     assert p in sut.positions
+
+
+def test__invoice_with_unassigend_costs__can_get_sum_of_all_unassigned_costs() -> None:
+    p1 = position(Money(100, Currency.EUR))
+    p1.assign_funding(Budget.new("my budget"), Decimal(20))
+
+    p2 = position(Money(200, Currency.EUR))
+    p2.assign_funding(Budget.new("another budget"), Decimal(100))
+    sut = make_sut([p1, p2])
+
+    assert sut.unassigned_costs() == Money(180, sut.currency())
 
 
 def test__unpaid_invoice_with_unassigned_costs__pay__raises_error() -> None:
