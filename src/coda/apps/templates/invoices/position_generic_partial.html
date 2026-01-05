@@ -1,19 +1,7 @@
 <input type="hidden"
-       name="positions-{{ counter }}-type"
-       value="{{ position.type }}">
+       name="positions-{{ counter }}-item-type"
+       value="{{ position.item.type }}">
 <div class="grid">
-    <div class="form-row">
-        <label for="id-positions-{{ counter }}-funding-source"
-               class="form-row-item-sm">Funding Source</label>
-        <select name="positions-{{ counter }}-funding_source"
-                id="id-positions-{{ counter }}-funding-source">
-            <option value>-------</option>
-            {% for fs in funding_sources %}
-                <option value="{{ fs.id }}"
-                        {% if position.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
-            {% endfor %}
-        </select>
-    </div>
     <div class="form-row">
         <label for="id-positions-{{ counter }}-external-position-id">External Position ID</label>
         <input type="text"
@@ -26,6 +14,7 @@
     <div class="form-row amount">
         <label for="id-positions-{{ counter }}-cost-amount" class="form-row-item-sm">Amount</label>
         <input type="number"
+               class="cost-amount"
                id="id-positions-{{ counter }}-cost-amount"
                name="positions-{{ counter }}-cost_amount"
                min="-1000000000000000"
@@ -34,31 +23,33 @@
                value="{{ position.cost_amount }}">
     </div>
     <div class="form-row tax-rate" id="tax-rate-wrapper-{{ counter }}">
-        {% if position.cost_type != "vat" %}
+        {% if position.item.cost_type != "vat" %}
             {% include "invoices/position_tax_rate.html" with tax_rate=position.tax_rate %}
         {% endif %}
     </div>
     <div class="form-row cost-type">
         <label for="id-positions-{{ counter }}-cost-type" class="form-row-item-sm">Cost Type</label>
         <select id="id-positions-{{ counter }}-cost-type"
-                name="positions-{{ counter }}-cost_type"
+                name="positions-{{ counter }}-item-cost_type"
+                class="cost-type"
                 hx-get="{% url 'invoices:position_cost_type_options' %}"
                 hx-target="#tax-rate-wrapper-{{ counter }}"
                 hx-swap="innerHTML"
                 hx-trigger="change"
-                hx-include="[name='positions-{{ counter }}-cost_type']"
+                hx-include="[name='positions-{{ counter }}-item-cost_type']"
                 hx-vals='{"counter": "{{ counter }}"}'>
             {% if position.type == "contract" %}
                 {% for type in contract_cost_types %}
                     <option value="{{ type }}"
-                            {% if type == position.cost_type %}selected{% endif %}>{{ type }}</option>
+                            {% if type == position.item.cost_type %}selected{% endif %}>{{ type }}</option>
                 {% endfor %}
             {% else %}
                 {% for type in publication_cost_types %}
                     <option value="{{ type }}"
-                            {% if type == position.cost_type %}selected{% endif %}>{{ type }}</option>
+                            {% if type == position.item.cost_type %}selected{% endif %}>{{ type }}</option>
                 {% endfor %}
             {% endif %}
         </select>
     </div>
 </div>
+{% include "invoices/position_funding_assignments.html" %}

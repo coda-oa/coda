@@ -1,0 +1,27 @@
+{# Complete funding assignment row with optional remove button #}
+{# Parameters: #}
+{#   - counter: Position index #}
+{#   - assignment_index: Assignment index (1-based) #}
+{#   - split: FundingAssignmentDto object #}
+{#   - show_remove_button: Boolean flag #}
+{#   - funding_sources: Budget list (from context) #}
+{#   - institutions: Institution list (from context) #}
+<div class="funding-assignment-row">
+    {% include "invoices/partials/funding_source_selector.html" %}
+    {% include "invoices/partials/funding_amount_input.html" with amount=split.amount %}
+    {% if show_remove_button %}
+        <div>
+            <button type="button"
+                    class="my-0 danger outline"
+                    name="remove_funding_assignment"
+                    value="{{ assignment_index }}"
+                    hx-post="{% url 'invoices:position_remove_funding_assignment' %}"
+                    hx-target="#position-{{ counter }}"
+                    hx-swap="outerHTML"
+                    hx-include="#position-{{ counter }}, [name='currency']"
+                    hx-vals='{"position_index": "{{ counter }}", "assignment_index": "{{ assignment_index }}"}'>
+                Remove
+            </button>
+        </div>
+    {% endif %}
+</div>

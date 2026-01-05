@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
@@ -7,11 +8,12 @@ from django.shortcuts import redirect, render
 from coda import formdata
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.views.position_list import ErrorDict, _DefaultContext
+from coda.apps.invoices.views.position_context import DefaultContext, funding_sources_context
+from coda.apps.invoices.views.position_views import ErrorDict
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser, invoice_service
-from coda.domain.finance.invoice import InvoiceId
+from coda.domain.finance.invoice import InvoiceId, UnassignedCosts
 from coda.domain.money import Currency
 
 
@@ -44,7 +46,8 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
             "home_currency_ceate": home_currency.code,
             "position_list": formdata.map_to_model(PositionList, request.POST),
         }
-        | _DefaultContext
+        | DefaultContext
+        | funding_sources_context()
         | errors,
     )
 
@@ -68,6 +71,9 @@ def save_invoice(
             invoice.add_conversion(rate, currency)
 
         return invoice_service.save(invoice), ErrorDict(errors={})
+    except UnassignedCosts:
+        messages.error(request, "Invoice has unassigned costs")
+        return None, ErrorDict(errors={})
     except invoice_parser.InvoiceParseError as e:
         return None, ErrorDict(
             errors={

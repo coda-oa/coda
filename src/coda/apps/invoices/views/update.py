@@ -11,11 +11,11 @@ from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
 from coda.apps.invoices.views.create import save_invoice
-from coda.apps.invoices.views.position_list import (
-    ErrorDict,
-    _DefaultContext,
+from coda.apps.invoices.views.position_context import (
+    DefaultContext as _DefaultContext,
     funding_sources_context,
 )
+from coda.apps.invoices.views.position_views import ErrorDict, safe_invoice_total
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser
@@ -118,7 +118,7 @@ def render_edit_view(
         "invoices/create.html",
         _DefaultContext
         | funding_sources_context()
-        | asdict(invoice_parser.invoice_total(position_list.positions, invoice.currency()))
+        | asdict(safe_invoice_total(position_list.positions, invoice.currency()))
         | errors
         | {
             "mode_name": "Edit",

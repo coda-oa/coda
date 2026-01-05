@@ -102,3 +102,7 @@ def test__money_plus_money__returns_sum() -> None:
 
 def test__money_multiplied_by_scalar__returns_product() -> None:
     assert Money(100, Currency.EUR) * 2 == Money(200, Currency.EUR)
+
+
+def test__money_minus_money__returns_difference() -> None:
+    assert Money(100, Currency.EUR) - Money(20, Currency.EUR) == Money(80, Currency.EUR)

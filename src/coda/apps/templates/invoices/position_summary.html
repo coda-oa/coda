@@ -1,4 +1,4 @@
-<div class="my-2" id="positions__summary">
+<div class="my-2" id="positions-summary">
     <h3 class="mb-1_5">Summary</h3>
     <div class="common-position-grid">
         <div class="form-row">
@@ -18,8 +18,8 @@
             <input id="total"
                    type="number"
                    hx-post="{% url 'invoices:get_total' %}"
-                   hx-target="#positions__summary"
-                   hx-trigger="change from:#positions__list input"
+                   hx-target="#positions-summary"
+                   hx-trigger="change from:(#positions__list :is(input.cost-amount, select.cost-type))"
                    hx-swap="outerHTML"
                    readonly
                    value="{{ total }}">

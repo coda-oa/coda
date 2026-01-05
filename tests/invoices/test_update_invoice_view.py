@@ -1,6 +1,7 @@
 import datetime
 from typing import Any, cast
 
+from django.contrib.messages import get_messages
 import pytest
 from django.template.response import TemplateResponse
 from django.test import Client
@@ -11,9 +12,13 @@ from coda import formdata
 from coda.apps.contracts import repository as contract_services
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.repository import create
 from coda.apps.publications.repositories import publication_repository
-from coda.contexts.finance.dto.edit_position_dtos import ContractPositionDto, PositionList
+from coda.contexts.finance.dto.edit_position_dtos import (
+    PositionDto,
+    ContractItemDto,
+    PositionList,
+)
+from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.contexts.finance.services import invoice_parser
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
@@ -43,7 +48,7 @@ def test__given_invoice__goto_update_view__has_invoice_head_in_form(client: Clie
         comment="A comment",
     )
 
-    invoice.id = create(invoice)
+    invoice.id = repository.create(invoice)
 
     response = goto_update_view(client, invoice.id)
 
@@ -82,7 +87,7 @@ def test__given_invoice__goto_update_view__has_invoice_positions_in_context___po
         positions=[_publication_position, _contract_position, _free_position],
     )
 
-    invoice.id = create(invoice)
+    invoice.id = repository.create(invoice)
 
     response = goto_update_view(client, invoice.id)
 
@@ -107,7 +112,7 @@ def test__given_invoice__saving_updated_invoice__updates_invoice___position_list
         comment="A comment",
     )
 
-    invoice.id = create(invoice)
+    invoice.id = repository.create(invoice)
 
     second_position = domainfactory.free_position(currency=Currency.EUR)
 
@@ -159,7 +164,7 @@ def test__given_invoice__invalid_form__does_not_save_invoice(client: Client) -> 
         comment="A comment",
     )
 
-    expected.id = create(expected)
+    expected.id = repository.create(expected)
 
     post_data = {
         "number": "123",
@@ -187,11 +192,11 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
         positions=[],
     )
 
-    invoice.id = create(invoice)
+    invoice.id = repository.create(invoice)
 
     contract = domainfactory.contract()
     contract.id = contract_services.create(contract)
-    contract_year = ContractPositionDto(id=contract.id, name=contract.name, year=1)
+    contract_year = PositionDto(item=ContractItemDto(id=contract.id, name=contract.name, year=1))
     position_list = PositionList(positions=[contract_year])
 
     post_data = {
@@ -218,10 +223,9 @@ def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_
     a_publication.id = publication_repository.create(a_publication)
     some_position = domainfactory.publication_position(a_publication.id)
     vat_position = invoice_positions.create(
-        item=PublicationItem(some_position.item.item, cost_type=PublicationCostType.Vat),
+        item=PublicationItem(a_publication.id, cost_type=PublicationCostType.Vat),
         cost=some_position.cost,
         tax_rate=some_position.tax_rate,
-        funding_source=some_position.funding_source,
         external_position_id=some_position.external_position_id,
     )
 
@@ -234,12 +238,45 @@ def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_
         comment="A comment",
     )
 
-    invoice.id = create(invoice)
+    invoice.id = repository.create(invoice)
 
     response = goto_update_view(client, invoice.id)
 
     position_list = response.context["position_list"]
     assert position_list.positions[0].tax_rate == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invoice_with_unassigned_costs__save_as_paid__shows_error(client: Client) -> None:
+    invoice = domainfactory.invoice(positions=[], creditor=CreditorId(modelfactory.creditor().pk))
+    invoice.reset_payment()
+    invoice.id = repository.create(invoice)
+
+    invoice_head = InvoiceHeadDto(
+        number=invoice.number,
+        date=invoice.date,
+        creditor=invoice.creditor,
+        currency=invoice.currency(),
+        status=PaymentStatus.Paid,
+    )
+    position = domainfactory.free_position(invoice.currency())
+    position.assign_funding(None, position.cost.amount / 2)
+
+    position_dto = invoice_parser.position_to_dto(position)
+    position_list = PositionList(positions=[position_dto])
+
+    response = save_invoice_view(
+        client,
+        invoice.id,
+        {"action": "create"}
+        | formdata.map_to_dict(invoice_head)
+        | formdata.map_to_dict(position_list),
+    )
+
+    messages = get_messages(response.wsgi_request)
+    error_message = list(messages).pop()
+    assert error_message.message == "Invoice has unassigned costs"
 
 
 def save_invoice_view(

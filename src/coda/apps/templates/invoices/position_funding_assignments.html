@@ -1,0 +1,107 @@
+{% load getitem %}
+<div id="funding_assignments_list" class="my-2">
+    {# HEADER: Title + Mode Selector + Add Button #}
+    <div class="funding-assignment-row align-center">
+        <h4 class="funding-assignment-source">Funding Sources</h4>
+        {# Net/Gross mode selector - only show when explicit assignments exist #}
+        {% if position.funding_assignments %}
+            <div class="form-row funding-assignment-amount">
+                <label for="id-positions-{{ counter }}-cost_basis_mode">Input mode</label>
+                <select id="id-positions-{{ counter }}-cost_basis_mode"
+                        name="positions-{{ counter }}-cost_basis_mode"
+                        hx-post="{% url "invoices:position_switch_cost_basis_mode" %}"
+                        hx-trigger="change"
+                        hx-target="#position-{{ counter }}"
+                        hx-swap="outerHTML"
+                        hx-include="#position-{{ counter }}, [name='currency']"
+                        hx-vals='{"position_index": "{{ counter }}"}'>
+                    <option value="net"
+                            {% if position.cost_basis_mode.value == "net" %}selected{% endif %}>
+                        Net (excl. tax)
+                    </option>
+                    <option value="gross"
+                            {% if position.cost_basis_mode.value == "gross" %}selected{% endif %}>
+                        Gross (incl. tax)
+                    </option>
+                </select>
+            </div>
+        {% endif %}
+        <button type="button"
+                class="secondary funding-assignment-button"
+                name="add_funding_assignment_to_position"
+                value="{{ counter }}"
+                hx-post="{% url "invoices:position_add_funding_assignment" %}"
+                hx-target="#position-{{ counter }}"
+                hx-swap="outerHTML"
+                hx-include="#position-{{ counter }}, [name='currency']"
+                hx-vals='{"position_index": "{{ counter }}"}'>
+            {% if not position.funding_assignments %}
+                Split
+            {% else %}
+                Add
+            {% endif %}
+        </button>
+    </div>
+    {# BODY: Funding assignment(s) - three possible states #}
+    {% if not position.funding_assignments %}
+        {# STATE 1: Implicit funding assignment - auto-assigns entire amount to single source #}
+        <div class="grid">
+            <input type="hidden"
+                   name="positions-{{ counter }}-#-funding_assignments"
+                   value="1">
+            <input type="hidden"
+                   name="positions-{{ counter }}-funding_assignments-1-amount"
+                   value="all">
+            {% include "invoices/partials/funding_source_selector.html" with assignment_index=1 split=None %}
+        </div>
+    {% elif position.funding_assignments|length == 1 %}
+        {# STATE 2: Single explicit assignment - shows dropdowns + amount field, no remove button #}
+        <input type="hidden"
+               name="positions-{{ counter }}-#-funding_assignments"
+               value="1">
+        <div id="id-positions-{{ counter }}-funding_assignemnts-list">
+            {# Display errors if any #}
+            {% include "invoices/partials/funding_assignment_errors.html" %}
+            {% with split=position.funding_assignments.0 %}
+                {% include "invoices/partials/funding_assignment_row.html" with assignment_index=1 show_remove_button=False %}
+            {% endwith %}
+        </div>
+    {% else %}
+        {# STATE 3: Multiple explicit assignments - user has split costs across multiple sources #}
+        <input type="hidden"
+               name="positions-{{ counter }}-#-funding_assignments"
+               value="{{ position.funding_assignments|length }}">
+        <div id="id-positions-{{ counter }}-funding_assignemnts-list">
+            {# Display errors if any #}
+            {% include "invoices/partials/funding_assignment_errors.html" %}
+            {# Loop through each funding assignment #}
+            {% for split in position.funding_assignments %}
+                {% include "invoices/partials/funding_assignment_row.html" with assignment_index=forloop.counter show_remove_button=True %}
+            {% endfor %}
+        </div>
+    {% endif %}
+    {# FOOTER: Unassigned costs display - shown for STATE 2 and STATE 3 only #}
+    {% if position.funding_assignments %}
+        <div class="form-row">
+            <label for="id-positions-{{ counter }}-unassigned_costs">
+                Unassigned costs
+                {% if position.cost_basis_mode.value == "gross" %}
+                    (incl. tax)
+                {% else %}
+                    (excl. tax)
+                {% endif %}
+            </label>
+            <input type="text"
+                   id="id-positions-{{ counter }}-unassigned_costs"
+                   value="{{ position.unassigned_costs }}"
+                   readonly
+                   hx-post="{% url "invoices:position_refresh_funding_assignment" %}"
+                   hx-trigger="change from:(#id-positions-{{ counter }}-funding_assignemnts-list input.cost-amount), change from:(#id-positions-{{ counter }}-cost-amount)"
+                   hx-target="#position-{{ counter }}"
+                   hx-swap="outerHTML"
+                   hx-include="#position-{{ counter }}, [name='currency']"
+                   hx-vals='{"position_index": "{{ counter }}"}'
+                   {% if position.unassigned_costs != 0 %}aria-invalid="true"{% endif %}>
+        </div>
+    {% endif %}
+</div>

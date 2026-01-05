@@ -33,16 +33,16 @@
                         <td>
                             <input type="number"
                                    id="contract-{{ forloop.counter }}-year"
-                                   name="contract-year">
+                                   name="contract-item-year">
                         </td>
                         <td>
                             <input type="hidden"
                                    id="contract-{{ forloop.counter }}-id"
-                                   name="contract-id"
+                                   name="contract-item-id"
                                    value="{{ contract.id }}">
                             <input type="hidden"
                                    id="contract-{{ forloop.counter }}-name"
-                                   name="contract-name"
+                                   name="contract-item-name"
                                    value="{{ contract.name }}">
                             <button type="button"
                                     class="outline secondary"

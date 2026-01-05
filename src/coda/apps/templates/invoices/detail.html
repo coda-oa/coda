@@ -122,12 +122,17 @@
                 {% endfor %}
             </select>
         </fieldset>
+        {% if display_invoice.unassigned_costs > 0 %}
+            <p class="messages warning">
+                This invoice has unassigned costs of {{ display_invoice.unassigned_costs }} {{ display_invoice.currency.code }}
+            </p>
+        {% endif %}
         <table>
             <thead>
                 <tr>
                     <th>Type</th>
                     <th>Position</th>
-                    <th>Funding Source</th>
+                    <th>Funding Assignments</th>
                     <th>Cost Type</th>
                     <th>Tax (%)</th>
                     <th>Tax ({{ display_currency.code }})</th>
@@ -154,9 +159,17 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% for fs in funding_sources %}
-                                {% if position.funding_source == fs.id %}{{ fs.name }}{% endif %}
-                            {% endfor %}
+                            {% if position.funding_assignments %}
+                                <ul class="funding-assignments-list">
+                                    {% for assignment in position.funding_assignments %}
+                                        <li>
+                                            <strong>{{ assignment.funding_source_name }}</strong>: {{ assignment.amount|floatformat:2 }}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <span class="funding-assignment-empty">—</span>
+                            {% endif %}
                         </td>
                         <td>{{ position.cost_type }}</td>
                         <td>{{ position.tax_rate|floatformat:1 }}</td>

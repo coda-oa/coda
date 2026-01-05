@@ -14,19 +14,26 @@ from coda.apps.invoices.views.fundingsources import (
     fundingsource_listview,
     fundingsource_updateview,
 )
-from coda.apps.invoices.views.importview import import_invoices
+from coda.apps.invoices.views.importview import import_invoices_view
 from coda.apps.invoices.views.inspect import (
     invoice_detail,
     invoice_list,
-    pay_invoice,
     load_conversion_section,
+    pay_invoice,
     position_cost_type_options,
 )
-from coda.apps.invoices.views.position_list import (
+from coda.apps.invoices.views.position_views import (
     add_position,
     invoice_total,
     remove_position,
     switch_position_tab,
+)
+from coda.apps.invoices.views.funding_assignment_views import (
+    add_funding_assignment,
+    refresh_unassigned_costs,
+    remove_funding_assignment,
+    switch_cost_basis_mode,
+    switch_funding_source_type,
 )
 from coda.apps.invoices.views.search import search_contracts, search_publications
 from coda.apps.invoices.views.update import free_position_cost_type_options, update_invoice
@@ -43,6 +50,31 @@ urlpatterns = [
     path("create/tab-switch/", switch_position_tab, name="tab_switch"),
     path("create/add-position/", add_position, name="add_position"),
     path("create/remove-position/", remove_position, name="remove_position"),
+    path(
+        "create/add-funding-asssignment",
+        add_funding_assignment,
+        name="position_add_funding_assignment",
+    ),
+    path(
+        "create/remove-funding-asssignment",
+        remove_funding_assignment,
+        name="position_remove_funding_assignment",
+    ),
+    path(
+        "create/refresh-funding-asssignment",
+        refresh_unassigned_costs,
+        name="position_refresh_funding_assignment",
+    ),
+    path(
+        "create/switch-cost-basis-mode",
+        switch_cost_basis_mode,
+        name="position_switch_cost_basis_mode",
+    ),
+    path(
+        "create/switch_funding_source_type",
+        switch_funding_source_type,
+        name="switch_funding_source_type",
+    ),
     path("create/total/", invoice_total, name="get_total"),
     path("update/<int:pk>/", update_invoice, name="update"),
     path("creditors/", CreditorListView.as_view(), name="creditor_list"),
@@ -55,7 +87,7 @@ urlpatterns = [
     path("fundingsources/update/<int:pk>", fundingsource_updateview, name="fundingsource_update"),
     path("conversion_section/", load_conversion_section, name="conversions_section"),
     path("<int:pk>/pay/", pay_invoice, name="pay_invoice"),
-    path("import/", import_invoices, name="import"),
+    path("import/", import_invoices_view, name="import"),
     path(
         "position-cost-type-options/", position_cost_type_options, name="position_cost_type_options"
     ),

@@ -1,28 +1,31 @@
-import dataclasses
 import datetime
 import enum
 from collections.abc import Iterable
-from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import TYPE_CHECKING, NewType, Self
 
+from coda.domain import errors
 from coda.domain.money import Currency, CurrencyExchange, Money
 
 if TYPE_CHECKING:
-    from coda.domain.finance.invoice_positions import AnyPosition
+    from coda.domain.finance.invoice_positions import Position
 
 InvoiceId = NewType("InvoiceId", int)
 CreditorId = NewType("CreditorId", int)
 FundingSourceId = NewType("FundingSourceId", int)
 
 
-type Positions = Iterable[AnyPosition]
+type Positions = Iterable[Position]
 
 
 class PaymentStatus(enum.Enum):
     Paid = "paid"
     Unpaid = "unpaid"
     Rejected = "rejected"
+
+
+class UnassignedCosts(errors.DomainError):
+    pass
 
 
 def _internal_exchange(exchange_rates: dict[Currency, Decimal]) -> CurrencyExchange:
@@ -34,18 +37,30 @@ def _internal_exchange(exchange_rates: dict[Currency, Decimal]) -> CurrencyExcha
     return _exchange
 
 
-@dataclass(slots=True)
 class Invoice:
-    id: InvoiceId | None
-    number: str
-    date: datetime.date
-    creditor: CreditorId
-    positions: Positions
-    status: PaymentStatus = PaymentStatus.Unpaid
-    comment: str = ""
-    external_invoice_id: str = ""
+    def __init__(
+        self,
+        id: InvoiceId | None,
+        number: str,
+        date: datetime.date,
+        creditor: CreditorId,
+        positions: Positions,
+        status: PaymentStatus = PaymentStatus.Unpaid,
+        comment: str = "",
+        external_invoice_id: str = "",
+    ) -> None:
+        self.id = id
+        self.number = number
+        self.date = date
+        self.creditor = creditor
+        self._positions = positions
+        self.status = status
+        self.comment = comment
+        self.external_invoice_id = external_invoice_id
+        self._conversions: dict[Currency, Decimal] = {}
 
-    _conversions: dict[Currency, Decimal] = field(default_factory=dict, init=False)
+        if self.is_paid() and not self._all_costs_assigned(positions):
+            raise UnassignedCosts()
 
     @classmethod
     def new(
@@ -59,6 +74,20 @@ class Invoice:
         external_invoice_id: str = "",
     ) -> Self:
         return cls(None, number, date, creditor, positions, status, comment, external_invoice_id)
+
+    @property
+    def positions(self) -> Positions:
+        return tuple(self._positions)
+
+    @positions.setter
+    def positions(self, value: Positions) -> None:
+        if self.is_paid() and not self._all_costs_assigned(value):
+            raise UnassignedCosts()
+
+        self._positions = tuple(value)
+
+    def _all_costs_assigned(self, positions: Positions) -> bool:
+        return all(p.unassigned_costs() == Money(0, self.currency()) for p in positions)
 
     def currency(self) -> Currency:
         if not self.positions:
@@ -75,10 +104,16 @@ class Invoice:
     def total(self) -> Money:
         return self.net() + self.tax()
 
+    def unassigned_costs(self) -> Money:
+        return sum((p.unassigned_costs() for p in self.positions), start=Money(0, self.currency()))
+
     def is_paid(self) -> bool:
         return self.status == PaymentStatus.Paid
 
     def pay(self) -> None:
+        if not self._all_costs_assigned(self.positions):
+            raise UnassignedCosts()
+
         self.status = PaymentStatus.Paid
 
     def reset_payment(self) -> None:
@@ -123,7 +158,7 @@ class Invoice:
         exchange = _internal_exchange(self.conversions())
 
         converted_positions = [pos.convert(to, exchange) for pos in self.positions]
-        converted = dataclasses.replace(self, positions=converted_positions)
+        converted = self._replace_positions(converted_positions)
         converted._conversions = self._convert_exchange_rates(to)
 
         return converted
@@ -135,6 +170,18 @@ class Invoice:
         }
 
         return reverse_self_conversion | converted_exchange_rates
+
+    def _replace_positions(self, converted_positions: Positions) -> "Invoice":
+        return Invoice(
+            self.id,
+            self.number,
+            self.date,
+            self.creditor,
+            converted_positions,
+            self.status,
+            self.comment,
+            self.external_invoice_id,
+        )
 
 
 class NoSuchConversion(Exception):

@@ -23,7 +23,7 @@ from coda.domain.finance.invoice import (
     Invoice,
     InvoiceId,
 )
-from coda.domain.finance.invoice_positions import AnyPosition
+from coda.domain.finance.invoice_positions import Position
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId, FundingRequest
 from coda.domain.publication.publication import JournalId, Publication
 from tests import domainfactory, modelfactory
@@ -66,7 +66,7 @@ def funding_request() -> FundingRequest[Publication]:
     return fundingrequest_repository.get_article_request(fr.id)
 
 
-def invoice_with_position(position: AnyPosition) -> Invoice:
+def invoice_with_position(position: Position) -> Invoice:
     creditor = modelfactory.creditor()
     invoice = Invoice.new(
         number="123",

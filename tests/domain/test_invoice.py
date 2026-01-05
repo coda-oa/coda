@@ -4,18 +4,22 @@ from decimal import Decimal
 import pytest
 
 from coda.domain.finance import invoice_positions
+from coda.domain.finance.costtypes import PublicationCostType
+from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import (
     CreditorId,
     Invoice,
+    InvoiceId,
     NoSuchConversion,
+    PaymentStatus,
     Positions,
+    UnassignedCosts,
 )
-from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice_positions import Position, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
-from coda.domain.money import Currency, Money
-from coda.domain.money._money import CurrencyExchange
+from coda.domain.money import Currency, CurrencyExchange, Money
 from coda.domain.publication import PublicationId
+from tests import domainfactory
 from tests.invoices.test_invoice_repository import assert_invoice_eq
 
 
@@ -23,7 +27,7 @@ def make_sut(positions: Positions) -> Invoice:
     return Invoice.new("invoice-#1234", datetime.date.today(), CreditorId(1), positions)
 
 
-def position(cost: Money, tax_rate: TaxRate = TaxRate(0)) -> Position[PublicationItem]:
+def position(cost: Money, tax_rate: TaxRate = TaxRate(0)) -> Position:
     return invoice_positions.create(
         item=PublicationItem(PublicationId(1), cost_type=PublicationCostType.Gold_OA),
         cost=cost,
@@ -67,6 +71,63 @@ def test__invoice_positions_with_tax__total__returns_sum_of_positions_with_tax()
     assert sut.total() == Money(345, Currency.USD)
     assert sut.tax() == Money(45, Currency.USD)
     assert sut.net() == Money(300, Currency.USD)
+
+
+def test__unpaid_invoice__can_add_split_position_with_unassigned_costs() -> None:
+    sut = make_sut([position(Money(100, Currency.EUR))])
+
+    p = position(Money(100, Currency.EUR))
+    p.assign_funding(domainfactory.budget(), Decimal(20))
+
+    sut.positions = [p]
+
+    assert p in sut.positions
+
+
+def test__invoice_with_unassigend_costs__can_get_sum_of_all_unassigned_costs() -> None:
+    p1 = position(Money(100, Currency.EUR))
+    p1.assign_funding(Budget.new("my budget"), Decimal(20))
+
+    p2 = position(Money(200, Currency.EUR))
+    p2.assign_funding(Budget.new("another budget"), Decimal(100))
+    sut = make_sut([p1, p2])
+
+    assert sut.unassigned_costs() == Money(180, sut.currency())
+
+
+def test__unpaid_invoice_with_unassigned_costs__pay__raises_error() -> None:
+    p = position(Money(100, Currency.EUR))
+    p.assign_funding(domainfactory.budget(), Decimal(20))
+    sut = make_sut([p])
+
+    with pytest.raises(UnassignedCosts):
+        sut.pay()
+
+
+def test__invoice_with_unassigned_costs_cannot_be_created_as_paid() -> None:
+    p = position(Money(100, Currency.EUR))
+    p.assign_funding(domainfactory.budget(), Decimal(50))
+
+    with pytest.raises(UnassignedCosts):
+        _ = Invoice(
+            id=InvoiceId(0),
+            number="1234",
+            date=datetime.date.today(),
+            creditor=CreditorId(1),
+            status=PaymentStatus.Paid,
+            positions=[p],
+        )
+
+
+def test__paid_invoice__cannot_add_position_with_unassigned_costs() -> None:
+    sut = make_sut([position(Money(100, Currency.EUR))])
+    sut.pay()
+
+    p = position(Money(50, Currency.EUR))
+    p.assign_funding(domainfactory.budget(), Decimal(10))
+
+    with pytest.raises(UnassignedCosts):
+        sut.positions = [p]
 
 
 def test__invoice_in_eur__adding_conversion__has_conversion() -> None:

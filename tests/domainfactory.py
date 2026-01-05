@@ -11,6 +11,7 @@ from coda.domain.contract import Contract, ContractId, ContractYear, PublisherId
 from coda.domain.date import DateRange
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.funding_sources import Budget, SplitSource
 from coda.domain.finance.invoice import (
     CreditorId,
     FundingSourceId,
@@ -139,8 +140,7 @@ def publication_position(
     publication: PublicationId | None = None,
     currency: Currency | None = None,
     cost_type: PublicationCostType | None = None,
-    funding_source: FundingSourceId | None = None,
-) -> Position[PublicationItem]:
+) -> Position:
     return invoice_positions.create(
         item=PublicationItem(
             publication or PublicationId(random.randint(1, 1000)),
@@ -148,7 +148,6 @@ def publication_position(
         ),
         cost=random_money(currency),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
-        funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),
     )
 
@@ -157,8 +156,7 @@ def contract_position(
     contract: ContractYear,
     currency: Currency | None = None,
     cost_type: ContractCostType | None = None,
-    funding_source: FundingSourceId | None = None,
-) -> Position[ContractItem]:
+) -> Position:
     return invoice_positions.create(
         item=ContractItem(
             contract,
@@ -166,14 +164,13 @@ def contract_position(
         ),
         cost=random_money(currency),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
-        funding_source=funding_source,
         external_position_id=str(_faker.uuid4()),
     )
 
 
 def free_position(
     currency: Currency | None = None, cost_type: PublicationCostType | None = None
-) -> Position[FreeItem]:
+) -> Position:
     return invoice_positions.create(
         item=FreeItem(
             _faker.sentence(),
@@ -182,6 +179,16 @@ def free_position(
         cost=random_money(currency),
         tax_rate=TaxRate(_faker.pydecimal(positive=True, max_value=1)),
         external_position_id=str(_faker.uuid4()),
+    )
+
+
+def budget(id: FundingSourceId | None = None) -> Budget:
+    return Budget(id, _faker.company())
+
+
+def split_source(institution: InstitutionId | None = None, name: str = "") -> SplitSource:
+    return SplitSource.new(
+        institution or InstitutionId(_faker.random_int(min=1)), name or _faker.company()
     )
 
 

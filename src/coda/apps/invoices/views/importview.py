@@ -7,13 +7,13 @@ from django.views.decorators.http import require_http_methods
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.formbase import JsonUploadForm
-from coda.contexts.finance.services import import_service
+from coda.contexts.finance.services.invoice_import import import_invoices
 
 
 @login_required
 @require_http_methods(["GET", "POST"])
 @breadcrumb("Import Invoices", parent_url_name="invoices:list")
-def import_invoices(request: HttpRequest) -> HttpResponse:
+def import_invoices_view(request: HttpRequest) -> HttpResponse:
     import_errors = []
     form = get_form(request)
     if request.method != "POST" or not form.is_valid():
@@ -21,7 +21,7 @@ def import_invoices(request: HttpRequest) -> HttpResponse:
 
     import_file = form.cleaned_data["import_file"]
     try:
-        import_service.import_invoices(import_file)
+        import_invoices(import_file)
         messages.success(request, "Invoices imported successfully.")
     except pydantic.ValidationError as e:
         import_errors = [f"{error['loc']}: {error['msg']}" for error in e.errors()]

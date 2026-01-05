@@ -1,0 +1,37 @@
+{# Funding source type + source selector pair #}
+{# Parameters: #}
+{#   - counter: Position index #}
+{#   - assignment_index: Assignment index (1-based) #}
+{#   - split: FundingAssignmentDto object (optional, None for new assignments) #}
+{#   - funding_sources: Budget list (from context) #}
+{#   - institutions: Institution list (from context) #}
+<div class="form-row">
+    {# Type selector: budget or institution #}
+    <select class="my-0 form-row-item-sm"
+            name="positions-{{ counter }}-funding_assignments-{{ assignment_index }}-funding_source_type"
+            hx-get="{% url 'invoices:switch_funding_source_type' %}"
+            hx-target="#id-positions-{{ counter }}-funding_assignments-{{ assignment_index }}-funding_source"
+            hx-swap="innerHTML">
+        <option value="budget"
+                {% if not split or split.funding_source_type == "budget" %}selected{% endif %}>Budget</option>
+        <option value="institution"
+                {% if split and split.funding_source_type == "institution" %}selected{% endif %}>Institution</option>
+    </select>
+    {# Source selector: actual budget/institution #}
+    <select class="my-0"
+            id="id-positions-{{ counter }}-funding_assignments-{{ assignment_index }}-funding_source"
+            name="positions-{{ counter }}-funding_assignments-{{ assignment_index }}-funding_source">
+        {% if not split or split.funding_source_type == "budget" %}
+            <option value>-------</option>
+            {% for fs in funding_sources %}
+                <option value="{{ fs.id }}"
+                        {% if split and split.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
+            {% endfor %}
+        {% else %}
+            {% for inst in institutions %}
+                <option value="{{ inst.id }}"
+                        {% if split.funding_source == inst.id %}selected{% endif %}>{{ inst.name }}</option>
+            {% endfor %}
+        {% endif %}
+    </select>
+</div>

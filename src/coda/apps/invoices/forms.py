@@ -63,4 +63,4 @@ class CreditorForm(forms.ModelForm[Creditor]):
 class FundingSourceForm(forms.ModelForm[FundingSource]):
     class Meta:
         model = FundingSource
-        fields = "__all__"
+        fields = ["name"]

@@ -39,7 +39,7 @@ def publisher(name: str = "") -> Publisher:
 def journal(publisher_id: int | None = None) -> Journal:
     title = _faker.sentence()
     return Journal.objects.create(
-        title=title, eissn=_issn(), publisher_id=publisher_id or publisher().id
+        title=title, eissn=_issn(), publisher_id=publisher_id or publisher().pk
     )
 
 
@@ -117,5 +117,5 @@ def creditor(name: str = "") -> Creditor:
     return Creditor.objects.create(name=name or _faker.company())
 
 
-def funding_source(name: str = "") -> FundingSource:
+def budget(name: str = "") -> FundingSource:
     return FundingSource.objects.create(name=name or _faker.company())

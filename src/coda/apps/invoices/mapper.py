@@ -1,13 +1,15 @@
 from decimal import Decimal
-from typing import TypedDict
+from typing import TypedDict, cast
 
 from django.urls import reverse
 
 from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.invoices import models as invoice_models
 from coda.coda_itertools import LazyCachedIterable
+from coda.domain.author import InstitutionId
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import (
     CreditorId,
     FundingSourceId,
@@ -16,9 +18,10 @@ from coda.domain.finance.invoice import (
     PaymentStatus,
 )
 from coda.domain.finance.invoice_positions import (
-    AnyPosition,
     ContractItem,
     FreeItem,
+    FundingAssignment,
+    Position,
     PositionItemType,
     PublicationItem,
 )
@@ -109,7 +112,7 @@ def as_django_model(invoice: Invoice) -> invoice_models.Invoice:
 
 
 def _as_position_django_model(
-    invoice_model: invoice_models.Invoice, position: AnyPosition
+    invoice_model: invoice_models.Invoice, position: Position
 ) -> invoice_models.Position:
     """Convert position domain object to PositionModel."""
     match position.item:
@@ -121,7 +124,6 @@ def _as_position_django_model(
                 cost_currency=position.cost.currency.code,
                 cost_type=cost_type.value,
                 tax_rate=position.tax_rate,
-                funding_source_id=position.funding_source,
                 invoice_id=invoice_model.pk,
                 external_position_id=position.external_position_id,
             )
@@ -132,7 +134,6 @@ def _as_position_django_model(
                 cost_currency=position.cost.currency.code,
                 cost_type=cost_type.value,
                 tax_rate=position.tax_rate,
-                funding_source_id=position.funding_source,
                 invoice_id=invoice_model.pk,
                 external_position_id=position.external_position_id,
             )
@@ -143,7 +144,6 @@ def _as_position_django_model(
                 cost_currency=position.cost.currency.code,
                 cost_type=cost_type.value,
                 tax_rate=position.tax_rate,
-                funding_source_id=position.funding_source,
                 invoice_id=invoice_model.pk,
                 external_position_id=position.external_position_id,
             )
@@ -154,7 +154,6 @@ def _as_position_django_model(
 class _CommonPositionArgs(TypedDict):
     cost: Money
     tax_rate: TaxRate
-    funding_source: FundingSourceId | None
     external_position_id: str
 
 
@@ -170,20 +169,94 @@ def synchronize_relationships(invoice: Invoice, invoice_model: invoice_models.In
 
     conversions = _create_currency_conversions(invoice, invoice_model)
     invoice_models.CurrencyConversion.objects.bulk_create(conversions)
+    funding_source_lookup = _resolve_institution_funding_sources(
+        [fa for position in invoice.positions for fa in position.funding_assignments()]
+    )
+
+    funding_assignments = [
+        invoice_models.FundingAssignment(
+            position=position_model,
+            funding_source_id=_funding_source_id(funding.funding_source, funding_source_lookup),
+            amount=funding.amount.amount,
+        )
+        for position, position_model in zip(invoice.positions, positions)
+        for funding in position.funding_assignments()
+    ]
+    invoice_models.FundingAssignment.objects.bulk_create(funding_assignments)
 
 
-def _as_position_domain_object(position: invoice_models.Position) -> AnyPosition:
+def as_domain_funding_source(model: invoice_models.FundingSource) -> FundingSource:
+    if model.type == "budget":
+        return Budget(FundingSourceId(model.pk), model.name)
+    elif model.type == "institution":
+        assert model.institution is not None
+        return SplitSource(
+            FundingSourceId(model.pk),
+            cast(InstitutionId, model.institution.pk),
+            model.institution.name,
+        )
+    raise ValueError("Invalid model type")
+
+
+def _resolve_institution_funding_sources(
+    funding_assignments: list[FundingAssignment],
+) -> dict[InstitutionId, FundingSourceId]:
+    institution_assignments = {
+        f.funding_source.institution: f.funding_source.name
+        for f in funding_assignments
+        if isinstance(f.funding_source, SplitSource)
+    }
+
+    existing = invoice_models.FundingSource.objects.filter(
+        institution_id__in=institution_assignments.keys(), type="institution"
+    )
+    existing_map = {
+        InstitutionId(fs.institution_id): FundingSourceId(fs.pk)
+        for fs in existing
+        if fs.institution_id
+    }
+
+    created = invoice_models.FundingSource.objects.bulk_create(
+        invoice_models.FundingSource(type="institution", institution_id=institution, name=name)
+        for institution, name in institution_assignments.items()
+        if institution not in existing_map
+    )
+
+    return existing_map | {
+        InstitutionId(fs.institution_id): FundingSourceId(fs.pk)
+        for fs in created
+        if fs.institution_id
+    }
+
+
+def _funding_source_id(
+    fs: FundingSource | None, lookup: dict[InstitutionId, FundingSourceId]
+) -> FundingSourceId | None:
+    if not fs:
+        return None
+
+    if isinstance(fs, Budget):
+        if not fs.id:
+            raise ValueError(f"Attempting to save position with unsaved funding source {fs}")
+
+        return fs.id
+    elif isinstance(fs, SplitSource):
+        return lookup[fs.institution]
+
+
+def _as_position_domain_object(position: invoice_models.Position) -> Position:
     """Convert PositionModel to position domain object."""
     item = _get_item_from_position_model(position)
     common_args = _extract_common_position_args(position)
+    _position = invoice_positions.create(item=item, **common_args)
 
-    match item:
-        case ContractItem():
-            return invoice_positions.create(item=item, **common_args)
-        case PublicationItem():
-            return invoice_positions.create(item=item, **common_args)
-        case FreeItem():
-            return invoice_positions.create(item=item, **common_args)
+    for funding in position.funding_assignments.all():
+        _position.assign_funding(
+            as_domain_funding_source(funding.funding_source) if funding.funding_source else None,
+            funding.amount,
+        )
+
+    return _position
 
 
 def _extract_common_position_args(position: invoice_models.Position) -> _CommonPositionArgs:
@@ -191,9 +264,6 @@ def _extract_common_position_args(position: invoice_models.Position) -> _CommonP
     return {
         "cost": Money(position.cost_amount, Currency[position.cost_currency]),
         "tax_rate": TaxRate(position.tax_rate),
-        "funding_source": (
-            FundingSourceId(position.funding_source.pk) if position.funding_source else None
-        ),
         "external_position_id": position.external_position_id,
     }
 

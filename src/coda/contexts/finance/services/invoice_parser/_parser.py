@@ -1,36 +1,43 @@
 import datetime
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
+
+from typing_extensions import TypeIs
 
 from coda.contexts.finance.dto.edit_position_dtos import (
-    AnyPositionDto,
-    ContractPositionDto,
-    FreePositionDto,
-    PublicationPositionDto,
+    FundingAssignmentDto,
+    ItemDto,
+    PositionDto,
 )
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.domain import errors
+from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
-from coda.domain.finance.invoice import CreditorId, Invoice
-from coda.domain.finance.invoice_positions import AnyPosition, ItemType
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
+from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice
+from coda.domain.finance.invoice_positions import ItemType, Position, PositionItemType
+from coda.domain.finance.taxable_money import CostBasis
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money._currency import Currency
+from coda.domain.money._money import Money
 from coda.domain.publication.publication import PublicationId
 
 from . import _contract, _free, _publication
 
 
 class PositionParser(Protocol):
-    def to_position(
-        self, position: AnyPositionDto, currency: Currency, *, parse_safe: bool = True
-    ) -> AnyPosition:
+    def to_itemdto(self, position: Position) -> ItemDto:
         ...
 
-    def position_to_dto(self, position: AnyPosition) -> AnyPositionDto:
+    def parse_item_from(
+        self, position: PositionDto, *, parse_safe: bool = False
+    ) -> PositionItemType:
         ...
 
 
-def parse_invoice(invoice_head: InvoiceHeadDto, positions: list[AnyPositionDto]) -> Invoice:
+def parse_invoice(invoice_head: InvoiceHeadDto, positions: list[PositionDto]) -> Invoice:
     currency = invoice_head.currency
     with errors.capture(ValueError) as capture:
         parsed_positions = errors.results(
@@ -55,7 +62,7 @@ class InvoiceTotal:
     total: Decimal
 
 
-def invoice_total(positions: list[AnyPositionDto], currency: Currency) -> InvoiceTotal:
+def invoice_total(positions: list[PositionDto], currency: Currency) -> InvoiceTotal:
     parsed = [to_position(p, currency, parse_safe=True) for p in positions]
     invoice = Invoice.new("", datetime.date.today(), CreditorId(0), parsed)
 
@@ -66,27 +73,75 @@ def invoice_total(positions: list[AnyPositionDto], currency: Currency) -> Invoic
     )
 
 
-def to_position(
-    position: AnyPositionDto, currency: Currency, *, parse_safe: bool = False
-) -> AnyPosition:
+def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool = False) -> Position:
     parser = _dto_parser_registry[position.type]
-    return parser.to_position(position, currency, parse_safe=parse_safe)
+
+    _position = invoice_positions.create(
+        item=parser.parse_item_from(position, parse_safe=parse_safe),
+        cost=Money(position.cost_amount, currency),
+        tax_rate=TaxRate.from_percentage(position.tax_rate),
+        external_position_id=position.external_position_id,
+    )
+
+    for f in position.funding_assignments:
+        if f.funding_source is None and f.amount == 0:
+            continue
+
+        amount = position.cost_amount if _is_all_amount(f.amount) else f.amount
+
+        fs: FundingSource | None
+        match f:
+            case FundingAssignmentDto(
+                funding_source_type="budget",
+                funding_source=int(funding_source),
+            ):
+                fs_id = FundingSourceId(funding_source)
+                fs = Budget(fs_id, "")
+            case FundingAssignmentDto(
+                funding_source_type="institution",
+                funding_source=int(funding_source),
+            ):
+                inst_id = InstitutionId(funding_source)
+                fs = SplitSource.new(inst_id, "")
+            case _:
+                fs = None
+
+        if fs is not None or not _is_all_amount(f.amount):
+            _position.assign_funding(fs, amount, position.cost_basis_mode)
+
+    return _position
 
 
-def position_to_dto(position: AnyPosition) -> AnyPositionDto:
+def _is_all_amount(amount: Literal["all"] | Decimal) -> TypeIs[Literal["all"]]:
+    return amount == "all"
+
+
+def position_to_dto(position: Position, cost_basis: CostBasis = CostBasis.net) -> PositionDto:
     parser = _position_converters[type(position.item.item)]
-    return parser.position_to_dto(position)
+    dto = _position_to_dto(position, parser.to_itemdto(position), cost_basis)
+
+    return dto
 
 
-def get_position_type(type_name: str) -> type[AnyPositionDto]:
-    return _position_type_registry[type_name]
+def _position_to_dto(position: Position, item_dto: ItemDto, cost_basis: CostBasis) -> PositionDto:
+    return PositionDto(
+        item=item_dto,
+        cost_amount=position.cost.amount,
+        tax_rate=position.tax_rate.percentage(),
+        external_position_id=position.external_position_id,
+        funding_assignments=[
+            FundingAssignmentDto(
+                funding_source=f.funding_source.identity() if f.funding_source else None,
+                funding_source_type=f.funding_source.kind() if f.funding_source else "budget",
+                amount=f.amount.amount,
+            )
+            for f in position.funding_assignments(cost_basis)
+            if f.funding_source or f.amount.amount != 0
+        ],
+        unassigned_costs=position.unassigned_costs(cost_basis).amount,
+        cost_basis_mode=cost_basis,
+    )
 
-
-_position_type_registry: dict[str, type[AnyPositionDto]] = {
-    "publication": PublicationPositionDto,
-    "free": FreePositionDto,
-    "contract": ContractPositionDto,
-}
 
 _dto_parser_registry: dict[str, PositionParser] = {
     "publication": _publication.parser,
@@ -102,7 +157,7 @@ _position_converters: dict[type[ItemType], PositionParser] = {
 
 
 class PositionParseError(Exception):
-    def __init__(self, inner: Exception, position: AnyPositionDto, *args: Any) -> None:
+    def __init__(self, inner: Exception, position: PositionDto, *args: Any) -> None:
         super().__init__(*args)
         self.position = position
         self.inner = inner
@@ -116,7 +171,7 @@ class InvoiceParseError(RuntimeError):
         super().__init__()
         self.position_errors = position_errors
 
-    def error_for(self, position: AnyPositionDto) -> PositionParseError | None:
+    def error_for(self, position: PositionDto) -> PositionParseError | None:
         for err in self.position_errors:
             if position == err.position:
                 return err

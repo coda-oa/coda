@@ -6,9 +6,9 @@
 {% block position_type_specifics %}
     <h4>
         Contract Name:
-        <a href="{{ position.contract_url }}"
+        <a href="{{ position.item.contract_url }}"
            target="_blank"
-           class="outline secondary">{{ position.name }} ↗</a>
+           class="outline secondary">{{ position.item.name }} ↗</a>
     </h4>
     {% with index=counter|stringformat:"s" %}
         {% with error_key="positions-"|add:index|add:"-error" %}
@@ -17,16 +17,16 @@
                 <label for="id-positions-{{ counter }}-year" class="form-row-item-sm">Year</label>
                 <input type="text"
                        id="id-positions-{{ counter }}-year"
-                       name="positions-{{ counter }}-year"
-                       value="{{ position.year }}"
+                       name="positions-{{ counter }}-item-year"
+                       value="{{ position.item.year }}"
                        {% if error_key in errors %}aria-invalid="true"{% endif %}>
             </div>
         {% endwith %}
     {% endwith %}
     <input type="hidden"
-           name="positions-{{ counter }}-id"
-           value="{{ position.id }}">
+           name="positions-{{ counter }}-item-id"
+           value="{{ position.item.id }}">
     <input type="hidden"
-           name="positions-{{ counter }}-name"
-           value="{{ position.name }}">
+           name="positions-{{ counter }}-item-name"
+           value="{{ position.item.name }}">
 {% endblock position_type_specifics %}

@@ -1,45 +1,46 @@
-import enum
 from dataclasses import dataclass
-from typing import Generic, Protocol, TypeVar
+from decimal import Decimal
+from typing import Protocol
 
+from coda.domain import errors
 from coda.domain.contract import ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
-from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.finance.funding_sources import FundingSource
+from coda.domain.finance.taxable_money import CostBasis, NetMoney
 from coda.domain.finance.taxrate import TaxRate
-from coda.domain.money import Currency
-from coda.domain.money._money import CurrencyExchange, Money
+from coda.domain.money import Currency, CurrencyExchange, Money
 from coda.domain.publication.publication import PublicationId
 
-BaseItemT = TypeVar("BaseItemT")
-BaseCostTypeT = TypeVar("BaseCostTypeT", bound=enum.Enum)
+
+class InvalidSplitAmount(errors.DomainError):
+    def __init__(self, amount: Decimal, remaining_costs: Decimal) -> None:
+        super().__init__(f"{amount} exceeds the remaining costs of {remaining_costs}")
 
 
-class Item(Protocol, Generic[BaseItemT, BaseCostTypeT]):
-    item: BaseItemT
-    cost_type: BaseCostTypeT
+def _sign(x: Decimal) -> int:
+    return 1 if x >= 0 else -1
 
 
 @dataclass(slots=True)
-class PublicationItem(Item[PublicationId, PublicationCostType]):
+class PublicationItem:
     item: PublicationId
     cost_type: PublicationCostType
 
 
 @dataclass(slots=True)
-class ContractItem(Item[ContractYear, ContractCostType]):
+class ContractItem:
     item: ContractYear
     cost_type: ContractCostType
 
 
 @dataclass(slots=True)
-class FreeItem(Item[str, PublicationCostType]):
+class FreeItem:
     item: str
     cost_type: PublicationCostType
 
 
 type ItemType = PublicationId | ContractYear | str
 type PositionItemType = PublicationItem | ContractItem | FreeItem
-type AnyPosition = "Position[PublicationItem] | Position[ContractItem] | Position[FreeItem]"
 
 
 class CostCalculation(Protocol):
@@ -62,26 +63,41 @@ class CostCalculation(Protocol):
     def convert(self, to: Currency, exchange: CurrencyExchange) -> "CostCalculation":
         ...
 
+    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> Money:
+        ...
+
 
 @dataclass(slots=True, frozen=True)
 class RegularCostCalculation:
-    cost: Money
-    the_tax_rate: TaxRate
+    net_cost: NetMoney
+
+    @property
+    def cost(self) -> Money:
+        return self.net_cost.base
 
     def tax_rate(self) -> TaxRate:
-        return self.the_tax_rate
+        return self.net_cost.tax_rate
 
     def net(self) -> Money:
         return self.cost
 
     def tax(self) -> Money:
-        return Money(self.cost.amount * self.the_tax_rate, self.cost.currency)
+        return self.net_cost.tax_only()
 
     def total(self) -> Money:
-        return self.net() + self.tax()
+        return self.net_cost.as_gross()
 
     def convert(self, to: Currency, exchange: CurrencyExchange) -> CostCalculation:
-        return RegularCostCalculation(self.cost.convert_to(to, exchange), self.tax_rate())
+        net = NetMoney.from_money(self.cost.convert_to(to, exchange), self.tax_rate())
+        return RegularCostCalculation(net)
+
+    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> Money:
+        money = Money(amount, self.net_cost.currency)
+        net_money = NetMoney.from_basis(tax_mode, money, self.tax_rate())
+        return net_money.base
+
+    def to_tax_mode(self, amount: Money, mode: CostBasis) -> Money:
+        return NetMoney.from_money(amount, self.tax_rate()).amount_in(mode)
 
 
 @dataclass(slots=True, frozen=True)
@@ -103,31 +119,43 @@ class VatCalculation:
     def convert(self, to: Currency, exchange: CurrencyExchange) -> CostCalculation:
         return VatCalculation(self.cost.convert_to(to, exchange))
 
+    def normalize(self, amount: Decimal, tax_mode: CostBasis) -> Money:
+        _ = tax_mode
+        return Money(amount, self.cost.currency)
 
-ItemT = TypeVar("ItemT", PublicationItem, ContractItem, FreeItem, covariant=True)
+
+@dataclass(frozen=True)
+class FundingAssignment:
+    funding_source: FundingSource | None
+    amount: Money
 
 
-class _CommonPosition(Generic[ItemT]):
+@dataclass(frozen=True)
+class PartialAssignment:
+    funding_source: FundingSource
+    amount: Decimal | None = None
+
+
+class Position:
     def __init__(
         self,
         *,
-        item: ItemT,
-        funding_source: FundingSourceId | None = None,
+        item: PositionItemType,
         external_position_id: str = "",
         cost_calculation: CostCalculation,
     ) -> None:
-        self.funding_source = funding_source
         self.external_position_id = external_position_id
 
-        self._item: ItemT = item
+        self._item = item
         self._cost_calculation = cost_calculation
+        self._splits: list[FundingAssignment] = []
 
     @property
     def cost(self) -> Money:
         return self._cost_calculation.cost
 
     @property
-    def item(self) -> ItemT:
+    def item(self) -> PositionItemType:
         return self._item
 
     @property
@@ -143,13 +171,74 @@ class _CommonPosition(Generic[ItemT]):
     def total(self) -> Money:
         return self._cost_calculation.total()
 
-    def convert(self, to: Currency, exchange: CurrencyExchange) -> "Position[ItemT]":
-        return _CommonPosition(
+    def convert(self, to: Currency, exchange: CurrencyExchange) -> "Position":
+        converted = Position(
             item=self._item,
-            funding_source=self.funding_source,
             external_position_id=self.external_position_id,
             cost_calculation=self._cost_calculation.convert(to, exchange),
         )
+
+        for f in self.funding_assignments():
+            converted.assign_funding(f.funding_source, f.amount.convert_to(to, exchange).amount)
+
+        return converted
+
+    def unassigned_costs(self, tax_mode: CostBasis = CostBasis.net) -> Money:
+        if not self._splits:
+            return Money(0, self.cost.currency)
+        remainder = NetMoney.from_money(self._get_split_remainder(), self.tax_rate)
+        return remainder.amount_in(tax_mode)
+
+    def assign_funding(
+        self,
+        funding_source: FundingSource | None,
+        amount: Decimal,
+        tax_mode: CostBasis = CostBasis.net,
+    ) -> None:
+        normalized = NetMoney.from_money(
+            self._cost_calculation.normalize(amount, tax_mode), self.tax_rate
+        )
+
+        if self._is_invalid_split_amount(normalized.amount):
+            raise InvalidSplitAmount(normalized.amount, self.unassigned_costs().amount)
+
+        self._splits.append(FundingAssignment(funding_source, normalized.base))
+
+    def assign_remaining(self, to: FundingSource | None) -> None:
+        remainder = self._get_split_remainder()
+        if remainder.amount > 0:
+            self._splits.append(FundingAssignment(to, remainder))
+
+    def assign_many(self, assignments: list[PartialAssignment]) -> None:
+        sum_explicit = sum(a.amount for a in assignments if a.amount is not None)
+        remaining = self.cost.amount - sum_explicit
+
+        number_of_implicits = len([a for a in assignments if a.amount is None])
+        implicit_amount = remaining / number_of_implicits if number_of_implicits > 0 else Decimal(0)
+
+        for a in assignments:
+            self.assign_funding(a.funding_source, a.amount or implicit_amount)
+
+    def funding_assignments(self, tax_mode: CostBasis = CostBasis.net) -> list[FundingAssignment]:
+        return [
+            FundingAssignment(
+                f.funding_source,
+                NetMoney.from_money(f.amount, self.tax_rate).amount_in(tax_mode),
+            )
+            for f in self._splits
+        ]
+
+    def _is_invalid_split_amount(self, amount: Decimal) -> bool:
+        sign_not_equal = _sign(self.cost.amount) != _sign(amount)
+        split_too_large = abs(amount) > abs(self._get_split_remainder().amount)
+        return sign_not_equal or split_too_large
+
+    def _get_split_remainder(self) -> Money:
+        split_costs = sum(
+            (fund.amount for fund in self._splits), start=Money(0, self.cost.currency)
+        )
+        remaining_costs = self.cost - split_costs
+        return remaining_costs
 
     def __eq__(self, value: object, /) -> bool:
         if not isinstance(value, self.__class__):
@@ -159,14 +248,12 @@ class _CommonPosition(Generic[ItemT]):
             self.item == value.item
             and self.cost == value.cost
             and self.tax_rate == value.tax_rate
-            and self.funding_source == value.funding_source
             and self.external_position_id == value.external_position_id
+            and self.funding_assignments() == value.funding_assignments()
         )
 
     def __hash__(self) -> int:
-        return hash(
-            (self.item, self.cost, self.tax_rate, self.funding_source, self.external_position_id)
-        )
+        return hash((self.item, self.cost, self.tax_rate, self.external_position_id))
 
     def __repr__(self) -> str:
         return f"""
@@ -174,83 +261,41 @@ class _CommonPosition(Generic[ItemT]):
             item={repr(self.item)},
             cost={self.cost},
             tax_rate={self.tax_rate},
-            funding_source={self.funding_source},
-            external_position_id={self.external_position_id}
+            external_position_id={self.external_position_id},
+            funding_assignments={repr(self.funding_assignments())},
         )
         """
 
 
 def create(
-    item: ItemT,
+    item: PositionItemType,
     cost: Money,
     tax_rate: TaxRate,
-    funding_source: FundingSourceId | None = None,
     external_position_id: str = "",
-) -> "Position[ItemT]":
+) -> "Position":
     if item.cost_type.is_vat():
-        return vat(item, cost, funding_source, external_position_id)
+        return vat(item, cost, external_position_id)
 
-    return regular(item, cost, tax_rate, funding_source, external_position_id)
+    return regular(item, NetMoney.from_money(cost, tax_rate), external_position_id)
 
 
 def regular(
-    item: ItemT,
-    cost: Money,
-    tax_rate: TaxRate,
-    funding_source: FundingSourceId | None = None,
+    item: PositionItemType,
+    cost: NetMoney,
     external_position_id: str = "",
-) -> "Position[ItemT]":
-    return _CommonPosition(
+) -> "Position":
+    return Position(
         item=item,
-        funding_source=funding_source,
         external_position_id=external_position_id,
-        cost_calculation=RegularCostCalculation(cost, tax_rate),
+        cost_calculation=RegularCostCalculation(cost),
     )
 
 
 def vat(
-    item: ItemT,
+    item: PositionItemType,
     cost: Money,
-    funding_source: FundingSourceId | None = None,
     external_position_id: str = "",
-) -> "Position[ItemT]":
-    return _CommonPosition(
-        item=item,
-        funding_source=funding_source,
-        external_position_id=external_position_id,
-        cost_calculation=VatCalculation(cost),
+) -> "Position":
+    return Position(
+        item=item, external_position_id=external_position_id, cost_calculation=VatCalculation(cost)
     )
-
-
-class Position(Protocol[ItemT]):
-    @property
-    def funding_source(self) -> FundingSourceId | None:
-        ...
-
-    @property
-    def external_position_id(self) -> str:
-        ...
-
-    @property
-    def cost(self) -> Money:
-        ...
-
-    @property
-    def item(self) -> ItemT:
-        ...
-
-    @property
-    def tax_rate(self) -> TaxRate:
-        ...
-
-    def net(self) -> Money:
-        ...
-
-    def tax(self) -> Money:
-        ...
-
-    def total(self) -> Money:
-        ...
-
-    def convert(self, to: Currency, exchange: CurrencyExchange) -> "Position[ItemT]":
-        ...

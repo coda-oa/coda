@@ -78,3 +78,40 @@ details[open] .position-collapsed {
         border-bottom-right-radius: var(--coda-border-radius);
     }
 }
+
+.funding-assignment-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.15fr;
+  grid-template-areas:
+    "assignment-funding-source assignment-amount assignment-button";
+
+  gap: var(--coda-spacing);
+}
+
+.funding-assignment-source {
+  grid-area: assignment-funding-source;
+}
+
+.funding-assignment-amount {
+  grid-area: assignment-amount;
+}
+
+.funding-assignment-button {
+  grid-area: assignment-button;
+}
+
+/* Funding assignment display in invoice detail view */
+.funding-assignments-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.funding-assignments-list li {
+  list-style: none;
+  padding: calc(var(--coda-spacing) * 0.125) 0;
+}
+
+.funding-assignment-empty {
+  color: var(--coda-disabled-text-color);
+}

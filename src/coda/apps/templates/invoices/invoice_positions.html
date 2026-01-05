@@ -3,21 +3,26 @@
     {% if position_list %}
         <input type="hidden"
                name="#-positions"
-               value="{{ position_list.positions|length }}">
+               value="{{ position_list.positions|length }}"
+               id="positions-counter">
     {% endif %}
     <section id="positions__list">
         {% for position in position_list.positions %}
-            {% if position.type == "publication" %}
-                {% include "invoices/position_publication.html" with counter=forloop.counter %}
-            {% elif position.type == "contract" %}
-                {% include "invoices/position_contract.html" with counter=forloop.counter %}
-            {% else %}
-                {% include "invoices/position_free.html" with counter=forloop.counter %}
-            {% endif %}
+            <section id="position-{{ forloop.counter }}">
+                {% if position.type == "publication" %}
+                    {% include "invoices/position_publication.html" with counter=forloop.counter %}
+                {% elif position.type == "contract" %}
+                    {% include "invoices/position_contract.html" with counter=forloop.counter %}
+                {% else %}
+                    {% include "invoices/position_free.html" with counter=forloop.counter %}
+                {% endif %}
+            </section>
             <hr>
         {% endfor %}
+    </section>
+    <div id="positions-summary">
         {% if position_list %}
             {% include "invoices/position_summary.html" with net=net tax=tax total=total %}
         {% endif %}
-    </section>
+    </div>
 </article>
