@@ -28,6 +28,11 @@ class InvalidIsni(DomainError):
         super().__init__(message, *args)
 
 
+class InvalidRinggold(DomainError):
+    def __init__(self, message: str = "Invalid Ringgold format", *args: object) -> None:
+        super().__init__(message, *args)
+
+
 class Ror:
     __match_args__ = ("_ror",)
 
@@ -116,3 +121,36 @@ class Isni:
 
     def __hash__(self) -> int:
         return hash((self._isni,))
+
+
+class Ringgold:
+    __match_args__ = ("_ringgold",)
+
+    def __init__(self, ringgold: str) -> None:
+        self._ringgold = NonEmptyStr(ringgold).strip()
+        error_message = self._validate()
+        if error_message:
+            raise InvalidRinggold(error_message)
+
+    @staticmethod
+    def type() -> str:
+        return "Ringgold"
+
+    def _validate(self) -> str | None:
+        if not self._ringgold.isdigit():
+            return "Invalid Ringgold format: must contain only digits"
+        return None
+
+    def value(self) -> str:
+        return self._ringgold
+
+    def __str__(self) -> str:
+        return self._ringgold
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Ringgold):
+            return False
+        return self._ringgold == other._ringgold
+
+    def __hash__(self) -> int:
+        return hash((self._ringgold,))
