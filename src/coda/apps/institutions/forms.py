@@ -4,7 +4,7 @@ from django import forms
 from coda.apps import widgets
 
 from coda.apps.institutions.models import Institution, InstitutionLinkType
-from coda.domain.institution.links import InvalidRor, Ror
+from coda.domain.institution.links import InvalidIsni, InvalidRor, Isni, Ror
 
 
 class InstitutionForm(forms.ModelForm[Institution]):
@@ -32,17 +32,13 @@ class InstitutionLinkForm(forms.Form):
             value = self.cleaned_data["link_value"]
 
             if link_type.name == "ROR":
-                validated_link = Ror(value)
-                self.cleaned_data["link_value"] = validated_link.value()
-            # Add more validators as implemented:
-            # elif link_type.name == "ISNI":
-            #     validated_link = Isni(value)
-            #     self.cleaned_data["link_value"] = validated_link.value()
+                self.cleaned_data["link_value"] = Ror(value).value()
+            elif link_type.name == "ISNI":
+                self.cleaned_data["link_value"] = Isni(value).value()
             # elif link_type.name == "Ringold":
-            #     validated_link = Ringold(value)
-            #     self.cleaned_data["link_value"] = validated_link.value()
+            #     self.cleaned_data["link_value"] = Ringold(value).value()
 
-        except InvalidRor as err:
+        except (InvalidRor, InvalidIsni) as err:
             self.add_error("link_value", str(err))
 
     def get_form_data(self) -> dict[str, Any]:

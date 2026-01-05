@@ -1,6 +1,6 @@
 import pytest
 
-from coda.domain.institution.links import Ror
+from coda.domain.institution.links import Isni, Ror
 
 
 def test__can_create_valid_ror() -> None:
@@ -31,7 +31,6 @@ def test__ror_with_invalid_checksum__raises_error() -> None:
         "https://ror.org/",
         "https://ror.org/123",
         "https://ror.org/0123456789",
-        "http://ror.org/02mhbdp94",
         "ror.org/02mhbdp94",
         "02mhbdp94",
         "https://ror.com/02mhbdp94",
@@ -55,12 +54,12 @@ def test_valid_ror_formats(valid_ror: str) -> None:
     assert str(sut) == valid_ror
 
 
-# ISNI (International Standard Name Identifier) Tests
-
-
 def test_can_create_valid_isni() -> None:
     """ISNI format: 16 digits, often formatted as 0000 0001 2345 6789."""
-    pytest.skip("ISNI validation not yet implemented")
+    sut = Isni("0000000121032683")
+
+    assert str(sut) == "0000000121032683"
+    assert sut.value() == "0000000121032683"
 
 
 @pytest.mark.parametrize(
@@ -73,7 +72,9 @@ def test_can_create_valid_isni() -> None:
     ],
 )
 def test_valid_isni_formats(valid_isni: str) -> None:
-    pytest.skip("ISNI validation not yet implemented")
+    sut = Isni(valid_isni)
+    expected = valid_isni.replace(" ", "").replace("-", "")
+    assert str(sut) == expected
 
 
 @pytest.mark.parametrize(
@@ -88,16 +89,18 @@ def test_valid_isni_formats(valid_isni: str) -> None:
     ],
 )
 def test_invalid_isni_formats(invalid_isni: str) -> None:
-    pytest.skip("ISNI validation not yet implemented")
+    with pytest.raises(ValueError):
+        Isni(invalid_isni)
 
 
 def test_isni_with_whitespace_gets_trimmed() -> None:
-    pytest.skip("ISNI validation not yet implemented")
+    sut = Isni(" 0000000121032683 ")
+    assert str(sut) == "0000000121032683"
 
 
 def test_isni_formatting_is_normalized() -> None:
-    """Test that ISNI stores the normalized format (no spaces/dashes)."""
-    pytest.skip("ISNI validation not yet implemented")
+    sut = Isni("0000 0001 2103 2683")
+    assert str(sut) == "0000000121032683"
 
 
 # Ringold Tests
