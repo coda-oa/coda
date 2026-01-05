@@ -277,3 +277,16 @@ def test__position_dto_with_amount_all_and_selected_funding_source__assigns_full
     assert assignment.funding_source.identity() == funding_source.identity()
     assert assignment.amount == position.net()
     assert parsed_position.unassigned_costs().amount == Decimal(0)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("create_position", Positions)
+def test__position_dto_with_amount_all_and_no_funding_source__does_not_create_a_funding_assignment(
+    create_position: Callable[[], Position],
+) -> None:
+    position = create_position()
+    dto = invoice_parser.position_to_dto(position)
+    dto.funding_assignments.append(FundingAssignmentDto(funding_source=None, amount="all"))
+
+    actual = invoice_parser.to_position(dto, position.cost.currency)
+    assert actual.funding_assignments() == []

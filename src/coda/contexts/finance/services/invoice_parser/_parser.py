@@ -28,11 +28,13 @@ from . import _contract, _free, _publication
 
 
 class PositionParser(Protocol):
-    def to_itemdto(self, position: Position) -> ItemDto: ...
+    def to_itemdto(self, position: Position) -> ItemDto:
+        ...
 
     def parse_item_from(
         self, position: PositionDto, *, parse_safe: bool = False
-    ) -> PositionItemType: ...
+    ) -> PositionItemType:
+        ...
 
 
 def parse_invoice(invoice_head: InvoiceHeadDto, positions: list[PositionDto]) -> Invoice:
@@ -104,7 +106,8 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
             case _:
                 fs = None
 
-        _position.assign_funding(fs, amount, position.cost_basis_mode)
+        if fs is not None or not _is_all_amount(f.amount):
+            _position.assign_funding(fs, amount, position.cost_basis_mode)
 
     return _position
 
