@@ -114,11 +114,13 @@ def full_invoice() -> Invoice:
 
     invoice = domainfactory.invoice(
         creditor=CreditorId(creditor_id),
-        positions=[
-            *[publication_position(publication) for publication in publications],
-            *[contract_position(contract) for contract in contracts],
-            *[free_position() for _ in range(3)],
-        ],
+        positions=tuple(
+            [
+                *[publication_position(publication) for publication in publications],
+                *[contract_position(contract) for contract in contracts],
+                *[free_position() for _ in range(3)],
+            ]
+        ),
     )
 
     invoice.add_conversion(Decimal(5), Currency.BBD)

@@ -1,107 +1,107 @@
 <!DOCTYPE html>
 {# djlint:off H030,H031 #}
 <html lang="en">
-      <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>{{ title }}</title>
-            <link rel="stylesheet"
-                  href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
-                  crossorigin="anonymous" />
-            <script src="https://unpkg.com/htmx.org@2.0.0"
-                    integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw"
-                    crossorigin="anonymous"></script>
-            {% load static %}
-            <script>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{{ title }}</title>
+        <link rel="stylesheet"
+              href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+              crossorigin="anonymous" />
+        <script src="https://unpkg.com/htmx.org@2.0.0"
+                integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw"
+                crossorigin="anonymous"></script>
+        {% load static %}
+        <script>
                   const root = document.documentElement;
                   const theme = localStorage.getItem('theme');
                   if (theme) root.setAttribute('data-theme', theme);
-            </script>
-            <script src="{% static 'js/theme-toggle.js' %}"
-                    type="module"
-                    crossorigin="anonymous"></script>
-            <link rel="stylesheet"
-                  type="text/css"
-                  href="{% static 'css/vars.css' %}"
-                  crossorigin="anonymous" />
-            <link rel="stylesheet"
-                  type="text/css"
-                  href="{% static 'css/text.css' %}"
-                  crossorigin="anonymous" />
-            <link rel="stylesheet"
-                  type="text/css"
-                  href="{% static 'css/flex.css' %}"
-                  crossorigin="anonymous" />
-            <link rel="stylesheet"
-                  type="text/css"
-                  href="{% static 'css/components.css' %}"
-                  crossorigin="anonymous" />
-            <link rel="stylesheet"
-                  type="text/css"
-                  href="{% static 'css/article.css' %}"
-                  crossorigin="anonymous" />
-            <link rel="stylesheet"
-                  type="text/css"
-                  href="{% static 'css/button.css' %}"
-                  crossorigin="anonymous" />
-            <link rel="stylesheet"
-                  type="text/css"
-                  href="{% static 'css/forms.css' %}"
-                  crossorigin="anonymous" />
-            <link rel="stylesheet"
-                  href="{% static 'css/lists.css' %}"
-                  crossorigin="anonymous">
-            <link rel="stylesheet"
-                  href="{% static 'css/status.css' %}"
-                  crossorigin="anonymous">
-            <link rel="stylesheet"
-                  type="text/css"
-                  href="{% static 'css/layout.css' %}"
-                  crossorigin="anonymous" />
-            <link rel="stylesheet"
-                  type="text/css"
-                  href="{% static 'css/spacing.css' %}"
-                  crossorigin="anonymous" />
-            <link rel="stylesheet"
-                  href="{% static 'css/headings.css' %}"
-                  crossorigin="anonymous">
-            <link rel="stylesheet"
-                  href="{% static 'css/nav.css' %}"
-                  crossorigin="anonymous">
-            <link rel="stylesheet"
-                  type="text/css"
-                  href="{% static 'css/fundingrequests.css' %}"
-                  crossorigin="anonymous" />
-            <link rel="stylesheet"
-                  href="{% static 'css/invoices.css' %}"
-                  crossorigin="anonymous">
-            <link rel="stylesheet"
-                  href="{% static 'css/infopage.css' %}"
-                  crossorigin="anonymous">
-            <script src="{% static 'js/global-styles.js' %}"
-                    type="module"
-                    crossorigin="anonymous"></script>
-            <script src="{% static 'js/search-select.js' %}"
-                    type="module"
-                    crossorigin="anonymous"></script>
-            <script src="{% static 'js/search-select-multi.js' %}"
-                    type="module"
-                    crossorigin="anonymous"></script>
-      </head>
-      <body class="main-grid" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-            {% include "partials/nav.html" %}
-            <main class="container">
-                  {% if messages %}
-                        {% regroup messages by tags as messages %}
-                        {% for level in messages %}
-                              <ul class="messages {{ level.grouper }} undecorated">
-                                    {% for message in level.list %}<li>{{ message }}</li>{% endfor %}
-                              </ul>
-                        {% endfor %}
-                  {% endif %}
-                  {% load breadcrumb_tags %}
-                  {% render_breadcrumbs %}
-                  {% block content %}
-                  {% endblock content %}
-            </main>
-      </body>
+        </script>
+        <script src="{% static 'js/theme-toggle.js' %}"
+                type="module"
+                crossorigin="anonymous"></script>
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/vars.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/text.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/flex.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/components.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/article.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/button.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/forms.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              href="{% static 'css/lists.css' %}"
+              crossorigin="anonymous">
+        <link rel="stylesheet"
+              href="{% static 'css/status.css' %}"
+              crossorigin="anonymous">
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/layout.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/spacing.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              href="{% static 'css/headings.css' %}"
+              crossorigin="anonymous">
+        <link rel="stylesheet"
+              href="{% static 'css/nav.css' %}"
+              crossorigin="anonymous">
+        <link rel="stylesheet"
+              type="text/css"
+              href="{% static 'css/fundingrequests.css' %}"
+              crossorigin="anonymous" />
+        <link rel="stylesheet"
+              href="{% static 'css/invoices.css' %}"
+              crossorigin="anonymous">
+        <link rel="stylesheet"
+              href="{% static 'css/infopage.css' %}"
+              crossorigin="anonymous">
+        <script src="{% static 'js/global-styles.js' %}"
+                type="module"
+                crossorigin="anonymous"></script>
+        <script src="{% static 'js/search-select.js' %}"
+                type="module"
+                crossorigin="anonymous"></script>
+        <script src="{% static 'js/search-select-multi.js' %}"
+                type="module"
+                crossorigin="anonymous"></script>
+    </head>
+    <body class="main-grid" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+        {% include "partials/nav.html" %}
+        <main class="container">
+            {% load breadcrumb_tags %}
+            {% render_breadcrumbs %}
+            {% if messages %}
+                {% regroup messages by tags as messages %}
+                {% for level in messages %}
+                    <ul class="messages {{ level.grouper }} undecorated">
+                        {% for message in level.list %}<li>{{ message }}</li>{% endfor %}
+                    </ul>
+                {% endfor %}
+            {% endif %}
+            {% block content %}
+            {% endblock content %}
+        </main>
+    </body>
 </html>

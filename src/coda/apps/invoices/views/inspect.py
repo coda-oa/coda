@@ -2,6 +2,7 @@ import datetime
 from decimal import Decimal
 from typing import Any, NamedTuple, cast
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
@@ -23,7 +24,7 @@ from coda.contexts.finance.dto.detail_position_dtos import PositionDetailDto
 from coda.contexts.finance.dto.edit_position_dtos import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.contexts.finance.services import invoice_service
 from coda.domain.date import DateRange
-from coda.domain.finance.invoice import Invoice, InvoiceId, PaymentStatus
+from coda.domain.finance.invoice import Invoice, InvoiceId, PaymentStatus, UnassignedCosts
 from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Money
 from coda.domain.money._currency import Currency
@@ -189,11 +190,18 @@ def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
 def pay_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
     if request.POST.get("action") == "pay":
-        invoice.pay()
+        _try_pay(invoice, request)
     elif request.POST.get("action") == "reset_payment":
         invoice.reset_payment()
     invoice_service.save(invoice)
     return redirect("invoices:detail", pk=invoice.id)
+
+
+def _try_pay(invoice: Invoice, request: HttpRequest) -> None:
+    try:
+        invoice.pay()
+    except UnassignedCosts:
+        messages.error(request, "Invoice has unassigned costs")
 
 
 @require_GET

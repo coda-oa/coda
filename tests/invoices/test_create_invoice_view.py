@@ -5,6 +5,7 @@ from typing import Any, cast
 
 import faker
 import pytest
+from django.contrib.messages import get_messages
 from django.template.response import TemplateResponse
 from django.test import Client
 from django.urls import reverse
@@ -235,6 +236,34 @@ def test__given_position_with_invalid_contract_year__create__returns_error___pos
         "positions-1-error": f"Contract {contract_item_dto.name} is not active in {contract_item_dto.year}",
     }
     assert expected == response.context["errors"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invoice_with_unassigned_costs__save_as_paid__shows_error(client: Client) -> None:
+    position = domainfactory.free_position(Currency.EUR)
+    position.assign_funding(None, position.cost.amount / 2)
+
+    invoice_head = InvoiceHeadDto(
+        number="1234",
+        date=datetime.date.today(),
+        creditor=CreditorId(modelfactory.creditor().pk),
+        currency=Currency.JPY,
+        status=PaymentStatus.Paid,
+    )
+    position_dto = invoice_parser.position_to_dto(position)
+    position_list = PositionList(positions=[position_dto])
+
+    response = client.post(
+        reverse("invoices:create"),
+        {"action": "create"}
+        | formdata.map_to_dict(invoice_head)
+        | formdata.map_to_dict(position_list),
+    )
+
+    messages = get_messages(response.wsgi_request)
+    error_message = list(messages).pop()
+    assert error_message.message == "Invoice has unassigned costs"
 
 
 def search_publication(
