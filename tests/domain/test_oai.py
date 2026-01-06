@@ -1,6 +1,6 @@
 import pytest
 
-from coda.domain.publication.links import Oai
+from coda.domain.oai import Oai
 
 
 def test_can_create_oai() -> None:
@@ -40,16 +40,16 @@ def test_valid_oai_formats(valid_oai: str) -> None:
     [
         "",
         " ",
-        "something:arXiv.org:hep-th/9901001",  # bad scheme
-        "oai:arXiv.org:hep-th/99010 01",  # space in local id
-        "oai:999:abc123",  # namespace starts with digit
-        "oai:wibble:abc123",  # namespace not a domain
-        "oai:",  # no namespace or local id
-        "oai:foo.org:",  # no local id
-        "oai::local-id",  # no namespace
+        "something:arXiv.org:hep-th/9901001",
+        "oai:arXiv.org:hep-th/99010 01",
+        "oai:999:abc123",
+        "oai:wibble:abc123",
+        "oai:",
+        "oai:foo.org:",
+        "oai::local-id",
         "notanoai",
         "oai",
-        "oai:foo",  # missing local identifier
+        "oai:foo",
     ],
 )
 def test_invalid_oai_formats(invalid_oai: str) -> None:
@@ -69,6 +69,5 @@ def test_oai_is_case_sensitive() -> None:
     oai1 = Oai("oai:foo.org:some-local-id-53")
     oai2 = Oai("oai:FOO.ORG:some-local-id-53")
 
-    # These should be different (case-sensitive)
     assert oai1 != oai2
     assert str(oai1) != str(oai2)
