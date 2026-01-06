@@ -106,6 +106,9 @@ class ContractYear:
     def journals(self) -> Iterable["JournalId"]:
         return self.contract.journals
 
+    def is_in_contract_period(self) -> bool:
+        return self.contract.is_active_in_year(self.year)
+
     def __str__(self) -> str:
         return f"{self.contract.name} ({self.year})"
 
