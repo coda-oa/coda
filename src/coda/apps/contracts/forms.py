@@ -1,8 +1,12 @@
+from typing import Any
+
 from django import forms
 
+from coda.apps.contracts.models import ContractLinkType
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 from coda.domain.contract import Contract, PublicationBilling
 from coda.domain.date import DateRange
+from coda.domain.oai import InvalidOai, Oai
 from coda.domain.string import NonEmptyStr
 
 
@@ -53,3 +57,32 @@ class EntityFormset(HtmxDynamicFormset[EntityForm]):
 
     def entity_ids(self) -> list[int]:
         return [cleaned_data["entity_id"] for cleaned_data in self.data]
+
+
+class ContractLinkForm(forms.Form):
+    use_required_attribute = False
+    link_type = forms.ChoiceField(
+        choices=lambda: ContractLinkType.objects.values_list("id", "name")
+    )
+    link_value = forms.CharField()
+
+    def full_clean(self) -> None:
+        super().full_clean()
+        if not self.cleaned_data.get("link_type") or not self.cleaned_data.get("link_value"):
+            return
+
+        try:
+            link_type = ContractLinkType.objects.get(id=self.cleaned_data["link_type"])
+            value = self.cleaned_data["link_value"]
+
+            if link_type.name == "OAI":
+                self.cleaned_data["link_value"] = Oai(value).value()
+
+        except InvalidOai as err:
+            self.add_error("link_value", str(err))
+
+    def get_form_data(self) -> dict[str, Any]:
+        return {
+            "type_id": int(self.cleaned_data["link_type"]),
+            "value": str(self.cleaned_data.get("link_value", self.data.get("link_value", ""))),
+        }

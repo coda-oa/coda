@@ -38,11 +38,11 @@
                         </tr>
                     </thead>
                     <tbody id="contract-linktable">
-                        {% if contract %}
-                            {% for link in contract.links.all %}
+                        {% for link_data in links %}
+                            {% with link=link_data.link errors=link_data.errors %}
                                 {% include "contracts/partials/contract_linkrow.html" %}
-                            {% endfor %}
-                        {% endif %}
+                            {% endwith %}
+                        {% endfor %}
                     </tbody>
                 </table>
             </article>

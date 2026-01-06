@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts import repository
 from coda.apps.contracts import mapper as contract_mapper
-from coda.apps.contracts.forms import ContractForm, EntityFormset
+from coda.apps.contracts.forms import ContractForm, ContractLinkForm, EntityFormset
 from coda.apps.contracts.models import Contract as ContractModel, ContractLink, ContractLinkType
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.journals.models import Journal
@@ -80,24 +80,27 @@ def edit_contract_view(request: HttpRequest, pk: int | None = None) -> HttpRespo
             journal_formset,
         ]
 
-        if all(form.is_valid() for form in forms):
+        link_forms = get_link_forms(request)
+        links_valid = all(link_form.is_valid() for link_form in link_forms)
+
+        if all(form.is_valid() for form in forms) and links_valid:
             contract_id = save_contract(contract_form, publisher_formset, journal_formset)
 
             contract_model = ContractModel.objects.get(pk=contract_id)
             ContractLink.objects.filter(contract=contract_model).delete()
 
-            link_types = request.POST.getlist("link_type")
-            link_values = request.POST.getlist("link_value")
-
-            for type_id, value in zip(link_types, link_values):
-                if type_id and value:
+            for link_form in link_forms:
+                link_data = link_form.get_form_data()
+                if link_data["type_id"] and link_data["value"]:
                     ContractLink.objects.create(
                         contract=contract_model,
-                        type_id=type_id,
-                        value=value,
+                        type_id=link_data["type_id"],
+                        value=link_data["value"],
                     )
 
             return redirect("contracts:detail", contract_id)
+        else:
+            context["links"] = get_links_with_errors(request)
 
     return render(request, "contracts/contract_create.html", context)
 
@@ -145,11 +148,14 @@ def get_context(
     if initial_contract is not None and initial_contract.id is not None:
         contract_model = ContractModel.objects.get(pk=initial_contract.id)
 
+    links_data = get_existing_links(contract_model) if contract_model else []
+
     return (
         {"title": title}
         | {"url": url}
         | {"link_types": ContractLinkType.objects.all()}
         | {"contract": contract_model}
+        | {"links": links_data}
         | get_forms(request, initial_contract=initial_contract)
     )
 
@@ -187,6 +193,31 @@ def get_forms(request: HttpRequest, initial_contract: Contract | None = None) ->
         "publisher_formset": publisher_formset,
         "journal_formset": journal_formset,
     }
+
+
+def get_link_forms(request: HttpRequest) -> list[ContractLinkForm]:
+    types = request.POST.getlist("link_type")
+    values = request.POST.getlist("link_value")
+    return [
+        ContractLinkForm({"link_type": link_type, "link_value": link_value})
+        for link_type, link_value in zip(types, values)
+    ]
+
+
+def get_links_with_errors(request: HttpRequest) -> list[dict[str, Any]]:
+    forms = get_link_forms(request)
+    for form in forms:
+        form.full_clean()
+    return [{"link": form.get_form_data(), "errors": form.errors} for form in forms]
+
+
+def get_existing_links(contract_model: ContractModel | None) -> list[dict[str, Any]]:
+    if not contract_model:
+        return []
+    return [
+        {"link": {"type_id": link.type_id, "value": link.value}, "errors": {}}
+        for link in contract_model.links.all()
+    ]
 
 
 @login_required
