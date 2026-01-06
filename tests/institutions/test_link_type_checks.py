@@ -31,6 +31,7 @@ def test__ror_with_invalid_checksum__raises_error() -> None:
         "https://ror.org/",
         "https://ror.org/123",
         "https://ror.org/0123456789",
+        "http://ror.org/02mhbdp94",
         "ror.org/02mhbdp94",
         "02mhbdp94",
         "https://ror.com/02mhbdp94",

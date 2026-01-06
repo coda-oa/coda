@@ -24,7 +24,7 @@
         "model": "publications.LinkType",
         "pk": 4,
         "fields": {
-            "name": "HANDLE"
+            "name": "Handle"
         }
     },
     {
@@ -52,7 +52,7 @@
         "model": "publications.LinkType",
         "pk": 8,
         "fields": {
-            "name": "ARXIV"
+            "name": "arXiv"
         }
     },
     {
