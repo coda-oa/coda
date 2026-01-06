@@ -18,6 +18,13 @@ def test__contract_year__cannot_create_outside_active_contract_period() -> None:
         make_contract().in_year(next_year)
 
 
+def test__contract_year_outside_contract_period__is_not_in_contract_period() -> None:
+    contract = make_contract()
+    sut = ContractYear(contract.period.end.year + 1, contract)
+
+    assert not sut.is_in_contract_period()
+
+
 def test__contract_active_from_mid_year__can_create_contract_year() -> None:
     contract = make_contract(
         period=DateRange.create(start=datetime.date(2024, 6, 1), end=datetime.date(2024, 12, 31))

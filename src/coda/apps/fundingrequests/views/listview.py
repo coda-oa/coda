@@ -1,27 +1,27 @@
 import datetime
 from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
 from typing import Any, Literal, cast
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.fundingrequests import detailview_mapper
 from coda.apps.fundingrequests import fundingrequest_query as fq
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
-from coda.apps.fundingrequests.views.detailview import payment_status_viewmodel
 from coda.apps.publications.services import publications
 from coda.apps.views import EntityListView
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
+from coda.domain.fundingrequest.references import PublicationPaymentDetails
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
 from coda.domain.publication.payment import PublicationPaymentStatus
 from coda.domain.publication.publication import PublicationId
-from dataclasses import dataclass
-
-from coda.apps.breadcrumbs.decorators import breadcrumb
 
 _advanced_search_fields = [
     "labels",
@@ -139,7 +139,7 @@ class FundingRequestListViewModel:
     updated_at: datetime.date
     labels: Iterable[Label]
     status: str
-    payment_status: dict[str, Any] | None = None
+    payment_status: PublicationPaymentDetails | None = None
     journal_publisher_name: str | None = None
     journal_publisher_url: str | None = None
 
@@ -193,7 +193,9 @@ def article_viewmodel(
         updated_at=funding_request.updated_at,
         labels=funding_request.labels.all(),
         status=funding_request.review.review_result,
-        payment_status=payment_status_viewmodel(payment_status, funding_request.request_id),
+        payment_status=detailview_mapper.to_payment_details(
+            payment_status, funding_request.request_id
+        ),
         journal_publisher_name=journal_publisher,
         journal_publisher_url=journal_publisher_url,
     )
@@ -221,7 +223,9 @@ def monograph_viewmodel(
         updated_at=funding_request.updated_at,
         labels=funding_request.labels.all(),
         status=funding_request.review.review_result,
-        payment_status=payment_status_viewmodel(payment_status, funding_request.request_id),
+        payment_status=detailview_mapper.to_payment_details(
+            payment_status, funding_request.request_id
+        ),
     )
 
 
