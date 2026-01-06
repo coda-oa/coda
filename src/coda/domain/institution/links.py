@@ -52,7 +52,7 @@ class Ror:
 
         ror_id = self._ror.split("/")[-1]
 
-        pattern = r"^0[a-hj-km-np-tv-z0-9]{6}[0-9]{2}$"
+        pattern = r"^0[a-hj-km-np-tv-z\d]{6}\d{2}$"
         if not re.match(pattern, ror_id, re.IGNORECASE):
             return "Invalid ROR format: ID must be 0 + 6 base32 characters + 2 checksum digits"
 
