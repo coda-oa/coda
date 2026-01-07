@@ -39,7 +39,7 @@ class Oai:
         if len(parts) < 3:
             return "Invalid OAI format: must be 'oai:namespace-identifier:local-identifier'"
 
-        scheme, namespace, local_id = parts
+        _, namespace, local_id = parts
 
         if not namespace:
             return "Invalid OAI format: namespace-identifier cannot be empty"

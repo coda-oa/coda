@@ -189,6 +189,6 @@ def import_from_file(request: HttpRequest) -> HttpResponse:
 def add_institution_linkrow(request: HttpRequest) -> HttpResponse:
     return render(
         request,
-        "institutions/partials/institution_linkrow.html",
+        "partials/linkrow.html",
         {"link_types": InstitutionLinkType.objects.all()},
     )

@@ -71,38 +71,51 @@ def edit_contract_view(request: HttpRequest, pk: int | None = None) -> HttpRespo
         save_contract = create_contract
 
     if request.method == "POST":
-        contract_form = ContractForm(request.POST)
-        publisher_formset = EntityFormset(request.POST, prefix="publishers")
-        journal_formset = EntityFormset(request.POST, prefix="journals")
-        forms: list[ContractForm | EntityFormset] = [
-            contract_form,
-            publisher_formset,
-            journal_formset,
-        ]
-
-        link_forms = get_link_forms(request)
-        links_valid = all(link_form.is_valid() for link_form in link_forms)
-
-        if all(form.is_valid() for form in forms) and links_valid:
-            contract_id = save_contract(contract_form, publisher_formset, journal_formset)
-
-            contract_model = ContractModel.objects.get(pk=contract_id)
-            ContractLink.objects.filter(contract=contract_model).delete()
-
-            for link_form in link_forms:
-                link_data = link_form.get_form_data()
-                if link_data["type_id"] and link_data["value"]:
-                    ContractLink.objects.create(
-                        contract=contract_model,
-                        type_id=link_data["type_id"],
-                        value=link_data["value"],
-                    )
-
-            return redirect("contracts:detail", contract_id)
-        else:
-            context["links"] = get_links_with_errors(request)
+        response = _handle_contract_post(request, save_contract, context)
+        if response:
+            return response
 
     return render(request, "contracts/contract_create.html", context)
+
+
+def _handle_contract_post(
+    request: HttpRequest,
+    save_contract: Callable[[ContractForm, EntityFormset, EntityFormset], ContractId],
+    context: dict[str, Any],
+) -> HttpResponse | None:
+    contract_form = ContractForm(request.POST)
+    publisher_formset = EntityFormset(request.POST, prefix="publishers")
+    journal_formset = EntityFormset(request.POST, prefix="journals")
+    forms: list[ContractForm | EntityFormset] = [
+        contract_form,
+        publisher_formset,
+        journal_formset,
+    ]
+
+    link_forms = get_link_forms(request)
+    links_valid = all(link_form.is_valid() for link_form in link_forms)
+
+    if all(form.is_valid() for form in forms) and links_valid:
+        contract_id = save_contract(contract_form, publisher_formset, journal_formset)
+        _save_contract_links(contract_id, link_forms)
+        return redirect("contracts:detail", contract_id)
+
+    context["links"] = get_links_with_errors(request)
+    return None
+
+
+def _save_contract_links(contract_id: ContractId, link_forms: list[ContractLinkForm]) -> None:
+    contract_model = ContractModel.objects.get(pk=contract_id)
+    ContractLink.objects.filter(contract=contract_model).delete()
+
+    for link_form in link_forms:
+        link_data = link_form.get_form_data()
+        if link_data["type_id"] and link_data["value"]:
+            ContractLink.objects.create(
+                contract=contract_model,
+                type_id=link_data["type_id"],
+                value=link_data["value"],
+            )
 
 
 def create_contract(
@@ -225,6 +238,6 @@ def get_existing_links(contract_model: ContractModel | None) -> list[dict[str, A
 def add_contract_linkrow(request: HttpRequest) -> HttpResponse:
     return render(
         request,
-        "contracts/partials/contract_linkrow.html",
+        "partials/linkrow.html",
         {"link_types": ContractLinkType.objects.all()},
     )
