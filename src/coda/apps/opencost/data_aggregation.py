@@ -47,7 +47,7 @@ def get_publications_for_period(
     )
 
     positions_in_period = Position.objects.filter(invoice__in=invoices_in_period).select_related(
-        "invoice", "invoice__creditor", "funding_source"
+        "invoice", "invoice__creditor"
     )
 
     # Prefetch publication links with their types
