@@ -430,17 +430,18 @@ class Arxiv:
     - Optional version suffix: v1, v2, etc.
     """
 
+    _PREFIX = "arXiv:"
     __match_args__ = ("_arxiv",)
 
     def __init__(self, arxiv: str) -> None:
         normalized = NonEmptyStr(arxiv).strip()
 
         # Normalize arXiv: prefix to proper case if present
-        if normalized.lower().startswith("arxiv:"):
-            normalized = "arXiv:" + normalized[6:]  # Normalize prefix to arXiv:
+        if normalized.lower().startswith(self._PREFIX.lower()):
+            normalized = self._PREFIX + normalized[len(self._PREFIX) :]
         elif ":" not in normalized:
             # Add prefix if not present (for plain identifiers)
-            normalized = "arXiv:" + normalized
+            normalized = self._PREFIX + normalized
 
         self._arxiv = normalized
         error_message = self._validate()
@@ -452,11 +453,11 @@ class Arxiv:
         return "arXiv"
 
     def _validate(self) -> str | None:
-        if not self._arxiv.startswith("arXiv:"):
-            return "Invalid arXiv format: must start with 'arXiv:'"
+        if not self._arxiv.startswith(self._PREFIX):
+            return f"Invalid arXiv format: must start with '{self._PREFIX}'"
 
         # Extract the part after arXiv:
-        identifier = self._arxiv[6:]
+        identifier = self._arxiv[len(self._PREFIX) :]
 
         # Old format: archive/YYMMNNN[vN]
         old_format = r"^[a-z]+-?[a-z]+/\d{7}(v\d+)?$"

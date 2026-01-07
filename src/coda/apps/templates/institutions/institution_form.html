@@ -24,7 +24,7 @@
                     <tbody id="institution-linktable">
                         {% for link_context in links %}
                             {% with link=link_context.link errors=link_context.errors %}
-                                {% include "institutions/partials/institution_linkrow.html" %}
+                                {% include "partials/linkrow.html" %}
                             {% endwith %}
                         {% endfor %}
                     </tbody>

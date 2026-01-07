@@ -34,7 +34,7 @@
             </thead>
             <tbody id="linktable">
                 {% for link_data in links %}
-                    {% include "fundingrequests/partials/linkrow.html" with link=link_data.link errors=link_data.errors %}
+                    {% include "partials/linkrow.html" with link=link_data.link errors=link_data.errors %}
                 {% endfor %}
             </tbody>
         </table>

@@ -40,7 +40,7 @@
                     <tbody id="contract-linktable">
                         {% for link_data in links %}
                             {% with link=link_data.link errors=link_data.errors %}
-                                {% include "contracts/partials/contract_linkrow.html" %}
+                                {% include "partials/linkrow.html" %}
                             {% endwith %}
                         {% endfor %}
                     </tbody>
