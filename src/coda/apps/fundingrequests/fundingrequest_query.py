@@ -242,6 +242,7 @@ def search(
         .prefetch_related(
             "labels",
             "publication__relevant_authors",
+            "publication__attached_contracts__contract",
         )
         .order_by(sort_order)
     )

@@ -1,7 +1,6 @@
 import datetime
-from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass
-from typing import Any, Literal, cast
+from collections.abc import Callable, Sequence
+from typing import Any, cast
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
@@ -9,19 +8,16 @@ from django.http import HttpRequest
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
-from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.fundingrequests import detailview_mapper
+from coda.apps.domainqueryset import LazyBulkQuerySet
 from coda.apps.fundingrequests import fundingrequest_query as fq
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import Label
-from coda.apps.publications.services import publications
+from coda.apps.fundingrequests.queries import list as list_query
+from coda.apps.fundingrequests.queries.models import FundingRequestListItem
 from coda.apps.views import EntityListView
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
-from coda.domain.fundingrequest.references import PublicationPaymentDetails
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
-from coda.domain.publication.payment import PublicationPaymentStatus
-from coda.domain.publication.publication import PublicationId
 
 _advanced_search_fields = [
     "labels",
@@ -52,16 +48,19 @@ _payment_status_choices = [
 
 
 @breadcrumb("Funding Requests", parent_url_name="fundingrequests:home")
-class FundingRequestListView(LoginRequiredMixin, EntityListView["FundingRequestListViewModel"]):
+class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestListItem]):
     template_name = "fundingrequests/fundingrequest_list.html"
     entity_name = "Funding Requests"
     entity_create_url = "fundingrequests:create_wizard"
     entity_list_item_template = "fundingrequests/fundingrequest_list_item.html"
     entity_filter_template = "fundingrequests/forms/fundingrequest_filter.html"
 
-    def get_entities(self, request: HttpRequest) -> Sequence["FundingRequestListViewModel"]:
-        fundingrequests = query(request)
-        return DomainQuerySet(fundingrequests, as_viewmodel)  # type: ignore
+    def get_entities(self, request: HttpRequest) -> Sequence[FundingRequestListItem]:
+        django_queryset = query(request)
+        return LazyBulkQuerySet(
+            queryset=django_queryset,
+            bulk_converter=list_query.get_list_items,
+        )
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
@@ -126,24 +125,6 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     )
 
 
-@dataclass(frozen=True)
-class FundingRequestListViewModel:
-    type: Literal["Article", "Monograph"]
-    id: int | None
-    url: str
-    publication_title: str
-    authors: list[str]
-    publishing_entity_type: Literal["Journal", "Publisher"]
-    publishing_entity_name: str
-    publishing_entity_url: str
-    updated_at: datetime.date
-    labels: Iterable[Label]
-    status: str
-    payment_status: PublicationPaymentDetails | None = None
-    journal_publisher_name: str | None = None
-    journal_publisher_url: str | None = None
-
-
 def map_or_none[T](map_fn: Callable[[str], T], value: str | None) -> T | None:
     if value:
         return map_fn(value)
@@ -151,99 +132,5 @@ def map_or_none[T](map_fn: Callable[[str], T], value: str | None) -> T | None:
     return None
 
 
-GetPaymentStatus = Callable[[PublicationId], PublicationPaymentStatus]
-
-
-def as_viewmodel(
-    funding_request: FundingRequestModel,
-    get_payment_status: GetPaymentStatus = publications.get_payment_status,
-) -> FundingRequestListViewModel:
-    payment_status = get_payment_status(PublicationId(funding_request.publication.id))
-    if is_article(funding_request):
-        return article_viewmodel(funding_request, payment_status)
-    elif is_monograph(funding_request):
-        return monograph_viewmodel(funding_request, payment_status)
-
-    raise ValueError("Funding request is neither an article nor a monograph.")
-
-
-def article_viewmodel(
-    funding_request: FundingRequestModel, payment_status: PublicationPaymentStatus
-) -> FundingRequestListViewModel:
-    assert funding_request.publication.article_journal is not None
-    assert funding_request.review is not None
-
-    journal = funding_request.publication.article_journal
-    assert journal is not None
-
-    journal_title = journal.title
-    journal_url = journal.get_absolute_url()
-    journal_publisher = str(journal.publisher) if journal.publisher else None
-    journal_publisher_url = journal.publisher.get_absolute_url() if journal.publisher else None
-
-    return FundingRequestListViewModel(
-        type="Article",
-        id=funding_request.id,
-        url=funding_request.get_absolute_url(),
-        publication_title=funding_request.publication.title,
-        authors=[author.name for author in funding_request.publication.relevant_authors.all()],
-        publishing_entity_type="Journal",
-        publishing_entity_name=journal_title,
-        publishing_entity_url=journal_url,
-        updated_at=funding_request.updated_at,
-        labels=funding_request.labels.all(),
-        status=funding_request.review.review_result,
-        payment_status=detailview_mapper.to_payment_details(
-            payment_status, funding_request.request_id
-        ),
-        journal_publisher_name=journal_publisher,
-        journal_publisher_url=journal_publisher_url,
-    )
-
-
-def monograph_viewmodel(
-    funding_request: FundingRequestModel, payment_status: PublicationPaymentStatus
-) -> FundingRequestListViewModel:
-    assert funding_request.publication.monograph_publisher is not None
-    assert funding_request.review is not None
-    publisher = funding_request.publication.monograph_publisher
-    assert publisher is not None
-
-    publisher_name = publisher.name
-    publisher_url = publisher.get_absolute_url()
-    return FundingRequestListViewModel(
-        type="Monograph",
-        id=funding_request.id,
-        url=funding_request.get_absolute_url(),
-        authors=[author.name for author in funding_request.publication.relevant_authors.all()],
-        publication_title=funding_request.publication.title,
-        publishing_entity_type="Publisher",
-        publishing_entity_name=publisher_name,
-        publishing_entity_url=publisher_url,
-        updated_at=funding_request.updated_at,
-        labels=funding_request.labels.all(),
-        status=funding_request.review.review_result,
-        payment_status=detailview_mapper.to_payment_details(
-            payment_status, funding_request.request_id
-        ),
-    )
-
-
-def is_monograph(funding_request: FundingRequestModel) -> bool:
-    return funding_request.publication.monograph_publisher is not None
-
-
-def is_article(funding_request: FundingRequestModel) -> bool:
-    return funding_request.publication.article_journal is not None
-
-
 def get_contract_list_context() -> dict[str, Any]:
     return {"contract_list": Contract.objects.all()}
-
-
-class PaymentStatusLookup:
-    def __init__(self, payment_statuses: dict[int, PublicationPaymentStatus]) -> None:
-        self._payment_statuses = payment_statuses
-
-    def __call__(self, publication_id: int) -> PublicationPaymentStatus:
-        return self._payment_statuses[publication_id]

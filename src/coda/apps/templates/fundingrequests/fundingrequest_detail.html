@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
     <h1 class="mt-2">Funding Request</h1>
     <h2>
@@ -46,7 +47,7 @@
                         </tr>
                         <tr>
                             <th>Last updated at</th>
-                            <td>{{ funding_request.updated_at }}</td>
+                            <td>{{ updated_at }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -165,6 +166,11 @@
                                 {% for contract_year in publication.contracts %}
                                     <p>
                                         <a href="{% url "contracts:detail" pk=contract_year.contract_id %}">{{ contract_year.name }} ({{ contract_year.year }})</a>
+                                        {% if not contract_year.is_in_contract_period %}
+                                            <span data-tooltip="This contract year is outside the contract period">
+                                                <img src="{% static "assets/exclamation.svg" %}" alt="This contract year is outside the contract period" height="auto" width="auto" class="mb-0_5">
+                                            </span>
+                                        {% endif %}
                                     </p>
                                 {% endfor %}
                             </td>
@@ -197,13 +203,13 @@
                     <tbody>
                         <tr>
                             <th scope="row">Estimated Cost</th>
-                            <td>{{ funding_request.payment.amount.amount }} {{ funding_request.payment.amount.currency.code }}</td>
+                            <td>{{ funding_request.estimated_cost.amount.amount }} {{ funding_request.estimated_cost.amount.currency.code }}</td>
                             <th scope="row">Decided Funding Amount</th>
-                            <td>{{ funding_request.review_status.decided_funding }}</td>
+                            <td>{{ funding_request.funding_amount }}</td>
                         </tr>
                         <tr>
                             <th scope="row">Payment Method</th>
-                            <td colspan="3">{{ funding_request.payment.method.value|title }}</td>
+                            <td colspan="3">{{ funding_request.estimated_cost.method.value|title }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -231,13 +237,13 @@
         <aside class="vh-100 sticky fundingrequest__review-panel">
             <h2 class="my-1">
                 <span class="mr-1">Review</span>
-                {% if funding_request.review_status.result.value == "open" %}
+                {% if funding_request.review.value == "open" %}
                     <span class="pill status-label open">Open</span>
-                {% elif funding_request.review_status.result.value == "approved" %}
+                {% elif funding_request.review.value == "approved" %}
                     <span class="pill status-label approved">Approved</span>
-                {% elif funding_request.review_status.result.value == "rejected" %}
+                {% elif funding_request.review.value == "rejected" %}
                     <span class="pill status-label rejected">Rejected</span>
-                {% elif funding_request.review_status.result.value == "waived" %}
+                {% elif funding_request.review.value == "waived" %}
                     <span class="pill status-label waived">Costs Waived</span>
                 {% else %}
                     <span class="pill status-label closed">Closed</span>
@@ -250,14 +256,14 @@
             {% endif %}
             <div class="mb-2">
                 <p class="mb-2">
-                    <b>Decided Funding Amount:</b> {{ funding_request.review_status.decided_funding }}
+                    <b>Decided Funding Amount:</b> {{ funding_request.funding_amount }}
                 </p>
-                {% if funding_request.review_status.remarks %}
+                {% if funding_request.review_remarks %}
                     <div class="mb-2">
                         <p>
                             <b>Remarks</b>
                         </p>
-                        <p class="text-clamp">{{ funding_request.review_status.remarks }}</p>
+                        <p class="text-clamp">{{ funding_request.review_remarks }}</p>
                     </div>
                 {% endif %}
                 <a href="{% url 'fundingrequests:review' pk=funding_request.id %}"
@@ -275,7 +281,7 @@
                 {% include "fundingrequests/labels/label_attach.html" %}
                 <hr>
                 <div class="flex wrap">
-                    {% for label in funding_request.labels %}
+                    {% for label in labels %}
                         {% include "fundingrequests/labels/label.html" %}
                     {% endfor %}
                 </div>
