@@ -145,7 +145,19 @@ def _save_model_concept(
 
 
 def get_by_id(publication_id: PublicationId) -> BasePublication:
-    model = PublicationModel.objects.get(pk=publication_id)
+    model = (
+        PublicationModel.objects.select_related(
+            "article_journal", "monograph_publisher", "publication_type", "subject_area"
+        )
+        .prefetch_related(
+            "relevant_authors__affiliation",
+            "relevant_authors__identifier",
+            "attached_contracts__contract__publishers",
+            "attached_contracts__contract__journals",
+            "links__type",
+        )
+        .get(pk=publication_id)
+    )
     return as_domain_object(model)
 
 
@@ -169,12 +181,37 @@ def find_publications_by_vocabulary(vocabulary_id: VocabularyId) -> list[BasePub
 
 
 def get_contracts_for_publication(publication_id: PublicationId) -> Sequence[ContractYear]:
-    contracts = AttachedContract.objects.filter(publication_id=publication_id)
+    contracts = AttachedContract.objects.filter(publication_id=publication_id).select_related(
+        "contract"
+    )
     return DomainQuerySet(contracts, _map_to_contract_year)  # type: ignore[type-var]
 
 
+def get_contracts_for_publications(
+    publication_ids: list[PublicationId],
+) -> dict[PublicationId, list[ContractYear]]:
+    """Bulk fetch contracts for multiple publications.
+
+    Uses select_related to fetch contract details in single query.
+    """
+    attached_contracts = AttachedContract.objects.filter(
+        publication_id__in=publication_ids
+    ).select_related("contract")
+
+    result: dict[PublicationId, list[ContractYear]] = {}
+    for ac in attached_contracts:
+        pub_id = PublicationId(ac.publication_id)
+
+        contract = contract_mapper.as_domain_object(ac.contract)
+        contract_year = ContractYear(ac.contract_year, contract)
+        result.setdefault(pub_id, []).append(contract_year)
+
+    return result
+
+
 def _map_to_contract_year(c: AttachedContract) -> ContractYear:
-    return contract_mapper.as_domain_object(c.contract).in_year(c.contract_year)
+    contract = contract_mapper.as_domain_object(c.contract)
+    return ContractYear(c.contract_year, contract)
 
 
 def as_domain_object(model: PublicationModel) -> BasePublication:

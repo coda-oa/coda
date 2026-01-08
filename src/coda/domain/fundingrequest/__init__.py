@@ -24,7 +24,6 @@ __all__ = [
     "ExternalFunding",
     "FilledContact",
     "NoContact",
-    "NoRole",
     "FundingRequestContact",
     "FundingOrganizationId",
     "AnyFundingRequest",
