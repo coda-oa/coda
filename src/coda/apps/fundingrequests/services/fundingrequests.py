@@ -50,7 +50,6 @@ def create_fundingrequest(
         external_funding=[f.to_external_funding() for f in creation_dto.funding],
         extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
         request_remarks=creation_dto.extra_information.request_remarks,
-        external_costsplitting=creation_dto.payment.external_costsplitting,
     )
 
     fr_id = repository.create(fr)
@@ -156,7 +155,6 @@ def update_funding(
         fundingrequest_id,
         payment.to_payment(),
         map(ExternalFundingDto.to_external_funding, funding),
-        external_costsplitting=payment.external_costsplitting,
     )
 
     run_checks(fundingrequest_id, checkfactory=checkfactory)

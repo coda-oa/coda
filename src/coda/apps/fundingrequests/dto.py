@@ -42,6 +42,7 @@ class PaymentDto(CodaBaseDto):
             amount=payment.amount.amount,
             currency=payment.amount.currency.code,
             method=payment.method.value,
+            external_costsplitting=payment.external_costsplitting,
         )
 
     def to_payment(self) -> Payment:
@@ -49,6 +50,7 @@ class PaymentDto(CodaBaseDto):
         return Payment(
             amount=Money(str(self.amount), Currency.from_code(self.currency)),
             method=PaymentMethod(self.method.lower()),
+            external_costsplitting=self.external_costsplitting,
         )
 
 
