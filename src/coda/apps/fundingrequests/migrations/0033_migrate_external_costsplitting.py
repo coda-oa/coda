@@ -3,9 +3,9 @@
 from django.db import migrations
 
 def move_cost_splitting(apps, schema_editor):
-    FundingRequest = apps.get_model("fundingrequests", "FundingRequest")
+    funding_request_model = apps.get_model("fundingrequests", "FundingRequest")
     
-    for fr in FundingRequest.objects.select_related('publication').all():
+    for fr in funding_request_model.objects.select_related('publication').all():
         if fr.publication:
             fr.external_costsplitting = fr.publication.external_costsplitting
             fr.save(update_fields=["external_costsplitting"])
