@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
     <div class="flex justify-between align-center">
         <h1 class="my-2">
@@ -154,6 +155,11 @@
                         <td>
                             {% if position.url %}
                                 <a href="{{ position.url }}">{{ position.title }}</a>
+                                {% if position.error %}
+                                    <span data-tooltip="{{ position.error }}">
+                                        <img src="{% static "assets/exclamation.svg" %}" alt="{{ position.error }}" height="auto" width="auto" class="mb-0_5">
+                                    </span>
+                                {% endif %}
                             {% else %}
                                 {{ position.title }}
                             {% endif %}

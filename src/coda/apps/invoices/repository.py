@@ -4,12 +4,13 @@ from decimal import Decimal
 from typing import TypeVar
 
 from django.db import transaction
-from django.db.models import Case, DecimalField, F, Q, QuerySet, Sum, Value, When
-from django.db.models.functions import Coalesce
+from django.db.models import Case, DecimalField, F, Q, Exists, OuterRef, QuerySet, Sum, Value, When
+from django.db.models.functions import Coalesce, ExtractYear
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices import mapper as invoice_mapper
 from coda.apps.invoices.models import Invoice as InvoiceModel
+from coda.apps.invoices.models import Position as PositionModel
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import (
     CreditorId,
@@ -242,19 +243,23 @@ def _annotate_position_based_data(qs: QuerySet[InvoiceModel]) -> QuerySet[Invoic
         tax_total=Coalesce(
             Sum(
                 Case(
-                    When(
-                        positions__cost_type="vat",
-                        then=F("positions__cost_amount"),
-                    ),
+                    When(positions__cost_type="vat", then=F("positions__cost_amount")),
                     default=F("positions__cost_amount") * F("positions__tax_rate"),
                     output_field=DecimalField(),
                 )
             ),
             Decimal("0"),
         ),
-        first_position_currency=Coalesce(
-            "positions__cost_currency",
-            Value("EUR"),  # Default currency if no positions
+        first_position_currency=Coalesce("positions__cost_currency", Value("EUR")),
+        has_invalid_contract_years=Exists(
+            PositionModel.objects.filter(
+                invoice_id=OuterRef("pk"),
+                contract__isnull=False,
+                contract_year__isnull=False,
+            ).filter(
+                Q(contract_year__lt=ExtractYear(F("contract__start_date")))
+                | Q(contract_year__gt=ExtractYear(F("contract__end_date")))
+            )
         ),
     )
 

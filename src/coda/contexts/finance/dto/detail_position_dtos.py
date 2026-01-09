@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from decimal import Decimal
+from typing import cast
 
 from django.urls import reverse
 
@@ -11,7 +12,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 )
 from coda.contexts.finance.services import invoice_parser
 from coda.domain.finance.costtypes import PublicationCostType
-from coda.domain.finance.invoice_positions import Position
+from coda.domain.finance.invoice_positions import ContractItem, Position
 
 
 class UnsupportedPositionTypeError(Exception):
@@ -42,9 +43,10 @@ class PositionDetailDto:
     tax_rate: Decimal = Decimal(DEFAULT_TAX_RATE_PERCENTAGE)
     tax_amount: Decimal = Decimal("0.00")
     net_costs: Decimal = Decimal("0.00")
+    error: str = ""
 
     @classmethod
-    def to_position_detail_dto(cls, position: Position) -> "PositionDetailDto":
+    def from_position(cls, position: Position) -> "PositionDetailDto":
         return build_position_detail_dto(position)
 
 
@@ -99,15 +101,23 @@ def _from_publication_dto(dto: PositionDto, position: Position) -> "PositionDeta
 def _from_contract_dto(dto: PositionDto, position: Position) -> "PositionDetailDto":
     assert isinstance(dto.item, ContractItemDto)
     url = reverse("contracts:detail", kwargs={"pk": dto.item.id})
+    contract_item = cast(ContractItem, position.item)
+    error = (
+        "Contract year is outside of contract period"
+        if not contract_item.item.is_in_contract_period()
+        else ""
+    )
+
     return PositionDetailDto(
         type=dto.type,
-        title=dto.item.name,
+        title=f"{dto.item.name} ({dto.item.year})",
         url=url,
         funding_assignments=_build_funding_assignments(position),
         cost_type=dto.item.cost_type,
         tax_rate=dto.tax_rate,
         tax_amount=position.tax().amount,
         net_costs=position.net().amount,
+        error=error,
     )
 
 
