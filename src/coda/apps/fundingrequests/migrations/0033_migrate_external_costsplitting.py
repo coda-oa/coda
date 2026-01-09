@@ -16,6 +16,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("fundingrequests", "0032_fundingrequest_external_costsplitting"),
+        ("publications", "0045_add_external_costsplitting"),
     ]
 
     operations = [
