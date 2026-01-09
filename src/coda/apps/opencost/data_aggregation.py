@@ -68,6 +68,7 @@ def get_publications_for_period(
             "article_journal__publisher",
             "monograph_publisher",
             "publication_type",
+            "fundingrequest",
         )
         .prefetch_related(
             Prefetch("links", queryset=links_with_types),

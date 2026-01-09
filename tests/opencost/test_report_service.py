@@ -50,27 +50,20 @@ def test__time_period__generate_report__creates_report_record() -> None:
 def test__full_publication_with_invoice_data__generate_report__creates_report_publication_snapshot() -> (
     None
 ):
-    publication = modelfactory.publication(title="Test Publication")
-    publication.online_publication_date = date(2024, 6, 1)
-    publication.external_costsplitting = False
-    publication.save()
+    fr = modelfactory.fundingrequest(title="Test Publication")
+    fr.external_costsplitting = False
+    fr.save()
 
-    doi_type, _ = LinkType.objects.get_or_create(name="DOI")
-    Link.objects.create(
-        publication=publication,
-        type=doi_type,
-        value="10.1234/test.doi",
-    )
     vocabulary = Vocabulary.objects.create(name="COAR", version="1.0")
 
     coar_concept = PublicationAttachedConcept.objects.create(
         vocabulary=vocabulary, name="conference paper"
     )
-    publication.publication_type = coar_concept
-    publication.save()
+    fr.publication.publication_type = coar_concept
+    fr.publication.save()
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 15),
         invoice_number="INV-2024-001",
         creditor_name="Test Creditor",
@@ -83,11 +76,11 @@ def test__full_publication_with_invoice_data__generate_report__creates_report_pu
     report_publication = OpenCostReportPublication.objects.get(report=report)
 
     assert report_publication.title == "Test Publication"
-    assert report_publication.doi == "10.1234/test.doi"
+    assert report_publication.doi == "10.1234/5678"  # domainfactory default DOI
     assert report_publication.publication_type == "conference paper"
-    assert publication.article_journal is not None
-    assert report_publication.publisher == publication.article_journal.publisher.name
-    assert report_publication.journal == publication.article_journal.title
+    assert fr.publication.article_journal is not None
+    assert report_publication.publisher == fr.publication.article_journal.publisher.name
+    assert report_publication.journal == fr.publication.article_journal.title
     assert report_publication.external_costsplitting is False
 
 

@@ -70,6 +70,7 @@ class FundingRequest(Generic[TPublication]):
         extra_contact: FundingRequestContact = NoContact,
         request_remarks: str = "",
         review: Review | None = None,
+        external_costsplitting: bool | None = None,
     ) -> None:
         self.id = id
         self.legacy_request_id = legacy_request_id
@@ -80,6 +81,7 @@ class FundingRequest(Generic[TPublication]):
         self.external_funding = tuple(external_funding)
         self._review = review or Review(self.id)
         self.request_remarks = request_remarks
+        self.external_costsplitting = external_costsplitting
 
     @classmethod
     def new(
@@ -91,6 +93,7 @@ class FundingRequest(Generic[TPublication]):
         extra_contact: FundingRequestContact | _NoContact = NoContact,
         request_remarks: str = "",
         legacy_request_id: str = "",
+        external_costsplitting: bool | None = None,
     ) -> "FundingRequest[TPublication]":
         return cls(
             None,
@@ -101,6 +104,7 @@ class FundingRequest(Generic[TPublication]):
             extra_contact=extra_contact,
             request_remarks=request_remarks,
             legacy_request_id=legacy_request_id,
+            external_costsplitting=external_costsplitting,
         )
 
     @property

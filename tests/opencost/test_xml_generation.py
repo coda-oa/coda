@@ -423,14 +423,12 @@ def test__report_with_standalone_contract_with_institution__generate_xml__create
 def test__report_publication_with_external_costsplitting__generate_xml__includes_external_costsplitting_element() -> (
     None
 ):
-    publication_with_splitting = modelfactory.publication(
-        title="Publication with Cost Splitting",
-    )
-    publication_with_splitting.external_costsplitting = True
-    publication_with_splitting.save()
+    fr = modelfactory.fundingrequest(title="Publication with Cost Splitting")
+    fr.external_costsplitting = True
+    fr.save()
 
     create_publication_with_invoice(
-        publication_with_splitting,
+        fr.publication,
         invoice_date=date(2024, 6, 15),
         invoice_number="INV-SPLIT-001",
         creditor_name="Split Creditor",

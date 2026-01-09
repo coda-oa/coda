@@ -148,7 +148,6 @@ class BasePublication(ABC):
     publication_state: PublicationState = field(default=Unpublished())
     contracts: tuple["ContractYear", ...] = ()
     links: set[Link] = field(default_factory=set)
-    external_costsplitting: bool | None = None
 
     def is_published(self) -> bool:
         return isinstance(self.publication_state, Published)

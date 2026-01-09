@@ -113,7 +113,6 @@ def _save(publication: BasePublication) -> PublicationId:
     p.open_access_type = publication.open_access_type.name
     p.author_list = str(publication.other_authors)
     p.publication_state = publication.publication_state.name()
-    p.external_costsplitting = publication.external_costsplitting
 
     if publication.is_published():
         publication_state = cast(Published, publication.publication_state)
@@ -212,7 +211,6 @@ def _common_args(model: PublicationModel) -> "_CommonPublicationArgs":
             for c in model.attached_contracts.all()
         ),
         links=_deserialize_links(model.links.all()),
-        external_costsplitting=model.external_costsplitting,
     )
 
 
@@ -322,4 +320,3 @@ class _CommonPublicationArgs(TypedDict):
     publication_state: PublicationState
     contracts: tuple[ContractYear, ...]
     links: set[Link]
-    external_costsplitting: bool | None

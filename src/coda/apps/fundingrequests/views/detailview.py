@@ -109,7 +109,7 @@ def request_viewmodel(fr: FundingRequestModel) -> RequestViewModel:
             fr.review.decided_funding_amount or 0,
             Currency.from_code(fr.review.decided_funding_currency or "EUR"),
         ),
-        external_costsplitting=fr.publication.external_costsplitting,
+        external_costsplitting=fr.external_costsplitting,
     )
 
 

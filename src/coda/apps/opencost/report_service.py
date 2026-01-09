@@ -327,6 +327,11 @@ def _collect_publication_snapshot_data(
             invoice_data[invoice_id] = []
         invoice_data[invoice_id].append(position)
 
+    # Get external_costsplitting from funding request if it exists
+    external_costsplitting = None
+    if hasattr(publication, "fundingrequest") and publication.fundingrequest:
+        external_costsplitting = publication.fundingrequest.external_costsplitting
+
     return PublicationSnapshotData(
         publication=publication,
         title=publication.title,
@@ -334,7 +339,7 @@ def _collect_publication_snapshot_data(
         publication_type=pub_type_name,
         publisher=publisher_name,
         journal=journal_name,
-        external_costsplitting=publication.external_costsplitting,
+        external_costsplitting=external_costsplitting,
         institution_name=institution_name,
         identifiers=institution_identifiers,
         links=links,

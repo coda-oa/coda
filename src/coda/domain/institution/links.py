@@ -154,3 +154,15 @@ class Ringgold:
 
     def __hash__(self) -> int:
         return hash((self._ringgold,))
+
+
+_LinkTypes = {t.type(): t for t in (Ror, Isni, Ringgold)}
+_LoweredLinkTypes = {t_name.lower(): t for t_name, t in _LinkTypes.items()}
+
+
+def create_link(link_type: str, link_value: str) -> Ror | Isni | Ringgold:
+    link_constructor = _LoweredLinkTypes.get(link_type.lower())
+    if not link_constructor:
+        raise ValueError(f"Unknown link type: {link_type}")
+
+    return link_constructor(link_value)

@@ -8,9 +8,7 @@ from coda.domain.institution.links import (
     InvalidIsni,
     InvalidRinggold,
     InvalidRor,
-    Isni,
-    Ringgold,
-    Ror,
+    create_link,
 )
 
 
@@ -38,14 +36,13 @@ class InstitutionLinkForm(forms.Form):
             link_type = InstitutionLinkType.objects.get(id=self.cleaned_data["link_type"])
             value = self.cleaned_data["link_value"]
 
-            if link_type.name == "ROR":
-                self.cleaned_data["link_value"] = Ror(value).value()
-            elif link_type.name == "ISNI":
-                self.cleaned_data["link_value"] = Isni(value).value()
-            elif link_type.name == "Ringgold":
-                self.cleaned_data["link_value"] = Ringgold(value).value()
+            validated_link = create_link(link_type.name, value)
+            self.cleaned_data["link_value"] = validated_link.value()
 
         except (InvalidRor, InvalidIsni, InvalidRinggold) as err:
+            self.add_error("link_value", str(err))
+
+        except ValueError as err:
             self.add_error("link_value", str(err))
 
     def get_form_data(self) -> dict[str, Any]:

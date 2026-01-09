@@ -47,13 +47,6 @@ class Publication(models.Model):
     print_publication_date = models.DateField(null=True)
     author_list = models.TextField(null=True, blank=True)
 
-    external_costsplitting = models.BooleanField(
-        null=True,
-        blank=True,
-        default=None,
-        help_text="True if cost splitting occurred, None/null if unknown (omitted in OpenCost)",
-    )
-
     @property
     def authors(self) -> AuthorNames:
         return AuthorNames.from_str(self.author_list or "")

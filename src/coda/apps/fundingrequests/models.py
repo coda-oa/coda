@@ -121,6 +121,13 @@ class FundingRequest(models.Model):
 
     legacy_request_id = models.CharField(max_length=255, blank=True)
 
+    external_costsplitting = models.BooleanField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="True if cost splitting occurred, None/null if unknown (omitted in OpenCost)",
+    )
+
     def get_absolute_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.pk})
 

@@ -117,12 +117,20 @@ def save_contact(id: FundingRequestId, contact: FundingRequestContact) -> None:
 
 @transaction.atomic
 def save_funding(
-    id: FundingRequestId, payment: Payment, funding: Iterable[ExternalFunding]
+    id: FundingRequestId,
+    payment: Payment,
+    funding: Iterable[ExternalFunding],
+    external_costsplitting: bool | None = None,
 ) -> None:
     fr = FundingRequestModel.objects.get(pk=id)
 
     # Update payment fields using mapper
     fundingrequest_mapper.update_payment_fields(payment, fr)
+
+    # Update external_costsplitting if provided
+    if external_costsplitting is not None:
+        fr.external_costsplitting = external_costsplitting
+
     fr.save()
 
     # Update external funding

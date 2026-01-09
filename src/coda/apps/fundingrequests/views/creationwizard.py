@@ -43,7 +43,6 @@ class FundingRequestCreationWizard(LoginRequiredMixin, Wizard, abc.ABC, Generic[
                 funding=funding,
                 extra_information=extra_information,
             ),
-            external_costsplitting=cost.external_costsplitting,
         )
         store["funding_request"] = funding_request_id
         store.save()
