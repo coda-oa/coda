@@ -1,6 +1,6 @@
 import datetime
 from collections.abc import Callable, Sequence
-from typing import Any, cast
+from typing import Any
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
@@ -46,6 +46,8 @@ _payment_status_choices = [
     ("covered_by_contract", "Covered by Contract"),
 ]
 
+_default_choices = {"publication_type": "all"}
+
 
 @breadcrumb("Funding Requests", parent_url_name="fundingrequests:home")
 class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestListItem]):
@@ -66,7 +68,11 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
         ctx = super().get_context_data(**kwargs)
         ctx.update(get_contract_list_context())
 
-        expand_advanced_search = any(self.request.GET.get(key) for key in _advanced_search_fields)
+        expand_advanced_search = any(
+            self.request.GET.get(key)
+            for key in _advanced_search_fields
+            if self.request.GET.get(key) and self.request.GET.get(key) != _default_choices.get(key)
+        )
 
         labels = Label.objects.all()
         publication_types = [(et.value, et.value) for et in fq.PublicationEntityType]
@@ -99,29 +105,28 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
         _payment_status_map[status] for status in request.GET.getlist("payment_status")
     ]
     payment_methods = [PaymentMethod(pm) for pm in request.GET.getlist("payment_methods")]
+    show_invalid_contract_years = request.GET.get("invalid_contract_years") == "on"
 
-    return cast(
-        QuerySet[FundingRequestModel],
-        fq.search(
-            fq.GenericSearchCriteria(request.GET.get("search_term", "")),
-            fq.ReviewResultCriteria(review_results),
-            fq.EntityTypeCriteria(
-                fq.PublicationEntityType.try_parse(request.GET.get("publication_type"))
-            ),
-            fq.OpenAccessTypeCriteria(open_access_types),
-            fq.DateRangeCriteria(start_date, end_date),
-            fq.PaymentStatusCriteria(requested_payment_statuses),
-            fq.LabelsSearchCriteria(
-                [int(_id) for _id in request.GET.getlist("labels")],
-                [int(_id) for _id in request.GET.getlist("exclude_labels")],
-            ),
-            fq.ContractSearchCriteria(
-                map_or_none(int, request.GET.get("contract_name")),
-                map_or_none(int, request.GET.get("contract_year")),
-            ),
-            fq.PaymentMethodCriteria(payment_methods),
-            sort_order=fq.SortOrder.try_parse(request.GET.get("sort_by")),
+    return fq.search(
+        fq.GenericSearchCriteria(request.GET.get("search_term", "")),
+        fq.ReviewResultCriteria(review_results),
+        fq.EntityTypeCriteria(
+            fq.PublicationEntityType.try_parse(request.GET.get("publication_type"))
         ),
+        fq.OpenAccessTypeCriteria(open_access_types),
+        fq.DateRangeCriteria(start_date, end_date),
+        fq.PaymentStatusCriteria(requested_payment_statuses),
+        fq.LabelsSearchCriteria(
+            [int(_id) for _id in request.GET.getlist("labels")],
+            [int(_id) for _id in request.GET.getlist("exclude_labels")],
+        ),
+        fq.ContractSearchCriteria(
+            map_or_none(int, request.GET.get("contract_name")),
+            map_or_none(int, request.GET.get("contract_year")),
+        ),
+        fq.PaymentMethodCriteria(payment_methods),
+        fq.InvalidContractYearCriteria(show_invalid_contract_years),
+        sort_order=fq.SortOrder.try_parse(request.GET.get("sort_by")),
     )
 
 
