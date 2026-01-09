@@ -91,6 +91,7 @@ def search(
     sort_by: str = "date_desc",
     contract_id: str | int | None = None,
     contract_year: str | int | None = None,
+    has_errors: bool | None = None,
 ) -> Sequence[InvoiceListItem]:
     query = (
         generic_search_criterion(generic_search)
@@ -100,6 +101,7 @@ def search(
         & external_id_criterion(has_external_id)
         & contract_criterion(contract_id)
         & contract_year_criterion(contract_year)
+        & has_errors_criterion(has_errors)
     )
 
     logging.info("Query: %s", query)
@@ -200,6 +202,48 @@ def contract_year_criterion(contract_year: str | int) -> Q:
     )
 
 
+def _invalid_contract_year_filter() -> Q:
+    """
+    Returns a Q object that matches positions with invalid contract years.
+
+    A contract year is invalid if the year falls outside the contract's active period:
+    - contract_year < YEAR(contract.start_date) OR
+    - contract_year > YEAR(contract.end_date)
+
+    This logic is shared between the annotation (for display) and the filter criterion.
+    """
+    return Q(
+        contract__isnull=False,
+        contract_year__isnull=False,
+    ) & (
+        Q(contract_year__lt=ExtractYear(F("contract__start_date")))
+        | Q(contract_year__gt=ExtractYear(F("contract__end_date")))
+    )
+
+
+@empty_if_none
+def has_errors_criterion(has_errors: bool) -> Q:
+    """
+    Filter for invoices with errors.
+
+    Currently checks for:
+    - Invalid contract years (contract years outside the contract's active period)
+
+    When has_errors is True, returns only invoices with at least one error.
+    When has_errors is False or None, returns all invoices (no filtering).
+    """
+    if not has_errors:
+        return Q()
+
+    return Q(
+        Exists(
+            PositionModel.objects.filter(invoice_id=OuterRef("pk")).filter(
+                _invalid_contract_year_filter()
+            )
+        )
+    )
+
+
 def get_sorted_list_items(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[InvoiceListItem]:
     sort_functions = {
         "alphabetical": _ordered_alphabetically,
@@ -247,13 +291,8 @@ def _annotate_position_based_data(qs: QuerySet[InvoiceModel]) -> QuerySet[Invoic
         ),
         first_position_currency=Coalesce("positions__cost_currency", Value("EUR")),
         has_invalid_contract_years=Exists(
-            PositionModel.objects.filter(
-                invoice_id=OuterRef("pk"),
-                contract__isnull=False,
-                contract_year__isnull=False,
-            ).filter(
-                Q(contract_year__lt=ExtractYear(F("contract__start_date")))
-                | Q(contract_year__gt=ExtractYear(F("contract__end_date")))
+            PositionModel.objects.filter(invoice_id=OuterRef("pk")).filter(
+                _invalid_contract_year_filter()
             )
         ),
     )

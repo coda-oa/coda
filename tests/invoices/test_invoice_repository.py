@@ -9,6 +9,7 @@ from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.invoices import funding_source_repository, repository
 from coda.domain.author import InstitutionId
 from coda.domain.contract import Contract, ContractYear, PublisherId
+from coda.domain.date import DateRange
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice import CreditorId, Invoice, PaymentStatus
 from coda.domain.finance.invoice_positions import Position
@@ -97,6 +98,98 @@ def test__invoice_with_vat_position__invoice_list_item__has_only_tax_costs() -> 
 
     assert actual.net == Money(0, position_1.cost.currency)
     assert actual.total == actual.tax == position_1.total()
+
+
+@pytest.mark.django_db
+def test__has_errors_criterion__filters_invoices_with_invalid_contract_years() -> None:
+    """Test that has_errors=True filters for invoices with invalid contract years."""
+    # Create a contract with a specific period
+    contract = domainfactory.contract(
+        period=DateRange.create(
+            start=_faker.date_between(start_date="-5y", end_date="-3y"),
+            end=_faker.date_between(start_date="-2y", end_date="-1y"),
+        )
+    )
+    contract.id = contract_services.create(contract)
+
+    # Create invoice with VALID contract year (within period)
+    valid_contract_year = contract.in_year(contract.period.start.year)
+    valid_position = domainfactory.contract_position(contract=valid_contract_year)
+    valid_invoice = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=[valid_position]
+    )
+    valid_invoice.id = repository.create(valid_invoice)
+
+    # Create invoice with INVALID contract year (before period)
+    invalid_year_before = contract.period.start.year - 1
+    invalid_contract_year_before = ContractYear(invalid_year_before, contract)
+    invalid_position_before = domainfactory.contract_position(contract=invalid_contract_year_before)
+    invalid_invoice_before = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=[invalid_position_before]
+    )
+    invalid_invoice_before.id = repository.create(invalid_invoice_before)
+
+    # Create invoice with INVALID contract year (after period)
+    invalid_year_after = contract.period.end.year + 1
+    invalid_contract_year_after = ContractYear(invalid_year_after, contract)
+    invalid_position_after = domainfactory.contract_position(contract=invalid_contract_year_after)
+    invalid_invoice_after = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=[invalid_position_after]
+    )
+    invalid_invoice_after.id = repository.create(invalid_invoice_after)
+
+    # Create invoice without contract positions
+    no_contract_invoice = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=[domainfactory.free_position()]
+    )
+    no_contract_invoice.id = repository.create(no_contract_invoice)
+
+    # Search with has_errors=True
+    results_with_errors = list(repository.search(has_errors=True))
+    result_ids_with_errors = {r.id for r in results_with_errors}
+
+    # Should only return invoices with invalid contract years
+    assert invalid_invoice_before.id in result_ids_with_errors
+    assert invalid_invoice_after.id in result_ids_with_errors
+    assert valid_invoice.id not in result_ids_with_errors
+    assert no_contract_invoice.id not in result_ids_with_errors
+
+    # Search with has_errors=False (should return all)
+    results_all = list(repository.search(has_errors=False))
+    result_ids_all = {r.id for r in results_all}
+
+    assert invalid_invoice_before.id in result_ids_all
+    assert invalid_invoice_after.id in result_ids_all
+    assert valid_invoice.id in result_ids_all
+    assert no_contract_invoice.id in result_ids_all
+
+
+@pytest.mark.django_db
+def test__has_errors_criterion__list_item_has_error_flag() -> None:
+    """Test that invoices with invalid contract years have the has_invalid_contract_years flag set."""
+    # Create a contract with a specific period
+    contract = domainfactory.contract(
+        period=DateRange.create(
+            start=_faker.date_between(start_date="-5y", end_date="-3y"),
+            end=_faker.date_between(start_date="-2y", end_date="-1y"),
+        )
+    )
+    contract.id = contract_services.create(contract)
+
+    # Create invoice with INVALID contract year
+    invalid_year = contract.period.start.year - 1
+    invalid_contract_year = ContractYear(invalid_year, contract)
+    invalid_position = domainfactory.contract_position(contract=invalid_contract_year)
+    invalid_invoice = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=[invalid_position]
+    )
+    invalid_invoice.id = repository.create(invalid_invoice)
+
+    # Search and check the flag
+    results = list(repository.search())
+    invoice_item = next(r for r in results if r.id == invalid_invoice.id)
+
+    assert invoice_item.has_invalid_contract_years is True
 
 
 def create_invoice_with_publication(publication_id: PublicationId) -> Invoice:
