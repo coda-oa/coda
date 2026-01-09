@@ -7,14 +7,18 @@ from pytest_django import DjangoAssertNumQueries
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.contracts.models import Contract
+from coda.apps.fundingrequests import fundingrequest_query as fq
+from coda.apps.fundingrequests import repository as fr_repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import CoveredByContractDetail, FundingRequestListItem
 from coda.apps.fundingrequests.services.labels import label_attach, label_create
 from coda.apps.publications.models import AttachedContract
 from coda.domain.color import Color
-from coda.domain.contract import PublicationBilling
+from coda.domain.contract import ContractYear, PublicationBilling
 from coda.domain.date import DateRange
+from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
+from coda.domain.publication import JournalId
 from tests import domainfactory, modelfactory
 
 
@@ -129,13 +133,8 @@ def test__get_list_items__with_labels() -> None:
 @pytest.mark.django_db
 def test__get_list_items__with_consolidated_billing_contract() -> None:
     """Items with consolidated billing contracts show correct payment status."""
-    from coda.apps.contracts.models import Contract
-    from coda.apps.publications.models import AttachedContract
-
-    # Create funding request
     fr = modelfactory.fundingrequest()
 
-    # Create consolidated billing contract
     contract = Contract.objects.create(
         name="Test Consolidated Contract",
         start_date="2024-01-01",
@@ -143,7 +142,6 @@ def test__get_list_items__with_consolidated_billing_contract() -> None:
         publication_billing=PublicationBilling.Consolidated.value,
     )
 
-    # Attach contract to publication
     AttachedContract.objects.create(
         publication=fr.publication, contract=contract, contract_year=2024
     )
@@ -166,7 +164,6 @@ def test__get_list_items__with_invoice_payment() -> None:
     fr = modelfactory.fundingrequest()
     invoice = modelfactory.invoice()
 
-    # Create payment record
     PublicationPayment.objects.create(publication=fr.publication, invoice=invoice, status="paid")
 
     queryset = FundingRequestModel.objects.filter(id=fr.pk)
@@ -186,7 +183,6 @@ def test__get_list_items__with_invoice_received() -> None:
     fr = modelfactory.fundingrequest()
     invoice = modelfactory.invoice()
 
-    # Create payment record
     PublicationPayment.objects.create(
         publication=fr.publication, invoice=invoice, status="invoice_received"
     )
@@ -204,11 +200,9 @@ def test__get_list_items__query_count_is_constant(
     django_assert_num_queries: DjangoAssertNumQueries,
 ) -> None:
     """Verify query count doesn't grow with number of items (no N+1)."""
-    # Create 10 funding requests
     for _ in range(10):
         modelfactory.fundingrequest()
 
-    # Need to use optimized queryset like the view does
     queryset = (
         FundingRequestModel.objects.all()
         .select_related(
@@ -224,13 +218,6 @@ def test__get_list_items__query_count_is_constant(
         )
     )
 
-    # Actual query count: 6 queries (optimal!)
-    # 1. Fetch funding requests with joins (input queryset evaluation)
-    # 2. Prefetch labels (from prefetch_related)
-    # 3. Prefetch authors (from prefetch_related)
-    # 4. Prefetch contracts for validation (from prefetch_related - NEW!)
-    # 5. Bulk fetch contracts for payment status (with select_related for contract details)
-    # 6. Bulk fetch payments (with select_related for invoice details)
     with django_assert_num_queries(6):
         items = list_query.get_list_items(queryset)
         # Force evaluation of lazy fields
@@ -242,17 +229,11 @@ def test__get_list_items__query_count_is_constant(
 @pytest.mark.django_db
 def test__get_list_items__with_valid_contract_year__no_warning() -> None:
     """Verify no warning shown when contract year is valid."""
-
-    # Create contract with period 2023-2025
     contract = domainfactory.contract(
         period=DateRange.create(start=datetime.date(2023, 1, 1), end=datetime.date(2025, 12, 31))
     )
     contract.id = contract_repository.create(contract)
-
-    # Create funding request
     fr = modelfactory.fundingrequest()
-
-    # Attach valid contract year (2024 - within period)
 
     contract_model = Contract.objects.get(id=contract.id)
     AttachedContract.objects.create(
@@ -321,12 +302,50 @@ def test__get_list_items__with_mixed_contract_years__shows_warning() -> None:
 
 
 @pytest.mark.django_db
-def test__get_list_items__without_contracts__no_warning() -> None:
-    """Verify no warning when publication has no contracts."""
-    modelfactory.fundingrequest()
+def test__search_with_invalid_contract_year_criteria__filters_correctly() -> None:
+    """Integration test: search criteria filters and list query converts correctly."""
+    contract = domainfactory.contract(
+        period=DateRange.create(start=datetime.date(2023, 1, 1), end=datetime.date(2025, 12, 31))
+    )
+    contract.id = contract_repository.create(contract)
 
-    queryset = FundingRequestModel.objects.all()
+    journal_id = JournalId(modelfactory.journal().pk)
+    funding_org_id = FundingOrganizationId(modelfactory.funding_organization().pk)
+
+    invalid_year_before = ContractYear(year=2022, contract=contract)
+    pub_invalid_before = domainfactory.publication(journal_id, contracts=(invalid_year_before,))
+    fr_invalid_before = domainfactory.fundingrequest(
+        journal_id=journal_id, funding_org_id=funding_org_id
+    )
+    fr_invalid_before.publication = pub_invalid_before
+    fr_invalid_before.id = fr_repository.create(fr_invalid_before)
+
+    invalid_year_after = ContractYear(year=2026, contract=contract)
+    pub_invalid_after = domainfactory.publication(journal_id, contracts=(invalid_year_after,))
+    fr_invalid_after = domainfactory.fundingrequest(
+        journal_id=journal_id, funding_org_id=funding_org_id
+    )
+    fr_invalid_after.publication = pub_invalid_after
+    fr_invalid_after.id = fr_repository.create(fr_invalid_after)
+
+    valid_year = contract.in_year(2024)
+    pub_valid = domainfactory.publication(journal_id, contracts=(valid_year,))
+    fr_valid = domainfactory.fundingrequest(journal_id=journal_id, funding_org_id=funding_org_id)
+    fr_valid.publication = pub_valid
+    fr_valid.id = fr_repository.create(fr_valid)
+
+    fr_no_contract = domainfactory.fundingrequest(
+        journal_id=journal_id, funding_org_id=funding_org_id
+    )
+    fr_no_contract.id = fr_repository.create(fr_no_contract)
+
+    queryset = fq.search(fq.InvalidContractYearCriteria(show_only_invalid=True))
     items = list_query.get_list_items(queryset)
 
-    assert len(items) == 1
-    assert items[0].has_invalid_contract_years is False
+    assert len(items) == 2
+    item_ids = {item.id for item in items}
+    assert fr_invalid_before.id in item_ids
+    assert fr_invalid_after.id in item_ids
+
+    for item in items:
+        assert item.has_invalid_contract_years is True
