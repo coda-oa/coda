@@ -71,7 +71,10 @@ django_settings_module = "config.settings.production"
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
-markers = ["integration: mark test as integration test"]
+markers = [
+    "integration: mark test as integration test",
+    "performance: mark test as performance test (may be slow)",
+]
 
 [tool.ruff]
 target-version = "py312"

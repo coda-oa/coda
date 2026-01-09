@@ -268,7 +268,7 @@ def _relevant_authors() -> Authors:
 def payment() -> Payment:
     money = random_money()
     method = random.choice([m for m in PaymentMethod])
-    return Payment(amount=money, method=method)
+    return Payment(amount=money, method=method, external_costsplitting=False)
 
 
 def random_money(currency: Currency | None = None) -> Money:

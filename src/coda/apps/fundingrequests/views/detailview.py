@@ -43,6 +43,7 @@ class RequestViewModel(NamedTuple):
     review_status: str
     review_remarks: str
     funding_amount: Money
+    external_costsplitting: bool | None = None
 
     def is_open(self) -> bool:
         return self.review_status == ReviewResult.Open.value
@@ -108,6 +109,7 @@ def request_viewmodel(fr: FundingRequestModel) -> RequestViewModel:
             fr.review.decided_funding_amount or 0,
             Currency.from_code(fr.review.decided_funding_currency or "EUR"),
         ),
+        external_costsplitting=fr.external_costsplitting,
     )
 
 

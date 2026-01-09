@@ -169,6 +169,6 @@ def parse_authors(request: HttpRequest) -> HttpResponse:
 def add_linkrow(request: HttpRequest) -> HttpResponse:
     return render(
         request,
-        "fundingrequests/partials/linkrow.html",
+        "partials/linkrow.html",
         {"link_types": LinkType.objects.all()},
     )

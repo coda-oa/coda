@@ -42,7 +42,7 @@ class FundingRequestCreationWizard(LoginRequiredMixin, Wizard, abc.ABC, Generic[
                 payment=cost,
                 funding=funding,
                 extra_information=extra_information,
-            )
+            ),
         )
         store["funding_request"] = funding_request_id
         store.save()

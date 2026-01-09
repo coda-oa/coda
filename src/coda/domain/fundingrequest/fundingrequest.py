@@ -30,6 +30,7 @@ class PaymentMethod(enum.Enum):
 class Payment:
     amount: Money
     method: PaymentMethod
+    external_costsplitting: bool | None = None
 
     def __post_init__(self) -> None:
         self._waived = False

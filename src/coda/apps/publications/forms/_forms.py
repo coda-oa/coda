@@ -200,6 +200,9 @@ class LinkForm(forms.Form):
 
     def full_clean(self) -> None:
         super().full_clean()
+        if not self.cleaned_data.get("link_type") or not self.cleaned_data.get("link_value"):
+            return
+
         try:
             links.create_link(self.cleaned_data["link_type"], self.cleaned_data["link_value"])
         except ValueError as err:
@@ -207,7 +210,7 @@ class LinkForm(forms.Form):
 
     def get_form_data(self) -> LinkDto:
         return LinkDto(
-            link_type=self.cleaned_data["link_type"],
+            link_type=self.cleaned_data.get("link_type", self.data.get("link_type", "")),
             link_value=self.cleaned_data.get("link_value", self.data.get("link_value", "")),
         )
 

@@ -30,6 +30,13 @@ def default_publication_type_vocabulary() -> int:
 
 class GlobalPreferences(models.Model):
     home_currency = models.CharField(max_length=255, default=Currency.EUR.code)
+    home_institution = models.ForeignKey(
+        "institutions.Institution",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Home institution",
+    )
     subject_classification_vocabulary = models.ForeignKey(
         VocabularyModel,
         on_delete=models.SET_DEFAULT,

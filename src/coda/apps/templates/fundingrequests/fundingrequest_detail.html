@@ -177,7 +177,11 @@
                                 <tr>
                                     <th>{{ link.type }}</th>
                                     <td>
-                                        <a href="{{ link.url }}">{{ link }}</a>
+                                        {% if link.url %}
+                                            <a href="{{ link.url }}" target="_blank">{{ link }}</a>
+                                        {% else %}
+                                            {{ link }}
+                                        {% endif %}
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -202,6 +206,14 @@
                         <tr>
                             <th scope="row">Payment Method</th>
                             <td colspan="3">{{ funding_request.payment_method|title }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">External Cost Splitting</th>
+                            {% if funding_request.external_costsplitting %}
+                                <td>Yes</td>
+                            {% else %}
+                                <td>No</td>
+                            {% endif %}
                         </tr>
                     </tbody>
                 </table>

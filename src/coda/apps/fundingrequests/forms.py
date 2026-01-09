@@ -123,12 +123,18 @@ class PaymentForm(CodaFormBase):
     method = forms.ChoiceField(
         choices=FundingRequest.PAYMENT_METHOD_CHOICES, label="Payment method"
     )
+    external_costsplitting = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="External cost splitting",
+    )
 
     def to_dto(self) -> PaymentDto:
         return PaymentDto(
             amount=float(self.cleaned_data["amount"]),
             currency=self.cleaned_data["currency"],
             method=self.cleaned_data["method"],
+            external_costsplitting=self.cleaned_data["external_costsplitting"],
         )
 
 

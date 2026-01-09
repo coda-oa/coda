@@ -41,8 +41,10 @@ def create_fundingrequest(
     request_id_generator: RequestIdGenerator = PublicFundingRequestId.create,
     checkfactory: CheckFactory | None = None,
 ) -> FundingRequestId:
+    publication = creation_dto.publication.to_publication()
+
     fr = FundingRequest.new(
-        creation_dto.publication.to_publication(),
+        publication,
         creation_dto.payment.to_payment(),
         request_id=_find_unused_request_id(request_id_generator, creation_dto.request_date),
         external_funding=[f.to_external_funding() for f in creation_dto.funding],
@@ -154,6 +156,7 @@ def update_funding(
         payment.to_payment(),
         map(ExternalFundingDto.to_external_funding, funding),
     )
+
     run_checks(fundingrequest_id, checkfactory=checkfactory)
 
 

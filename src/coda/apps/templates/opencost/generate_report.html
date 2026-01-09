@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="flex justify-between align-center my-2">
+        <h1 class="my-2">Generate New Report</h1>
+    </div>
+    <form method="post" action="{% url 'opencost:generate_submit' %}">
+        {% csrf_token %}
+        <article>
+            <h2>Report Parameters</h2>
+            <div class="form-row">
+                <label for="title">Report Title*</label>
+                <input type="text"
+                       id="title"
+                       name="title"
+                       placeholder="Enter a title for the report"
+                       required>
+            </div>
+            <div class="grid">
+                <div class="form-row">
+                    <label for="period_start">Period Start*</label>
+                    <input type="date" id="period_start" name="period_start" required>
+                </div>
+                <div class="form-row">
+                    <label for="period_end">Period End*</label>
+                    <input type="date" id="period_end" name="period_end" required>
+                </div>
+            </div>
+        </article>
+        <div class="grid wizard-nav">
+            <a href="{% url 'opencost:list' %}" class="button danger text-center">Cancel</a>
+            <button type="submit">Generate Report</button>
+        </div>
+    </form>
+{% endblock content %}

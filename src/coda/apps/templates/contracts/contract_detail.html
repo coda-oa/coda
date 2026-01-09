@@ -19,6 +19,29 @@
         <p>{{ entity.publication_billing.value }}</p>
         <h3>Status</h3>
         <p>{% include "contracts/contract_active_status.html" with entity=entity %}</p>
+        <h3>Contract Identifiers</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Identifier Type</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for link in contract.links.all %}
+                    <tr>
+                        <td>{{ link.type.name }}</td>
+                        <td>{{ link.value }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="2">
+                            <em>No identifiers assigned.</em>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </article>
     {% if contract.publishers.all.exists %}
         <section class="my-4">

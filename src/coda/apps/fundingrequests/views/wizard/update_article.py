@@ -106,7 +106,8 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()
         fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
-        store["cost"] = PaymentDto.from_payment(fr.estimated_cost).to_post_data()
+        payment_dto = PaymentDto.from_payment(fr.estimated_cost)
+        store["cost"] = payment_dto.to_post_data()
 
         store["funding"] = [
             ExternalFundingDto.from_external_funding(external_funding).to_post_data()

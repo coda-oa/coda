@@ -15,3 +15,19 @@ class Contract(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class ContractLinkType(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class ContractLink(models.Model):
+    type = models.ForeignKey(ContractLinkType, on_delete=models.CASCADE)
+    value = models.TextField()
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="links")
+
+    def __str__(self) -> str:
+        return f"{self.type.name}: {self.value}"

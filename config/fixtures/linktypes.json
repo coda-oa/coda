@@ -19,5 +19,48 @@
         "fields": {
             "name": "ISBN"
         }
+    },
+    {
+        "model": "publications.LinkType",
+        "pk": 4,
+        "fields": {
+            "name": "Handle"
+        }
+    },
+    {
+        "model": "publications.LinkType",
+        "pk": 5,
+        "fields": {
+            "name": "URN"
+        }
+    },
+    {
+        "model": "publications.LinkType",
+        "pk": 6,
+        "fields": {
+            "name": "PMID"
+        }
+    },
+    {
+        "model": "publications.LinkType",
+        "pk": 7,
+        "fields": {
+            "name": "PMC"
+        }
+    },
+    {
+        "model": "publications.LinkType",
+        "pk": 8,
+        "fields": {
+            "name": "arXiv"
+        }
+    },
+    {
+        "model": "publications.LinkType",
+        "pk": 9,
+        "fields": {
+            "name": "OAI"
+        }
     }
+
 ]

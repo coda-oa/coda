@@ -42,6 +42,7 @@ def as_domain_object(model: fundingrequest_models.FundingRequest) -> AnyFundingR
         estimated_cost=Payment(
             amount=Money(model.estimated_cost, Currency.from_code(model.estimated_cost_currency)),
             method=PaymentMethod(model.payment_method),
+            external_costsplitting=model.external_costsplitting,
         ),
         external_funding=[
             ExternalFunding(
@@ -139,6 +140,7 @@ def _map_payment_to_model_fields(payment: Payment) -> dict[str, Any]:
         "estimated_cost": payment.amount.amount,
         "estimated_cost_currency": payment.amount.currency.code,
         "payment_method": payment.method.value,
+        "external_costsplitting": payment.external_costsplitting,
     }
 
 

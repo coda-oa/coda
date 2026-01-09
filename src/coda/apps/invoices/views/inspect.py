@@ -70,6 +70,7 @@ class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
             "funding_source": request.GET.get("funding_source") or None,
             "contract_id": request.GET.get("contract_name") or None,
             "contract_year": request.GET.get("contract_year") or None,
+            "contract_positions_only": request.GET.get("contract_positions_only") == "true",
             "home_currency": GlobalPreferences.get_home_currency(),
             "has_external_id": self.bool_like(request.GET.get("has_external_id")),
             "has_foreign_currency": self.bool_like(request.GET.get("has_foreign_currency")),

@@ -9,7 +9,7 @@
         <article>
             <h2>Base information</h2>
             {{ contract_form }}
-            <article class="mb-0">
+            <article>
                 <header>
                     <h3 class="my-0">Publication Billing Types</h3>
                 </header>
@@ -20,9 +20,43 @@
                     <strong>Consolidated</strong>: The entire contract will be invoiced as a whole instead of individual publications.
                 </p>
             </article>
+            <article>
+                <header>
+                    <h3>Contract Identifiers</h3>
+                </header>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Identifier Type</th>
+                            <th>Value</th>
+                            <th>
+                                <button type="button"
+                                        hx-post="{% url 'contracts:partial_add_linkrow' %}"
+                                        hx-target="#contract-linktable"
+                                        hx-swap="beforeend">Add</button>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="contract-linktable">
+                        {% for link_data in links %}
+                            {% with link=link_data.link errors=link_data.errors %}
+                                {% include "partials/linkrow.html" %}
+                            {% endwith %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </article>
         </article>
         {% include "contracts/contract_search_add_entity.html" with entity_title="Publishers" formset=publisher_formset url="contracts:search_publisher" %}
         {% include "contracts/contract_search_add_entity.html" with entity_title="Journals" formset=journal_formset url="contracts:search_journal" %}
-        <button type="submit">Save</button>
+        <div class="grid wizard-nav">
+            {% if contract %}
+                <a href="{% url "contracts:detail" pk=contract.id %}"
+                   class="button danger text-center">Cancel</a>
+            {% else %}
+                <a href="{% url "contracts:list" %}" class="button danger text-center">Cancel</a>
+            {% endif %}
+            <button type="submit">Save</button>
+        </div>
     </form>
 {% endblock content %}
