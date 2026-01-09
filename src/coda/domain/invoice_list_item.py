@@ -28,3 +28,4 @@ class InvoiceListItem:
     external_invoice_id: str
     conversions: dict[Currency, Decimal]
     url: str
+    has_invalid_contract_years: bool

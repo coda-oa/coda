@@ -66,6 +66,8 @@ def as_list_item(model: invoice_models.Invoice) -> InvoiceListItem:
     tax_amount = getattr(model, "tax_total", Decimal("0"))
     total_amount = net_amount + tax_amount
 
+    has_invalid_contract_years = getattr(model, "has_invalid_contract_years", False)
+
     currency_code = getattr(model, "first_position_currency", "EUR")
     currency = Currency.from_code(currency_code)
 
@@ -96,6 +98,7 @@ def as_list_item(model: invoice_models.Invoice) -> InvoiceListItem:
         external_invoice_id=model.external_invoice_id,
         conversions=conversions,
         url=url,
+        has_invalid_contract_years=has_invalid_contract_years,
     )
 
 

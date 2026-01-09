@@ -175,7 +175,7 @@ def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
         creditor=invoice.creditor,
         creditor_name=creditor_name,
         currency=invoice.currency(),
-        positions=[PositionDetailDto.to_position_detail_dto(p) for p in invoice.positions],
+        positions=[PositionDetailDto.from_position(p) for p in invoice.positions],
         tax=invoice.tax(),
         total=invoice.total(),
         net=invoice.net(),
