@@ -74,6 +74,7 @@ class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
             "home_currency": GlobalPreferences.get_home_currency(),
             "has_external_id": self.bool_like(request.GET.get("has_external_id")),
             "has_foreign_currency": self.bool_like(request.GET.get("has_foreign_currency")),
+            "has_errors": self.bool_like(request.GET.get("has_errors")),
             "sort_by": request.GET.get("sort_by"),
             "status": self.try_into_paymentstatus(request.GET.get("payment_status", "")),
             "date_range": DateRange.try_fromisoformat(
