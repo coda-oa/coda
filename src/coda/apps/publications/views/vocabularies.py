@@ -153,6 +153,7 @@ def create_limited(request: HttpRequest, pk: int) -> HttpResponse:
             "allowed_level_range": sorted(allowed_levels_with_checkboxes),
             "forbidden_level_range": sorted(forbidden_levels_with_checkboxes),
             "base_vocabulary_id": pk,
+            "base_vocabulary_name": base_vocabulary.name,
         },
     )
 
@@ -180,6 +181,8 @@ def edit_limited(request: HttpRequest, pk: int) -> HttpResponse:
             "level_range": range(1, max_level + 1),
             "allowed_level_range": sorted(allowed_levels_with_checkboxes),
             "forbidden_level_range": sorted(forbidden_levels_with_checkboxes),
+            "base_vocabulary_id": vocabulary.base_vocabulary.id,
+            "base_vocabulary_name": vocabulary.base_vocabulary.name,
         },
     )
 

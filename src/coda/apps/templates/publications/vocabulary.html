@@ -13,11 +13,20 @@
                        name="base_vocabulary_id"
                        value="{{ base_vocabulary_id }}">
             {% endif %}
-            <div id="edit-title-container" class="flex justify-between">
+            <div id="edit-title-container" class="my-1">
+                <label for="vocabulary_name">Edit Vocabulary Name:</label>
                 <input type="text"
                        id="vocabulary_name"
                        name="vocabulary_name"
                        value="{{ vocabulary.name }}">
+            </div>
+            <div class="mb-2">
+                <label for="base_vocabulary_name">Base Vocabulary Name:</label>
+                <input type="text"
+                       id="base_vocabulary_name"
+                       name="base_vocabulary_name"
+                       readonly
+                       value="{{ base_vocabulary_name }}">
             </div>
             <div class="my-2 scroll-container">{% include "publications/vocabulary_table.html" %}</div>
         </form>
