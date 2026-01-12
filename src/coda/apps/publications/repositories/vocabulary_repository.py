@@ -157,7 +157,7 @@ def all_limited() -> list[LimitedVocabulary]:
     ]
 
 
-def save(vocabulary: VocabularyProtocol) -> None:
+def _create_or_update_vocabulary_model(vocabulary: VocabularyProtocol) -> VocabularyModel:
     if vocabulary.id is None:
         # Create new vocabulary
         if isinstance(vocabulary, LimitedVocabulary):
@@ -167,14 +167,12 @@ def save(vocabulary: VocabularyProtocol) -> None:
                 is_limited=True,
                 base_vocabulary_id=vocabulary.base_vocabulary.id,
             )
-            # Update the domain object with the assigned ID
             vocabulary.id = VocabularyId(v.pk)
         else:
             v = VocabularyModel.objects.create(
                 name=vocabulary.name,
                 version=vocabulary.version,
             )
-            # Update the domain object with the assigned ID
             vocabulary.id = VocabularyId(v.pk)
     else:
         # Update existing vocabulary
@@ -185,19 +183,28 @@ def save(vocabulary: VocabularyProtocol) -> None:
             v.is_limited = True
             v.base_vocabulary_id = vocabulary.base_vocabulary.id
 
-    concepts: Collection[VocabularyConcept]
+    return v
+
+
+def _get_concepts_for_save(
+    vocabulary: VocabularyProtocol, vocabulary_model: VocabularyModel
+) -> Collection[VocabularyConcept]:
     if isinstance(vocabulary, Vocabulary):
-        concepts = vocabulary.concepts
+        return vocabulary.concepts
     elif isinstance(vocabulary, LimitedVocabulary):
-        concepts = vocabulary.disallowed_concepts
         # Clear existing concepts for limited vocabularies (they store disallowed concepts)
-        v.concepts.all().delete()
+        vocabulary_model.concepts.all().delete()
+        return vocabulary.disallowed_concepts
     else:
         raise ValueError(f"Unsupported vocabulary type: {type(vocabulary)}")
 
+
+def _save_concepts(
+    vocabulary_model: VocabularyModel, concepts: Collection[VocabularyConcept]
+) -> None:
     # First pass: create all concepts without parent relationships
     for c in concepts:
-        mc, _ = v.concepts.get_or_create(entity_id=c.id)
+        mc, _ = vocabulary_model.concepts.get_or_create(entity_id=c.id)
         mc.concept_id = c.concept_id
         mc.name = c.name
         mc.hint = c.description
@@ -207,14 +214,19 @@ def save(vocabulary: VocabularyProtocol) -> None:
     for c in concepts:
         if c.parent is not None:
             try:
-                mc = v.concepts.get(entity_id=c.id)
-                parent_concept = v.concepts.get(entity_id=c.parent)
+                mc = vocabulary_model.concepts.get(entity_id=c.id)
+                parent_concept = vocabulary_model.concepts.get(entity_id=c.parent)
                 mc.parent = parent_concept
                 mc.save()
-            except v.concepts.model.DoesNotExist:
+            except vocabulary_model.concepts.model.DoesNotExist:
                 # Parent concept doesn't exist, skip
                 pass
 
+
+def save(vocabulary: VocabularyProtocol) -> None:
+    v = _create_or_update_vocabulary_model(vocabulary)
+    concepts = _get_concepts_for_save(vocabulary, v)
+    _save_concepts(v, concepts)
     v.save()
 
 

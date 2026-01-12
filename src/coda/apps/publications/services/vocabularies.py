@@ -19,68 +19,66 @@ class ConceptTreeNode:
     children: list["ConceptTreeNode"]
 
 
-def build_concept_trees(
-    vocabulary: LimitedVocabulary,
-) -> tuple[list[ConceptTreeNode], list[ConceptTreeNode]]:
-    """Build allowed and forbidden concept trees from a limited vocabulary.
+class ConceptTreeBuilder:
+    def __init__(self, vocabulary: LimitedVocabulary) -> None:
+        self.vocabulary = vocabulary
+        self.roots, self.children_map = vocabulary.get_concept_hierarchy()
+        self.allowed_concept_ids = {
+            c.concept_id
+            for c in vocabulary.base_vocabulary.concepts
+            if vocabulary.is_concept_allowed(c.concept_id)
+        }
 
-    This service function handles the tree building logic, separating it from
-    the domain concerns of concept relationships.
+    def build(self) -> tuple[list[ConceptTreeNode], list[ConceptTreeNode]]:
+        allowed_tree = []
+        forbidden_tree = []
 
-    Returns:
-        A tuple of (allowed_tree, forbidden_tree) where each tree contains
-        only concepts relevant to that tree (allowed or forbidden).
-    """
-    # Get hierarchy from domain
-    roots, children_map = vocabulary.get_concept_hierarchy()
+        for root in self.roots:
+            node = self._build_tree(root, True)
+            if node:
+                allowed_tree.append(node)
+            node = self._build_tree(root, False)
+            if node:
+                forbidden_tree.append(node)
 
-    all_concepts = list(vocabulary.base_vocabulary.concepts)
-    allowed_concept_ids = {
-        c.concept_id for c in all_concepts if vocabulary.is_concept_allowed(c.concept_id)
-    }
+        return allowed_tree, forbidden_tree
 
-    def has_relevant_descendants(concept: VocabularyConcept, for_allowed_tree: bool) -> bool:
-        """Check if a concept or its descendants are relevant for the tree type."""
-        is_allowed = concept.concept_id in allowed_concept_ids
+    def _has_relevant_descendants(self, concept: VocabularyConcept, for_allowed_tree: bool) -> bool:
+        is_allowed = concept.concept_id in self.allowed_concept_ids
         target_status = for_allowed_tree
         if is_allowed == target_status:
             return True
-        for child in children_map.get(concept.id, []):
-            if has_relevant_descendants(child, for_allowed_tree):
+        for child in self.children_map.get(concept.id, []):
+            if self._has_relevant_descendants(child, for_allowed_tree):
                 return True
         return False
 
-    def build_tree(concept: VocabularyConcept, for_allowed_tree: bool) -> ConceptTreeNode | None:
-        """Recursively build a tree node if it's relevant for the tree type."""
-        if not has_relevant_descendants(concept, for_allowed_tree):
+    def _build_tree(
+        self, concept: VocabularyConcept, for_allowed_tree: bool
+    ) -> ConceptTreeNode | None:
+        if not self._has_relevant_descendants(concept, for_allowed_tree):
             return None
 
         children = []
-        for child in children_map.get(concept.id, []):
-            child_node = build_tree(child, for_allowed_tree)
+        for child in self.children_map.get(concept.id, []):
+            child_node = self._build_tree(child, for_allowed_tree)
             if child_node:
                 children.append(child_node)
 
         # Move concept to the limited vocabulary context
-        moved_concept = vocabulary._move_concept_to_self(concept)
+        moved_concept = self.vocabulary._move_concept_to_self(concept)
 
         return ConceptTreeNode(
             concept=moved_concept,
             children=children,
         )
 
-    allowed_tree = []
-    forbidden_tree = []
 
-    for root in roots:
-        node = build_tree(root, True)
-        if node:
-            allowed_tree.append(node)
-        node = build_tree(root, False)
-        if node:
-            forbidden_tree.append(node)
-
-    return allowed_tree, forbidden_tree
+def build_concept_trees(
+    vocabulary: LimitedVocabulary,
+) -> tuple[list[ConceptTreeNode], list[ConceptTreeNode]]:
+    builder = ConceptTreeBuilder(vocabulary)
+    return builder.build()
 
 
 def create_limited_from(vocabulary_id: VocabularyId, name: str) -> VocabularyId:

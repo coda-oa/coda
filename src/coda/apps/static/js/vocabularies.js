@@ -1,4 +1,4 @@
-window.ConceptListUI = (() => {
+globalThis.ConceptListUI = (() => {
     function toggleButtonState(checkboxName, buttonId) {
         const checkboxes = document.querySelectorAll(`input[name="${checkboxName}"]`);
         const button = document.getElementById(buttonId);
@@ -87,7 +87,7 @@ window.ConceptListUI = (() => {
         button.addEventListener('click', () => {
             // Get selected levels from dropdown
             const selectedLevels = Array.from(dropdown.querySelectorAll('input[type="checkbox"]:checked'))
-                .map(cb => parseInt(cb.name.split('-')[1])); // Extract level number from "level-1", "level-2", etc.
+                .map(cb => Number.parseInt(cb.name.split('-')[1])); // Extract level number from "level-1", "level-2", etc.
 
             if (selectedLevels.length === 0) return;
 
@@ -95,7 +95,7 @@ window.ConceptListUI = (() => {
             const targetCheckboxes = container.querySelectorAll('input[type="checkbox"][name*="_concepts_check"]');
 
             targetCheckboxes.forEach(checkbox => {
-                const checkboxLevel = parseInt(checkbox.getAttribute('data-level'));
+                const checkboxLevel = Number.parseInt(checkbox.dataset.level);
                 if (selectedLevels.includes(checkboxLevel)) {
                     checkbox.checked = true;
                     checkbox.dispatchEvent(new Event('change')); // Trigger change event for UI updates

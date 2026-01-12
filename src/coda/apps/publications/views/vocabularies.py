@@ -188,6 +188,7 @@ def edit_limited(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def save_vocabularies(request: HttpRequest) -> HttpResponse:
     vocabulary_id = request.POST.get("vocabulary_id")
 
