@@ -199,28 +199,99 @@ def _get_concepts_for_save(
         raise ValueError(f"Unsupported vocabulary type: {type(vocabulary)}")
 
 
+def _prepare_concepts_for_bulk_save(
+    concepts: Collection[VocabularyConcept],
+    existing_concepts: dict[str, ConceptModel],
+    vocabulary_model: VocabularyModel,
+) -> tuple[list[ConceptModel], list[ConceptModel]]:
+    """Categorize concepts into create and update lists without parent relationships."""
+    concepts_to_create = []
+    concepts_to_update = []
+
+    for c in concepts:
+        entity_id_str = str(c.id)
+        if entity_id_str in existing_concepts:
+            # Update existing concept
+            mc = existing_concepts[entity_id_str]
+            mc.concept_id = c.concept_id
+            mc.name = c.name
+            mc.hint = c.description
+            mc.parent = None  # Clear parent, will be set in second pass
+            concepts_to_update.append(mc)
+        else:
+            # Create new concept
+            mc = ConceptModel(
+                vocabulary=vocabulary_model,
+                entity_id=c.id,
+                concept_id=c.concept_id,
+                name=c.name,
+                hint=c.description,
+            )
+            concepts_to_create.append(mc)
+            existing_concepts[entity_id_str] = mc
+
+    return concepts_to_create, concepts_to_update
+
+
+def _perform_bulk_operations(
+    vocabulary_model: VocabularyModel,
+    concepts_to_create: list[ConceptModel],
+    concepts_to_update: list[ConceptModel],
+    existing_concepts: dict[str, ConceptModel],
+) -> dict[str, ConceptModel]:
+    """Execute bulk create/update operations and return refreshed concept lookup."""
+    if concepts_to_create:
+        ConceptModel.objects.bulk_create(concepts_to_create)
+    if concepts_to_update:
+        ConceptModel.objects.bulk_update(
+            concepts_to_update, fields=["concept_id", "name", "hint", "parent"]
+        )
+
+    # Refresh the lookup dict only if we created new concepts (to get their IDs)
+    if concepts_to_create:
+        return {str(c.entity_id): c for c in vocabulary_model.concepts.all()}
+
+    return existing_concepts
+
+
+def _update_parent_relationships(
+    concepts: Collection[VocabularyConcept],
+    existing_concepts: dict[str, ConceptModel],
+) -> None:
+    """Set parent relationships for concepts in bulk."""
+    concepts_with_parents = []
+
+    for c in concepts:
+        if c.parent is not None:
+            entity_id_str = str(c.id)
+            parent_id_str = str(c.parent)
+            if entity_id_str in existing_concepts and parent_id_str in existing_concepts:
+                mc = existing_concepts[entity_id_str]
+                mc.parent = existing_concepts[parent_id_str]
+                concepts_with_parents.append(mc)
+
+    if concepts_with_parents:
+        ConceptModel.objects.bulk_update(concepts_with_parents, fields=["parent"])
+
+
 def _save_concepts(
     vocabulary_model: VocabularyModel, concepts: Collection[VocabularyConcept]
 ) -> None:
-    # First pass: create all concepts without parent relationships
-    for c in concepts:
-        mc, _ = vocabulary_model.concepts.get_or_create(entity_id=c.id)
-        mc.concept_id = c.concept_id
-        mc.name = c.name
-        mc.hint = c.description
-        mc.save()
+    # Fetch all existing concepts for this vocabulary in one query
+    existing_concepts = {str(c.entity_id): c for c in vocabulary_model.concepts.all()}
 
-    # Second pass: set parent relationships
-    for c in concepts:
-        if c.parent is not None:
-            try:
-                mc = vocabulary_model.concepts.get(entity_id=c.id)
-                parent_concept = vocabulary_model.concepts.get(entity_id=c.parent)
-                mc.parent = parent_concept
-                mc.save()
-            except vocabulary_model.concepts.model.DoesNotExist:
-                # Parent concept doesn't exist, skip
-                pass
+    # Prepare concepts for bulk operations
+    concepts_to_create, concepts_to_update = _prepare_concepts_for_bulk_save(
+        concepts, existing_concepts, vocabulary_model
+    )
+
+    # Perform bulk create/update and refresh lookup if needed
+    existing_concepts = _perform_bulk_operations(
+        vocabulary_model, concepts_to_create, concepts_to_update, existing_concepts
+    )
+
+    # Set parent relationships
+    _update_parent_relationships(concepts, existing_concepts)
 
 
 def save(vocabulary: VocabularyProtocol) -> None:
