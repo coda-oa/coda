@@ -2,9 +2,9 @@ import datetime
 import itertools
 import random
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
-from typing import Protocol, overload
+from typing import Any, Protocol, overload
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import (
@@ -26,13 +26,13 @@ from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.fundingrequest.review import Review, ReviewResult
 from coda.domain.money import Currency, Money
+from coda.domain.publication.publication import Monograph, Publication
 
 
 class RequestIdGenerator(Protocol):
     def __call__(
         self, date: datetime.date | None = None, rng: random.Random | None = None
-    ) -> PublicFundingRequestId:
-        ...
+    ) -> PublicFundingRequestId: ...
 
 
 def create_fundingrequest(
@@ -134,6 +134,52 @@ def update_publication(
     run_checks(fundingrequest_id, checkfactory=checkfactory)
 
 
+def update_publication_preserving_contracts(
+    fundingrequest_id: FundingRequestId,
+    publication: PublicationBaseDto,
+    checkfactory: CheckFactory | None = None,
+) -> None:
+    """
+    Update publication metadata while preserving existing contract years.
+
+    Used when updating publication details without modifying contracts.
+    This avoids validation errors for contract years that may have become
+    invalid due to contract period changes.
+
+    The existing contract years are preserved from the database, allowing
+    partial updates to publication metadata (title, authors, etc.) without
+    requiring users to fix invalid contract years that are unrelated to
+    their current task.
+
+    Also preserves journal (for articles) or publisher (for monographs) since
+    these are edited on the contract step, not the publication metadata step.
+    """
+    fr = repository.get_by_id(fundingrequest_id)
+    existing_contracts = fr.publication.contracts
+
+    # Replace contracts in DTO with empty list to avoid validation during conversion
+    # We'll restore the actual contracts after conversion
+    publication.contracts = []
+
+    # Convert DTO to publication with updated metadata but empty contracts
+    updated_publication = publication.to_publication(fr.publication.id)
+
+    # Preserve contracts, journal (articles), and publisher (monographs) from database
+    # These are edited in the contract step, not the publication metadata step
+    replacements: dict[str, Any] = {"contracts": existing_contracts}
+
+    # Preserve journal for articles or publisher for monographs
+    if isinstance(fr.publication, Publication):
+        replacements["journal"] = fr.publication.journal
+    elif isinstance(fr.publication, Monograph):
+        replacements["publisher"] = fr.publication.publisher
+
+    fr.publication = replace(updated_publication, **replacements)
+
+    repository.update(fr)
+    run_checks(fundingrequest_id, checkfactory=checkfactory)
+
+
 def update_extra_information(
     fundingrequest_id: FundingRequestId, extra_information: ExtraInformationDto
 ) -> None:
@@ -183,13 +229,11 @@ def _keep_result(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) -
 @overload
 def get_institutions_allowed_as_affiliation(
     for_authors: Iterable[Author],
-) -> Iterable[Institution]:
-    ...
+) -> Iterable[Institution]: ...
 
 
 @overload
-def get_institutions_allowed_as_affiliation() -> Iterable[Institution]:
-    ...
+def get_institutions_allowed_as_affiliation() -> Iterable[Institution]: ...
 
 
 def get_institutions_allowed_as_affiliation(
