@@ -4,25 +4,25 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest
 from django.urls import reverse
 
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-from coda.apps.fundingrequests.services import fundingrequests
 from coda.apps.fundingrequests.dto import (
     ExternalFundingDto,
     ExtraContactDto,
     ExtraInformationDto,
     PaymentDto,
 )
-from coda.apps.fundingrequests.views.wizard.parse_store import publication_dto_from
-from coda.apps.fundingrequests.views.wizard.steps.extrainformation_step import (
-    ExtraInformationStep,
-)
+from coda.apps.fundingrequests.services import fundingrequests
+from coda.apps.fundingrequests.views.wizard.steps.extrainformation_step import ExtraInformationStep
 from coda.apps.fundingrequests.views.wizard.steps.funding_step import FundingStep
 from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalContractStep
-from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
-from coda.apps.publications.dto import PublicationDto
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import (
+    PublicationStep,
+    PublicationStepDto,
+)
+from coda.apps.publications.dto import ContractYearDto, PublicationDto
 from coda.apps.wizard import SessionStore, Wizard
-
-from coda.apps.breadcrumbs.decorators import breadcrumb
+from coda.domain.publication import JournalId
 
 
 @breadcrumb("Update Additional Information", parent_url_name="fundingrequests:detail")
@@ -69,15 +69,18 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
     def complete(self, /, **kwargs: Any) -> None:
+        store = self.get_store()
         pk = kwargs["pk"]
-        dto = publication_dto_from(self.get_store())
 
-        # If early completing from PublicationStep (index 0), preserve existing contracts
-        # JournalContractStep is at index 1 - if we didn't reach it, contracts weren't edited
-        if self.index() == 0:
-            fundingrequests.update_publication_preserving_contracts(pk, dto)
-        else:
-            fundingrequests.update_publication(pk, dto)
+        # Always update metadata from PublicationStep
+        metadata = PublicationStepDto(**store["publication_step"])
+        fundingrequests.update_publication_metadata(pk, metadata)
+
+        # Update journal + contracts only if JournalContractStep was completed
+        if self.index() > 0:
+            journal = JournalId(store["journal"])
+            contract_dtos = [ContractYearDto(**c) for c in store["contracts"]]
+            fundingrequests.update_publication_journal_and_contracts(pk, journal, contract_dtos)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()

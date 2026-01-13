@@ -6,14 +6,17 @@ from django.urls import reverse
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.services import fundingrequests
-from coda.apps.fundingrequests.views.wizard.parse_store import monograph_dto_from
-from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import (
+    PublicationStep,
+    PublicationStepDto,
+)
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
     PublisherStep,
     PublisherStepDto,
 )
 from coda.apps.publications.dto import MonographDto
 from coda.apps.wizard import SessionStore, Wizard
+from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequestId
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -43,12 +46,17 @@ class MonographUpdateMetaView(Wizard):
 
     def complete(self, /, **kwargs: Any) -> None:
         logging.info("Completing MonographUpdateMetaView")
-        pk = kwargs["pk"]
-        dto = monograph_dto_from(self.get_store())
+        store = self.get_store()
+        pk = FundingRequestId(kwargs["pk"])
 
-        # If early completing from PublicationStep (index 0), preserve existing contracts
-        # PublisherStep is at index 1 - if we didn't reach it, contracts weren't edited
-        if self.index() == 0:
-            fundingrequests.update_publication_preserving_contracts(FundingRequestId(pk), dto)
-        else:
-            fundingrequests.update_publication(FundingRequestId(pk), dto)
+        # Always update metadata from PublicationStep
+        metadata = PublicationStepDto(**store["publication_step"])
+        fundingrequests.update_publication_metadata(pk, metadata)
+
+        # Update publisher + contracts only if PublisherStep was completed
+        if self.index() > 0:  # PublisherStep is at index 1
+            publisher_step = PublisherStepDto(**store["publisher_step"])
+            publisher = PublisherId(publisher_step.publisher)
+            fundingrequests.update_publication_publisher_and_contracts(
+                pk, publisher, publisher_step.contracts
+            )

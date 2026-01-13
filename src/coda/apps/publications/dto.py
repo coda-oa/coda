@@ -184,7 +184,7 @@ class PublicationDto(PublicationBaseDto):
             publication_type=self.meta.publication_type.to_concept(),
             subject_area=self.meta.subject_area.to_concept(),
             open_access_type=OpenAccessType[self.meta.open_access_type],
-            publication_state=_parse_state(self.meta),
+            publication_state=parse_publication_state(self.meta),
             relevant_authors=Authors(a.to_author() for a in self.relevant_authors),
             other_authors=AuthorNames(self.other_authors),
             links={link.to_link() for link in self.links},
@@ -235,7 +235,7 @@ class MonographDto(PublicationBaseDto):
             publication_type=self.meta.publication_type.to_concept(),
             subject_area=self.meta.subject_area.to_concept(),
             open_access_type=OpenAccessType[self.meta.open_access_type],
-            publication_state=_parse_state(self.meta),
+            publication_state=parse_publication_state(self.meta),
             relevant_authors=Authors(a.to_author() for a in self.relevant_authors),
             other_authors=AuthorNames(self.other_authors),
             links={link.to_link() for link in self.links},
@@ -247,7 +247,7 @@ class MonographDto(PublicationBaseDto):
         return self.to_monograph(id)
 
 
-def _parse_state(publication: PublicationMetaDto) -> PublicationState:
+def parse_publication_state(publication: PublicationMetaDto) -> PublicationState:
     state = publication.publication_state
 
     if state.lower() == Published.name().lower():
