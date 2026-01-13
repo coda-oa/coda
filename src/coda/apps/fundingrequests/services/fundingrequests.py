@@ -2,9 +2,9 @@ import datetime
 import itertools
 import random
 from collections.abc import Iterable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Protocol, overload
+from typing import Protocol, overload
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.dto import (
@@ -15,18 +15,22 @@ from coda.apps.fundingrequests.dto import (
     UpdateReviewDto,
 )
 from coda.apps.fundingrequests.services.checks import run_checks
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStepDto
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
-from coda.apps.publications.dto import PublicationBaseDto
+from coda.apps.publications.dto import ContractYearDto, parse_publication_state
 from coda.checks.checkfactory import CheckFactory
 from coda.domain import errors
-from coda.domain.author import Author
+from coda.domain.author import Author, AuthorNames
+from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.fundingrequest.review import Review, ReviewResult
 from coda.domain.money import Currency, Money
+from coda.domain.publication import Authors, JournalId, License, OpenAccessType
 from coda.domain.publication.publication import Monograph, Publication
+from coda.domain.string import NonEmptyStr
 
 
 class RequestIdGenerator(Protocol):
@@ -123,58 +127,96 @@ def _find_unused_request_id(
     return request_id
 
 
-def update_publication(
+def update_publication_metadata(
     fundingrequest_id: FundingRequestId,
-    publication: PublicationBaseDto,
+    step_dto: PublicationStepDto,
     checkfactory: CheckFactory | None = None,
 ) -> None:
+    """Updates only publication metadata (title, authors, dates, license, etc.)
+
+    Preserves existing contracts, journal/publisher unchanged.
+    Used when early-completing from PublicationStep without visiting contract steps.
+
+    Args:
+        fundingrequest_id: ID of the funding request to update
+        step_dto: Publication metadata from the publication step form
+        checkfactory: Optional check factory for running validation checks
+    """
     fr = repository.get_by_id(fundingrequest_id)
-    fr.publication = publication.to_publication(fr.publication.id)
+    publication = fr.publication
+
+    meta = step_dto.meta
+    publication.title = NonEmptyStr(meta.title)
+    publication.publication_type = meta.publication_type.to_concept()
+    publication.subject_area = meta.subject_area.to_concept()
+    publication.open_access_type = OpenAccessType[meta.open_access_type]
+    publication.license = License.of(meta.license)
+    publication.publication_state = parse_publication_state(meta)
+
+    relevant_authors = Authors(a.to_author() for a in step_dto.relevant_authors)
+    other_authors = AuthorNames(step_dto.other_authors)
+    publication.relevant_authors = relevant_authors
+    publication.other_authors = other_authors
+
+    publication.links = {link.to_link() for link in step_dto.links}
+
     repository.update(fr)
     run_checks(fundingrequest_id, checkfactory=checkfactory)
 
 
-def update_publication_preserving_contracts(
+def update_publication_journal_and_contracts(
     fundingrequest_id: FundingRequestId,
-    publication: PublicationBaseDto,
+    journal: JournalId,
+    contract_dtos: list[ContractYearDto],
     checkfactory: CheckFactory | None = None,
 ) -> None:
-    """
-    Update publication metadata while preserving existing contract years.
+    """Updates journal and contracts for article publications.
 
-    Used when updating publication details without modifying contracts.
-    This avoids validation errors for contract years that may have become
-    invalid due to contract period changes.
+    Validates contract years before updating. Raises InvalidContractYearError
+    if any contract year is invalid for its contract's period.
 
-    The existing contract years are preserved from the database, allowing
-    partial updates to publication metadata (title, authors, etc.) without
-    requiring users to fix invalid contract years that are unrelated to
-    their current task.
-
-    Also preserves journal (for articles) or publisher (for monographs) since
-    these are edited on the contract step, not the publication metadata step.
+    Args:
+        fundingrequest_id: ID of the funding request to update
+        journal: Journal ID for the article
+        contract_dtos: List of contract year DTOs
+        checkfactory: Optional check factory for running validation checks
     """
     fr = repository.get_by_id(fundingrequest_id)
-    existing_contracts = fr.publication.contracts
 
-    # Replace contracts in DTO with empty list to avoid validation during conversion
-    # We'll restore the actual contracts after conversion
-    publication.contracts = []
+    contracts = tuple(dto.to_contract_year() for dto in contract_dtos)
 
-    # Convert DTO to publication with updated metadata but empty contracts
-    updated_publication = publication.to_publication(fr.publication.id)
+    assert isinstance(fr.publication, Publication)
+    fr.publication.journal = journal
+    fr.publication.contracts = contracts
 
-    # Preserve contracts, journal (articles), and publisher (monographs) from database
-    # These are edited in the contract step, not the publication metadata step
-    replacements: dict[str, Any] = {"contracts": existing_contracts}
+    repository.update(fr)
+    run_checks(fundingrequest_id, checkfactory=checkfactory)
 
-    # Preserve journal for articles or publisher for monographs
-    if isinstance(fr.publication, Publication):
-        replacements["journal"] = fr.publication.journal
-    elif isinstance(fr.publication, Monograph):
-        replacements["publisher"] = fr.publication.publisher
 
-    fr.publication = replace(updated_publication, **replacements)
+def update_publication_publisher_and_contracts(
+    fundingrequest_id: FundingRequestId,
+    publisher: PublisherId,
+    contract_dtos: list[ContractYearDto],
+    checkfactory: CheckFactory | None = None,
+) -> None:
+    """Updates publisher and contracts for monograph publications.
+
+    Validates contract years before updating. Raises InvalidContractYearError
+    if any contract year is invalid for its contract's period.
+
+    Args:
+        fundingrequest_id: ID of the funding request to update
+        publisher: Publisher ID for the monograph
+        contract_dtos: List of contract year DTOs
+        checkfactory: Optional check factory for running validation checks
+    """
+    fr = repository.get_by_id(fundingrequest_id)
+
+    contracts = tuple(dto.to_contract_year() for dto in contract_dtos)
+
+    assert isinstance(fr.publication, Monograph)
+    fr.publication.publisher = publisher
+    fr.publication.contracts = contracts
 
     repository.update(fr)
     run_checks(fundingrequest_id, checkfactory=checkfactory)
