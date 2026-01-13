@@ -71,7 +71,13 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
     def complete(self, /, **kwargs: Any) -> None:
         pk = kwargs["pk"]
         dto = publication_dto_from(self.get_store())
-        fundingrequests.update_publication(pk, dto)
+
+        # If early completing from PublicationStep (index 0), preserve existing contracts
+        # JournalContractStep is at index 1 - if we didn't reach it, contracts weren't edited
+        if self.index() == 0:
+            fundingrequests.update_publication_preserving_contracts(pk, dto)
+        else:
+            fundingrequests.update_publication(pk, dto)
 
     def prepare(self, request: HttpRequest) -> None:
         store = self.get_store()

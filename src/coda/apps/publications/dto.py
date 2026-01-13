@@ -136,8 +136,7 @@ class PublicationBaseDto(abc.ABC, CodaBaseDto):
     other_authors: list[str]
 
     @abc.abstractmethod
-    def to_publication(self, id: PublicationId | None = None) -> BasePublication:
-        ...
+    def to_publication(self, id: PublicationId | None = None) -> BasePublication: ...
 
 
 class PublicationDto(PublicationBaseDto):
