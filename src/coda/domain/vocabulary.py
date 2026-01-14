@@ -173,7 +173,7 @@ class LimitedVocabulary:
     def get_concept_hierarchy(
         self,
     ) -> tuple[list[VocabularyConcept], dict[ConceptId, list[VocabularyConcept]]]:
-        all_concepts = list(self._move_concept_to_self(c) for c in self.base_vocabulary.concepts)
+        all_concepts = [self._move_concept_to_self(c) for c in self.base_vocabulary.concepts]
         children_map: dict[ConceptId, list[VocabularyConcept]] = defaultdict(list)
         roots = []
 

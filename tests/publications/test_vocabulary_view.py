@@ -184,7 +184,7 @@ def test__limited_vocab_from_limited_vocab__going_to_detail_view__preserves_hier
 ):
     vocab_id = VocabularyId(995)
 
-    concepts, id_mapping = create_concept_hierarchy_abc(vocab_id)
+    concepts, _ = create_concept_hierarchy_abc(vocab_id)
     base_vocab = create_base_vocabulary_with_concepts(vocab_id, concepts)
     vocabulary_repository.save(base_vocab)
 
@@ -229,7 +229,7 @@ def test__limited_vocab_from_limited_vocab__going_to_detail_view__preserves_hier
 def test__three_level_limited_vocab_chain__build_annotated_trees__hierarchy_is_preserved() -> None:
     vocab_id = VocabularyId(993)
 
-    concepts, id_mapping = create_concept_hierarchy_abc(vocab_id)
+    concepts, _ = create_concept_hierarchy_abc(vocab_id)
     base_vocab = create_base_vocabulary_with_concepts(vocab_id, concepts)
     vocabulary_repository.save(base_vocab)
 
@@ -259,7 +259,7 @@ def test__three_level_limited_vocab_chain__build_annotated_trees__hierarchy_is_p
         version="1.0",
     )
 
-    allowed_tree, forbidden_tree, _, _, _ = build_and_annotate_ui_trees(limited3)
+    allowed_tree, _, _, _, _ = build_and_annotate_ui_trees(limited3)
 
     root = allowed_tree[0]
 
