@@ -236,3 +236,10 @@ class LimitedVocabulary:
     def clear_disallowed(self) -> None:
         """Clear all disallowed concepts."""
         self._disallowed.clear()
+
+    def get_root_base_vocabulary(self) -> VocabularyProtocol:
+        """Get the original base vocabulary by traversing up the chain of limited vocabularies."""
+        current = self.base_vocabulary
+        while isinstance(current, LimitedVocabulary):
+            current = current.base_vocabulary
+        return current

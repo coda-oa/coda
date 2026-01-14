@@ -40,17 +40,63 @@ class VocabularyInUseError(DomainError):
         self.limited_vocabularies = limited_vocabularies or []
 
 
-def _get_prefetch_for_vocabularies() -> tuple[Prefetch, Prefetch]:
+# Maximum depth for nested limited vocabularies (e.g., Base -> L1 -> L2 -> ... -> Ln)
+# Increase this if you need to support deeper nesting
+MAX_VOCABULARY_NESTING_DEPTH = 10
+
+
+def _build_recursive_base_vocab_prefetch(depth: int) -> Prefetch | None:
+    """Recursively build prefetch for nested base vocabularies.
+
+    Args:
+        depth: How many levels deep to prefetch (0 = no prefetch)
+
+    Returns:
+        Prefetch object for base_vocabulary, or None if depth is 0
+    """
+    if depth <= 0:
+        return None
+
     concepts_prefetch = Prefetch(
         "concepts",
         queryset=ConceptModel.objects.select_related("parent"),
     )
-    base_vocab_prefetch = Prefetch(
+
+    # Recursively build the next level
+    nested_prefetch = _build_recursive_base_vocab_prefetch(depth - 1)
+
+    # Build prefetch list for this level
+    prefetch_list = [concepts_prefetch]
+    if nested_prefetch:
+        prefetch_list.append(nested_prefetch)
+
+    return Prefetch(
         "base_vocabulary",
-        queryset=VocabularyModel.objects.prefetch_related(
-            Prefetch("concepts", queryset=ConceptModel.objects.select_related("parent"))
-        ),
+        queryset=VocabularyModel.objects.prefetch_related(*prefetch_list),
     )
+
+
+def _get_prefetch_for_vocabularies() -> tuple[Prefetch, Prefetch]:
+    """Get prefetch objects for vocabularies with nested limited vocabulary support.
+
+    This handles chains of limited vocabularies (e.g., Base -> Limited1 -> Limited2)
+    by recursively prefetching base vocabularies and their concepts up to MAX_VOCABULARY_NESTING_DEPTH.
+    """
+    concepts_prefetch = Prefetch(
+        "concepts",
+        queryset=ConceptModel.objects.select_related("parent"),
+    )
+
+    # Build recursive prefetch for the entire chain
+    base_vocab_prefetch = _build_recursive_base_vocab_prefetch(MAX_VOCABULARY_NESTING_DEPTH)
+
+    # If for some reason we get None (shouldn't happen with depth > 0), provide a default
+    if not base_vocab_prefetch:
+        base_vocab_prefetch = Prefetch(
+            "base_vocabulary",
+            queryset=VocabularyModel.objects.prefetch_related(concepts_prefetch),
+        )
+
     return concepts_prefetch, base_vocab_prefetch
 
 
@@ -319,22 +365,8 @@ def as_domain_object(v: VocabularyModel) -> VocabularyProtocol:
 
     if v.is_limited:
         base_vocabulary_model = cast(VocabularyModel, v.base_vocabulary)
-        base_vocabulary_domain = Vocabulary(
-            id=VocabularyId(base_vocabulary_model.pk),
-            name=base_vocabulary_model.name,
-            version=base_vocabulary_model.version,
-            concepts=[
-                VocabularyConcept(
-                    id=ConceptId(str(c.entity_id)),
-                    concept_id=c.concept_id,
-                    vocabulary=VocabularyId(base_vocabulary_model.pk),
-                    name=c.name,
-                    description=c.hint,
-                    parent=ConceptId(str(c.parent.entity_id)) if c.parent else None,
-                )
-                for c in base_vocabulary_model.concepts.all()
-            ],
-        )
+
+        base_vocabulary_domain = as_domain_object(base_vocabulary_model)
 
         vocabulary = LimitedVocabulary(
             id=VocabularyId(v.pk),

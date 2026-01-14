@@ -178,6 +178,103 @@ def test__vocabulary_with_structural_nodes__level_calculation__only_counts_level
     assert forbidden_levels_with_checkboxes == {2}
 
 
+@pytest.mark.django_db
+def test__limited_vocab_from_limited_vocab__going_to_detail_view__preserves_hierarchy_with_structural_nodes() -> (
+    None
+):
+    vocab_id = VocabularyId(995)
+
+    concepts, id_mapping = create_concept_hierarchy_abc(vocab_id)
+    base_vocab = create_base_vocabulary_with_concepts(vocab_id, concepts)
+    vocabulary_repository.save(base_vocab)
+
+    limited1_id = VocabularyId(996)
+    limited1 = LimitedVocabulary(
+        id=limited1_id,
+        base_vocabulary=base_vocab,
+        name="Limited 1",
+        version="1.0",
+    )
+    limited1.disallow("A")
+    vocabulary_repository.save(limited1)
+
+    limited2 = LimitedVocabulary(
+        id=None,
+        base_vocabulary=limited1,
+        name="Limited 2",
+        version="1.0",
+    )
+
+    allowed_tree, forbidden_tree, _, _, _ = build_and_annotate_ui_trees(limited2)
+
+    root = allowed_tree[0]
+
+    assert root.concept.concept_id == "A"
+    assert root.is_allowed is False
+
+    b_node = root.children[0]
+    assert b_node.concept.concept_id == "B"
+    assert b_node.is_allowed is True
+
+    c_node = b_node.children[0]
+    assert c_node.concept.concept_id == "C"
+    assert c_node.is_allowed is True
+
+    forbidden_root = forbidden_tree[0]
+    assert forbidden_root.concept.concept_id == "A"
+    assert forbidden_root.is_allowed is False
+
+
+@pytest.mark.django_db
+def test__three_level_limited_vocab_chain__build_annotated_trees__hierarchy_is_preserved() -> None:
+    vocab_id = VocabularyId(993)
+
+    concepts, id_mapping = create_concept_hierarchy_abc(vocab_id)
+    base_vocab = create_base_vocabulary_with_concepts(vocab_id, concepts)
+    vocabulary_repository.save(base_vocab)
+
+    limited1_id = VocabularyId(994)
+    limited1 = LimitedVocabulary(
+        id=limited1_id,
+        base_vocabulary=base_vocab,
+        name="Limited 1",
+        version="1.0",
+    )
+    limited1.disallow("A")
+    vocabulary_repository.save(limited1)
+
+    limited2_id = VocabularyId(995)
+    limited2 = LimitedVocabulary(
+        id=limited2_id,
+        base_vocabulary=limited1,
+        name="Limited 2",
+        version="1.0",
+    )
+    vocabulary_repository.save(limited2)
+
+    limited3 = LimitedVocabulary(
+        id=None,
+        base_vocabulary=limited2,
+        name="Limited 3",
+        version="1.0",
+    )
+
+    allowed_tree, forbidden_tree, _, _, _ = build_and_annotate_ui_trees(limited3)
+
+    root = allowed_tree[0]
+
+    assert root.concept.concept_id == "A"
+    assert root.is_allowed is False
+
+    b_node = root.children[0]
+    assert b_node.concept.concept_id == "B"
+    assert b_node.is_allowed is True
+
+    c_node = b_node.children[0]
+    assert c_node.concept.concept_id == "C"
+    assert c_node.is_allowed is True
+
+
 def create_concept_hierarchy_abc(
     vocab_id: VocabularyId,
 ) -> tuple[list[VocabularyConcept], dict[str, ConceptId]]:

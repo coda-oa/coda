@@ -1,6 +1,12 @@
 from dataclasses import dataclass
+from collections import defaultdict
 
-from coda.domain.vocabulary import ConceptId, LimitedVocabulary, VocabularyConcept
+from coda.domain.vocabulary import (
+    ConceptId,
+    LimitedVocabulary,
+    VocabularyConcept,
+    VocabularyProtocol,
+)
 
 
 @dataclass
@@ -10,7 +16,11 @@ class ConceptTreeNode:
 
 
 def build(vocabulary: LimitedVocabulary) -> tuple[list[ConceptTreeNode], list[ConceptTreeNode]]:
-    roots, children_map = vocabulary.get_concept_hierarchy()
+    # Use root base vocabulary to preserve full hierarchical structure
+    root_base_vocab = vocabulary.get_root_base_vocabulary()
+    roots, children_map = _get_hierarchy_from_vocab(root_base_vocab, vocabulary)
+
+    # Determine which concepts are available in the current vocabulary
     allowed_concept_ids = {
         c.concept_id
         for c in vocabulary.base_vocabulary.concepts
@@ -29,6 +39,24 @@ def build(vocabulary: LimitedVocabulary) -> tuple[list[ConceptTreeNode], list[Co
             forbidden_tree.append(node)
 
     return allowed_tree, forbidden_tree
+
+
+def _get_hierarchy_from_vocab(
+    source_vocab: VocabularyProtocol,
+    target_vocab: LimitedVocabulary,
+) -> tuple[list[VocabularyConcept], dict[ConceptId, list[VocabularyConcept]]]:
+    """Get concept hierarchy from source vocabulary with target vocabulary IDs."""
+    all_concepts = [target_vocab._move_concept_to_self(c) for c in source_vocab.concepts]
+    children_map: dict[ConceptId, list[VocabularyConcept]] = defaultdict(list)
+    roots = []
+
+    for concept in all_concepts:
+        if concept.parent is None:
+            roots.append(concept)
+        else:
+            children_map[concept.parent].append(concept)
+
+    return roots, dict(children_map)
 
 
 def _has_relevant_descendants(

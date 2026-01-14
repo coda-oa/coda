@@ -59,9 +59,12 @@ def _annotate_node_for_ui(
     zebra_counter[0] += 1
     current_index = zebra_counter[0]
 
-    is_concept_allowed = vocabulary.is_concept_allowed(node.concept.concept_id)
+    concept_in_base = vocabulary.base_vocabulary.has_concept(node.concept.concept_id)
 
-    show_checkbox = is_concept_allowed if is_allowed_tree else not is_concept_allowed
+    show_checkbox = False
+    if concept_in_base:
+        is_concept_allowed = vocabulary.is_concept_allowed(node.concept.concept_id)
+        show_checkbox = is_concept_allowed if is_allowed_tree else not is_concept_allowed
 
     if show_checkbox:
         levels_with_checkboxes.add(level)
