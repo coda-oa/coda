@@ -12,7 +12,7 @@ from coda.apps.fundingrequests import repository as fr_repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import CoveredByContractDetail, FundingRequestListItem
-from coda.apps.fundingrequests.services.labels import label_attach, label_create
+from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.apps.publications.models import AttachedContract
 from coda.domain.color import Color
 from coda.domain.contract import ContractYear, PublicationBilling

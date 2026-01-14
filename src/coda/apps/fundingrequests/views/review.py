@@ -5,8 +5,8 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.dto import UpdateReviewDto
-from coda.apps.fundingrequests.services import checks, fundingrequests
+from coda.contexts.fundingrequest.dto.commands import UpdateReviewDto
+from coda.contexts.fundingrequest.services import checks, fundingrequests
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.money import Currency
 from coda.apps.breadcrumbs.decorators import breadcrumb

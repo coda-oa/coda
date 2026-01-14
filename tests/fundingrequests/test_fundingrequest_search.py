@@ -10,7 +10,7 @@ from django.urls import reverse
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
-from coda.apps.fundingrequests.services.labels import label_attach, label_create
+from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange

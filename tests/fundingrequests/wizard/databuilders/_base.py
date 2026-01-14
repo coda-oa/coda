@@ -8,7 +8,7 @@ from unittest.mock import create_autospec
 from faker import Faker
 
 from coda.apps.contracts import mapper as contract_mapper
-from coda.apps.fundingrequests.dto import (
+from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
     ExternalFundingDto,
     ExtraContactDto,

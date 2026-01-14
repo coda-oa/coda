@@ -1,6 +1,6 @@
 from typing import Any
 
-from coda.apps.fundingrequests.dto import ExtraContactDto, ExtraInformationDto
+from coda.contexts.fundingrequest.dto.commands import ExtraContactDto, ExtraInformationDto
 from tests import domainfactory
 
 

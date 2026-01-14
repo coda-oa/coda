@@ -21,7 +21,7 @@ from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.forms import ChooseLabelForm
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
-from coda.apps.fundingrequests.services import checks as checks_service
+from coda.contexts.fundingrequest.services import checks as checks_service
 from coda.apps.journals.models import Journal
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.services import publications as publication_service

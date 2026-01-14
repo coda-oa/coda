@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 from typing import Any
 
-from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
+from coda.contexts.fundingrequest.dto.commands import ExternalFundingDto, PaymentDto
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from tests import domainfactory
 

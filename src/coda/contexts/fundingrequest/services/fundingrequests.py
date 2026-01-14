@@ -7,19 +7,19 @@ from decimal import Decimal
 from typing import Protocol, overload
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.dto import (
-    CreateFundingRequestDto,
-    ExternalFundingDto,
-    ExtraInformationDto,
-    PaymentDto,
-    UpdateReviewDto,
-)
-from coda.apps.fundingrequests.services.checks import run_checks
-from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStepDto
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import ContractYearDto, parse_publication_state
 from coda.checks.checkfactory import CheckFactory
+from coda.contexts.fundingrequest.dto.commands import (
+    CreateFundingRequestDto,
+    ExternalFundingDto,
+    ExtraInformationDto,
+    PaymentDto,
+    UpdatePublicationMetadataCommand,
+    UpdateReviewDto,
+)
+from coda.contexts.fundingrequest.services.checks import run_checks
 from coda.domain import errors
 from coda.domain.author import Author, AuthorNames
 from coda.domain.contract import PublisherId
@@ -131,7 +131,7 @@ def _find_unused_request_id(
 
 def update_publication_metadata(
     fundingrequest_id: FundingRequestId,
-    step_dto: PublicationStepDto,
+    command: UpdatePublicationMetadataCommand,
     checkfactory: CheckFactory | None = None,
 ) -> None:
     """Updates only publication metadata (title, authors, dates, license, etc.)
@@ -141,13 +141,14 @@ def update_publication_metadata(
 
     Args:
         fundingrequest_id: ID of the funding request to update
-        step_dto: Publication metadata from the publication step form
+        command: Publication metadata command from the application layer
         checkfactory: Optional check factory for running validation checks
     """
+
     fr = repository.get_by_id(fundingrequest_id)
     publication = fr.publication
 
-    meta = step_dto.meta
+    meta = command.meta
     publication.title = NonEmptyStr(meta.title)
     publication.publication_type = meta.publication_type.to_concept()
     publication.subject_area = meta.subject_area.to_concept()
@@ -155,12 +156,12 @@ def update_publication_metadata(
     publication.license = License.of(meta.license)
     publication.publication_state = parse_publication_state(meta)
 
-    relevant_authors = Authors(a.to_author() for a in step_dto.relevant_authors)
-    other_authors = AuthorNames(step_dto.other_authors)
+    relevant_authors = Authors(a.to_author() for a in command.relevant_authors)
+    other_authors = AuthorNames(command.other_authors)
     publication.relevant_authors = relevant_authors
     publication.other_authors = other_authors
 
-    publication.links = {link.to_link() for link in step_dto.links}
+    publication.links = {link.to_link() for link in command.links}
 
     repository.update(fr)
     run_checks(fundingrequest_id, checkfactory=checkfactory)
@@ -183,6 +184,7 @@ def update_publication_journal_and_contracts(
         contract_dtos: List of contract year DTOs
         checkfactory: Optional check factory for running validation checks
     """
+
     fr = repository.get_by_id(fundingrequest_id)
 
     contracts = tuple(dto.to_contract_year() for dto in contract_dtos)
@@ -212,6 +214,7 @@ def update_publication_publisher_and_contracts(
         contract_dtos: List of contract year DTOs
         checkfactory: Optional check factory for running validation checks
     """
+
     fr = repository.get_by_id(fundingrequest_id)
 
     contracts = tuple(dto.to_contract_year() for dto in contract_dtos)

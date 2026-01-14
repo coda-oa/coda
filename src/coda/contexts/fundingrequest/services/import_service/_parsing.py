@@ -4,7 +4,7 @@ Consolidates all DTO parsers into focused functions organized by entity type.
 """
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.fundingrequests.dto import (
+from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
     ExternalFundingDto,
     ExtraContactDto,

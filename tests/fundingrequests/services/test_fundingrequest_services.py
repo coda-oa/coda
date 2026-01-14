@@ -5,16 +5,17 @@ from collections.abc import Callable, Iterable
 import pytest
 
 from coda.apps.contracts import repository as contract_repository
-from coda.apps.fundingrequests import repository, services
-from coda.apps.fundingrequests.dto import (
+from coda.apps.fundingrequests import repository
+from coda.contexts.fundingrequest import services
+from coda.contexts.fundingrequest.dto.commands import (
     ExternalFundingDto,
     ExtraContactDto,
     ExtraInformationDto,
     PaymentDto,
+    UpdatePublicationMetadataCommand,
     UpdateReviewDto,
 )
 from coda.apps.fundingrequests.repository import get_by_id
-from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStepDto
 from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import ContractYearDto, PublicationDto
 from coda.domain.author import InstitutionId
@@ -125,7 +126,7 @@ def test__update_publication_metadata__updates_metadata_only() -> None:
 
     new_builder = builder.with_new_publication(original_fr.publication.id)
     dto = PublicationDto.from_publication(new_builder.publication)
-    metadata = PublicationStepDto(
+    metadata = UpdatePublicationMetadataCommand(
         meta=dto.meta,
         relevant_authors=dto.relevant_authors,
         other_authors=dto.other_authors,

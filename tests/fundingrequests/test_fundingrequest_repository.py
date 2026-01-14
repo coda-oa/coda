@@ -4,7 +4,7 @@ from typing import Any, cast
 import pytest
 
 from coda.apps.fundingrequests import fundingrequest_query, repository
-from coda.apps.fundingrequests.services.labels import label_attach, label_create
+from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.apps.journals.models import Journal
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.color import Color

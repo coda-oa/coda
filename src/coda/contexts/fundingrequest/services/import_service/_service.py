@@ -11,8 +11,8 @@ from typing import BinaryIO, TextIO
 from collections.abc import Iterable
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.services import labels as label_services
-from coda.apps.fundingrequests.services.fundingrequests import bulk_create_fundingrequests
+from coda.contexts.fundingrequest.services import labels as label_services
+from coda.contexts.fundingrequest.services.fundingrequests import bulk_create_fundingrequests
 from coda.checks.nullcheckfactory import NullCheckFactory
 from coda.contexts.fundingrequest.dto.import_dtos import FundingRequestImportListDto
 from coda.contexts.fundingrequest.services.import_service.types import FundingRequestImportReport

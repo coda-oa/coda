@@ -1,11 +1,19 @@
+"""Command DTOs for fundingrequest context write operations.
+
+These DTOs are used for creating and updating funding requests.
+They maintain bidirectional conversion methods (from_*/to_*) for
+test data builders and domain object conversion.
+"""
+
 import datetime
 from collections.abc import Iterable
 from typing import Annotated
 
 from pydantic import AfterValidator, Field
 
+from coda.apps.authors.dto import AuthorDto
 from coda.apps.dto import CodaBaseDto
-from coda.apps.publications.dto import PublicationBaseDto
+from coda.apps.publications.dto import LinkDto, PublicationBaseDto, PublicationMetaDto
 from coda.domain.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -130,3 +138,17 @@ class CreateFundingRequestDto(CodaBaseDto):
     funding: Iterable[ExternalFundingDto] = ()
     request_date: datetime.date = Field(default_factory=datetime.date.today)
     legacy_request_id: str = ""
+
+
+class UpdatePublicationMetadataCommand(CodaBaseDto):
+    """Command for updating publication metadata.
+
+    Extracted from PublicationStepDto in view layer to avoid
+    service → view dependency. Maintains identical structure
+    for test compatibility.
+    """
+
+    meta: PublicationMetaDto
+    relevant_authors: list[AuthorDto]
+    other_authors: list[str]
+    links: list[LinkDto]
