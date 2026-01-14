@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 from django.core.management import BaseCommand, CommandParser
 
-from coda.apps.fundingrequests.services import importservice
+from coda.contexts.fundingrequest.services import import_service
 
 
 class Command(BaseCommand):
@@ -23,7 +23,7 @@ class Command(BaseCommand):
         file = options["json_file"]
         self.stdout.write(f"Importing funding requests from {file}...")
         with Path(file).open("r") as f:
-            report = importservice.import_fundingrequests(f)
+            report = import_service.import_fundingrequests(f)
 
         if report.valid_requests > 0:
             self.stdout.write(
