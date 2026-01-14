@@ -6,20 +6,18 @@ from django.urls import reverse
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-from coda.apps.fundingrequests.dto import (
+from coda.contexts.fundingrequest.dto.commands import (
     ExternalFundingDto,
     ExtraContactDto,
     ExtraInformationDto,
     PaymentDto,
+    UpdatePublicationMetadataCommand,
 )
-from coda.apps.fundingrequests.services import fundingrequests
+from coda.contexts.fundingrequest.services import fundingrequests
 from coda.apps.fundingrequests.views.wizard.steps.extrainformation_step import ExtraInformationStep
 from coda.apps.fundingrequests.views.wizard.steps.funding_step import FundingStep
 from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalContractStep
-from coda.apps.fundingrequests.views.wizard.steps.publication_step import (
-    PublicationStep,
-    PublicationStepDto,
-)
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.publications.dto import ContractYearDto, PublicationDto
 from coda.apps.wizard import SessionStore, Wizard
 from coda.domain.publication import JournalId
@@ -73,7 +71,7 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         pk = kwargs["pk"]
 
         # Always update metadata from PublicationStep
-        metadata = PublicationStepDto(**store["publication_step"])
+        metadata = UpdatePublicationMetadataCommand(**store["publication_step"])
         fundingrequests.update_publication_metadata(pk, metadata)
 
         # Update journal + contracts only if JournalContractStep was completed

@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from coda.apps import fields
 from coda.apps.contracts import repository
 from coda.apps.formbase import CodaFormBase
-from coda.apps.fundingrequests.dto import ExternalFundingDto, PaymentDto
+from coda.contexts.fundingrequest.dto.commands import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.htmx_components.forms import HtmxDynamicFormset

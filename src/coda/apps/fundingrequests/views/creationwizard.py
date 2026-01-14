@@ -4,14 +4,14 @@ from typing import Generic, TypeVar, cast
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse, reverse_lazy
 
-from coda.apps.fundingrequests.dto import (
+from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
     ExternalFundingDto,
     ExtraContactDto,
     ExtraInformationDto,
     PaymentDto,
 )
-from coda.apps.fundingrequests.services import fundingrequests
+from coda.contexts.fundingrequest.services import fundingrequests
 from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.wizard import Store, Wizard
 from coda.domain.fundingrequest.identity import PublicFundingRequestId

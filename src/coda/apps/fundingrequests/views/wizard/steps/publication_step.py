@@ -8,7 +8,7 @@ from django.shortcuts import render
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorFormset
 from coda.apps.dto import CodaBaseDto
-from coda.apps.fundingrequests.services import fundingrequests
+from coda.contexts.fundingrequest.services import fundingrequests
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.publications.dto import LinkDto, PublicationMetaDto
 from coda.apps.publications.forms import LinkForm, PublicationForm

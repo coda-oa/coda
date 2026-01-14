@@ -5,11 +5,9 @@ from django.http import HttpRequest
 from django.urls import reverse
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.services import fundingrequests
-from coda.apps.fundingrequests.views.wizard.steps.publication_step import (
-    PublicationStep,
-    PublicationStepDto,
-)
+from coda.contexts.fundingrequest.services import fundingrequests
+from coda.contexts.fundingrequest.dto.commands import UpdatePublicationMetadataCommand
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
     PublisherStep,
     PublisherStepDto,
@@ -50,7 +48,7 @@ class MonographUpdateMetaView(Wizard):
         pk = FundingRequestId(kwargs["pk"])
 
         # Always update metadata from PublicationStep
-        metadata = PublicationStepDto(**store["publication_step"])
+        metadata = UpdatePublicationMetadataCommand(**store["publication_step"])
         fundingrequests.update_publication_metadata(pk, metadata)
 
         # Update publisher + contracts only if PublisherStep was completed

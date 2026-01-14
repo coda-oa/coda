@@ -4,8 +4,8 @@ from typing import Any, cast
 import pytest
 
 from coda.apps.contracts import repository as contract_repository
-from coda.apps.fundingrequests.services import checks, fundingrequests
-from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStepDto
+from coda.contexts.fundingrequest.services import checks, fundingrequests
+from coda.contexts.fundingrequest.dto.commands import UpdatePublicationMetadataCommand
 from coda.apps.publications.dto import ContractYearDto, PublicationDto
 from coda.checks.checkfactory import CheckFactoryImpl
 from coda.checks.checklist import CheckResult, CheckRun, CheckSuccessful
@@ -104,7 +104,7 @@ def test__updating_fundingrequest_publication_meta__reruns_checks_with_updated_r
 
     updated_builder = builder.with_contracts(builder.contract_years)
     dto = PublicationDto.from_publication(updated_builder.publication)
-    metadata = PublicationStepDto(
+    metadata = UpdatePublicationMetadataCommand(
         meta=dto.meta,
         relevant_authors=dto.relevant_authors,
         other_authors=dto.other_authors,
