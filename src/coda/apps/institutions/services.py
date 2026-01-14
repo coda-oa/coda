@@ -103,8 +103,6 @@ def _handle_affiliation(institution: Institution, row: dict[str, Any]) -> None:
             institution.virtual = True
         elif affiliation_str == "":
             institution.virtual = False
-    else:
-        pass
 
 
 def _match_or_create_institutions(df: pl.DataFrame) -> list[Institution]:

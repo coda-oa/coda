@@ -19,6 +19,9 @@ from coda.apps.views import SimpleSearchEntityListView
 from django.utils.safestring import mark_safe
 
 
+INSTITUTION_IMPORT_VIEW_URL = "institutions:import_view"
+
+
 class InstitutionLinkFormMixin:
     """Mixin to handle institution link forms validation and rendering."""
 
@@ -66,7 +69,7 @@ class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institu
     entity_name = "Organization Structure"
     entity_list_item_template = "institutions/institution_list_item.html"
     entity_create_url = "institutions:create"
-    entity_secondary_create_url = "institutions:import_view"
+    entity_secondary_create_url = INSTITUTION_IMPORT_VIEW_URL
     use_generic_entity_filter = True
     entity_filter_template = "entity_generic_filter.html"
     search_placeholder = "Search institutions..."
@@ -175,13 +178,13 @@ def import_view(request: HttpRequest) -> HttpResponse:
 def import_from_file(request: HttpRequest) -> HttpResponse:
     if "institution-list" not in request.FILES:
         messages.error(request, "No file was uploaded. Please select a file to import.")
-        return redirect("institutions:import_view")
+        return redirect(INSTITUTION_IMPORT_VIEW_URL)
 
     uploaded_file = request.FILES["institution-list"]
 
     if not isinstance(uploaded_file, UploadedFile):
         messages.error(request, "Invalid file upload. Please try again.")
-        return redirect("institutions:import_view")
+        return redirect(INSTITUTION_IMPORT_VIEW_URL)
 
     try:
         with uploaded_file.open() as file:
@@ -191,13 +194,13 @@ def import_from_file(request: HttpRequest) -> HttpResponse:
             request,
             "The uploaded file has an invalid encoding. Please ensure the file is UTF-8 encoded.",
         )
-        return redirect("institutions:import_view")
+        return redirect(INSTITUTION_IMPORT_VIEW_URL)
     except Exception as e:
         messages.error(
             request,
             f"Failed to import file: {str(e)}. Please check that the file is a valid CSV with the correct format.",
         )
-        return redirect("institutions:import_view")
+        return redirect(INSTITUTION_IMPORT_VIEW_URL)
 
     if result.fully_imported == result.total:
         messages.success(request, f"{result.total} institutions imported successfully")
