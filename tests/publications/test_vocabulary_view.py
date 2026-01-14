@@ -251,17 +251,11 @@ def build_and_annotate_ui_trees(
     limited_vocab: LimitedVocabulary,
 ) -> tuple[list[UITreeNode], list[UITreeNode], int, set[int], set[int]]:
     service_allowed_tree, service_forbidden_tree = build_concept_trees(limited_vocab)
-    (
-        ui_allowed_tree,
-        ui_forbidden_tree,
-        max_level,
-        allowed_levels_with_checkboxes,
-        forbidden_levels_with_checkboxes,
-    ) = annotate_trees_for_ui(service_allowed_tree, service_forbidden_tree, limited_vocab)
+    annotated = annotate_trees_for_ui(service_allowed_tree, service_forbidden_tree, limited_vocab)
     return (
-        ui_allowed_tree,
-        ui_forbidden_tree,
-        max_level,
-        allowed_levels_with_checkboxes,
-        forbidden_levels_with_checkboxes,
+        annotated.allowed_tree,
+        annotated.forbidden_tree,
+        annotated.max_level,
+        annotated.allowed_levels_with_checkboxes,
+        annotated.forbidden_levels_with_checkboxes,
     )

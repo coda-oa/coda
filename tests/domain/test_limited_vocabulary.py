@@ -130,3 +130,23 @@ def test__disallowed_concepts__allowing__concept_is_in_concepts() -> None:
     assert list(sut.concepts) == [vocabulary.get_concept(forbidden_id)]
     assert sut.get_concept(forbidden_id) == vocabulary.get_concept(forbidden_id)
     assert list(sut.disallowed_concepts) == []
+
+
+def test__limited_vocabulary__get_concepts_hierarchy__concepts_belong_to_limited_vocabulary() -> (
+    None
+):
+    vocabulary = Vocabulary(id=VocabularyId(0), name="base", version="1.0")
+    vocabulary.add_concept(concept_id="root-concept", name="Root")
+    vocabulary.add_concept(concept_id="child-concept", name="Child")
+
+    limited_vocab_id = VocabularyId(1)
+    sut = LimitedVocabulary(id=limited_vocab_id, base_vocabulary=vocabulary)
+
+    roots, children_map = sut.get_concept_hierarchy()
+
+    assert all(concept.vocabulary == limited_vocab_id for concept in roots)
+    assert all(
+        concept.vocabulary == limited_vocab_id
+        for children in children_map.values()
+        for concept in children
+    )

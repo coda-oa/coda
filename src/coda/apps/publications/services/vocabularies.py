@@ -1,7 +1,7 @@
 from typing import NamedTuple
-from dataclasses import dataclass
 
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
+from coda.apps.publications.services import concept_tree
 from coda.domain.publication import BasePublication
 from coda.domain.vocabulary import (
     LimitedVocabulary,
@@ -11,74 +11,10 @@ from coda.domain.vocabulary import (
 )
 
 
-@dataclass
-class ConceptTreeNode:
-    """A node in a concept tree with hierarchical structure."""
-
-    concept: VocabularyConcept
-    children: list["ConceptTreeNode"]
-
-
-class ConceptTreeBuilder:
-    def __init__(self, vocabulary: LimitedVocabulary) -> None:
-        self.vocabulary = vocabulary
-        self.roots, self.children_map = vocabulary.get_concept_hierarchy()
-        self.allowed_concept_ids = {
-            c.concept_id
-            for c in vocabulary.base_vocabulary.concepts
-            if vocabulary.is_concept_allowed(c.concept_id)
-        }
-
-    def build(self) -> tuple[list[ConceptTreeNode], list[ConceptTreeNode]]:
-        allowed_tree = []
-        forbidden_tree = []
-
-        for root in self.roots:
-            node = self._build_tree(root, True)
-            if node:
-                allowed_tree.append(node)
-            node = self._build_tree(root, False)
-            if node:
-                forbidden_tree.append(node)
-
-        return allowed_tree, forbidden_tree
-
-    def _has_relevant_descendants(self, concept: VocabularyConcept, for_allowed_tree: bool) -> bool:
-        is_allowed = concept.concept_id in self.allowed_concept_ids
-        target_status = for_allowed_tree
-        if is_allowed == target_status:
-            return True
-        for child in self.children_map.get(concept.id, []):
-            if self._has_relevant_descendants(child, for_allowed_tree):
-                return True
-        return False
-
-    def _build_tree(
-        self, concept: VocabularyConcept, for_allowed_tree: bool
-    ) -> ConceptTreeNode | None:
-        if not self._has_relevant_descendants(concept, for_allowed_tree):
-            return None
-
-        children = []
-        for child in self.children_map.get(concept.id, []):
-            child_node = self._build_tree(child, for_allowed_tree)
-            if child_node:
-                children.append(child_node)
-
-        # Move concept to the limited vocabulary context
-        moved_concept = self.vocabulary._move_concept_to_self(concept)
-
-        return ConceptTreeNode(
-            concept=moved_concept,
-            children=children,
-        )
-
-
 def build_concept_trees(
     vocabulary: LimitedVocabulary,
-) -> tuple[list[ConceptTreeNode], list[ConceptTreeNode]]:
-    builder = ConceptTreeBuilder(vocabulary)
-    return builder.build()
+) -> tuple[list[concept_tree.ConceptTreeNode], list[concept_tree.ConceptTreeNode]]:
+    return concept_tree.build(vocabulary)
 
 
 def create_limited_from(vocabulary_id: VocabularyId, name: str) -> VocabularyId:

@@ -277,20 +277,16 @@ def _update_parent_relationships(
 def _save_concepts(
     vocabulary_model: VocabularyModel, concepts: Collection[VocabularyConcept]
 ) -> None:
-    # Fetch all existing concepts for this vocabulary in one query
     existing_concepts = {str(c.entity_id): c for c in vocabulary_model.concepts.all()}
 
-    # Prepare concepts for bulk operations
     concepts_to_create, concepts_to_update = _prepare_concepts_for_bulk_save(
         concepts, existing_concepts, vocabulary_model
     )
 
-    # Perform bulk create/update and refresh lookup if needed
     existing_concepts = _perform_bulk_operations(
         vocabulary_model, concepts_to_create, concepts_to_update, existing_concepts
     )
 
-    # Set parent relationships
     _update_parent_relationships(concepts, existing_concepts)
 
 
