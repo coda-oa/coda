@@ -1,0 +1,4 @@
+name;parent;usableAffiliation
+institution-with-affiliation-true;;true
+institution-with-affiliation-false;2;false
+institution-without-affiliation-field;2;
