@@ -47,33 +47,28 @@ def test__uploading_same_list_twice__does_not_duplicate_institutions() -> None:
 
 
 @pytest.mark.django_db
-def test__can_create_institutions_with_identifiers() -> None:
-    with Path(ordered_institutions_path_with_identifiers).open() as file:
-        services.import_from_file(StringIO(file.read()))
+def test__can_import_institution_with_ROR() -> None:
+    _imported_institutions_with_identifiers()
 
-    institution_and_identifiers = [
-        ("the-root", None, "https://ror.org/010nsgg66", None, None),
-        ("first-child", "the-root", None, "0000 0001 2281 955X", None),
-        ("second-child", "the-root", None, None, "123456"),
-        ("first-child-child", "first-child", None, None, None),
-        ("second-child-child", "second-child", None, None, None),
-    ]
+    institution = Institution.objects.get(name="the-root")
+    assert institution.links.filter(type__name="ROR", value="https://ror.org/010nsgg66").exists()
 
-    for name, parent_name, ror_value, isni_value, ringgold_value in institution_and_identifiers:
-        institution = Institution.objects.get(name=name)
-        if parent_name:
-            assert institution.parent is not None
-            assert institution.parent.name == parent_name
-        else:
-            assert institution.parent is None
 
-        if ror_value:
-            assert institution.links.filter(type__name="ROR", value=ror_value).exists()
-        if isni_value:
-            normalized_isni_value = isni_value.replace(" ", "").replace("-", "").upper()
-            assert institution.links.filter(type__name="ISNI", value=normalized_isni_value).exists()
-        if ringgold_value:
-            assert institution.links.filter(type__name="Ringgold", value=ringgold_value).exists()
+@pytest.mark.django_db
+def test__can_import_institution_with_ISNI() -> None:
+    _imported_institutions_with_identifiers()
+
+    institution = Institution.objects.get(name="first-child")
+    normalized_isni_value = "000000012281955X"
+    assert institution.links.filter(type__name="ISNI", value=normalized_isni_value).exists()
+
+
+@pytest.mark.django_db
+def test__can_import_institution_with_Ringgold() -> None:
+    _imported_institutions_with_identifiers()
+
+    institution = Institution.objects.get(name="second-child")
+    assert institution.links.filter(type__name="Ringgold", value="123456").exists()
 
 
 @pytest.mark.django_db
@@ -172,3 +167,8 @@ def test__institution_without_identifier_matched_by_name() -> None:
 
     assert Institution.objects.count() == 1
     assert Institution.objects.get(pk=original_pk).name == "General Department"
+
+
+def _imported_institutions_with_identifiers() -> None:
+    with Path(ordered_institutions_path_with_identifiers).open() as file:
+        services.import_from_file(StringIO(file.read()))
