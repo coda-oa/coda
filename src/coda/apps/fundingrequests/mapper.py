@@ -262,18 +262,16 @@ def create_bulk_external_funding_models(
     created_frs: Iterable[fundingrequest_models.FundingRequest],
 ) -> list[fundingrequest_models.ExternalFunding]:
     """Create ExternalFunding model instances for bulk creation."""
-    external_funding_objs = []
-    for fundingrequest, fr in zip(fundingrequests, created_frs):
-        for ef in fundingrequest.external_funding:
-            external_funding_objs.append(
-                fundingrequest_models.ExternalFunding(
-                    funding_request_id=fr.pk,
-                    organization_id=ef.organization,
-                    project_id=ef.project_id,
-                    project_name=ef.project_name,
-                )
-            )
-    return external_funding_objs
+    return [
+        fundingrequest_models.ExternalFunding(
+            funding_request_id=fr.pk,
+            organization_id=ef.organization,
+            project_id=ef.project_id,
+            project_name=ef.project_name,
+        )
+        for fundingrequest, fr in zip(fundingrequests, created_frs)
+        for ef in fundingrequest.external_funding
+    ]
 
 
 def create_bulk_contact_models_and_map(
@@ -284,14 +282,13 @@ def create_bulk_contact_models_and_map(
     dict[int, fundingrequest_models.FundingRequestContact],
 ]:
     """Create FundingRequestContact model instances for bulk creation and return mapping."""
-    contact_objs = []
-    contact_map = {}  # Map FundingRequestModel.id to FundingRequestContactModel
+    contact_map: dict[int, fundingrequest_models.FundingRequestContact] = {}
 
     for fundingrequest, fr in zip(fundingrequests, created_frs):
         contact = fundingrequest.extra_contact
         if contact:
             contact_obj = _create_contact_model(contact)
-            contact_objs.append(contact_obj)
             contact_map[fr.pk] = contact_obj
 
+    contact_objs = list(contact_map.values())
     return contact_objs, contact_map
