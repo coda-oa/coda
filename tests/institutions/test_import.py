@@ -47,7 +47,7 @@ def test__uploading_same_list_twice__does_not_duplicate_institutions() -> None:
 
 
 @pytest.mark.django_db
-def test__can_import_institution_with_ROR() -> None:
+def test__can_import_institution_with_ror() -> None:
     _imported_institutions_with_identifiers()
 
     institution = Institution.objects.get(name="the-root")
@@ -55,7 +55,7 @@ def test__can_import_institution_with_ROR() -> None:
 
 
 @pytest.mark.django_db
-def test__can_import_institution_with_ISNI() -> None:
+def test__can_import_institution_with_isni() -> None:
     _imported_institutions_with_identifiers()
 
     institution = Institution.objects.get(name="first-child")
@@ -64,7 +64,7 @@ def test__can_import_institution_with_ISNI() -> None:
 
 
 @pytest.mark.django_db
-def test__can_import_institution_with_Ringgold() -> None:
+def test__can_import_institution_with_ringgold() -> None:
     _imported_institutions_with_identifiers()
 
     institution = Institution.objects.get(name="second-child")
