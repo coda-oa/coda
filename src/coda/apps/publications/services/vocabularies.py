@@ -1,5 +1,7 @@
 from typing import NamedTuple
+
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
+from coda.apps.publications.services import concept_tree
 from coda.domain.publication import BasePublication
 from coda.domain.vocabulary import (
     LimitedVocabulary,
@@ -9,8 +11,15 @@ from coda.domain.vocabulary import (
 )
 
 
+def build_concept_trees(
+    vocabulary: LimitedVocabulary,
+) -> tuple[list[concept_tree.ConceptTreeNode], list[concept_tree.ConceptTreeNode]]:
+    return concept_tree.build(vocabulary)
+
+
 def create_limited_from(vocabulary_id: VocabularyId, name: str) -> VocabularyId:
     vocabulary = vocabulary_repository.create_limited(base_vocabulary_id=vocabulary_id, name=name)
+    assert vocabulary.id is not None  # Repository create_limited always assigns an ID
     return vocabulary.id
 
 

@@ -1,0 +1,23 @@
+<li class="{% if node.zebra_index|divisibleby:"2" %}even{% else %}odd{% endif %}">
+    {% if node.is_allowed %}
+        <label class="tree-node depth-{{ depth }}">
+            <input type="checkbox"
+                   name="{{ name_prefix }}_concepts_check"
+                   value="{{ node.concept.concept_id }}"
+                   data-level="{{ node.level }}">
+            {{ node.concept.concept_id }} {{ node.concept.name }}
+        </label>
+        <input type="hidden"
+               name="{{ name_prefix }}_concepts"
+               value="{{ node.concept.concept_id }}">
+    {% else %}
+        <p class="tree-parent tree-node depth-{{ depth }}">{{ node.concept.concept_id }} {{ node.concept.name }}</p>
+    {% endif %}
+    {% if node.children %}
+        <ul class="tree-children undecorated">
+            {% for child in node.children %}
+                {% include "publications/vocabulary_concepts_list.html" with node=child name_prefix=name_prefix depth=depth|add:"2" %}
+            {% endfor %}
+        </ul>
+    {% endif %}
+</li>

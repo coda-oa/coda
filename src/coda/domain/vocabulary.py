@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import Collection
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import NewType, Protocol
 
@@ -16,7 +17,7 @@ VocabularyId = NewType("VocabularyId", int)
 
 
 class VocabularyProtocol(Protocol):
-    id: VocabularyId
+    id: VocabularyId | None
     name: str
     version: str
 
@@ -70,6 +71,7 @@ class VocabularyConcept:
     vocabulary: VocabularyId
     name: str = ""
     description: str = ""
+    parent: ConceptId | None = None
 
     @classmethod
     def new(
@@ -92,7 +94,7 @@ class VocabularyConcept:
 class Vocabulary:
     def __init__(
         self,
-        id: VocabularyId,
+        id: VocabularyId | None,
         name: str,
         version: str,
         concepts: Collection["VocabularyConcept"] | None = None,
@@ -124,8 +126,10 @@ class Vocabulary:
         if any(c.concept_id == concept_id for c in self._concepts):
             raise DuplicateConceptError(self, concept_id=concept_id)
 
+        # Use placeholder ID for unsaved vocabularies
+        vocab_id = self.id if self.id is not None else VocabularyId(-1)
         concept = VocabularyConcept.new(
-            concept_id=concept_id, name=name, description=description, vocabulary=self.id
+            concept_id=concept_id, name=name, description=description, vocabulary=vocab_id
         )
         self._concepts.append(concept)
 
@@ -144,8 +148,15 @@ UnknownConcept = VocabularyConcept(
 
 
 @dataclass
+class TreeNode:
+    concept: VocabularyConcept
+    children: list["TreeNode"]
+    is_allowed: bool
+
+
+@dataclass
 class LimitedVocabulary:
-    id: VocabularyId
+    id: VocabularyId | None
     base_vocabulary: VocabularyProtocol
     name: str = ""
     version: str = ""
@@ -155,6 +166,24 @@ class LimitedVocabulary:
 
     def has_concept(self, concept_id: str) -> bool:
         return concept_id not in self._disallowed and self.base_vocabulary.has_concept(concept_id)
+
+    def is_concept_allowed(self, concept_id: str) -> bool:
+        return concept_id not in self._disallowed
+
+    def get_concept_hierarchy(
+        self,
+    ) -> tuple[list[VocabularyConcept], dict[ConceptId, list[VocabularyConcept]]]:
+        all_concepts = [self._move_concept_to_self(c) for c in self.base_vocabulary.concepts]
+        children_map: dict[ConceptId, list[VocabularyConcept]] = defaultdict(list)
+        roots = []
+
+        for concept in all_concepts:
+            if concept.parent is None:
+                roots.append(concept)
+            else:
+                children_map[concept.parent].append(concept)
+
+        return roots, dict(children_map)
 
     @property
     def concepts(self) -> Collection[VocabularyConcept]:
@@ -168,9 +197,10 @@ class LimitedVocabulary:
         return VocabularyConcept(
             id=c.id,
             concept_id=c.concept_id,
-            vocabulary=self.id,
+            vocabulary=self.id or VocabularyId(-1),
             name=c.name,
             description=c.description,
+            parent=c.parent,
         )
 
     @property
@@ -202,3 +232,14 @@ class LimitedVocabulary:
 
     def allow(self, concept_id: str) -> None:
         self._disallowed.discard(concept_id)
+
+    def clear_disallowed(self) -> None:
+        """Clear all disallowed concepts."""
+        self._disallowed.clear()
+
+    def get_root_base_vocabulary(self) -> VocabularyProtocol:
+        """Get the original base vocabulary by traversing up the chain of limited vocabularies."""
+        current = self.base_vocabulary
+        while isinstance(current, LimitedVocabulary):
+            current = current.base_vocabulary
+        return current

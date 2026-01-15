@@ -110,3 +110,61 @@ search-select:not(:defined) {
 span.icon-tooltip[data-tooltip] {
   border: none;
 }
+
+.striped li.odd>label,
+.striped li.odd>p {
+  background-color: var(--pico-table-row-stripped-background-color);
+}
+
+.striped li.even>label,
+.striped li.even>p {
+  background-color: transparent;
+}
+
+.voc-concept-column {
+  width: 45%;
+}
+
+.voc-concept-column label,
+.voc-concept-column p {
+  width: 100%;
+  padding: var(--coda-spacing);
+  margin: 0;
+}
+
+.voc-button-column {
+  width: 10%;
+}
+
+.voc-concept-column .tree-node {
+  --depth: 0;
+  padding-left: calc(var(--depth) * 1rem);
+}
+
+.voc-concept-column details {
+  width: 100%;
+}
+
+.tree-node.depth-0 {
+  --depth: 1;
+}
+
+.tree-node.depth-2 {
+  --depth: 3;
+}
+
+.tree-node.depth-4 {
+  --depth: 5;
+}
+
+.tree-node.depth-6 {
+  --depth: 7;
+}
+
+.tree-node.depth-8 {
+  --depth: 9;
+}
+
+.tree-node.depth-10 {
+  --depth: 11;
+}

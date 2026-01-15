@@ -1,68 +1,124 @@
-<table id="vocabulary-table" class="scroll-container max-h-30">
-    <thead>
-        <tr>
-            <th>Allowed</th>
-            <th>Not Allowed</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for allowed_concept, forbidden_concept in concept_pairs %}
-            <tr>
-                {% if allowed_concept %}
-                    <td>
-                        <span>
-                            <button class="undecorated"
-                                    name="disallow"
-                                    value="{{ allowed_concept.concept_id }}"
-                                    hx-post="{% url 'publications:vocabulary_move_to_forbidden' %}"
-                                    hx-include="input[type=hidden]"
-                                    hx-target="#vocabulary-table"
-                                    hx-swap="outerHTML"
-                                    data-tooltip="Disallow">
-                                <svg class="w-6 h-6 text-gray-800 dark:text-white"
-                                     aria-hidden="true"
-                                     xmlns="http://www.w3.org/2000/svg"
-                                     width="24"
-                                     height="24"
-                                     fill="none"
-                                     viewBox="0 0 24 24">
-                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 9-6 6m0-6 6 6m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                                </svg>
-                            </button>
-                        </span>
-                        {{ allowed_concept.concept_id }} {{ allowed_concept.name }}
-                    </td>
-                {% else %}
-                    <td></td>
-                {% endif %}
-                {% if forbidden_concept %}
-                    <td>
-                        <span>
-                            <button class="undecorated"
-                                    name="allow"
-                                    value="{{ forbidden_concept.concept_id }}"
-                                    hx-post="{% url 'publications:vocabulary_move_to_allowed' %}"
-                                    hx-include="input[type=hidden]"
-                                    hx-target="#vocabulary-table"
-                                    hx-swap="outerHTML"
-                                    data-tooltip="Allow">
-                                <svg class="w-6 h-6 text-gray-800 dark:text-white"
-                                     aria-hidden="true"
-                                     xmlns="http://www.w3.org/2000/svg"
-                                     width="24"
-                                     height="24"
-                                     fill="none"
-                                     viewBox="0 0 24 24">
-                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.5 11.5 11 14l4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                                </svg>
-                            </button>
-                        </span>
-                        {{ forbidden_concept.concept_id }} {{ forbidden_concept.name }}
-                    </td>
-                {% else %}
-                    <td></td>
-                {% endif %}
-            </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div id="vocabulary-table">
+    <div class="flex my-2">
+        <span class="voc-concept-column"><strong>Allowed</strong></span>
+        <span aria-hidden="true" class="voc-button-column"></span>
+        <span class="voc-concept-column"><strong>Not Allowed</strong></span>
+    </div>
+    <div class="flex">
+        <div class="voc-concept-column">
+            <input id="allowed-filter"
+                   class="concept-search"
+                   type="search"
+                   name="search"
+                   placeholder="Begin typing to search..."
+                   data-target="#allowed-checkboxes">
+        </div>
+        <span aria-hidden="true" class="voc-button-column"></span>
+        <div class="voc-concept-column">
+            <input id="forbidden-filter"
+                   class="concept-search"
+                   type="search"
+                   name="search"
+                   placeholder="Begin typing to search..."
+                   data-target="#forbidden-checkboxes">
+        </div>
+    </div>
+    <div class="flex my-2">
+        <div class="voc-concept-column">
+            <div class="flex justify-between align-start">
+                <details class="dropdown" id="allowed-levels-dropdown">
+                    <summary>Select levels...</summary>
+                    <ul>
+                        {% for level in allowed_level_range %}
+                            <li>
+                                <label>
+                                    <input type="checkbox" name="level-{{ level }}" />
+                                    Level {{ level }}
+                                </label>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </details>
+                <button id="allowed-levels-select-button" class="secondary">Select</button>
+            </div>
+        </div>
+        <span aria-hidden="true" class="voc-button-column"></span>
+        <div class="voc-concept-column">
+            <div class="flex justify-between align-start">
+                <details class="dropdown" id="disallowed-levels-dropdown">
+                    <summary>Select levels...</summary>
+                    <ul>
+                        {% for level in forbidden_level_range %}
+                            <li>
+                                <label>
+                                    <input type="checkbox" name="level-{{ level }}" />
+                                    Level {{ level }}
+                                </label>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </details>
+                <button id="disallowed-levels-select-button" class="secondary">Select</button>
+            </div>
+        </div>
+    </div>
+    <div class="flex">
+        <div class="scroll-container max-h-30 striped voc-concept-column min-h-30">
+            <fieldset id="allowed-checkboxes" datagroup="disallow">
+                <ul class="undecorated">
+                    {% for node in allowed_tree %}
+                        {% include "publications/vocabulary_concepts_list.html" with node=node name_prefix="allowed" depth=0 %}
+                    {% endfor %}
+                </ul>
+            </fieldset>
+        </div>
+        <div class="flex-column align-center center-img voc-button-column">
+            <button id="disallow-button"
+                    data-group="disallow"
+                    name="disallow"
+                    hx-post="{% url 'publications:vocabulary_move_to_forbidden' %}"
+                    hx-include="[name='allowed_concepts'], [name='disallowed_concepts'], input[name='vocabulary_id'], input[name='base_vocabulary_id'], #allowed-checkboxes input:checked"
+                    hx-target="#vocabulary-table"
+                    hx-swap="outerHTML"
+                    data-tooltip="Disallow"
+                    class="outline">
+                <svg class="w-6 h-6 text-gray-800 dark:text-white"
+                     aria-hidden="true"
+                     xmlns="http://www.w3.org/2000/svg"
+                     width="24"
+                     height="24"
+                     fill="none"
+                     viewBox="0 0 24 24">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7" />
+                </svg>
+            </button>
+            <button id="allow-button"
+                    data-group="allow"
+                    hx-post="{% url 'publications:vocabulary_move_to_allowed' %}"
+                    hx-include="[name='disallowed_concepts'], [name='allowed_concepts'], input[name='vocabulary_id'], input[name='base_vocabulary_id'], #forbidden-checkboxes input:checked"
+                    hx-target="#vocabulary-table"
+                    hx-swap="outerHTML"
+                    data-tooltip="Allow"
+                    class="outline">
+                <svg class="w-6 h-6 text-gray-800 dark:text-white"
+                     aria-hidden="true"
+                     xmlns="http://www.w3.org/2000/svg"
+                     width="24"
+                     height="24"
+                     fill="none"
+                     viewBox="0 0 24 24">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7" />
+                </svg>
+            </button>
+        </div>
+        <div class="scroll-container max-h-30 striped voc-concept-column min-h-30">
+            <fieldset id="forbidden-checkboxes" datagroup="allow">
+                <ul class="undecorated">
+                    {% for node in forbidden_tree %}
+                        {% include "publications/vocabulary_concepts_list.html" with node=node name_prefix="disallowed" depth=0 %}
+                    {% endfor %}
+                </ul>
+            </fieldset>
+        </div>
+    </div>
+</div>

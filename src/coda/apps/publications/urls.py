@@ -23,8 +23,7 @@ urlpatterns = [
         vocabularies.request_delete,
         name="vocabulary_request_delete",
     ),
-    path("vocabulary/edit/title", vocabularies.enter_edit_title_mode, name="vocabulary_edit_title"),
-    path("vocabulary/edit/save-title", vocabularies.save_title, name="vocabulary_save_title"),
+    path("vocabulary/edit/save", vocabularies.save_vocabularies, name="save_vocabularies"),
     path(
         "vocabulary/edit/move-to-forbidden",
         vocabularies.move_to_forbidden,

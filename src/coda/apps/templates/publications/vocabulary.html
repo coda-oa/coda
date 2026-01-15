@@ -1,10 +1,54 @@
 {% extends "base.html" %}
 {% block content %}
     <h1 class="my-2">Limited Vocabulary</h1>
-    <input type="hidden" name="vocabulary_id" value="{{ vocabulary.id }}">
     <article>
-        {% include "publications/vocabulary_edit_title.html" %}
-        <div class="my-2 scroll-container max-h-30">{% include "publications/vocabulary_table.html" %}</div>
-        <a href="{% url 'publications:vocabularies' %}" role="button">Done</a>
+        <form name="vocabularies_form"
+              method="post"
+              action="{% url 'publications:save_vocabularies' %}"
+              id="vocabularies_form">
+            {% csrf_token %}
+            <input type="hidden" name="vocabulary_id" value="{{ vocabulary.id }}">
+            {% if base_vocabulary_id %}
+                <input type="hidden"
+                       name="base_vocabulary_id"
+                       value="{{ base_vocabulary_id }}">
+            {% endif %}
+            <div id="edit-title-container" class="my-1">
+                <label for="vocabulary_name">Edit Vocabulary Name:</label>
+                <input type="text"
+                       id="vocabulary_name"
+                       name="vocabulary_name"
+                       value="{{ vocabulary.name }}">
+            </div>
+            <div class="mb-2">
+                <label for="base_vocabulary_name">Base Vocabulary Name:</label>
+                <input type="text"
+                       id="base_vocabulary_name"
+                       name="base_vocabulary_name"
+                       readonly
+                       value="{{ base_vocabulary_name }}">
+            </div>
+            <div class="my-2 scroll-container">{% include "publications/vocabulary_table.html" %}</div>
+        </form>
+        <div class="flex">
+            <div class="voc-concept-column">
+                <div class="grid">
+                    <button id="select-all-allowed" class="secondary">All</button>
+                    <button id="deselect-all-allowed" class="secondary">None</button>
+                </div>
+            </div>
+            <div class="voc-button-column" aria-hidden="true"></div>
+            <div class="voc-concept-column">
+                <div class="grid">
+                    <button id="select-all-forbidden" class="secondary">All</button>
+                    <button id="deselect-all-forbidden" class="secondary">None</button>
+                </div>
+            </div>
+        </div>
     </article>
+    <div class="grid wizard-nav">
+        <a href="{% url "publications:vocabularies" %}"
+           class="button danger text-center">Cancel</a>
+        <button form="vocabularies_form" type="submit" name="action" value="create">Save</button>
+    </div>
 {% endblock content %}

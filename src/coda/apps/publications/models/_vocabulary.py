@@ -37,6 +37,9 @@ class Concept(models.Model):
     name = models.CharField(max_length=255)
     hint = models.TextField()
     vocabulary = models.ForeignKey(Vocabulary, on_delete=models.CASCADE, related_name="concepts")
+    parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
+    )
 
     @classmethod
     def unknown(cls) -> "Concept":

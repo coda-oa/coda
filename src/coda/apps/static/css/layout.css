@@ -28,6 +28,10 @@
     max-height: 80rem;
   }
 
+  &.min-h-30 {
+    min-height: 30rem;
+  }
+
   & thead th {
     position: sticky;
     top: 0;

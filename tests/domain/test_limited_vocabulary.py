@@ -1,6 +1,12 @@
 import pytest
 
-from coda.domain.vocabulary import LimitedVocabulary, Vocabulary, VocabularyId
+from coda.domain.vocabulary import (
+    ConceptId,
+    LimitedVocabulary,
+    Vocabulary,
+    VocabularyConcept,
+    VocabularyId,
+)
 
 
 def test__limited_vocabulary__all_concepts_are_allowed_by_default() -> None:
@@ -130,3 +136,67 @@ def test__disallowed_concepts__allowing__concept_is_in_concepts() -> None:
     assert list(sut.concepts) == [vocabulary.get_concept(forbidden_id)]
     assert sut.get_concept(forbidden_id) == vocabulary.get_concept(forbidden_id)
     assert list(sut.disallowed_concepts) == []
+
+
+def test__limited_vocabulary__get_concepts_hierarchy__concepts_belong_to_limited_vocabulary() -> (
+    None
+):
+    vocabulary = Vocabulary(id=VocabularyId(0), name="base", version="1.0")
+    vocabulary.add_concept(concept_id="root-concept", name="Root")
+    vocabulary.add_concept(concept_id="child-concept", name="Child")
+
+    limited_vocab_id = VocabularyId(1)
+    sut = LimitedVocabulary(id=limited_vocab_id, base_vocabulary=vocabulary)
+
+    roots, children_map = sut.get_concept_hierarchy()
+
+    assert_concepts_belong_to_vocabulary(limited_vocab_id, roots)
+    assert_child_concepts_belong_to_vocabulary(limited_vocab_id, children_map)
+
+
+def assert_concepts_belong_to_vocabulary(
+    limited_vocab_id: VocabularyId, roots: list[VocabularyConcept]
+) -> None:
+    for concept in roots:
+        assert concept.vocabulary == limited_vocab_id
+
+
+def assert_child_concepts_belong_to_vocabulary(
+    limited_vocab_id: VocabularyId, children_map: dict[ConceptId, list[VocabularyConcept]]
+) -> None:
+    for children in children_map.values():
+        for concept in children:
+            assert concept.vocabulary == limited_vocab_id
+
+
+def test__single_level_limited_vocab__get_root_base_vocabulary__returns_original_base_vocabulary() -> (
+    None
+):
+    base_vocab = Vocabulary(id=VocabularyId(0), name="Base", version="1.0")
+    base_vocab.add_concept(concept_id="concept-a")
+
+    limited_vocab = LimitedVocabulary(id=VocabularyId(1), base_vocabulary=base_vocab)
+
+    root = limited_vocab.get_root_base_vocabulary()
+
+    assert root == base_vocab
+
+
+def test__multiple_nested_limited_vocabularies__get_root_base_vocabulary__returns_original_base_vocabulary() -> (
+    None
+):
+    base_vocab = Vocabulary(id=VocabularyId(0), name="Base", version="1.0")
+    base_vocab.add_concept(concept_id="concept-a")
+    base_vocab.add_concept(concept_id="concept-b")
+
+    limited1 = LimitedVocabulary(id=VocabularyId(1), base_vocabulary=base_vocab)
+    limited1.disallow("concept-a")
+
+    limited2 = LimitedVocabulary(id=VocabularyId(2), base_vocabulary=limited1)
+
+    limited3 = LimitedVocabulary(id=VocabularyId(3), base_vocabulary=limited2)
+
+    root = limited3.get_root_base_vocabulary()
+
+    assert root == base_vocab
+    assert root.id == VocabularyId(0)
