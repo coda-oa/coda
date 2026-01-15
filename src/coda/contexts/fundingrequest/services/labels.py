@@ -45,6 +45,33 @@ def label_attach_bulk_by_id(funding_request_id: FundingRequestId, labels: list[L
     through_model.objects.bulk_create(through_objects, ignore_conflicts=True)
 
 
+def label_attach_bulk_many(request_labels: dict[FundingRequestId, list[Label]]) -> None:
+    """Attach labels to multiple funding requests in a single bulk operation.
+
+    Args:
+        request_labels: Mapping of funding request ID to list of labels to attach
+
+    Example:
+        >>> labels = {
+        ...     FundingRequestId(1): [label1, label2],
+        ...     FundingRequestId(2): [label3],
+        ... }
+        >>> label_attach_bulk_many(labels)
+    """
+    if not request_labels:
+        return
+
+    through_model = FundingRequestModel.labels.through
+
+    through_objects = [
+        through_model(fundingrequest_id=fr_id, label_id=label.id)
+        for fr_id, labels in request_labels.items()
+        for label in labels
+    ]
+
+    through_model.objects.bulk_create(through_objects, ignore_conflicts=True)
+
+
 def label_detach(funding_request: FundingRequestModel, label: Label) -> None:
     label.requests.remove(funding_request)
     label.save()

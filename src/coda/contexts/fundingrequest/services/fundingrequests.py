@@ -13,12 +13,14 @@ from coda.apps.publications.dto import ContractYearDto, parse_publication_state
 from coda.checks.checkfactory import CheckFactory
 from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
+    CreateReviewDto,
     ExternalFundingDto,
     ExtraInformationDto,
     PaymentDto,
     UpdatePublicationMetadataCommand,
     UpdateReviewDto,
 )
+from coda.contexts.fundingrequest.services.checks import run_checks
 from coda.domain import errors
 from coda.domain.author import Author, AuthorNames
 from coda.domain.contract import PublisherId
@@ -45,12 +47,15 @@ def create_fundingrequest(
     request_id_generator: RequestIdGenerator = PublicFundingRequestId.create,
     checkfactory: CheckFactory | None = None,
 ) -> FundingRequestId:
-    from coda.contexts.fundingrequest.services.checks import run_checks
+    # For single creation, fetch existing IDs to ensure uniqueness
+    existing_ids = set(repository.get_all_request_ids())
 
     fr = FundingRequest.new(
         creation_dto.publication.to_publication(),
         creation_dto.payment.to_payment(),
-        request_id=_find_unused_request_id(request_id_generator, creation_dto.request_date),
+        request_id=_find_unused_request_id(
+            request_id_generator, existing_ids, creation_dto.request_date
+        ),
         external_funding=[f.to_external_funding() for f in creation_dto.funding],
         extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
         request_remarks=creation_dto.extra_information.request_remarks,
@@ -76,18 +81,43 @@ class CreateFundingRequestFailed(errors.DomainError):
         return self.publication_title
 
 
+def _create_review_from_dto(review_dto: CreateReviewDto | None) -> Review | None:
+    """Convert CreateReviewDto to domain Review object.
+
+    Args:
+        review_dto: Optional review DTO from creation command
+
+    Returns:
+        Domain Review object, or None if no review data provided
+    """
+    if not review_dto:
+        return None
+
+    return Review(
+        fundingrequest=None,
+        decided_funding=Money(
+            str(review_dto.decided_funding_amount),
+            Currency.from_code(review_dto.decided_funding_currency),
+        ),
+        result=ReviewResult.of(review_dto.result),
+        remarks=review_dto.reviewer_remarks,
+    )
+
+
 def try_into_funding_request(
     request_id: PublicFundingRequestId, creation_dto: CreateFundingRequestDto
 ) -> AnyFundingRequest:
     try:
-        return FundingRequest.new(
-            creation_dto.publication.to_publication(),
-            creation_dto.payment.to_payment(),
+        return FundingRequest(
+            id=None,
             request_id=request_id,
+            publication=creation_dto.publication.to_publication(),
+            estimated_cost=creation_dto.payment.to_payment(),
             external_funding=[f.to_external_funding() for f in creation_dto.funding],
             extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
             request_remarks=creation_dto.extra_information.request_remarks,
             legacy_request_id=creation_dto.legacy_request_id,
+            review=_create_review_from_dto(creation_dto.review),
         )
     except ValueError as e:
         raise CreateFundingRequestFailed(
@@ -104,8 +134,12 @@ def bulk_create_fundingrequests(
     checkfactory: CheckFactory | None = None,
 ) -> tuple[Iterable[FundingRequestId], list[CreateFundingRequestFailed]]:
     _ = checkfactory
+
+    # Fetch all existing request IDs once for efficient in-memory checking
+    existing_ids = set(repository.get_all_request_ids())
+
     ids = [
-        _find_unused_request_id(request_id_generator, creation_dto.request_date)
+        _find_unused_request_id(request_id_generator, existing_ids, creation_dto.request_date)
         for creation_dto in creation_dtos
     ]
 
@@ -120,12 +154,26 @@ def bulk_create_fundingrequests(
 
 
 def _find_unused_request_id(
-    request_id_generator: RequestIdGenerator, request_date: datetime.date | None = None
+    request_id_generator: RequestIdGenerator,
+    existing_ids: set[str],
+    request_date: datetime.date | None = None,
 ) -> PublicFundingRequestId:
+    """Find an unused request ID by checking against a set of existing IDs.
+
+    Args:
+        request_id_generator: Function to generate new request IDs
+        existing_ids: Set of existing request IDs to check against (modified in-place)
+        request_date: Optional date to use for ID generation
+
+    Returns:
+        A unique PublicFundingRequestId that doesn't exist in existing_ids
+    """
     request_id = request_id_generator(date=request_date)
-    while repository.request_id_exists(request_id):
+    while str(request_id) in existing_ids:
         request_id = request_id_generator()
 
+    # Add the new ID to the set to prevent duplicates within the same batch
+    existing_ids.add(str(request_id))
     return request_id
 
 
@@ -144,8 +192,6 @@ def update_publication_metadata(
         command: Publication metadata command from the application layer
         checkfactory: Optional check factory for running validation checks
     """
-    from coda.contexts.fundingrequest.services.checks import run_checks
-
     fr = repository.get_by_id(fundingrequest_id)
     publication = fr.publication
 
@@ -185,8 +231,6 @@ def update_publication_journal_and_contracts(
         contract_dtos: List of contract year DTOs
         checkfactory: Optional check factory for running validation checks
     """
-    from coda.contexts.fundingrequest.services.checks import run_checks
-
     fr = repository.get_by_id(fundingrequest_id)
 
     contracts = tuple(dto.to_contract_year() for dto in contract_dtos)
@@ -216,8 +260,6 @@ def update_publication_publisher_and_contracts(
         contract_dtos: List of contract year DTOs
         checkfactory: Optional check factory for running validation checks
     """
-    from coda.contexts.fundingrequest.services.checks import run_checks
-
     fr = repository.get_by_id(fundingrequest_id)
 
     contracts = tuple(dto.to_contract_year() for dto in contract_dtos)
@@ -245,8 +287,6 @@ def update_funding(
     funding: Iterable[ExternalFundingDto] = (),
     checkfactory: CheckFactory | None = None,
 ) -> None:
-    from coda.contexts.fundingrequest.services.checks import run_checks
-
     repository.save_funding(
         fundingrequest_id,
         payment.to_payment(),

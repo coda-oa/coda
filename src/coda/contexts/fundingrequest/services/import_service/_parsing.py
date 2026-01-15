@@ -6,6 +6,7 @@ Consolidates all DTO parsers into focused functions organized by entity type.
 from coda.apps.authors.dto import AuthorDto
 from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
+    CreateReviewDto,
     ExternalFundingDto,
     ExtraContactDto,
     ExtraInformationDto,
@@ -30,6 +31,7 @@ from coda.contexts.fundingrequest.dto.import_dtos import (
     FundingRequestImportListDto,
     PublicationImportDto,
     ResearchFundingImportDto,
+    ReviewImportDto,
 )
 from coda.domain.author import InstitutionId
 from coda.domain.contract import PublisherId
@@ -81,6 +83,7 @@ def _parse_single_request(
         funding=[parse_funding(f, lookups) for f in request_dto.research_funding],
         request_date=request_dto.request_date,
         legacy_request_id=request_dto.legacy_request_id,
+        review=parse_review(request_dto.review),
     )
 
 
@@ -261,4 +264,14 @@ def parse_extra_information(import_dto: FundingRequestImportDto) -> ExtraInforma
             name=import_dto.seperate_contact.name,
             email=import_dto.seperate_contact.email,
         ),
+    )
+
+
+def parse_review(import_dto: ReviewImportDto) -> CreateReviewDto:
+    """Parse review DTO from import data."""
+    return CreateReviewDto(
+        decided_funding_amount=float(import_dto.funding.amount),
+        decided_funding_currency=import_dto.funding.currency,
+        reviewer_remarks=import_dto.remarks,
+        result=import_dto.result.value,
     )

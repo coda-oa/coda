@@ -58,7 +58,7 @@ def _save(fundingrequest: AnyFundingRequest) -> FundingRequestModel:
 def create_many(fundingrequests: Iterable[AnyFundingRequest]) -> Iterable[FundingRequestId]:
     fundingrequest_list = list(fundingrequests)
     reviews = FundingRequestReview.objects.bulk_create(
-        [FundingRequestReview() for _ in fundingrequest_list]
+        [fundingrequest_mapper._create_review_model(fr._review) for fr in fundingrequest_list]
     )
 
     publications = [fundingrequest.publication for fundingrequest in fundingrequest_list]
@@ -80,12 +80,16 @@ def create_many(fundingrequests: Iterable[AnyFundingRequest]) -> Iterable[Fundin
 
     if contact_objs:
         FundingRequestContactModel.objects.bulk_create(contact_objs)
-        # Now update the extra_contact field on each FundingRequestModel
+        # Now update the extra_contact field using bulk_update
         for fr in created_frs:
             model_contact = contact_map.get(fr.pk)
             if model_contact:
                 fr.extra_contact = model_contact
-                fr.save(update_fields=["extra_contact"])
+
+        # Bulk update only FRs that have contacts
+        frs_to_update = [fr for fr in created_frs if fr.pk in contact_map]
+        if frs_to_update:
+            FundingRequestModel.objects.bulk_update(frs_to_update, fields=["extra_contact"])
 
     return tuple(FundingRequestId(fr.pk) for fr in created_frs)
 
@@ -131,6 +135,15 @@ def save_funding(
 
 def request_id_exists(request_id: PublicFundingRequestId) -> bool:
     return FundingRequestModel.objects.filter(request_id=str(request_id)).exists()
+
+
+def get_all_request_ids() -> list[str]:
+    """Fetch all existing request IDs for bulk existence checking.
+
+    Returns a list of all request_id strings from the database.
+    Used to optimize batch operations that need to check ID uniqueness.
+    """
+    return list(FundingRequestModel.objects.values_list("request_id", flat=True))
 
 
 def first() -> AnyFundingRequest | None:

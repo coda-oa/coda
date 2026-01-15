@@ -10,19 +10,30 @@ This module coordinates the import process:
 from typing import BinaryIO, TextIO
 from collections.abc import Iterable
 
-from coda.apps.fundingrequests import repository
+try:
+    from silk.profiling.profiler import silk_profile
+except (ImportError, RuntimeError):
+    # Silk not available in tests or not configured
+    def silk_profile(*args, **kwargs):  # type: ignore
+        def decorator(func):  # type: ignore
+            return func
+
+        return decorator
+
+
+from coda.apps.fundingrequests.models import Label
 from coda.contexts.fundingrequest.services import labels as label_services
 from coda.contexts.fundingrequest.services.fundingrequests import bulk_create_fundingrequests
 from coda.checks.nullcheckfactory import NullCheckFactory
 from coda.contexts.fundingrequest.dto.import_dtos import FundingRequestImportListDto
 from coda.contexts.fundingrequest.services.import_service.types import FundingRequestImportReport
-from coda.domain.fundingrequest import FundingRequestId, Review
-from coda.domain.money import Currency, Money
+from coda.domain.fundingrequest import FundingRequestId
 
 from ._entity_creation import build_entity_lookups
 from ._parsing import parse_requests
 
 
+@silk_profile(name="Import funding requests")  # type: ignore
 def import_fundingrequests(json: TextIO | BinaryIO) -> FundingRequestImportReport:
     """Import funding requests from JSON stream.
 
@@ -50,7 +61,7 @@ def _load_json(json: TextIO | BinaryIO) -> FundingRequestImportListDto:
 def _process_requests(
     import_data: FundingRequestImportListDto,
 ) -> tuple[int, dict[str, list[str]]]:
-    """Process validated requests: parse, create, attach labels/reviews."""
+    """Process validated requests: parse, create, attach labels."""
     errors: dict[str, list[str]] = {}
 
     lookups = build_entity_lookups(import_data)
@@ -61,7 +72,7 @@ def _process_requests(
         errors.setdefault(error.request_key, []).append(error.reason)
 
     _attach_labels(import_data, ids, errors)
-    _save_reviews(import_data, ids, errors)
+    # Reviews now created with correct values during bulk_create, no update needed!
 
     return len(list(ids)), errors
 
@@ -72,42 +83,29 @@ def _attach_labels(
     errors: dict[str, list[str]],
 ) -> None:
     """Attach labels to created funding requests."""
-    all_label_names = set()
-    for request in import_data.requests:
-        all_label_names.update(request.labels)
+    # Collect all unique label names using set comprehension
+    all_label_names = {
+        label_name for request in import_data.requests for label_name in request.labels
+    }
 
     available_labels = label_services.label_bulk_get_or_create(all_label_names)
+
+    # Build mapping: funding_request_id -> [labels]
+    request_labels: dict[FundingRequestId, list[Label]] = {}
     for fundingrequest_id, request in zip(ids, import_data.requests):
-        if request.labels:
-            try:
-                labels_for_request = [
-                    available_labels[name] for name in request.labels if name in available_labels
-                ]
-                label_services.label_attach_bulk_by_id(fundingrequest_id, labels_for_request)
-            except Exception as e:
-                error_key = request.legacy_request_id or request.publication.title
-                errors.setdefault(error_key, []).append(f"Failed to process labels: {str(e)}")
+        if not request.labels:
+            continue  # Early return - skip requests without labels
 
-
-def _save_reviews(
-    import_data: FundingRequestImportListDto,
-    ids: Iterable[FundingRequestId],
-    errors: dict[str, list[str]],
-) -> None:
-    """Save reviews for created funding requests."""
-
-    for fundingrequest_id, request in zip(ids, import_data.requests):
         try:
-            review = Review(
-                fundingrequest=fundingrequest_id,
-                result=request.review.result,
-                remarks=request.review.remarks,
-                decided_funding=Money(
-                    amount=request.review.funding.amount,
-                    currency=Currency.from_code(request.review.funding.currency),
-                ),
-            )
-            repository.save_review(review)
+            labels_for_request = [
+                available_labels[name] for name in request.labels if name in available_labels
+            ]
+            if labels_for_request:
+                request_labels[fundingrequest_id] = labels_for_request
         except Exception as e:
             error_key = request.legacy_request_id or request.publication.title
-            errors.setdefault(error_key, []).append(f"Failed to save review: {str(e)}")
+            errors.setdefault(error_key, []).append(f"Failed to process labels: {str(e)}")
+
+    # Single bulk operation for all label attachments
+    if request_labels:
+        label_services.label_attach_bulk_many(request_labels)

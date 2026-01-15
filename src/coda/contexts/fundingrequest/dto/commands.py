@@ -127,6 +127,10 @@ class UpdateReviewDto(CodaBaseDto):
     result: str
 
 
+# Type alias for clarity when using UpdateReviewDto for creation
+CreateReviewDto = UpdateReviewDto
+
+
 class CreateFundingRequestDto(CodaBaseDto):
     publication: PublicationBaseDto
     payment: PaymentDto
@@ -134,14 +138,15 @@ class CreateFundingRequestDto(CodaBaseDto):
     funding: Iterable[ExternalFundingDto] = ()
     request_date: datetime.date = Field(default_factory=datetime.date.today)
     legacy_request_id: str = ""
+    review: CreateReviewDto | None = None
 
 
 class UpdatePublicationMetadataCommand(CodaBaseDto):
     """Command for updating publication metadata.
 
-    Extracted from PublicationStepDto in view layer to avoid
-    service → view dependency. Maintains identical structure
-    for test compatibility.
+    Used by both the service layer (for updating funding requests) and the
+    view layer (for storing wizard step data). This shared DTO maintains
+    consistency across application boundaries.
     """
 
     meta: PublicationMetaDto

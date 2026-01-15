@@ -6,6 +6,10 @@ Handles:
 - Caching to avoid duplicate queries
 """
 
+from typing import TypeVar
+
+from django.db import models
+
 from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.contracts.models import Contract as ContractModel
@@ -20,6 +24,8 @@ from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import Vocabulary
 
 from .types import ImportLookups
+
+T = TypeVar("T", bound=models.Model)
 
 
 def build_entity_lookups(import_data: FundingRequestImportListDto) -> ImportLookups:
@@ -159,25 +165,7 @@ def _fetch_existing_journals(eissns: set[str]) -> dict[str, Journal]:
 
 def _build_funding_org_lookup(names: set[str]) -> dict[str, FundingOrganization]:
     """Get or create funding organizations, return lookup dict."""
-    if not names:
-        return {}
-
-    existing_orgs = FundingOrganization.objects.filter(name__in=names).order_by("id")
-
-    lookup: dict[str, FundingOrganization] = {}
-    for org in existing_orgs:
-        if org.name not in lookup:
-            lookup[org.name] = org
-
-    missing_names = names - lookup.keys()
-
-    if missing_names:
-        new_orgs = FundingOrganization.objects.bulk_create(
-            [FundingOrganization(name=name) for name in missing_names]
-        )
-        lookup.update({org.name: org for org in new_orgs})
-
-    return lookup
+    return _build_entity_lookup_by_name(FundingOrganization, names)
 
 
 def _build_contract_lookup(names: set[str]) -> dict[str, Contract]:
@@ -187,7 +175,12 @@ def _build_contract_lookup(names: set[str]) -> dict[str, Contract]:
 
     # Bulk fetch all existing contracts using direct query with ordering (1 query)
     # Order by id to ensure we get the first match when there are duplicates
-    existing_models = ContractModel.objects.filter(name__in=names).order_by("id")
+    # Prefetch publishers and journals to avoid N+1 queries when mapping to domain objects
+    existing_models = (
+        ContractModel.objects.filter(name__in=names)
+        .prefetch_related("publishers", "journals")
+        .order_by("id")
+    )
     existing_contracts = [contract_mapper.as_domain_object(model) for model in existing_models]
 
     # Build lookup - only keep first occurrence for each name
@@ -211,26 +204,7 @@ def _build_contract_lookup(names: set[str]) -> dict[str, Contract]:
 
 def _build_institution_lookup(names: set[str]) -> dict[str, Institution]:
     """Get or create institutions, return lookup dict."""
-    if not names:
-        return {}
-
-    # Order by id to ensure we get the first match when there are duplicates
-    existing_insts = Institution.objects.filter(name__in=names).order_by("id")
-
-    lookup: dict[str, Institution] = {}
-    for inst in existing_insts:
-        if inst.name not in lookup:
-            lookup[inst.name] = inst
-
-    missing_names = names - lookup.keys()
-
-    if missing_names:
-        new_insts = Institution.objects.bulk_create(
-            [Institution(name=name) for name in missing_names]
-        )
-        lookup.update({inst.name: inst for inst in new_insts})
-
-    return lookup
+    return _build_entity_lookup_by_name(Institution, names)
 
 
 def _build_vocabulary_lookup(names: set[str]) -> dict[str, Vocabulary]:
@@ -262,30 +236,7 @@ def _build_publisher_lookup(names: set[str]) -> dict[str, Publisher]:
     Note: Publishers from existing journals are added to the lookup separately
     in build_entity_lookups() after this function runs.
     """
-    if not names:
-        return {}
-
-    # Fetch existing publishers with deterministic ordering
-    existing = Publisher.objects.filter(name__in=names).order_by("id")
-
-    # Use first match for duplicates
-    lookup: dict[str, Publisher] = {}
-    for publisher in existing:
-        if publisher.name not in lookup:
-            lookup[publisher.name] = publisher
-
-    # Identify missing publishers
-    missing_names = names - lookup.keys()
-
-    # Bulk create missing publishers
-    if missing_names:
-        new_publishers = Publisher.objects.bulk_create(
-            [Publisher(name=name) for name in missing_names]
-        )
-        # Add newly created publishers to lookup
-        lookup.update({p.name: p for p in new_publishers})
-
-    return lookup
+    return _build_entity_lookup_by_name(Publisher, names)
 
 
 def _build_journal_lookup(
@@ -317,25 +268,106 @@ def _build_journal_lookup(
     # Create missing journals (publishers already exist in lookup)
     if missing_eissns:
         # Build mapping: eissn -> (title, publisher_name) from import data
-        journal_metadata = {}
-        for request in import_data.requests:
-            pub = request.publication
-            if pub.kind == "article" and pub.eissn in missing_eissns:
-                # Use first occurrence of each EISSN
-                if pub.eissn not in journal_metadata:
-                    journal_metadata[pub.eissn] = (pub.journal_name, pub.publisher_name)
+        journal_metadata = _get_first_occurrence_journal_metadata(import_data, missing_eissns)
 
-        # Create journal models
-        new_journals = []
-        for eissn in missing_eissns:
-            title, publisher_name = journal_metadata.get(eissn, ("Imported journal", "Unknown"))
-
-            # Publisher must exist in lookup (created in _build_publisher_lookup)
-            publisher = publishers[publisher_name]
-            new_journals.append(Journal(title=title, eissn=eissn, publisher=publisher))
+        # Create journal models using helper
+        new_journals = [
+            _create_journal_from_metadata(eissn, journal_metadata, publishers)
+            for eissn in missing_eissns
+        ]
 
         if new_journals:
             created = Journal.objects.bulk_create(new_journals)
             lookup.update({j.eissn: j for j in created})
 
     return lookup
+
+
+def _build_entity_lookup_by_name(
+    model_class: type[T],
+    names: set[str],
+    name_field: str = "name",
+) -> dict[str, T]:
+    """Generic helper to build entity lookup by name with get-or-create semantics.
+
+    Handles:
+    - Fetching existing entities by name
+    - Building lookup dict (first occurrence for duplicates)
+    - Creating missing entities
+    - Returning complete lookup
+
+    Args:
+        model_class: Django model class (e.g., Institution, Publisher)
+        names: Set of entity names to get or create
+        name_field: Name of the field to use for lookup (default: "name")
+
+    Returns:
+        Dict mapping name to entity instance
+    """
+    if not names:
+        return {}
+
+    # Fetch existing entities with deterministic ordering
+    filter_kwargs = {f"{name_field}__in": names}
+    existing = model_class.objects.filter(**filter_kwargs).order_by("id")  # type: ignore[attr-defined]
+
+    # Build lookup - first match wins for duplicates
+    lookup: dict[str, T] = {}
+    for entity in existing:
+        entity_name = getattr(entity, name_field)
+        if entity_name not in lookup:
+            lookup[entity_name] = entity
+
+    # Identify and create missing entities
+    missing_names = names - lookup.keys()
+    if missing_names:
+        create_kwargs_list = [{name_field: name} for name in missing_names]
+        new_entities = model_class.objects.bulk_create(  # type: ignore[attr-defined]
+            [model_class(**kwargs) for kwargs in create_kwargs_list]
+        )
+        lookup.update({getattr(e, name_field): e for e in new_entities})
+
+    return lookup
+
+
+def _get_first_occurrence_journal_metadata(
+    import_data: FundingRequestImportListDto,
+    missing_eissns: set[str],
+) -> dict[str, tuple[str, str]]:
+    """Extract journal metadata for missing EISSNs (first occurrence only).
+
+    Args:
+        import_data: Full import data
+        missing_eissns: Set of EISSNs that need to be created
+
+    Returns:
+        Dict mapping EISSN to (journal_title, publisher_name)
+    """
+    journal_metadata = {}
+    for request in import_data.requests:
+        pub = request.publication
+        if pub.kind == "article" and pub.eissn in missing_eissns:
+            # Use first occurrence of each EISSN
+            if pub.eissn not in journal_metadata:
+                journal_metadata[pub.eissn] = (pub.journal_name, pub.publisher_name)
+    return journal_metadata
+
+
+def _create_journal_from_metadata(
+    eissn: str,
+    journal_metadata: dict[str, tuple[str, str]],
+    publishers: dict[str, Publisher],
+) -> Journal:
+    """Create journal from metadata with fallback defaults.
+
+    Args:
+        eissn: Journal EISSN
+        journal_metadata: Dict mapping EISSN to (title, publisher_name)
+        publishers: Publisher lookup dict
+
+    Returns:
+        Journal instance (not yet saved to database)
+    """
+    title, publisher_name = journal_metadata.get(eissn, ("Imported journal", "Unknown"))
+    publisher = publishers[publisher_name]
+    return Journal(title=title, eissn=eissn, publisher=publisher)
