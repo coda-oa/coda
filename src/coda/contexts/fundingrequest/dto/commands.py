@@ -47,7 +47,7 @@ class PaymentDto(CodaBaseDto):
     def from_payment(cls, payment: Payment) -> "PaymentDto":
         """Creates a CostDto instance from a Payment object."""
         return cls(
-            amount=payment.amount.amount,
+            amount=float(payment.amount.amount),
             currency=payment.amount.currency.code,
             method=payment.method.value,
             external_costsplitting=payment.external_costsplitting,
@@ -132,7 +132,7 @@ class UpdateReviewDto(CodaBaseDto):
 
 
 # Type alias for clarity when using UpdateReviewDto for creation
-type CreateReviewDto = UpdateReviewDto
+CreateReviewDto = UpdateReviewDto
 
 
 class CreateFundingRequestDto(CodaBaseDto):
