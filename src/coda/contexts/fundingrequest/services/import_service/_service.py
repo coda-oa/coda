@@ -27,6 +27,7 @@ from coda.contexts.fundingrequest.services.fundingrequests import bulk_create_fu
 from coda.checks.nullcheckfactory import NullCheckFactory
 from coda.contexts.fundingrequest.dto.import_dtos import FundingRequestImportListDto
 from coda.contexts.fundingrequest.services.import_service.types import FundingRequestImportReport
+from coda.domain.contract import Contract, ContractId
 from coda.domain.fundingrequest import FundingRequestId
 
 from ._entity_creation import build_entity_lookups
@@ -61,13 +62,44 @@ def _load_json(json: TextIO | BinaryIO) -> FundingRequestImportListDto:
 def _process_requests(
     import_data: FundingRequestImportListDto,
 ) -> tuple[int, dict[str, list[str]]]:
-    """Process validated requests: parse, create, attach labels."""
+    """Process validated requests: parse, create, attach labels.
+
+    Builds entity lookups once, then uses in-memory contract lookup
+    to avoid N+1 queries during funding request creation.
+    """
     errors: dict[str, list[str]] = {}
 
+    # Build all entity lookups once (keyed by name)
     lookups = build_entity_lookups(import_data)
+
+    # Build contract ID lookup for efficient ID-based retrieval
+    # (lookups.contracts is keyed by name, but we need lookup by ID)
+    contract_id_lookup: dict[ContractId, Contract] = {
+        contract.id: contract for contract in lookups.contracts.values() if contract.id is not None
+    }
+
+    # Create contract fetcher that uses in-memory lookup instead of DB
+    def get_contract_from_lookup(contract_id: ContractId) -> Contract:
+        """Fetch contract from in-memory ID-indexed lookup.
+
+        Args:
+            contract_id: ID of contract to fetch
+
+        Returns:
+            Contract domain object
+
+        Raises:
+            KeyError: If contract_id not found in lookup
+        """
+        return contract_id_lookup[contract_id]
+
+    # Parse import DTOs into creation DTOs using lookups
     creation_dtos = parse_requests(import_data, lookups, errors)
 
-    ids, create_errors = bulk_create_fundingrequests(creation_dtos, checkfactory=NullCheckFactory())
+    # Bulk create funding requests, passing the optimized contract fetcher
+    ids, create_errors = bulk_create_fundingrequests(
+        creation_dtos, checkfactory=NullCheckFactory(), get_contract_by_id=get_contract_from_lookup
+    )
     for error in create_errors:
         errors.setdefault(error.request_key, []).append(error.reason)
 

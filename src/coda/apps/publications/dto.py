@@ -11,7 +11,7 @@ from coda.apps.authors.dto import AuthorDto
 from coda.apps.contracts import repository as contract_services
 from coda.apps.dto import CodaBaseDto, OptionalFromStr
 from coda.domain.author import AuthorNames
-from coda.domain.contract import ContractId, ContractYear, PublisherId
+from coda.domain.contract import ContractId, ContractYear, GetContractById, PublisherId
 from coda.domain.publication import (
     Authors,
     BasePublication,
@@ -124,8 +124,21 @@ class ContractYearDto(CodaBaseDto):
     def from_contract_year(cls, contract_year: ContractYear) -> "ContractYearDto":
         return cls(contract=cast(ContractId, contract_year.contract.id), year=contract_year.year)
 
-    def to_contract_year(self) -> ContractYear:
-        return contract_services.get_by_id(self.contract).in_year(self.year)
+    def to_contract_year(self, get_contract_by_id: GetContractById | None = None) -> ContractYear:
+        """Convert DTO to domain ContractYear object.
+
+        Args:
+            get_contract_by_id: Optional callable to fetch Contract by ID.
+                Defaults to contract_services.get_by_id if not provided.
+
+        Returns:
+            Domain ContractYear object
+        """
+        if get_contract_by_id is None:
+            get_contract_by_id = contract_services.get_by_id
+
+        contract = get_contract_by_id(self.contract)
+        return contract.in_year(self.year)
 
 
 class PublicationBaseDto(abc.ABC, CodaBaseDto):
@@ -136,7 +149,10 @@ class PublicationBaseDto(abc.ABC, CodaBaseDto):
     other_authors: list[str]
 
     @abc.abstractmethod
-    def to_publication(self, id: PublicationId | None = None) -> BasePublication: ...
+    def to_publication(
+        self, id: PublicationId | None = None, get_contract_by_id: GetContractById | None = None
+    ) -> BasePublication:
+        ...
 
 
 class PublicationDto(PublicationBaseDto):
@@ -173,9 +189,18 @@ class PublicationDto(PublicationBaseDto):
             other_authors=list(publication.other_authors),
         )
 
-    def to_publication(self, id: PublicationId | None = None) -> Publication:
-        """
-        Tries to parse a Publication from a PublicationDto.
+    def to_publication(
+        self, id: PublicationId | None = None, get_contract_by_id: GetContractById | None = None
+    ) -> Publication:
+        """Convert DTO to domain Publication object.
+
+        Args:
+            id: Optional publication ID
+            get_contract_by_id: Optional callable to fetch Contract by ID.
+                Passed through to ContractYearDto.to_contract_year()
+
+        Returns:
+            Domain Publication object
         """
         return Publication(
             id=id,
@@ -188,7 +213,7 @@ class PublicationDto(PublicationBaseDto):
             relevant_authors=Authors(a.to_author() for a in self.relevant_authors),
             other_authors=AuthorNames(self.other_authors),
             links={link.to_link() for link in self.links},
-            contracts=tuple(c.to_contract_year() for c in self.contracts),
+            contracts=tuple(c.to_contract_year(get_contract_by_id) for c in self.contracts),
             journal=self.journal.id,
         )
 
@@ -224,9 +249,18 @@ class MonographDto(PublicationBaseDto):
             other_authors=list(publication.other_authors),
         )
 
-    def to_monograph(self, id: PublicationId | None = None) -> Monograph:
-        """
-        Tries to parse a Monograph from a MonographDto.
+    def to_monograph(
+        self, id: PublicationId | None = None, get_contract_by_id: GetContractById | None = None
+    ) -> Monograph:
+        """Convert DTO to domain Monograph object.
+
+        Args:
+            id: Optional publication ID
+            get_contract_by_id: Optional callable to fetch Contract by ID.
+                Passed through to ContractYearDto.to_contract_year()
+
+        Returns:
+            Domain Monograph object
         """
         return Monograph(
             id=id,
@@ -239,12 +273,14 @@ class MonographDto(PublicationBaseDto):
             relevant_authors=Authors(a.to_author() for a in self.relevant_authors),
             other_authors=AuthorNames(self.other_authors),
             links={link.to_link() for link in self.links},
-            contracts=tuple(c.to_contract_year() for c in self.contracts),
+            contracts=tuple(c.to_contract_year(get_contract_by_id) for c in self.contracts),
             publisher=self.publisher,
         )
 
-    def to_publication(self, id: PublicationId | None = None) -> Monograph:
-        return self.to_monograph(id)
+    def to_publication(
+        self, id: PublicationId | None = None, get_contract_by_id: GetContractById | None = None
+    ) -> Monograph:
+        return self.to_monograph(id, get_contract_by_id)
 
 
 def parse_publication_state(publication: PublicationMetaDto) -> PublicationState:
