@@ -1,6 +1,6 @@
 import datetime
 import enum
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NewType
 
@@ -14,6 +14,10 @@ if TYPE_CHECKING:
 
 class ContractId(int):
     __slots__ = ()
+
+
+# Type alias for contract fetching function
+GetContractById = Callable[[ContractId], "Contract"]
 
 
 PublisherId = NewType("PublisherId", int)

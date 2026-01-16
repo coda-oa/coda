@@ -22,6 +22,7 @@ from coda.contexts.fundingrequest.dto.commands import (
 )
 from coda.contexts.fundingrequest.services.checks import run_checks
 from coda.domain import errors
+from coda.domain.contract import GetContractById
 from coda.domain.author import Author, AuthorNames
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId
@@ -105,13 +106,31 @@ def _create_review_from_dto(review_dto: CreateReviewDto | None) -> Review | None
 
 
 def try_into_funding_request(
-    request_id: PublicFundingRequestId, creation_dto: CreateFundingRequestDto
+    request_id: PublicFundingRequestId,
+    creation_dto: CreateFundingRequestDto,
+    get_contract_by_id: GetContractById | None = None,
 ) -> AnyFundingRequest:
+    """Convert creation DTO to domain FundingRequest object.
+
+    Args:
+        request_id: Generated public funding request ID
+        creation_dto: DTO containing funding request data
+        get_contract_by_id: Optional callable to fetch Contract by ID.
+            Passed through to publication DTO conversion.
+
+    Returns:
+        Domain FundingRequest object
+
+    Raises:
+        CreateFundingRequestFailed: If validation fails during conversion
+    """
     try:
         return FundingRequest(
             id=None,
             request_id=request_id,
-            publication=creation_dto.publication.to_publication(),
+            publication=creation_dto.publication.to_publication(
+                get_contract_by_id=get_contract_by_id
+            ),
             estimated_cost=creation_dto.payment.to_payment(),
             external_funding=[f.to_external_funding() for f in creation_dto.funding],
             extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
@@ -132,7 +151,20 @@ def bulk_create_fundingrequests(
     *,
     request_id_generator: RequestIdGenerator = PublicFundingRequestId.create,
     checkfactory: CheckFactory | None = None,
+    get_contract_by_id: GetContractById | None = None,
 ) -> tuple[Iterable[FundingRequestId], list[CreateFundingRequestFailed]]:
+    """Bulk create funding requests from DTOs.
+
+    Args:
+        creation_dtos: Iterable of creation DTOs
+        request_id_generator: Callable to generate unique request IDs
+        checkfactory: Optional check factory for validation
+        get_contract_by_id: Optional callable to fetch Contract by ID.
+            If provided, used instead of database queries for contract retrieval.
+
+    Returns:
+        Tuple of (created FundingRequest IDs, list of failed creation attempts)
+    """
     _ = checkfactory
 
     # Fetch all existing request IDs once for efficient in-memory checking
@@ -145,7 +177,7 @@ def bulk_create_fundingrequests(
 
     with errors.capture(CreateFundingRequestFailed) as capture:
         parsed = errors.results(
-            capture(try_into_funding_request, request_id, creation_dto)
+            capture(try_into_funding_request, request_id, creation_dto, get_contract_by_id)
             for request_id, creation_dto in zip(ids, creation_dtos)
         )
 
