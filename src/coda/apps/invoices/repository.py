@@ -310,13 +310,17 @@ def create(invoice: Invoice) -> InvoiceId:
 
 
 @transaction.atomic
-def bulk_create(invoices: Iterable[Invoice]) -> list[InvoiceId]:
+def create_many(invoices: Iterable[Invoice]) -> list[InvoiceId]:
+    # Convert to list to enable reuse in both bulk_create and synchronize_relationships_bulk
+    invoices_list = list(invoices)
+
+    # Bulk create invoice records
     models = InvoiceModel.objects.bulk_create(
-        invoice_mapper.as_django_model(invoice) for invoice in invoices
+        invoice_mapper.as_django_model(invoice) for invoice in invoices_list
     )
 
-    for invoice, invoice_model in zip(invoices, models):
-        invoice_mapper.synchronize_relationships(invoice, invoice_model)
+    # Use optimized bulk relationship synchronization (3 queries instead of 5N)
+    invoice_mapper.synchronize_relationships_bulk(invoices_list, models)
 
     return [InvoiceId(m.pk) for m in models]
 

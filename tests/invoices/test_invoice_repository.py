@@ -300,3 +300,147 @@ def assert_invoice_eq(expected: Invoice, actual: Invoice) -> None:
     assert expected.tax() == actual.tax()
 
     assert expected.conversions() == actual.conversions()
+
+
+@pytest.mark.django_db
+def test__bulk_create_invoices__creates_all_invoices() -> None:
+    """Test that bulk_create creates all invoice records correctly."""
+    invoices = [full_invoice() for _ in range(5)]
+
+    ids = repository.create_many(invoices)
+
+    assert len(ids) == 5
+    for invoice_id, original in zip(ids, invoices):
+        saved = repository.get_by_id(invoice_id)
+        assert_invoice_eq(original, saved)
+
+
+@pytest.mark.django_db
+def test__bulk_create_invoices__creates_all_positions() -> None:
+    """Test that bulk_create creates positions for all invoices."""
+    # Create invoices with varying numbers of positions
+    invoice_1 = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk),
+        positions=[domainfactory.free_position(Currency.AED) for _ in range(3)],
+    )
+    invoice_2 = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk),
+        positions=[domainfactory.free_position(Currency.JPY) for _ in range(5)],
+    )
+    invoice_3 = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk),
+        positions=[domainfactory.free_position(Currency.EUR) for _ in range(2)],
+    )
+
+    ids = repository.create_many([invoice_1, invoice_2, invoice_3])
+
+    saved_1 = repository.get_by_id(ids[0])
+    saved_2 = repository.get_by_id(ids[1])
+    saved_3 = repository.get_by_id(ids[2])
+
+    assert_invoice_eq(invoice_1, saved_1)
+    assert_invoice_eq(invoice_2, saved_2)
+    assert_invoice_eq(invoice_3, saved_3)
+
+
+@pytest.mark.django_db
+def test__bulk_create_invoices__creates_all_currency_conversions() -> None:
+    """Test that bulk_create creates currency conversions for all invoices."""
+    invoice_1 = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk),
+        positions=[domainfactory.free_position()],
+    )
+    invoice_1.add_conversion(Decimal("1.5"), Currency.USD)
+    invoice_1.add_conversion(Decimal("2.0"), Currency.GBP)
+
+    invoice_2 = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk),
+        positions=[domainfactory.free_position()],
+    )
+    invoice_2.add_conversion(Decimal("3.0"), Currency.JPY)
+
+    ids = repository.create_many([invoice_1, invoice_2])
+
+    saved_1 = repository.get_by_id(ids[0])
+    saved_2 = repository.get_by_id(ids[1])
+
+    assert saved_1.conversions() == {Currency.USD: Decimal("1.5"), Currency.GBP: Decimal("2.0")}
+    assert saved_2.conversions() == {Currency.JPY: Decimal("3.0")}
+
+
+@pytest.mark.django_db
+def test__bulk_create_invoices__creates_all_funding_assignments() -> None:
+    """Test that bulk_create creates funding assignments for all invoices."""
+    position_1 = domainfactory.free_position(currency=Currency.EUR)
+    _assign_funding(position_1)
+
+    position_2 = domainfactory.free_position(currency=Currency.EUR)
+    _assign_funding(position_2)
+
+    invoice_1 = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=[position_1]
+    )
+    invoice_2 = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=[position_2]
+    )
+
+    ids = repository.create_many([invoice_1, invoice_2])
+
+    saved_1 = repository.get_by_id(ids[0])
+    saved_2 = repository.get_by_id(ids[1])
+
+    assert_invoice_eq(invoice_1, saved_1)
+    assert_invoice_eq(invoice_2, saved_2)
+
+
+@pytest.mark.django_db
+def test__bulk_create_invoices__with_no_positions__succeeds() -> None:
+    """Test that bulk_create handles invoices with no positions gracefully."""
+    invoice = domainfactory.invoice(creditor=CreditorId(modelfactory.creditor().pk), positions=[])
+
+    ids = repository.create_many([invoice])
+
+    assert len(ids) == 1
+    saved = repository.get_by_id(ids[0])
+    assert len(list(saved.positions)) == 0
+
+
+@pytest.mark.django_db
+def test__bulk_create_invoices__with_empty_list__returns_empty_list() -> None:
+    """Test that bulk_create with empty list returns empty list."""
+    ids = repository.create_many([])
+    assert ids == []
+
+
+@pytest.mark.django_db
+def test__bulk_create_invoices__mixed_position_types__creates_correctly() -> None:
+    """Test bulk_create with mixed position types (publication, contract, free)."""
+    creditor = CreditorId(modelfactory.creditor().pk)
+    publication_id = random_publication()
+    contract = random_contract()
+    contract_year = domainfactory.contract_year(contract)
+
+    invoice_1 = domainfactory.invoice(
+        creditor=creditor,
+        positions=[
+            domainfactory.publication_position(publication=publication_id, currency=Currency.AED),
+            domainfactory.contract_position(contract=contract_year, currency=Currency.AED),
+            domainfactory.free_position(currency=Currency.AED),
+        ],
+    )
+
+    invoice_2 = domainfactory.invoice(
+        creditor=creditor,
+        positions=[
+            domainfactory.free_position(currency=Currency.AED),
+            domainfactory.free_position(currency=Currency.AED),
+        ],
+    )
+
+    ids = repository.create_many([invoice_1, invoice_2])
+
+    saved_1 = repository.get_by_id(ids[0])
+    saved_2 = repository.get_by_id(ids[1])
+
+    assert_invoice_eq(invoice_1, saved_1)
+    assert_invoice_eq(invoice_2, saved_2)
