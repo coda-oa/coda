@@ -59,11 +59,7 @@ You can paste the author list straight from a PDF into the Authors box and let C
 The last page of the creation wizard deals with estimated costs and third party funding.
 As the final costs of a publication are not always known when a Funding Request comes in, CODA allows you to provide an estimate for the costs. This can be useful when reviewing the Funding Request to determine whether the publication costs exceed the funding limits and further negotiation with a publisher may be necessary.
 
-Furthermore, external funding for a publication can be recorded here. This includes selecting a funding organization from a list of pre-determined funders as well as project ID and name as free text fields. By default, CODA comes with the `Deutsche Forschungsgemeinschaft` and `Bundesministerium für Bildung und Forschung` as possible funding organization selection.
-
-```{admonition} Note
-Although currently not yet implemented, future versions of CODA will allow you to add new funding organizations.
-```
+Furthermore, external funding for a publication can be recorded here. This includes selecting a funding organization from a list of pre-determined funders as well as project ID and name as free text fields. By default, CODA comes with the `Deutsche Forschungsgemeinschaft` and `Bundesministerium für Bildung und Forschung` as possible funding organization selection. You can manage funding organizations in the [Funders](funders.md) section.
 
 ![](/_static/img/fundingrequests_funding.png)
 
