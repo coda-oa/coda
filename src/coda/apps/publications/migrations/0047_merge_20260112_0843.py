@@ -6,6 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
+        ("publications", "0045_add_external_costsplitting"),
         ("publications", "0045_concept_parent"),
         ("publications", "0046_remove_publication_external_costsplitting"),
     ]
