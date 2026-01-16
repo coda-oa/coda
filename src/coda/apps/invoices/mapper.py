@@ -287,6 +287,96 @@ def _get_item_from_position_model(position: invoice_models.Position) -> Position
         return FreeItem(position.description, PublicationCostType(position.cost_type))
 
 
+def synchronize_relationships_bulk(
+    invoices: list[Invoice], models: list[invoice_models.Invoice]
+) -> None:
+    """Synchronize relationships for multiple invoices in bulk.
+
+    Optimized for bulk import - assumes newly created invoices (no existing relationships).
+    Collects all positions, conversions, and funding assignments across all invoices and
+    creates them in 3 bulk operations instead of 5N queries (for N invoices).
+
+    This function should only be used for bulk_create() operations where invoices are
+    known to be newly created. For single invoices or updates, use synchronize_relationships().
+
+    Query count:
+    - Old approach (N invoices): 5N queries (2N DELETEs + 3N INSERTs)
+    - New approach (N invoices): 3 queries (3 INSERTs, 0 DELETEs needed)
+
+    Args:
+        invoices: List of Invoice domain objects
+        models: List of corresponding InvoiceModel instances (must be in same order)
+    """
+    if not invoices:
+        return
+
+    if len(invoices) != len(models):
+        raise ValueError(
+            f"Invoice and model lists must have same length "
+            f"(got {len(invoices)} invoices, {len(models)} models)"
+        )
+
+    # Collect all positions across all invoices
+    all_positions: list[invoice_models.Position] = []
+    position_counts: list[int] = []  # Track number of positions per invoice for indexing
+
+    for invoice, invoice_model in zip(invoices, models):
+        invoice_positions = [
+            _as_position_django_model(invoice_model, position) for position in invoice.positions
+        ]
+        all_positions.extend(invoice_positions)
+        position_counts.append(len(invoice_positions))
+
+    # Bulk create all positions (Query 1 or 0 if no positions)
+    created_positions: list[invoice_models.Position] = []
+    if all_positions:
+        created_positions = list(invoice_models.Position.objects.bulk_create(all_positions))
+
+    # Collect all currency conversions across all invoices
+    all_conversions: list[invoice_models.CurrencyConversion] = []
+    for invoice, invoice_model in zip(invoices, models):
+        all_conversions.extend(_create_currency_conversions(invoice, invoice_model))
+
+    # Bulk create all conversions (Query 2 or 0 if no conversions)
+    if all_conversions:
+        invoice_models.CurrencyConversion.objects.bulk_create(all_conversions)
+
+    # Resolve all institution funding sources once across all invoices
+    all_funding_assignments_to_resolve = [
+        fa
+        for invoice in invoices
+        for position in invoice.positions
+        for fa in position.funding_assignments()
+    ]
+    funding_source_lookup = _resolve_institution_funding_sources(all_funding_assignments_to_resolve)
+
+    # Collect all funding assignments across all invoices
+    all_funding_assignments: list[invoice_models.FundingAssignment] = []
+    position_idx = 0
+
+    for invoice, count in zip(invoices, position_counts):
+        for position in invoice.positions:
+            # Get the corresponding created position model
+            position_model = created_positions[position_idx]
+            position_idx += 1
+
+            # Create funding assignments for this position
+            for funding in position.funding_assignments():
+                all_funding_assignments.append(
+                    invoice_models.FundingAssignment(
+                        position=position_model,
+                        funding_source_id=_funding_source_id(
+                            funding.funding_source, funding_source_lookup
+                        ),
+                        amount=funding.amount.amount,
+                    )
+                )
+
+    # Bulk create all funding assignments (Query 3 or 0 if no funding assignments)
+    if all_funding_assignments:
+        invoice_models.FundingAssignment.objects.bulk_create(all_funding_assignments)
+
+
 def _create_currency_conversions(
     invoice: Invoice, invoice_model: invoice_models.Invoice
 ) -> list[invoice_models.CurrencyConversion]:
