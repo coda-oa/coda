@@ -178,12 +178,23 @@ def _get_or_create_personids_by_orcid(authors_with_orcid: list[Orcid]) -> dict[O
 
 
 def _bulk_create_personids_without_orcid(count: int) -> list[PersonId]:
+    """Create PersonIds without ORCID in bulk.
+
+    Django's bulk_create() returns the created objects with IDs set (on PostgreSQL),
+    eliminating the need for a second query that would fetch all PersonIds without
+    ORCID from the database (which could be hundreds of thousands of records).
+
+    Args:
+        count: Number of PersonIds to create
+
+    Returns:
+        List of created PersonId objects in creation order
+    """
     if count == 0:
         return []
-    PersonId.objects.bulk_create([PersonId() for _ in range(count)])
-    objs = list(PersonId.objects.filter(orcid__isnull=True).order_by("-id")[:count])
-    objs.reverse()
-    return objs
+
+    person_ids = PersonId.objects.bulk_create([PersonId() for _ in range(count)])
+    return list(person_ids)
 
 
 def author_update(author: Author) -> Author:
