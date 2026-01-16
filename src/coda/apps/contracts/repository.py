@@ -61,11 +61,26 @@ def create(contract: Contract) -> ContractId:
 
 @transaction.atomic
 def create_many(contracts: Iterable[Contract]) -> list[Contract]:
+    """Bulk create contracts with optimized ManyToMany relationship handling.
+
+    Creates multiple contracts in a single transaction with bulk through-table
+    inserts for publishers and journals, avoiding N+1 query patterns.
+
+    Args:
+        contracts: Iterable of Contract domain objects to create
+
+    Returns:
+        List of created Contract domain objects with IDs assigned
+    """
     contracts = list(contracts)
+
+    if not contracts:
+        return []
+
     models = [mapper.as_django_model(contract) for contract in contracts]
     models = ContractModel.objects.bulk_create(models)
-    for contract, model in zip(contracts, models):
-        mapper.synchronize_relationships(contract, model)
+    mapper.synchronize_relationships_bulk(contracts, models)
+
     return [mapper.as_domain_object(model) for model in models]
 
 
