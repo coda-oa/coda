@@ -74,6 +74,71 @@ def test__full_invoice__related_entities_already_exist__is_not_created_again() -
 
 
 @pytest.mark.django_db
+def test__multiple_invoices_with_different_currencies__import__each_keeps_correct_currency() -> (
+    None
+):
+    """Regression test: invoices with different currencies must retain their original currency."""
+    eur_position = free_position_import_dto()
+    eur_position.amount = Decimal("100.00")
+
+    usd_position = free_position_import_dto()
+    usd_position.amount = Decimal("200.00")
+
+    chf_position = free_position_import_dto()
+    chf_position.amount = Decimal("300.00")
+
+    eur_invoice = InvoiceImportDto(
+        number="EUR-001",
+        date=datetime.date(2023, 1, 1),
+        creditor="Test Creditor",
+        currency="EUR",
+        status=PaymentStatus.Unpaid,
+        positions=[eur_position],
+    )
+
+    usd_invoice = InvoiceImportDto(
+        number="USD-002",
+        date=datetime.date(2023, 1, 2),
+        creditor="Test Creditor",
+        currency="USD",
+        status=PaymentStatus.Unpaid,
+        conversion=ConversionImportDto(
+            target_currency="EUR",
+            exchange_rate=Decimal("0.85"),
+        ),
+        positions=[usd_position],
+    )
+
+    chf_invoice = InvoiceImportDto(
+        number="CHF-003",
+        date=datetime.date(2023, 1, 3),
+        creditor="Test Creditor",
+        currency="CHF",
+        status=PaymentStatus.Unpaid,
+        conversion=ConversionImportDto(
+            target_currency="EUR",
+            exchange_rate=Decimal("0.95"),
+        ),
+        positions=[chf_position],
+    )
+
+    import_dto = InvoiceListImportDto(invoices=[eur_invoice, usd_invoice, chf_invoice])
+
+    _ = import_invoices_from_dto_json(import_dto)
+
+    saved_invoices = repository.all()
+    invoice_by_number = {inv.number: inv for inv in saved_invoices}
+
+    eur_saved = invoice_by_number["EUR-001"]
+    usd_saved = invoice_by_number["USD-002"]
+    chf_saved = invoice_by_number["CHF-003"]
+
+    assert eur_saved.currency() == Currency.EUR
+    assert usd_saved.currency() == Currency.USD
+    assert chf_saved.currency() == Currency.CHF
+
+
+@pytest.mark.django_db
 @pytest.mark.parametrize(
     "assignments",
     [

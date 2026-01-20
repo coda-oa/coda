@@ -173,16 +173,23 @@ def build_positions_for_invoices(
     ) -> InvoiceProcessingError:
         return InvoiceProcessingError(invoice_dto.number, [str(ex)])
 
+    positions = {}
     with errors.capture(ValueError) as capture:
-        return {
-            invoice_key(invoice_dto): errors.results(
-                capture(
-                    parse_into_position, p, Currency.from_code(invoice_dto.currency), lookups
-                ).map_err(to_processing_error, invoice_dto)
-                for p in invoice_dto.positions
+        for invoice_dto in invoice_dtos:
+            currency = Currency.from_code(invoice_dto.currency)
+
+            # NOTE: important to use a list as an argument here!
+            # generator would capture currency variable lazily resulting in all invoices having the same currency!
+            positions[invoice_key(invoice_dto)] = errors.results(
+                [
+                    capture(parse_into_position, p, currency, lookups).map_err(
+                        to_processing_error, invoice_dto
+                    )
+                    for p in invoice_dto.positions
+                ]
             )
-            for invoice_dto in invoice_dtos
-        }
+
+    return positions
 
 
 def create_invoices_from_dtos(
