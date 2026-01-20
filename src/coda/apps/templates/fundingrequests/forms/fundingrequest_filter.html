@@ -58,7 +58,7 @@
                name="invalid_contract_years"
                id="invalid_contract_years"
                role="switch"
-               {% if request.GET.invalid_contract_years %}checked{% endif %}>
+               {% if request.GET.invalid_contract_years %} checked aria-checked="true" {% else %} aria-checked="false" {% endif %}>
         Show only requests with invalid contract years
     </label>
     <div class="form-row">

@@ -171,7 +171,7 @@ def test__update_publication_journal_and_contracts__updates_journal_and_contract
     expected_fundingrequest = repository.get_article_request(fr_id)
     expected_publication = expected_fundingrequest.publication
     expected_publication.journal = new_journal
-    expected_publication.contracts = tuple([contract_year])
+    expected_publication.contracts = (contract_year,)
 
     services.fundingrequests.update_publication_journal_and_contracts(
         fr_id, new_journal, contract_dtos

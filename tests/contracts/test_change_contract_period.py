@@ -46,7 +46,7 @@ def test__contract_period_changed__publication_referencing_contract_year_keeps_d
 
     journal = JournalId(modelfactory.journal().pk)
     publication = domainfactory.publication(journal=journal)
-    publication.contracts = tuple({contract.in_first_year()})
+    publication.contracts = (contract.in_first_year(),)
     publication.id = publication_repository.create(publication)
 
     contract.period = DateRange(date(2025, 1, 1), date(2026, 1, 1))

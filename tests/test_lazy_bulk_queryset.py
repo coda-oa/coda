@@ -34,7 +34,7 @@ class TestLazyBulkQuerySet:
         self, django_assert_num_queries: Any
     ) -> None:
         """Verify slicing only fetches the requested items, not all items."""
-        for i in range(100):
+        for _ in range(100):
             modelfactory.fundingrequest()
 
         queryset = FundingRequestModel.objects.all().order_by("id")

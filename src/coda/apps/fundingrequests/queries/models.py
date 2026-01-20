@@ -12,14 +12,11 @@ created for the detail view.
 import datetime
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from coda.domain.author import Role
 from coda.domain.orcid import Orcid
 from coda.domain.publication.links import Link
-
-if TYPE_CHECKING:
-    pass
 
 
 @dataclass
