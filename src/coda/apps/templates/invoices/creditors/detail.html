@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1 class="my-2">Creditor</h1>
+    <div class="flex justify-between align-center">
+        <h1 class="my-2">Creditor</h1>
+        <a href="{% url "invoices:creditor_update" pk=creditor.pk %}"
+           class="button secondary">Edit</a>
+    </div>
     {% if invoices %}
         <article>
             <h2 class="mb-2">{{ creditor.name }}</h2>
