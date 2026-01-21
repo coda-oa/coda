@@ -213,30 +213,275 @@ If your invoice includes a currency conversion, you can view costs in different 
 
 ## Importing Invoices
 
-CODA supports bulk invoice import via JSON files. This is useful for:
-- Migrating historical invoice data
-- Integrating with external accounting systems
-- Batch processing of multiple invoices
+CODA supports bulk invoice import via JSON files. This is useful for **Migrating** historical invoice data from legacy systems.
 
-To import invoices:
+### Accessing the Import Interface
 
-1. Navigate to **Finances** > **Invoices** and click **Import**
-2. Prepare your JSON file following the invoice import schema (download and example [here](/_static/downloads/invoices.json))
-3. Upload the file
-4. CODA validates and creates all invoices and positions
-5. Review the import results
+Navigate to **Finances** > **Invoices** and click the **Import** button.
 
-The import process automatically:
-- Creates new creditors if needed
-- Links positions to existing publications or contracts
-- Creates funding sources as specified
-- Updates publication payment statuses
+### Import File Format
+
+Invoices are imported using JSON files that follow a specific schema. The import file must contain:
+
+- An `invoices` array with one or more invoice objects
+- Each invoice must include at minimum:
+  - `number`: The invoice number (required)
+  - `date`: Invoice date in YYYY-MM-DD format (required)
+  - `creditor`: Creditor name (required, auto-created if doesn't exist)
+  - `currency`: Three-letter currency code (required)
+  - `status`: Payment status - "paid", "unpaid", or "rejected" (required)
+  - `positions`: Array of at least one position (required)
+
+**Minimal Example:**
+
+```json
+{
+  "invoices": [
+    {
+      "number": "INV-2024-001",
+      "date": "2024-12-15",
+      "creditor": "Example Publisher Ltd",
+      "currency": "EUR",
+      "status": "unpaid",
+      "positions": [
+        {
+          "type": "free",
+          "amount": 2000.00,
+          "description": "Article Processing Charge"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Full Example with All Features:**
+
+```json
+{
+  "invoices": [
+    {
+      "number": "INV-2024-12345",
+      "date": "2024-12-15",
+      "creditor": "Academic Publisher Inc",
+      "currency": "EUR",
+      "status": "paid",
+      "external_id": "EXT-12345",
+      "comment": "Annual APC invoice with multiple publications",
+      "conversion": {
+        "target_currency": "USD",
+        "exchange_rate": 1.08
+      },
+      "positions": [
+        {
+          "type": "publication",
+          "amount": 2000.00,
+          "tax_rate": 19.00,
+          "cost_type": "gold-oa",
+          "external_id": "POS-001",
+          "request_id": "20241215-ABCD1234",
+          "funding_assignments": [
+            {
+              "type": "budget",
+              "name": "Open Access Fund",
+              "amount": 1200.00
+            },
+            {
+              "type": "institution",
+              "name": "Partner University",
+              "amount": 800.00
+            }
+          ]
+        },
+        {
+          "type": "contract",
+          "amount": 50000.00,
+          "tax_rate": 19.00,
+          "cost_type": "publish",
+          "contract_name": "Transformative Agreement 2024",
+          "contract_year": 2024,
+          "funding_source": "Central Budget"
+        },
+        {
+          "type": "free",
+          "amount": 150.00,
+          "tax_rate": 19.00,
+          "cost_type": "colour charge",
+          "description": "Color figure charges",
+          "funding_assignments": [
+            {
+              "type": "budget",
+              "name": "Graphics Budget"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Import Schema Reference
+
+The complete JSON schema is available for download [here](/_static/downloads/invoice_import_schema.json). Key fields include:
+
+**Invoice Level:**
+- `number` (required): Invoice number as string
+- `date` (required): Date in YYYY-MM-DD format  
+- `creditor` (required): Creditor name (auto-created if doesn't exist)
+- `currency` (required): Three-letter currency code (EUR, USD, GBP, etc.)
+- `status` (required): "paid", "unpaid", or "rejected"
+- `external_id`: External system reference ID
+- `comment`: Notes about the invoice
+- `conversion`: Currency conversion with target currency and exchange rate
+- `positions` (required): Array of position objects
+
+**Position Types:**
+
+All positions share these common fields:
+- `type` (required): "publication", "contract", or "free"
+- `amount` (required): Cost amount (can be negative for credits)
+- `tax_rate`: Tax rate percentage (default: 19.00)
+- `funding_source`: Single funding source name (for backwards compatibility)
+- `funding_assignments`: Array of funding assignments for cost splitting
+- `external_id`: External system position reference
+
+**Publication Position:**
+- `request_id`: CODA funding request ID (e.g., "20241215-ABCD1234")
+- `legacy_request_id`: Legacy system request ID
+- `cost_type`: "gold-oa", "hybrid-oa", "publication charge", "colour charge", "page charge", "permission", "reprint", "submission fee", "payment fee", "vat", or "other" (default: "publication charge")
+
+**Contract Position:**
+- `contract_name` (required): Name of the contract
+- `contract_year` (required): Year as integer
+- `cost_type`: "publish", "read", or "vat"
+
+**Free Position:**
+- `description`: Descriptive text for the line item
+- `cost_type`: Same options as publication position (default: "other")
+
+**Funding Assignments (Cost Splitting):**
+- `type`: "budget" or "institution" (default: "budget")
+- `name` (required): Name of the budget or institution
+- `amount`: Specific amount assigned (optional - if omitted, remaining costs are split equally)
+
+### Using the Import Interface
+
+1. **Prepare your JSON file** following the schema
+2. Navigate to **Finances** > **Invoices**
+3. Click the **Import** button
+4. Upload your JSON file
+5. Click **Save** to start the import
+6. Review the import results
 
 ![](/_static/img/invoices_import.png)
 
-```{admonition} Import Schema
-The invoice import schema defines the exact JSON structure required. The schema supports all invoice features including publication positions, contract positions, free positions, funding assignments, and currency conversions. Please prepare your data according to the [example file](/_static/downloads/invoices.json) to match import requirements.
+### Import Behavior
+
+**Auto-Creation of Related Entities:**
+
+CODA automatically creates missing entities during import:
+
+- **Creditors**: If a creditor with the specified name doesn't exist, it's created
+- **Funding Sources**: Budgets are created if they don't exist
+- **Institution Funding Sources**: Matched by institution name; institutions must exist before import
+- **Currency Conversions**: Exchange rate conversions are stored with invoices
+
+**Duplicate Handling:**
+
+- **Creditors**: Matched by exact name (case-sensitive)
+- **Contracts**: Must exist with matching name and year, otherwise import fails for that position
+- **Funding Requests**: Publication positions require valid request_id or legacy_request_id
+- **Funding Sources**: Budget names are unique; institutions are matched by name
+
+**Cost Splitting:**
+
+Funding assignments support flexible cost allocation:
+
+- **Explicit Amounts**: Specify exact amounts for each funding source
+- **Implicit Splitting**: Omit amount field to split remaining costs equally
+- **Mixed Splitting**: Combine explicit and implicit - specify some amounts, let CODA split the rest
+- **Validation**: Total assigned amounts cannot exceed position cost
+
+Example of mixed splitting:
+```json
+{
+  "amount": 3000.00,
+  "funding_assignments": [
+    {"type": "budget", "name": "Fund A", "amount": 1000.00},
+    {"type": "budget", "name": "Fund B"},
+    {"type": "institution", "name": "Partner Uni"}
+  ]
+}
 ```
+Result: Fund A gets €1000, Fund B and Partner Uni split the remaining €2000 equally (€1000 each).
+
+**Payment Status:**
+
+Imported invoices can have any payment status:
+- **Unpaid**: Default for ongoing invoices
+- **Paid**: Historical invoices that were already paid
+- **Rejected**: Invoices that were disputed or cancelled
+
+**Validation:**
+
+The import validates all data:
+- Required fields must be present
+- Dates must be in YYYY-MM-DD format
+- Currencies must be valid three-letter codes
+- Cost amounts must be numeric
+- Tax rates must be valid percentages
+- Position types must be "publication", "contract", or "free"
+- Funding assignment amounts cannot exceed position costs
+- Contract years must be positive integers
+
+### Import Results
+
+After import, you'll see:
+
+**Success Message:**
+```
+Successfully imported 5 invoice(s).
+```
+
+**Partial Success with Errors:**
+```
+Successfully imported 3 invoice(s).
+2 invoice(s) failed to import. See details below.
+```
+
+**Error Details:**
+
+If invoices fail validation, you'll see specific error messages:
+
+```
+INV-2024-001: Contract 'TA 2024' with year 2024 not found
+INV-2024-002: Funding request with ID '20241215-INVALID' not found
+INV-2024-003: Total funding assignments (3500.00) exceed position cost (3000.00)
+```
+
+Each error references the invoice number for easy identification.
+
+
+### Command-Line Import
+
+For system administrators, CODA provides a command-line import tool:
+
+```bash
+# Using the shell script
+./commands/import_invoices.sh --production /path/to/invoices.json
+
+# Or for local environment
+./commands/import_invoices.sh --local /path/to/invoices.json
+```
+
+This is useful for:
+- Automated imports from scheduled exports
+- Integration with CI/CD pipelines
+- Large batch imports that might timeout in the browser
+- Scripted data migrations
+
+The command-line import provides the same validation and error reporting as the web interface.
 
 ## Deleting Invoices
 

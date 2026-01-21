@@ -4,14 +4,15 @@
 :maxdepth: 2
 fundingrequests
 funders
+journals
+publishers
+blocklist
 invoices
 creditors
 fundingsources
 contracts
-journals
-publishers
-institutions
 vocabularies
-preferences
+institutions
 reporting
+preferences
 ```

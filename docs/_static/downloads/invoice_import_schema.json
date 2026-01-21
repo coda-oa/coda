@@ -1,0 +1,401 @@
+{
+    "$defs": {
+        "ContractCostType": {
+            "description": "Enum representing the cost type for contracts based on the OpenCost schema.",
+            "enum": [
+                "publish",
+                "read",
+                "vat"
+            ],
+            "title": "ContractCostType",
+            "type": "string"
+        },
+        "FundingAssignmentImportDto": {
+            "properties": {
+                "type": {
+                    "default": "budget",
+                    "enum": [
+                        "budget",
+                        "institution"
+                    ],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "name": {
+                    "title": "Name",
+                    "type": "string"
+                },
+                "amount": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Amount"
+                }
+            },
+            "required": [
+                "name"
+            ],
+            "title": "FundingAssignmentImportDto",
+            "type": "object"
+        },
+        "ContractPositionImportDto": {
+            "properties": {
+                "type": {
+                    "const": "contract",
+                    "default": "contract",
+                    "title": "Type",
+                    "type": "string"
+                },
+                "amount": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "title": "Amount"
+                },
+                "tax_rate": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "default": "19.00",
+                    "title": "Tax Rate"
+                },
+                "funding_source": {
+                    "default": "",
+                    "title": "Funding Source",
+                    "type": "string"
+                },
+                "external_id": {
+                    "default": "",
+                    "title": "External Id",
+                    "type": "string"
+                },
+                "funding_assignments": {
+                    "default": [],
+                    "items": {
+                        "$ref": "#/$defs/FundingAssignmentImportDto"
+                    },
+                    "title": "Funding Assignments",
+                    "type": "array"
+                },
+                "contract_name": {
+                    "title": "Contract Name",
+                    "type": "string"
+                },
+                "contract_year": {
+                    "title": "Contract Year",
+                    "type": "integer"
+                },
+                "cost_type": {
+                    "$ref": "#/$defs/ContractCostType"
+                }
+            },
+            "required": [
+                "amount",
+                "contract_name",
+                "contract_year",
+                "cost_type"
+            ],
+            "title": "ContractPositionImportDto",
+            "type": "object"
+        },
+        "ConversionImportDto": {
+            "properties": {
+                "target_currency": {
+                    "title": "Target Currency"
+                },
+                "exchange_rate": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "title": "Exchange Rate"
+                }
+            },
+            "required": [
+                "target_currency",
+                "exchange_rate"
+            ],
+            "title": "ConversionImportDto",
+            "type": "object"
+        },
+        "FreePositionImportDto": {
+            "properties": {
+                "type": {
+                    "const": "free",
+                    "default": "free",
+                    "title": "Type",
+                    "type": "string"
+                },
+                "amount": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "title": "Amount"
+                },
+                "tax_rate": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "default": "19.00",
+                    "title": "Tax Rate"
+                },
+                "funding_source": {
+                    "default": "",
+                    "title": "Funding Source",
+                    "type": "string"
+                },
+                "external_id": {
+                    "default": "",
+                    "title": "External Id",
+                    "type": "string"
+                },
+                "funding_assignments": {
+                    "default": [],
+                    "items": {
+                        "$ref": "#/$defs/FundingAssignmentImportDto"
+                    },
+                    "title": "Funding Assignments",
+                    "type": "array"
+                },
+                "description": {
+                    "default": "",
+                    "title": "Description",
+                    "type": "string"
+                },
+                "cost_type": {
+                    "$ref": "#/$defs/PublicationCostType",
+                    "default": "other"
+                }
+            },
+            "required": [
+                "amount"
+            ],
+            "title": "FreePositionImportDto",
+            "type": "object"
+        },
+        "FundingRequestId": {},
+        "InvoiceImportDto": {
+            "properties": {
+                "number": {
+                    "minLength": 1,
+                    "title": "Number",
+                    "type": "string"
+                },
+                "date": {
+                    "format": "date",
+                    "title": "Date",
+                    "type": "string"
+                },
+                "creditor": {
+                    "minLength": 1,
+                    "title": "Creditor",
+                    "type": "string"
+                },
+                "currency": {
+                    "title": "Currency"
+                },
+                "status": {
+                    "$ref": "#/$defs/PaymentStatus"
+                },
+                "external_id": {
+                    "default": "",
+                    "title": "External Id",
+                    "type": "string"
+                },
+                "comment": {
+                    "default": "",
+                    "title": "Comment",
+                    "type": "string"
+                },
+                "conversion": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/ConversionImportDto"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null
+                },
+                "positions": {
+                    "items": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/$defs/PublicationPositionImportDto"
+                            },
+                            {
+                                "$ref": "#/$defs/ContractPositionImportDto"
+                            },
+                            {
+                                "$ref": "#/$defs/FreePositionImportDto"
+                            }
+                        ]
+                    },
+                    "title": "Positions",
+                    "type": "array"
+                }
+            },
+            "required": [
+                "number",
+                "date",
+                "creditor",
+                "currency",
+                "status",
+                "positions"
+            ],
+            "title": "InvoiceImportDto",
+            "type": "object"
+        },
+        "PaymentStatus": {
+            "enum": [
+                "paid",
+                "unpaid",
+                "rejected"
+            ],
+            "title": "PaymentStatus",
+            "type": "string"
+        },
+        "PublicationCostType": {
+            "description": "Enum representing the cost type based on the OpenCost schema.",
+            "enum": [
+                "gold-oa",
+                "hybrid-oa",
+                "vat",
+                "colour charge",
+                "page charge",
+                "permission",
+                "publication charge",
+                "reprint",
+                "submission fee",
+                "payment fee",
+                "other"
+            ],
+            "title": "PublicationCostType",
+            "type": "string"
+        },
+        "PublicationPositionImportDto": {
+            "properties": {
+                "type": {
+                    "const": "publication",
+                    "default": "publication",
+                    "title": "Type",
+                    "type": "string"
+                },
+                "amount": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "title": "Amount"
+                },
+                "tax_rate": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "default": "19.00",
+                    "title": "Tax Rate"
+                },
+                "funding_source": {
+                    "default": "",
+                    "title": "Funding Source",
+                    "type": "string"
+                },
+                "external_id": {
+                    "default": "",
+                    "title": "External Id",
+                    "type": "string"
+                },
+                "funding_assignments": {
+                    "default": [],
+                    "items": {
+                        "$ref": "#/$defs/FundingAssignmentImportDto"
+                    },
+                    "title": "Funding Assignments",
+                    "type": "array"
+                },
+                "request_id": {
+                    "$ref": "#/$defs/FundingRequestId",
+                    "default": null
+                },
+                "legacy_request_id": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Legacy Request Id"
+                },
+                "cost_type": {
+                    "$ref": "#/$defs/PublicationCostType",
+                    "default": "publication charge"
+                }
+            },
+            "required": [
+                "amount"
+            ],
+            "title": "PublicationPositionImportDto",
+            "type": "object"
+        }
+    },
+    "properties": {
+        "invoices": {
+            "items": {
+                "$ref": "#/$defs/InvoiceImportDto"
+            },
+            "title": "Invoices",
+            "type": "array"
+        }
+    },
+    "required": [
+        "invoices"
+    ],
+    "title": "InvoiceListImportDto",
+    "type": "object"
+}
