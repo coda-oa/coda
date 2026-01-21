@@ -100,7 +100,7 @@ def _process_invoices(
     lookups = _build_entity_lookups(valid_invoice_dtos)
     invoices, invoice_processing_errors = create_invoices_from_dtos(valid_invoice_dtos, lookups)
 
-    invoice_ids = repository.bulk_create(invoices)
+    invoice_ids = repository.create_many(invoices)
     _assign_invoice_ids(invoices, invoice_ids)
     update_publication_payment_statuses(invoices)
 

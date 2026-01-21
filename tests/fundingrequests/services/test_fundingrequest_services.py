@@ -5,17 +5,19 @@ from collections.abc import Callable, Iterable
 import pytest
 
 from coda.apps.contracts import repository as contract_repository
-from coda.apps.fundingrequests import repository, services
-from coda.apps.fundingrequests.dto import (
+from coda.apps.fundingrequests import repository
+from coda.contexts.fundingrequest import services
+from coda.contexts.fundingrequest.dto.commands import (
     ExternalFundingDto,
     ExtraContactDto,
     ExtraInformationDto,
     PaymentDto,
+    UpdatePublicationMetadataCommand,
     UpdateReviewDto,
 )
 from coda.apps.fundingrequests.repository import get_by_id
 from coda.apps.institutions.models import Institution
-from coda.apps.publications.repositories import publication_repository
+from coda.apps.publications.dto import ContractYearDto, PublicationDto
 from coda.domain.author import InstitutionId
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest import (
@@ -116,16 +118,67 @@ def test__create_fundingrequest__without_external_funding__creates_fundingreques
 
 
 @pytest.mark.django_db
-def test__fundingrequest__update_publication__updates_publication() -> None:
+def test__update_publication_metadata__updates_metadata_only() -> None:
+    """Test that metadata updates don't affect contracts/journal"""
     builder = ArticleRequestDataBuilder()
-    new_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
+    fr_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
+    original_fr = repository.get_article_request(fr_id)
 
-    builder = builder.with_new_publication()
-    services.fundingrequests.update_publication(new_id, builder.publication_dto())
+    new_builder = builder.with_new_publication(original_fr.publication.id)
+    dto = PublicationDto.from_publication(new_builder.publication)
+    metadata = UpdatePublicationMetadataCommand(
+        meta=dto.meta,
+        relevant_authors=dto.relevant_authors,
+        other_authors=dto.other_authors,
+        links=dto.links,
+    )
 
-    updated = get_by_id(new_id)
-    assert_publication_eq(updated.publication, builder.publication)
-    assert len(publication_repository.all()) == 1, "Should not create a new publication"
+    expected_publication = new_builder.publication
+    expected_publication.contracts = original_fr.publication.contracts
+    expected_publication.journal = original_fr.publication.journal
+
+    expected_fr = FundingRequest(
+        id=original_fr.id,
+        request_id=original_fr.request_id,
+        publication=expected_publication,
+        estimated_cost=original_fr.estimated_cost,
+        legacy_request_id=original_fr.legacy_request_id,
+        external_funding=original_fr.external_funding,
+        extra_contact=original_fr.extra_contact,
+        request_remarks=original_fr.request_remarks,
+        review=original_fr._review,
+    )
+
+    services.fundingrequests.update_publication_metadata(fr_id, metadata)
+
+    updated = get_by_id(fr_id)
+    assert_fundingrequest_eq(updated, expected_fr)
+
+
+@pytest.mark.django_db
+def test__update_publication_journal_and_contracts__updates_journal_and_contracts() -> None:
+    """Test that journal and contracts can be updated together"""
+    builder = ArticleRequestDataBuilder()
+    fr_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
+
+    new_journal = JournalId(modelfactory.journal().pk)
+
+    new_contract = domainfactory.contract()
+    new_contract.id = contract_repository.create(new_contract)
+    contract_year = new_contract.in_first_year()
+    contract_dtos = [ContractYearDto.from_contract_year(contract_year)]
+
+    expected_fundingrequest = repository.get_article_request(fr_id)
+    expected_publication = expected_fundingrequest.publication
+    expected_publication.journal = new_journal
+    expected_publication.contracts = (contract_year,)
+
+    services.fundingrequests.update_publication_journal_and_contracts(
+        fr_id, new_journal, contract_dtos
+    )
+
+    updated = repository.get_article_request(fr_id)
+    assert_fundingrequest_eq(updated, expected_fundingrequest)
 
 
 @pytest.mark.django_db
@@ -141,11 +194,15 @@ def test__fundingrequest__publication_with_same_contract_in_different_years__upd
     builder = ArticleRequestDataBuilder().with_contracts([first, second])
     new_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
 
-    builder = builder.with_contracts([first])
-    services.fundingrequests.update_publication(new_id, builder.publication_dto())
+    original_fr = repository.get_article_request(new_id)
+    contract_dtos = [ContractYearDto.from_contract_year(first)]
+    services.fundingrequests.update_publication_journal_and_contracts(
+        new_id, original_fr.publication.journal, contract_dtos
+    )
 
     updated = get_by_id(new_id)
-    assert_publication_eq(updated.publication, builder.publication)
+    assert len(updated.publication.contracts) == 1
+    assert updated.publication.contracts[0].year == first.year
 
 
 @pytest.mark.django_db

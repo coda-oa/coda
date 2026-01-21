@@ -1,10 +1,10 @@
 import datetime
 import enum
-from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from django.db.models import Q
+from django.db.models import F, Q, QuerySet
+from django.db.models.functions import ExtractYear
 
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.domain.date import DateRange
@@ -214,9 +214,39 @@ class PaymentMethodCriteria:
         return Q(payment_method__in=payment_methods)
 
 
-class FundingRequestSearchCriteria(Protocol):
+@dataclass
+class InvalidContractYearCriteria:
+    """Filter for funding requests with invalid contract years.
+
+    A contract year is invalid if it falls outside the contract's period:
+    - contract_year < YEAR(contract.start_date) OR
+    - contract_year > YEAR(contract.end_date)
+
+    If ANY attached contract year is invalid, the funding request matches.
+    """
+
+    show_only_invalid: bool = False
+
     def _to_query(self) -> Q:
-        ...
+        if not self.show_only_invalid:
+            return Q()
+
+        return Q(
+            Q(
+                publication__attached_contracts__contract_year__lt=ExtractYear(
+                    F("publication__attached_contracts__contract__start_date")
+                )
+            )
+            | Q(
+                publication__attached_contracts__contract_year__gt=ExtractYear(
+                    F("publication__attached_contracts__contract__end_date")
+                )
+            )
+        )
+
+
+class FundingRequestSearchCriteria(Protocol):
+    def _to_query(self) -> Q: ...
 
 
 def _to_query(*criteria: FundingRequestSearchCriteria) -> Q:
@@ -230,7 +260,7 @@ def _to_query(*criteria: FundingRequestSearchCriteria) -> Q:
 def search(
     *criteria: FundingRequestSearchCriteria,
     sort_order: SortOrder = SortOrder.default(),
-) -> Iterable[FundingRequest]:
+) -> QuerySet[FundingRequest]:
     return (
         FundingRequest.objects.filter(_to_query(*criteria))
         .distinct()
@@ -242,6 +272,7 @@ def search(
         .prefetch_related(
             "labels",
             "publication__relevant_authors",
+            "publication__attached_contracts__contract",
         )
         .order_by(sort_order)
     )

@@ -13,8 +13,11 @@ from coda.domain.publication.payment import (
 )
 
 
-def get_payment_status(publication: PublicationId) -> PublicationPaymentStatus:
-    contracts = publication_repository.get_contracts_for_publication(publication)
+def _determine_payment_status(
+    publication: PublicationId,
+    payments: PublicationPayments | None,
+    contracts: Iterable[ContractYear],
+) -> PublicationPaymentStatus:
     consolidated_billing = _consolidated_billing_contract(contracts)
 
     if consolidated_billing:
@@ -24,12 +27,42 @@ def get_payment_status(publication: PublicationId) -> PublicationPaymentStatus:
             contract_year=consolidated_billing.year,
         )
 
-    payments = payment_repository.find_payment(publication)
-
     if not payments:
         return PublicationPayments(publication)
 
     return payments
+
+
+def get_payment_status(publication: PublicationId) -> PublicationPaymentStatus:
+    contracts = publication_repository.get_contracts_for_publication(publication)
+    return _determine_payment_status(
+        publication,
+        payment_repository.find_payment(publication),
+        contracts,
+    )
+
+
+def get_payment_statuses(
+    publication_ids: list[PublicationId],
+) -> dict[PublicationId, PublicationPaymentStatus]:
+    """Bulk fetch payment statuses.
+
+    Replicates the logic of get_payment_status() but in bulk.
+
+    Args:
+        publication_ids: List of publication IDs to fetch statuses for
+
+    Returns:
+        Dict mapping publication ID to its payment status
+    """
+    contracts_by_pub = publication_repository.get_contracts_for_publications(publication_ids)
+    payments_by_pub = payment_repository.find_payments(publication_ids)
+    return {
+        pub_id: _determine_payment_status(
+            pub_id, payments_by_pub.get(pub_id), contracts_by_pub.get(pub_id, [])
+        )
+        for pub_id in publication_ids
+    }
 
 
 def update_payment(publication_id: PublicationId, payment_event: PaymentEvent) -> None:

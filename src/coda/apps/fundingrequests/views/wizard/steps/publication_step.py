@@ -7,13 +7,12 @@ from django.shortcuts import render
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorFormset
-from coda.apps.dto import CodaBaseDto
-from coda.apps.fundingrequests.services import fundingrequests
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
-from coda.apps.publications.dto import LinkDto, PublicationMetaDto
 from coda.apps.publications.forms import LinkForm, PublicationForm
 from coda.apps.publications.models import LinkType
 from coda.apps.wizard import Store, TemplateStep
+from coda.contexts.fundingrequest.dto.commands import UpdatePublicationMetadataCommand
+from coda.contexts.fundingrequest.services import fundingrequests
 from coda.domain.author import AuthorNames
 
 
@@ -23,13 +22,6 @@ class FormLike(Protocol):
 
     def full_clean(self) -> None:
         ...
-
-
-class PublicationStepDto(CodaBaseDto):
-    meta: PublicationMetaDto
-    relevant_authors: list[AuthorDto]
-    other_authors: list[str]
-    links: list[LinkDto]
 
 
 class PublicationStep(TemplateStep):
@@ -85,7 +77,7 @@ class PublicationStep(TemplateStep):
         if PublicationForm.form_posted(request.POST):
             return self.make_publication_form(request.POST)
         elif step_dto:
-            return PublicationForm.from_dto(PublicationStepDto(**step_dto).meta)
+            return PublicationForm.from_dto(UpdatePublicationMetadataCommand(**step_dto).meta)
         else:
             return self.make_publication_form()
 
@@ -129,7 +121,7 @@ class PublicationStep(TemplateStep):
         link_forms = self.link_forms(request)
         self.clean_all((publication_form, *link_forms))
 
-        store["publication_step"] = PublicationStepDto(
+        store["publication_step"] = UpdatePublicationMetadataCommand(
             relevant_authors=authors_formset.to_dtos(),
             meta=publication_form.to_dto(),
             other_authors=list(AuthorNames.from_str(request.POST.get("authors", ""))),

@@ -7,22 +7,18 @@ from django.test import Client
 from django.urls import reverse
 
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-from coda.apps.fundingrequests.dto import (
+from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
     ExternalFundingDto,
     ExtraContactDto,
     ExtraInformationDto,
     PaymentDto,
 )
-from coda.apps.fundingrequests.services import fundingrequests
+from coda.contexts.fundingrequest.services import fundingrequests
 from coda.apps.invoices.repository import create
 from coda.apps.publications.dto import PublicationDto
 from coda.contexts.finance.dto.detail_position_dtos import PositionDetailDto
-from coda.domain.finance.invoice import (
-    CreditorId,
-    Invoice,
-    InvoiceId,
-)
+from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.finance.invoice_positions import Position
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId, FundingRequest
 from coda.domain.publication.publication import JournalId, Publication

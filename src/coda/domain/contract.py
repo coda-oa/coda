@@ -1,6 +1,6 @@
 import datetime
 import enum
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NewType
 
@@ -14,6 +14,10 @@ if TYPE_CHECKING:
 
 class ContractId(int):
     __slots__ = ()
+
+
+# Type alias for contract fetching function
+GetContractById = Callable[[ContractId], "Contract"]
 
 
 PublisherId = NewType("PublisherId", int)
@@ -55,6 +59,9 @@ class Contract:
         return year in range(self.period.start.year, self.period.end.year + 1)
 
     def in_year(self, year: int) -> "ContractYear":
+        if not self.is_active_in_year(year):
+            raise InvalidContractYearError(year, self)
+
         return ContractYear(year, self)
 
     def in_year_or_first(self, year: int) -> "ContractYear":
@@ -76,10 +83,6 @@ class ContractYear:
 
     year: int
     contract: Contract
-
-    def __post_init__(self) -> None:
-        if not self.contract.is_active_in_year(self.year):
-            raise InvalidContractYearError(self.year, self.contract)
 
     def _contract_years(self) -> range:
         return range(self.contract.period.start.year, self.contract.period.end.year + 1)
@@ -106,6 +109,9 @@ class ContractYear:
     @property
     def journals(self) -> Iterable["JournalId"]:
         return self.contract.journals
+
+    def is_in_contract_period(self) -> bool:
+        return self.contract.is_active_in_year(self.year)
 
     def __str__(self) -> str:
         return f"{self.contract.name} ({self.year})"

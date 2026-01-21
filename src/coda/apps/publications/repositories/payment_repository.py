@@ -79,6 +79,39 @@ def find_payment(publication: PublicationId) -> PublicationPayments | None:
     return payments
 
 
+def find_payments(publication_ids: list[PublicationId]) -> dict[PublicationId, PublicationPayments]:
+    """Bulk fetch payments for multiple publications.
+
+    Uses select_related('invoice') to fetch invoice details.
+    """
+    payment_models = PublicationPaymentModel.objects.filter(
+        publication_id__in=publication_ids
+    ).select_related("invoice")
+
+    result: dict[PublicationId, PublicationPayments] = {}
+
+    for pm in payment_models:
+        pub_id = PublicationId(pm.publication_id)
+
+        if pub_id not in result:
+            result[pub_id] = PublicationPayments(pub_id)
+
+        payments = result[pub_id]
+
+        if pm.invoice is None:
+            raise ValueError("Payment record has no associated invoice")
+
+        invoice_id = InvoiceId(pm.invoice.id)
+        invoice_number = pm.invoice.number
+
+        if pm.status == "paid":
+            payments.paid_invoice(invoice_id, invoice_number)
+        elif pm.status == "invoice_received":
+            payments.received_invoice(invoice_id, invoice_number)
+
+    return result
+
+
 def bulk_save_payments(payment_updates: list[tuple[PublicationId, PaymentEvent]]) -> None:
     """
     Bulk update publication payment statuses for better performance during imports.

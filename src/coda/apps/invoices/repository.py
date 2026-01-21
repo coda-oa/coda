@@ -4,12 +4,13 @@ from decimal import Decimal
 from typing import TypeVar
 
 from django.db import transaction
-from django.db.models import Case, DecimalField, F, Q, QuerySet, Sum, Value, When
-from django.db.models.functions import Coalesce
+from django.db.models import Case, DecimalField, F, Q, Exists, OuterRef, QuerySet, Sum, Value, When
+from django.db.models.functions import Coalesce, ExtractYear
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices import mapper as invoice_mapper
 from coda.apps.invoices.models import Invoice as InvoiceModel
+from coda.apps.invoices.models import Position as PositionModel
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import (
     CreditorId,
@@ -91,6 +92,7 @@ def search(
     contract_id: str | int | None = None,
     contract_year: str | int | None = None,
     contract_positions_only: bool = False,
+    has_errors: bool | None = None,
 ) -> Sequence[InvoiceListItem]:
     query = (
         generic_search_criterion(generic_search)
@@ -100,6 +102,7 @@ def search(
         & external_id_criterion(has_external_id)
         & contract_criterion(contract_id, contract_positions_only)
         & contract_year_criterion(contract_year, contract_positions_only)
+        & has_errors_criterion(has_errors)
     )
 
     logging.info("Query: %s", query)
@@ -204,6 +207,48 @@ def contract_year_criterion(contract_year: str | int | None, positions_only: boo
     return query
 
 
+def _invalid_contract_year_filter() -> Q:
+    """
+    Returns a Q object that matches positions with invalid contract years.
+
+    A contract year is invalid if the year falls outside the contract's active period:
+    - contract_year < YEAR(contract.start_date) OR
+    - contract_year > YEAR(contract.end_date)
+
+    This logic is shared between the annotation (for display) and the filter criterion.
+    """
+    return Q(
+        contract__isnull=False,
+        contract_year__isnull=False,
+    ) & (
+        Q(contract_year__lt=ExtractYear(F("contract__start_date")))
+        | Q(contract_year__gt=ExtractYear(F("contract__end_date")))
+    )
+
+
+@empty_if_none
+def has_errors_criterion(has_errors: bool) -> Q:
+    """
+    Filter for invoices with errors.
+
+    Currently checks for:
+    - Invalid contract years (contract years outside the contract's active period)
+
+    When has_errors is True, returns only invoices with at least one error.
+    When has_errors is False or None, returns all invoices (no filtering).
+    """
+    if not has_errors:
+        return Q()
+
+    return Q(
+        Exists(
+            PositionModel.objects.filter(invoice_id=OuterRef("pk")).filter(
+                _invalid_contract_year_filter()
+            )
+        )
+    )
+
+
 def get_sorted_list_items(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[InvoiceListItem]:
     sort_functions = {
         "alphabetical": _ordered_alphabetically,
@@ -242,19 +287,18 @@ def _annotate_position_based_data(qs: QuerySet[InvoiceModel]) -> QuerySet[Invoic
         tax_total=Coalesce(
             Sum(
                 Case(
-                    When(
-                        positions__cost_type="vat",
-                        then=F("positions__cost_amount"),
-                    ),
+                    When(positions__cost_type="vat", then=F("positions__cost_amount")),
                     default=F("positions__cost_amount") * F("positions__tax_rate"),
                     output_field=DecimalField(),
                 )
             ),
             Decimal("0"),
         ),
-        first_position_currency=Coalesce(
-            "positions__cost_currency",
-            Value("EUR"),  # Default currency if no positions
+        first_position_currency=Coalesce("positions__cost_currency", Value("EUR")),
+        has_invalid_contract_years=Exists(
+            PositionModel.objects.filter(invoice_id=OuterRef("pk")).filter(
+                _invalid_contract_year_filter()
+            )
         ),
     )
 
@@ -271,13 +315,17 @@ def create(invoice: Invoice) -> InvoiceId:
 
 
 @transaction.atomic
-def bulk_create(invoices: Iterable[Invoice]) -> list[InvoiceId]:
+def create_many(invoices: Iterable[Invoice]) -> list[InvoiceId]:
+    # Convert to list to enable reuse in both bulk_create and synchronize_relationships_bulk
+    invoices_list = list(invoices)
+
+    # Bulk create invoice records
     models = InvoiceModel.objects.bulk_create(
-        invoice_mapper.as_django_model(invoice) for invoice in invoices
+        invoice_mapper.as_django_model(invoice) for invoice in invoices_list
     )
 
-    for invoice, invoice_model in zip(invoices, models):
-        invoice_mapper.synchronize_relationships(invoice, invoice_model)
+    # Use optimized bulk relationship synchronization (3 queries instead of 5N)
+    invoice_mapper.synchronize_relationships_bulk(invoices_list, models)
 
     return [InvoiceId(m.pk) for m in models]
 

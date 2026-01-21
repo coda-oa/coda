@@ -10,12 +10,12 @@ from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests.models import FundingOrganization, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
-from coda.apps.fundingrequests.services.checks import get_checkrun
-from coda.apps.fundingrequests.services.importservice import import_fundingrequests
-from coda.apps.fundingrequests.services.importservice.dto import (
+from coda.contexts.fundingrequest.services.checks import get_checkrun
+from coda.contexts.fundingrequest.services.import_service import import_fundingrequests
+from coda.contexts.fundingrequest.dto.import_dtos import (
     FundingRequestImportListDto,
 )
-from coda.apps.fundingrequests.services import labels as label_services
+from coda.contexts.fundingrequest.services import labels as label_services
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
 from coda.apps.journals import services as journal_services

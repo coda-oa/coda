@@ -1,3 +1,4 @@
+import datetime
 from collections.abc import Callable
 
 import pytest
@@ -5,9 +6,12 @@ from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
+from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository
 from coda.apps.users.models import User
+from coda.domain.date import DateRange
 from coda.domain.fundingrequest import FundingRequestId
+from tests import domainfactory
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
@@ -198,3 +202,51 @@ def test__updating_fundingrequest_funding__without_external_funding__updates_fun
     request = repository.get_by_id(fr_id)
     assert list(request.external_funding) == []
     assertRedirects(response, reverse("fundingrequests:detail", kwargs={"pk": fr_id}))
+
+
+@pytest.mark.django_db
+@UseWizardSubmitter.distinct(update_article_publication_wizard, update_monograph_publication_wizard)
+def test__existing_request_with_outdated_contract_year__update_publication_meta_with_early_complete__allows_invalid_contract_year(
+    client: Client,
+    get_builder: BuilderFactory[TDataBuilder],
+    get_wizard: UpdateWizardSubmitterFactory[TDataBuilder],
+) -> None:
+    contract = domainfactory.contract(
+        period=DateRange.create(
+            start=datetime.date(2024, 1, 1),
+            end=datetime.date(2025, 12, 31),
+        )
+    )
+    contract.id = contract_repository.create(contract)
+    contract_year = contract.in_first_year()
+
+    builder = get_builder().with_contracts([contract_year])
+    fr_id = repository.create(builder.build())
+
+    contract.period = DateRange.create(
+        start=datetime.date(2025, 1, 1),
+        end=datetime.date(2025, 12, 31),
+    )
+    contract_repository.update(contract)
+
+    # Get the existing publication to preserve journal/publisher and contracts
+    fr_before = repository.get_by_id(fr_id)
+
+    # Build expected state: new publication metadata, but preserve journal/publisher and contracts
+    updated_builder = builder.with_new_publication(fr_before.publication.id).with_contracts(
+        [contract_year]
+    )
+    from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
+    from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
+
+    if isinstance(updated_builder, ArticleRequestDataBuilder):
+        updated_builder = updated_builder.with_journal(fr_before.publication.journal)  # type: ignore
+    elif isinstance(updated_builder, MonographRequestDataBuilder):
+        updated_builder = updated_builder.with_publisher(fr_before.publication.publisher)  # type: ignore
+
+    wizard = get_wizard(client, fr_id, updated_builder)
+    wizard.step_iterator = complete_early_iterator(until=0)
+    wizard.submit_all()
+
+    actual = repository.get_by_id(fr_id)
+    assert_fundingrequest_eq(actual, updated_builder.expected)

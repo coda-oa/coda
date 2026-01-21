@@ -9,8 +9,8 @@ from coda.apps.publications.services import publications
 from coda.domain.contract import ContractYear, PublicationBilling
 from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.publication.payment import (
-    InvoiceReceived,
     InvoicePaymentReset,
+    InvoiceReceived,
     Payment,
     PublicationCoveredByContract,
     PublicationPaid,
@@ -40,7 +40,7 @@ def test__publication_with_paid_invoice__mark_paid__publication_is_paid() -> Non
 
 @pytest.mark.django_db
 def test__publication_without_invoice__has_no_payments() -> None:
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     publication = domainfactory.publication(journal)
     publication.id = publication_repository.create(publication)
 
@@ -254,6 +254,54 @@ def test__paid_publication__invoice_deleted__publication_has_no_payments() -> No
     assert payments.payments() == []
 
 
+@pytest.mark.django_db
+def test__many_publications__can_retrieve_many_payment_statuses_at_once() -> None:
+    paid_publication = create_publication()
+    invoice = pay_publication(paid_publication)
+    publications.update_payment(
+        paid_publication,
+        PublicationPaid(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number),
+    )
+
+    consolidated_billing_contract = domainfactory.contract()
+    consolidated_billing_contract.publication_billing = PublicationBilling.Consolidated
+    consolidated_billing_contract.id = contract_repository.create(consolidated_billing_contract)
+
+    consolidated_billing_contract_year = consolidated_billing_contract.in_first_year()
+    covered_by_contract_publication = create_publication(consolidated_billing_contract_year)
+
+    individual_billing_contract = domainfactory.contract()
+    individual_billing_contract.publication_billing = PublicationBilling.Individually
+    individual_billing_contract.id = contract_repository.create(individual_billing_contract)
+    individual_billing_contract_year = individual_billing_contract.in_first_year()
+    invoice_received_publication = create_publication(individual_billing_contract_year)
+    unpaid_invoice = create_invoice_for_publication(invoice_received_publication)
+    publications.update_payment(
+        invoice_received_publication,
+        InvoiceReceived(cast(InvoiceId, unpaid_invoice.id), unpaid_invoice.number),
+    )
+
+    actual = publications.get_payment_statuses(
+        [paid_publication, covered_by_contract_publication, invoice_received_publication]
+    )
+
+    first_payment = actual[paid_publication]
+    assert isinstance(first_payment, PublicationPayments)
+    assert first_payment.all_paid()
+
+    second_payment = actual[covered_by_contract_publication]
+    assert second_payment == PublicationCoveredByContract(
+        contract_id=consolidated_billing_contract.id,
+        contract_name=consolidated_billing_contract_year.name,
+        contract_year=consolidated_billing_contract_year.year,
+    )
+
+    third_payment = actual[invoice_received_publication]
+    assert isinstance(third_payment, PublicationPayments)
+    assert third_payment.has_pending_payments()
+    assert not third_payment.partially_paid()
+
+
 def pay_publication(publication: PublicationId) -> Invoice:
     invoice = create_invoice_for_publication(publication)
     invoice.pay()
@@ -263,7 +311,7 @@ def pay_publication(publication: PublicationId) -> Invoice:
 
 def create_invoice_for_publication(publication: PublicationId) -> Invoice:
     invoice = domainfactory.invoice(
-        creditor=CreditorId(modelfactory.creditor().id),
+        creditor=CreditorId(modelfactory.creditor().pk),
         positions=[domainfactory.publication_position(publication)],
     )
     invoice.reset_payment()
@@ -273,7 +321,7 @@ def create_invoice_for_publication(publication: PublicationId) -> Invoice:
 
 
 def create_publication(contract: ContractYear | None = None) -> PublicationId:
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     contracts = (contract,) if contract else ()
     publication = domainfactory.publication(journal, contracts=contracts)
     publication.id = publication_repository.create(publication)

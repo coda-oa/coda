@@ -8,9 +8,9 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
 from coda.apps.formbase import JsonUploadForm
-from coda.apps.fundingrequests.services import importservice
+from coda.contexts.fundingrequest.services import import_service
+from coda.contexts.fundingrequest.services.import_service import FundingRequestImportReport
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from coda.apps.fundingrequests.services.importservice._import import FundingRequestImportReport
 
 
 @login_required
@@ -28,7 +28,7 @@ def import_fundingrequests(request: HttpRequest) -> HttpResponse:
     import_file: UploadedFile = form.cleaned_data["import_file"]
 
     try:
-        report = importservice.import_fundingrequests(cast(BinaryIO, import_file))
+        report = import_service.import_fundingrequests(cast(BinaryIO, import_file))
         import_errors = _handle_import_errors(request, report)
     except pydantic.ValidationError as e:
         import_errors = [f"{error['loc']}: {error['msg']}" for error in e.errors()]

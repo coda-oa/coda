@@ -3,11 +3,16 @@ from typing import Any, cast
 
 import pytest
 
-from coda.apps.fundingrequests.services import checks, fundingrequests
+from coda.apps.contracts import repository as contract_repository
+from coda.contexts.fundingrequest.services import checks, fundingrequests
+from coda.contexts.fundingrequest.dto.commands import UpdatePublicationMetadataCommand
+from coda.apps.publications.dto import ContractYearDto, PublicationDto
 from coda.checks.checkfactory import CheckFactoryImpl
 from coda.checks.checklist import CheckResult, CheckRun, CheckSuccessful
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId, TPublication
 from coda.domain.publication import Monograph, Publication
+from coda.domain.publication.publication import JournalId
+from tests import domainfactory, modelfactory
 from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
 from tests.publications.test_publication_repository import assert_publication_eq
@@ -91,18 +96,48 @@ def test__creating_fundingrequest__runs_checks() -> None:
 
 
 @pytest.mark.django_db
-def test__updating_fundingrequest_publication__reruns_checks_with_updated_request() -> None:
+def test__updating_fundingrequest_publication_meta__reruns_checks_with_updated_request() -> None:
     checkfactory = CheckFactoryImpl()
     checkfactory.register(Publication, PublicationCheckSpy)
-    new_id = save_request()
+    builder = ArticleRequestDataBuilder()
+    new_id = fundingrequests.create_fundingrequest(builder.creation_dto())
 
-    updated_builder = ArticleRequestDataBuilder()
-    fundingrequests.update_publication(
-        new_id, updated_builder.publication_dto(), checkfactory=checkfactory
+    updated_builder = builder.with_contracts(builder.contract_years)
+    dto = PublicationDto.from_publication(updated_builder.publication)
+    metadata = UpdatePublicationMetadataCommand(
+        meta=dto.meta,
+        relevant_authors=dto.relevant_authors,
+        other_authors=dto.other_authors,
+        links=dto.links,
     )
+    fundingrequests.update_publication_metadata(new_id, metadata, checkfactory=checkfactory)
 
     actual_publication = PublicationCheckSpy.fundingrequest.publication
     assert_publication_eq(actual_publication, updated_builder.expected.publication)
+
+
+@pytest.mark.django_db
+def test__updating_fundingrequest_publication_contracts__reruns_checks_with_updated_request() -> (
+    None
+):
+    checkfactory = CheckFactoryImpl()
+    checkfactory.register(Publication, PublicationCheckSpy)
+    builder = ArticleRequestDataBuilder()
+    new_id = fundingrequests.create_fundingrequest(builder.creation_dto())
+
+    new_contract = domainfactory.contract()
+    new_contract.id = contract_repository.create(new_contract)
+    contract_year = new_contract.in_first_year()
+    contract_dtos = [ContractYearDto.from_contract_year(contract_year)]
+    new_journal = JournalId(modelfactory.journal().pk)
+
+    fundingrequests.update_publication_journal_and_contracts(
+        new_id, new_journal, contract_dtos, checkfactory=checkfactory
+    )
+
+    actual_publication: Publication = PublicationCheckSpy.fundingrequest.publication
+    assert list(actual_publication.contracts) == [contract_year]
+    assert actual_publication.journal == new_journal
 
 
 @pytest.mark.django_db

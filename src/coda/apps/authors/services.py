@@ -58,7 +58,17 @@ def author_create(author: Author, publication: PublicationId | None = None) -> A
 
 def create_many(authors: list[Author], publication: PublicationId | None = None) -> list[AuthorId]:
     person_ids = _assign_person_ids_for_authors(authors)
-    affiliations = [_find_affiliation(a.affiliation) for a in authors]
+
+    # Bulk fetch all institutions in one query instead of N queries
+    affiliation_ids = {a.affiliation for a in authors if a.affiliation}
+    affiliations_map: dict[InstitutionId, Institution] = {}
+    if affiliation_ids:
+        institutions = Institution.objects.filter(pk__in=affiliation_ids)
+        affiliations_map = {InstitutionId(inst.pk): inst for inst in institutions}
+
+    # Map affiliations to authors (None stays None, IDs are looked up)
+    affiliations = [affiliations_map.get(a.affiliation) if a.affiliation else None for a in authors]
+
     author_models = [
         AuthorModel(
             name=a.name,
@@ -70,6 +80,69 @@ def create_many(authors: list[Author], publication: PublicationId | None = None)
         )
         for a, pid, aff in zip(authors, person_ids, affiliations)
     ]
+    created = AuthorModel.objects.bulk_create(author_models)
+    return [AuthorId(a.pk) for a in created]
+
+
+def create_many_with_publications(
+    authors_with_pubs: list[tuple[Author, PublicationId]],
+) -> list[AuthorId]:
+    """Create multiple authors across different publications in one bulk operation.
+
+    Optimized for bulk imports where authors from many publications need to be
+    created together. Each author is created with its publication_id set.
+
+    Args:
+        authors_with_pubs: List of (Author, PublicationId) tuples. Each author
+                          will be created with the corresponding publication_id.
+
+    Returns:
+        List of created AuthorIds in the same order as input.
+
+    Example:
+        # Create authors for 2 publications in one operation
+        authors_with_pubs = [
+            (author1, pub_id_1),  # Author for publication 1
+            (author2, pub_id_1),  # Another author for publication 1
+            (author3, pub_id_2),  # Author for publication 2
+        ]
+        ids = create_many_with_publications(authors_with_pubs)
+        # Result: 3 authors created, each with correct publication_id
+    """
+    if not authors_with_pubs:
+        return []
+
+    # Separate authors and their publication IDs
+    authors = [author for author, _ in authors_with_pubs]
+    pub_ids = [pub_id for _, pub_id in authors_with_pubs]
+
+    # Assign PersonIDs for ALL authors (handles ORCID de-duplication)
+    person_ids = _assign_person_ids_for_authors(authors)
+
+    # Bulk fetch ALL unique institutions in one query
+    affiliation_ids = {a.affiliation for a in authors if a.affiliation}
+    affiliations_map: dict[InstitutionId, Institution] = {}
+    if affiliation_ids:
+        institutions = Institution.objects.filter(pk__in=affiliation_ids)
+        affiliations_map = {InstitutionId(inst.pk): inst for inst in institutions}
+
+    # Map institutions to authors (None if no affiliation)
+    affiliations = [affiliations_map.get(a.affiliation) if a.affiliation else None for a in authors]
+
+    # Bulk create ALL author models with their publication_ids
+    author_models = [
+        AuthorModel(
+            name=a.name,
+            email=a.email,
+            identifier=person_id,
+            affiliation=affiliation,
+            roles=serialize_role(a.role),
+            publication_id=pub_id,
+        )
+        for a, person_id, affiliation, pub_id in zip(authors, person_ids, affiliations, pub_ids)
+    ]
+
+    # Single bulk create for all authors across all publications
     created = AuthorModel.objects.bulk_create(author_models)
     return [AuthorId(a.pk) for a in created]
 
@@ -105,12 +178,23 @@ def _get_or_create_personids_by_orcid(authors_with_orcid: list[Orcid]) -> dict[O
 
 
 def _bulk_create_personids_without_orcid(count: int) -> list[PersonId]:
+    """Create PersonIds without ORCID in bulk.
+
+    Django's bulk_create() returns the created objects with IDs set (on PostgreSQL),
+    eliminating the need for a second query that would fetch all PersonIds without
+    ORCID from the database (which could be hundreds of thousands of records).
+
+    Args:
+        count: Number of PersonIds to create
+
+    Returns:
+        List of created PersonId objects in creation order
+    """
     if count == 0:
         return []
-    PersonId.objects.bulk_create([PersonId() for _ in range(count)])
-    objs = list(PersonId.objects.filter(orcid__isnull=True).order_by("-id")[:count])
-    objs.reverse()
-    return objs
+
+    person_ids = PersonId.objects.bulk_create([PersonId() for _ in range(count)])
+    return list(person_ids)
 
 
 def author_update(author: Author) -> Author:

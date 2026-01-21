@@ -51,19 +51,27 @@
             {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
             {% include "fundingrequests/forms/payment_status.html" %}
             {% include "fundingrequests/forms/label_dropdown.html" %}
-            <div class="form-row">
-                <label for="sort_by" class="form-row-item-sm">Sort by</label>
-                <select id="sort_by" name="sort_by">
-                    <option value="date_desc"
-                            {% if request.GET.sort_by == "date_desc" %}selected{% endif %}>Date descending</option>
-                    <option value="date_asc"
-                            {% if request.GET.sort_by == "date_asc" %}selected{% endif %}>Date ascending</option>
-                    <option value="alphabetical"
-                            {% if request.GET.sort_by == "alphabetical" %}selected{% endif %}>Alphabet</option>
-                </select>
-            </div>
         </p>
     </details>
+    <label class="my-1">
+        <input type="checkbox"
+               name="invalid_contract_years"
+               id="invalid_contract_years"
+               role="switch"
+               {% if request.GET.invalid_contract_years %} checked aria-checked="true" {% else %} aria-checked="false" {% endif %}>
+        Show only requests with invalid contract years
+    </label>
+    <div class="form-row">
+        <label for="sort_by" class="form-row-item-sm">Sort by</label>
+        <select id="sort_by" name="sort_by">
+            <option value="date_desc"
+                    {% if request.GET.sort_by == "date_desc" %}selected{% endif %}>Date descending</option>
+            <option value="date_asc"
+                    {% if request.GET.sort_by == "date_asc" %}selected{% endif %}>Date ascending</option>
+            <option value="alphabetical"
+                    {% if request.GET.sort_by == "alphabetical" %}selected{% endif %}>Alphabet</option>
+        </select>
+    </div>
     <div class="grid align-center">
         <button type="submit" class="my-0">Search</button>
         <a href="{% url "fundingrequests:list" %}"

@@ -67,27 +67,42 @@
             </div>
         </div>
     </details>
-    <div class="mb-1_5 mt-0_5">
-        <label for="has_external_id">
-            <input id="has_external_id"
-                   type="checkbox"
-                   role="switch"
-                   name="has_external_id"
-                   value="true"
-                   {% if request.GET.has_external_id == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
-            <span>Show invoices without external IDs</span>
-        </label>
-    </div>
-    <div class="mb-1">
-        <label for="has_foreign_currency">
-            <input id="has_foreign_currency"
-                   type="checkbox"
-                   role="switch"
-                   name="has_foreign_currency"
-                   value="true"
-                   {% if request.GET.has_foreign_currency == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
-            <span>Show invoices with foreign currencies and without conversion</span>
-        </label>
+    <div class="grid mt_05">
+        <div>
+            <div class="mb-1">
+                <label for="has_external_id">
+                    <input id="has_external_id"
+                           type="checkbox"
+                           role="switch"
+                           name="has_external_id"
+                           value="true"
+                           {% if request.GET.has_external_id == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
+                    <span>Show invoices without external IDs</span>
+                </label>
+            </div>
+            <div class="mb-1">
+                <label for="has_foreign_currency">
+                    <input id="has_foreign_currency"
+                           type="checkbox"
+                           role="switch"
+                           name="has_foreign_currency"
+                           value="true"
+                           {% if request.GET.has_foreign_currency == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
+                    <span>Show invoices with foreign currencies and without conversion</span>
+                </label>
+            </div>
+        </div>
+        <div class="mb-1">
+            <label for="has_errors">
+                <input id="has_errors"
+                       type="checkbox"
+                       role="switch"
+                       name="has_errors"
+                       value="true"
+                       {% if request.GET.has_errors == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
+                <span>Show invoices with errors</span>
+            </label>
+        </div>
     </div>
     <div class="form-row">
         <label for="sort_by" class="form-row-item-sm">Sort by</label>

@@ -1,7 +1,7 @@
 import pytest
 from django.test.client import RequestFactory
 
-from coda.apps.fundingrequests.dto import PaymentDto
+from coda.contexts.fundingrequest.dto.commands import PaymentDto
 from coda.apps.fundingrequests.forms import ExternalFundingFormset
 from coda.apps.fundingrequests.views.wizard.steps.funding_step import FundingStep
 from tests import modelfactory

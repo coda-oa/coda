@@ -1,11 +1,19 @@
+"""Command DTOs for fundingrequest context write operations.
+
+These DTOs are used for creating and updating funding requests.
+They maintain bidirectional conversion methods (from_*/to_*) for
+test data builders and domain object conversion.
+"""
+
 import datetime
 from collections.abc import Iterable
 from typing import Annotated
 
 from pydantic import AfterValidator, Field
 
+from coda.apps.authors.dto import AuthorDto
 from coda.apps.dto import CodaBaseDto
-from coda.apps.publications.dto import PublicationBaseDto
+from coda.apps.publications.dto import LinkDto, PublicationBaseDto, PublicationMetaDto
 from coda.domain.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -39,7 +47,7 @@ class PaymentDto(CodaBaseDto):
     def from_payment(cls, payment: Payment) -> "PaymentDto":
         """Creates a CostDto instance from a Payment object."""
         return cls(
-            amount=payment.amount.amount,
+            amount=float(payment.amount.amount),
             currency=payment.amount.currency.code,
             method=payment.method.value,
             external_costsplitting=payment.external_costsplitting,
@@ -123,6 +131,10 @@ class UpdateReviewDto(CodaBaseDto):
     result: str
 
 
+# Type alias for clarity when using UpdateReviewDto for creation
+CreateReviewDto = UpdateReviewDto
+
+
 class CreateFundingRequestDto(CodaBaseDto):
     publication: PublicationBaseDto
     payment: PaymentDto
@@ -130,3 +142,18 @@ class CreateFundingRequestDto(CodaBaseDto):
     funding: Iterable[ExternalFundingDto] = ()
     request_date: datetime.date = Field(default_factory=datetime.date.today)
     legacy_request_id: str = ""
+    review: CreateReviewDto | None = None
+
+
+class UpdatePublicationMetadataCommand(CodaBaseDto):
+    """Command for updating publication metadata.
+
+    Used by both the service layer (for updating funding requests) and the
+    view layer (for storing wizard step data). This shared DTO maintains
+    consistency across application boundaries.
+    """
+
+    meta: PublicationMetaDto
+    relevant_authors: list[AuthorDto]
+    other_authors: list[str]
+    links: list[LinkDto]
