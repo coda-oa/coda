@@ -12,17 +12,6 @@
                 crossorigin="anonymous"></script>
         {% load static %}
         <script>
-    <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>{{ title }}</title>
-        <link rel="stylesheet"
-              href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
-              crossorigin="anonymous" />
-        <script src="https://unpkg.com/htmx.org@2.0.0"
-                integrity="sha384-wS5l5IKJBvK6sPTKa2WZ1js3d947pvWXbPJ1OmWfEuxLgeHcEbjUUA5i9V5ZkpCw"
-                crossorigin="anonymous"></script>
-        {% load static %}
-        <script>
                   const root = document.documentElement;
                   const theme = localStorage.getItem('theme');
                   if (theme) root.setAttribute('data-theme', theme);

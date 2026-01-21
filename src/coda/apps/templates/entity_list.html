@@ -3,3 +3,6 @@
         <li>{% include list_item_template %}</li>
     {% endfor %}
 </ul>
+{% if entities|length == 0 and not request.GET.query and not request.GET.search_term %}
+    <p class="my-2">No items to display.</p>
+{% endif %}

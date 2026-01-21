@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import Literal, TYPE_CHECKING
 from collections.abc import Sequence
 
+from django.urls import reverse
+
 if TYPE_CHECKING:
     from .models import OpenCostReport, OpenCostReportContract, OpenCostReportPublication
 
@@ -49,7 +51,7 @@ def validate_report(
                     entity_type="contract",
                     entity_id=contract.contract.id,
                     entity_name=contract.contract_name,
-                    fix_url=f"/contracts/{contract.contract.id}/",
+                    fix_url=reverse("contracts:detail", kwargs={"pk": contract.contract.id}),
                 )
             )
 
@@ -61,7 +63,7 @@ def validate_report(
                     entity_type="global",
                     entity_id=contract.contract.id,
                     entity_name=contract.contract_name,
-                    fix_url="/preferences/",
+                    fix_url=reverse("preferences:global_preferences"),
                 )
             )
 
@@ -74,7 +76,7 @@ def validate_report(
                     entity_type="publication",
                     entity_id=pub.publication.id,
                     entity_name=pub.title,
-                    fix_url=f"/fundingrequests/{pub.publication.id}/",
+                    fix_url=reverse("fundingrequests:detail", kwargs={"pk": pub.publication.id}),
                 )
             )
 
@@ -86,7 +88,7 @@ def validate_report(
                     entity_type="global",
                     entity_id=pub.publication.id,
                     entity_name=pub.title,
-                    fix_url="/preferences/",
+                    fix_url=reverse("preferences:global_preferences"),
                 )
             )
 
