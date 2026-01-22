@@ -1,8 +1,5 @@
-from typing import cast
-
 from django.conf import settings
 from django.contrib import messages
-from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
@@ -25,8 +22,8 @@ def view(request: HttpRequest) -> HttpResponse:
         "pages/home.html",
         {
             "num_requests": FundingRequest.objects.count(),
-            "num_open_requests": cast(QuerySet[FundingRequest], open_requests).count(),
-            "num_rejected_requests": cast(QuerySet[FundingRequest], rejected_requests).count(),
-            "num_approved_requests": cast(QuerySet[FundingRequest], approved_requests).count(),
+            "num_open_requests": open_requests.count(),
+            "num_rejected_requests": rejected_requests.count(),
+            "num_approved_requests": approved_requests.count(),
         },
     )

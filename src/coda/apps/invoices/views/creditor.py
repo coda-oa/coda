@@ -38,7 +38,7 @@ class CreditorDetailView(LoginRequiredMixin, DetailView[Creditor]):
 class CreditorCreateView(LoginRequiredMixin, CreateView[Creditor, CreditorForm]):
     model = Creditor
     template_name = "generic_form_view.html"
-    fields = "__all__"  # type: ignore
+    fields = "__all__"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {"title": "Create Creditor"}
@@ -48,7 +48,7 @@ class CreditorCreateView(LoginRequiredMixin, CreateView[Creditor, CreditorForm])
 class CreditorUpdateView(LoginRequiredMixin, UpdateView[Creditor, CreditorForm]):
     model = Creditor
     template_name = "generic_form_view.html"
-    fields = "__all__"  # type: ignore
+    fields = "__all__"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {"title": "Edit Creditor"}
