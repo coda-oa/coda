@@ -1,3 +1,4 @@
+from typing import cast
 from django.db import models
 
 from coda.apps.publications.models import Vocabulary as VocabularyModel
@@ -15,17 +16,17 @@ def empty_vocabulary() -> VocabularyModel:
 def default_subject_classification_vocabulary() -> int:
     v = VocabularyModel.objects.filter(name="DFG Subject Classification").first()
     if not v:
-        return VocabularyModel.empty().id
+        return VocabularyModel.empty().pk
 
-    return v.id
+    return v.pk
 
 
 def default_publication_type_vocabulary() -> int:
     v = VocabularyModel.objects.filter(name="COAR Resource Types").first()
     if not v:
-        return VocabularyModel.empty().id
+        return VocabularyModel.empty().pk
 
-    return v.id
+    return v.pk
 
 
 class GlobalPreferences(models.Model):
@@ -39,37 +40,52 @@ class GlobalPreferences(models.Model):
     )
     subject_classification_vocabulary = models.ForeignKey(
         VocabularyModel,
-        on_delete=models.SET_DEFAULT,
-        default=default_subject_classification_vocabulary,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name="+",
     )
     article_publication_type_vocabulary = models.ForeignKey(
         VocabularyModel,
-        on_delete=models.SET_DEFAULT,
-        default=default_publication_type_vocabulary,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name="+",
     )
     monograph_publication_type_vocabulary = models.ForeignKey(
         VocabularyModel,
-        on_delete=models.SET_DEFAULT,
-        default=default_publication_type_vocabulary,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name="+",
     )
 
     @staticmethod
     def get_subject_classification_vocabulary() -> VocabularyProtocol:
         prefs, _ = GlobalPreferences.objects.get_or_create()
-        return vocabulary_repository.as_domain_object(prefs.subject_classification_vocabulary)
+        if prefs.subject_classification_vocabulary is None:
+            prefs.subject_classification_vocabulary_id = default_subject_classification_vocabulary()
+            prefs.save()
+
+        vocabulary = cast(VocabularyModel, prefs.subject_classification_vocabulary)
+        return vocabulary_repository.as_domain_object(vocabulary)
 
     @staticmethod
     def get_article_publication_type_vocabulary() -> VocabularyProtocol:
         prefs, _ = GlobalPreferences.objects.get_or_create()
-        return vocabulary_repository.as_domain_object(prefs.article_publication_type_vocabulary)
+        if prefs.article_publication_type_vocabulary is None:
+            prefs.article_publication_type_vocabulary_id = default_publication_type_vocabulary()
+            prefs.save()
+
+        vocabulary = cast(VocabularyModel, prefs.article_publication_type_vocabulary)
+        return vocabulary_repository.as_domain_object(vocabulary)
 
     @staticmethod
     def get_monograph_publication_type_vocabulary() -> VocabularyProtocol:
         prefs, _ = GlobalPreferences.objects.get_or_create()
-        return vocabulary_repository.as_domain_object(prefs.monograph_publication_type_vocabulary)
+        if prefs.monograph_publication_type_vocabulary is None:
+            prefs.monograph_publication_type_vocabulary_id = default_publication_type_vocabulary()
+            prefs.save()
+
+        vocabulary = cast(VocabularyModel, prefs.monograph_publication_type_vocabulary)
+        return vocabulary_repository.as_domain_object(vocabulary)
 
     @staticmethod
     def get_home_currency() -> Currency:
