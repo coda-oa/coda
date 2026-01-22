@@ -1,4 +1,4 @@
-FROM docker.io/python:3.12.3-slim-bookworm as python
+FROM docker.io/python:3.13-slim-bookworm as python
 
 ARG BUILD_ENVIRONMENT=production
 ARG APP_HOME=/app
