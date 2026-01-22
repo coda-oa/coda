@@ -122,7 +122,7 @@ def test_publication_with_same_contract_in_different_years__create__saves_with_a
     second = contract.in_year(2024)
 
     publication = publication_factory()
-    publication.contracts = (first, second)
+    publication.contracts = (second, first)
 
     id = publication_repository.create(publication)
 

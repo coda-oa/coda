@@ -1,7 +1,7 @@
 from collections.abc import Collection, Sequence
 from typing import Any, cast
 
-from django.db.models import Prefetch
+from django.db.models import Prefetch, QuerySet, Model
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.publications.models import Concept as ConceptModel
@@ -45,7 +45,9 @@ class VocabularyInUseError(DomainError):
 MAX_VOCABULARY_NESTING_DEPTH = 10
 
 
-def _build_recursive_base_vocab_prefetch(depth: int) -> Prefetch | None:
+def _build_recursive_base_vocab_prefetch(
+    depth: int,
+) -> Prefetch[str, QuerySet[Model, Model], str] | None:
     """Recursively build prefetch for nested base vocabularies.
 
     Args:
@@ -66,7 +68,7 @@ def _build_recursive_base_vocab_prefetch(depth: int) -> Prefetch | None:
     nested_prefetch = _build_recursive_base_vocab_prefetch(depth - 1)
 
     # Build prefetch list for this level
-    prefetch_list = [concepts_prefetch]
+    prefetch_list: list[Prefetch[str, QuerySet[Model, Model], str]] = [concepts_prefetch]
     if nested_prefetch:
         prefetch_list.append(nested_prefetch)
 
@@ -76,7 +78,9 @@ def _build_recursive_base_vocab_prefetch(depth: int) -> Prefetch | None:
     )
 
 
-def _get_prefetch_for_vocabularies() -> tuple[Prefetch, Prefetch]:
+def _get_prefetch_for_vocabularies() -> (
+    tuple[Prefetch[str, QuerySet[Model, Model], str], Prefetch[str, QuerySet[Model, Model], str]]
+):
     """Get prefetch objects for vocabularies with nested limited vocabulary support.
 
     This handles chains of limited vocabularies (e.g., Base -> Limited1 -> Limited2)

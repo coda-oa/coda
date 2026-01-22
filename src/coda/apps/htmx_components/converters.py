@@ -22,6 +22,7 @@ def to_htmx_formset_data(data: Sequence[TData], prefix: str = "") -> dict[str, l
 
 
 def _convert_to_dict(form: TData) -> dict[str, Any]:
+    _dict: dict[str, Any]
     if isinstance(form, dict):
         _dict = form
     elif is_dataclass(form):

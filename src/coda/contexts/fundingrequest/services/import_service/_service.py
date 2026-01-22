@@ -10,16 +10,6 @@ This module coordinates the import process:
 from typing import BinaryIO, TextIO
 from collections.abc import Iterable
 
-try:
-    from silk.profiling.profiler import silk_profile
-except (ImportError, RuntimeError):
-    # Silk not available in tests or not configured
-    def silk_profile(*args, **kwargs):  # type: ignore
-        def decorator(func):  # type: ignore
-            return func
-
-        return decorator
-
 
 from coda.apps.fundingrequests.models import Label
 from coda.contexts.fundingrequest.services import labels as label_services
@@ -34,7 +24,6 @@ from ._entity_creation import build_entity_lookups
 from ._parsing import parse_requests
 
 
-@silk_profile(name="Import funding requests")  # type: ignore
 def import_fundingrequests(json: TextIO | BinaryIO) -> FundingRequestImportReport:
     """Import funding requests from JSON stream.
 
