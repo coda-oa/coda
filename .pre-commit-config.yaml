@@ -33,13 +33,13 @@ repos:
         args: [--py311-plus]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v1.15.0'
+    rev: 'v1.19.1'
     hooks:
       - id: mypy
         args: [--strict, --ignore-missing-imports]
         additional_dependencies:
           [
-            'django<5.2',
+            'django<6.1',
             'django-test-migrations',
             'django-stubs[compatible-mypy]',
             'django-environ',
