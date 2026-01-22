@@ -41,7 +41,7 @@ def as_domain_object(model: invoice_models.Invoice) -> Invoice:
         creditor=CreditorId(model.creditor.pk),
         status=PaymentStatus(model.status),
         positions=LazyCachedIterable(
-            _as_position_domain_object(position) for position in model.positions.all()
+            _as_position_domain_object(position) for position in model.positions.order_by("id")
         ),
         comment=model.comment,
         external_invoice_id=model.external_invoice_id,
