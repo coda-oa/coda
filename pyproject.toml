@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = [{ name = "Sven Marcus", email = "sven.marcus@tu-braunschweig.de" }]
 dependencies = [
-  "django<5.2",
+  "django<6.1",
   "django-environ>=0.11.2",
   "psycopg>=3.1.12",
   "django-stubs-ext>=4.2.7",
@@ -19,7 +19,7 @@ dependencies = [
   "fastexcel>=0.12.0",
   "pydantic-extra-types>=2.10.2",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 
@@ -37,7 +37,7 @@ build-backend = "pdm.backend"
 
 [tool.pdm.scripts]
 coverage = "pytest --cov"
-unittests = "pytest -m 'not integration and not migration_test' --ff"
+unittests = "pytest -m 'not integration and not migration_test and not performance' --ff"
 migrationtests = "pytest -m 'migration_test' --ff"
 alltests = "pytest -vv"
 

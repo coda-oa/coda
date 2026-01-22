@@ -5,10 +5,10 @@
 groups = ["default", "dev", "docs"]
 strategy = []
 lock_version = "4.5.0"
-content_hash = "sha256:3fc062e97568220f33577cc4f0b467cdcf4d6e2c990eb9fc26036e0c7c9ae7bb"
+content_hash = "sha256:15685b8fe703f26fa156b70ab9fb82f5d1f121c2606bdaf612ea342b569bcfcd"
 
 [[metadata.targets]]
-requires_python = ">=3.11"
+requires_python = ">=3.12"
 
 [[package]]
 name = "accessible-pygments"
@@ -110,15 +110,15 @@ files = [
 
 [[package]]
 name = "asgiref"
-version = "3.8.1"
-requires_python = ">=3.8"
+version = "3.11.0"
+requires_python = ">=3.9"
 summary = "ASGI specs, helper code, and adapters"
 dependencies = [
     "typing-extensions>=4; python_version < \"3.11\"",
 ]
 files = [
-    {file = "asgiref-3.8.1-py3-none-any.whl", hash = "sha256:3e1e3ecc849832fe52ccf2cb6686b7a55f82bb1d6aee72a58826471390335e47"},
-    {file = "asgiref-3.8.1.tar.gz", hash = "sha256:c343bd80a0bec947a9860adb4c432ffa7db769836c64238fc34bdc3fec84d590"},
+    {file = "asgiref-3.11.0-py3-none-any.whl", hash = "sha256:1db9021efadb0d9512ce8ffaf72fcef601c7b73a8807a1bb2ef143dc6b14846d"},
+    {file = "asgiref-3.11.0.tar.gz", hash = "sha256:13acff32519542a1736223fb79a715acdebe24286d98e8b164a73085f40da2c4"},
 ]
 
 [[package]]
@@ -497,17 +497,17 @@ files = [
 
 [[package]]
 name = "django"
-version = "5.1.8"
-requires_python = ">=3.10"
+version = "6.0.1"
+requires_python = ">=3.12"
 summary = "A high-level Python web framework that encourages rapid development and clean, pragmatic design."
 dependencies = [
-    "asgiref<4,>=3.8.1",
-    "sqlparse>=0.3.1",
+    "asgiref>=3.9.1",
+    "sqlparse>=0.5.0",
     "tzdata; sys_platform == \"win32\"",
 ]
 files = [
-    {file = "Django-5.1.8-py3-none-any.whl", hash = "sha256:11b28fa4b00e59d0def004e9ee012fefbb1065a5beb39ee838983fd24493ad4f"},
-    {file = "Django-5.1.8.tar.gz", hash = "sha256:42e92a1dd2810072bcc40a39a212b693f94406d0ba0749e68eb642f31dc770b4"},
+    {file = "django-6.0.1-py3-none-any.whl", hash = "sha256:a92a4ff14f664a896f9849009cb8afaca7abe0d6fc53325f3d1895a15253433d"},
+    {file = "django-6.0.1.tar.gz", hash = "sha256:ed76a7af4da21551573b3d9dfc1f53e20dd2e6c7d70a3adc93eedb6338130a5f"},
 ]
 
 [[package]]
