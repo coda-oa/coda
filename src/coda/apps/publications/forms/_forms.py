@@ -193,9 +193,13 @@ class PublicationForm(CodaFormBase):
         return cast(datetime.date, self.cleaned_data[key]).isoformat()
 
 
+def _link_type_choices() -> list[tuple[str, str]]:
+    return [(lt, lt) for lt in LinkType.objects.values_list("name", flat=True)]
+
+
 class LinkForm(forms.Form):
     use_required_attribute = False
-    link_type = forms.ChoiceField(choices=lambda: LinkType.objects.values_list("name", "name"))
+    link_type = forms.ChoiceField(choices=_link_type_choices)
     link_value = forms.CharField()
 
     def full_clean(self) -> None:

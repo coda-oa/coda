@@ -235,9 +235,11 @@ def get_contracts_for_publications(
 
     Uses select_related to fetch contract details in single query.
     """
-    attached_contracts = AttachedContract.objects.filter(
-        publication_id__in=publication_ids
-    ).select_related("contract")
+    attached_contracts = (
+        AttachedContract.objects.filter(publication_id__in=publication_ids)
+        .select_related("contract")
+        .order_by("id")
+    )
 
     result: dict[PublicationId, list[ContractYear]] = {}
     for ac in attached_contracts:
@@ -286,7 +288,7 @@ def _common_args(model: PublicationModel) -> "_CommonPublicationArgs":
         publication_state=_deserialize_publication_state(model),
         contracts=tuple(
             ContractYear(c.contract_year, contract_mapper.as_domain_object(c.contract))
-            for c in model.attached_contracts.all()
+            for c in model.attached_contracts.order_by("id")
         ),
         links=_deserialize_links(model.links.all()),
     )
