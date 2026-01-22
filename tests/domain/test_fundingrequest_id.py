@@ -97,3 +97,25 @@ def test__two_fundingrequest_ids__with_different_date_and_same_number__are_not_e
 
     assert first != second
     assert hash(first) != hash(second)
+
+
+def test__request_id_str_random_part_too_short__from_str__raises_error() -> None:
+    invalid = "coda-20241215-ABCD1234"
+
+    with pytest.raises(ValueError):
+        PublicFundingRequestId.from_str(invalid)
+
+
+@pytest.mark.parametrize(
+    "invalid_date_str",
+    ("20241315", "20241232", "11215"),
+    ids=("invalid month", "invalid day", "too short"),
+)
+def test__request_id_str_invalid_data_part__from_str__raises_error(invalid_date_str: str) -> None:
+    number = 247728699672827170
+    unpadded_url_encoded_number = "A3Ab8JirFSI"
+    damm_checksum = damm.checksum(number)
+
+    request_id_str = f"coda-{invalid_date_str}-{unpadded_url_encoded_number}{damm_checksum}"
+    with pytest.raises(ValueError):
+        PublicFundingRequestId.from_str(request_id_str)
