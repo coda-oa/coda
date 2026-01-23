@@ -331,10 +331,8 @@ def test__publication_position_with_invalid_request_id__import_invoices__returns
     request_id: str,
 ) -> None:
     """
-    Regression test: A publication position with an invalid request_id format
+    Regression test: A publication position with an invalid request_id format or non existing publication
     should raise a validation error, not be silently converted to a free position.
-
-    The request_id must be in format 'coda-YYYYMMDD-XXXX', not 'YYYYMMDD-XXXX'.
     """
     invalid_data = {
         "invoices": [
@@ -350,7 +348,7 @@ def test__publication_position_with_invalid_request_id__import_invoices__returns
                         "amount": 2000.00,
                         "tax_rate": 19.00,
                         "cost_type": "gold-oa",
-                        "request_id": request_id,  # Invalid format (missing 'coda-' prefix)
+                        "request_id": request_id,
                     }
                 ],
             }
@@ -426,7 +424,6 @@ def test__invoice_with_budget_and_non_existing_institution__import_invoices__doe
 
 @pytest.mark.django_db
 def test__multiple_invalid_invoices__import_invoices__returns_errors_per_invoice() -> None:
-    # Create invalid JSON data that will fail validation
     invalid_data = {
         "invoices": [
             {
@@ -460,7 +457,6 @@ def test__multiple_invalid_invoices__import_invoices__returns_errors_per_invoice
 
 @pytest.mark.django_db
 def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
-    # Create invalid JSON data without a number field
     invalid_data = {
         "invoices": [
             {
@@ -479,7 +475,7 @@ def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 1
-    assert "<unknown-0>" in actual.invoices_with_errors()  # Fallback key when number is missing
+    assert "<unknown-0>" in actual.invoices_with_errors()
 
 
 PaidInvoicePaymentFixture = (
