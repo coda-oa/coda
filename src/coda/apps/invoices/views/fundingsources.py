@@ -1,8 +1,11 @@
+from collections.abc import Sequence
 from typing import Any
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpRequest
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, UpdateView
 
+from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.forms import FundingSourceForm
 from coda.apps.invoices.models import FundingSource
 from coda.apps.views import SimpleSearchEntityListView
@@ -46,6 +49,16 @@ class FundingSourceListView(LoginRequiredMixin, SimpleSearchEntityListView[Fundi
     entity_list_item_template = "invoices/fundingsources/list.html"
     entity_filter_template = "entity_generic_filter.html"
     use_generic_entity_filter = True
+
+    def get_entities(self, request: HttpRequest) -> Sequence[FundingSource]:
+        if request.GET.get("query"):
+            fs = FundingSource.objects.filter(
+                type="budget", name__icontains=request.GET.get("query", "")
+            )
+        else:
+            fs = FundingSource.objects.filter(type="budget")
+
+        return DomainQuerySet(fs, lambda fs: fs)
 
 
 fundingsource_listview = FundingSourceListView.as_view()
