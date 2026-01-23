@@ -48,7 +48,7 @@ class PublicFundingRequestId:
     @classmethod
     def from_str(cls, id_str: str) -> "PublicFundingRequestId":
         parts = id_str.split("-", maxsplit=2)
-        if len(parts) != 3 or parts[0] != "coda":
+        if len(parts) != 3 or parts[0] != "coda" or len(parts[2]) != 12:
             raise InvalidFundingRequestId.invalid(id_str)
 
         date = datetime.datetime.strptime(parts[1], "%Y%m%d").date()

@@ -257,6 +257,21 @@ def test__invoice_with_split_institution_position__import_invoices__creates_inst
 
 
 @pytest.mark.django_db
+def test__invoice_with_non_existing_publication_position__import_invoices__does_not_import_invoice() -> (
+    None
+):
+    invalid_dto = invoice_dto(
+        number="INV-001", positions=[non_existing_publication_position_import_dto()]
+    )
+
+    actual = import_invoices_from_dto_json(InvoiceListImportDto(invoices=[invalid_dto]))
+
+    assert "INV-001" in actual.invoices_with_errors()
+    assert actual.valid_invoices == 0
+    assert len(repository.search(generic_search="INV-001")) == 0
+
+
+@pytest.mark.django_db
 def test__one_invoice_with_non_existing_publication_position__import_invoices__still_imports_other_invoices() -> (
     None
 ):
@@ -304,6 +319,49 @@ def test__invalid_invoice_head_data__import_invoices__returns_error_report() -> 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 1
     assert "INV-001" in actual.invoices_with_errors()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "request_id",
+    ("20241215-ABCD1234", "coda-20241215-ABCD1234", "coda-20241215-ABCD12341234"),
+    ids=("invalid format", "too short", "non existing request id"),
+)
+def test__publication_position_with_invalid_request_id__import_invoices__returns_validation_error(
+    request_id: str,
+) -> None:
+    """
+    Regression test: A publication position with an invalid request_id format or non existing publication
+    should raise a validation error, not be silently converted to a free position.
+    """
+    invalid_data = {
+        "invoices": [
+            {
+                "number": "INV-001",
+                "date": "2024-12-15",
+                "creditor": "Test Creditor",
+                "currency": "EUR",
+                "status": "unpaid",
+                "positions": [
+                    {
+                        "type": "publication",
+                        "amount": 2000.00,
+                        "tax_rate": 19.00,
+                        "cost_type": "gold-oa",
+                        "request_id": request_id,
+                    }
+                ],
+            }
+        ]
+    }
+
+    json_stream = io.StringIO(json.dumps(invalid_data))
+    actual = import_invoices(json_stream)
+
+    assert actual.valid_invoices == 0
+    assert actual.invalid_invoices == 1
+    assert "INV-001" in actual.invoices_with_errors()
+    assert len(repository.all()) == 0
 
 
 @pytest.mark.django_db
@@ -366,7 +424,6 @@ def test__invoice_with_budget_and_non_existing_institution__import_invoices__doe
 
 @pytest.mark.django_db
 def test__multiple_invalid_invoices__import_invoices__returns_errors_per_invoice() -> None:
-    # Create invalid JSON data that will fail validation
     invalid_data = {
         "invoices": [
             {
@@ -400,7 +457,6 @@ def test__multiple_invalid_invoices__import_invoices__returns_errors_per_invoice
 
 @pytest.mark.django_db
 def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
-    # Create invalid JSON data without a number field
     invalid_data = {
         "invoices": [
             {
@@ -419,7 +475,7 @@ def test__invoice_without_number__import_invoices__uses_fallback_key() -> None:
 
     assert actual.valid_invoices == 0
     assert actual.invalid_invoices == 1
-    assert "<unknown-0>" in actual.invoices_with_errors()  # Fallback key when number is missing
+    assert "<unknown-0>" in actual.invoices_with_errors()
 
 
 PaidInvoicePaymentFixture = (

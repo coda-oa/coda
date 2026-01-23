@@ -26,7 +26,6 @@ class FundingAssignmentImportDto(BaseModel):
 
 
 class CommonPositionImportDto(BaseModel, ABC):
-    type: PositionType
     amount: Decimal
     tax_rate: Decimal = DEFAULT_TAX_RATE
     funding_source: str = ""
@@ -46,10 +45,13 @@ def _validate_request_id(value: str | None) -> str | None:
 
 
 type FundingRequestId = Annotated[str | None, PlainValidator(_validate_request_id)]
+type PositionImportDto = (
+    "PublicationPositionImportDto | ContractPositionImportDto | FreePositionImportDto"
+)
 
 
 class PublicationPositionImportDto(CommonPositionImportDto):
-    type: PositionType = "publication"
+    type: Literal["publication"] = "publication"
     request_id: FundingRequestId = None
     legacy_request_id: str | None = None
     cost_type: PublicationCostType = PublicationCostType.Publication_Charge
@@ -63,14 +65,14 @@ class PublicationPositionImportDto(CommonPositionImportDto):
 
 
 class ContractPositionImportDto(CommonPositionImportDto):
-    type: PositionType = "contract"
+    type: Literal["contract"] = "contract"
     contract_name: str
     contract_year: int
     cost_type: ContractCostType
 
 
 class FreePositionImportDto(CommonPositionImportDto):
-    type: PositionType = "free"
+    type: Literal["free"] = "free"
     description: str = ""
     cost_type: PublicationCostType = PublicationCostType.Other
 
@@ -90,7 +92,10 @@ class InvoiceImportDto(BaseModel):
     comment: str = ""
     conversion: ConversionImportDto | None = None
     positions: list[
-        PublicationPositionImportDto | ContractPositionImportDto | FreePositionImportDto
+        Annotated[
+            PublicationPositionImportDto | ContractPositionImportDto | FreePositionImportDto,
+            Field(discriminator="type"),
+        ]
     ]
 
 

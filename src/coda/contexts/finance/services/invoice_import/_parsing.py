@@ -7,10 +7,10 @@ including position parsing and invoice construction.
 from typing import cast
 
 from coda.contexts.finance.dto.import_dtos import (
-    CommonPositionImportDto,
     ContractPositionImportDto,
     FreePositionImportDto,
     InvoiceImportDto,
+    PositionImportDto,
     PublicationPositionImportDto,
 )
 from coda.contexts.finance.services.invoice_import.types import (
@@ -33,7 +33,7 @@ from coda.domain.money import Currency, Money
 
 
 def parse_into_position(
-    p: CommonPositionImportDto, currency: Currency, lookups: ImportLookups
+    p: PositionImportDto, currency: Currency, lookups: ImportLookups
 ) -> Position:
     """Parse import DTO into a domain Position object.
 
