@@ -53,11 +53,12 @@ class InstitutionLinkFormMixin:
 
         for link_form in link_forms:
             link_data = link_form.get_form_data()
-            if link_data["type_id"] and link_data["value"]:
+            if link_data["link_type"] and link_data["link_value"]:
+                link_type = InstitutionLinkType.objects.get(name=link_data["link_type"])
                 InstitutionLink.objects.create(
                     institution=institution,
-                    type_id=link_data["type_id"],
-                    value=link_data["value"],
+                    type=link_type,
+                    value=link_data["link_value"],
                 )
         return True
 
@@ -135,7 +136,7 @@ class UpdateInstitutionView(
             return self.assemble_link_data()
         elif self.object:
             return [
-                {"link": {"type_id": link.type_id, "value": link.value}, "errors": {}}
+                {"link": {"link_type": link.type.name, "link_value": link.value}, "errors": {}}
                 for link in self.object.links.all()
             ]
         return []
