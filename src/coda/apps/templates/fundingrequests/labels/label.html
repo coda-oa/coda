@@ -4,8 +4,8 @@
     {% csrf_token %}
     <input type="hidden" name="fundingrequest" value="{{ funding_request.id }}">
     <input type="hidden" name="label" value="{{ label.id }}">
-    <span style="--label-bg-color: {{ label.color }};
-                 --label-border-color: {{ label.color }}"
+    <span style="--label-bg-color: {{ label.hexcolor }};
+                 --label-border-color: {{ label.hexcolor }}"
           class="flex align-center label">{{ label }}
         <button type="submit" class="label__button-remove">x</button>
     </span>
