@@ -25,5 +25,6 @@ def view(request: HttpRequest) -> HttpResponse:
             "num_open_requests": open_requests.count(),
             "num_rejected_requests": rejected_requests.count(),
             "num_approved_requests": approved_requests.count(),
+            "title": "CODA Dashboard",
         },
     )

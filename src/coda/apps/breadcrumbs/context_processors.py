@@ -119,7 +119,11 @@ def breadcrumb_context(request: HttpRequest) -> dict[str, Any]:
 
     breadcrumbs = _add_home_breadcrumb(request, breadcrumbs, current_page_title)
 
-    return {"breadcrumbs": breadcrumbs, "current_page_title": current_page_title}
+    return {
+        "breadcrumbs": breadcrumbs,
+        "current_page_title": current_page_title,
+        "title": current_page_title,
+    }
 
 
 def _add_home_breadcrumb(
