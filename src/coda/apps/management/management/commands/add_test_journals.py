@@ -12,7 +12,7 @@ from coda.domain.contract import PublicationBilling
 
 
 class Command(BaseCommand):
-    help = "Add journals for testing purposes from GitHub"
+    help = "Add journals from GitHub"
 
     @transaction.atomic
     def handle(self, *args: Any, **options: Any) -> None:
@@ -25,9 +25,9 @@ class Command(BaseCommand):
         journals = self.add_journals(df)
         self.stdout.write(f"Added {len(journals)} journals")
 
-        self.stdout.write("Parsing contracts")
-        contracts = self.add_contracts(df)
-        self.stdout.write(f"Added {len(contracts)} contracts")
+        # self.stdout.write("Parsing contracts")
+        # contracts = self.add_contracts(df)
+        # self.stdout.write(f"Added {len(contracts)} contracts")
 
     def download_test_data(self) -> pl.DataFrame:
         self.stdout.write("Downloading journals from GitHub")
