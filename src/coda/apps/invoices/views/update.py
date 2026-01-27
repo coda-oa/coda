@@ -59,7 +59,7 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
 @require_GET
 @login_required
 def free_position_cost_type_options(request: HttpRequest) -> HttpResponse:
-    cost_type = request.GET.get("free-position-cost-type")
+    cost_type = request.GET.get("free-position-item-cost_type")
 
     if cost_type == "vat":
         return HttpResponse("")

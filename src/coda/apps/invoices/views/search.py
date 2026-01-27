@@ -1,6 +1,7 @@
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
@@ -12,9 +13,13 @@ from coda.apps.publications.models import Publication
 
 @login_required
 def search_publications(request: HttpRequest) -> HttpResponse:
-    query = request.POST.get("q", "")
+    query = request.POST.get("q", "").strip()
     if query:
-        publications = Publication.objects.filter(title__icontains=query)
+        publications = Publication.objects.filter(
+            Q(title__icontains=query)
+            | Q(links__type__name="DOI", links__value__icontains=query)
+            | Q(fundingrequest__request_id__icontains=query)
+        ).distinct()
     else:
         publications = Publication.objects.none()
 
@@ -32,9 +37,11 @@ def search_result_for_publication(publication: Publication) -> dict[str, Any]:
 
 @login_required
 def search_contracts(request: HttpRequest) -> HttpResponse:
-    query = request.POST.get("contract_query", "")
+    query = request.POST.get("contract_query", "").strip()
     if query:
-        contracts = Contract.objects.filter(name__icontains=query)
+        contracts = Contract.objects.filter(
+            Q(name__icontains=query) | Q(links__type__name="ESAC", links__value__icontains=query)
+        ).distinct()
     else:
         contracts = Contract.objects.none()
 

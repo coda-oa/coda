@@ -279,6 +279,17 @@ def test__invoice_with_unassigned_costs__save_as_paid__shows_error(client: Clien
     assert error_message.message == "Invoice has unassigned costs"
 
 
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__add_free_position__selecting_vat__returns_empty_response(client: Client) -> None:
+    response = client.get(
+        reverse("invoices:free_position_cost_type_options"),
+        {"free-position-item-cost_type": "vat"},
+    )
+
+    assert response.content == b""  # VAT cost type should return empty response (no tax rate field)
+
+
 def save_invoice_view(
     client: Client, invoice_id: InvoiceId, post_data: dict[str, Any]
 ) -> TemplateResponse:
