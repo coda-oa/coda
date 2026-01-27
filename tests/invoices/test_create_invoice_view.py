@@ -13,6 +13,7 @@ from pytest_django.asserts import assertRedirects
 
 from coda import formdata
 from coda.apps.contracts import mapper as contract_mapper
+from coda.apps.contracts.models import ContractLink, ContractLinkType
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.invoices import repository
 from coda.apps.publications.models import Publication
@@ -50,10 +51,43 @@ def test__searching_for_publication__returns_matches_in_response(client: Client)
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__searching_for_publication_with_doi__returns_matches_in_response(client: Client) -> None:
+    fr = modelfactory.fundingrequest()
+    doi_link = fr.publication.links.filter(type__name="DOI").first()
+    assert doi_link is not None
+
+    response = search_publication(client, doi_link.value)
+
+    expected_context = expect_publication_search_result(fr.publication)
+    assert [expected_context] == response.context["publications"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__searching_for_contract__returns_matches_in_response(client: Client) -> None:
     contract = contract_mapper.as_domain_object(modelfactory.contract())
     response = client.post(reverse("invoices:contract_search"), {"contract_query": contract.name})
 
+    expected_context = expect_contract_search_result(contract)
+    assert [expected_context] == response.context["contracts"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_for_contract_with_esac__returns_matches_in_response(
+    client: Client,
+) -> None:
+    contract_model = modelfactory.contract()
+    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
+    esac_link = ContractLink.objects.create(
+        contract=contract_model,
+        type=esac_type,
+        value="esac-12345",
+    )
+
+    response = client.post(reverse("invoices:contract_search"), {"contract_query": esac_link.value})
+
+    contract = contract_mapper.as_domain_object(contract_model)
     expected_context = expect_contract_search_result(contract)
     assert [expected_context] == response.context["contracts"]
 
