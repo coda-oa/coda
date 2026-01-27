@@ -94,6 +94,7 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
         pub=fr.publication,
         django_authors=django_authors,
         fr_id=fr.id,
+        request_id=str(fr.request_id),
         request_remarks=fr.request_remarks,
     )
 
@@ -291,6 +292,7 @@ def _build_publication_detail(
     pub: BasePublication,
     django_authors: Iterable[AuthorModel],
     fr_id: FundingRequestId,
+    request_id: str,
     request_remarks: str,
 ) -> PublicationDetail:
     """Build PublicationDetail with all resolved names.
@@ -304,7 +306,6 @@ def _build_publication_detail(
     Returns:
         PublicationDetail with all display data resolved
     """
-    # Get edit URL
     edit_url = _get_publication_edit_url(pub, fr_id)
     author_details = _build_author_details(django_authors)
 
@@ -313,7 +314,7 @@ def _build_publication_detail(
     if pub.id is None:
         raise ValueError("Publication must have an ID")
     payment_status = publication_service.get_payment_status(pub.id)
-    payment_details = _build_payment_details(payment_status, str(fr_id))
+    payment_details = _build_payment_details(payment_status, request_id)
 
     publication_date = _extract_publication_date(pub.publication_state)
     contract_details = _build_contract_year_details(pub.contracts)
