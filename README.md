@@ -1,7 +1,7 @@
 # CODA
 
 CODA is a software to manage funding requests for open access fees.
-It is still very early in development and should not be used in production and there will be breaking changes frequently.
+For a full documentation visit: [https://coda-oa.github.io/coda/](https://coda-oa.github.io/coda/)
 
 ## Development
 
@@ -11,7 +11,6 @@ When launching the devcontainer, CODA will automatically be started at `localhos
 ### Project management
 
 CODA uses `pdm` to manage the project and its dependencies. See [pdm's documentation](https://pdm-project.org/en/stable/) for more details.
-
 
 ### Pre-Commit Configuration
 
@@ -26,15 +25,15 @@ we run `mypy` in strict mode to ensure that everything in the code base is prope
 
 4. `djlint`: in strict mode to ensure that everything in the code base is properly typed.
 
-2. `ruff`: ruff is a linter used to ensure proper coding style.
+5. `ruff`: ruff is a linter used to ensure proper coding style.
 
-3. `black`: we use black as a code formatter to ensure that all code looks uniform.
+6. `black`: we use black as a code formatter to ensure that all code looks uniform.
 
-4. `djlint`: `djlint` is used to check django templates for proper code style.
+7. `djlint`: `djlint` is used to check django templates for proper code style.
 
-5. `commitizen`:  is used to check django templates for proper code style.
+8. `commitizen`:  is used to check django templates for proper code style.
 
-5. `commitizen`: `commitizen` is a tool to enforce [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/)
+9. `commitizen`: `commitizen` is a tool to enforce [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/)
 
 #### Committing
 
@@ -46,10 +45,11 @@ pdm run cz commit
 
 ## Deployment
 
-CODA provides a Docker Compose configuration to launch the application in productio mode.
+CODA provides a Docker Compose configuration to launch the application in production mode.
 For this, additional environment variables must be provided in `.envs/.production/django.env` and `.envs/.production/postgres.env`.
 
 To launch the project, run:
+
 ```
-make up
+./commands/start-coda.sh --production
 ```
