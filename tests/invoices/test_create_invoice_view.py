@@ -64,6 +64,18 @@ def test__searching_for_publication_with_doi__returns_matches_in_response(client
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__searching_for_publication_with_funding_request_id__returns_matches_in_response(
+    client: Client,
+) -> None:
+    fr = modelfactory.fundingrequest()
+    response = search_publication(client, fr.request_id)
+
+    expected_context = expect_publication_search_result(fr.publication)
+    assert [expected_context] == response.context["publications"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__searching_for_contract__returns_matches_in_response(client: Client) -> None:
     contract = contract_mapper.as_domain_object(modelfactory.contract())
     response = client.post(reverse("invoices:contract_search"), {"contract_query": contract.name})
