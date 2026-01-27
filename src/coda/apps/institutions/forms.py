@@ -20,11 +20,13 @@ class InstitutionForm(forms.ModelForm[Institution]):
         widgets = {"parent": widgets.SearchSelectWidget()}
 
 
+def _link_type_choices() -> list[tuple[str, str]]:
+    return [(lt, lt) for lt in InstitutionLinkType.objects.values_list("name", flat=True)]
+
+
 class InstitutionLinkForm(forms.Form):
     use_required_attribute = False
-    link_type = forms.ChoiceField(
-        choices=lambda: InstitutionLinkType.objects.values_list("id", "name")
-    )
+    link_type = forms.ChoiceField(choices=_link_type_choices)
     link_value = forms.CharField()
 
     def full_clean(self) -> None:
@@ -33,10 +35,10 @@ class InstitutionLinkForm(forms.Form):
             return
 
         try:
-            link_type = InstitutionLinkType.objects.get(id=self.cleaned_data["link_type"])
+            link_type_name = self.cleaned_data["link_type"]
             value = self.cleaned_data["link_value"]
 
-            validated_link = create_link(link_type.name, value)
+            validated_link = create_link(link_type_name, value)
             self.cleaned_data["link_value"] = validated_link.value()
 
         except (InvalidRor, InvalidIsni, InvalidRinggold) as err:
@@ -47,6 +49,6 @@ class InstitutionLinkForm(forms.Form):
 
     def get_form_data(self) -> dict[str, Any]:
         return {
-            "type_id": int(self.cleaned_data["link_type"]),
-            "value": str(self.cleaned_data.get("link_value", self.data.get("link_value", ""))),
+            "link_type": self.cleaned_data.get("link_type", self.data.get("link_type", "")),
+            "link_value": self.cleaned_data.get("link_value", self.data.get("link_value", "")),
         }

@@ -2,10 +2,8 @@
     <td>
         <select name="link_type">
             {% for t in link_types %}
-                <option value="{% firstof t.id t.name %}"
-                        {% if link.type_id and link.type_id == t.id %}selected{% elif link.link_type and link.link_type == t.name %}selected{% endif %}>
-                    {{ t.name }}
-                </option>
+                <option value="{{ t.name }}"
+                        {% if link.link_type == t.name %}selected{% endif %}>{{ t.name }}</option>
             {% endfor %}
         </select>
     </td>
@@ -14,13 +12,13 @@
             <span data-tooltip="{{ errors.link_value.as_text }}">
                 <input type="text"
                        name="link_value"
-                       value="{% if link %}{% firstof link.value link.link_value '' %}{% endif %}"
+                       value="{{ link.link_value|default:'' }}"
                        aria-invalid="true">
             </span>
         {% else %}
             <input type="text"
                    name="link_value"
-                   value="{% if link %}{% firstof link.value link.link_value '' %}{% endif %}">
+                   value="{{ link.link_value|default:'' }}">
         {% endif %}
     </td>
     <td>

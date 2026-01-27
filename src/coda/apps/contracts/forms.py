@@ -59,11 +59,13 @@ class EntityFormset(HtmxDynamicFormset[EntityForm]):
         return [cleaned_data["entity_id"] for cleaned_data in self.data]
 
 
+def _link_type_choices() -> list[tuple[str, str]]:
+    return [(lt, lt) for lt in ContractLinkType.objects.values_list("name", flat=True)]
+
+
 class ContractLinkForm(forms.Form):
     use_required_attribute = False
-    link_type = forms.ChoiceField(
-        choices=lambda: ContractLinkType.objects.values_list("id", "name")
-    )
+    link_type = forms.ChoiceField(choices=_link_type_choices)
     link_value = forms.CharField()
 
     def full_clean(self) -> None:
@@ -72,10 +74,10 @@ class ContractLinkForm(forms.Form):
             return
 
         try:
-            link_type = ContractLinkType.objects.get(id=self.cleaned_data["link_type"])
+            link_type_name = self.cleaned_data["link_type"]
             value = self.cleaned_data["link_value"]
 
-            if link_type.name == "OAI":
+            if link_type_name == "OAI":
                 self.cleaned_data["link_value"] = Oai(value).value()
 
         except InvalidOai as err:
@@ -83,6 +85,6 @@ class ContractLinkForm(forms.Form):
 
     def get_form_data(self) -> dict[str, Any]:
         return {
-            "type_id": int(self.cleaned_data["link_type"]),
-            "value": str(self.cleaned_data.get("link_value", self.data.get("link_value", ""))),
+            "link_type": self.cleaned_data.get("link_type", self.data.get("link_type", "")),
+            "link_value": self.cleaned_data.get("link_value", self.data.get("link_value", "")),
         }

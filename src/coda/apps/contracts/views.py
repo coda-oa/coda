@@ -110,11 +110,12 @@ def _save_contract_links(contract_id: ContractId, link_forms: list[ContractLinkF
 
     for link_form in link_forms:
         link_data = link_form.get_form_data()
-        if link_data["type_id"] and link_data["value"]:
+        if link_data["link_type"] and link_data["link_value"]:
+            link_type = ContractLinkType.objects.get(name=link_data["link_type"])
             ContractLink.objects.create(
                 contract=contract_model,
-                type_id=link_data["type_id"],
-                value=link_data["value"],
+                type=link_type,
+                value=link_data["link_value"],
             )
 
 
@@ -228,7 +229,7 @@ def get_existing_links(contract_model: ContractModel | None) -> list[dict[str, A
     if not contract_model:
         return []
     return [
-        {"link": {"type_id": link.type_id, "value": link.value}, "errors": {}}
+        {"link": {"link_type": link.type.name, "link_value": link.value}, "errors": {}}
         for link in contract_model.links.all()
     ]
 
