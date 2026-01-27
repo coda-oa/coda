@@ -35,7 +35,7 @@ def get_by_name(name: str) -> Contract | None:
 
 
 def find_all_by_names(names: Iterable[str]) -> list[Contract]:
-    contracts = ContractModel.objects.filter(name__in=names)
+    contracts = ContractModel.objects.filter(name__in=names).order_by("id")
     return [mapper.as_domain_object(contract) for contract in contracts]
 
 

@@ -1,6 +1,8 @@
+import datetime
 from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from datetime import date
+from io import StringIO
 from pathlib import Path
 from typing import cast
 
@@ -10,22 +12,25 @@ from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.fundingrequests.models import FundingOrganization, Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
-from coda.contexts.fundingrequest.services.checks import get_checkrun
-from coda.contexts.fundingrequest.services.import_service import import_fundingrequests
-from coda.contexts.fundingrequest.dto.import_dtos import (
-    FundingRequestImportListDto,
-)
-from coda.contexts.fundingrequest.services import labels as label_services
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers.models import Publisher
+from coda.contexts.fundingrequest.dto.import_dtos import (
+    ContractImportDto,
+    FundingRequestImportDto,
+    FundingRequestImportListDto,
+    PublicationImportDto,
+)
+from coda.contexts.fundingrequest.services import labels as label_services
+from coda.contexts.fundingrequest.services.checks import get_checkrun
+from coda.contexts.fundingrequest.services.import_service import import_fundingrequests
 from coda.domain.color import Color
 from coda.domain.contract import Contract, PublisherId
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest import FundingRequestId, Review
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
-from coda.domain.publication.publication import Publication
+from coda.domain.publication.publication import OpenAccessType, Publication
 from coda.domain.string import NonEmptyStr
 from tests import modelfactory
 from tests.fundingrequests.fundingrequest_import import fullrequest, minimalrequest
@@ -109,6 +114,44 @@ def test__import_fundingrequest__saves_fundingrequest_and_creates_missing_entiti
     assert_fundingrequest_eq(fundingrequest, request_variant.expected_request())
     assert_review_eq(review, request_variant.expected_review())
     assert actual_label_names == expected_label_names
+
+
+@pytest.mark.django_db
+def test__import_multiple_requests_with_same_contract_in_different_years__contract_period_spans_imported_years() -> (
+    None
+):
+    first_year, second_year = 1990, 2026
+    import_dto = FundingRequestImportListDto(
+        requests=[
+            FundingRequestImportDto(
+                request_date=datetime.date.today(),
+                publication=PublicationImportDto(
+                    kind="monograph",
+                    title="pub 1",
+                    publisher_name="publisher 1",
+                    open_access_type=OpenAccessType.Gold,
+                    contracts=[ContractImportDto(name="my-contract", year=second_year)],
+                ),
+            ),
+            FundingRequestImportDto(
+                request_date=datetime.date.today(),
+                publication=PublicationImportDto(
+                    kind="monograph",
+                    title="pub 2",
+                    publisher_name="publisher 1",
+                    open_access_type=OpenAccessType.Gold,
+                    contracts=[ContractImportDto(name="my-contract", year=first_year)],
+                ),
+            ),
+        ]
+    )
+
+    json = StringIO(import_dto.model_dump_json())
+    _ = import_fundingrequests(json)
+
+    actual = contract_repository.get_by_name("my-contract")
+    assert actual is not None
+    assert actual.period == DateRange(datetime.date(1990, 1, 1), datetime.date(2026, 12, 31))
 
 
 @pytest.mark.django_db
