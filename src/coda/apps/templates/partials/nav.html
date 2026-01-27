@@ -2,8 +2,10 @@
 <aside class="nav-container">
     <nav class="nav">
         <ul>
-            <li class="coda-logo text-ellipsis">
-                <a href="{% url "home" %}"><strong>C<span>ODA</span></strong></a>
+            <li class="coda-logo">
+                <a href="{% url "home" %}" class="flex align-center">
+                    <img src="{% static "assets/coda-planet.svg" %}" alt="Coda Logo" height="auto" width="auto" class="coda-logo-image">
+                    <strong><span>CODA</span></strong></a>
             </li>
         </ul>
         <ul class="nav__link-list">

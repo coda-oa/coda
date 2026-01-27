@@ -27,6 +27,8 @@
     display: block;
 
     font-size: 1.75rem !important;
+    font-family: "Montserrat", sans-serif;
+    font-weight: lighter;
 
     max-width: fit-content;
     margin: 0 !important;
@@ -41,6 +43,12 @@
 
 .coda-logo a:hover {
     --_coda-logo-color: var(--coda-primary-hover);
+}
+
+.coda-logo .coda-logo-image {
+    height: 1em;
+    vertical-align: bottom;
+    transition: height 0.2s ease-in-out;
 }
 
 .nav-container {
@@ -250,6 +258,14 @@
     .nav .nav__link-list {
         padding-inline-start: calc(var(--coda-spacing) / 2);
         padding-inline-end: calc(var(--coda-spacing));
+    }
+
+    .coda-logo .coda-logo-image {
+        transform: scale(2.5);
+    }
+
+    .nav-container:is(:hover, :focus-within) .coda-logo .coda-logo-image {
+        transform: scale(1);
     }
 }
 
