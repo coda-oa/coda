@@ -10,17 +10,17 @@ from typing import TypeVar
 
 from django.db import models
 
-from coda.apps.contracts import mapper as contract_mapper
-from coda.apps.contracts import repository as contract_repository
-from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.institutions.models import Institution
 from coda.apps.journals.models import Journal
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.apps.publishers.models import Publisher
-from coda.contexts.fundingrequest.dto.import_dtos import FundingRequestImportListDto
+from coda.contexts.fundingrequest.dto.import_dtos import (
+    ContractImportDto,
+    FundingRequestImportListDto,
+)
+from coda.contexts.shared.import_service.contract_lookup import fetch_or_create_contracts
 from coda.domain.contract import Contract
-from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import Vocabulary
 
 from .types import ImportLookups
@@ -39,20 +39,14 @@ def build_entity_lookups(import_data: FundingRequestImportListDto) -> ImportLook
     3. Filter and create publishers (avoiding duplicates from existing journals)
     4. Build remaining lookups
     """
-    # Extract unique identifiers from import data
     institution_names = _collect_institution_names(import_data)
-    contract_names = _collect_contract_names(import_data)
+    contracts = _collect_contract_dtos(import_data)
     funder_names = _collect_funder_names(import_data)
     vocabulary_names = _collect_vocabulary_names(import_data)
     journal_eissns = _collect_journal_eissns(import_data)
 
-    # Pre-fetch existing journals (needed to filter publishers)
     existing_journals = _fetch_existing_journals(journal_eissns)
-
-    # Collect publisher names (excluding those from existing journals)
     publisher_names = _collect_publisher_names(import_data, existing_journals)
-
-    # Build publisher lookup (creates missing publishers)
     publishers_lookup = _build_publisher_lookup(publisher_names)
 
     # Add publishers from existing journals to lookup
@@ -61,14 +55,13 @@ def build_entity_lookups(import_data: FundingRequestImportListDto) -> ImportLook
         if journal.publisher and journal.publisher.name not in publishers_lookup:
             publishers_lookup[journal.publisher.name] = journal.publisher
 
-    # Build journal lookup (uses pre-fetched journals + publisher lookup)
     journals_lookup = _build_journal_lookup(
         journal_eissns, import_data, publishers_lookup, existing_journals
     )
 
     return ImportLookups(
         funding_organizations=_build_funding_org_lookup(funder_names),
-        contracts=_build_contract_lookup(contract_names),
+        contracts=fetch_or_create_contracts(contracts),
         institutions=_build_institution_lookup(institution_names),
         vocabularies=_build_vocabulary_lookup(vocabulary_names),
         publishers=publishers_lookup,
@@ -86,13 +79,11 @@ def _collect_institution_names(import_data: FundingRequestImportListDto) -> set[
     }
 
 
-def _collect_contract_names(import_data: FundingRequestImportListDto) -> set[str]:
-    """Extract all unique contract names."""
-    return {
-        contract.name
-        for request in import_data.requests
-        for contract in request.publication.contracts
-    }
+def _collect_contract_dtos(import_data: FundingRequestImportListDto) -> list[ContractImportDto]:
+    """Extract all unique contract."""
+    return [
+        contract for request in import_data.requests for contract in request.publication.contracts
+    ]
 
 
 def _collect_funder_names(import_data: FundingRequestImportListDto) -> set[str]:
@@ -168,38 +159,9 @@ def _build_funding_org_lookup(names: set[str]) -> dict[str, FundingOrganization]
     return _build_entity_lookup_by_name(FundingOrganization, names)
 
 
-def _build_contract_lookup(names: set[str]) -> dict[str, Contract]:
+def _build_contract_lookup(names: set[ContractImportDto]) -> dict[str, Contract]:
     """Get or create contracts, return lookup dict."""
-    if not names:
-        return {}
-
-    # Bulk fetch all existing contracts using direct query with ordering (1 query)
-    # Order by id to ensure we get the first match when there are duplicates
-    # Prefetch publishers and journals to avoid N+1 queries when mapping to domain objects
-    existing_models = (
-        ContractModel.objects.filter(name__in=names)
-        .prefetch_related("publishers", "journals")
-        .order_by("id")
-    )
-    existing_contracts = [contract_mapper.as_domain_object(model) for model in existing_models]
-
-    # Build lookup - only keep first occurrence for each name
-    lookup: dict[str, Contract] = {}
-    for contract in existing_contracts:
-        name_str = str(contract.name)
-        if name_str not in lookup:
-            lookup[name_str] = contract
-
-    # Identify missing contracts
-    missing_names = names - lookup.keys()
-
-    # Bulk create missing contracts (1 query if needed)
-    if missing_names:
-        new_contracts = [Contract.new(name=NonEmptyStr(name)) for name in missing_names]
-        created_contracts = contract_repository.create_many(new_contracts)
-        lookup.update({str(contract.name): contract for contract in created_contracts})
-
-    return lookup
+    return fetch_or_create_contracts(names)
 
 
 def _build_institution_lookup(names: set[str]) -> dict[str, Institution]:

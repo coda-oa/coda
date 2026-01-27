@@ -10,7 +10,6 @@ from typing import cast
 
 from django.db.models import Q
 
-from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.institutions.models import Institution
 from coda.apps.invoices import funding_source_repository
@@ -21,12 +20,13 @@ from coda.contexts.finance.dto.import_dtos import (
     InvoiceImportDto,
     PublicationPositionImportDto,
 )
+from coda.contexts.fundingrequest.dto.import_dtos import ContractImportDto
+from coda.contexts.shared.import_service.contract_lookup import fetch_or_create_contracts
 from coda.domain.author import InstitutionId
 from coda.domain.contract import Contract
 from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import CreditorId, FundingSourceId
 from coda.domain.publication.publication import PublicationId
-from coda.domain.string import NonEmptyStr
 
 
 def build_creditor_lookup(invoice_dtos: Iterable[InvoiceImportDto]) -> dict[str, CreditorId]:
@@ -81,16 +81,7 @@ def build_contract_lookup(invoice_dtos: Iterable[InvoiceImportDto]) -> dict[str,
     Returns:
         Dictionary mapping contract name to Contract domain object
     """
-    contracts = set(_contracts(invoice_dtos))
-    existing = contract_repository.find_all_by_names(contracts)
-    existing_map: dict[str, Contract] = {c.name: c for c in existing}
-    to_create = [
-        Contract.new(name=NonEmptyStr(name)) for name in contracts if name not in existing_map
-    ]
-    if to_create:
-        created = contract_repository.create_many(to_create)
-        existing_map.update({c.name: c for c in created})
-    return {name: existing_map[name] for name in contracts}
+    return fetch_or_create_contracts(_contracts(invoice_dtos))
 
 
 def build_publication_lookup(
@@ -203,10 +194,10 @@ def _funding_sources(invoice_dtos: Iterable[InvoiceImportDto]) -> Iterable[str]:
     )
 
 
-def _contracts(invoice_dtos: Iterable[InvoiceImportDto]) -> Iterable[str]:
+def _contracts(invoice_dtos: Iterable[InvoiceImportDto]) -> Iterable[ContractImportDto]:
     """Extract unique contract names from invoice DTOs."""
     return (
-        position.contract_name
+        ContractImportDto(name=position.contract_name, year=position.contract_year)
         for invoice_dto in invoice_dtos
         for position in invoice_dto.positions
         if isinstance(position, ContractPositionImportDto)
