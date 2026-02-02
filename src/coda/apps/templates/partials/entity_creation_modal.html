@@ -1,0 +1,26 @@
+<dialog open id="entity-creation-modal">
+    <article>
+        <header class="flex justify-between align-center mb-1">
+            <h2 class="my-1">Create New {{ entity_name }}</h2>
+            <button aria-label="Close"
+                    class="close"
+                    onclick="this.closest('dialog').close(); document.getElementById('entity-creation-modal-wrapper').innerHTML = '';">
+            </button>
+        </header>
+        <form id="entity-creation-form"
+              hx-post="{% url entity_create_url %}"
+              hx-target="#entity-creation-modal-wrapper"
+              hx-swap="innerHTML">
+            {% csrf_token %}
+            <div class="my-2">{{ form }}</div>
+            <footer class="grid">
+                <button type="button"
+                        class="secondary"
+                        onclick="this.closest('dialog').close(); document.getElementById('entity-creation-modal-wrapper').innerHTML = '';">
+                    Cancel
+                </button>
+                <button type="submit" class="primary">Create</button>
+            </footer>
+        </form>
+    </article>
+</dialog>

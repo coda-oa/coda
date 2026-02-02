@@ -23,6 +23,7 @@ from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser, invoice_service
 from coda.domain.finance.invoice import Invoice, InvoiceId
 from coda.domain.money._currency import Currency
+from coda.apps.invoices.models import Creditor
 
 invoice_breadcrumb_title = generate_dynamic_title(
     model_name="Edit Invoice",
@@ -135,6 +136,7 @@ def render_edit_view(
             "exchange_rate": exchange_rate,
             "selected_currency": invoice.currency().code,
             "position_list": position_list,
+            "creditors": Creditor.objects.all().order_by("name"),
         },
     )
 
