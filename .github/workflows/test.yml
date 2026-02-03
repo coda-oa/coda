@@ -1,0 +1,131 @@
+name: Unit Tests & Lints
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: test_coda
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_coda
+      DJANGO_SECRET_KEY: test-secret-key-for-ci
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Cache PDM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .venv/
+            ~/.cache/pdm/
+            ~/.local/share/pdm/
+          key: pdm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pdm.lock') }}
+          restore-keys: |
+            pdm-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install PDM
+        run: pip install pdm
+
+      - name: Install dependencies
+        run: pdm install -G dev
+
+      - name: Run unit tests
+        run: pdm run unittests
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Cache PDM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .venv/
+            ~/.cache/pdm/
+            ~/.local/share/pdm/
+          key: pdm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pdm.lock') }}
+          restore-keys: |
+            pdm-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install PDM
+        run: pip install pdm
+
+      - name: Install dependencies
+        run: pdm install -G dev
+
+      - name: Check code formatting with Black
+        run: pdm run black --check .
+
+      - name: Lint code with Ruff
+        run: pdm run ruff check .
+
+  type-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Cache PDM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .venv/
+            ~/.cache/pdm/
+            ~/.local/share/pdm/
+          key: pdm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pdm.lock') }}
+          restore-keys: |
+            pdm-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install PDM
+        run: pip install pdm
+
+      - name: Install dependencies
+        run: pdm install -G dev
+
+      - name: Run type checking with MyPy
+        run: pdm run mypy
