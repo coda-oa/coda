@@ -135,9 +135,7 @@ class InstitutionStrategy:
     @staticmethod
     def extract_model_key(model: FundingSourceModel) -> InstitutionId:
         """Extract the lookup key (institution_id) from a FundingSourceModel."""
-        return cast(
-            InstitutionId, model.institution_id
-        )  # pyright: ignore[reportAttributeAccessIssue]
+        return cast(InstitutionId, model.institution_id)  # pyright: ignore[reportAttributeAccessIssue]
 
     @staticmethod
     def build_model(source: SplitSource) -> FundingSourceModel:

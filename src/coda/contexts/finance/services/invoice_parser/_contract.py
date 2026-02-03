@@ -1,4 +1,4 @@
-from typing_extensions import TypeIs
+from typing import TypeIs
 
 from coda.apps.contracts import repository
 from coda.contexts.finance.dto.edit_position_dtos import ContractItemDto, ItemDto, PositionDto

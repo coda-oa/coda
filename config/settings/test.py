@@ -1,6 +1,7 @@
 """
 With these settings, tests run faster.
 """
+
 from pathlib import Path
 
 from .base import *  # noqa

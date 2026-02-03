@@ -1,6 +1,7 @@
 """
 This module is responsible for importing currency data from an XML file and generating an enum class representing the currencies.
 """
+
 from collections.abc import Callable
 from pathlib import Path
 from typing import TypeAlias, TypeGuard

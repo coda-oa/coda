@@ -63,6 +63,16 @@ jobs:
       - name: Run unit tests
         run: pdm run unittests
 
+      - name: Generate coverage report
+        run: pdm run coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-report
+          path: .coverage
+          retention-days: 7
+
   lint:
     runs-on: ubuntu-latest
 
@@ -92,8 +102,8 @@ jobs:
       - name: Install dependencies
         run: pdm install -G dev
 
-      - name: Check code formatting with Black
-        run: pdm run black --check .
+      - name: Check code formatting with Ruff
+        run: pdm run ruff format --check .
 
       - name: Lint code with Ruff
         run: pdm run ruff check .

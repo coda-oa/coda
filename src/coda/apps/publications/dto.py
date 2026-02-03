@@ -151,8 +151,7 @@ class PublicationBaseDto(abc.ABC, CodaBaseDto):
     @abc.abstractmethod
     def to_publication(
         self, id: PublicationId | None = None, get_contract_by_id: GetContractById | None = None
-    ) -> BasePublication:
-        ...
+    ) -> BasePublication: ...
 
 
 class PublicationDto(PublicationBaseDto):

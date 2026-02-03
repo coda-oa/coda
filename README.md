@@ -16,24 +16,37 @@ CODA uses `pdm` to manage the project and its dependencies. See [pdm's documenta
 
 CODA uses a rather strict `pre-commit` configuration, a tool that runs checks on the code base before allowing a git commit to be persisted.
 
-1. `mypy`:
-we run `mypy` in strict mode to ensure that everything in the code base is properly typed.
+1. `mypy`: We run `mypy` in strict mode to ensure that everything in the code base is properly typed.
 
-2. `ruff`: ruff is a linter used to ensure proper coding style.
+2. `ruff`: Ruff is used for both linting and code formatting to ensure proper coding style and uniform code appearance. Ruff is significantly faster than traditional tools while maintaining Black-compatible formatting.
 
-3. `black`: we use black as a code formatter to ensure that all code looks uniform.
+3. `djlint`: `djlint` is used to check Django templates for proper code style and formatting.
 
-4. `djlint`: in strict mode to ensure that everything in the code base is properly typed.
+4. `commitizen`: `commitizen` is a tool to enforce [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-5. `ruff`: ruff is a linter used to ensure proper coding style.
+#### Code Formatting and Linting
 
-6. `black`: we use black as a code formatter to ensure that all code looks uniform.
+To format your code locally:
 
-7. `djlint`: `djlint` is used to check django templates for proper code style.
+```bash
+# Format code with Ruff
+pdm run format
 
-8. `commitizen`:  is used to check django templates for proper code style.
+# Check if code is properly formatted
+pdm run format-check
 
-9. `commitizen`: `commitizen` is a tool to enforce [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/)
+# Check linting
+pdm run lint
+
+# Auto-fix linting issues (where possible)
+pdm run lint-fix
+```
+
+The pre-commit hooks will automatically run these checks before each commit. To run all pre-commit hooks manually:
+
+```bash
+pre-commit run --all-files
+```
 
 #### Committing
 

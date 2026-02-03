@@ -3,6 +3,7 @@
 This module contains simple type aliases and enums that don't depend on other OpenCost modules,
 preventing circular import issues.
 """
+
 from enum import Enum
 from typing import Annotated
 from pydantic import StringConstraints

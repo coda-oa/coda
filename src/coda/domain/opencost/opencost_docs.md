@@ -64,7 +64,7 @@ publication [1]
     |
     |--- primary_identifier [2]
     |     |
-    |     |--- doi [2.1]          
+    |     |--- doi [2.1]
     |     |
     |   | *either doi OR bibliographic_information!*
     |     |
@@ -74,33 +74,33 @@ publication [1]
     |              |--- Publisher [2.2.2]
     |              |--- isPartOf [2.2.3]
     |
-    |--- secondary_identifiers [3]                                            
+    |--- secondary_identifiers [3]
     |     |
-    |     |--- id [3.1]                                                      
+    |     |--- id [3.1]
     |     |     |
-    |     |     |--- type = doi / handle / urn / isbn / pmid / pmc / arxiv / oai / local [3.1.1]  
-    |     |     |--- value [3.1.2] 
+    |     |     |--- type = doi / handle / urn / isbn / pmid / pmc / arxiv / oai / local [3.1.1]
+    |     |     |--- value [3.1.2]
     |     |
-    |     |--- id                                                      
+    |     |--- id
     |           |
-    |           |--- [...]         
-    |           
+    |           |--- [...]
+    |
     |--- institution [4]
     |     |
-    |     |--- id [4.1]                                                        
+    |     |--- id [4.1]
     |     |     |
-    |     |     |--- type = ror / isni / ringold [4.1.1]               
+    |     |     |--- type = ror / isni / ringold [4.1.1]
     |     |     |--- value [4.1.2]
-    |     |      
+    |     |
     |     |--- name [4.2]
     |           |
     |           |--- type = full / short [4.2.1]
     |           |--- value [4.2.2]
-    |       
-    |--- publication_type = COAR controlled vocabulary [5]                   
-    |  
-    |--- external_costsplitting = true _OR_ 1 / false _OR_ 0 [6]                  
-    |  
+    |
+    |--- publication_type = COAR controlled vocabulary [5]
+    |
+    |--- external_costsplitting = true _OR_ 1 / false _OR_ 0 [6]
+    |
     |--- cost_data [7]
     |     |
     |     |--- part_of_contract [7.1]
@@ -110,25 +110,25 @@ publication [1]
     |     |     |     |--- type = ESAC [7.1.1.1]
     |     |     |     |--- value [7.1.1.2]
     |     |     |
-    |     |     |--- group_id [7.1.2]                                         
+    |     |     |--- group_id [7.1.2]
     |     |
     |     |--- invoice [7.2]
     |     |     |
     |     |     |--- invoice_number [7.2.1]
-    |     |     |                                        
+    |     |     |
     |     |     |--- creditor [7.2.2]
     |     |     |
-    |     |     |--- dates [7.2.3]                                                
+    |     |     |--- dates [7.2.3]
     |     |     |     |
     |     |     |     |--- invoice [7.2.3.1]
     |     |     |     |--- paid [7.2.3.2]
     |     |     |
-    |     |     |--- amount_invoice [7.2.4]                                        
+    |     |     |--- amount_invoice [7.2.4]
     |     |     |     |
     |     |     |     |--- amount [7.2.4.1]
     |     |     |     |--- currency [7.2.4.2]
     |     |     |
-    |     |     |--- amounts_paid [7.2.5]                                        
+    |     |     |--- amounts_paid [7.2.5]
     |     |           |
     |     |           |--- amount_paid [7.2.5.1]
     |     |           |
@@ -202,14 +202,14 @@ contract [1]
     |     |
     |     |--- id [3.1]
     |     |     |
-    |     |     |--- type = ror / isni / ringold [3.1.1]              
+    |     |     |--- type = ror / isni / ringold [3.1.1]
     |     |     |--- value [3.1.2]
-    |     |      
+    |     |
     |     |--- name [3.2]
     |           |
     |           |--- type = full / short [3.2.1]
     |           |--- value [3.2.2]
-    |       
+    |
     |--- participation [4]
     |     |
     |     |--- from [4.1]
@@ -235,7 +235,7 @@ contract [1]
     |     |--- invoice_group [7.1]
     |     |     |
     |     |     |--- group_id [7.1.1]
-    |     |     |    
+    |     |     |
     |     |     |--- invoices_period [7.1.2]
     |     |     |     |
     |     |     |     |--- from [7.1.2.1]
@@ -244,7 +244,7 @@ contract [1]
     |     |     |--- invoice [7.1.3]
     |     |     |     |
     |     |     |     |--- invoice_number [7.1.3.1]
-    |     |     |     |                              
+    |     |     |     |
     |     |     |     |--- creditor [7.1.3.2]
     |     |     |     |
     |     |     |     |--- dates [7.1.3.3]

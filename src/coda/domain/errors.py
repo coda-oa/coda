@@ -2,7 +2,7 @@ from types import TracebackType
 from typing import Concatenate, Generic, ParamSpec, TypeAlias, TypeVar, final
 from collections.abc import Callable, Generator, Iterable
 from dataclasses import dataclass
-from typing_extensions import TypeIs
+from typing import TypeIs
 
 from coda.coda_itertools import LazyCachedIterable
 

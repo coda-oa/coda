@@ -2,7 +2,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from django.db import transaction
-from typing_extensions import TypeIs
+from typing import TypeIs
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.fundingrequests import mapper as fundingrequest_mapper

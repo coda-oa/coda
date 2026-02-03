@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from typing_extensions import TypeIs
+from typing import TypeIs
 
 from coda import doaj
 from coda.apps.journals import services
