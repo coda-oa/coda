@@ -22,7 +22,7 @@
             id="id-positions-{{ counter }}-funding_assignments-{{ assignment_index }}-funding_source"
             name="positions-{{ counter }}-funding_assignments-{{ assignment_index }}-funding_source">
         {% if not split or split.funding_source_type == "budget" %}
-            <option value>-------</option>
+            <option value="">-------</option>
             {% for fs in funding_sources %}
                 <option value="{{ fs.id }}"
                         {% if split and split.funding_source == fs.id %}selected{% endif %}>{{ fs.name }}</option>
