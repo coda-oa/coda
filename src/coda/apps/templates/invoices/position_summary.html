@@ -19,7 +19,7 @@
                    type="number"
                    hx-post="{% url 'invoices:get_total' %}"
                    hx-target="#positions-summary"
-                   hx-trigger="change from:(#positions__list :is(input.cost-amount, select.cost-type))"
+                   hx-trigger="change from:(#positions__list input.cost-amount), change from:(#positions__list select.cost-type)"
                    hx-swap="outerHTML"
                    readonly
                    value="{{ total }}">
