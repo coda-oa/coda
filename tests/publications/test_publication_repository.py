@@ -32,8 +32,7 @@ class PublicationFactory(Protocol):
         subject_area: VocabularyConcept = UnknownConcept,
         publication_type: VocabularyConcept = UnknownConcept,
         publication_id: PublicationId | None = None,
-    ) -> BasePublication:
-        ...
+    ) -> BasePublication: ...
 
 
 def create_publication(

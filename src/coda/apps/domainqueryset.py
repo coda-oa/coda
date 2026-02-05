@@ -44,7 +44,7 @@ class DomainQuerySet(Generic[DjangoModel, DomainModel], Sequence[DomainModel]):
     def __len__(self) -> int:
         return self.queryset.count()
 
-    def __iter__(self) -> Generator[DomainModel, None, None]:
+    def __iter__(self) -> Generator[DomainModel]:
         yield from (self.map_to_domain(model) for model in self.queryset.iterator(chunk_size=2000))
 
     def __contains__(self, item: object) -> bool:
@@ -66,12 +66,10 @@ class DomainQuerySet(Generic[DjangoModel, DomainModel], Sequence[DomainModel]):
         return item.id
 
     @overload
-    def __getitem__(self, index: int) -> DomainModel:
-        ...
+    def __getitem__(self, index: int) -> DomainModel: ...
 
     @overload
-    def __getitem__(self, index: slice) -> list[DomainModel]:
-        ...
+    def __getitem__(self, index: slice) -> list[DomainModel]: ...
 
     def __getitem__(self, index: int | slice) -> DomainModel | list[DomainModel]:
         if isinstance(index, slice):
@@ -104,9 +102,7 @@ class LazyBulkQuerySet(Generic[DjangoModel, ResultType], Sequence[ResultType]):
         ...     return [build_list_item(fr, payment_statuses) for fr in qs]
         >>>
         >>> lazy_qs = LazyBulkQuerySet(
-        ...     queryset=FundingRequest.objects.all(),
-        ...     bulk_converter=bulk_convert,
-        ...     chunk_size=100
+        ...     queryset=FundingRequest.objects.all(), bulk_converter=bulk_convert, chunk_size=100
         ... )
         >>> page_items = lazy_qs[0:10]  # Only converts 10 items with bulk optimization
         >>> # Result: 5 queries instead of 21 queries (N+1 problem avoided)
@@ -138,12 +134,10 @@ class LazyBulkQuerySet(Generic[DjangoModel, ResultType], Sequence[ResultType]):
         return self._queryset.count()
 
     @overload
-    def __getitem__(self, index: int) -> ResultType:
-        ...
+    def __getitem__(self, index: int) -> ResultType: ...
 
     @overload
-    def __getitem__(self, index: slice) -> list[ResultType]:
-        ...
+    def __getitem__(self, index: slice) -> list[ResultType]: ...
 
     def __getitem__(self, index: int | slice) -> ResultType | list[ResultType]:
         """
@@ -174,7 +168,7 @@ class LazyBulkQuerySet(Generic[DjangoModel, ResultType], Sequence[ResultType]):
                 raise IndexError("list index out of range")
             return items[0]
 
-    def __iter__(self) -> Generator[ResultType, None, None]:
+    def __iter__(self) -> Generator[ResultType]:
         """
         Iterate over all items in chunks, applying bulk conversion per chunk.
 

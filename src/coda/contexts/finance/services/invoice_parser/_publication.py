@@ -1,4 +1,4 @@
-from typing_extensions import TypeIs
+from typing import TypeIs
 
 from coda.apps.fundingrequests import repository
 from coda.apps.publications.repositories import publication_repository

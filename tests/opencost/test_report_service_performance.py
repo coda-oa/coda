@@ -379,9 +379,9 @@ def test_validation_performance_and_caching() -> None:
 
     # Assertions
     assert first_call_queries < 10, f"First call used {first_call_queries} queries (target: < 10)"
-    assert (
-        second_call_queries == 0
-    ), f"Cached calls used {second_call_queries} queries (should be 0)"
+    assert second_call_queries == 0, (
+        f"Cached calls used {second_call_queries} queries (should be 0)"
+    )
     assert isinstance(has_issues, bool)
     assert isinstance(has_issues_again, bool)
     assert has_issues == has_issues_again

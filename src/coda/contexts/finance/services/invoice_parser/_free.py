@@ -1,4 +1,4 @@
-from typing_extensions import TypeIs
+from typing import TypeIs
 
 from coda.contexts.finance.dto.edit_position_dtos import FreeItemDto, ItemDto, PositionDto
 from coda.domain.finance.costtypes import PublicationCostType

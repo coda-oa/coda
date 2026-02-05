@@ -17,11 +17,9 @@ from coda.domain.author import AuthorNames
 
 
 class FormLike(Protocol):
-    def is_valid(self) -> bool:
-        ...
+    def is_valid(self) -> bool: ...
 
-    def full_clean(self) -> None:
-        ...
+    def full_clean(self) -> None: ...
 
 
 class PublicationStep(TemplateStep):

@@ -78,9 +78,9 @@ def _build_recursive_base_vocab_prefetch(
     )
 
 
-def _get_prefetch_for_vocabularies() -> (
-    tuple[Prefetch[str, QuerySet[Model, Model], str], Prefetch[str, QuerySet[Model, Model], str]]
-):
+def _get_prefetch_for_vocabularies() -> tuple[
+    Prefetch[str, QuerySet[Model, Model], str], Prefetch[str, QuerySet[Model, Model], str]
+]:
     """Get prefetch objects for vocabularies with nested limited vocabulary support.
 
     This handles chains of limited vocabularies (e.g., Base -> Limited1 -> Limited2)

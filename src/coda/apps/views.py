@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, Generic, Type, TypeVar, cast
+from typing import Any, Generic, TypeVar, cast
 
 from django.core.paginator import Paginator
 from django.http import HttpRequest
@@ -40,7 +40,7 @@ class EntityListView(Generic[EntityType], TemplateView):
             "page_obj": page,
             "search_placeholder": self.search_placeholder,
         }
-    
+
     @property
     def search_placeholder(self) -> str:
         return f"Search {self.entity_name.lower()}..."
@@ -48,13 +48,14 @@ class EntityListView(Generic[EntityType], TemplateView):
 
 ModelType = TypeVar("ModelType", bound=Model)
 
+
 class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
-    model: Type[ModelType]
+    model: type[ModelType]
     search_fields: list[str] = ["name"]
 
     def get_entities(self, request: HttpRequest) -> Sequence[ModelType]:
         search_term = request.GET.get("query", "").strip()
-        queryset = self.model.objects.all() # type: ignore[attr-defined]
+        queryset = self.model.objects.all()  # type: ignore[attr-defined]
 
         if search_term:
             query = Q()
@@ -63,4 +64,3 @@ class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
             queryset = queryset.filter(query)
 
         return DomainQuerySet(queryset.order_by(*self.search_fields), lambda x: cast(ModelType, x))
-

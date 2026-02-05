@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Literal, Protocol
 
-from typing_extensions import TypeIs
+from typing import TypeIs
 
 from coda.contexts.finance.dto.edit_position_dtos import (
     FundingAssignmentDto,
@@ -28,13 +28,11 @@ from . import _contract, _free, _publication
 
 
 class PositionParser(Protocol):
-    def to_itemdto(self, position: Position) -> ItemDto:
-        ...
+    def to_itemdto(self, position: Position) -> ItemDto: ...
 
     def parse_item_from(
         self, position: PositionDto, *, parse_safe: bool = False
-    ) -> PositionItemType:
-        ...
+    ) -> PositionItemType: ...
 
 
 def parse_invoice(invoice_head: InvoiceHeadDto, positions: list[PositionDto]) -> Invoice:

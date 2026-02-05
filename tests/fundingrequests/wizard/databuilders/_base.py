@@ -107,13 +107,11 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
         GlobalPreferences.set_monograph_publication_type_vocabulary(self.publication_types)
 
     @abc.abstractmethod
-    def publication_dto(self) -> TPublicationDto:
-        ...
+    def publication_dto(self) -> TPublicationDto: ...
 
     @property
     @abc.abstractmethod
-    def publication(self) -> TPublication:
-        ...
+    def publication(self) -> TPublication: ...
 
     def build(self) -> FundingRequest[TPublication]:
         return FundingRequest.new(
@@ -130,8 +128,7 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
         return self.build()
 
     @abc.abstractmethod
-    def with_new_publication(self, id: PublicationId | None = None) -> Self:
-        ...
+    def with_new_publication(self, id: PublicationId | None = None) -> Self: ...
 
     def with_payment(self, payment: Payment) -> Self:
         self.estimated_cost = payment

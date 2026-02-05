@@ -9,7 +9,7 @@ class Institution(models.Model):
         "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
     )
 
-    def walk(self) -> Generator["Institution", None, None]:
+    def walk(self) -> Generator["Institution"]:
         yield self
         for child in self.children.all():
             yield from child.walk()

@@ -6,8 +6,7 @@ from ._currency import Currency
 
 
 class CurrencyExchange(Protocol):
-    def __call__(self, origin: Currency, target: Currency) -> Decimal:
-        ...
+    def __call__(self, origin: Currency, target: Currency) -> Decimal: ...
 
 
 class Money:

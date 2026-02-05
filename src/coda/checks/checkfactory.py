@@ -11,14 +11,13 @@ CheckType = type[Check]
 
 @runtime_checkable
 class CheckFactory(Protocol):
-    def create(self, check_name: str) -> Check:
-        ...
+    def create(self, check_name: str) -> Check: ...
 
-    def register(self, publication_kind: type[PublicationKind], check_type: CheckType) -> CheckType:
-        ...
+    def register(
+        self, publication_kind: type[PublicationKind], check_type: CheckType
+    ) -> CheckType: ...
 
-    def checks_for(self, publication_kind: type[PublicationKind]) -> Checklist:
-        ...
+    def checks_for(self, publication_kind: type[PublicationKind]) -> Checklist: ...
 
 
 @dataclass
