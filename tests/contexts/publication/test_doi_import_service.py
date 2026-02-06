@@ -8,6 +8,7 @@ import datetime
 from collections.abc import Callable
 
 import pytest
+from tests import domainfactory
 from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
@@ -24,6 +25,7 @@ from coda.contexts.publication.services.doi_client import (
     DOIMetadataClient,
 )
 from coda.contexts.publication.services.doi_import_service import (
+    DOIAlreadyImported,
     DOIImportService,
     InvalidMetadataError,
 )
@@ -200,10 +202,11 @@ def make_expected_funding_request_for_real_nature_article(
         title=NonEmptyStr("Nanometre-scale thermometry in a living cell"),
         journal=JournalId(journal_id),
         relevant_authors=expected_authors,
-        license=License.Unknown,  # Real Crossref returns non-standard license URL
+        # NOTE: Real Crossref returns non-standard license URL
+        license=License.Unknown,
         publication_state=Published(
-            online=datetime.date(2013, 7, 31),  # Crossref published-online
-            print=datetime.date(2013, 8, 1),  # Crossref published-print
+            online=datetime.date(2013, 7, 31),
+            print=datetime.date(2013, 8, 1),
         ),
         links={doi},
     )
@@ -704,11 +707,6 @@ def test__import_from_doi__both_dates__sets_published_with_both_dates() -> None:
 @pytest.mark.django_db
 def test__import_from_doi__duplicate_doi__raises_doi_already_imported() -> None:
     """Test that importing a DOI that already exists raises DOIAlreadyImported."""
-    from tests import domainfactory
-
-    from coda.apps.publications.repositories import publication_repository
-    from coda.contexts.publication.services.doi_import_service import DOIAlreadyImported
-
     # GIVEN: Database has existing publisher, journal, and publication with DOI
     journal = create_springer_nature_journal()
 
