@@ -12,6 +12,7 @@ from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 from coda.apps.journals.models import Journal
+from coda.apps.publications.repositories import publication_repository
 from coda.apps.publishers.models import Publisher
 from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
@@ -265,20 +266,15 @@ def test__import_from_doi__valid_journal_article_doi__returns_funding_request_wi
     - No external funding
     - No extra contact
     """
-    # GIVEN: Database has existing publisher and journal matching the DOI metadata
     journal = create_springer_nature_journal()
 
+    doi = Doi("10.1038/nature12373")
     doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
     doi_service = DOIImportService(doi_client=doi_client)
 
-    doi = Doi("10.1038/nature12373")
-
-    # WHEN: Import from DOI
     actual = doi_service.import_from_doi(doi)
 
-    # THEN: FundingRequest matches expected structure
     expected = get_expected_request(journal.pk)
-
     assert_fundingrequest_eq(actual, expected)
 
 
@@ -301,15 +297,9 @@ def test__import_from_doi__journal_not_in_database__auto_creates_journal(
     - E-ISSN from DOI metadata
     - Publisher matched by name (or created if not found)
     """
-    # GIVEN: Database has no journals or publishers
-    assert Journal.objects.count() == 0
-    assert Publisher.objects.count() == 0
-
-    # Get the DOI client fixture (fake or real)
     doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
     doi_service = DOIImportService(doi_client=doi_client)
 
-    # Fake client returns "Springer Nature", real Crossref returns full legal name
     expected_publisher_name = (
         "Springer Nature"
         if client_fixture == "fake_doi_client"
@@ -318,10 +308,8 @@ def test__import_from_doi__journal_not_in_database__auto_creates_journal(
 
     doi = Doi("10.1038/nature12373")
 
-    # WHEN: Import from DOI
     funding_request = doi_service.import_from_doi(doi)
 
-    # THEN: Journal and publisher were auto-created
     assert Journal.objects.count() == 1
     assert Publisher.objects.count() == 1
 
@@ -356,7 +344,6 @@ def test__import_from_doi__journal_exists_in_database__does_not_create_publisher
     - Do NOT call _match_or_create_publisher()
     - Do NOT create any new publishers
     """
-    # GIVEN: Database has existing publisher and journal
     existing_publisher = Publisher.objects.create(name="Springer Nature")
     existing_journal = Journal.objects.create(
         title="Nature",
@@ -364,23 +351,15 @@ def test__import_from_doi__journal_exists_in_database__does_not_create_publisher
         publisher=existing_publisher,
     )
 
-    assert Journal.objects.count() == 1
-    assert Publisher.objects.count() == 1
-
+    doi = Doi("10.1038/nature12373")
     doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
     doi_service = DOIImportService(doi_client=doi_client)
 
-    # The DOI metadata has eissn="1476-4687" which matches existing_journal
-    doi = Doi("10.1038/nature12373")
-
-    # WHEN: Import from DOI
     funding_request = doi_service.import_from_doi(doi)
 
-    # THEN: No new publishers or journals were created
     assert Journal.objects.count() == 1
     assert Publisher.objects.count() == 1
 
-    # AND: We used the existing journal
     publication = funding_request.publication
     assert isinstance(publication, Publication)
     assert publication.journal == existing_journal.pk
@@ -396,7 +375,7 @@ def test__import_from_doi__metadata_without_journal__raises_invalid_metadata_err
     fake_client, doi = make_test_metadata(
         doi="10.1234/book.123",
         title="Example Book Title",
-        journal=None,  # Books don't have journals
+        journal=None,
         publication_type="book",
     )
 
@@ -418,8 +397,8 @@ def test__import_from_doi__journal_without_eissn__raises_invalid_metadata_error(
         title="Article in Print-Only Journal",
         journal=ExternalJournal(
             title="Print-Only Journal",
-            issn="1234-5678",  # Has print ISSN
-            eissn=None,  # No E-ISSN
+            issn="1234-5678",
+            eissn=None,
         ),
     )
 
@@ -440,7 +419,7 @@ def test__import_from_doi__metadata_without_publisher__raises_invalid_metadata_e
         doi="10.1234/article.789",
         title="Article Without Publisher Info",
         journal=ExternalJournal(title="Independent Journal", eissn="9876-5434"),
-        publisher=None,  # No publisher information
+        publisher=None,
     )
 
     doi_service = DOIImportService(doi_client=fake_client)
@@ -456,22 +435,18 @@ def test__import_from_doi__invalid_license_string__returns_unknown_license() -> 
     This verifies that we gracefully handle license strings that don't map to CODA's
     License enum by returning License.Unknown instead of raising an exception.
     """
-    # GIVEN: Database has existing publisher and journal
     create_springer_nature_journal()
 
     fake_client, doi = make_test_metadata(
         doi="10.1234/invalid-license",
         title="Article with Invalid License",
-        license="INVALID-LICENSE-XYZ",  # Invalid license that won't map
+        license="INVALID-LICENSE-XYZ",
         publisher="Springer Nature",
     )
 
     doi_service = DOIImportService(doi_client=fake_client)
-
-    # WHEN: Import from DOI with invalid license
     funding_request = doi_service.import_from_doi(doi)
 
-    # THEN: License is set to Unknown
     publication = get_publication_from_funding_request(funding_request)
     assert publication.license == License.Unknown
 
@@ -485,7 +460,6 @@ def test__import_from_doi__author_with_whitespace_name_and_affiliation__creates_
     This ensures we don't lose author information when name is missing but we have
     affiliation or ROR ID data.
     """
-    # GIVEN: Database has existing publisher and journal
     create_springer_nature_journal()
 
     fake_client, doi = make_test_metadata(
@@ -493,7 +467,7 @@ def test__import_from_doi__author_with_whitespace_name_and_affiliation__creates_
         title="Article with Anonymous Author",
         authors=[
             ExternalAuthor(
-                name="   ",  # Whitespace-only name
+                name="   ",
                 affiliation="Massachusetts Institute of Technology",
                 ror_id=None,
             )
@@ -502,11 +476,8 @@ def test__import_from_doi__author_with_whitespace_name_and_affiliation__creates_
     )
 
     doi_service = DOIImportService(doi_client=fake_client)
-
-    # WHEN: Import from DOI
     funding_request = doi_service.import_from_doi(doi)
 
-    # THEN: Author is created as "Unknown"
     publication = get_publication_from_funding_request(funding_request)
     assert len(publication.relevant_authors) == 1
     assert publication.relevant_authors[0].name == "Unknown"
@@ -515,7 +486,6 @@ def test__import_from_doi__author_with_whitespace_name_and_affiliation__creates_
 @pytest.mark.django_db
 def test__import_from_doi__author_with_empty_name_and_ror_id__creates_unknown_author() -> None:
     """Given author with empty name but valid ROR ID, creates 'Unknown' author."""
-    # GIVEN: Database has existing publisher and journal
     create_springer_nature_journal()
 
     fake_client, doi = make_test_metadata(
@@ -532,11 +502,8 @@ def test__import_from_doi__author_with_empty_name_and_ror_id__creates_unknown_au
     )
 
     doi_service = DOIImportService(doi_client=fake_client)
-
-    # WHEN: Import from DOI
     funding_request = doi_service.import_from_doi(doi)
 
-    # THEN: Author is created as "Unknown"
     publication = get_publication_from_funding_request(funding_request)
     assert len(publication.relevant_authors) == 1
     assert publication.relevant_authors[0].name == "Unknown"
@@ -545,7 +512,6 @@ def test__import_from_doi__author_with_empty_name_and_ror_id__creates_unknown_au
 @pytest.mark.django_db
 def test__import_from_doi__author_with_empty_name_and_no_data__skips_author() -> None:
     """Given author with empty name and no other data, skips creating the author entirely."""
-    # GIVEN: Database has existing publisher and journal
     create_springer_nature_journal()
 
     fake_client, doi = make_test_metadata(
@@ -553,20 +519,17 @@ def test__import_from_doi__author_with_empty_name_and_no_data__skips_author() ->
         title="Article with Empty Author",
         authors=[
             ExternalAuthor(
-                name="",  # Empty name
-                affiliation=None,  # No affiliation
-                ror_id=None,  # No ROR ID
+                name="",
+                affiliation=None,
+                ror_id=None,
             )
         ],
         publisher="Springer Nature",
     )
 
     doi_service = DOIImportService(doi_client=fake_client)
-
-    # WHEN: Import from DOI
     funding_request = doi_service.import_from_doi(doi)
 
-    # THEN: No authors are created
     publication = get_publication_from_funding_request(funding_request)
     assert len(publication.relevant_authors) == 0
 
@@ -580,7 +543,6 @@ def test__import_from_doi__mixed_authors__creates_valid_and_unknown_skips_empty(
     - Empty name + other data → create as "Unknown"
     - Empty name + no data → skip entirely
     """
-    # GIVEN: Database has existing publisher and journal
     create_springer_nature_journal()
 
     fake_client, doi = make_test_metadata(
@@ -599,10 +561,8 @@ def test__import_from_doi__mixed_authors__creates_valid_and_unknown_skips_empty(
 
     doi_service = DOIImportService(doi_client=fake_client)
 
-    # WHEN: Import from DOI
     funding_request = doi_service.import_from_doi(doi)
 
-    # THEN: Valid authors created, "Unknown" for partial, empty skipped
     publication = get_publication_from_funding_request(funding_request)
     assert len(publication.relevant_authors) == 3
     assert publication.relevant_authors[0].name == "John Doe"
@@ -623,17 +583,15 @@ def test__import_from_doi__publisher_with_whitespace__trims_publisher_name() -> 
         doi="10.1234/whitespace-publisher",
         title="Article with Whitespace Publisher",
         journal=ExternalJournal(title="Test Journal", eissn="1234-5679"),
-        publisher="  Springer Nature  ",  # Leading/trailing whitespace
+        publisher="  Springer Nature  ",
     )
 
     doi_service = DOIImportService(doi_client=fake_client)
     funding_request = doi_service.import_from_doi(doi)
 
-    # Verify publisher created with trimmed name (no whitespace)
     created_publisher = Publisher.objects.get(name="Springer Nature")
     assert created_publisher.name == "Springer Nature"
 
-    # Verify journal references the correctly-named publisher
     publication = get_publication_from_funding_request(funding_request)
     created_journal = Journal.objects.get(pk=publication.journal)
     assert created_journal.publisher.name == "Springer Nature"
@@ -647,7 +605,6 @@ def test__import_from_doi__no_publication_date__sets_unpublished_state() -> None
     - Publication state should be Unpublished (not Published)
     - This allows importing articles that are accepted but not yet published
     """
-    # GIVEN: Database has existing publisher and journal
     create_springer_nature_journal()
 
     fake_client, doi = make_test_metadata(
@@ -659,11 +616,8 @@ def test__import_from_doi__no_publication_date__sets_unpublished_state() -> None
     )
 
     doi_service = DOIImportService(doi_client=fake_client)
-
-    # WHEN: Import from DOI
     funding_request = doi_service.import_from_doi(doi)
 
-    # THEN: Publication state is Unpublished
     publication = get_publication_from_funding_request(funding_request)
     assert isinstance(publication.publication_state, Unpublished)
     assert publication.publication_state.state == UnpublishedState.Unknown
@@ -672,7 +626,6 @@ def test__import_from_doi__no_publication_date__sets_unpublished_state() -> None
 @pytest.mark.django_db
 def test__import_from_doi__only_online_date__sets_published_with_online_date() -> None:
     """Given metadata with only online publication date, sets Published with online date."""
-    # GIVEN: Database has existing publisher and journal
     create_springer_nature_journal()
 
     online_date = datetime.date(2024, 6, 15)
@@ -687,10 +640,8 @@ def test__import_from_doi__only_online_date__sets_published_with_online_date() -
 
     doi_service = DOIImportService(doi_client=fake_client)
 
-    # WHEN: Import from DOI
     funding_request = doi_service.import_from_doi(doi)
 
-    # THEN: Publication state is Published with online date only
     publication = get_publication_from_funding_request(funding_request)
     assert isinstance(publication.publication_state, Published)
     assert publication.publication_state.online == online_date
@@ -700,7 +651,6 @@ def test__import_from_doi__only_online_date__sets_published_with_online_date() -
 @pytest.mark.django_db
 def test__import_from_doi__only_print_date__sets_published_with_print_date() -> None:
     """Given metadata with only print publication date, sets Published with print date."""
-    # GIVEN: Database has existing publisher and journal
     create_springer_nature_journal()
 
     print_date = datetime.date(2024, 7, 1)
@@ -714,11 +664,8 @@ def test__import_from_doi__only_print_date__sets_published_with_print_date() -> 
     )
 
     doi_service = DOIImportService(doi_client=fake_client)
-
-    # WHEN: Import from DOI
     funding_request = doi_service.import_from_doi(doi)
 
-    # THEN: Publication state is Published with print date only
     publication = get_publication_from_funding_request(funding_request)
     assert isinstance(publication.publication_state, Published)
     assert publication.publication_state.online is None
@@ -782,26 +729,3 @@ def test__import_from_doi__duplicate_doi__raises_doi_already_imported() -> None:
 
     assert exc_info.value.doi == doi
     assert exc_info.value.existing_publication_id == publication_id
-
-
-@pytest.mark.django_db
-def test__import_from_doi__doi_not_in_database__creates_funding_request() -> None:
-    """Test that importing a new DOI creates a FundingRequest."""
-    from coda.apps.publications.repositories import publication_repository
-
-    # GIVEN: Database has existing publisher and journal
-    journal = create_springer_nature_journal()
-
-    # AND: DOI is not in database
-    doi = Doi("10.1038/nature12373")
-    assert publication_repository.find_by_doi(doi) is None
-
-    fake_client = FakeDOIMetadataClient()
-    service = DOIImportService(fake_client)
-
-    # WHEN: Import from DOI
-    funding_request = service.import_from_doi(doi)
-
-    # THEN: FundingRequest is created with DOI link
-    assert funding_request is not None
-    assert doi in funding_request.publication.links
