@@ -224,28 +224,28 @@ def find_by_doi(doi: Doi) -> BasePublication | None:
     Returns:
         Publication if found, None otherwise
     """
-    link = LinkModel.objects.filter(type__name="DOI", value=doi.value()).first()
-    if not link:
+    try:
+        model = (
+            PublicationModel.objects.select_related(
+                "article_journal",
+                "monograph_publisher",
+                "publication_type",
+                "subject_area",
+            )
+            .prefetch_related(
+                "relevant_authors__affiliation",
+                "relevant_authors__identifier",
+                "attached_contracts__contract__publishers",
+                "attached_contracts__contract__journals",
+                "links__type",
+            )
+            .filter(links__type__name="DOI", links__value=doi.value())
+            .distinct()
+            .get()
+        )
+        return as_domain_object(model)
+    except PublicationModel.DoesNotExist:
         return None
-
-    # Fetch the full publication with all related data
-    model = (
-        PublicationModel.objects.select_related(
-            "article_journal",
-            "monograph_publisher",
-            "publication_type",
-            "subject_area",
-        )
-        .prefetch_related(
-            "relevant_authors__affiliation",
-            "relevant_authors__identifier",
-            "attached_contracts__contract__publishers",
-            "attached_contracts__contract__journals",
-            "links__type",
-        )
-        .get(pk=link.publication_id)
-    )
-    return as_domain_object(model)
 
 
 def find_publications_by_vocabulary(vocabulary_id: VocabularyId) -> list[BasePublication]:
