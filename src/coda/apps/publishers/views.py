@@ -3,9 +3,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from django import forms
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import render
 from django.urls import reverse_lazy
+from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, UpdateView
 
 from coda.apps.blocklist.models import BlockList
@@ -81,3 +84,45 @@ class PublisherUpdateView(LoginRequiredMixin, UpdateView[Publisher, PublisherFor
         context = super().get_context_data(**kwargs)
         context["title"] = "Update Publisher"
         return context
+
+
+@login_required
+@require_GET
+def publisher_create_modal(request: HttpRequest) -> HttpResponse:
+    form = PublisherForm()
+    return render(
+        request,
+        "partials/entity_creation_modal.html",
+        {
+            "entity_name": "Publisher",
+            "form": form,
+            "entity_create_url": "publishing:publishers:create_modal_submit",
+        },
+    )
+
+
+@login_required
+@require_POST
+def publisher_create_modal_submit(request: HttpRequest) -> HttpResponse:
+    form = PublisherForm(request.POST)
+
+    if form.is_valid():
+        publisher = form.save()
+
+        return render(
+            request,
+            "publishers/partials/publisher_create_success.html",
+            {
+                "publisher": publisher,
+            },
+        )
+    else:
+        return render(
+            request,
+            "partials/entity_creation_modal.html",
+            {
+                "entity_name": "Publisher",
+                "form": form,
+                "entity_create_url": "publishing:publishers:create_modal_submit",
+            },
+        )

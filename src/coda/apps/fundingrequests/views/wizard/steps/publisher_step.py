@@ -80,11 +80,15 @@ class PublisherStep(TemplateStep):
 
 @login_required
 def find_publisher(request: HttpRequest) -> HttpResponse:
-    publishers = Publisher.objects.filter(name__icontains=request.POST["publisher_name"])
+    search_term = request.POST.get("publisher_name", "")
+    publishers = Publisher.objects.filter(name__icontains=search_term)
     return render(
         request,
         "fundingrequests/partials/publisher_search_results.html",
-        {"publishers": publishers},
+        {
+            "publishers": publishers,
+            "search_term": search_term,
+        },
     )
 
 

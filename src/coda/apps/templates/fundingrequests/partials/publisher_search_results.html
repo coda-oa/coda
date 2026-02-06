@@ -1,26 +1,43 @@
 <div id="publisher-search-results" class="scroll-container max-h-30">
-    <table class="my-2">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Select</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for publisher in publishers %}
+    {% if publishers %}
+        <table class="my-2">
+            <thead>
                 <tr>
-                    <td>{{ publisher.name }}</td>
-                    <td>
-                        <input type="radio"
-                               name="publisher"
-                               hx-target="#publisher-error"
-                               hx-swap="outerHTML"
-                               hx-post="{% url 'fundingrequests:clear_publisher_error' %}"
-                               value="{{ publisher.pk }}"
-                               {% if publisher.pk == selected_publisher.pk %}checked{% endif %}>
-                    </td>
+                    <th>Name</th>
+                    <th>Select</th>
                 </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                {% for publisher in publishers %}
+                    <tr>
+                        <td>{{ publisher.name }}</td>
+                        <td>
+                            <input type="radio"
+                                   name="publisher"
+                                   hx-target="#publisher-error"
+                                   hx-swap="outerHTML"
+                                   hx-post="{% url 'fundingrequests:clear_publisher_error' %}"
+                                   value="{{ publisher.pk }}"
+                                   {% if publisher.pk == selected_publisher.pk %}checked{% endif %}>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="flex justify-between align-center my-2">
+            <p>Couldn't find the right publisher?</p>
+            <button type="button"
+                    hx-get="{% url 'publishing:publishers:create_modal' %}"
+                    hx-target="#entity-creation-modal-wrapper"
+                    class="secondary">Create New Publisher</button>
+        </div>
+    {% elif search_term %}
+        <div class="flex justify-between align-center my-2">
+            <p>No results for "{{ search_term }}".</p>
+            <button type="button"
+                    hx-get="{% url 'publishing:publishers:create_modal' %}"
+                    hx-target="#entity-creation-modal-wrapper"
+                    class="secondary">New Publisher</button>
+        </div>
+    {% endif %}
 </div>
