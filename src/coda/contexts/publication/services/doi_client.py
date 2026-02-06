@@ -26,6 +26,19 @@ class DOINotFoundError(DomainError):
         self.doi = doi
 
 
+class DOIFetchError(DomainError):
+    """Raised when DOI fetch fails due to network/API errors.
+
+    This is distinct from DOINotFoundError (404) - this represents
+    infrastructure failures like timeouts, network errors, server errors.
+    """
+
+    def __init__(self, doi: Doi, reason: str, *args: object) -> None:
+        super().__init__(f"Failed to fetch DOI {doi}: {reason}", *args)
+        self.doi = doi
+        self.reason = reason
+
+
 class DOIMetadataClient(Protocol):
     """Protocol for fetching publication metadata by DOI.
 
@@ -42,54 +55,10 @@ class DOIMetadataClient(Protocol):
             ExternalPublicationMetadata with publication details
 
         Raises:
-            DOINotFoundError: If the DOI is not found
+            DOINotFoundError: If the DOI is not found (404)
+            DOIFetchError: If the fetch fails due to network/API errors
         """
         ...
-
-
-class FakeDOIMetadataClient:
-    """Fake DOI metadata client for testing.
-
-    Provides hardcoded responses for known test DOIs.
-    """
-
-    def __init__(self) -> None:
-        # Hardcoded test data for known DOIs
-        self._data = {
-            "10.1038/nature12373": ExternalPublicationMetadata(
-                title="Example Nature Article",
-                authors=[
-                    ExternalAuthor(
-                        name="John Doe",
-                        affiliation="University of Example",
-                        ror_id="https://ror.org/01an7q238",
-                    ),
-                    ExternalAuthor(
-                        name="Jane Smith",
-                        affiliation="Research Institute",
-                        ror_id=None,
-                    ),
-                ],
-                publication_type="journal-article",
-                journal=ExternalJournal(
-                    title="Nature",
-                    issn="0028-0836",
-                    eissn="1476-4687",
-                ),
-                publisher="Springer Nature",
-                license="CC-BY",
-                online_publication_date=datetime.date(2024, 1, 15),
-            ),
-        }
-
-    def fetch(self, doi: Doi) -> ExternalPublicationMetadata:
-        """Fetch metadata from hardcoded test data."""
-        doi_str = str(doi)
-
-        if doi_str not in self._data:
-            raise DOINotFoundError(doi)
-
-        return self._data[doi_str]
 
 
 class CrossrefDoiClient:
@@ -104,7 +73,12 @@ class CrossrefDoiClient:
         self.timeout = timeout
 
     def fetch(self, doi: Doi) -> ExternalPublicationMetadata:
-        """Fetch metadata from Crossref API."""
+        """Fetch metadata from Crossref API.
+
+        Raises:
+            DOINotFoundError: If DOI not found (404)
+            DOIFetchError: If request fails due to network/API errors
+        """
         url = f"{self.CROSSREF_API_BASE}{doi}"
 
         try:
@@ -118,10 +92,39 @@ class CrossrefDoiClient:
 
             return self._parse_crossref_response(data)
 
+        except DOINotFoundError:
+            # Re-raise domain exceptions without wrapping
+            raise
+
+        except DOIFetchError:
+            # Re-raise domain exceptions without wrapping
+            raise
+
+        except httpx.TimeoutException as e:
+            raise DOIFetchError(doi, "Request timeout") from e
+
+        except httpx.ConnectError as e:
+            raise DOIFetchError(doi, "Network connection failed") from e
+
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 raise DOINotFoundError(doi) from e
-            raise
+            # Translate HTTP errors to domain exception
+            status = e.response.status_code
+            if status == 429:
+                raise DOIFetchError(doi, "Rate limit exceeded (429)") from e
+            elif 500 <= status < 600:
+                raise DOIFetchError(doi, f"Server error ({status})") from e
+            else:
+                raise DOIFetchError(doi, f"HTTP error ({status})") from e
+
+        except ValueError as e:
+            # JSON decode errors
+            raise DOIFetchError(doi, "Invalid JSON response from API") from e
+
+        except httpx.HTTPError as e:
+            # Catch-all for any other httpx errors (network issues, etc.)
+            raise DOIFetchError(doi, f"Network error: {type(e).__name__}") from e
 
     def _parse_crossref_response(self, data: dict[str, Any]) -> ExternalPublicationMetadata:
         """Parse Crossref JSON response into our metadata structure."""

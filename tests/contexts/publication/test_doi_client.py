@@ -10,9 +10,9 @@ from coda.contexts.publication.services.doi_client import (
     CrossrefDoiClient,
     DOIMetadataClient,
     DOINotFoundError,
-    FakeDOIMetadataClient,
 )
 from coda.domain.publication.links import Doi
+from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 
 
 @pytest.fixture

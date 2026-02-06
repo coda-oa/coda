@@ -20,17 +20,24 @@ from coda.contexts.publication.dto.external_metadata import (
 from coda.contexts.publication.services.doi_client import (
     CrossrefDoiClient,
     DOIMetadataClient,
-    FakeDOIMetadataClient,
 )
 from coda.contexts.publication.services.doi_import_service import DOIImportService
 from coda.domain.author import Author, Role
 from coda.domain.fundingrequest import FundingRequest, Payment, PaymentMethod
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.domain.money import Currency, Money
-from coda.domain.publication import Authors, JournalId, License, Publication, Published
-from coda.domain.publication.publication import Unpublished, UnpublishedState
+from coda.domain.publication import (
+    Authors,
+    JournalId,
+    License,
+    Publication,
+    Published,
+    Unpublished,
+    UnpublishedState,
+)
 from coda.domain.publication.links import Doi
 from coda.domain.string import NonEmptyStr
+from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 
 
 def make_test_metadata(
@@ -330,9 +337,9 @@ def test__import_from_doi__journal_exists_in_database__does_not_create_publisher
 
     # Verify no new publishers were created
     publisher_count_after = Publisher.objects.count()
-    assert (
-        publisher_count_after == publisher_count_before
-    ), "Should not create publisher when journal already exists"
+    assert publisher_count_after == publisher_count_before, (
+        "Should not create publisher when journal already exists"
+    )
 
     # Verify we used the existing journal
     publication = funding_request.publication
