@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, UpdateView
 
@@ -90,13 +90,26 @@ class PublisherUpdateView(LoginRequiredMixin, UpdateView[Publisher, PublisherFor
 @require_GET
 def publisher_create_modal(request: HttpRequest) -> HttpResponse:
     form = PublisherForm()
+    context_param = request.GET.get("context", "")
+
+    submit_url = reverse("publishing:publishers:create_modal_submit")
+    if context_param:
+        submit_url += f"?context={context_param}"
+
+    target_wrapper = (
+        "nested-entity-creation-modal-wrapper"
+        if context_param == "journal_modal"
+        else "entity-creation-modal-wrapper"
+    )
+
     return render(
         request,
         "partials/entity_creation_modal.html",
         {
             "entity_name": "Publisher",
             "form": form,
-            "entity_create_url": "publishing:publishers:create_modal_submit",
+            "entity_create_url_path": submit_url,
+            "modal_target_wrapper": target_wrapper,
         },
     )
 
@@ -105,24 +118,46 @@ def publisher_create_modal(request: HttpRequest) -> HttpResponse:
 @require_POST
 def publisher_create_modal_submit(request: HttpRequest) -> HttpResponse:
     form = PublisherForm(request.POST)
+    context_param = request.GET.get("context", "")
 
     if form.is_valid():
         publisher = form.save()
 
+        template = _get_success_template(context_param)
+
         return render(
             request,
-            "publishers/partials/publisher_create_success.html",
+            template,
             {
                 "publisher": publisher,
             },
         )
     else:
+        submit_url = reverse("publishing:publishers:create_modal_submit")
+        if context_param:
+            submit_url += f"?context={context_param}"
+
+        target_wrapper = (
+            "nested-entity-creation-modal-wrapper"
+            if context_param == "journal_modal"
+            else "entity-creation-modal-wrapper"
+        )
+
         return render(
             request,
             "partials/entity_creation_modal.html",
             {
                 "entity_name": "Publisher",
                 "form": form,
-                "entity_create_url": "publishing:publishers:create_modal_submit",
+                "entity_create_url_path": submit_url,
+                "modal_target_wrapper": target_wrapper,
             },
         )
+
+
+def _get_success_template(context_param: str) -> str:
+    if context_param == "journal_modal":
+        template = "publishers/partials/publisher_create_success_journal_context.html"
+    else:
+        template = "publishers/partials/publisher_create_success.html"
+    return template

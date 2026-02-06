@@ -18,7 +18,10 @@ def test__click_on_new_publisher_from_funding_request__returns_modal_with_publis
     assert "partials/entity_creation_modal.html" in [t.name for t in response.templates]
     assert "form" in response.context
     assert response.context["entity_name"] == "Publisher"
-    assert response.context["entity_create_url"] == "publishing:publishers:create_modal_submit"
+    assert (
+        response.context["entity_create_url_path"] == "/publishing/publishers/create-modal/submit/"
+    )
+    assert response.context["modal_target_wrapper"] == "entity-creation-modal-wrapper"
 
 
 @pytest.mark.django_db
@@ -43,9 +46,13 @@ def test__valid_publisher_entered__click_create_button__creates_publisher_and_re
     assert response.context["publisher"] == publisher
 
     content = response.content.decode()
-    assert 'id="entity-creation-modal-wrapper" hx-swap-oob="true"' in content
-    assert 'id="publisher-search-results" hx-swap-oob="true"' in content
-    assert 'id="publisher-name-wrapper" hx-swap-oob="true"' in content
+    assert re.search(
+        r'<div[^>]*id="entity-creation-modal-wrapper"[^>]*hx-swap-oob="true"[^>]*>', content
+    )
+    assert re.search(
+        r'<div[^>]*id="publisher-search-results"[^>]*hx-swap-oob="true"[^>]*>', content
+    )
+    assert re.search(r'<div[^>]*id="publisher-name-wrapper"[^>]*hx-swap-oob="true"[^>]*>', content)
     assert publisher_name in content
     assert re.search(
         rf'<input\s+type="radio"\s+name="publisher"\s+value="{publisher.pk}"\s+checked>', content

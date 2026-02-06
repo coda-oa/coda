@@ -4,9 +4,11 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
+from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, UpdateView
+from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.blocklist.models import BlockList
 from coda.apps.journals.forms import JournalForm
@@ -91,3 +93,51 @@ def block_journal(request: HttpRequest, pk: int) -> HttpResponse:
     blocklist.block_journal(journal, reason)
 
     return cast(HttpResponse, journal_detail_view(request, eissn=journal.eissn))
+
+
+@login_required
+@require_GET
+def journal_create_modal(request: HttpRequest) -> HttpResponse:
+    form = JournalForm()
+
+    extra_content = render_to_string(
+        "journals/partials/journal_modal_publisher_button.html", request=request
+    )
+
+    return render(
+        request,
+        "partials/entity_creation_modal.html",
+        {
+            "entity_name": "Journal",
+            "form": form,
+            "entity_create_url": "publishing:journals:create_modal_submit",
+            "extra_content": extra_content,
+        },
+    )
+
+
+@login_required
+@require_POST
+def journal_create_modal_submit(request: HttpRequest) -> HttpResponse:
+    form = JournalForm(request.POST)
+
+    if form.is_valid():
+        journal = form.save()
+
+        return render(
+            request,
+            "journals/partials/journal_create_success.html",
+            {
+                "journal": journal,
+            },
+        )
+    else:
+        return render(
+            request,
+            "partials/entity_creation_modal.html",
+            {
+                "entity_name": "Journal",
+                "form": form,
+                "entity_create_url": "publishing:journals:create_modal_submit",
+            },
+        )
