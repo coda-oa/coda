@@ -12,8 +12,10 @@ from tests import domainfactory
 from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
+from coda.apps.journals import services as journal_services
 from coda.apps.journals.models import Journal
 from coda.apps.publications.repositories import publication_repository
+from coda.apps.publishers import services as publisher_services
 from coda.apps.publishers.models import Publisher
 from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
@@ -32,6 +34,7 @@ from coda.contexts.publication.services.doi_import_service import (
 from coda.domain.author import Author, Role
 from coda.domain.fundingrequest import FundingRequest, Payment, PaymentMethod
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
+from coda.domain.issn import Issn
 from coda.domain.money import Currency, Money
 from coda.domain.publication import (
     Authors,
@@ -121,18 +124,19 @@ def get_publication_from_funding_request(
     return publication
 
 
-def create_springer_nature_journal() -> Journal:
-    """Create Springer Nature publisher and Nature journal in database.
+def create_springer_nature_journal() -> int:
+    """Create Springer Nature publisher and Nature journal in database using services.
 
     Returns:
-        The created Nature journal instance
+        The integer ID of the created Nature journal
     """
-    publisher = Publisher.objects.create(name="Springer Nature")
-    return Journal.objects.create(
-        title="Nature",
-        eissn="1476-4687",
-        publisher=publisher,
+    publisher_id = publisher_services.create("Springer Nature")
+    journal_id = journal_services.create(
+        title=NonEmptyStr("Nature"),
+        eissn=Issn("1476-4687"),
+        publisher_id=publisher_id,
     )
+    return int(journal_id)
 
 
 @pytest.fixture
@@ -220,22 +224,6 @@ def make_expected_funding_request_for_real_nature_article(
     )
 
 
-@pytest.fixture
-def springer_nature_publisher(db: None) -> Publisher:
-    """Creates Springer Nature publisher in database."""
-    return Publisher.objects.create(name="Springer Nature")
-
-
-@pytest.fixture
-def nature_journal(springer_nature_publisher: Publisher) -> Journal:
-    """Creates Nature journal in database."""
-    return Journal.objects.create(
-        title="Nature",
-        eissn="1476-4687",
-        publisher=springer_nature_publisher,
-    )
-
-
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     ("client_fixture", "get_expected_request"),
@@ -269,15 +257,18 @@ def test__import_from_doi__valid_journal_article_doi__returns_funding_request_wi
     - No external funding
     - No extra contact
     """
-    journal = create_springer_nature_journal()
+    # GIVEN: Database has existing publisher and journal matching the DOI metadata
+    journal_id = create_springer_nature_journal()
 
     doi = Doi("10.1038/nature12373")
     doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
     doi_service = DOIImportService(doi_client=doi_client)
 
+    # WHEN: Import from DOI
     actual = doi_service.import_from_doi(doi)
 
-    expected = get_expected_request(journal.pk)
+    # THEN: FundingRequest matches expected structure
+    expected = get_expected_request(journal_id)
     assert_fundingrequest_eq(actual, expected)
 
 
@@ -300,6 +291,10 @@ def test__import_from_doi__journal_not_in_database__auto_creates_journal(
     - E-ISSN from DOI metadata
     - Publisher matched by name (or created if not found)
     """
+    # GIVEN: Database has no journals or publishers
+    assert Journal.objects.count() == 0
+    assert Publisher.objects.count() == 0
+
     doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
     doi_service = DOIImportService(doi_client=doi_client)
 
@@ -311,16 +306,21 @@ def test__import_from_doi__journal_not_in_database__auto_creates_journal(
 
     doi = Doi("10.1038/nature12373")
 
+    # WHEN: Import from DOI
     funding_request = doi_service.import_from_doi(doi)
 
+    # THEN: Journal and publisher were auto-created
     assert Journal.objects.count() == 1
     assert Publisher.objects.count() == 1
 
-    created_journal = Journal.objects.get(eissn="1476-4687")
+    # Verify created entities match DOI metadata
+    created_journal = journal_services.find_by_eissn(Issn("1476-4687"))
+    assert created_journal is not None
     assert created_journal.title == "Nature"
     assert created_journal.eissn == "1476-4687"
 
-    created_publisher = created_journal.publisher
+    created_publisher = publisher_services.find_by_name(expected_publisher_name)
+    assert created_publisher is not None
     assert created_publisher.name == expected_publisher_name
 
     publication = funding_request.publication
@@ -347,25 +347,34 @@ def test__import_from_doi__journal_exists_in_database__does_not_create_publisher
     - Do NOT call _match_or_create_publisher()
     - Do NOT create any new publishers
     """
-    existing_publisher = Publisher.objects.create(name="Springer Nature")
-    existing_journal = Journal.objects.create(
-        title="Nature",
-        eissn="1476-4687",
-        publisher=existing_publisher,
+    # GIVEN: Database has existing publisher and journal
+    publisher_id = publisher_services.create("Springer Nature")
+    journal_id = journal_services.create(
+        title=NonEmptyStr("Nature"),
+        eissn=Issn("1476-4687"),
+        publisher_id=publisher_id,
     )
-
-    doi = Doi("10.1038/nature12373")
-    doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
-    doi_service = DOIImportService(doi_client=doi_client)
-
-    funding_request = doi_service.import_from_doi(doi)
 
     assert Journal.objects.count() == 1
     assert Publisher.objects.count() == 1
 
+    doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
+    doi_service = DOIImportService(doi_client=doi_client)
+
+    # The DOI metadata has eissn="1476-4687" which matches existing journal
+    doi = Doi("10.1038/nature12373")
+
+    # WHEN: Import from DOI
+    funding_request = doi_service.import_from_doi(doi)
+
+    # THEN: No new publishers or journals were created
+    assert Journal.objects.count() == 1
+    assert Publisher.objects.count() == 1
+
+    # AND: We used the existing journal
     publication = funding_request.publication
     assert isinstance(publication, Publication)
-    assert publication.journal == existing_journal.pk
+    assert publication.journal == int(journal_id)
 
 
 @pytest.mark.django_db
@@ -586,17 +595,22 @@ def test__import_from_doi__publisher_with_whitespace__trims_publisher_name() -> 
         doi="10.1234/whitespace-publisher",
         title="Article with Whitespace Publisher",
         journal=ExternalJournal(title="Test Journal", eissn="1234-5679"),
-        publisher="  Springer Nature  ",
+        publisher="  Springer Nature  ",  # Leading/trailing whitespace
     )
 
     doi_service = DOIImportService(doi_client=fake_client)
+
+    # WHEN: Import from DOI
     funding_request = doi_service.import_from_doi(doi)
 
-    created_publisher = Publisher.objects.get(name="Springer Nature")
+    # THEN: Publisher was created with trimmed name
+    created_publisher = publisher_services.find_by_name("Springer Nature")
+    assert created_publisher is not None
     assert created_publisher.name == "Springer Nature"
 
+    # AND: Journal references the trimmed publisher
     publication = get_publication_from_funding_request(funding_request)
-    created_journal = Journal.objects.get(pk=publication.journal)
+    created_journal = journal_services.get_by_pk(publication.journal)
     assert created_journal.publisher.name == "Springer Nature"
 
 
@@ -708,12 +722,12 @@ def test__import_from_doi__both_dates__sets_published_with_both_dates() -> None:
 def test__import_from_doi__duplicate_doi__raises_doi_already_imported() -> None:
     """Test that importing a DOI that already exists raises DOIAlreadyImported."""
     # GIVEN: Database has existing publisher, journal, and publication with DOI
-    journal = create_springer_nature_journal()
+    journal_id = create_springer_nature_journal()
 
     doi = Doi("10.1038/nature12373")
 
     # Create a publication with this DOI
-    publication = domainfactory.publication(JournalId(journal.pk))
+    publication = domainfactory.publication(JournalId(journal_id))
     publication.links = {doi}
     publication_id = publication_repository.create(publication)
 
