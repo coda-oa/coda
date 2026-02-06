@@ -21,7 +21,10 @@ from coda.contexts.publication.services.doi_client import (
     CrossrefDoiClient,
     DOIMetadataClient,
 )
-from coda.contexts.publication.services.doi_import_service import DOIImportService
+from coda.contexts.publication.services.doi_import_service import (
+    DOIImportService,
+    InvalidMetadataError,
+)
 from coda.domain.author import Author, Role
 from coda.domain.fundingrequest import FundingRequest, Payment, PaymentMethod
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
@@ -337,9 +340,9 @@ def test__import_from_doi__journal_exists_in_database__does_not_create_publisher
 
     # Verify no new publishers were created
     publisher_count_after = Publisher.objects.count()
-    assert publisher_count_after == publisher_count_before, (
-        "Should not create publisher when journal already exists"
-    )
+    assert (
+        publisher_count_after == publisher_count_before
+    ), "Should not create publisher when journal already exists"
 
     # Verify we used the existing journal
     publication = funding_request.publication
@@ -348,8 +351,8 @@ def test__import_from_doi__journal_exists_in_database__does_not_create_publisher
 
 
 @pytest.mark.django_db
-def test__import_from_doi__metadata_without_journal__raises_assertion_error() -> None:
-    """Given DOI metadata without journal (e.g., book/monograph), raises AssertionError.
+def test__import_from_doi__metadata_without_journal__raises_invalid_metadata_error() -> None:
+    """Given DOI metadata without journal (e.g., book/monograph), raises InvalidMetadataError.
 
     This documents the current limitation: we only support journal articles.
     When we add monograph support, this test should be updated.
@@ -363,13 +366,13 @@ def test__import_from_doi__metadata_without_journal__raises_assertion_error() ->
 
     doi_service = DOIImportService(doi_client=fake_client)
 
-    with pytest.raises(AssertionError, match="Journal articles must have journal metadata"):
+    with pytest.raises(InvalidMetadataError, match="Journal article missing journal metadata"):
         doi_service.import_from_doi(doi)
 
 
 @pytest.mark.django_db
-def test__import_from_doi__journal_without_eissn__raises_assertion_error() -> None:
-    """Given journal metadata without E-ISSN, raises AssertionError.
+def test__import_from_doi__journal_without_eissn__raises_invalid_metadata_error() -> None:
+    """Given journal metadata without E-ISSN, raises InvalidMetadataError.
 
     This documents the current limitation: we require E-ISSN for journal matching.
     When we add ISSN-only support, this test should be updated.
@@ -386,13 +389,13 @@ def test__import_from_doi__journal_without_eissn__raises_assertion_error() -> No
 
     doi_service = DOIImportService(doi_client=fake_client)
 
-    with pytest.raises(AssertionError, match="Journal must have E-ISSN"):
+    with pytest.raises(InvalidMetadataError, match="Journal 'Print-Only Journal' missing E-ISSN"):
         doi_service.import_from_doi(doi)
 
 
 @pytest.mark.django_db
-def test__import_from_doi__metadata_without_publisher__raises_assertion_error() -> None:
-    """Given metadata without publisher information, raises AssertionError.
+def test__import_from_doi__metadata_without_publisher__raises_invalid_metadata_error() -> None:
+    """Given metadata without publisher information, raises InvalidMetadataError.
 
     This documents the current limitation: we require publisher for journal creation.
     When we add support for publisher-less journals, this test should be updated.
@@ -406,7 +409,7 @@ def test__import_from_doi__metadata_without_publisher__raises_assertion_error() 
 
     doi_service = DOIImportService(doi_client=fake_client)
 
-    with pytest.raises(AssertionError, match="Journal must have publisher"):
+    with pytest.raises(InvalidMetadataError, match="Journal missing publisher name"):
         doi_service.import_from_doi(doi)
 
 

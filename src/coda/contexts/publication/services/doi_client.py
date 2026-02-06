@@ -93,11 +93,9 @@ class CrossrefDoiClient:
             return self._parse_crossref_response(data)
 
         except DOINotFoundError:
-            # Re-raise domain exceptions without wrapping
             raise
 
         except DOIFetchError:
-            # Re-raise domain exceptions without wrapping
             raise
 
         except httpx.TimeoutException as e:
@@ -109,7 +107,6 @@ class CrossrefDoiClient:
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 raise DOINotFoundError(doi) from e
-            # Translate HTTP errors to domain exception
             status = e.response.status_code
             if status == 429:
                 raise DOIFetchError(doi, "Rate limit exceeded (429)") from e
@@ -119,11 +116,9 @@ class CrossrefDoiClient:
                 raise DOIFetchError(doi, f"HTTP error ({status})") from e
 
         except ValueError as e:
-            # JSON decode errors
             raise DOIFetchError(doi, "Invalid JSON response from API") from e
 
         except httpx.HTTPError as e:
-            # Catch-all for any other httpx errors (network issues, etc.)
             raise DOIFetchError(doi, f"Network error: {type(e).__name__}") from e
 
     def _parse_crossref_response(self, data: dict[str, Any]) -> ExternalPublicationMetadata:
@@ -139,7 +134,6 @@ class CrossrefDoiClient:
 
         license_info = self._parse_license(message.get("license", []))
 
-        # Parse both online and print publication dates
         online_date = self._parse_date(message.get("published-online"))
         print_date = self._parse_date(message.get("published-print"))
 
@@ -156,57 +150,68 @@ class CrossrefDoiClient:
 
     def _parse_authors(self, author_data: list[dict[str, Any]]) -> list[ExternalAuthor]:
         """Parse author list from Crossref format."""
-        authors = []
+        return [self._parse_author(author) for author in author_data]
 
-        for author in author_data:
-            # Crossref format: {"given": "John", "family": "Doe", "affiliation": [...]}
-            given = author.get("given", "")
-            family = author.get("family", "")
-            name = f"{given} {family}".strip() if given or family else "Unknown Author"
+    def _parse_author(self, author: dict[str, Any]) -> ExternalAuthor:
+        """Parse a single author from Crossref format."""
+        name = self._extract_author_name(author)
+        affiliation_name, ror_id = self._extract_affiliation_info(author)
 
-            # Extract first affiliation and ROR if available
-            affiliations = author.get("affiliation", [])
-            affiliation_name = None
-            ror_id = None
+        return ExternalAuthor(
+            name=name,
+            affiliation=affiliation_name,
+            ror_id=ror_id,
+        )
 
-            if affiliations:
-                first_affil = affiliations[0]
-                affiliation_name = first_affil.get("name")
+    def _extract_author_name(self, author: dict[str, Any]) -> str:
+        """Extract author name from Crossref author object."""
+        given = author.get("given", "")
+        family = author.get("family", "")
+        return f"{given} {family}".strip() if given or family else "Unknown Author"
 
-                # Check for ROR ID in affiliation
-                affil_ids = first_affil.get("id", [])
-                for aid in affil_ids:
-                    if aid.get("id-type") == "ROR":
-                        ror_id = aid.get("id")
-                        break
+    def _extract_affiliation_info(self, author: dict[str, Any]) -> tuple[str | None, str | None]:
+        """Extract affiliation name and ROR ID from Crossref author object."""
+        affiliations = author.get("affiliation", [])
+        if not affiliations:
+            return None, None
 
-            authors.append(
-                ExternalAuthor(
-                    name=name,
-                    affiliation=affiliation_name,
-                    ror_id=ror_id,
-                )
-            )
+        first_affil = affiliations[0]
+        affiliation_name = first_affil.get("name")
+        ror_id = self._extract_ror_id(first_affil)
 
-        return authors
+        return affiliation_name, ror_id
+
+    def _extract_ror_id(self, affiliation: dict[str, Any]) -> str | None:
+        """Extract ROR ID from affiliation object."""
+        affil_ids = affiliation.get("id", [])
+        for aid in affil_ids:
+            if aid.get("id-type") == "ROR":
+                ror_id = aid.get("id")
+                return str(ror_id) if ror_id else None
+        return None
 
     def _parse_journal(self, message: dict[str, Any]) -> ExternalJournal | None:
         """Parse journal information from Crossref response."""
-        # Journal title is in "container-title" field
-        container_titles = message.get("container-title", [])
-        if not container_titles:
+        title = self._extract_journal_title(message)
+        if title is None:
             return None
 
-        title = container_titles[0]
+        issn, eissn = self._extract_issns(message)
+        return ExternalJournal(title=title, issn=issn, eissn=eissn)
 
-        # Extract ISSNs
+    def _extract_journal_title(self, message: dict[str, Any]) -> str | None:
+        """Extract journal title from Crossref response."""
+        container_titles = message.get("container-title", [])
+        return container_titles[0] if container_titles else None
+
+    def _extract_issns(self, message: dict[str, Any]) -> tuple[str | None, str | None]:
+        """Extract print and electronic ISSNs from Crossref response."""
         issns = message.get("ISSN", [])
         issn_types = message.get("issn-type", [])
 
         issn = None
         eissn = None
 
-        # Match ISSNs with their types
         for issn_data in issn_types:
             issn_value = issn_data.get("value")
             issn_type = issn_data.get("type")
@@ -216,54 +221,50 @@ class CrossrefDoiClient:
             elif issn_type == "electronic":
                 eissn = issn_value
 
-        # Fallback: if no type info, just take first two ISSNs
         if not issn and not eissn and issns:
             issn = issns[0] if len(issns) > 0 else None
             eissn = issns[1] if len(issns) > 1 else None
 
-        return ExternalJournal(title=title, issn=issn, eissn=eissn)
+        return issn, eissn
 
     def _parse_license(self, license_data: list[dict[str, Any]]) -> str | None:
         """Parse license information from Crossref response."""
         if not license_data:
             return None
 
-        # Take the first license URL
         first_license = license_data[0]
         url = first_license.get("URL", "")
 
-        # Extract license type from URL (e.g., "CC-BY" from creative commons URL)
         if "creativecommons.org/licenses/" in url:
-            parts = url.rstrip("/").split("/")
-            if len(parts) >= 2:
-                license_type = parts[-2].upper()
-                return f"CC-{license_type}" if not license_type.startswith("CC") else license_type
+            return self._extract_creative_commons_license(url)
 
         return url if url else None
 
-    def _parse_date(self, date_data: dict[str, Any] | None) -> datetime.date | None:
-        """Parse date from Crossref format.
+    def _extract_creative_commons_license(self, url: str) -> str:
+        """Extract Creative Commons license type from URL."""
+        parts = url.rstrip("/").split("/")
+        if len(parts) >= 2:
+            license_type = parts[-2].upper()
+            return f"CC-{license_type}" if not license_type.startswith("CC") else license_type
+        return url
 
-        Crossref returns: {"date-parts": [[2024, 1, 15]]}
-        """
+    def _parse_date(self, date_data: dict[str, Any] | None) -> datetime.date | None:
+        """Parse date from Crossref format (date-parts array)."""
         if not date_data:
             return None
 
         date_parts = date_data.get("date-parts", [[]])[0]
-
         if not date_parts:
             return None
 
-        # Date parts: [year, month, day] (month and day optional)
         year = date_parts[0] if len(date_parts) > 0 else None
-        month = date_parts[1] if len(date_parts) > 1 else 1
-        day = date_parts[2] if len(date_parts) > 2 else 1
-
         if not year:
             return None
+
+        month = date_parts[1] if len(date_parts) > 1 else 1
+        day = date_parts[2] if len(date_parts) > 2 else 1
 
         try:
             return datetime.date(year, month, day)
         except ValueError:
-            # Invalid date (e.g., Feb 30), just return year-01-01
             return datetime.date(year, 1, 1)
