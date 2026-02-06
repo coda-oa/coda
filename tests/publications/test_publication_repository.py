@@ -338,3 +338,35 @@ def assert_publication_eq(actual: BasePublication, expected: BasePublication) ->
             raise AssertionError(
                 f"Mismatched publication types: {type(actual)} and {type(expected)}"
             )
+
+
+@pytest.mark.django_db
+def test__find_by_doi__publication_with_doi_exists__returns_publication() -> None:
+    """Test that find_by_doi returns publication when DOI exists in database."""
+    # Arrange
+    doi = Doi("10.1234/test-article")
+    journal = JournalId(modelfactory.journal().pk)
+    publication = domainfactory.publication(journal)
+    publication.links = {doi}
+    publication_id = publication_repository.create(publication)
+
+    # Act
+    result = publication_repository.find_by_doi(doi)
+
+    # Assert
+    assert result is not None
+    assert result.id == publication_id
+    assert doi in result.links
+
+
+@pytest.mark.django_db
+def test__find_by_doi__doi_not_in_database__returns_none() -> None:
+    """Test that find_by_doi returns None when DOI doesn't exist in database."""
+    # Arrange
+    doi = Doi("10.1234/nonexistent")
+
+    # Act
+    result = publication_repository.find_by_doi(doi)
+
+    # Assert
+    assert result is None

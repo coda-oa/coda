@@ -668,3 +668,55 @@ def test__import_from_doi__both_dates__sets_published_with_both_dates(
     assert isinstance(publication.publication_state, Published)
     assert publication.publication_state.online == online_date
     assert publication.publication_state.print == print_date
+
+
+@pytest.mark.django_db
+def test__import_from_doi__duplicate_doi__raises_doi_already_imported(
+    nature_journal: Journal,
+) -> None:
+    """Test that importing a DOI that already exists raises DOIAlreadyImported."""
+    from coda.apps.publications.repositories import publication_repository
+    from coda.contexts.publication.services.doi_import_service import DOIAlreadyImported
+    from tests import domainfactory
+
+    # Arrange
+    doi = Doi("10.1038/nature12373")
+
+    # Create a publication with this DOI
+    publication = domainfactory.publication(JournalId(nature_journal.pk))
+    publication.links = {doi}
+    publication_id = publication_repository.create(publication)
+
+    # Create DOI import service
+    fake_client = FakeDOIMetadataClient()
+    service = DOIImportService(fake_client)
+
+    # Act & Assert
+    with pytest.raises(DOIAlreadyImported) as exc_info:
+        service.import_from_doi(doi)
+
+    assert exc_info.value.doi == doi
+    assert exc_info.value.existing_publication_id == publication_id
+
+
+@pytest.mark.django_db
+def test__import_from_doi__doi_not_in_database__creates_funding_request(
+    nature_journal: Journal,
+) -> None:
+    """Test that importing a new DOI creates a FundingRequest."""
+    from coda.apps.publications.repositories import publication_repository
+
+    # Arrange
+    doi = Doi("10.1038/nature12373")
+    fake_client = FakeDOIMetadataClient()
+    service = DOIImportService(fake_client)
+
+    # Ensure no publication with this DOI exists
+    assert publication_repository.find_by_doi(doi) is None
+
+    # Act
+    funding_request = service.import_from_doi(doi)
+
+    # Assert
+    assert funding_request is not None
+    assert doi in funding_request.publication.links

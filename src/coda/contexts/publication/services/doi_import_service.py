@@ -12,7 +12,14 @@ from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequest, Payment, PaymentMethod
 from coda.domain.issn import Issn
 from coda.domain.money import Currency, Money
-from coda.domain.publication import Authors, JournalId, License, Publication, Published
+from coda.domain.publication import (
+    Authors,
+    JournalId,
+    License,
+    Publication,
+    PublicationId,
+    Published,
+)
 from coda.domain.publication.publication import (
     InvalidLicenseType,
     PublicationState,
@@ -23,6 +30,18 @@ from coda.domain.string import NonEmptyStr
 
 if TYPE_CHECKING:
     from coda.apps.publishers.models import Publisher
+
+
+class DOIAlreadyImported(Exception):
+    """Raised when attempting to import a DOI that already exists in the database."""
+
+    def __init__(self, doi: Doi, existing_publication_id: PublicationId) -> None:
+        self.doi = doi
+        self.existing_publication_id = existing_publication_id
+        super().__init__(
+            f"DOI {doi} already exists in database (PublicationId: {existing_publication_id})"
+        )
+
 
 # Default estimated cost for imported publications (actual cost unknown at import time)
 DEFAULT_ESTIMATED_COST = Payment(
@@ -39,6 +58,14 @@ class DOIImportService:
 
     def import_from_doi(self, doi: Doi) -> FundingRequest[Publication]:
         """Fetch metadata from DOI and create a FundingRequest with pre-populated publication."""
+        from coda.apps.publications.repositories import publication_repository
+
+        # Check for duplicate DOI FIRST
+        existing_publication = publication_repository.find_by_doi(doi)
+        if existing_publication:
+            assert existing_publication.id is not None, "Publication from database must have ID"
+            raise DOIAlreadyImported(doi, existing_publication.id)
+
         metadata = self.doi_client.fetch(doi)
 
         authors = self._process_authors(metadata.authors)
