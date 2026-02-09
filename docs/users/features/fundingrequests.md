@@ -68,6 +68,7 @@ Search and select a journal from CODA's database of over 26,000 entries:
 
 - Type the journal name to search
 - Select from the result list
+- **New Journal/Publisher**: If the journal or publisher doesn't exist yet, click the **New Journal** or **New Publisher** button to open a modal where you can create it without losing your form data
 
 For monograph requests, you'll select a publisher instead of a journal.
 
@@ -146,10 +147,11 @@ In this step you can collect financial information:
 Add information about third-party funding sources supporting this publication:
 
 - **Funding Organization**: Select from [pre-configured funders](funders.md) (e.g. DFG, BMBF, etc.)
+  - **New Funder**: If the funding organization doesn't exist yet, click the **Create New Funding Organization** button to open a modal where you can create it without losing your funding request data
 - **Project ID**: Grant or project identifier
 - **Project Name**: Full project name
 
-You can add multiple funding sources if the publication is supported by several grants.
+You can add multiple funding sources if the publication is supported by several grants. When you create a new funding organization via the modal, it becomes immediately available in all funding organization dropdowns in your form, allowing you to select it for any funding row.
 
 ```{admonition} Note
 As the final costs of a publication are not always known when a funding request comes in, CODA allows you to provide an estimate. This is useful during review to determine whether costs exceed funding limits and whether negotiation with publishers may be necessary.
