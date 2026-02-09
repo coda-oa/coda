@@ -42,6 +42,14 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <div class="flex justify-between align-center my-2">
+                <p>Couldn't find the right journal?</p>
+                <button type="button"
+                        class="secondary"
+                        hx-get="{% url 'publishing:journals:create_modal' %}"
+                        hx-target="#entity-creation-modal-wrapper"
+                        hx-swap="innerHTML">New Journal</button>
+            </div>
         {% elif journal_title %}
             <div class="flex justify-between align-center my-2">
                 <p>No results for "{{ journal_title }}"</p>
