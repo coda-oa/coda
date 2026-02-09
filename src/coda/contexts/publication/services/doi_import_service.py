@@ -3,31 +3,44 @@
 import datetime
 from typing import TYPE_CHECKING
 
+from coda.apps.authors.dto import AuthorDto
 from coda.apps.journals import services as journal_services
+from coda.apps.publications.dto import (
+    ConceptDto,
+    JournalDto,
+    LinkDto,
+    PublicationDto,
+    PublicationMetaDto,
+)
 from coda.apps.publishers import services as publisher_services
-from coda.contexts.publication.dto.external_metadata import ExternalAuthor, ExternalJournal
+from coda.contexts.fundingrequest.dto.commands import (
+    CreateFundingRequestDto,
+    ExtraInformationDto,
+    PaymentDto,
+)
+from coda.contexts.fundingrequest.services import fundingrequests
+from coda.contexts.publication.dto.external_metadata import (
+    ExternalAuthor,
+    ExternalJournal,
+    ExternalPublicationMetadata,
+)
 from coda.contexts.publication.services.doi_client import DOIMetadataClient
-from coda.domain.author import Author, Role
+from coda.domain.author import Role
 from coda.domain.contract import PublisherId
 from coda.domain.errors import DomainError
-from coda.domain.fundingrequest import FundingRequest, Payment, PaymentMethod
+from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.issn import Issn
-from coda.domain.money import Currency, Money
-from coda.domain.publication import (
-    Authors,
-    JournalId,
-    License,
-    Publication,
-    PublicationId,
-    Published,
-)
+from coda.domain.money import Currency
+from coda.domain.publication import JournalId, License, PublicationId
+from coda.domain.publication.links import Doi
 from coda.domain.publication.publication import (
     InvalidLicenseType,
     PublicationState,
+    Published,
     Unpublished,
 )
-from coda.domain.publication.links import Doi
 from coda.domain.string import NonEmptyStr
+from coda.domain.vocabulary import UnknownConcept
 
 if TYPE_CHECKING:
     from coda.apps.publishers.models import Publisher
@@ -48,48 +61,49 @@ class InvalidMetadataError(DomainError):
     """Raised when DOI metadata is invalid or missing required fields."""
 
 
-DEFAULT_ESTIMATED_COST = Payment(
-    amount=Money(0, Currency.EUR),
-    method=PaymentMethod.Unknown,
-)
-DEFAULT_ESTIMATED_COST = Payment(
-    amount=Money(0, Currency.EUR),
-    method=PaymentMethod.Unknown,
-)
-
-
 class DOIImportService:
     """Import publication metadata from DOI and create a FundingRequest."""
 
     def __init__(self, doi_client: DOIMetadataClient) -> None:
         self.doi_client = doi_client
 
-    def import_from_doi(self, doi: Doi) -> FundingRequest[Publication]:
-        """Fetch metadata from DOI and create a FundingRequest with pre-populated publication."""
+    def import_from_doi(self, doi: Doi) -> FundingRequestId:
+        """Fetch metadata from DOI and create a FundingRequest in the database.
+
+        Returns:
+            The ID of the created funding request
+
+        Raises:
+            DOIAlreadyImported: If DOI already exists
+            DOINotFoundError: If DOI not found
+            DOIFetchError: If fetch fails
+            InvalidMetadataError: If metadata is invalid
+        """
         self._ensure_doi_not_already_imported(doi)
 
         metadata = self.doi_client.fetch(doi)
 
-        authors = self._process_authors(metadata.authors)
+        authors_dto = self._build_authors_dto(metadata.authors)
         journal_id = self._match_or_create_journal(metadata.journal, metadata.publisher)
-        publication_state = self._map_publication_state(
-            metadata.online_publication_date,
-            metadata.print_publication_date,
+        publication_dto = self._build_publication_dto(
+            doi=doi,
+            metadata=metadata,
+            journal_id=journal_id,
+            authors_dto=authors_dto,
         )
 
-        publication = Publication.new(
-            title=NonEmptyStr(metadata.title),
-            journal=journal_id,
-            relevant_authors=Authors(authors),
-            license=self._map_license(metadata.license),
-            publication_state=publication_state,
-            links={doi},
+        creation_dto = CreateFundingRequestDto(
+            publication=publication_dto,
+            payment=PaymentDto(
+                amount=0.0,
+                currency=Currency.EUR.code,
+                method="unknown",
+            ),
+            extra_information=ExtraInformationDto(),
+            funding=[],
         )
 
-        return FundingRequest.new(
-            publication=publication,
-            estimated_cost=DEFAULT_ESTIMATED_COST,
-        )
+        return fundingrequests.create_fundingrequest(creation_dto)
 
     def _ensure_doi_not_already_imported(self, doi: Doi) -> None:
         """Verify DOI has not been imported previously."""
@@ -101,8 +115,39 @@ class DOIImportService:
                 raise InvalidMetadataError("Publication from database missing ID")
             raise DOIAlreadyImported(doi, existing_publication.id)
 
-    def _process_authors(self, external_authors: list[ExternalAuthor]) -> list[Author]:
-        """Convert external author metadata to domain Author objects."""
+    def _build_publication_dto(
+        self,
+        doi: Doi,
+        metadata: ExternalPublicationMetadata,
+        journal_id: JournalId,
+        authors_dto: list[AuthorDto],
+    ) -> PublicationDto:
+        """Build PublicationDto from DOI metadata."""
+        publication_state = self._map_publication_state(
+            metadata.online_publication_date,
+            metadata.print_publication_date,
+        )
+
+        return PublicationDto(
+            meta=PublicationMetaDto(
+                title=metadata.title,
+                publication_type=ConceptDto.from_concept(UnknownConcept),
+                subject_area=ConceptDto.from_concept(UnknownConcept),
+                license=self._map_license(metadata.license).name,
+                open_access_type="Unknown",
+                publication_state=publication_state.name(),
+                online_publication_date=self._extract_online_date(publication_state),
+                print_publication_date=self._extract_print_date(publication_state),
+            ),
+            journal=JournalDto(id=journal_id),
+            contracts=[],
+            links=[LinkDto(link_type=doi.type(), link_value=doi.value())],
+            relevant_authors=authors_dto,
+            other_authors=[],
+        )
+
+    def _build_authors_dto(self, external_authors: list[ExternalAuthor]) -> list[AuthorDto]:
+        """Convert external author metadata to AuthorDto objects."""
         authors = []
 
         for external_author in external_authors:
@@ -114,7 +159,15 @@ class DOIImportService:
             if normalized_name is None:
                 continue
 
-            authors.append(Author.new(name=NonEmptyStr(normalized_name), role=Role.CO_AUTHOR))
+            authors.append(
+                AuthorDto(
+                    name=normalized_name,
+                    email="",
+                    orcid=None,
+                    affiliation=None,
+                    role=Role.CO_AUTHOR.name,
+                )
+            )
 
         return authors
 
@@ -140,11 +193,12 @@ class DOIImportService:
         self, external_journal: ExternalJournal | None, publisher_name: str | None
     ) -> JournalId:
         """Match journal by E-ISSN or create if not found."""
-        self._validate_journal_metadata(external_journal, publisher_name)
-
-        assert external_journal is not None
-        assert external_journal.eissn is not None
-        assert publisher_name is not None
+        if external_journal is None:
+            raise InvalidMetadataError("Journal article missing journal metadata")
+        if external_journal.eissn is None:
+            raise InvalidMetadataError(f"Journal '{external_journal.title}' missing E-ISSN")
+        if publisher_name is None:
+            raise InvalidMetadataError("Journal missing publisher name")
 
         issn = Issn(external_journal.eissn)
 
@@ -159,17 +213,6 @@ class DOIImportService:
             publisher_id=PublisherId(publisher.pk),
         )
         return journal_id
-
-    def _validate_journal_metadata(
-        self, external_journal: ExternalJournal | None, publisher_name: str | None
-    ) -> None:
-        """Validate that journal metadata contains required fields."""
-        if external_journal is None:
-            raise InvalidMetadataError("Journal article missing journal metadata")
-        if external_journal.eissn is None:
-            raise InvalidMetadataError(f"Journal '{external_journal.title}' missing E-ISSN")
-        if publisher_name is None:
-            raise InvalidMetadataError("Journal missing publisher name")
 
     def _match_or_create_publisher(self, publisher_name: str) -> "Publisher":
         """Match publisher by name or create a new one."""
@@ -201,3 +244,11 @@ class DOIImportService:
         if online_date or print_date:
             return Published(online=online_date, print=print_date)
         return Unpublished()
+
+    def _extract_online_date(self, publication_state: PublicationState) -> datetime.date | None:
+        """Extract online publication date if state is Published."""
+        return publication_state.online if isinstance(publication_state, Published) else None
+
+    def _extract_print_date(self, publication_state: PublicationState) -> datetime.date | None:
+        """Extract print publication date if state is Published."""
+        return publication_state.print if isinstance(publication_state, Published) else None

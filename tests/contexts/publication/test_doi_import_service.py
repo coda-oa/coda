@@ -12,6 +12,7 @@ from tests import domainfactory
 from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
+from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.journals import services as journal_services
 from coda.apps.journals.models import Journal
 from coda.apps.publications.repositories import publication_repository
@@ -22,10 +23,7 @@ from coda.contexts.publication.dto.external_metadata import (
     ExternalJournal,
     ExternalPublicationMetadata,
 )
-from coda.contexts.publication.services.doi_client import (
-    CrossrefDoiClient,
-    DOIMetadataClient,
-)
+from coda.contexts.publication.services.doi_client import CrossrefDoiClient, DOIMetadataClient
 from coda.contexts.publication.services.doi_import_service import (
     DOIAlreadyImported,
     DOIImportService,
@@ -34,6 +32,7 @@ from coda.contexts.publication.services.doi_import_service import (
 from coda.domain.author import Author, Role
 from coda.domain.fundingrequest import FundingRequest, Payment, PaymentMethod
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
+from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.issn import Issn
 from coda.domain.money import Currency, Money
 from coda.domain.publication import (
@@ -106,12 +105,12 @@ def make_test_metadata(
 
 
 def get_publication_from_funding_request(
-    funding_request: FundingRequest[Publication],
+    funding_request_id: FundingRequestId,
 ) -> Publication:
-    """Extract and validate publication from funding request.
+    """Extract and validate publication from funding request in database.
 
     Args:
-        funding_request: The funding request to extract publication from
+        funding_request_id: The ID of the funding request
 
     Returns:
         The publication instance
@@ -119,6 +118,7 @@ def get_publication_from_funding_request(
     Raises:
         AssertionError: If publication is not a Publication instance
     """
+    funding_request = fundingrequest_repository.get_by_id(funding_request_id)
     publication = funding_request.publication
     assert isinstance(publication, Publication)
     return publication
@@ -241,17 +241,15 @@ def test__import_from_doi__valid_journal_article_doi__returns_funding_request_wi
     get_expected_request: Callable[[int], AnyFundingRequest],
     request: pytest.FixtureRequest,
 ) -> None:
-    """Given a valid DOI for a journal article, returns FundingRequest with Publication.
+    """Given a valid DOI for a journal article, creates and returns FundingRequestId.
 
-    The Publication should contain:
-    - Title from DOI metadata
+    The created FundingRequest in database should contain:
+    - Publication with title from DOI metadata
     - Authors from DOI metadata (all as CO_AUTHOR)
     - Journal matched by E-ISSN
     - License mapped from metadata
     - Publication state = Published with date
     - DOI link included
-
-    The FundingRequest should have:
     - Estimated cost = Money(0, EUR)
     - Review status = Open
     - No external funding
@@ -265,9 +263,10 @@ def test__import_from_doi__valid_journal_article_doi__returns_funding_request_wi
     doi_service = DOIImportService(doi_client=doi_client)
 
     # WHEN: Import from DOI
-    actual = doi_service.import_from_doi(doi)
+    funding_request_id = doi_service.import_from_doi(doi)
 
-    # THEN: FundingRequest matches expected structure
+    # THEN: FundingRequest was created in database with expected structure
+    actual = fundingrequest_repository.get_by_id(funding_request_id)
     expected = get_expected_request(journal_id)
     assert_fundingrequest_eq(actual, expected)
 
@@ -307,7 +306,7 @@ def test__import_from_doi__journal_not_in_database__auto_creates_journal(
     doi = Doi("10.1038/nature12373")
 
     # WHEN: Import from DOI
-    funding_request = doi_service.import_from_doi(doi)
+    funding_request_id = doi_service.import_from_doi(doi)
 
     # THEN: Journal and publisher were auto-created
     assert Journal.objects.count() == 1
@@ -323,6 +322,7 @@ def test__import_from_doi__journal_not_in_database__auto_creates_journal(
     assert created_publisher is not None
     assert created_publisher.name == expected_publisher_name
 
+    funding_request = fundingrequest_repository.get_by_id(funding_request_id)
     publication = funding_request.publication
     assert isinstance(publication, Publication)
     assert publication.journal == created_journal.pk
@@ -365,13 +365,14 @@ def test__import_from_doi__journal_exists_in_database__does_not_create_publisher
     doi = Doi("10.1038/nature12373")
 
     # WHEN: Import from DOI
-    funding_request = doi_service.import_from_doi(doi)
+    funding_request_id = doi_service.import_from_doi(doi)
 
     # THEN: No new publishers or journals were created
     assert Journal.objects.count() == 1
     assert Publisher.objects.count() == 1
 
     # AND: We used the existing journal
+    funding_request = fundingrequest_repository.get_by_id(funding_request_id)
     publication = funding_request.publication
     assert isinstance(publication, Publication)
     assert publication.journal == int(journal_id)
