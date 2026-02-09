@@ -7,6 +7,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
+from django.utils.safestring import mark_safe
 from django.views.generic import CreateView, DetailView, UpdateView
 from django.views.decorators.http import require_GET, require_POST
 
@@ -111,7 +112,7 @@ def journal_create_modal(request: HttpRequest) -> HttpResponse:
             "entity_name": "Journal",
             "form": form,
             "entity_create_url": "publishing:journals:create_modal_submit",
-            "extra_content": extra_content,
+            "extra_content": mark_safe(extra_content),
         },
     )
 

@@ -14,7 +14,7 @@
               {% if hx_include %}hx-include="{{ hx_include }}"{% endif %}>
             {% csrf_token %}
             <div class="my-2">{{ form }}</div>
-            {% if extra_content %}{{ extra_content|safe }}{% endif %}
+            {% if extra_content %}{{ extra_content }}{% endif %}
             <footer class="grid">
                 <button type="button"
                         class="secondary"

@@ -84,11 +84,10 @@ def test__create_publisher_from_journal_modal__updates_publisher_dropdown_and_cl
 
     content = journal_modal_response.content.decode()
     assert re.search(
-        r'<button[^>]*hx-get="/publishing/publishers/create-modal/\?context=journal_modal"[^>]*>.*?New Publisher.*?</button>',
+        r'<button[^>]{0,200}hx-get="/publishing/publishers/create-modal/\?context=journal_modal"[^>]{0,200}>New Publisher</button>',
         content,
-        re.DOTALL,
     )
-    assert re.search(r'<div[^>]*id="nested-entity-creation-modal-wrapper"[^>]*>', content)
+    assert re.search(r'<div[^>]{0,200}id="nested-entity-creation-modal-wrapper"', content)
 
     # Step 2: From within journal modal, click "New Publisher" to get publisher modal
     publisher_modal_response = client.get(
@@ -112,8 +111,8 @@ def test__create_publisher_from_journal_modal__updates_publisher_dropdown_and_cl
 
     # Verify the response clears the nested wrapper and updates publisher dropdown
     publisher_content = publisher_create_response.content.decode()
-    assert re.search(r'<div[^>]*id="nested-entity-creation-modal-wrapper"[^>]*>', publisher_content)
-    assert re.search(r'<select[^>]*id="id_publisher"[^>]*>', publisher_content)
+    assert re.search(r'<div[^>]{0,200}id="nested-entity-creation-modal-wrapper"', publisher_content)
+    assert re.search(r'<select[^>]{0,200}id="id_publisher"', publisher_content)
     assert re.search(
         rf'<option\s+value="{publisher.pk}"\s+selected>\s*{re.escape(publisher_name)}\s*</option>',
         publisher_content,

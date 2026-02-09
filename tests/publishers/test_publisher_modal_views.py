@@ -46,13 +46,16 @@ def test__valid_publisher_entered__click_create_button__creates_publisher_and_re
     assert response.context["publisher"] == publisher
 
     content = response.content.decode()
+
     assert re.search(
-        r'<div[^>]*id="entity-creation-modal-wrapper"[^>]*hx-swap-oob="true"[^>]*>', content
+        r'<div[^>]{0,200}id="entity-creation-modal-wrapper"[^>]{0,200}hx-swap-oob="true"', content
     )
     assert re.search(
-        r'<div[^>]*id="publisher-search-results"[^>]*hx-swap-oob="true"[^>]*>', content
+        r'<div[^>]{0,200}id="publisher-search-results"[^>]{0,200}hx-swap-oob="true"', content
     )
-    assert re.search(r'<div[^>]*id="publisher-name-wrapper"[^>]*hx-swap-oob="true"[^>]*>', content)
+    assert re.search(
+        r'<div[^>]{0,200}id="publisher-name-wrapper"[^>]{0,200}hx-swap-oob="true"', content
+    )
     assert publisher_name in content
     assert re.search(
         rf'<input\s+type="radio"\s+name="publisher"\s+value="{publisher.pk}"\s+checked>', content

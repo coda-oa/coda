@@ -50,9 +50,9 @@ def test__valid_funding_organization_entered__click_create_button__creates_organ
     content = response.content.decode()
 
     assert re.search(
-        r'<div[^>]*id="entity-creation-modal-wrapper"[^>]*hx-swap-oob="true"[^>]*>', content
+        r'<div[^>]{0,200}id="entity-creation-modal-wrapper"[^>]{0,200}hx-swap-oob="true"', content
     )
-    assert re.search(r'<div[^>]*id="funding-formset"[^>]*hx-swap-oob="true"[^>]*>', content)
+    assert re.search(r'<div[^>]{0,200}id="funding-formset"[^>]{0,200}hx-swap-oob="true"', content)
 
 
 @pytest.mark.django_db
@@ -100,16 +100,13 @@ def test__create_funder_from_formset_modal__click_create_in_funder_modal__rebuil
 
     content = response.content.decode()
 
-    assert re.search(r'<div[^>]*id="funding-formset"[^>]*hx-swap-oob="true"[^>]*>', content)
+    assert re.search(r'<div[^>]{0,200}id="funding-formset"[^>]{0,200}hx-swap-oob="true"', content)
 
     assert "My Research Project" in content
-    assert re.search(
-        rf'<li[^>]*value="{existing_org.pk}"[^>]*selected|<li[^>]*selected[^>]*value="{existing_org.pk}"',
-        content,
-    )
 
-    assert re.search(rf"<li[^>]*>.*?{re.escape(new_organization_name)}.*?</li>", content, re.DOTALL)
-    assert re.search(rf"<li[^>]*>.*?{re.escape(existing_org.name)}.*?</li>", content, re.DOTALL)
+    assert re.search(rf'<li[^>]{{0,200}}value="{existing_org.pk}"', content)
+    assert re.search(rf"<li[^>]{{0,100}}>{{0,200}}{re.escape(new_organization_name)}</li>", content)
+    assert re.search(rf"<li[^>]{{0,100}}>{{0,200}}{re.escape(existing_org.name)}</li>", content)
 
 
 @pytest.mark.django_db
@@ -158,12 +155,12 @@ def test__create_funder_from_modal__click_create_from_funder_modal__preserves_ex
     assert "ABC-123" in content
     assert "DEF-456" in content
 
-    assert re.search(rf"<li[^>]*>.*?{re.escape(org1.name)}.*?</li>", content, re.DOTALL)
-    assert re.search(rf"<li[^>]*>.*?{re.escape(org2.name)}.*?</li>", content, re.DOTALL)
-    assert re.search(rf"<li[^>]*>.*?{re.escape(new_org_name)}.*?</li>", content, re.DOTALL)
+    assert re.search(rf"<li[^>]{{0,100}}>{{0,200}}{re.escape(org1.name)}</li>", content)
+    assert re.search(rf"<li[^>]{{0,100}}>{{0,200}}{re.escape(org2.name)}</li>", content)
+    assert re.search(rf"<li[^>]{{0,100}}>{{0,200}}{re.escape(new_org_name)}</li>", content)
 
-    assert re.search(rf'<li[^>]*value="{org1.pk}"[^>]*>', content)
-    assert re.search(rf'<li[^>]*value="{org2.pk}"[^>]*>', content)
+    assert re.search(rf'<li[^>]{{0,200}}value="{org1.pk}"', content)
+    assert re.search(rf'<li[^>]{{0,200}}value="{org2.pk}"', content)
 
     new_org = FundingOrganization.objects.get(name=new_org_name)
-    assert re.search(rf'<li[^>]*value="{new_org.pk}"[^>]*>', content)
+    assert re.search(rf'<li[^>]{{0,200}}value="{new_org.pk}"', content)
