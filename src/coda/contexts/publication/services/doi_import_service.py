@@ -67,11 +67,11 @@ class DOIImportService:
     def __init__(self, doi_client: DOIMetadataClient) -> None:
         self.doi_client = doi_client
 
-    def import_from_doi(self, doi: Doi) -> FundingRequestId:
-        """Fetch metadata from DOI and create a FundingRequest in the database.
+    def prepare_funding_request_dto(self, doi: Doi) -> CreateFundingRequestDto:
+        """Fetch metadata from DOI and build a FundingRequest DTO (without persisting).
 
         Returns:
-            The ID of the created funding request
+            CreateFundingRequestDto ready to be used for preview or persistence
 
         Raises:
             DOIAlreadyImported: If DOI already exists
@@ -92,7 +92,7 @@ class DOIImportService:
             authors_dto=authors_dto,
         )
 
-        creation_dto = CreateFundingRequestDto(
+        return CreateFundingRequestDto(
             publication=publication_dto,
             payment=PaymentDto(
                 amount=0.0,
@@ -103,6 +103,19 @@ class DOIImportService:
             funding=[],
         )
 
+    def import_from_doi(self, doi: Doi) -> FundingRequestId:
+        """Fetch metadata from DOI and create a FundingRequest in the database.
+
+        Returns:
+            The ID of the created funding request
+
+        Raises:
+            DOIAlreadyImported: If DOI already exists
+            DOINotFoundError: If DOI not found
+            DOIFetchError: If fetch fails
+            InvalidMetadataError: If metadata is invalid
+        """
+        creation_dto = self.prepare_funding_request_dto(doi)
         return fundingrequests.create_fundingrequest(creation_dto)
 
     def _ensure_doi_not_already_imported(self, doi: Doi) -> None:

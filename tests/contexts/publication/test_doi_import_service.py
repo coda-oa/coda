@@ -742,3 +742,33 @@ def test__import_from_doi__duplicate_doi__raises_doi_already_imported() -> None:
 
     assert exc_info.value.doi == doi
     assert exc_info.value.existing_publication_id == publication_id
+
+
+@pytest.mark.django_db
+def test__prepare_funding_request_dto__returns_dto_without_persisting() -> None:
+    """Test that prepare_funding_request_dto returns DTO without creating database records."""
+    # GIVEN: Database has existing publisher and journal
+    create_springer_nature_journal()
+
+    fake_client, doi = make_test_metadata(
+        doi="10.1234/prepare-dto-test",
+        title="Test DTO Preparation",
+        publisher="Springer Nature",
+    )
+
+    service = DOIImportService(fake_client)
+
+    # WHEN: Prepare DTO without persisting
+    dto = service.prepare_funding_request_dto(doi)
+
+    # THEN: DTO is returned with correct data
+    assert dto.publication.meta.title == "Test DTO Preparation"
+    assert dto.publication.meta.license == "Unknown"
+    assert dto.payment.amount == 0.0
+    assert dto.payment.currency == "EUR"
+    assert dto.payment.method == "unknown"
+    assert list(dto.funding) == []
+
+    # THEN: No funding request was created in database
+    all_requests = fundingrequest_repository.all()
+    assert len(all_requests) == 0
