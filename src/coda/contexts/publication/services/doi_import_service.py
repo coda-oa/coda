@@ -70,17 +70,17 @@ class DOIImportService:
     def prepare_funding_request_dto(self, doi: Doi) -> CreateFundingRequestDto:
         """Fetch metadata from DOI and build a FundingRequest DTO (without persisting).
 
+        This method does NOT check if the DOI already exists. Use this for preview workflows
+        where you want to build the DTO before deciding whether to persist.
+
         Returns:
             CreateFundingRequestDto ready to be used for preview or persistence
 
         Raises:
-            DOIAlreadyImported: If DOI already exists
             DOINotFoundError: If DOI not found
             DOIFetchError: If fetch fails
             InvalidMetadataError: If metadata is invalid
         """
-        self._ensure_doi_not_already_imported(doi)
-
         metadata = self.doi_client.fetch(doi)
 
         authors_dto = self._build_authors_dto(metadata.authors)
@@ -115,6 +115,7 @@ class DOIImportService:
             DOIFetchError: If fetch fails
             InvalidMetadataError: If metadata is invalid
         """
+        self._ensure_doi_not_already_imported(doi)
         creation_dto = self.prepare_funding_request_dto(doi)
         return fundingrequests.create_fundingrequest(creation_dto)
 

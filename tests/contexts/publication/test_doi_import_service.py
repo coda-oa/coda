@@ -748,11 +748,12 @@ def test__import_from_doi__duplicate_doi__raises_doi_already_imported() -> None:
 def test__prepare_funding_request_dto__returns_dto_without_persisting() -> None:
     """Test that prepare_funding_request_dto returns DTO without creating database records."""
     # GIVEN: Database has existing publisher and journal
-    create_springer_nature_journal()
+    journal_id = create_springer_nature_journal()
 
     fake_client, doi = make_test_metadata(
         doi="10.1234/prepare-dto-test",
         title="Test DTO Preparation",
+        authors=[ExternalAuthor(name="Test Author")],
         publisher="Springer Nature",
     )
 
@@ -761,14 +762,34 @@ def test__prepare_funding_request_dto__returns_dto_without_persisting() -> None:
     # WHEN: Prepare DTO without persisting
     dto = service.prepare_funding_request_dto(doi)
 
-    # THEN: DTO is returned with correct data
-    assert dto.publication.meta.title == "Test DTO Preparation"
-    assert dto.publication.meta.license == "Unknown"
-    assert dto.payment.amount == 0.0
-    assert dto.payment.currency == "EUR"
-    assert dto.payment.method == "unknown"
-    assert list(dto.funding) == []
+    # THEN: Convert DTO to domain object (without persisting) and verify structure
+    actual = FundingRequest.new(
+        publication=dto.publication.to_publication(),
+        estimated_cost=dto.payment.to_payment(),
+        external_funding=[f.to_external_funding() for f in dto.funding],
+        extra_contact=dto.extra_information.extra_contact.to_contact(),
+        request_remarks=dto.extra_information.request_remarks,
+    )
 
-    # THEN: No funding request was created in database
+    expected = FundingRequest.new(
+        publication=Publication.new(
+            title=NonEmptyStr("Test DTO Preparation"),
+            journal=JournalId(journal_id),
+            relevant_authors=Authors(
+                [Author.new(name=NonEmptyStr("Test Author"), role=Role.CO_AUTHOR)]
+            ),
+            license=License.Unknown,
+            publication_state=Published(online=datetime.date(2024, 1, 1), print=None),
+            links={doi},
+        ),
+        estimated_cost=Payment(
+            amount=Money(0, Currency.EUR),
+            method=PaymentMethod.Unknown,
+        ),
+    )
+
+    assert_fundingrequest_eq(actual, expected)
+
+    # THEN: Verify no funding request was created in database
     all_requests = fundingrequest_repository.all()
     assert len(all_requests) == 0
