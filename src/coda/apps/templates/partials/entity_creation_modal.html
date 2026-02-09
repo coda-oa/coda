@@ -10,7 +10,8 @@
         <form id="entity-creation-form"
               hx-post="{% if entity_create_url_path %}{{ entity_create_url_path }}{% else %}{% url entity_create_url %}{% endif %}"
               hx-target="#{% if modal_target_wrapper %}{{ modal_target_wrapper }}{% else %}entity-creation-modal-wrapper{% endif %}"
-              hx-swap="innerHTML">
+              hx-swap="innerHTML"
+              {% if hx_include %}hx-include="{{ hx_include }}"{% endif %}>
             {% csrf_token %}
             <div class="my-2">{{ form }}</div>
             {% if extra_content %}{{ extra_content|safe }}{% endif %}

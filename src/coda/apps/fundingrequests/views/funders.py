@@ -4,10 +4,12 @@ from django import forms
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse_lazy
+from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, UpdateView
 
+from coda.apps.fundingrequests.forms import ExternalFundingFormset
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.views import SimpleSearchEntityListView
 
@@ -72,3 +74,51 @@ def fundingorganizations_delete(request: HttpRequest, pk: int) -> HttpResponse:
     fundingorganization = get_object_or_404(FundingOrganization, pk=pk)
     fundingorganization.delete()
     return HttpResponse()
+
+
+@login_required
+@require_GET
+def fundingorganization_create_modal(request: HttpRequest) -> HttpResponse:
+    form = FundingOrganizationForm()
+
+    return render(
+        request,
+        "partials/entity_creation_modal.html",
+        {
+            "entity_name": "Funding Organization",
+            "form": form,
+            "entity_create_url": "fundingrequests:funders_create_modal_submit",
+            "hx_include": "#wizard-form",
+        },
+    )
+
+
+@login_required
+@require_POST
+def fundingorganization_create_modal_submit(request: HttpRequest) -> HttpResponse:
+    form = FundingOrganizationForm(request.POST)
+
+    if form.is_valid():
+        organization = form.save()
+
+        funding_formset = ExternalFundingFormset(request.POST)
+
+        return render(
+            request,
+            "fundingrequests/funders/funder_create_success.html",
+            {
+                "organization": organization,
+                "funding_formset": funding_formset,
+            },
+        )
+    else:
+        return render(
+            request,
+            "partials/entity_creation_modal.html",
+            {
+                "entity_name": "Funding Organization",
+                "form": form,
+                "entity_create_url": "fundingrequests:funders_create_modal_submit",
+                "hx_include": "#wizard-form",
+            },
+        )

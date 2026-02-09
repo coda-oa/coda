@@ -8,6 +8,8 @@ from coda.apps.fundingrequests.forms import (
 from coda.apps.fundingrequests.views import review
 from coda.apps.fundingrequests.views.detailview import fundingrequest_detail
 from coda.apps.fundingrequests.views.funders import (
+    fundingorganization_create_modal,
+    fundingorganization_create_modal_submit,
     fundingorganizations_create,
     fundingorganizations_delete,
     fundingorganizations_list,
@@ -106,6 +108,12 @@ urlpatterns = [
     path("labels/detach", detach_label, name="label_detach"),
     path("funders/", fundingorganizations_list, name="funders"),
     path("funders/create/", fundingorganizations_create, name="funders_create"),
+    path("funders/create-modal/", fundingorganization_create_modal, name="funders_create_modal"),
+    path(
+        "funders/create-modal/submit/",
+        fundingorganization_create_modal_submit,
+        name="funders_create_modal_submit",
+    ),
     path("funders/update/<int:pk>/", fundingorganizations_update, name="funders_update"),
     path("funders/delete/<int:pk>/", fundingorganizations_delete, name="funders_delete"),
     path("partial/add-linkrow/", add_linkrow, name="partial_add_linkrow"),
