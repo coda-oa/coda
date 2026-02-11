@@ -38,6 +38,11 @@ from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdatePublicationView,
 )
 from coda.apps.fundingrequests.views.wizard.update_monograph import MonographUpdateMetaView
+from coda.apps.fundingrequests.views.doi_preview import (
+    DOIImportInputView,
+    DOIPreviewDetailView,
+    DOIPreviewSaveView,
+)
 
 app_name = "fundingrequests"
 
@@ -48,6 +53,13 @@ urlpatterns = [
     path("", fundingrequest_home, name="home"),
     path("list/", fundingrequest_list, name="list"),
     path("import/", import_fundingrequests, name="import"),
+    path("doi-import/", DOIImportInputView.as_view(), name="doi_import_input"),
+    path(
+        "doi-preview/<str:session_key>/", DOIPreviewDetailView.as_view(), name="doi_preview_detail"
+    ),
+    path(
+        "doi-preview/<str:session_key>/save/", DOIPreviewSaveView.as_view(), name="doi_preview_save"
+    ),
     path("<int:pk>/", fundingrequest_detail, name="detail"),
     path("review/<int:pk>/", review.review_page, name="review"),
     path("review/<int:pk>/submit", review.review_submit, name="review_submit"),

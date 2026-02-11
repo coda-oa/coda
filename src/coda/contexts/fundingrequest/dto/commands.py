@@ -12,7 +12,7 @@ from typing import Annotated
 from pydantic import AfterValidator, Field
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.dto import CodaBaseDto
+from coda.apps.dto import CodaBaseDto, OptionalFromStr
 from coda.apps.publications.dto import LinkDto, PublicationBaseDto, PublicationMetaDto
 from coda.domain.fundingrequest import (
     ExternalFunding,
@@ -41,7 +41,7 @@ class PaymentDto(CodaBaseDto):
     amount: float
     currency: str
     method: str
-    external_costsplitting: bool | None = None
+    external_costsplitting: OptionalFromStr[bool] = None
 
     @classmethod
     def from_payment(cls, payment: Payment) -> "PaymentDto":

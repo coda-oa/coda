@@ -109,6 +109,9 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
         "labels": fr_model.labels.all(),
         "label_form": ChooseLabelForm(),
         "checks": checkrun,
+        # Edit URLs for partials
+        "edit_submitter_url": reverse("fundingrequests:update_submitter", kwargs={"pk": fr.id}),
+        "edit_funding_url": reverse("fundingrequests:update_funding", kwargs={"pk": fr.id}),
     }
 
 

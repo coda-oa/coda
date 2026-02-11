@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+    <h1 class="mt-2">DOI Import Preview</h1>
+    <h2>
+        <span data-tooltip="Funding request for an article" class="icon-tooltip">
+            <svg class="mb-0_5 text-gray-800 dark:text-white"
+                 aria-hidden="true"
+                 xmlns="http://www.w3.org/2000/svg"
+                 width="1em"
+                 height="1em"
+                 fill="none"
+                 viewBox="0 0 24 24">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 3v4a1 1 0 0 1-1 1H5m4 8h6m-6-4h6m4-8v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Z" />
+            </svg>
+        </span> Article
+    </h2>
+    <div class="fundingrequest__detail-grid">
+        <div>
+            {% include "fundingrequests/partials/additional_info_section.html" with edit_submitter_url=edit_submitter_url %}
+            {% include "fundingrequests/partials/publication_section.html" with edit_publication_url=edit_publication_url %}
+            {% include "fundingrequests/partials/costs_funding_section.html" with edit_funding_url=edit_funding_url is_preview=True %}
+            <form class="wizard-nav"
+                  method="post"
+                  action="{% url "fundingrequests:doi_preview_save" session_key=session_key %}">
+                {% csrf_token %}
+                <div class="grid align-center">
+                    <a href="{% url "fundingrequests:list" %}"
+                       class="button danger text-center"
+                       role="button">Cancel</a>
+                    <button class="m-0" type="submit">Save to Database</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock content %}
