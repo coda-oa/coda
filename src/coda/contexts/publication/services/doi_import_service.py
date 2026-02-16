@@ -1,7 +1,7 @@
 """DOI Import Service - Creates FundingRequests from DOI metadata."""
 
 import datetime
-from typing import TYPE_CHECKING
+from collections.abc import Iterable
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.journals import services as journal_services
@@ -12,6 +12,7 @@ from coda.apps.publications.dto import (
     PublicationDto,
     PublicationMetaDto,
 )
+from coda.apps.publications.repositories import publication_repository
 from coda.apps.publishers import services as publisher_services
 from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
@@ -25,7 +26,7 @@ from coda.contexts.publication.dto.external_metadata import (
     ExternalPublicationMetadata,
 )
 from coda.contexts.publication.services.doi_client import DOIMetadataClient
-from coda.domain.author import Role
+from coda.domain.author import Author, Role
 from coda.domain.contract import PublisherId
 from coda.domain.errors import DomainError
 from coda.domain.fundingrequest import FundingRequestId
@@ -42,18 +43,29 @@ from coda.domain.publication.publication import (
 from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import UnknownConcept
 
-if TYPE_CHECKING:
-    from coda.apps.publishers.models import Publisher
-
 
 class DOIAlreadyImported(DomainError):
     """Raised when attempting to import a DOI that already exists in the database."""
 
-    def __init__(self, doi: Doi, existing_publication_id: PublicationId) -> None:
+    def __init__(
+        self,
+        doi: Doi,
+        existing_publication_id: PublicationId,
+        existing_publication_title: str,
+        existing_publication_authors: Iterable[Author],
+    ) -> None:
         self.doi = doi
-        self.existing_publication_id = existing_publication_id
+        self.publication_id = existing_publication_id
+        self.publication_title = existing_publication_title
+        self.publication_authors = existing_publication_authors
         super().__init__(
-            f"DOI {doi} already exists in database (PublicationId: {existing_publication_id})"
+            "\n".join(
+                (
+                    f"DOI {doi} already exists in database.",
+                    f"Title: {existing_publication_title}",
+                    f"Authors: {', '.join(a.name for a in existing_publication_authors)}",
+                )
+            )
         )
 
 
@@ -62,25 +74,47 @@ class InvalidMetadataError(DomainError):
 
 
 class DOIImportService:
-    """Import publication metadata from DOI and create a FundingRequest."""
+    """Import publication metadata from DOI and create a FundingRequest.
 
-    def __init__(self, doi_client: DOIMetadataClient) -> None:
+    The service uses an optional cache to avoid re-fetching metadata from external APIs.
+    """
+
+    def __init__(
+        self,
+        doi_client: DOIMetadataClient,
+        cache: dict[Doi, CreateFundingRequestDto] | None = None,
+    ) -> None:
+        """Initialize the service with a DOI client and optional cache.
+
+        Args:
+            doi_client: Client to fetch metadata from external APIs (e.g., Crossref)
+            cache: Optional cache of pre-fetched DTOs (avoids re-fetching)
+        """
         self.doi_client = doi_client
+        self.cache = cache or {}
 
     def prepare_funding_request_dto(self, doi: Doi) -> CreateFundingRequestDto:
-        """Fetch metadata from DOI and build a FundingRequest DTO (without persisting).
+        """Build a FundingRequest DTO, using cache if available, otherwise fetch from API.
 
         This method does NOT check if the DOI already exists. Use this for preview workflows
         where you want to build the DTO before deciding whether to persist.
+
+        Args:
+            doi: The DOI to import
 
         Returns:
             CreateFundingRequestDto ready to be used for preview or persistence
 
         Raises:
-            DOINotFoundError: If DOI not found
-            DOIFetchError: If fetch fails
+            DOINotFoundError: If DOI not found (when fetching)
+            DOIFetchError: If fetch fails (when fetching)
             InvalidMetadataError: If metadata is invalid
         """
+        # Check cache first
+        if doi in self.cache:
+            return self.cache[doi]
+
+        # Otherwise fetch from external API
         metadata = self.doi_client.fetch(doi)
 
         authors_dto = self._build_authors_dto(metadata.authors)
@@ -121,13 +155,17 @@ class DOIImportService:
 
     def _ensure_doi_not_already_imported(self, doi: Doi) -> None:
         """Verify DOI has not been imported previously."""
-        from coda.apps.publications.repositories import publication_repository
 
         existing_publication = publication_repository.find_by_doi(doi)
         if existing_publication:
             if existing_publication.id is None:
                 raise InvalidMetadataError("Publication from database missing ID")
-            raise DOIAlreadyImported(doi, existing_publication.id)
+            raise DOIAlreadyImported(
+                doi,
+                existing_publication.id,
+                existing_publication.title,
+                existing_publication.relevant_authors,
+            )
 
     def _build_publication_dto(
         self,
@@ -224,20 +262,17 @@ class DOIImportService:
         journal_id = journal_services.create(
             title=NonEmptyStr(external_journal.title),
             eissn=issn,
-            publisher_id=PublisherId(publisher.pk),
+            publisher_id=publisher,
         )
         return journal_id
 
-    def _match_or_create_publisher(self, publisher_name: str) -> "Publisher":
+    def _match_or_create_publisher(self, publisher_name: str) -> PublisherId:
         """Match publisher by name or create a new one."""
         publisher = publisher_services.find_by_name(publisher_name)
         if publisher:
-            return publisher
+            return PublisherId(publisher.pk)
 
-        publisher_id = publisher_services.create(name=publisher_name)
-        from coda.apps.publishers.models import Publisher
-
-        return Publisher.objects.get(pk=publisher_id)
+        return publisher_services.create(name=publisher_name)
 
     def _map_license(self, license_str: str | None) -> License:
         """Map license string to CODA License enum."""

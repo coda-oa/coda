@@ -2,6 +2,9 @@
 {% load static %}
 {% block content %}
     <h1 class="mt-2">DOI Import Preview</h1>
+    <p class="text-muted">
+        Review the imported data below. After saving, you can edit using the regular funding request forms.
+    </p>
     <h2>
         <span data-tooltip="Funding request for an article" class="icon-tooltip">
             <svg class="mb-0_5 text-gray-800 dark:text-white"
@@ -17,17 +20,15 @@
     </h2>
     <div class="fundingrequest__detail-grid">
         <div>
-            {% include "fundingrequests/partials/additional_info_section.html" with edit_submitter_url=edit_submitter_url %}
-            {% include "fundingrequests/partials/publication_section.html" with edit_publication_url=edit_publication_url %}
-            {% include "fundingrequests/partials/costs_funding_section.html" with edit_funding_url=edit_funding_url is_preview=True %}
+            {% include "fundingrequests/partials/publication_section.html" %}
+            {% include "fundingrequests/partials/costs_funding_section.html" with is_preview=True %}
             <form class="wizard-nav"
                   method="post"
                   action="{% url "fundingrequests:doi_preview_save" session_key=session_key %}">
                 {% csrf_token %}
                 <div class="grid align-center">
                     <a href="{% url "fundingrequests:list" %}"
-                       class="button danger text-center"
-                       role="button">Cancel</a>
+                       class="button danger text-center m-0">Cancel</a>
                     <button class="m-0" type="submit">Save to Database</button>
                 </div>
             </form>

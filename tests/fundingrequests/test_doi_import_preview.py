@@ -9,13 +9,16 @@ User journey:
 """
 
 import datetime
+from typing import cast
+
 import pytest
+from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView
+from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView, DOIPreviewSaveView
 from coda.apps.journals import services as journal_services
 from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
@@ -40,6 +43,29 @@ from coda.domain.vocabulary import UnknownConcept
 from tests import modelfactory
 from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
+
+
+def get_session_key(response: HttpResponse) -> str:
+    return response["Location"].split("/")[-2]
+
+
+def submit_for_preview(client: Client, doi_str: str) -> HttpResponse:
+    return cast(
+        HttpResponse,
+        client.post(
+            reverse("fundingrequests:doi_import_input"),
+            data={"doi": doi_str},
+        ),
+    )
+
+
+def save_doi_import(client: Client, session_key: str) -> HttpResponse:
+    return cast(
+        HttpResponse,
+        client.post(
+            reverse("fundingrequests:doi_preview_save", kwargs={"session_key": session_key})
+        ),
+    )
 
 
 def build_expected_fundingrequest(
@@ -171,8 +197,9 @@ def fake_doi_client() -> FakeDOIMetadataClient:
 
 @pytest.fixture(autouse=True)
 def inject_fake_doi_client(fake_doi_client: FakeDOIMetadataClient) -> None:
-    """Inject fake DOI client into view via dependency injection."""
+    """Inject fake DOI client into views via dependency injection."""
     DOIImportInputView.doi_client = fake_doi_client
+    DOIPreviewSaveView.doi_client = fake_doi_client
 
 
 @pytest.fixture
@@ -226,16 +253,9 @@ def expected_fundingrequest(
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
 def test_doi_input_redirects_to_preview_page(client: Client) -> None:
-    """
-    Given: User has a valid DOI
-    When: User submits DOI on input form
-    Then: System redirects to preview page
-    """
+    """User submits DOI on input form and system redirects to preview page."""
     doi_str = "10.1234/preview.test"
-    response = client.post(
-        reverse("fundingrequests:doi_import_input"),
-        data={"doi": doi_str},
-    )
+    response = submit_for_preview(client, doi_str)
 
     assert response.status_code == 302
     preview_url = response["Location"]
@@ -245,20 +265,11 @@ def test_doi_input_redirects_to_preview_page(client: Client) -> None:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
 def test_preview_page_shows_doi_metadata(client: Client) -> None:
-    """
-    Given: User has submitted DOI and created preview session
-    When: User views preview page
-    Then: Preview page displays DOI metadata
-    """
-    # Create preview session
+    """Preview page displays DOI metadata after submission."""
     doi_str = "10.1234/preview.test"
-    response = client.post(
-        reverse("fundingrequests:doi_import_input"),
-        data={"doi": doi_str},
-    )
+    response = submit_for_preview(client, doi_str)
     preview_url = response["Location"]
 
-    # View preview page
     preview_response = client.get(preview_url)
 
     assert preview_response.status_code == 200
@@ -268,21 +279,12 @@ def test_preview_page_shows_doi_metadata(client: Client) -> None:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
 def test_preview_does_not_persist_until_saved(client: Client) -> None:
-    """
-    Given: User has submitted DOI and created preview session
-    When: User views preview page (but does NOT click save)
-    Then: Database remains empty (preview is session-only)
-    """
-    # Create and view preview
+    """Preview remains session-only until user clicks save."""
     doi_str = "10.1234/preview.test"
-    response = client.post(
-        reverse("fundingrequests:doi_import_input"),
-        data={"doi": doi_str},
-    )
+    response = submit_for_preview(client, doi_str)
     preview_url = response["Location"]
     client.get(preview_url)
 
-    # Verify database empty
     assert repository.first() is None
 
 
@@ -292,50 +294,39 @@ def test_saving_preview_creates_correct_fundingrequest(
     client: Client,
     expected_fundingrequest: FundingRequest[Publication],
 ) -> None:
-    """
-    Given: User has created a preview session
-    When: User clicks Save
-    Then: FundingRequest is created in database with correct metadata
-    """
+    """Saving preview creates FundingRequest in database with correct metadata."""
     doi_str = "10.1234/preview.test"
+    response = submit_for_preview(client, doi_str)
 
-    # Create preview session
-    response = client.post(
-        reverse("fundingrequests:doi_import_input"),
-        data={"doi": doi_str},
-    )
-    session_key = response["Location"].split("/")[-2]
+    save_doi_import(client, get_session_key(response))
 
-    # Save preview
-    client.post(reverse("fundingrequests:doi_preview_save", kwargs={"session_key": session_key}))
-
-    # Assert correct FundingRequest created
     actual = repository.first()
     assert_fundingrequest_eq(actual, expected_fundingrequest)
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_saving_preview_redirects_to_detail_page(client: Client) -> None:
-    """
-    Given: User has created a preview session
-    When: User clicks Save
-    Then: System redirects to FundingRequest detail page
-    """
-    # Create preview session
+def test__doi_imported__save_doi_again__fails(client: Client) -> None:
     doi_str = "10.1234/preview.test"
-    response = client.post(
-        reverse("fundingrequests:doi_import_input"),
-        data={"doi": doi_str},
-    )
-    session_key = response["Location"].split("/")[-2]
 
-    # Save preview
-    save_response = client.post(
-        reverse("fundingrequests:doi_preview_save", kwargs={"session_key": session_key})
-    )
+    response = submit_for_preview(client, doi_str)
+    save_doi_import(client, get_session_key(response))
 
-    # Verify redirect to detail page
+    response = submit_for_preview(client, doi_str)
+    save_doi_import(client, get_session_key(response))
+
+    assert len(repository.all()) == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
+def test_saving_preview_redirects_to_detail_page(client: Client) -> None:
+    """Saving preview redirects to FundingRequest detail page."""
+    doi_str = "10.1234/preview.test"
+    response = submit_for_preview(client, doi_str)
+
+    save_response = save_doi_import(client, get_session_key(response))
+
     fr = repository.first()
     assert fr is not None
     assertRedirects(save_response, reverse("fundingrequests:detail", kwargs={"pk": fr.id}))
@@ -344,22 +335,12 @@ def test_saving_preview_redirects_to_detail_page(client: Client) -> None:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
 def test_preview_does_not_persist_to_database(client: Client) -> None:
-    """
-    Given: User submits DOI and sees preview
-    When: User does NOT click save (e.g., closes browser)
-    Then: No FundingRequest is created in database
-    """
-    # When: User submits DOI
-    response = client.post(
-        reverse("fundingrequests:doi_import_input"),
-        data={"doi": "10.1234/preview.test"},
-    )
-
-    # And: User views preview page
+    """Preview does not create FundingRequest in database until saved."""
+    doi_str = "10.1234/preview.test"
+    response = submit_for_preview(client, doi_str)
     preview_url = response["Location"]
     client.get(preview_url)
 
-    # Then: Database remains empty (preview doesn't persist)
     assert repository.first() is None
 
 
@@ -370,14 +351,9 @@ def test_multiple_previews_can_coexist(
     fake_doi_client: FakeDOIMetadataClient,
     test_journal: tuple[JournalId, str, str, str],
 ) -> None:
-    """
-    Given: User creates multiple preview sessions
-    When: User saves one preview
-    Then: Only that preview is persisted, others remain in session
-    """
+    """Multiple preview sessions can coexist; saving one does not affect others."""
     journal_id, journal_title, journal_eissn, publisher_name = test_journal
 
-    # Setup first preview (already configured by expected_fundingrequest fixture)
     doi1 = Doi("10.1234/preview.test")
     expected1 = build_expected_fundingrequest(
         doi=doi1,
@@ -394,7 +370,6 @@ def test_multiple_previews_can_coexist(
         publisher_name=publisher_name,
     )
 
-    # Setup second preview with different data
     doi2 = Doi("10.5678/another.article")
     expected2 = build_expected_fundingrequest(
         doi=doi2,
@@ -411,34 +386,22 @@ def test_multiple_previews_can_coexist(
         publisher_name=publisher_name,
     )
 
-    # Given: User creates first preview
-    response1 = client.post(
-        reverse("fundingrequests:doi_import_input"),
-        data={"doi": str(doi1)},
-    )
+    response1 = submit_for_preview(client, str(doi1))
     preview_url1 = response1["Location"]
-    session_key1 = preview_url1.split("/")[-2]
+    session_key1 = get_session_key(response1)
 
-    # When: User creates second preview (different DOI)
-    response2 = client.post(
-        reverse("fundingrequests:doi_import_input"),
-        data={"doi": str(doi2)},
-    )
+    response2 = submit_for_preview(client, str(doi2))
     preview_url2 = response2["Location"]
 
-    # Then: Both previews accessible
     preview1 = client.get(preview_url1)
     preview2 = client.get(preview_url2)
     assert preview1.status_code == 200
     assert preview2.status_code == 200
 
-    # When: User saves first preview
-    client.post(reverse("fundingrequests:doi_preview_save", kwargs={"session_key": session_key1}))
+    save_doi_import(client, session_key1)
 
-    # Then: Only one FundingRequest created
     assert len(repository.all()) == 1
 
-    # And: Second preview still accessible
     preview2_again = client.get(preview_url2)
     assert preview2_again.status_code == 200
 
@@ -446,29 +409,15 @@ def test_multiple_previews_can_coexist(
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
 def test_saving_preview_cleans_up_session(client: Client) -> None:
-    """
-    Given: User has a preview session
-    When: User saves the preview
-    Then: Session data is cleaned up
-    """
-    # Given: User creates preview
-    response = client.post(
-        reverse("fundingrequests:doi_import_input"),
-        data={"doi": "10.1234/preview.test"},
-    )
+    """Saving preview removes session data and makes preview inaccessible."""
+    doi_str = "10.1234/preview.test"
+    response = submit_for_preview(client, doi_str)
     preview_url = response["Location"]
-    session_key = preview_url.split("/")[-2]
+    session_key = get_session_key(response)
 
-    # Verify session exists
-    assert session_key in client.session
+    save_doi_import(client, session_key)
 
-    # When: User saves preview
-    client.post(reverse("fundingrequests:doi_preview_save", kwargs={"session_key": session_key}))
-
-    # Then: Session data cleaned up
     assert session_key not in client.session
-
-    # And: Preview URL no longer accessible
     preview_after_save = client.get(preview_url)
     assert preview_after_save.status_code == 404
 
@@ -476,11 +425,7 @@ def test_saving_preview_cleans_up_session(client: Client) -> None:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test_doi_input_form_displays_correctly(client: Client) -> None:
-    """
-    Given: User wants to import a DOI
-    When: User visits DOI import input page
-    Then: Form is displayed with DOI field and submit button
-    """
+    """DOI import input page displays form with DOI field and submit button."""
     response = client.get(reverse("fundingrequests:doi_import_input"))
 
     assert response.status_code == 200
@@ -495,25 +440,13 @@ def test_doi_input_handles_fetch_error(
     client: Client,
     fake_doi_client: FakeDOIMetadataClient,
 ) -> None:
-    """
-    Given: DOI metadata fetch fails
-    When: User submits DOI
-    Then: Error message is displayed and no redirect occurs
-    """
-    # Configure fake client to raise network error
+    """DOI metadata fetch failure displays error message without redirect."""
     test_doi = Doi("10.1234/broken.doi")
     fake_doi_client.configure_error(test_doi, "network")
 
-    # When: User submits DOI
-    response = client.post(
-        reverse("fundingrequests:doi_import_input"),
-        data={"doi": str(test_doi)},
-    )
+    response = submit_for_preview(client, test_doi.value())
 
-    # Then: No redirect (stays on same page with status 200)
     assert response.status_code == 200
-
-    # And: Error article displayed
     assert b"Import Error" in response.content or b"error" in response.content.lower()
     assert b"Failed to import DOI" in response.content
 
@@ -521,21 +454,10 @@ def test_doi_input_handles_fetch_error(
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in", "fake_doi_client")
 def test_doi_input_handles_not_found_error(client: Client) -> None:
-    """
-    Given: DOI does not exist
-    When: User submits nonexistent DOI
-    Then: Error message is displayed
-    """
-    # Use a DOI that's not configured in fake client
-    # (fake client raises DOINotFoundError for unknown DOIs)
-    response = client.post(
-        reverse("fundingrequests:doi_import_input"),
-        data={"doi": "10.1234/nonexistent.doi"},
-    )
+    """Nonexistent DOI displays error message."""
+    not_found_doi = "10.1234/nonexistent.doi"
+    response = submit_for_preview(client, not_found_doi)
 
-    # Then: No redirect (stays on page with status 200)
     assert response.status_code == 200
-
-    # And: Error article displayed with appropriate message
     assert b"Import Error" in response.content or b"error" in response.content.lower()
     assert b"Failed to import DOI" in response.content

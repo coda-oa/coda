@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Container, Iterable
 from coda.apps.institutions.models import Institution
 
 
@@ -8,6 +8,10 @@ def create(name: str, parent: Institution | None = None) -> Institution:
 
 def get_by_id(id: int) -> Institution:
     return Institution.objects.get(pk=id)
+
+
+def get_many_by_id(ids: Container[int]) -> Iterable[Institution]:
+    return Institution.objects.filter(id__in=ids)
 
 
 def all() -> Iterable[Institution]:

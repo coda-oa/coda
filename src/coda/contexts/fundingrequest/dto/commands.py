@@ -13,7 +13,12 @@ from pydantic import AfterValidator, Field
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.dto import CodaBaseDto, OptionalFromStr
-from coda.apps.publications.dto import LinkDto, PublicationBaseDto, PublicationMetaDto
+from coda.apps.publications.dto import (
+    LinkDto,
+    MonographDto,
+    PublicationDto,
+    PublicationMetaDto,
+)
 from coda.domain.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -136,7 +141,7 @@ CreateReviewDto = UpdateReviewDto
 
 
 class CreateFundingRequestDto(CodaBaseDto):
-    publication: PublicationBaseDto
+    publication: Annotated[PublicationDto | MonographDto, Field(discriminator="publication_kind")]
     payment: PaymentDto
     extra_information: ExtraInformationDto
     funding: Iterable[ExternalFundingDto] = ()

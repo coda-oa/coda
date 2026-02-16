@@ -44,12 +44,11 @@ class FakeDOIMetadataClient:
                     issn="0028-0836",
                     eissn="1476-4687",
                 ),
-                publisher="Springer Nature",
+                publisher="Springer Science and Business Media LLC",
                 license="CC-BY",
                 online_publication_date=datetime.date(2024, 1, 15),
             ),
         }
-        # Error configurations: doi_str -> error_type
         self._errors: dict[str, str] = {}
 
     def configure_error(self, doi: Doi, error_type: str) -> None:
