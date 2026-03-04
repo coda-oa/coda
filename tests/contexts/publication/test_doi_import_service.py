@@ -15,7 +15,6 @@ from tests.fundingrequests.services.test_fundingrequest_services import assert_f
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.journals import services as journal_services
 from coda.apps.journals.models import Journal
-from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publishers import services as publisher_services
 from coda.apps.publishers.models import Publisher
@@ -24,6 +23,7 @@ from coda.contexts.publication.dto.external_metadata import (
     ExternalJournal,
     ExternalPublicationMetadata,
 )
+from coda.contexts.publication.dto.preview import PreviewArticle, PreviewMonograph
 from coda.contexts.publication.services.doi_client import CrossrefDoiClient, DOIMetadataClient
 from coda.contexts.publication.services.doi_import_service import (
     DOIAlreadyImported,
@@ -99,7 +99,7 @@ def make_test_metadata(
     )
 
     fake_client = FakeDOIMetadataClient()
-    fake_client._data[doi] = metadata
+    fake_client.data[doi] = metadata
 
     return fake_client, Doi(doi)
 
@@ -722,6 +722,87 @@ def test__prepare_funding_request_dto__returns_dto_without_persisting() -> None:
 
 
 @pytest.mark.django_db
+def test__prepare_funding_request_dto__article__does_not_create_journal_or_publisher() -> None:
+    """Test that prepare_funding_request_dto does NOT create journals or publishers for articles.
+
+    This is critical for preview workflows - we should only build the DTO without
+    persisting any entities. Journal/publisher creation should happen during import_from_doi().
+    """
+    # Arrange - Verify database starts empty (no journals or publishers)
+    assert Journal.objects.count() == 0
+    assert Publisher.objects.count() == 0
+
+    fake_client, doi = make_test_metadata(
+        doi="10.1234/preview-article-test",
+        title="Test Article Preview",
+        authors=[ExternalAuthor(name="Test Author")],
+        publisher="New Publisher Inc",  # Publisher that doesn't exist yet
+        journal=ExternalJournal(
+            title="New Journal of Science",  # Journal that doesn't exist yet
+            eissn="1476-4687",  # Valid ISSN (using Nature's ISSN for valid checksum)
+        ),
+    )
+
+    service = DOIImportService(fake_client)
+
+    # Act
+    dto = service.prepare_funding_request_dto(doi)
+
+    # Assert - DTO should be created successfully
+    assert dto is not None
+    assert isinstance(dto.publication, PreviewArticle)
+    assert dto.publication.meta.title == "Test Article Preview"
+
+    # Assert - No database entities should be created
+    assert Journal.objects.count() == 0, "prepare_funding_request_dto created a journal"
+    assert Publisher.objects.count() == 0, "prepare_funding_request_dto created a publisher"
+    assert (
+        len(fundingrequest_repository.all()) == 0
+    ), "prepare_funding_request_dto created a funding request"
+
+
+@pytest.mark.django_db
+def test__prepare_funding_request_dto__monograph__does_not_create_publisher() -> None:
+    """Test that prepare_funding_request_dto does NOT create publishers for monographs.
+
+    This is critical for preview workflows - we should only build the DTO without
+    persisting any entities. Publisher creation should happen during import_from_doi().
+    """
+    # Arrange - Verify database starts empty
+    assert Publisher.objects.count() == 0
+
+    doi = Doi("10.1007/978-3-319-99999-9")
+    fake_client = FakeDOIMetadataClient()
+    fake_client.data[str(doi)] = ExternalPublicationMetadata(
+        title="Test Book Preview",
+        authors=[ExternalAuthor(name="Test Author")],
+        publication_type="book",
+        journal=None,
+        publisher="New Academic Press",  # Publisher that doesn't exist yet
+        isbn="978-3-319-99999-9",
+        online_publication_date=None,
+        print_publication_date=None,
+        license=None,
+    )
+
+    service = DOIImportService(fake_client)
+
+    # Act
+    dto = service.prepare_funding_request_dto(doi)
+
+    # Assert - DTO should be created successfully
+    assert dto is not None
+    assert isinstance(dto.publication, PreviewMonograph)
+    assert dto.publication.meta.title == "Test Book Preview"
+
+    # Assert - No database entities should be created
+    assert Publisher.objects.count() == 0, "prepare_funding_request_dto created a publisher"
+    assert (
+        len(fundingrequest_repository.all()) == 0
+    ), "prepare_funding_request_dto created a funding request"
+
+
+@pytest.mark.django_db
 @pytest.mark.parametrize(
     "publication_type",
     [
@@ -737,22 +818,20 @@ def test__prepare_funding_request_dto__returns_dto_without_persisting() -> None:
         "dissertation",
     ],
 )
-def test__prepare_funding_request_dto__monograph_types__returns_monograph_dto(
+def test__prepare_funding_request_dto__monograph_types__returns_preview_monograph(
     publication_type: str,
 ) -> None:
-    """Crossref book-like types should return MonographDto.
+    """Crossref book-like types should return PreviewMonograph.
 
     Tests all 10 book-like Crossref types from https://api.crossref.org/types
     that should be detected as monographs.
     """
-    # Arrange - Create publisher that will be matched
-    publisher_services.create("Springer International Publishing")
-
+    # Arrange - No need to create publisher (preview doesn't create entities)
     doi = Doi("10.1007/978-3-319-18421-0")
 
     # Fake client returns book metadata
     fake_client = FakeDOIMetadataClient()
-    fake_client._data[str(doi)] = ExternalPublicationMetadata(
+    fake_client.data[str(doi)] = ExternalPublicationMetadata(
         title="Example Book on Computer Science",
         authors=[ExternalAuthor(name="John Doe"), ExternalAuthor(name="Jane Smith")],
         publication_type=publication_type,
@@ -770,8 +849,9 @@ def test__prepare_funding_request_dto__monograph_types__returns_monograph_dto(
     result = service.prepare_funding_request_dto(doi)
 
     # Assert
-    assert isinstance(result.publication, MonographDto)
+    assert isinstance(result.publication, PreviewMonograph)
     assert result.publication.meta.title == "Example Book on Computer Science"
+    assert result.publication.publisher_name == "Springer International Publishing"
 
 
 @pytest.mark.django_db
@@ -787,19 +867,17 @@ def test__prepare_funding_request_dto__monograph_types__returns_monograph_dto(
 def test__prepare_funding_request_dto__article_types__returns_publication_dto(
     publication_type: str,
 ) -> None:
-    """Crossref article-like types should return PublicationDto.
+    """Crossref article-like types should return PreviewArticle.
 
     Tests all 4 article-like Crossref types from https://api.crossref.org/types
     that should be detected as journal articles.
     """
-    # Arrange - Create journal that will be matched
-    create_springer_nature_journal()
-
+    # Arrange - No need to create journal (preview doesn't create entities)
     doi = Doi("10.1038/nature.2024.12345")
 
     # Fake client returns article metadata
     fake_client = FakeDOIMetadataClient()
-    fake_client._data[str(doi)] = ExternalPublicationMetadata(
+    fake_client.data[str(doi)] = ExternalPublicationMetadata(
         title="Example Article",
         authors=[ExternalAuthor(name="John Doe")],
         publication_type=publication_type,
@@ -817,19 +895,19 @@ def test__prepare_funding_request_dto__article_types__returns_publication_dto(
     result = service.prepare_funding_request_dto(doi)
 
     # Assert
-    assert isinstance(result.publication, PublicationDto)
+    assert isinstance(result.publication, PreviewArticle)
     assert result.publication.meta.title == "Example Article"
+    assert result.publication.journal.title == "Nature"
+    assert result.publication.journal.eissn == "1476-4687"
 
 
 @pytest.mark.django_db
 def test__prepare_funding_request_dto__unknown_type_with_isbn__returns_monograph_dto() -> None:
     """Unknown Crossref type with ISBN should be detected as monograph."""
-    # Arrange
-    publisher_services.create("Unknown Publisher")
-
+    # Arrange - No need to create publisher (preview doesn't create entities)
     doi = Doi("10.1234/unknown-with-isbn")
     fake_client = FakeDOIMetadataClient()
-    fake_client._data[str(doi)] = ExternalPublicationMetadata(
+    fake_client.data[str(doi)] = ExternalPublicationMetadata(
         title="Unknown Type Publication",
         authors=[ExternalAuthor(name="John Doe")],
         publication_type="unknown-type",  # Not a recognized Crossref type
@@ -847,18 +925,18 @@ def test__prepare_funding_request_dto__unknown_type_with_isbn__returns_monograph
     result = service.prepare_funding_request_dto(doi)
 
     # Assert
-    assert isinstance(result.publication, MonographDto)
+    assert isinstance(result.publication, PreviewMonograph)
+    assert result.publication.meta.title == "Unknown Type Publication"
+    assert result.publication.publisher_name == "Unknown Publisher"
 
 
 @pytest.mark.django_db
 def test__prepare_funding_request_dto__unknown_type_with_issn__returns_publication_dto() -> None:
     """Unknown Crossref type with ISSN should be detected as article."""
-    # Arrange
-    create_springer_nature_journal()
-
+    # Arrange - No need to create journal (preview doesn't create entities)
     doi = Doi("10.1234/unknown-with-issn")
     fake_client = FakeDOIMetadataClient()
-    fake_client._data[str(doi)] = ExternalPublicationMetadata(
+    fake_client.data[str(doi)] = ExternalPublicationMetadata(
         title="Unknown Type Publication",
         authors=[ExternalAuthor(name="John Doe")],
         publication_type="unknown-type",  # Not a recognized Crossref type
@@ -876,7 +954,9 @@ def test__prepare_funding_request_dto__unknown_type_with_issn__returns_publicati
     result = service.prepare_funding_request_dto(doi)
 
     # Assert
-    assert isinstance(result.publication, PublicationDto)
+    assert isinstance(result.publication, PreviewArticle)
+    assert result.publication.meta.title == "Unknown Type Publication"
+    assert result.publication.journal.title == "Nature"
 
 
 @pytest.mark.django_db
@@ -888,12 +968,10 @@ def test__prepare_funding_request_dto__book_chapter_with_both_isbn_and_issn__ret
     This is a common edge case: book chapters in numbered series have ISSN for the series
     and ISBN for the specific book. ISBN takes precedence.
     """
-    # Arrange
-    publisher_services.create("Springer")
-
+    # Arrange - No need to create publisher (preview doesn't create entities)
     doi = Doi("10.1007/978-3-319-18421-0_1")
     fake_client = FakeDOIMetadataClient()
-    fake_client._data[str(doi)] = ExternalPublicationMetadata(
+    fake_client.data[str(doi)] = ExternalPublicationMetadata(
         title="Chapter in Book Series",
         authors=[ExternalAuthor(name="John Doe")],
         publication_type="book-chapter",
@@ -915,7 +993,9 @@ def test__prepare_funding_request_dto__book_chapter_with_both_isbn_and_issn__ret
     result = service.prepare_funding_request_dto(doi)
 
     # Assert
-    assert isinstance(result.publication, MonographDto)
+    assert isinstance(result.publication, PreviewMonograph)
+    assert result.publication.meta.title == "Chapter in Book Series"
+    assert result.publication.publisher_name == "Springer"
 
 
 @pytest.mark.django_db
@@ -924,7 +1004,7 @@ def test__prepare_funding_request_dto__unknown_type_no_identifiers__defaults_to_
     # Arrange - No journal needed since we'll get InvalidMetadataError
     doi = Doi("10.1234/unknown-no-identifiers")
     fake_client = FakeDOIMetadataClient()
-    fake_client._data[str(doi)] = ExternalPublicationMetadata(
+    fake_client.data[str(doi)] = ExternalPublicationMetadata(
         title="Unknown Type Publication",
         authors=[ExternalAuthor(name="John Doe")],
         publication_type="unknown-type",

@@ -17,7 +17,7 @@ from django.utils.safestring import SafeString
 from django.views import View
 
 from coda.apps.fundingrequests.queries.preview_context_builder import build_preview_context
-from coda.contexts.fundingrequest.dto.commands import CreateFundingRequestDto
+from coda.contexts.publication.dto.preview import PreviewFundingRequest
 from coda.contexts.publication.services.doi_client import CrossrefDoiClient, DOIMetadataClient
 from coda.contexts.publication.services.doi_import_service import (
     DOIAlreadyImported,
@@ -138,9 +138,9 @@ class DOIPreviewSaveView(View):
             return HttpResponse("Preview session not found or expired", status=404)
 
         doi = Doi(preview_data.pop("doi"))
-        creation_dto = CreateFundingRequestDto.model_validate(preview_data)
+        preview_dto = PreviewFundingRequest.model_validate(preview_data)
 
-        cache = {doi: creation_dto}
+        cache = {doi: preview_dto}
         doi_service = DOIImportService(doi_client=self.doi_client, cache=cache)
 
         try:

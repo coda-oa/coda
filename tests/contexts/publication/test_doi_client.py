@@ -93,10 +93,10 @@ def test__fake_client__can_be_configured_with_test_data() -> None:
     client = FakeDOIMetadataClient()
 
     # This behavior allows us to control test data in unit tests
-    # The fake client's _data dict can be manipulated directly
+    # The fake client's data dict can be manipulated directly
     # (as demonstrated in edge case tests)
     assert client is not None
-    assert client._data is not None
+    assert client.data is not None
 
 
 @pytest.mark.parametrize(

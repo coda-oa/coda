@@ -186,7 +186,7 @@ def configure_fake_client_from_expected(
     )
 
     # Configure fake client
-    fake_client._data[str(doi)] = metadata
+    fake_client.data[str(doi)] = metadata
 
 
 @pytest.fixture

@@ -23,7 +23,8 @@ class FakeDOIMetadataClient:
 
     def __init__(self) -> None:
         # Hardcoded test data for known DOIs
-        self._data = {
+        # Public attribute to allow tests to add custom test data
+        self.data = {
             "10.1038/nature12373": ExternalPublicationMetadata(
                 title="Example Nature Article",
                 authors=[
@@ -79,7 +80,7 @@ class FakeDOIMetadataClient:
                 raise DOIFetchError(doi, f"Unknown error type: {error_type}")
 
         # Normal behavior
-        if doi_str not in self._data:
+        if doi_str not in self.data:
             raise DOINotFoundError(doi)
 
-        return self._data[doi_str]
+        return self.data[doi_str]
