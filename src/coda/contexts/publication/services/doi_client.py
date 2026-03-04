@@ -131,6 +131,7 @@ class CrossrefDoiClient:
         pub_type = message.get("type", "unknown")
         journal = self._parse_journal(message) if pub_type == "journal-article" else None
         publisher = message.get("publisher")
+        isbn = self._extract_isbn(message)
 
         license_info = self._parse_license(message.get("license", []))
 
@@ -143,6 +144,7 @@ class CrossrefDoiClient:
             publication_type=pub_type,
             journal=journal,
             publisher=publisher,
+            isbn=isbn,
             license=license_info,
             online_publication_date=online_date,
             print_publication_date=print_date,
@@ -226,6 +228,14 @@ class CrossrefDoiClient:
             eissn = issns[1] if len(issns) > 1 else None
 
         return issn, eissn
+
+    def _extract_isbn(self, message: dict[str, Any]) -> str | None:
+        """Extract ISBN from Crossref response.
+
+        Crossref provides ISBN as an array. We return the first one if available.
+        """
+        isbns = message.get("ISBN", [])
+        return isbns[0] if isbns else None
 
     def _parse_license(self, license_data: list[dict[str, Any]]) -> str | None:
         """Parse license information from Crossref response."""

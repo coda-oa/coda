@@ -43,6 +43,7 @@ class ExternalPublicationMetadata:
     publication_type: str  # Raw string from Crossref/DataCite
     journal: ExternalJournal | None = None
     publisher: str | None = None
+    isbn: str | None = None
     license: str | None = None
     online_publication_date: datetime.date | None = None
     print_publication_date: datetime.date | None = None

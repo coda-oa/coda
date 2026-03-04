@@ -15,6 +15,7 @@ from tests.fundingrequests.services.test_fundingrequest_services import assert_f
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.journals import services as journal_services
 from coda.apps.journals.models import Journal
+from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publishers import services as publisher_services
 from coda.apps.publishers.models import Publisher
@@ -342,21 +343,21 @@ def test__import_from_doi__journal_exists_in_database__does_not_create_publisher
 
 @pytest.mark.django_db
 def test__import_from_doi__metadata_without_journal__raises_invalid_metadata_error() -> None:
-    """Given DOI metadata without journal (e.g., book/monograph), raises InvalidMetadataError.
+    """Given book/monograph metadata without publisher, raises InvalidMetadataError.
 
-    This documents the current limitation: we only support journal articles.
-    When we add monograph support, this test should be updated.
+    Monographs are now supported, but require a publisher name.
     """
     fake_client, doi = make_test_metadata(
         doi="10.1234/book.123",
         title="Example Book Title",
         journal=None,
         publication_type="book",
+        publisher=None,
     )
 
     doi_service = DOIImportService(doi_client=fake_client)
 
-    with pytest.raises(InvalidMetadataError, match="Journal article missing journal metadata"):
+    with pytest.raises(InvalidMetadataError, match="Monograph missing publisher name"):
         doi_service.import_from_doi(doi)
 
 
@@ -718,3 +719,226 @@ def test__prepare_funding_request_dto__returns_dto_without_persisting() -> None:
 
     all_requests = fundingrequest_repository.all()
     assert len(all_requests) == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "publication_type",
+    [
+        "book",
+        "monograph",
+        "book-chapter",
+        "book-section",
+        "book-part",
+        "book-track",
+        "edited-book",
+        "reference-book",
+        "reference-entry",
+        "dissertation",
+    ],
+)
+def test__prepare_funding_request_dto__monograph_types__returns_monograph_dto(
+    publication_type: str,
+) -> None:
+    """Crossref book-like types should return MonographDto.
+
+    Tests all 10 book-like Crossref types from https://api.crossref.org/types
+    that should be detected as monographs.
+    """
+    # Arrange - Create publisher that will be matched
+    publisher_services.create("Springer International Publishing")
+
+    doi = Doi("10.1007/978-3-319-18421-0")
+
+    # Fake client returns book metadata
+    fake_client = FakeDOIMetadataClient()
+    fake_client._data[str(doi)] = ExternalPublicationMetadata(
+        title="Example Book on Computer Science",
+        authors=[ExternalAuthor(name="John Doe"), ExternalAuthor(name="Jane Smith")],
+        publication_type=publication_type,
+        journal=None,
+        publisher="Springer International Publishing",
+        isbn="978-3-319-18421-0",
+        online_publication_date=datetime.date(2024, 1, 15),
+        print_publication_date=None,
+        license=None,
+    )
+
+    service = DOIImportService(fake_client)
+
+    # Act
+    result = service.prepare_funding_request_dto(doi)
+
+    # Assert
+    assert isinstance(result.publication, MonographDto)
+    assert result.publication.meta.title == "Example Book on Computer Science"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "publication_type",
+    [
+        "journal-article",
+        "proceedings-article",
+        "posted-content",
+        "peer-review",
+    ],
+)
+def test__prepare_funding_request_dto__article_types__returns_publication_dto(
+    publication_type: str,
+) -> None:
+    """Crossref article-like types should return PublicationDto.
+
+    Tests all 4 article-like Crossref types from https://api.crossref.org/types
+    that should be detected as journal articles.
+    """
+    # Arrange - Create journal that will be matched
+    create_springer_nature_journal()
+
+    doi = Doi("10.1038/nature.2024.12345")
+
+    # Fake client returns article metadata
+    fake_client = FakeDOIMetadataClient()
+    fake_client._data[str(doi)] = ExternalPublicationMetadata(
+        title="Example Article",
+        authors=[ExternalAuthor(name="John Doe")],
+        publication_type=publication_type,
+        journal=ExternalJournal(title="Nature", eissn="1476-4687"),
+        publisher="Springer Nature",
+        isbn=None,
+        online_publication_date=datetime.date(2024, 1, 15),
+        print_publication_date=None,
+        license=None,
+    )
+
+    service = DOIImportService(fake_client)
+
+    # Act
+    result = service.prepare_funding_request_dto(doi)
+
+    # Assert
+    assert isinstance(result.publication, PublicationDto)
+    assert result.publication.meta.title == "Example Article"
+
+
+@pytest.mark.django_db
+def test__prepare_funding_request_dto__unknown_type_with_isbn__returns_monograph_dto() -> None:
+    """Unknown Crossref type with ISBN should be detected as monograph."""
+    # Arrange
+    publisher_services.create("Unknown Publisher")
+
+    doi = Doi("10.1234/unknown-with-isbn")
+    fake_client = FakeDOIMetadataClient()
+    fake_client._data[str(doi)] = ExternalPublicationMetadata(
+        title="Unknown Type Publication",
+        authors=[ExternalAuthor(name="John Doe")],
+        publication_type="unknown-type",  # Not a recognized Crossref type
+        journal=None,
+        publisher="Unknown Publisher",
+        isbn="978-1-234-56789-0",  # Has ISBN → should be monograph
+        online_publication_date=datetime.date(2024, 1, 15),
+        print_publication_date=None,
+        license=None,
+    )
+
+    service = DOIImportService(fake_client)
+
+    # Act
+    result = service.prepare_funding_request_dto(doi)
+
+    # Assert
+    assert isinstance(result.publication, MonographDto)
+
+
+@pytest.mark.django_db
+def test__prepare_funding_request_dto__unknown_type_with_issn__returns_publication_dto() -> None:
+    """Unknown Crossref type with ISSN should be detected as article."""
+    # Arrange
+    create_springer_nature_journal()
+
+    doi = Doi("10.1234/unknown-with-issn")
+    fake_client = FakeDOIMetadataClient()
+    fake_client._data[str(doi)] = ExternalPublicationMetadata(
+        title="Unknown Type Publication",
+        authors=[ExternalAuthor(name="John Doe")],
+        publication_type="unknown-type",  # Not a recognized Crossref type
+        journal=ExternalJournal(title="Nature", eissn="1476-4687"),  # Has ISSN → article
+        publisher="Springer Nature",
+        isbn=None,
+        online_publication_date=datetime.date(2024, 1, 15),
+        print_publication_date=None,
+        license=None,
+    )
+
+    service = DOIImportService(fake_client)
+
+    # Act
+    result = service.prepare_funding_request_dto(doi)
+
+    # Assert
+    assert isinstance(result.publication, PublicationDto)
+
+
+@pytest.mark.django_db
+def test__prepare_funding_request_dto__book_chapter_with_both_isbn_and_issn__returns_monograph_dto() -> (
+    None
+):
+    """Book chapter with both ISBN and ISSN (series) should be detected as monograph.
+
+    This is a common edge case: book chapters in numbered series have ISSN for the series
+    and ISBN for the specific book. ISBN takes precedence.
+    """
+    # Arrange
+    publisher_services.create("Springer")
+
+    doi = Doi("10.1007/978-3-319-18421-0_1")
+    fake_client = FakeDOIMetadataClient()
+    fake_client._data[str(doi)] = ExternalPublicationMetadata(
+        title="Chapter in Book Series",
+        authors=[ExternalAuthor(name="John Doe")],
+        publication_type="book-chapter",
+        journal=ExternalJournal(
+            title="Communications in Computer and Information Science",
+            issn="1865-0929",  # Series ISSN
+            eissn="1865-0937",  # Series E-ISSN
+        ),
+        publisher="Springer",
+        isbn="978-3-319-18421-0",  # Book ISBN - this takes precedence!
+        online_publication_date=datetime.date(2024, 1, 15),
+        print_publication_date=None,
+        license=None,
+    )
+
+    service = DOIImportService(fake_client)
+
+    # Act
+    result = service.prepare_funding_request_dto(doi)
+
+    # Assert
+    assert isinstance(result.publication, MonographDto)
+
+
+@pytest.mark.django_db
+def test__prepare_funding_request_dto__unknown_type_no_identifiers__defaults_to_article() -> None:
+    """Unknown type with no ISBN or ISSN should default to article."""
+    # Arrange - No journal needed since we'll get InvalidMetadataError
+    doi = Doi("10.1234/unknown-no-identifiers")
+    fake_client = FakeDOIMetadataClient()
+    fake_client._data[str(doi)] = ExternalPublicationMetadata(
+        title="Unknown Type Publication",
+        authors=[ExternalAuthor(name="John Doe")],
+        publication_type="unknown-type",
+        journal=None,  # No ISSN
+        publisher="Some Publisher",
+        isbn=None,  # No ISBN
+        online_publication_date=datetime.date(2024, 1, 15),
+        print_publication_date=None,
+        license=None,
+    )
+
+    service = DOIImportService(fake_client)
+
+    # Act & Assert
+    # Should default to article, but article requires journal metadata
+    with pytest.raises(InvalidMetadataError, match="Journal article missing journal metadata"):
+        service.prepare_funding_request_dto(doi)

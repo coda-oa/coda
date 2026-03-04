@@ -2,6 +2,7 @@
 
 import datetime
 from collections.abc import Iterable
+from typing import Literal
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.journals import services as journal_services
@@ -9,6 +10,7 @@ from coda.apps.publications.dto import (
     ConceptDto,
     JournalDto,
     LinkDto,
+    MonographDto,
     PublicationDto,
     PublicationMetaDto,
 )
@@ -117,14 +119,29 @@ class DOIImportService:
         # Otherwise fetch from external API
         metadata = self.doi_client.fetch(doi)
 
+        # Detect publication type
+        detected_type = self._detect_publication_type(metadata)
+
         authors_dto = self._build_authors_dto(metadata.authors)
-        journal_id = self._match_or_create_journal(metadata.journal, metadata.publisher)
-        publication_dto = self._build_publication_dto(
-            doi=doi,
-            metadata=metadata,
-            journal_id=journal_id,
-            authors_dto=authors_dto,
-        )
+
+        # Build appropriate DTO based on detected type
+        publication_dto: PublicationDto | MonographDto
+        if detected_type == "monograph":
+            publisher_id = self._match_or_create_publisher_for_monograph(metadata.publisher)
+            publication_dto = self._build_monograph_dto(
+                doi=doi,
+                metadata=metadata,
+                publisher_id=publisher_id,
+                authors_dto=authors_dto,
+            )
+        else:
+            journal_id = self._match_or_create_journal(metadata.journal, metadata.publisher)
+            publication_dto = self._build_publication_dto(
+                doi=doi,
+                metadata=metadata,
+                journal_id=journal_id,
+                authors_dto=authors_dto,
+            )
 
         return CreateFundingRequestDto(
             publication=publication_dto,
@@ -197,6 +214,112 @@ class DOIImportService:
             relevant_authors=authors_dto,
             other_authors=[],
         )
+
+    def _detect_publication_type(
+        self, metadata: ExternalPublicationMetadata
+    ) -> Literal["article", "monograph"]:
+        """Detect whether a DOI represents a journal article or monograph.
+
+        Uses Crossref type field and ISBN/ISSN identifiers to determine publication type.
+        Crossref defines 30 types; we explicitly categorize each as article-like or book-like.
+
+        Detection logic:
+        1. Check explicit Crossref type against known book/article sets
+        2. Fallback to ISBN presence → Monograph
+        3. Fallback to ISSN presence (in journal metadata) → Article
+        4. Default → Article (for completely unknown types)
+
+        Reference: https://api.crossref.org/types
+        """
+        # Crossref book-like types (10 total)
+        BOOK_TYPES = {
+            "book",
+            "monograph",
+            "edited-book",
+            "book-chapter",
+            "book-section",
+            "book-part",
+            "book-track",
+            "reference-book",
+            "reference-entry",
+            "dissertation",
+        }
+
+        # Crossref article-like types (4 total)
+        ARTICLE_TYPES = {
+            "journal-article",
+            "proceedings-article",
+            "posted-content",
+            "peer-review",
+        }
+
+        # Note: Other Crossref types (report, component, standard, database, dataset,
+        # grant, proceedings, journal, journal-volume, journal-issue, book-series,
+        # book-set, report-component, report-series, proceedings-series, other)
+        # are not explicitly categorized and fall through to identifier-based detection.
+
+        pub_type = metadata.publication_type.lower()
+
+        # Check explicit type categorization
+        if pub_type in BOOK_TYPES:
+            return "monograph"
+
+        if pub_type in ARTICLE_TYPES:
+            return "article"
+
+        # Identifier-based fallback for unknown/ambiguous types
+        # ISBN takes precedence (important for book chapters in series with both ISBN + ISSN)
+        if metadata.isbn:
+            return "monograph"
+
+        # Check for ISSN in journal metadata
+        if metadata.journal and (metadata.journal.issn or metadata.journal.eissn):
+            return "article"
+
+        # Default to article for completely unknown types
+        return "article"
+
+    def _build_monograph_dto(
+        self,
+        doi: Doi,
+        metadata: ExternalPublicationMetadata,
+        publisher_id: PublisherId,
+        authors_dto: list[AuthorDto],
+    ) -> MonographDto:
+        """Build MonographDto from DOI metadata."""
+        publication_state = self._map_publication_state(
+            metadata.online_publication_date,
+            metadata.print_publication_date,
+        )
+
+        return MonographDto(
+            meta=PublicationMetaDto(
+                title=metadata.title,
+                publication_type=ConceptDto.from_concept(UnknownConcept),
+                subject_area=ConceptDto.from_concept(UnknownConcept),
+                license=self._map_license(metadata.license).name,
+                open_access_type="Unknown",
+                publication_state=publication_state.name(),
+                online_publication_date=self._extract_online_date(publication_state),
+                print_publication_date=self._extract_print_date(publication_state),
+            ),
+            publisher=publisher_id,
+            contracts=[],
+            links=[LinkDto(link_type=doi.type(), link_value=doi.value())],
+            relevant_authors=authors_dto,
+            other_authors=[],
+        )
+
+    def _match_or_create_publisher_for_monograph(self, publisher_name: str | None) -> PublisherId:
+        """Match or create publisher for monograph.
+
+        Raises:
+            InvalidMetadataError: If publisher name is missing
+        """
+        if publisher_name is None:
+            raise InvalidMetadataError("Monograph missing publisher name")
+
+        return self._match_or_create_publisher(publisher_name)
 
     def _build_authors_dto(self, external_authors: list[ExternalAuthor]) -> list[AuthorDto]:
         """Convert external author metadata to AuthorDto objects."""
