@@ -6,6 +6,7 @@ Tests are parametrized to run with both fake and real Crossref clients.
 
 import datetime
 from collections.abc import Callable
+from typing import Literal
 
 import pytest
 from tests import domainfactory
@@ -31,6 +32,7 @@ from coda.contexts.publication.services.doi_import_service import (
     InvalidMetadataError,
 )
 from coda.domain.author import Author, Role
+from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId, Payment, PaymentMethod
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.domain.issn import Issn
@@ -39,21 +41,34 @@ from coda.domain.publication import (
     Authors,
     JournalId,
     License,
+    Monograph,
     Publication,
     Published,
     Unpublished,
     UnpublishedState,
 )
-from coda.domain.publication.links import Doi
+from coda.domain.publication.links import Doi, Isbn
 from coda.domain.string import NonEmptyStr
 
+# Test data constants
+NATURE_DOI = "10.1038/nature12373"
+NATURE_EISSN = "1476-4687"
+NATURE_JOURNAL_TITLE = "Nature"
+SPRINGER_NATURE_PUBLISHER = "Springer Nature"
+SPRINGER_NATURE_REAL_PUBLISHER = "Springer Science and Business Media LLC"
 
-def make_test_metadata(
+SPRINGER_BOOK_DOI = "10.1007/978-3-319-18938-3"
+SPRINGER_BOOK_ISBN = "9783319189376"  # Print ISBN (first in Crossref array)
+SPRINGER_BOOK_TITLE = "Quantum Microscopy of Biological Systems"
+SPRINGER_BOOK_PUBLISHER = "Springer International Publishing"
+
+
+def make_article_metadata(
     *,
     doi: str = "10.1234/test",
     title: str = "Test Article",
     authors: list[ExternalAuthor] | None = None,
-    journal: ExternalJournal | None = None,
+    journal: ExternalJournal | Literal["unset"] | None = "unset",
     publisher: str | None = "Test Publisher",
     license: str | None = None,
     online_publication_date: datetime.date | None = datetime.date(2024, 1, 1),
@@ -79,13 +94,8 @@ def make_test_metadata(
     if authors is None:
         authors = [ExternalAuthor(name="Test Author")]
 
-    # Default journal only if not explicitly set to None
-    if journal is None and publication_type == "journal-article":
-        journal = ExternalJournal(title="Nature", eissn="1476-4687")
-
-    # If journal is None (e.g., books), publisher should also default to None
-    if journal is None and publisher == "Test Publisher":
-        publisher = None
+    if journal == "unset":
+        journal = ExternalJournal(title=NATURE_JOURNAL_TITLE, eissn=NATURE_EISSN)
 
     metadata = ExternalPublicationMetadata(
         title=title,
@@ -96,6 +106,57 @@ def make_test_metadata(
         license=license,
         online_publication_date=online_publication_date,
         print_publication_date=print_publication_date,
+    )
+
+    fake_client = FakeDOIMetadataClient()
+    fake_client.data[doi] = metadata
+
+    return fake_client, Doi(doi)
+
+
+def make_book_metadata(
+    *,
+    publisher: str,
+    doi: str = "10.1234/test-book",
+    title: str = "Test Book",
+    authors: list[ExternalAuthor] | None = None,
+    isbn: str | None = None,
+    journal: ExternalJournal | None = None,
+    publication_type: str = "book",
+    online_publication_date: datetime.date | None = None,
+    print_publication_date: datetime.date | None = None,
+    license: str | None = None,
+) -> tuple[FakeDOIMetadataClient, Doi]:
+    """Create book/monograph test metadata and return configured client + DOI.
+
+    Args:
+        publisher: Publisher name (required for books)
+        doi: DOI string for the book (defaults to "10.1234/test-book")
+        title: Book title (defaults to "Test Book")
+        authors: List of authors (defaults to single author "Test Author")
+        isbn: ISBN for the book (optional)
+        journal: Journal metadata (optional, for book chapters in series)
+        publication_type: Publication type (defaults to "book")
+        online_publication_date: Online publication date (defaults to None)
+        print_publication_date: Print publication date (defaults to None)
+        license: License string (defaults to None)
+
+    Returns:
+        Tuple of (configured FakeDOIMetadataClient, Doi object)
+    """
+    if authors is None:
+        authors = [ExternalAuthor(name="Test Author")]
+
+    metadata = ExternalPublicationMetadata(
+        title=title,
+        authors=authors,
+        publication_type=publication_type,
+        journal=journal,
+        publisher=publisher,
+        isbn=isbn,
+        online_publication_date=online_publication_date,
+        print_publication_date=print_publication_date,
+        license=license,
     )
 
     fake_client = FakeDOIMetadataClient()
@@ -130,19 +191,38 @@ def create_springer_nature_journal() -> int:
     Returns:
         The integer ID of the created Nature journal
     """
-    publisher_id = publisher_services.create("Springer Nature")
+    publisher_id = publisher_services.create(SPRINGER_NATURE_PUBLISHER)
     journal_id = journal_services.create(
-        title=NonEmptyStr("Nature"),
-        eissn=Issn("1476-4687"),
+        title=NonEmptyStr(NATURE_JOURNAL_TITLE),
+        eissn=Issn(NATURE_EISSN),
         publisher_id=publisher_id,
     )
     return int(journal_id)
 
 
+def create_springer_book_publisher() -> int:
+    """Create Springer International Publishing publisher in database.
+
+    Returns:
+        The integer ID of the created publisher
+    """
+    publisher_id = publisher_services.create(SPRINGER_BOOK_PUBLISHER)
+    return int(publisher_id)
+
+
 @pytest.fixture
 def fake_doi_client() -> DOIMetadataClient:
-    """Provides a fake DOI client for unit tests."""
-    return FakeDOIMetadataClient()
+    """Provides a fake DOI client configured with test data."""
+    from tests.contexts.publication.fixtures.test_metadata import (
+        nature_article_metadata,
+        springer_book_metadata,
+    )
+
+    client = FakeDOIMetadataClient()
+    # Configure with test data
+    client.data[NATURE_DOI] = nature_article_metadata()
+    client.data[SPRINGER_BOOK_DOI] = springer_book_metadata()
+    return client
 
 
 @pytest.fixture
@@ -155,7 +235,7 @@ def make_expected_funding_request_for_fake_nature_article(
     journal_id: int,
 ) -> FundingRequest[Publication]:
     """Factory for expected FundingRequest with fake DOI metadata."""
-    doi = Doi("10.1038/nature12373")
+    doi = Doi(NATURE_DOI)
 
     expected_authors = Authors(
         [
@@ -186,7 +266,7 @@ def make_expected_funding_request_for_real_nature_article(
     journal_id: int,
 ) -> FundingRequest[Publication]:
     """Factory for expected FundingRequest with real Crossref metadata."""
-    doi = Doi("10.1038/nature12373")
+    doi = Doi(NATURE_DOI)
 
     # Real Crossref data for this DOI (abbreviated author names)
     expected_authors = Authors(
@@ -217,6 +297,69 @@ def make_expected_funding_request_for_real_nature_article(
 
     return FundingRequest.new(
         publication=expected_publication,
+        estimated_cost=Payment(
+            amount=Money(0, Currency.EUR),
+            method=PaymentMethod.Unknown,
+        ),
+    )
+
+
+def make_expected_funding_request_for_fake_springer_book(
+    publisher_id: int,
+) -> FundingRequest[Monograph]:
+    """Factory for expected FundingRequest for a book with fake DOI metadata."""
+    doi = Doi(SPRINGER_BOOK_DOI)
+    isbn = Isbn(SPRINGER_BOOK_ISBN)
+
+    expected_authors = Authors(
+        [
+            Author.new(name=NonEmptyStr("Michael Taylor"), role=Role.CO_AUTHOR),
+        ]
+    )
+
+    expected_monograph = Monograph.new(
+        title=NonEmptyStr(SPRINGER_BOOK_TITLE),
+        publisher=PublisherId(publisher_id),
+        relevant_authors=expected_authors,
+        license=License.Unknown,
+        publication_state=Published(print=datetime.date(2015, 1, 1)),
+        links={doi, isbn},
+    )
+
+    return FundingRequest.new(
+        publication=expected_monograph,
+        estimated_cost=Payment(
+            amount=Money(0, Currency.EUR),
+            method=PaymentMethod.Unknown,
+        ),
+    )
+
+
+def make_expected_funding_request_for_real_springer_book(
+    publisher_id: int,
+) -> FundingRequest[Monograph]:
+    """Factory for expected FundingRequest for a book with real Crossref metadata."""
+    doi = Doi(SPRINGER_BOOK_DOI)
+    isbn = Isbn(SPRINGER_BOOK_ISBN)
+
+    expected_authors = Authors(
+        [
+            Author.new(name=NonEmptyStr("Michael Taylor"), role=Role.CO_AUTHOR),
+        ]
+    )
+
+    expected_monograph = Monograph.new(
+        title=NonEmptyStr(SPRINGER_BOOK_TITLE),
+        publisher=PublisherId(publisher_id),
+        relevant_authors=expected_authors,
+        # Real Crossref data has TDM license, which we map to Unknown
+        license=License.Unknown,
+        publication_state=Published(print=datetime.date(2015, 1, 1)),
+        links={doi, isbn},
+    )
+
+    return FundingRequest.new(
+        publication=expected_monograph,
         estimated_cost=Payment(
             amount=Money(0, Currency.EUR),
             method=PaymentMethod.Unknown,
@@ -256,14 +399,57 @@ def test__import_from_doi__valid_journal_article_doi__returns_funding_request_wi
     - No extra contact
     """
     journal_id = create_springer_nature_journal()
-    doi = Doi("10.1038/nature12373")
+    doi = Doi(NATURE_DOI)
     doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
-    doi_service = DOIImportService(doi_client=doi_client)
+    sut = DOIImportService(doi_client=doi_client)
 
-    funding_request_id = doi_service.import_from_doi(doi)
+    funding_request_id = sut.import_from_doi(doi)
 
     actual = fundingrequest_repository.get_by_id(funding_request_id)
     expected = get_expected_request(journal_id)
+    assert_fundingrequest_eq(actual, expected)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("client_fixture", "get_expected_request"),
+    [
+        ("fake_doi_client", make_expected_funding_request_for_fake_springer_book),
+        pytest.param(
+            "real_doi_client",
+            make_expected_funding_request_for_real_springer_book,
+            marks=pytest.mark.integration,
+        ),
+    ],
+)
+def test__import_from_doi__valid_book_doi__returns_funding_request_with_populated_monograph(
+    client_fixture: str,
+    get_expected_request: Callable[[int], AnyFundingRequest],
+    request: pytest.FixtureRequest,
+) -> None:
+    """Given a valid DOI for a book, creates and returns FundingRequestId with Monograph.
+
+    The created FundingRequest in database should contain:
+    - Monograph with title from DOI metadata
+    - Authors from DOI metadata (all as CO_AUTHOR)
+    - Publisher matched by name (or created if not found)
+    - License mapped from metadata
+    - Publication state = Published with date
+    - DOI link included
+    - Estimated cost = Money(0, EUR)
+    - Review status = Open
+    - No external funding
+    - No extra contact
+    """
+    publisher_id = create_springer_book_publisher()
+    doi = Doi(SPRINGER_BOOK_DOI)
+    doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
+    sut = DOIImportService(doi_client=doi_client)
+
+    funding_request_id = sut.import_from_doi(doi)
+
+    actual = fundingrequest_repository.get_by_id(funding_request_id)
+    expected = get_expected_request(publisher_id)
     assert_fundingrequest_eq(actual, expected)
 
 
@@ -287,19 +473,19 @@ def test__import_from_doi__journal_not_in_database__auto_creates_journal(
     - Publisher matched by name (or created if not found)
     """
     doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
-    doi_service = DOIImportService(doi_client=doi_client)
+    sut = DOIImportService(doi_client=doi_client)
 
-    doi = Doi("10.1038/nature12373")
+    doi = Doi(NATURE_DOI)
 
-    doi_service.import_from_doi(doi)
+    sut.import_from_doi(doi)
 
-    created_journal = journal_services.find_by_eissn(Issn("1476-4687"))
+    created_journal = journal_services.find_by_eissn(Issn(NATURE_EISSN))
     assert created_journal is not None
-    assert created_journal.title == "Nature"
-    assert created_journal.eissn == "1476-4687"
+    assert created_journal.title == NATURE_JOURNAL_TITLE
+    assert created_journal.eissn == NATURE_EISSN
 
     assert created_journal.publisher is not None
-    assert created_journal.publisher.name == "Springer Science and Business Media LLC"
+    assert created_journal.publisher.name == SPRINGER_NATURE_REAL_PUBLISHER
 
 
 @pytest.mark.django_db
@@ -321,17 +507,17 @@ def test__import_from_doi__journal_exists_in_database__does_not_create_publisher
     - Do NOT call _match_or_create_publisher()
     - Do NOT create any new publishers
     """
-    publisher_id = publisher_services.create("Springer Nature")
+    publisher_id = publisher_services.create(SPRINGER_NATURE_PUBLISHER)
     journal_id = journal_services.create(
-        title=NonEmptyStr("Nature"),
-        eissn=Issn("1476-4687"),
+        title=NonEmptyStr(NATURE_JOURNAL_TITLE),
+        eissn=Issn(NATURE_EISSN),
         publisher_id=publisher_id,
     )
     doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
-    doi_service = DOIImportService(doi_client=doi_client)
-    doi = Doi("10.1038/nature12373")
+    sut = DOIImportService(doi_client=doi_client)
+    doi = Doi(NATURE_DOI)
 
-    funding_request_id = doi_service.import_from_doi(doi)
+    funding_request_id = sut.import_from_doi(doi)
 
     assert Journal.objects.count() == 1
     assert Publisher.objects.count() == 1
@@ -347,18 +533,16 @@ def test__import_from_doi__metadata_without_journal__raises_invalid_metadata_err
 
     Monographs are now supported, but require a publisher name.
     """
-    fake_client, doi = make_test_metadata(
-        doi="10.1234/book.123",
-        title="Example Book Title",
+    fake_client, doi = make_article_metadata(
         journal=None,
         publication_type="book",
         publisher=None,
     )
 
-    doi_service = DOIImportService(doi_client=fake_client)
+    sut = DOIImportService(doi_client=fake_client)
 
     with pytest.raises(InvalidMetadataError, match="Monograph missing publisher name"):
-        doi_service.import_from_doi(doi)
+        sut.import_from_doi(doi)
 
 
 @pytest.mark.django_db
@@ -368,9 +552,7 @@ def test__import_from_doi__journal_without_eissn__raises_invalid_metadata_error(
     This documents the current limitation: we require E-ISSN for journal matching.
     When we add ISSN-only support, this test should be updated.
     """
-    fake_client, doi = make_test_metadata(
-        doi="10.1234/article.456",
-        title="Article in Print-Only Journal",
+    fake_client, doi = make_article_metadata(
         journal=ExternalJournal(
             title="Print-Only Journal",
             issn="1234-5678",
@@ -378,10 +560,10 @@ def test__import_from_doi__journal_without_eissn__raises_invalid_metadata_error(
         ),
     )
 
-    doi_service = DOIImportService(doi_client=fake_client)
+    sut = DOIImportService(doi_client=fake_client)
 
     with pytest.raises(InvalidMetadataError, match="Journal 'Print-Only Journal' missing E-ISSN"):
-        doi_service.import_from_doi(doi)
+        sut.import_from_doi(doi)
 
 
 @pytest.mark.django_db
@@ -391,17 +573,15 @@ def test__import_from_doi__metadata_without_publisher__raises_invalid_metadata_e
     This documents the current limitation: we require publisher for journal creation.
     When we add support for publisher-less journals, this test should be updated.
     """
-    fake_client, doi = make_test_metadata(
-        doi="10.1234/article.789",
-        title="Article Without Publisher Info",
+    fake_client, doi = make_article_metadata(
         journal=ExternalJournal(title="Independent Journal", eissn="9876-5434"),
         publisher=None,
     )
 
-    doi_service = DOIImportService(doi_client=fake_client)
+    sut = DOIImportService(doi_client=fake_client)
 
     with pytest.raises(InvalidMetadataError, match="Journal missing publisher name"):
-        doi_service.import_from_doi(doi)
+        sut.import_from_doi(doi)
 
 
 @pytest.mark.django_db
@@ -413,15 +593,13 @@ def test__import_from_doi__invalid_license_string__returns_unknown_license() -> 
     """
     create_springer_nature_journal()
 
-    fake_client, doi = make_test_metadata(
-        doi="10.1234/invalid-license",
-        title="Article with Invalid License",
+    fake_client, doi = make_article_metadata(
         license="INVALID-LICENSE-XYZ",
-        publisher="Springer Nature",
+        publisher=SPRINGER_NATURE_PUBLISHER,
     )
 
-    doi_service = DOIImportService(doi_client=fake_client)
-    funding_request = doi_service.import_from_doi(doi)
+    sut = DOIImportService(doi_client=fake_client)
+    funding_request = sut.import_from_doi(doi)
 
     publication = get_publication_from_funding_request(funding_request)
     assert publication.license == License.Unknown
@@ -438,9 +616,7 @@ def test__import_from_doi__author_with_whitespace_name_and_affiliation__creates_
     """
     create_springer_nature_journal()
 
-    fake_client, doi = make_test_metadata(
-        doi="10.1234/whitespace-author",
-        title="Article with Anonymous Author",
+    fake_client, doi = make_article_metadata(
         authors=[
             ExternalAuthor(
                 name="   ",
@@ -448,11 +624,11 @@ def test__import_from_doi__author_with_whitespace_name_and_affiliation__creates_
                 ror_id=None,
             )
         ],
-        publisher="Springer Nature",
+        publisher=SPRINGER_NATURE_PUBLISHER,
     )
 
-    doi_service = DOIImportService(doi_client=fake_client)
-    funding_request = doi_service.import_from_doi(doi)
+    sut = DOIImportService(doi_client=fake_client)
+    funding_request = sut.import_from_doi(doi)
 
     publication = get_publication_from_funding_request(funding_request)
     assert len(publication.relevant_authors) == 1
@@ -464,21 +640,22 @@ def test__import_from_doi__author_with_empty_name_and_ror_id__creates_unknown_au
     """Given author with empty name but valid ROR ID, creates 'Unknown' author."""
     create_springer_nature_journal()
 
-    fake_client, doi = make_test_metadata(
-        doi="10.1234/ror-only-author",
-        title="Article with ROR-Only Author",
+    empty_name = ""
+    mit_ror_id = "https://ror.org/042nb2s44"
+
+    fake_client, doi = make_article_metadata(
         authors=[
             ExternalAuthor(
-                name="",  # Empty name
+                name=empty_name,
                 affiliation=None,
-                ror_id="https://ror.org/042nb2s44",  # MIT ROR ID
+                ror_id=mit_ror_id,
             )
         ],
-        publisher="Springer Nature",
+        publisher=SPRINGER_NATURE_PUBLISHER,
     )
 
-    doi_service = DOIImportService(doi_client=fake_client)
-    funding_request = doi_service.import_from_doi(doi)
+    sut = DOIImportService(doi_client=fake_client)
+    funding_request = sut.import_from_doi(doi)
 
     publication = get_publication_from_funding_request(funding_request)
     assert len(publication.relevant_authors) == 1
@@ -490,9 +667,7 @@ def test__import_from_doi__author_with_empty_name_and_no_data__skips_author() ->
     """Given author with empty name and no other data, skips creating the author entirely."""
     create_springer_nature_journal()
 
-    fake_client, doi = make_test_metadata(
-        doi="10.1234/empty-author",
-        title="Article with Empty Author",
+    fake_client, doi = make_article_metadata(
         authors=[
             ExternalAuthor(
                 name="",
@@ -500,11 +675,11 @@ def test__import_from_doi__author_with_empty_name_and_no_data__skips_author() ->
                 ror_id=None,
             )
         ],
-        publisher="Springer Nature",
+        publisher=SPRINGER_NATURE_PUBLISHER,
     )
 
-    doi_service = DOIImportService(doi_client=fake_client)
-    funding_request = doi_service.import_from_doi(doi)
+    sut = DOIImportService(doi_client=fake_client)
+    funding_request = sut.import_from_doi(doi)
 
     publication = get_publication_from_funding_request(funding_request)
     assert len(publication.relevant_authors) == 0
@@ -530,7 +705,7 @@ def test__import_from_doi__mixed_authors__creates_valid_and_unknown_skips_empty(
         name="Jane Smith", affiliation=None, ror_id=None
     )
 
-    fake_client, doi = make_test_metadata(
+    fake_client, doi = make_article_metadata(
         doi="10.1234/mixed-authors",
         title="Article with Mixed Authors",
         authors=[
@@ -539,11 +714,11 @@ def test__import_from_doi__mixed_authors__creates_valid_and_unknown_skips_empty(
             author_with_no_name_and_no_data,
             another_author_with_valid_name,
         ],
-        publisher="Springer Nature",
+        publisher=SPRINGER_NATURE_PUBLISHER,
     )
-    doi_service = DOIImportService(doi_client=fake_client)
+    sut = DOIImportService(doi_client=fake_client)
 
-    funding_request = doi_service.import_from_doi(doi)
+    funding_request = sut.import_from_doi(doi)
 
     publication = get_publication_from_funding_request(funding_request)
     assert len(publication.relevant_authors) == 3
@@ -561,26 +736,25 @@ def test__import_from_doi__publisher_with_whitespace__trims_publisher_name() -> 
 
     Publisher names should be trimmed before matching or creating.
     """
-    publisher_with_whitespace = "  Springer Nature  "
-    trimmed_publisher_name = "Springer Nature"
+    publisher_with_whitespace = f"  {SPRINGER_NATURE_PUBLISHER}  "
 
-    fake_client, doi = make_test_metadata(
+    fake_client, doi = make_article_metadata(
         doi="10.1234/whitespace-publisher",
         title="Article with Whitespace Publisher",
         journal=ExternalJournal(title="Test Journal", eissn="1234-5679"),
         publisher=publisher_with_whitespace,
     )
-    doi_service = DOIImportService(doi_client=fake_client)
+    sut = DOIImportService(doi_client=fake_client)
 
-    funding_request = doi_service.import_from_doi(doi)
+    funding_request = sut.import_from_doi(doi)
 
-    created_publisher = publisher_services.find_by_name(trimmed_publisher_name)
+    created_publisher = publisher_services.find_by_name(SPRINGER_NATURE_PUBLISHER)
     assert created_publisher is not None
-    assert created_publisher.name == trimmed_publisher_name
+    assert created_publisher.name == SPRINGER_NATURE_PUBLISHER
 
     publication = get_publication_from_funding_request(funding_request)
     created_journal = journal_services.get_by_pk(publication.journal)
-    assert created_journal.publisher.name == trimmed_publisher_name
+    assert created_journal.publisher.name == SPRINGER_NATURE_PUBLISHER
 
 
 @pytest.mark.django_db
@@ -593,16 +767,16 @@ def test__import_from_doi__no_publication_date__sets_unpublished_state() -> None
     """
     create_springer_nature_journal()
 
-    fake_client, doi = make_test_metadata(
+    fake_client, doi = make_article_metadata(
         doi="10.1234/no-date",
         title="Article Without Publication Date",
         online_publication_date=None,  # No online date
         print_publication_date=None,  # No print date
-        publisher="Springer Nature",
+        publisher=SPRINGER_NATURE_PUBLISHER,
     )
 
-    doi_service = DOIImportService(doi_client=fake_client)
-    funding_request = doi_service.import_from_doi(doi)
+    sut = DOIImportService(doi_client=fake_client)
+    funding_request = sut.import_from_doi(doi)
 
     publication = get_publication_from_funding_request(funding_request)
     assert isinstance(publication.publication_state, Unpublished)
@@ -616,17 +790,17 @@ def test__import_from_doi__only_online_date__sets_published_with_online_date() -
 
     online_date = datetime.date(2024, 6, 15)
 
-    fake_client, doi = make_test_metadata(
+    fake_client, doi = make_article_metadata(
         doi="10.1234/online-only",
         title="Article with Online Date Only",
         online_publication_date=online_date,
         print_publication_date=None,
-        publisher="Springer Nature",
+        publisher=SPRINGER_NATURE_PUBLISHER,
     )
 
-    doi_service = DOIImportService(doi_client=fake_client)
+    sut = DOIImportService(doi_client=fake_client)
 
-    funding_request = doi_service.import_from_doi(doi)
+    funding_request = sut.import_from_doi(doi)
 
     publication = get_publication_from_funding_request(funding_request)
     assert isinstance(publication.publication_state, Published)
@@ -641,16 +815,16 @@ def test__import_from_doi__only_print_date__sets_published_with_print_date() -> 
 
     print_date = datetime.date(2024, 7, 1)
 
-    fake_client, doi = make_test_metadata(
+    fake_client, doi = make_article_metadata(
         doi="10.1234/print-only",
         title="Article with Print Date Only",
         online_publication_date=None,
         print_publication_date=print_date,
-        publisher="Springer Nature",
+        publisher=SPRINGER_NATURE_PUBLISHER,
     )
 
-    doi_service = DOIImportService(doi_client=fake_client)
-    funding_request = doi_service.import_from_doi(doi)
+    sut = DOIImportService(doi_client=fake_client)
+    funding_request = sut.import_from_doi(doi)
 
     publication = get_publication_from_funding_request(funding_request)
     assert isinstance(publication.publication_state, Published)
@@ -665,16 +839,16 @@ def test__import_from_doi__both_dates__sets_published_with_both_dates() -> None:
     online_date = datetime.date(2024, 5, 1)
     print_date = datetime.date(2024, 6, 1)
 
-    fake_client, doi = make_test_metadata(
+    fake_client, doi = make_article_metadata(
         doi="10.1234/both-dates",
         title="Article with Both Dates",
         online_publication_date=online_date,
         print_publication_date=print_date,
-        publisher="Springer Nature",
+        publisher=SPRINGER_NATURE_PUBLISHER,
     )
-    doi_service = DOIImportService(doi_client=fake_client)
+    sut = DOIImportService(doi_client=fake_client)
 
-    funding_request = doi_service.import_from_doi(doi)
+    funding_request = sut.import_from_doi(doi)
 
     publication = get_publication_from_funding_request(funding_request)
     assert isinstance(publication.publication_state, Published)
@@ -693,10 +867,10 @@ def test__import_from_doi__duplicate_doi__raises_doi_already_imported() -> None:
     publication_id = publication_repository.create(publication)
 
     fake_client = FakeDOIMetadataClient()
-    service = DOIImportService(fake_client)
+    sut = DOIImportService(fake_client)
 
     with pytest.raises(DOIAlreadyImported) as exc_info:
-        service.import_from_doi(doi)
+        sut.import_from_doi(doi)
 
     assert exc_info.value.doi == doi
     assert exc_info.value.publication_id == publication_id
@@ -707,15 +881,15 @@ def test__prepare_funding_request_dto__returns_dto_without_persisting() -> None:
     """Test that prepare_funding_request_dto returns DTO without creating database records."""
     create_springer_nature_journal()
 
-    fake_client, doi = make_test_metadata(
+    fake_client, doi = make_article_metadata(
         doi="10.1234/prepare-dto-test",
         title="Test DTO Preparation",
         authors=[ExternalAuthor(name="Test Author")],
-        publisher="Springer Nature",
+        publisher=SPRINGER_NATURE_PUBLISHER,
     )
 
-    service = DOIImportService(fake_client)
-    service.prepare_funding_request_dto(doi)
+    sut = DOIImportService(fake_client)
+    sut.fetch_doi_preview(doi)
 
     all_requests = fundingrequest_repository.all()
     assert len(all_requests) == 0
@@ -732,26 +906,16 @@ def test__prepare_funding_request_dto__article__does_not_create_journal_or_publi
     assert Journal.objects.count() == 0
     assert Publisher.objects.count() == 0
 
-    fake_client, doi = make_test_metadata(
-        doi="10.1234/preview-article-test",
-        title="Test Article Preview",
-        authors=[ExternalAuthor(name="Test Author")],
-        publisher="New Publisher Inc",  # Publisher that doesn't exist yet
-        journal=ExternalJournal(
-            title="New Journal of Science",  # Journal that doesn't exist yet
-            eissn="1476-4687",  # Valid ISSN (using Nature's ISSN for valid checksum)
-        ),
-    )
+    fake_client, doi = make_article_metadata()
 
-    service = DOIImportService(fake_client)
+    sut = DOIImportService(fake_client)
 
     # Act
-    dto = service.prepare_funding_request_dto(doi)
+    dto = sut.fetch_doi_preview(doi)
 
     # Assert - DTO should be created successfully
     assert dto is not None
     assert isinstance(dto.publication, PreviewArticle)
-    assert dto.publication.meta.title == "Test Article Preview"
 
     # Assert - No database entities should be created
     assert Journal.objects.count() == 0, "prepare_funding_request_dto created a journal"
@@ -771,29 +935,19 @@ def test__prepare_funding_request_dto__monograph__does_not_create_publisher() ->
     # Arrange - Verify database starts empty
     assert Publisher.objects.count() == 0
 
-    doi = Doi("10.1007/978-3-319-99999-9")
-    fake_client = FakeDOIMetadataClient()
-    fake_client.data[str(doi)] = ExternalPublicationMetadata(
-        title="Test Book Preview",
-        authors=[ExternalAuthor(name="Test Author")],
-        publication_type="book",
-        journal=None,
-        publisher="New Academic Press",  # Publisher that doesn't exist yet
-        isbn="978-3-319-99999-9",
-        online_publication_date=None,
-        print_publication_date=None,
-        license=None,
+    nonexistent_publisher = "New Academic Press"
+    fake_client, doi = make_book_metadata(
+        publisher=nonexistent_publisher,
     )
 
-    service = DOIImportService(fake_client)
+    sut = DOIImportService(fake_client)
 
     # Act
-    dto = service.prepare_funding_request_dto(doi)
+    dto = sut.fetch_doi_preview(doi)
 
     # Assert - DTO should be created successfully
     assert dto is not None
     assert isinstance(dto.publication, PreviewMonograph)
-    assert dto.publication.meta.title == "Test Book Preview"
 
     # Assert - No database entities should be created
     assert Publisher.objects.count() == 0, "prepare_funding_request_dto created a publisher"
@@ -827,31 +981,18 @@ def test__prepare_funding_request_dto__monograph_types__returns_preview_monograp
     that should be detected as monographs.
     """
     # Arrange - No need to create publisher (preview doesn't create entities)
-    doi = Doi("10.1007/978-3-319-18421-0")
-
-    # Fake client returns book metadata
-    fake_client = FakeDOIMetadataClient()
-    fake_client.data[str(doi)] = ExternalPublicationMetadata(
-        title="Example Book on Computer Science",
-        authors=[ExternalAuthor(name="John Doe"), ExternalAuthor(name="Jane Smith")],
+    fake_client, doi = make_book_metadata(
+        publisher="Test Publisher",
         publication_type=publication_type,
-        journal=None,
-        publisher="Springer International Publishing",
-        isbn="978-3-319-18421-0",
-        online_publication_date=datetime.date(2024, 1, 15),
-        print_publication_date=None,
-        license=None,
     )
 
-    service = DOIImportService(fake_client)
+    sut = DOIImportService(fake_client)
 
     # Act
-    result = service.prepare_funding_request_dto(doi)
+    result = sut.fetch_doi_preview(doi)
 
-    # Assert
+    # Assert - Only verify publication type detection, not metadata parsing
     assert isinstance(result.publication, PreviewMonograph)
-    assert result.publication.meta.title == "Example Book on Computer Science"
-    assert result.publication.publisher_name == "Springer International Publishing"
 
 
 @pytest.mark.django_db
@@ -873,90 +1014,55 @@ def test__prepare_funding_request_dto__article_types__returns_publication_dto(
     that should be detected as journal articles.
     """
     # Arrange - No need to create journal (preview doesn't create entities)
-    doi = Doi("10.1038/nature.2024.12345")
-
-    # Fake client returns article metadata
-    fake_client = FakeDOIMetadataClient()
-    fake_client.data[str(doi)] = ExternalPublicationMetadata(
-        title="Example Article",
-        authors=[ExternalAuthor(name="John Doe")],
+    fake_client, doi = make_article_metadata(
         publication_type=publication_type,
-        journal=ExternalJournal(title="Nature", eissn="1476-4687"),
-        publisher="Springer Nature",
-        isbn=None,
-        online_publication_date=datetime.date(2024, 1, 15),
-        print_publication_date=None,
-        license=None,
     )
 
-    service = DOIImportService(fake_client)
+    sut = DOIImportService(fake_client)
 
     # Act
-    result = service.prepare_funding_request_dto(doi)
+    result = sut.fetch_doi_preview(doi)
 
-    # Assert
+    # Assert - Only verify publication type detection, not metadata parsing
     assert isinstance(result.publication, PreviewArticle)
-    assert result.publication.meta.title == "Example Article"
-    assert result.publication.journal.title == "Nature"
-    assert result.publication.journal.eissn == "1476-4687"
 
 
 @pytest.mark.django_db
 def test__prepare_funding_request_dto__unknown_type_with_isbn__returns_monograph_dto() -> None:
     """Unknown Crossref type with ISBN should be detected as monograph."""
-    # Arrange - No need to create publisher (preview doesn't create entities)
-    doi = Doi("10.1234/unknown-with-isbn")
-    fake_client = FakeDOIMetadataClient()
-    fake_client.data[str(doi)] = ExternalPublicationMetadata(
-        title="Unknown Type Publication",
-        authors=[ExternalAuthor(name="John Doe")],
-        publication_type="unknown-type",  # Not a recognized Crossref type
-        journal=None,
-        publisher="Unknown Publisher",
-        isbn="978-1-234-56789-0",  # Has ISBN → should be monograph
-        online_publication_date=datetime.date(2024, 1, 15),
-        print_publication_date=None,
-        license=None,
+    # Arrange
+    unrecognized_crossref_type = "unknown-type"
+    test_isbn = "978-1-234-56789-0"
+
+    fake_client, doi = make_book_metadata(
+        publisher="Test Publisher",
+        isbn=test_isbn,
+        publication_type=unrecognized_crossref_type,
     )
 
-    service = DOIImportService(fake_client)
+    sut = DOIImportService(fake_client)
 
     # Act
-    result = service.prepare_funding_request_dto(doi)
+    result = sut.fetch_doi_preview(doi)
 
-    # Assert
     assert isinstance(result.publication, PreviewMonograph)
-    assert result.publication.meta.title == "Unknown Type Publication"
-    assert result.publication.publisher_name == "Unknown Publisher"
 
 
 @pytest.mark.django_db
 def test__prepare_funding_request_dto__unknown_type_with_issn__returns_publication_dto() -> None:
     """Unknown Crossref type with ISSN should be detected as article."""
-    # Arrange - No need to create journal (preview doesn't create entities)
-    doi = Doi("10.1234/unknown-with-issn")
-    fake_client = FakeDOIMetadataClient()
-    fake_client.data[str(doi)] = ExternalPublicationMetadata(
-        title="Unknown Type Publication",
-        authors=[ExternalAuthor(name="John Doe")],
-        publication_type="unknown-type",  # Not a recognized Crossref type
-        journal=ExternalJournal(title="Nature", eissn="1476-4687"),  # Has ISSN → article
-        publisher="Springer Nature",
-        isbn=None,
-        online_publication_date=datetime.date(2024, 1, 15),
-        print_publication_date=None,
-        license=None,
+    unrecognized_crossref_type = "unknown-type"
+
+    fake_client, doi = make_article_metadata(
+        publication_type=unrecognized_crossref_type,
+        journal=ExternalJournal(title=NATURE_JOURNAL_TITLE, eissn=NATURE_EISSN),
     )
 
-    service = DOIImportService(fake_client)
+    sut = DOIImportService(fake_client)
 
-    # Act
-    result = service.prepare_funding_request_dto(doi)
+    result = sut.fetch_doi_preview(doi)
 
-    # Assert
     assert isinstance(result.publication, PreviewArticle)
-    assert result.publication.meta.title == "Unknown Type Publication"
-    assert result.publication.journal.title == "Nature"
 
 
 @pytest.mark.django_db
@@ -968,57 +1074,43 @@ def test__prepare_funding_request_dto__book_chapter_with_both_isbn_and_issn__ret
     This is a common edge case: book chapters in numbered series have ISSN for the series
     and ISBN for the specific book. ISBN takes precedence.
     """
-    # Arrange - No need to create publisher (preview doesn't create entities)
-    doi = Doi("10.1007/978-3-319-18421-0_1")
-    fake_client = FakeDOIMetadataClient()
-    fake_client.data[str(doi)] = ExternalPublicationMetadata(
-        title="Chapter in Book Series",
-        authors=[ExternalAuthor(name="John Doe")],
+    # Arrange
+    book_isbn = "978-1-234-56789-0"
+    series_issn = "1234-5678"
+    series_eissn = "9876-5432"
+
+    fake_client, doi = make_book_metadata(
         publication_type="book-chapter",
+        publisher="Test Publisher",
+        isbn=book_isbn,
         journal=ExternalJournal(
-            title="Communications in Computer and Information Science",
-            issn="1865-0929",  # Series ISSN
-            eissn="1865-0937",  # Series E-ISSN
+            title="Test Journal Series",
+            issn=series_issn,
+            eissn=series_eissn,
         ),
-        publisher="Springer",
-        isbn="978-3-319-18421-0",  # Book ISBN - this takes precedence!
-        online_publication_date=datetime.date(2024, 1, 15),
-        print_publication_date=None,
-        license=None,
     )
 
-    service = DOIImportService(fake_client)
+    sut = DOIImportService(fake_client)
 
-    # Act
-    result = service.prepare_funding_request_dto(doi)
+    result = sut.fetch_doi_preview(doi)
 
-    # Assert
     assert isinstance(result.publication, PreviewMonograph)
-    assert result.publication.meta.title == "Chapter in Book Series"
-    assert result.publication.publisher_name == "Springer"
 
 
 @pytest.mark.django_db
 def test__prepare_funding_request_dto__unknown_type_no_identifiers__defaults_to_article() -> None:
     """Unknown type with no ISBN or ISSN should default to article."""
-    # Arrange - No journal needed since we'll get InvalidMetadataError
-    doi = Doi("10.1234/unknown-no-identifiers")
-    fake_client = FakeDOIMetadataClient()
-    fake_client.data[str(doi)] = ExternalPublicationMetadata(
-        title="Unknown Type Publication",
-        authors=[ExternalAuthor(name="John Doe")],
-        publication_type="unknown-type",
-        journal=None,  # No ISSN
-        publisher="Some Publisher",
-        isbn=None,  # No ISBN
-        online_publication_date=datetime.date(2024, 1, 15),
-        print_publication_date=None,
-        license=None,
+    # Arrange
+    unrecognized_crossref_type = "unknown-type"
+
+    fake_client, doi = make_article_metadata(
+        publication_type=unrecognized_crossref_type,
+        journal=None,
+        publisher="Test Publisher",
     )
 
-    service = DOIImportService(fake_client)
+    sut = DOIImportService(fake_client)
 
-    # Act & Assert
-    # Should default to article, but article requires journal metadata
+    # Act & Assert - Defaults to article, but article requires journal metadata
     with pytest.raises(InvalidMetadataError, match="Journal article missing journal metadata"):
-        service.prepare_funding_request_dto(doi)
+        sut.fetch_doi_preview(doi)

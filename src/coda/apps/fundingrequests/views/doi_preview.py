@@ -56,7 +56,7 @@ class DOIImportInputView(View):
 
             # Fetch metadata and build DTO (doesn't persist to database)
             doi_service = DOIImportService(doi_client=self.doi_client)
-            creation_dto = doi_service.prepare_funding_request_dto(doi)
+            creation_dto = doi_service.fetch_doi_preview(doi)
 
             # Store in session using model_dump(mode="json") for JSON serialization
             # Pydantic automatically handles polymorphic types via discriminated union

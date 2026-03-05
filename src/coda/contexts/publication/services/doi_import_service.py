@@ -236,7 +236,7 @@ class DOIImportService:
         self.doi_client = doi_client
         self.cache = cache or {}
 
-    def prepare_funding_request_dto(self, doi: Doi) -> PreviewFundingRequest:
+    def fetch_doi_preview(self, doi: Doi) -> PreviewFundingRequest:
         """Build a preview FundingRequest DTO without creating database entities.
 
         This method does NOT check if the DOI already exists and does NOT create
@@ -279,7 +279,7 @@ class DOIImportService:
             InvalidMetadataError: If metadata is invalid
         """
         self._ensure_doi_not_already_imported(doi)
-        preview_dto = self.prepare_funding_request_dto(doi)
+        preview_dto = self.fetch_doi_preview(doi)
         creation_dto = self._convert_preview_to_creation_dto(preview_dto)
         return fundingrequests.create_fundingrequest(creation_dto)
 

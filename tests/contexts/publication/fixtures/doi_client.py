@@ -1,15 +1,10 @@
 """Test doubles for DOI metadata clients.
 
 This module contains fake/stub implementations for testing purposes only.
+The fake client starts empty - tests should configure it with test data.
 """
 
-import datetime
-
-from coda.contexts.publication.dto.external_metadata import (
-    ExternalAuthor,
-    ExternalJournal,
-    ExternalPublicationMetadata,
-)
+from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.services.doi_client import DOIFetchError, DOINotFoundError
 from coda.domain.publication.links import Doi
 
@@ -17,39 +12,18 @@ from coda.domain.publication.links import Doi
 class FakeDOIMetadataClient:
     """Fake DOI metadata client for testing.
 
-    Provides hardcoded responses for known test DOIs and can be configured
-    to simulate error scenarios.
+    This client starts with no data. Tests should configure it with metadata
+    using the `data` attribute or by calling helper methods.
+
+    Example:
+        >>> from tests.contexts.publication.fixtures.test_metadata import nature_article_metadata
+        >>> client = FakeDOIMetadataClient()
+        >>> client.data["10.1038/nature12373"] = nature_article_metadata()
     """
 
     def __init__(self) -> None:
-        # Hardcoded test data for known DOIs
-        # Public attribute to allow tests to add custom test data
-        self.data = {
-            "10.1038/nature12373": ExternalPublicationMetadata(
-                title="Example Nature Article",
-                authors=[
-                    ExternalAuthor(
-                        name="John Doe",
-                        affiliation="University of Example",
-                        ror_id="https://ror.org/01an7q238",
-                    ),
-                    ExternalAuthor(
-                        name="Jane Smith",
-                        affiliation="Research Institute",
-                        ror_id=None,
-                    ),
-                ],
-                publication_type="journal-article",
-                journal=ExternalJournal(
-                    title="Nature",
-                    issn="0028-0836",
-                    eissn="1476-4687",
-                ),
-                publisher="Springer Science and Business Media LLC",
-                license="CC-BY",
-                online_publication_date=datetime.date(2024, 1, 15),
-            ),
-        }
+        # Empty by default - tests configure with specific data
+        self.data: dict[str, ExternalPublicationMetadata] = {}
         self._errors: dict[str, str] = {}
 
     def configure_error(self, doi: Doi, error_type: str) -> None:

@@ -5,6 +5,8 @@ Unit tests use FakeDOIMetadataClient, integration tests use CrossrefDataCiteClie
 """
 
 import pytest
+from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
+from tests.contexts.publication.fixtures.test_metadata import nature_article_metadata
 
 from coda.contexts.publication.services.doi_client import (
     CrossrefDoiClient,
@@ -12,13 +14,16 @@ from coda.contexts.publication.services.doi_client import (
     DOINotFoundError,
 )
 from coda.domain.publication.links import Doi
-from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 
 
 @pytest.fixture
 def fake_client() -> DOIMetadataClient:
-    """Provides a fake DOI client for unit tests."""
-    return FakeDOIMetadataClient()
+    """Provides a fake DOI client configured with test data."""
+
+    client = FakeDOIMetadataClient()
+    # Configure with test data for the DOI used in these tests
+    client.data["10.1038/nature12373"] = nature_article_metadata()
+    return client
 
 
 @pytest.fixture
