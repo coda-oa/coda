@@ -1,6 +1,6 @@
 # Preferences
 
-The Preferences page allows you to configure global settings that affect how CODA works across your entire installation. These settings control default vocabularies for publications, your institution's home currency, and your home institution information.
+The **Preferences** page allows you to configure global settings that affect how CODA works across your entire installation. These settings control default vocabularies for publications, your institution's home currency, and your home institution information.
 
 ![](/_static/img/preferences_page.png)
 
@@ -30,7 +30,7 @@ If you generate an openCost report without setting a home institution, CODA will
 
 ## Home Currency
 
-The **Home Currency** setting defines the default currency used throughout CODA. It is especially important for conversions of invoices in a foreign currency to the home currency [see invoices](invoices.md). 
+The **Home Currency** setting defines the default currency used throughout CODA. It is especially important for conversions of invoices in a foreign currency to the home currency ([see invoices](invoices.md)). 
 
 ### Available Currencies
 

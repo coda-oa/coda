@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "CODA"
-copyright = "2024, TU Braunschweig"
+copyright = "2026, TU Braunschweig"
 author = "Sven Marcus"
 
 # -- General configuration ---------------------------------------------------
