@@ -33,13 +33,13 @@ from coda.contexts.publication.dto.preview import (
     PreviewMonograph,
     PreviewPublicationMeta,
 )
+from coda.contexts.publication.services.crossref_type_detector import detect_publication_type
 from coda.contexts.publication.services.doi_client import DOIMetadataClient
 from coda.domain.author import Author, Role
 from coda.domain.contract import PublisherId
 from coda.domain.errors import DomainError
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.issn import Issn
-from coda.domain.money import Currency
 from coda.domain.publication import JournalId, License, PublicationId
 from coda.domain.publication.links import Doi
 from coda.domain.publication.publication import (
@@ -50,31 +50,6 @@ from coda.domain.publication.publication import (
 )
 from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import UnknownConcept
-
-# NOTE: Other Crossref types (report, component, standard, database, dataset,
-# grant, proceedings, journal, journal-volume, journal-issue, book-series,
-# book-set, report-component, report-series, proceedings-series, other)
-# are not explicitly categorized and fall through to identifier-based detection.
-
-CROSSREF_BOOK_TYPES = {
-    "book",
-    "monograph",
-    "edited-book",
-    "book-chapter",
-    "book-section",
-    "book-part",
-    "book-track",
-    "reference-book",
-    "reference-entry",
-    "dissertation",
-}
-
-CROSSREF_ARTICLE_TYPES = {
-    "journal-article",
-    "proceedings-article",
-    "posted-content",
-    "peer-review",
-}
 
 
 def _map_license(license_str: str | None) -> License:
@@ -258,7 +233,7 @@ class DOIImportService:
             return self.cache[doi]
 
         metadata = self.doi_client.fetch(doi)
-        detected_type = self._detect_publication_type(metadata)
+        detected_type = detect_publication_type(metadata)
         authors_dto = self._build_authors_dto(metadata.authors)
 
         builder = _PREVIEW_BUILDERS[detected_type]
@@ -327,39 +302,6 @@ class DOIImportService:
             relevant_authors=authors_dto,
             other_authors=[],
         )
-
-    def _detect_publication_type(
-        self, metadata: ExternalPublicationMetadata
-    ) -> Literal["article", "monograph"]:
-        """Detect whether a DOI represents a journal article or monograph.
-
-        Uses Crossref type field and ISBN/ISSN identifiers to determine publication type.
-        Crossref defines 30 types; we explicitly categorize each as article-like or book-like.
-
-        Detection logic:
-        1. Check explicit Crossref type against known book/article sets
-        2. Fallback to ISBN presence → Monograph
-        3. Fallback to ISSN presence (in journal metadata) → Article
-        4. Default → Article (for completely unknown types)
-
-        Reference: https://api.crossref.org/types
-        """
-
-        pub_type = metadata.publication_type.lower()
-
-        if pub_type in CROSSREF_BOOK_TYPES:
-            return "monograph"
-
-        if pub_type in CROSSREF_ARTICLE_TYPES:
-            return "article"
-
-        if metadata.isbn:
-            return "monograph"
-
-        if metadata.journal and (metadata.journal.issn or metadata.journal.eissn):
-            return "article"
-
-        return "article"
 
     def _build_monograph_dto(
         self,
@@ -444,11 +386,7 @@ class DOIImportService:
 
         return CreateFundingRequestDto(
             publication=publication_dto,
-            payment=PaymentDto(
-                amount=0.0,  # Default payment amount
-                currency=Currency.EUR.code,  # Default currency
-                method="unknown",  # Default payment method
-            ),
+            payment=PaymentDto.empty(),
             extra_information=ExtraInformationDto(),
             funding=[],
         )

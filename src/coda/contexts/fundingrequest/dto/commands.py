@@ -49,6 +49,14 @@ class PaymentDto(CodaBaseDto):
     external_costsplitting: OptionalFromStr[bool] = None
 
     @classmethod
+    def empty(cls) -> "PaymentDto":
+        return PaymentDto(
+            amount=0,
+            currency=Currency.EUR.code,
+            method=PaymentMethod.Unknown.value,
+        )
+
+    @classmethod
     def from_payment(cls, payment: Payment) -> "PaymentDto":
         """Creates a CostDto instance from a Payment object."""
         return cls(
