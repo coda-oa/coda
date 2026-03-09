@@ -1,19 +1,11 @@
 """DOI Import Service - Creates FundingRequests from DOI metadata."""
 
-import datetime
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from typing import Literal
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.journals import services as journal_services
-from coda.apps.publications.dto import (
-    ConceptDto,
-    JournalDto,
-    LinkDto,
-    MonographDto,
-    PublicationDto,
-    PublicationMetaDto,
-)
+from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publishers import services as publisher_services
 from coda.contexts.fundingrequest.dto.commands import (
@@ -22,173 +14,33 @@ from coda.contexts.fundingrequest.dto.commands import (
     PaymentDto,
 )
 from coda.contexts.fundingrequest.services import fundingrequests
-from coda.contexts.publication.dto.external_metadata import (
-    ExternalAuthor,
-    ExternalPublicationMetadata,
-)
+from coda.contexts.publication.dto.external_metadata import ExternalAuthor
 from coda.contexts.publication.dto.preview import (
     PreviewArticle,
     PreviewFundingRequest,
-    PreviewJournal,
     PreviewMonograph,
-    PreviewPublicationMeta,
 )
-from coda.contexts.publication.services.crossref_type_detector import detect_publication_type
 from coda.contexts.publication.services.doi_client import DOIMetadataClient
-from coda.domain.author import Author, Role
+from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
+from coda.domain.author import Role
 from coda.domain.contract import PublisherId
-from coda.domain.errors import DomainError
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.issn import Issn
-from coda.domain.publication import JournalId, License, PublicationId
+from coda.domain.publication import JournalId
 from coda.domain.publication.links import Doi
-from coda.domain.publication.publication import (
-    InvalidLicenseType,
-    PublicationState,
-    Published,
-    Unpublished,
-)
 from coda.domain.string import NonEmptyStr
-from coda.domain.vocabulary import UnknownConcept
 
+from ._crossref_type_detector import detect_publication_type
+from ._metadata_mapping import build_preview_article, build_preview_monograph
 
-def _map_license(license_str: str | None) -> License:
-    """Map license string to CODA License enum."""
-    if not license_str:
-        return License.Unknown
-
-    try:
-        return License.of(license_str)
-    except InvalidLicenseType:
-        return License.Unknown
-
-
-def _map_publication_state(
-    online_date: datetime.date | None,
-    print_date: datetime.date | None,
-) -> PublicationState:
-    """Map publication dates to publication state."""
-    if online_date or print_date:
-        return Published(online=online_date, print=print_date)
-    return Unpublished()
-
-
-def _extract_online_date(publication_state: PublicationState) -> datetime.date | None:
-    """Extract online publication date if state is Published."""
-    return publication_state.online if isinstance(publication_state, Published) else None
-
-
-def _extract_print_date(publication_state: PublicationState) -> datetime.date | None:
-    """Extract print publication date if state is Published."""
-    return publication_state.print if isinstance(publication_state, Published) else None
-
-
-def _build_preview_article(
-    doi: Doi,
-    metadata: ExternalPublicationMetadata,
-    authors_dto: list[AuthorDto],
-) -> PreviewArticle:
-    """Build PreviewArticle from DOI metadata - no database entities created."""
-    publication_state = _map_publication_state(
-        metadata.online_publication_date,
-        metadata.print_publication_date,
-    )
-
-    if metadata.journal is None:
-        raise InvalidMetadataError("Journal article missing journal metadata")
-
-    return PreviewArticle(
-        meta=PreviewPublicationMeta(
-            title=metadata.title,
-            publication_type=ConceptDto.from_concept(UnknownConcept),
-            subject_area=ConceptDto.from_concept(UnknownConcept),
-            license=_map_license(metadata.license).name,
-            open_access_type="Unknown",
-            publication_state=publication_state.name(),
-            online_publication_date=_extract_online_date(publication_state),
-            print_publication_date=_extract_print_date(publication_state),
-        ),
-        journal=PreviewJournal(
-            title=metadata.journal.title,
-            issn=metadata.journal.issn,
-            eissn=metadata.journal.eissn,
-        ),
-        doi=str(doi),
-        authors=authors_dto,
-        publisher_name=metadata.publisher,
-    )
-
-
-def _build_preview_monograph(
-    doi: Doi,
-    metadata: ExternalPublicationMetadata,
-    authors_dto: list[AuthorDto],
-) -> PreviewMonograph:
-    """Build PreviewMonograph from DOI metadata - no database entities created."""
-    publication_state = _map_publication_state(
-        metadata.online_publication_date,
-        metadata.print_publication_date,
-    )
-
-    if metadata.publisher is None:
-        raise InvalidMetadataError("Monograph missing publisher name")
-
-    return PreviewMonograph(
-        meta=PreviewPublicationMeta(
-            title=metadata.title,
-            publication_type=ConceptDto.from_concept(UnknownConcept),
-            subject_area=ConceptDto.from_concept(UnknownConcept),
-            license=_map_license(metadata.license).name,
-            open_access_type="Unknown",
-            publication_state=publication_state.name(),
-            online_publication_date=_extract_online_date(publication_state),
-            print_publication_date=_extract_print_date(publication_state),
-        ),
-        publisher_name=metadata.publisher,
-        doi=str(doi),
-        isbn=metadata.isbn,
-        authors=authors_dto,
-    )
-
-
-PreviewBuilder = Callable[
-    [Doi, ExternalPublicationMetadata, list[AuthorDto]],
-    PreviewArticle | PreviewMonograph,
-]
-
-_PREVIEW_BUILDERS: dict[Literal["article", "monograph"], PreviewBuilder] = {
-    "article": _build_preview_article,
-    "monograph": _build_preview_monograph,
+# Preview builders dictionary - maps publication type to builder function
+_PREVIEW_BUILDERS: dict[
+    Literal["article", "monograph"],
+    Callable[..., PreviewArticle | PreviewMonograph],
+] = {
+    "article": build_preview_article,
+    "monograph": build_preview_monograph,
 }
-
-
-class DOIAlreadyImported(DomainError):
-    """Raised when attempting to import a DOI that already exists in the database."""
-
-    def __init__(
-        self,
-        doi: Doi,
-        existing_publication_id: PublicationId,
-        existing_publication_title: str,
-        existing_publication_authors: Iterable[Author],
-    ) -> None:
-        self.doi = doi
-        self.publication_id = existing_publication_id
-        self.publication_title = existing_publication_title
-        self.publication_authors = existing_publication_authors
-        super().__init__(
-            "\n".join(
-                (
-                    f"DOI {doi} already exists in database.",
-                    f"Title: {existing_publication_title}",
-                    f"Authors: {', '.join(a.name for a in existing_publication_authors)}",
-                )
-            )
-        )
-
-
-class InvalidMetadataError(DomainError):
-    """Raised when DOI metadata is invalid or missing required fields."""
 
 
 class DOIImportService:
@@ -262,76 +114,17 @@ class DOIImportService:
         """Verify DOI has not been imported previously."""
 
         existing_publication = publication_repository.find_by_doi(doi)
-        if existing_publication:
-            if existing_publication.id is None:
-                raise InvalidMetadataError("Publication from database missing ID")
-            raise DOIAlreadyImported(
-                doi,
-                existing_publication.id,
-                existing_publication.title,
-                existing_publication.relevant_authors,
-            )
+        if not existing_publication:
+            return
 
-    def _build_publication_dto(
-        self,
-        doi: Doi,
-        metadata: ExternalPublicationMetadata,
-        journal_id: JournalId,
-        authors_dto: list[AuthorDto],
-    ) -> PublicationDto:
-        """Build PublicationDto from DOI metadata."""
-        publication_state = _map_publication_state(
-            metadata.online_publication_date,
-            metadata.print_publication_date,
-        )
+        if existing_publication.id is None:
+            raise InvalidMetadataError("Publication from database missing ID")
 
-        return PublicationDto(
-            meta=PublicationMetaDto(
-                title=metadata.title,
-                publication_type=ConceptDto.from_concept(UnknownConcept),
-                subject_area=ConceptDto.from_concept(UnknownConcept),
-                license=_map_license(metadata.license).name,
-                open_access_type="Unknown",
-                publication_state=publication_state.name(),
-                online_publication_date=_extract_online_date(publication_state),
-                print_publication_date=_extract_print_date(publication_state),
-            ),
-            journal=JournalDto(id=journal_id),
-            contracts=[],
-            links=[LinkDto(link_type=doi.type(), link_value=doi.value())],
-            relevant_authors=authors_dto,
-            other_authors=[],
-        )
-
-    def _build_monograph_dto(
-        self,
-        doi: Doi,
-        metadata: ExternalPublicationMetadata,
-        publisher_id: PublisherId,
-        authors_dto: list[AuthorDto],
-    ) -> MonographDto:
-        """Build MonographDto from DOI metadata."""
-        publication_state = _map_publication_state(
-            metadata.online_publication_date,
-            metadata.print_publication_date,
-        )
-
-        return MonographDto(
-            meta=PublicationMetaDto(
-                title=metadata.title,
-                publication_type=ConceptDto.from_concept(UnknownConcept),
-                subject_area=ConceptDto.from_concept(UnknownConcept),
-                license=_map_license(metadata.license).name,
-                open_access_type="Unknown",
-                publication_state=publication_state.name(),
-                online_publication_date=_extract_online_date(publication_state),
-                print_publication_date=_extract_print_date(publication_state),
-            ),
-            publisher=publisher_id,
-            contracts=[],
-            links=[LinkDto(link_type=doi.type(), link_value=doi.value())],
-            relevant_authors=authors_dto,
-            other_authors=[],
+        raise DOIAlreadyImported(
+            doi,
+            existing_publication.id,
+            existing_publication.title,
+            existing_publication.relevant_authors,
         )
 
     def _match_or_create_journal(self, issn: Issn, publication: PreviewArticle) -> JournalId:

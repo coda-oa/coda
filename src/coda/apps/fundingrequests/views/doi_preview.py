@@ -19,10 +19,8 @@ from django.views import View
 from coda.apps.fundingrequests.queries.preview_context_builder import build_preview_context
 from coda.contexts.publication.dto.preview import PreviewFundingRequest
 from coda.contexts.publication.services.doi_client import CrossrefDoiClient, DOIMetadataClient
-from coda.contexts.publication.services.doi_import_service import (
-    DOIAlreadyImported,
-    DOIImportService,
-)
+from coda.contexts.publication.services.doi_import_service import DOIImportService
+from coda.contexts.publication.services.errors import DOIAlreadyImported
 from coda.domain.publication.links import Doi
 
 

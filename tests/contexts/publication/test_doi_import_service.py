@@ -26,11 +26,8 @@ from coda.contexts.publication.dto.external_metadata import (
 )
 from coda.contexts.publication.dto.preview import PreviewArticle, PreviewMonograph
 from coda.contexts.publication.services.doi_client import CrossrefDoiClient, DOIMetadataClient
-from coda.contexts.publication.services.doi_import_service import (
-    DOIAlreadyImported,
-    DOIImportService,
-    InvalidMetadataError,
-)
+from coda.contexts.publication.services.doi_import_service import DOIImportService
+from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
 from coda.domain.author import Author, Role
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId, Payment, PaymentMethod

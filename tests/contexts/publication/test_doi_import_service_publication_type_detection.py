@@ -12,16 +12,14 @@ import pytest
 from tests.contexts.publication.test_doi_import_service import (
     NATURE_EISSN,
     NATURE_JOURNAL_TITLE,
-    make_book_metadata,
     make_article_metadata,
+    make_book_metadata,
 )
 
 from coda.contexts.publication.dto.external_metadata import ExternalJournal
 from coda.contexts.publication.dto.preview import PreviewArticle, PreviewMonograph
-from coda.contexts.publication.services.doi_import_service import (
-    DOIImportService,
-    InvalidMetadataError,
-)
+from coda.contexts.publication.services.doi_import_service import DOIImportService
+from coda.contexts.publication.services.errors import InvalidMetadataError
 
 
 @pytest.mark.django_db
@@ -50,8 +48,7 @@ def test__prepare_funding_request_dto__monograph_types__returns_preview_monograp
     """
     # Arrange - No need to create publisher (preview doesn't create entities)
     fake_client, doi = make_book_metadata(
-        publisher="Test Publisher",
-        publication_type=publication_type,
+        publisher="Test Publisher", publication_type=publication_type
     )
 
     sut = DOIImportService(fake_client)
@@ -82,9 +79,7 @@ def test__prepare_funding_request_dto__article_types__returns_publication_dto(
     that should be detected as journal articles.
     """
     # Arrange - No need to create journal (preview doesn't create entities)
-    fake_client, doi = make_article_metadata(
-        publication_type=publication_type,
-    )
+    fake_client, doi = make_article_metadata(publication_type=publication_type)
 
     sut = DOIImportService(fake_client)
 
