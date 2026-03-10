@@ -569,6 +569,23 @@ def test_submit_type_change_to_article_stores_journal_id_in_session(
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
+def test_preview_page_shows_type_selector_with_htmx(client: Client) -> None:
+    """Preview page should show publication type selector with HTMX attributes."""
+    doi_str = "10.1234/preview.test"
+    response = submit_for_preview(client, doi_str)
+    preview_url = response["Location"]
+    preview_response = client.get(preview_url)
+    content = preview_response.content.decode()
+
+    assert 'name="publication_type"' in content
+    assert 'value="article"' in content
+    assert 'value="monograph"' in content
+    assert "hx-get" in content
+    assert "load-type-form" in content
+
+
+@pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test_doi_input_form_displays_correctly(client: Client) -> None:
     """DOI import input page displays form with DOI field and submit button."""

@@ -5,6 +5,9 @@
     <p class="text-muted">
         Review the imported data below. After saving, you can edit using the regular funding request forms.
     </p>
+    {% if is_preview %}
+        {% include "fundingrequests/partials/doi_type_selector.html" %}
+    {% endif %}
     <h2>
         <span data-tooltip="Funding request for an article" class="icon-tooltip">
             <svg class="mb-0_5 text-gray-800 dark:text-white"

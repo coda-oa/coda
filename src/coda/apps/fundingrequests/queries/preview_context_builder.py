@@ -82,6 +82,10 @@ def build_preview_context(session_data: dict[str, Any], session_key: str) -> dic
         request_remarks="",  # Empty string, not None
     )
 
+    current_type = (
+        "article" if preview_fr.publication.publication_kind == "journal_article" else "monograph"
+    )
+
     return {
         "session_key": session_key,
         "publication": publication_detail,
@@ -89,6 +93,7 @@ def build_preview_context(session_data: dict[str, Any], session_key: str) -> dic
         "external_funding": [],
         "contact": NoContact,  # Use singleton, not callable
         "is_preview": True,
+        "current_publication_type": current_type,
     }
 
 
