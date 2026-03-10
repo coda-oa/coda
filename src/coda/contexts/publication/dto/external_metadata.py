@@ -1,11 +1,11 @@
 """External metadata DTOs - anti-corruption layer for Crossref/DataCite data."""
 
 import datetime
-from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 
-@dataclass
-class ExternalAuthor:
+class ExternalAuthor(BaseModel):
     """Author information from external metadata sources."""
 
     name: str
@@ -13,8 +13,7 @@ class ExternalAuthor:
     ror_id: str | None = None
 
 
-@dataclass
-class ExternalJournal:
+class ExternalJournal(BaseModel):
     """Journal information from external metadata sources."""
 
     title: str
@@ -22,8 +21,7 @@ class ExternalJournal:
     eissn: str | None = None
 
 
-@dataclass
-class ExternalPublicationMetadata:
+class ExternalPublicationMetadata(BaseModel):
     """Publication metadata from external sources (Crossref, DataCite).
 
     This is our controlled data structure that isolates us from external API changes.
