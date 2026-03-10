@@ -34,6 +34,7 @@ from coda.domain.money import Currency, Money
 from coda.domain.publication import (
     JournalId,
     License,
+    Monograph,
     OpenAccessType,
     Publication,
     Published,
@@ -583,6 +584,77 @@ def test_preview_page_shows_type_selector_with_htmx(client: Client) -> None:
     assert 'value="monograph"' in content
     assert "hx-get" in content
     assert "load-type-form" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_override_article_to_monograph_and_save(
+    client: Client,
+    fake_doi_client: FakeDOIMetadataClient,
+) -> None:
+    """Full workflow: article DOI → override to monograph → save creates Monograph."""
+    doi_str = "10.1234/override.test"
+    doi = Doi(doi_str)
+
+    publisher = modelfactory.publisher(name="Springer")
+    fake_doi_client.data[str(doi)] = ExternalPublicationMetadata(
+        title="Test Article",
+        authors=[ExternalAuthor(name="Test Author")],
+        publication_type="journal-article",
+        journal=ExternalJournal(title="Nature", eissn="1476-4687"),
+        publisher="Springer",
+        isbn=None,
+        license=None,
+        online_publication_date=datetime.date(2024, 1, 1),
+        print_publication_date=None,
+    )
+
+    response = submit_for_preview(client, doi_str)
+    session_key = get_session_key(response)
+
+    submit_type_change(client, session_key, "monograph", publisher=publisher.pk)
+    save_doi_import(client, session_key)
+
+    fr = repository.first()
+    assert fr is not None
+    assert isinstance(fr.publication, Monograph)
+    assert fr.publication.publisher == PublisherId(publisher.pk)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_override_monograph_to_article_and_save(
+    client: Client,
+    fake_doi_client: FakeDOIMetadataClient,
+    test_journal: tuple[JournalId, str, str, str],
+) -> None:
+    """Full workflow: monograph DOI → override to article → save creates Publication."""
+    journal_id, journal_title, journal_eissn, publisher_name = test_journal
+    doi_str = "10.1234/book.override"
+    doi = Doi(doi_str)
+
+    fake_doi_client.data[str(doi)] = ExternalPublicationMetadata(
+        title="Test Book",
+        authors=[ExternalAuthor(name="Test Author")],
+        publication_type="book",
+        journal=None,
+        publisher=publisher_name,
+        isbn="978-3-16-148410-0",
+        license=None,
+        online_publication_date=None,
+        print_publication_date=None,
+    )
+
+    response = submit_for_preview(client, doi_str)
+    session_key = get_session_key(response)
+
+    journal = Journal.objects.get(pk=int(journal_id))
+    submit_type_change(client, session_key, "article", journal=journal.pk)
+    save_doi_import(client, session_key)
+
+    fr = repository.first()
+    assert fr is not None
+    assert isinstance(fr.publication, Publication)
 
 
 @pytest.mark.django_db
