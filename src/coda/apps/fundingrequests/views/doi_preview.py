@@ -10,12 +10,15 @@ from typing import Any, ClassVar
 from uuid import uuid4
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.views import View
+from django.views.decorators.http import require_POST
 
 from coda.apps.fundingrequests.queries.preview_context_builder import build_preview_context
 from coda.apps.journals import services as journal_services
@@ -47,7 +50,7 @@ def _build_override_from_session(
             return None
 
 
-class DOIImportInputView(View):
+class DOIImportInputView(LoginRequiredMixin, View):
     """Handle DOI input form submission and create preview session.
 
     Class attribute `doi_client` can be overridden for testing via subclassing.
@@ -91,7 +94,7 @@ class DOIImportInputView(View):
             return render(request, "fundingrequests/doi_import_input.html", context)
 
 
-class DOIPreviewDetailView(View):
+class DOIPreviewDetailView(LoginRequiredMixin, View):
     """Display read-only preview detail page loading data from session (not database).
 
     Users can review imported data before saving. After saving to database,
@@ -129,7 +132,7 @@ class DOIPreviewDetailView(View):
         return render(request, "fundingrequests/doi_preview_detail.html", context)
 
 
-class DOIPreviewSaveView(View):
+class DOIPreviewSaveView(LoginRequiredMixin, View):
     """Persist preview session data to database and redirect to real detail page.
 
     Class attribute `doi_client` can be overridden for testing via subclassing.
@@ -185,6 +188,7 @@ class DOIPreviewSaveView(View):
         )
 
 
+@login_required
 def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpResponse:
     """HTMX endpoint: Load form partial for switching publication type.
 
@@ -201,7 +205,9 @@ def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpRe
 
     if requested_type == "article":
         journal_data = original_metadata.get("journal") or {}
-        journal_title_search = request.GET.get("journal_title", "")
+        # Use the metadata title as fallback so the initial load auto-searches.
+        metadata_title = journal_data.get("title", "")
+        journal_title_search = request.GET.get("journal_title", "") or metadata_title
         journals = (
             list(journal_services.find_by_title(journal_title_search))
             if journal_title_search
@@ -209,7 +215,7 @@ def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpRe
         )
         context = {
             "session_key": session_key,
-            "journal_title": journal_title_search or journal_data.get("title", ""),
+            "journal_title": journal_title_search,
             "journals": journals,
         }
         return render(
@@ -230,6 +236,7 @@ def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpRe
         )
 
 
+@login_required
 def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> HttpResponse:
     """Handle type change form submission — stores selected entity ID in session.
 
@@ -290,6 +297,8 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
             session_data["publication_type"] = "monograph"
             session_data["publisher_id"] = int(publisher_id_str)
             session_data.pop("journal_id", None)
+        case _:
+            return HttpResponse("Invalid publication type", status=400)
 
     request.session[session_key] = session_data
     request.session.modified = True
@@ -300,6 +309,8 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
     return response
 
 
+@login_required
+@require_POST
 def doi_preview_reset_type(request: HttpRequest, session_key: str) -> HttpResponse:
     """HTMX endpoint: Reset publication type override to original auto-detected type.
 

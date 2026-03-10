@@ -1,5 +1,6 @@
 {# Form for changing to article type - requires journal selection #}
 {# Parameters: session_key, journal_title, journals, selected_journal, error #}
+{# Note: form submission requires JavaScript (HTMX). Non-JS fallback is not supported. #}
 <form method="post"
       action="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
       hx-post="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
@@ -50,8 +51,8 @@
                 </tbody>
             </table>
         </div>
-        <button type="submit" class="mt-1">Apply Change to Article</button>
     {% endif %}
+    <button type="submit" class="mt-1">Apply Change to Article</button>
     <button type="button"
             hx-post="{% url 'fundingrequests:doi_preview_reset_type' session_key=session_key %}"
             class="secondary mt-1">Use auto-detected result instead</button>

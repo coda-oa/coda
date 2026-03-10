@@ -1,8 +1,6 @@
 """DOI Import Service - Creates FundingRequests from DOI metadata."""
 
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Literal
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.journals import services as journal_services
@@ -37,15 +35,6 @@ from coda.domain.string import NonEmptyStr
 
 from ._crossref_type_detector import detect_publication_type
 from ._metadata_mapping import build_preview_article, build_preview_monograph
-
-# Preview builders dictionary - maps publication type to builder function
-_PREVIEW_BUILDERS: dict[
-    Literal["article", "monograph"],
-    Callable[..., PreviewArticle | PreviewMonograph],
-] = {
-    "article": build_preview_article,
-    "monograph": build_preview_monograph,
-}
 
 
 @dataclass(frozen=True)
@@ -109,8 +98,14 @@ class DOIImportService:
         detected_type = detect_publication_type(metadata)
         authors_dto = self._build_authors_dto(metadata.authors)
 
-        builder = _PREVIEW_BUILDERS[detected_type]
-        publication_preview = builder(doi, metadata, authors_dto)
+        publication_preview: PreviewArticle | PreviewMonograph
+        match detected_type:
+            case "article":
+                publication_preview = build_preview_article(doi, metadata, authors_dto)
+            case "monograph":
+                publication_preview = build_preview_monograph(doi, metadata, authors_dto)
+            case _:
+                raise ValueError(f"Unknown publication type: {detected_type!r}")
 
         return PreviewFundingRequest(publication=publication_preview)
 

@@ -1,5 +1,8 @@
 {# Form for changing to monograph type - requires publisher selection #}
 {# Parameters: session_key, suggested_publisher, publishers, selected_publisher, error #}
+{# Note: form submission requires JavaScript (HTMX). Non-JS fallback is not supported. #}
+{# Note: publisher results are loaded via wizard_find_publisher HTMX endpoint (outerHTML swap), #}
+{#       not from template context, so the submit button is always visible unlike the article form. #}
 <form method="post"
       action="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
       hx-post="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
