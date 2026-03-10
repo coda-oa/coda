@@ -42,6 +42,8 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIImportInputView,
     DOIPreviewDetailView,
     DOIPreviewSaveView,
+    doi_preview_load_type_form,
+    doi_preview_apply_type_change,
 )
 
 app_name = "fundingrequests"
@@ -59,6 +61,16 @@ urlpatterns = [
     ),
     path(
         "doi-preview/<str:session_key>/save/", DOIPreviewSaveView.as_view(), name="doi_preview_save"
+    ),
+    path(
+        "doi-preview/<str:session_key>/load-type-form/",
+        doi_preview_load_type_form,
+        name="doi_preview_load_type_form",
+    ),
+    path(
+        "doi-preview/<str:session_key>/apply-type-change/",
+        doi_preview_apply_type_change,
+        name="doi_preview_apply_type_change",
     ),
     path("<int:pk>/", fundingrequest_detail, name="detail"),
     path("review/<int:pk>/", review.review_page, name="review"),

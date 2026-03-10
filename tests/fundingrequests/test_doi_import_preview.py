@@ -9,7 +9,7 @@ User journey:
 """
 
 import datetime
-from typing import cast
+from typing import Any, Literal, cast
 
 import pytest
 from django.http import HttpResponse
@@ -20,6 +20,7 @@ from pytest_django.asserts import assertRedirects
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView, DOIPreviewSaveView
 from coda.apps.journals import services as journal_services
+from coda.apps.journals.models import Journal
 from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
     ExternalJournal,
@@ -420,6 +421,151 @@ def test_saving_preview_cleans_up_session(client: Client) -> None:
     assert session_key not in client.session
     preview_after_save = client.get(preview_url)
     assert preview_after_save.status_code == 404
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
+def test_doi_input_stores_original_metadata_and_publication_type(client: Client) -> None:
+    doi_str = "10.1234/preview.test"
+    response = submit_for_preview(client, doi_str)
+    session_key = get_session_key(response)
+    session_data = client.session[session_key]
+
+    assert "doi" in session_data
+    assert "original_metadata" in session_data
+    assert "publication_type" in session_data
+    assert "active_preview" not in session_data
+    assert "original_preview" not in session_data
+
+
+def load_type_form(
+    client: Client, session_key: str, pub_type: "Literal['article', 'monograph']"
+) -> HttpResponse:
+    """Helper to load HTMX type change form."""
+    return cast(
+        HttpResponse,
+        client.get(
+            reverse(
+                "fundingrequests:doi_preview_load_type_form",
+                kwargs={"session_key": session_key},
+            ),
+            data={"publication_type": pub_type},
+        ),
+    )
+
+
+def submit_type_change(
+    client: Client,
+    session_key: str,
+    pub_type: "Literal['article', 'monograph']",
+    **kwargs: Any,
+) -> HttpResponse:
+    """Helper to submit type change form."""
+    data = {"publication_type": pub_type, **kwargs}
+    return cast(
+        HttpResponse,
+        client.post(
+            reverse(
+                "fundingrequests:doi_preview_apply_type_change",
+                kwargs={"session_key": session_key},
+            ),
+            data=data,
+        ),
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
+def test_load_article_form_shows_journal_search(client: Client) -> None:
+    """HTMX endpoint should return article form partial with journal search."""
+    doi_str = "10.1234/preview.test"
+    response = submit_for_preview(client, doi_str)
+    session_key = get_session_key(response)
+
+    form_response = load_type_form(client, session_key, "article")
+
+    assert form_response.status_code == 200
+    content = form_response.content.decode()
+    assert "journal_title" in content
+    assert "Search" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
+def test_load_monograph_form_shows_prefilled_publisher(client: Client) -> None:
+    """HTMX endpoint for monograph form should pre-fill publisher from original metadata."""
+    doi_str = "10.1234/preview.test"
+    response = submit_for_preview(client, doi_str)
+    session_key = get_session_key(response)
+
+    form_response = load_type_form(client, session_key, "monograph")
+
+    assert form_response.status_code == 200
+    content = form_response.content.decode()
+    assert "publisher_name" in content
+    # Should pre-fill publisher from original_metadata["publisher"]
+    assert "Test Publisher" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
+def test_submit_type_change_to_monograph_stores_publisher_id_in_session(
+    client: Client,
+) -> None:
+    """Submitting monograph form with publisher should store publisher_id in session."""
+    doi_str = "10.1234/preview.test"
+    response = submit_for_preview(client, doi_str)
+    session_key = get_session_key(response)
+
+    publisher = modelfactory.publisher(name="Test Publisher")
+
+    change_response = submit_type_change(client, session_key, "monograph", publisher=publisher.pk)
+
+    assert change_response.status_code == 302
+    assert f"/doi-preview/{session_key}/" in change_response["Location"]
+
+    session_data = client.session[session_key]
+    assert session_data["publication_type"] == "monograph"
+    assert session_data["publisher_id"] == publisher.pk
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_submit_type_change_to_article_stores_journal_id_in_session(
+    client: Client,
+    fake_doi_client: FakeDOIMetadataClient,
+    test_journal: tuple[JournalId, str, str, str],
+) -> None:
+    """Submitting article form with journal should store journal_id in session."""
+    journal_id, journal_title, journal_eissn, publisher_name = test_journal
+
+    # Start with a monograph DOI
+    doi_str = "10.1234/book.test"
+    doi = Doi(doi_str)
+    fake_doi_client.data[str(doi)] = ExternalPublicationMetadata(
+        title="Test Book",
+        authors=[ExternalAuthor(name="Test Author")],
+        publication_type="book",
+        journal=None,
+        publisher=publisher_name,
+        isbn="978-3-16-148410-0",
+        license=None,
+        online_publication_date=None,
+        print_publication_date=None,
+    )
+
+    response = submit_for_preview(client, doi_str)
+    session_key = get_session_key(response)
+
+    journal = Journal.objects.get(pk=int(journal_id))
+
+    change_response = submit_type_change(client, session_key, "article", journal=journal.pk)
+
+    assert change_response.status_code == 302
+
+    session_data = client.session[session_key]
+    assert session_data["publication_type"] == "article"
+    assert session_data["journal_id"] == journal.pk
 
 
 @pytest.mark.django_db
