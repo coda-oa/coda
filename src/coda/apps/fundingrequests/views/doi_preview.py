@@ -12,6 +12,7 @@ from uuid import uuid4
 from django.contrib import messages
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.views import View
@@ -233,6 +234,11 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
     """Handle type change form submission — stores selected entity ID in session.
 
     Does not build or store a preview — the detail view rebuilds on demand.
+
+    On validation failure: re-renders the appropriate partial with an inline error
+    message so HTMX can swap it back into #type-change-form.
+    On success: returns HX-Redirect header so HTMX triggers a full page navigation
+    to the preview detail page.
     """
     session_data = request.session.get(session_key)
     if not session_data:
@@ -242,22 +248,79 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
     if requested_type not in ("article", "monograph"):
         return HttpResponse("Invalid publication type", status=400)
 
+    original_metadata = session_data.get("original_metadata", {})
+
     match requested_type:
         case "article":
             journal_id_str = request.POST.get("journal")
             if not journal_id_str:
-                return HttpResponse("Journal is required for article", status=400)
+                journal_data = original_metadata.get("journal") or {}
+                context = {
+                    "session_key": session_key,
+                    "journal_title": request.POST.get(
+                        "journal_title", journal_data.get("title", "")
+                    ),
+                    "journals": [],
+                    "error": "Please select a journal before applying.",
+                }
+                return render(
+                    request,
+                    "fundingrequests/partials/doi_type_change_to_article.html",
+                    context,
+                )
             session_data["publication_type"] = "article"
             session_data["journal_id"] = int(journal_id_str)
             session_data.pop("publisher_id", None)
         case "monograph":
             publisher_id_str = request.POST.get("publisher")
             if not publisher_id_str:
-                return HttpResponse("Publisher is required for monograph", status=400)
+                context = {
+                    "session_key": session_key,
+                    "suggested_publisher": request.POST.get(
+                        "publisher_name", original_metadata.get("publisher", "")
+                    ),
+                    "publishers": [],
+                    "error": "Please select a publisher before applying.",
+                }
+                return render(
+                    request,
+                    "fundingrequests/partials/doi_type_change_to_monograph.html",
+                    context,
+                )
             session_data["publication_type"] = "monograph"
             session_data["publisher_id"] = int(publisher_id_str)
             session_data.pop("journal_id", None)
 
     request.session[session_key] = session_data
     request.session.modified = True
-    return redirect("fundingrequests:doi_preview_detail", session_key=session_key)
+    response = HttpResponse()
+    response["HX-Redirect"] = reverse(
+        "fundingrequests:doi_preview_detail", kwargs={"session_key": session_key}
+    )
+    return response
+
+
+def doi_preview_reset_type(request: HttpRequest, session_key: str) -> HttpResponse:
+    """HTMX endpoint: Reset publication type override to original auto-detected type.
+
+    Clears any journal_id/publisher_id override from session, re-derives the
+    original type from original_metadata, and issues HX-Redirect to the preview page.
+    """
+    session_data = request.session.get(session_key)
+    if not session_data:
+        return HttpResponse("Preview session not found", status=404)
+
+    metadata = ExternalPublicationMetadata.model_validate(session_data["original_metadata"])
+    original_type = detect_publication_type(metadata)
+
+    session_data["publication_type"] = original_type
+    session_data.pop("journal_id", None)
+    session_data.pop("publisher_id", None)
+
+    request.session[session_key] = session_data
+    request.session.modified = True
+    response = HttpResponse()
+    response["HX-Redirect"] = reverse(
+        "fundingrequests:doi_preview_detail", kwargs={"session_key": session_key}
+    )
+    return response

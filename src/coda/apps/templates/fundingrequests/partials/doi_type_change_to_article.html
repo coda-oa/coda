@@ -1,11 +1,15 @@
 {# Form for changing to article type - requires journal selection #}
-{# Parameters: session_key, journal_title, journals, selected_journal #}
+{# Parameters: session_key, journal_title, journals, selected_journal, error #}
 <form method="post"
-      action="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}">
+      action="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
+      hx-post="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
+      hx-target="#type-change-form"
+      hx-swap="innerHTML">
     {% csrf_token %}
     <input type="hidden" name="publication_type" value="article">
     <h4 class="mt-1">Select Journal</h4>
     <p class="text-muted">Search for the journal where this article was published.</p>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
     <fieldset role="group">
         <input type="search"
                name="journal_title"
@@ -48,4 +52,7 @@
         </div>
         <button type="submit" class="mt-1">Apply Change to Article</button>
     {% endif %}
+    <button type="button"
+            hx-post="{% url 'fundingrequests:doi_preview_reset_type' session_key=session_key %}"
+            class="secondary mt-1">Use auto-detected result instead</button>
 </form>

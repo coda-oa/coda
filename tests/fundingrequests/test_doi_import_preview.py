@@ -522,8 +522,8 @@ def test_submit_type_change_to_monograph_stores_publisher_id_in_session(
 
     change_response = submit_type_change(client, session_key, "monograph", publisher=publisher.pk)
 
-    assert change_response.status_code == 302
-    assert f"/doi-preview/{session_key}/" in change_response["Location"]
+    assert change_response.status_code == 200
+    assert f"/doi-preview/{session_key}/" in change_response["HX-Redirect"]
 
     session_data = client.session[session_key]
     assert session_data["publication_type"] == "monograph"
@@ -562,7 +562,8 @@ def test_submit_type_change_to_article_stores_journal_id_in_session(
 
     change_response = submit_type_change(client, session_key, "article", journal=journal.pk)
 
-    assert change_response.status_code == 302
+    assert change_response.status_code == 200
+    assert f"/doi-preview/{session_key}/" in change_response["HX-Redirect"]
 
     session_data = client.session[session_key]
     assert session_data["publication_type"] == "article"
@@ -584,6 +585,105 @@ def test_preview_page_shows_type_selector_with_htmx(client: Client) -> None:
     assert 'value="monograph"' in content
     assert "hx-get" in content
     assert "load-type-form" in content
+
+
+def reset_type(client: Client, session_key: str) -> HttpResponse:
+    """Helper to call the reset-type HTMX endpoint."""
+    return cast(
+        HttpResponse,
+        client.post(
+            reverse(
+                "fundingrequests:doi_preview_reset_type",
+                kwargs={"session_key": session_key},
+            ),
+        ),
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
+def test_submit_type_change_monograph_without_publisher_shows_inline_error(
+    client: Client,
+) -> None:
+    """Submitting monograph form without selecting a publisher returns partial with error."""
+    doi_str = "10.1234/preview.test"
+    response = submit_for_preview(client, doi_str)
+    session_key = get_session_key(response)
+
+    change_response = submit_type_change(client, session_key, "monograph")
+
+    assert change_response.status_code == 200
+    assert "HX-Redirect" not in change_response
+    content = change_response.content.decode()
+    assert "Please select a publisher before applying." in content
+    # Session should not be modified — type stays as originally detected
+    session_data = client.session[session_key]
+    assert "publisher_id" not in session_data
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_submit_type_change_article_without_journal_shows_inline_error(
+    client: Client,
+    fake_doi_client: FakeDOIMetadataClient,
+) -> None:
+    """Submitting article form without selecting a journal returns partial with error."""
+    doi_str = "10.1234/book.no-journal"
+    doi = Doi(doi_str)
+    fake_doi_client.data[str(doi)] = ExternalPublicationMetadata(
+        title="Test Book",
+        authors=[ExternalAuthor(name="Test Author")],
+        publication_type="book",
+        journal=None,
+        publisher="Test Publisher",
+        isbn="978-3-16-148410-0",
+        license=None,
+        online_publication_date=None,
+        print_publication_date=None,
+    )
+
+    response = submit_for_preview(client, doi_str)
+    session_key = get_session_key(response)
+
+    change_response = submit_type_change(client, session_key, "article")
+
+    assert change_response.status_code == 200
+    assert "HX-Redirect" not in change_response
+    content = change_response.content.decode()
+    assert "Please select a journal before applying." in content
+    session_data = client.session[session_key]
+    assert "journal_id" not in session_data
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
+def test_reset_type_clears_override_and_restores_original_type(
+    client: Client,
+) -> None:
+    """Reset endpoint clears override and restores the auto-detected publication type."""
+    doi_str = "10.1234/preview.test"
+    response = submit_for_preview(client, doi_str)
+    session_key = get_session_key(response)
+
+    # Apply monograph override
+    publisher = modelfactory.publisher(name="Test Publisher")
+    submit_type_change(client, session_key, "monograph", publisher=publisher.pk)
+
+    # Verify override is stored
+    session_data = client.session[session_key]
+    assert session_data["publication_type"] == "monograph"
+    assert "publisher_id" in session_data
+
+    # Reset to original
+    reset_response = reset_type(client, session_key)
+
+    assert reset_response.status_code == 200
+    assert f"/doi-preview/{session_key}/" in reset_response["HX-Redirect"]
+
+    session_data = client.session[session_key]
+    assert session_data["publication_type"] == "article"  # original auto-detected type
+    assert "publisher_id" not in session_data
+    assert "journal_id" not in session_data
 
 
 @pytest.mark.django_db
