@@ -138,6 +138,8 @@ class DOIImportService:
                 publisher = publisher_services.get_by_pk(int(publisher_id))
                 overridden_metadata = metadata.model_copy(update={"publisher": publisher.name})
                 publication = build_preview_monograph(doi, overridden_metadata, authors_dto)
+            case _:
+                raise ValueError(f"Unknown override type: {override!r}")
 
         return PreviewFundingRequest(publication=publication)
 
@@ -189,7 +191,7 @@ class DOIImportService:
             return JournalId(journal.pk)
 
         if not publication.journal.title:
-            raise InvalidMetadataError("Journal missing publisher name")
+            raise InvalidMetadataError("Journal missing title")
 
         if publication.publisher_name is None:
             raise InvalidMetadataError("Journal missing publisher name")

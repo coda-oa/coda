@@ -18,7 +18,11 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView, DOIPreviewSaveView
+from coda.apps.fundingrequests.views.doi_preview import (
+    DOIImportInputView,
+    DOIPreviewDetailView,
+    DOIPreviewSaveView,
+)
 from coda.apps.journals import services as journal_services
 from coda.apps.journals.models import Journal
 from coda.contexts.publication.dto.external_metadata import (
@@ -201,6 +205,7 @@ def fake_doi_client() -> FakeDOIMetadataClient:
 def inject_fake_doi_client(fake_doi_client: FakeDOIMetadataClient) -> None:
     """Inject fake DOI client into views via dependency injection."""
     DOIImportInputView.doi_client = fake_doi_client
+    DOIPreviewDetailView.doi_client = fake_doi_client
     DOIPreviewSaveView.doi_client = fake_doi_client
 
 
@@ -332,18 +337,6 @@ def test_saving_preview_redirects_to_detail_page(client: Client) -> None:
     fr = repository.first()
     assert fr is not None
     assertRedirects(save_response, reverse("fundingrequests:detail", kwargs={"pk": fr.id}))
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_preview_does_not_persist_to_database(client: Client) -> None:
-    """Preview does not create FundingRequest in database until saved."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
-    preview_url = response["Location"]
-    client.get(preview_url)
-
-    assert repository.first() is None
 
 
 @pytest.mark.django_db

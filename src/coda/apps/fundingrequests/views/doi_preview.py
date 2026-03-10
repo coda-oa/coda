@@ -24,7 +24,12 @@ from coda.apps.fundingrequests.queries.preview_context_builder import build_prev
 from coda.apps.journals import services as journal_services
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.services._crossref_type_detector import detect_publication_type
-from coda.contexts.publication.services.doi_client import CrossrefDoiClient, DOIMetadataClient
+from coda.contexts.publication.services.doi_client import (
+    CrossrefDoiClient,
+    DOIMetadataClient,
+    DOINotFoundError,
+    DOIFetchError,
+)
 from coda.contexts.publication.services.doi_import_service import (
     DOIImportService,
     OverrideImportAsArticle,
@@ -89,8 +94,11 @@ class DOIImportInputView(LoginRequiredMixin, View):
 
             return redirect("fundingrequests:doi_preview_detail", session_key=session_key)
 
-        except Exception as e:
+        except (DOINotFoundError, DOIFetchError) as e:
             context = {"error": f"Failed to import DOI: {str(e)}"}
+            return render(request, "fundingrequests/doi_import_input.html", context)
+        except Exception:
+            context = {"error": "An unexpected error occurred. Please try again."}
             return render(request, "fundingrequests/doi_import_input.html", context)
 
 
@@ -237,6 +245,7 @@ def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpRe
 
 
 @login_required
+@require_POST
 def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> HttpResponse:
     """Handle type change form submission — stores selected entity ID in session.
 
