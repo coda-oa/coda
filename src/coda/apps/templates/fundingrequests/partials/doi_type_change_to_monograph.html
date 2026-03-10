@@ -12,35 +12,13 @@
                id="publisher_name"
                placeholder="Search publisher by name..."
                value="{{ suggested_publisher }}">
-        <button type="submit"
-                formaction="{% url 'fundingrequests:doi_preview_load_type_form' session_key=session_key %}"
+        <button type="button"
+                hx-post="{% url 'fundingrequests:wizard_find_publisher' %}"
+                hx-include="[name='publisher_name']"
+                hx-target="#publisher-search-results"
+                hx-swap="outerHTML"
                 class="inline-search-pill pill-right">Search</button>
     </fieldset>
-    {% if publishers %}
-        <div class="scroll-container max-h-30 mt-1">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Select</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for publisher in publishers %}
-                        <tr>
-                            <td>{{ publisher.name }}</td>
-                            <td>
-                                <input type="radio"
-                                       name="publisher"
-                                       value="{{ publisher.pk }}"
-                                       {% if selected_publisher and publisher.pk == selected_publisher.pk %}checked{% endif %}
-                                       required>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <button type="submit" class="mt-1">Apply Change to Monograph</button>
-    {% endif %}
+    {% include "fundingrequests/partials/publisher_search_results.html" %}
+    <button type="submit" class="mt-1">Apply Change to Monograph</button>
 </form>

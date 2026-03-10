@@ -12,8 +12,11 @@
                id="journal_title"
                placeholder="Search journal by title..."
                value="{{ journal_title }}">
-        <button type="submit"
-                formaction="{% url 'fundingrequests:doi_preview_load_type_form' session_key=session_key %}"
+        <button type="button"
+                hx-get="{% url 'fundingrequests:doi_preview_load_type_form' session_key=session_key %}"
+                hx-include="[name='journal_title'], [name='publication_type']"
+                hx-target="#type-change-form"
+                hx-swap="innerHTML"
                 class="inline-search-pill pill-right">Search</button>
     </fieldset>
     {% if journals %}

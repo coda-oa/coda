@@ -17,6 +17,7 @@ from django.utils.safestring import SafeString
 from django.views import View
 
 from coda.apps.fundingrequests.queries.preview_context_builder import build_preview_context
+from coda.apps.journals import services as journal_services
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.services._crossref_type_detector import detect_publication_type
 from coda.contexts.publication.services.doi_client import CrossrefDoiClient, DOIMetadataClient
@@ -199,10 +200,16 @@ def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpRe
 
     if requested_type == "article":
         journal_data = original_metadata.get("journal") or {}
+        journal_title_search = request.GET.get("journal_title", "")
+        journals = (
+            list(journal_services.find_by_title(journal_title_search))
+            if journal_title_search
+            else []
+        )
         context = {
             "session_key": session_key,
-            "journal_title": journal_data.get("title", ""),
-            "journals": [],
+            "journal_title": journal_title_search or journal_data.get("title", ""),
+            "journals": journals,
         }
         return render(
             request,
