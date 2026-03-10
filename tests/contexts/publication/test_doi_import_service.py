@@ -26,7 +26,11 @@ from coda.contexts.publication.dto.external_metadata import (
 )
 from coda.contexts.publication.dto.preview import PreviewArticle, PreviewMonograph
 from coda.contexts.publication.services.doi_client import CrossrefDoiClient, DOIMetadataClient
-from coda.contexts.publication.services.doi_import_service import DOIImportService
+from coda.contexts.publication.services.doi_import_service import (
+    DOIImportService,
+    OverrideImportAsArticle,
+    OverrideImportAsMonograph,
+)
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
 from coda.domain.author import Author, Role
 from coda.domain.contract import PublisherId
@@ -951,3 +955,39 @@ def test__prepare_funding_request_dto__monograph__does_not_create_publisher() ->
     assert (
         len(fundingrequest_repository.all()) == 0
     ), "prepare_funding_request_dto created a funding request"
+
+
+@pytest.mark.django_db
+def test__build_preview_with_type_override__to_article__uses_resolved_journal() -> None:
+    """Overriding to article uses journal title and EISSN from the resolved DB journal."""
+    fake_client, doi = make_article_metadata(doi="10.1234/test.article")
+    publisher_id = publisher_services.create(name="Test Publisher")
+    journal_id = journal_services.create(
+        title=NonEmptyStr(NATURE_JOURNAL_TITLE),
+        eissn=Issn(NATURE_EISSN),
+        publisher_id=publisher_id,
+    )
+
+    service = DOIImportService(doi_client=fake_client)
+    result = service.build_preview_with_type_override(
+        doi, OverrideImportAsArticle(journal_id=journal_id)
+    )
+
+    assert isinstance(result.publication, PreviewArticle)
+    assert result.publication.journal.title == NATURE_JOURNAL_TITLE
+    assert result.publication.journal.eissn == NATURE_EISSN
+
+
+@pytest.mark.django_db
+def test__build_preview_with_type_override__to_monograph__uses_resolved_publisher() -> None:
+    """Overriding to monograph uses publisher name from the resolved DB publisher."""
+    fake_client, doi = make_article_metadata(doi="10.1234/test.article")
+    publisher_id = publisher_services.create(name="Springer Nature")
+
+    service = DOIImportService(doi_client=fake_client)
+    result = service.build_preview_with_type_override(
+        doi, OverrideImportAsMonograph(publisher_id=publisher_id)
+    )
+
+    assert isinstance(result.publication, PreviewMonograph)
+    assert result.publication.publisher_name == "Springer Nature"

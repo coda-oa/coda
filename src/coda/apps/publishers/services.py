@@ -19,6 +19,10 @@ def find_by_name(name: str) -> Publisher | None:
         return None
 
 
+def get_by_pk(pk: int) -> Publisher:
+    return Publisher.objects.get(pk=pk)
+
+
 def create(name: str) -> PublisherId:
     """
     Create a new publisher.
