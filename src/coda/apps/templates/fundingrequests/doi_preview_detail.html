@@ -29,8 +29,12 @@
                     Article
                 {% endif %}
             </h2>
+            {% if warnings %}
+                <div class="warning-banner" role="alert">
+                    {% for warning in warnings %}<p>⚠ {{ warning }}</p>{% endfor %}
+                </div>
+            {% endif %}
             {% include "fundingrequests/partials/publication_section.html" %}
-            {% include "fundingrequests/partials/costs_funding_section.html" with is_preview=True %}
             <form class="wizard-nav"
                   method="post"
                   action="{% url "fundingrequests:doi_preview_save" session_key=session_key %}">

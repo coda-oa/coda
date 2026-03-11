@@ -28,7 +28,6 @@ from coda.contexts.publication.dto.preview import (
     PreviewMonograph,
     PreviewPublicationMeta,
 )
-from coda.contexts.publication.services.errors import InvalidMetadataError
 from coda.domain.contract import PublisherId
 from coda.domain.publication import JournalId, License
 from coda.domain.publication.links import Doi
@@ -128,18 +127,24 @@ def build_preview_article(
         authors_dto: List of author DTOs
 
     Returns:
-        PreviewArticle DTO ready for preview workflows
-
-    Raises:
-        InvalidMetadataError: If journal metadata is missing
+        PreviewArticle DTO ready for preview workflows.  When journal metadata
+        is absent the returned DTO will have ``journal=None`` and a non-empty
+        ``warnings`` list so the caller can present a fix form to the user.
     """
     publication_state = map_publication_state(
         metadata.online_publication_date,
         metadata.print_publication_date,
     )
 
-    if metadata.journal is None:
-        raise InvalidMetadataError("Journal article missing journal metadata")
+    journal = (
+        PreviewJournal(
+            title=metadata.journal.title,
+            issn=metadata.journal.issn,
+            eissn=metadata.journal.eissn,
+        )
+        if metadata.journal is not None
+        else None
+    )
 
     return PreviewArticle(
         meta=PreviewPublicationMeta(
@@ -152,11 +157,7 @@ def build_preview_article(
             online_publication_date=extract_online_date(publication_state),
             print_publication_date=extract_print_date(publication_state),
         ),
-        journal=PreviewJournal(
-            title=metadata.journal.title,
-            issn=metadata.journal.issn,
-            eissn=metadata.journal.eissn,
-        ),
+        journal=journal,
         doi=str(doi),
         authors=authors_dto,
         publisher_name=metadata.publisher,
@@ -176,18 +177,14 @@ def build_preview_monograph(
         authors_dto: List of author DTOs
 
     Returns:
-        PreviewMonograph DTO ready for preview workflows
-
-    Raises:
-        InvalidMetadataError: If publisher name is missing
+        PreviewMonograph DTO ready for preview workflows.  When publisher
+        metadata is absent the returned DTO will have ``publisher_name=None``
+        and a non-empty ``warnings`` list so the caller can present a fix form.
     """
     publication_state = map_publication_state(
         metadata.online_publication_date,
         metadata.print_publication_date,
     )
-
-    if metadata.publisher is None:
-        raise InvalidMetadataError("Monograph missing publisher name")
 
     return PreviewMonograph(
         meta=PreviewPublicationMeta(

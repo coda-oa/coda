@@ -136,7 +136,7 @@ class DOIPreviewDetailView(LoginRequiredMixin, View):
         else:
             preview_dto = doi_service.fetch_doi_preview(doi)
 
-        context = build_preview_context(preview_dto.model_dump(mode="json"), session_key)
+        context = build_preview_context(preview_dto, session_key)
         return render(request, "fundingrequests/doi_preview_detail.html", context)
 
 

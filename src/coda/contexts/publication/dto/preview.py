@@ -61,11 +61,21 @@ class PreviewArticle(CodaBaseDto):
     """
 
     meta: PreviewPublicationMeta
-    journal: PreviewJournal
+    journal: PreviewJournal | None  # None when Crossref omits journal metadata
     doi: str  # Single DOI string (not a list - DOI imports always have one)
     authors: list[AuthorDto]
     publisher_name: str | None = None  # For display purposes
     publication_kind: Literal["journal_article"] = Field(default="journal_article")
+
+    @property
+    def warnings(self) -> list[str]:
+        """Derive warnings from missing required fields (no stored state)."""
+        result = []
+        if self.journal is None:
+            result.append(
+                "Journal metadata is missing. Please select the journal for this article."
+            )
+        return result
 
     def to_publication_dto(self, journal_id: JournalId) -> PublicationDto:
         """Convert to PublicationDto for creation, accepting database IDs.
@@ -103,11 +113,21 @@ class PreviewMonograph(CodaBaseDto):
     """
 
     meta: PreviewPublicationMeta
-    publisher_name: str
+    publisher_name: str | None  # None when Crossref omits publisher metadata
     doi: str
     isbn: str | None
     authors: list[AuthorDto]
     publication_kind: Literal["monograph"] = Field(default="monograph")
+
+    @property
+    def warnings(self) -> list[str]:
+        """Derive warnings from missing required fields (no stored state)."""
+        result = []
+        if self.publisher_name is None:
+            result.append(
+                "Publisher metadata is missing. Please select the publisher for this monograph."
+            )
+        return result
 
     def to_monograph_dto(self, publisher_id: PublisherId) -> MonographDto:
         """Convert to MonographDto for creation, accepting database IDs.
@@ -153,3 +173,8 @@ class PreviewFundingRequest(CodaBaseDto):
     """
 
     publication: PreviewArticle | PreviewMonograph
+
+    @property
+    def warnings(self) -> list[str]:
+        """Aggregate warnings from the nested publication DTO."""
+        return self.publication.warnings

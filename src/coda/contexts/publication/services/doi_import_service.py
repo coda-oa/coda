@@ -190,6 +190,9 @@ class DOIImportService:
         if journal:
             return JournalId(journal.pk)
 
+        if publication.journal is None:
+            raise InvalidMetadataError("Journal article missing journal metadata")
+
         if not publication.journal.title:
             raise InvalidMetadataError("Journal missing title")
 
@@ -236,6 +239,8 @@ class DOIImportService:
 
             case None:
                 if isinstance(preview.publication, PreviewArticle):
+                    if preview.publication.journal is None:
+                        raise InvalidMetadataError("Journal article missing journal metadata")
                     if preview.publication.journal.eissn is None:
                         raise InvalidMetadataError(
                             f"Journal '{preview.publication.journal.title}' missing E-ISSN"
@@ -244,6 +249,8 @@ class DOIImportService:
                     journal_id = self._match_or_create_journal(issn, preview.publication)
                     publication_dto = preview.publication.to_publication_dto(journal_id=journal_id)
                 elif isinstance(preview.publication, PreviewMonograph):
+                    if preview.publication.publisher_name is None:
+                        raise InvalidMetadataError("Monograph missing publisher name")
                     publisher_id = self._match_or_create_publisher(
                         preview.publication.publisher_name
                     )

@@ -117,7 +117,7 @@ def make_article_metadata(
 
 def make_book_metadata(
     *,
-    publisher: str,
+    publisher: str | None,
     doi: str = "10.1234/test-book",
     title: str = "Test Book",
     authors: list[ExternalAuthor] | None = None,
@@ -974,6 +974,7 @@ def test__build_preview_with_type_override__to_article__uses_resolved_journal() 
     )
 
     assert isinstance(result.publication, PreviewArticle)
+    assert result.publication.journal is not None
     assert result.publication.journal.title == NATURE_JOURNAL_TITLE
     assert result.publication.journal.eissn == NATURE_EISSN
 

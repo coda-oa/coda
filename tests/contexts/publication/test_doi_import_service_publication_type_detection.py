@@ -19,7 +19,6 @@ from tests.contexts.publication.test_doi_import_service import (
 from coda.contexts.publication.dto.external_metadata import ExternalJournal
 from coda.contexts.publication.dto.preview import PreviewArticle, PreviewMonograph
 from coda.contexts.publication.services.doi_import_service import DOIImportService
-from coda.contexts.publication.services.errors import InvalidMetadataError
 
 
 @pytest.mark.django_db
@@ -162,7 +161,13 @@ def test__prepare_funding_request_dto__book_chapter_with_both_isbn_and_issn__ret
 
 @pytest.mark.django_db
 def test__prepare_funding_request_dto__unknown_type_no_identifiers__defaults_to_article() -> None:
-    """Unknown type with no ISBN or ISSN should default to article."""
+    """Unknown type with no ISBN or ISSN should default to article with a warning.
+
+    When Crossref returns an unrecognised publication type and there are no
+    ISBN/ISSN identifiers to discriminate on, the service defaults to article.
+    Because journal metadata is also absent in this scenario, the preview DTO
+    carries a warning instead of raising – so the user can supply the journal.
+    """
     # Arrange
     unrecognized_crossref_type = "unknown-type"
 
@@ -174,6 +179,9 @@ def test__prepare_funding_request_dto__unknown_type_no_identifiers__defaults_to_
 
     sut = DOIImportService(fake_client)
 
-    # Act & Assert - Defaults to article, but article requires journal metadata
-    with pytest.raises(InvalidMetadataError, match="Journal article missing journal metadata"):
-        sut.fetch_doi_preview(doi)
+    # Act
+    result = sut.fetch_doi_preview(doi)
+
+    # Assert - defaults to article with a warning (no exception raised)
+    assert isinstance(result.publication, PreviewArticle)
+    assert result.warnings, "Expected non-empty warnings for article defaulted without journal"
