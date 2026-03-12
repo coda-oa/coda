@@ -75,6 +75,11 @@ class PreviewArticle(CodaBaseDto):
             result.append(
                 "Journal metadata is missing. Please select the journal for this article."
             )
+        elif self.journal.eissn is None:
+            result.append(
+                f"Journal '{self.journal.title}' is missing an E-ISSN."
+                " Please select the correct journal for this article."
+            )
         return result
 
     def to_publication_dto(self, journal_id: JournalId) -> PublicationDto:

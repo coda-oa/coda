@@ -11,6 +11,7 @@ from tests.contexts.publication.test_doi_import_service import (
     make_book_metadata,
 )
 
+from coda.contexts.publication.dto.external_metadata import ExternalJournal
 from coda.contexts.publication.dto.preview import PreviewArticle, PreviewMonograph
 from coda.contexts.publication.services.doi_import_service import DOIImportService
 
@@ -29,6 +30,28 @@ def test__fetch_doi_preview__article_without_journal__returns_preview_with_warni
 
     assert isinstance(result.publication, PreviewArticle)
     assert result.warnings, "Expected non-empty warnings for article missing journal"
+
+
+def test__fetch_doi_preview__article_with_print_issn_only__returns_preview_with_warnings() -> None:
+    """Article metadata with journal that has only a print ISSN (no E-ISSN) → preview with warnings.
+
+    When Crossref returns a journal article with a journal that has a print ISSN
+    but no E-ISSN, fetch_doi_preview must NOT raise – instead it returns a preview
+    DTO with a non-empty warnings list so the user can supply the E-ISSN via the fix form.
+    """
+    fake_client, doi = make_article_metadata(
+        journal=ExternalJournal(
+            title="Print-Only Journal",
+            issn="1234-5678",
+            eissn=None,
+        ),
+    )
+
+    sut = DOIImportService(doi_client=fake_client)
+    result = sut.fetch_doi_preview(doi)
+
+    assert isinstance(result.publication, PreviewArticle)
+    assert result.warnings, "Expected non-empty warnings for article with print-ISSN-only journal"
 
 
 def test__fetch_doi_preview__monograph_without_publisher__returns_preview_with_warnings() -> None:
