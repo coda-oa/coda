@@ -6,14 +6,13 @@ PreviewFundingRequest whose .warnings list is non-empty so the caller can
 present a fix form to the user.
 """
 
-from tests.contexts.publication.test_doi_import_service import (
-    make_article_metadata,
-    make_book_metadata,
-)
+from tests.contexts.publication import metadatafactory
+from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 
 from coda.contexts.publication.dto.external_metadata import ExternalJournal
 from coda.contexts.publication.dto.preview import PreviewArticle, PreviewMonograph
 from coda.contexts.publication.services.doi_import_service import DOIImportService
+from coda.domain.publication.links import Doi
 
 
 def test__fetch_doi_preview__article_without_journal__returns_preview_with_warnings() -> None:
@@ -23,7 +22,9 @@ def test__fetch_doi_preview__article_without_journal__returns_preview_with_warni
     raising InvalidMetadataError we should return a preview DTO that carries a
     warning so the user can supply the missing journal via the fix form.
     """
-    fake_client, doi = make_article_metadata(journal=None, publisher=None)
+    doi = Doi("10.1234/test")
+    fake_client = FakeDOIMetadataClient()
+    fake_client.data[str(doi)] = metadatafactory.article_metadata(journal=None, publisher=None)
 
     sut = DOIImportService(doi_client=fake_client)
     result = sut.fetch_doi_preview(doi)
@@ -39,12 +40,10 @@ def test__fetch_doi_preview__article_with_print_issn_only__returns_preview_with_
     but no E-ISSN, fetch_doi_preview must NOT raise – instead it returns a preview
     DTO with a non-empty warnings list so the user can supply the E-ISSN via the fix form.
     """
-    fake_client, doi = make_article_metadata(
-        journal=ExternalJournal(
-            title="Print-Only Journal",
-            issn="1234-5678",
-            eissn=None,
-        ),
+    doi = Doi("10.1234/test")
+    fake_client = FakeDOIMetadataClient()
+    fake_client.data[str(doi)] = metadatafactory.article_metadata(
+        journal=ExternalJournal(title="Print-Only Journal", issn="1234-5678", eissn=None),
     )
 
     sut = DOIImportService(doi_client=fake_client)
@@ -61,7 +60,9 @@ def test__fetch_doi_preview__monograph_without_publisher__returns_preview_with_w
     InvalidMetadataError we should return a preview DTO that carries a warning
     so the user can supply the missing publisher via the fix form.
     """
-    fake_client, doi = make_book_metadata(publisher=None)
+    doi = Doi("10.1234/test-book")
+    fake_client = FakeDOIMetadataClient()
+    fake_client.data[str(doi)] = metadatafactory.book_metadata(publisher=None)
 
     sut = DOIImportService(doi_client=fake_client)
     result = sut.fetch_doi_preview(doi)

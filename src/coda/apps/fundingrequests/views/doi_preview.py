@@ -36,7 +36,7 @@ from coda.contexts.publication.services.doi_import_service import (
     OverrideImportAsMonograph,
     OverrideImportPublicationType,
 )
-from coda.contexts.publication.services.errors import DOIAlreadyImported
+from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
 from coda.domain.contract import PublisherId
 from coda.domain.publication import JournalId
 from coda.domain.publication.links import Doi
@@ -179,6 +179,9 @@ class DOIPreviewSaveView(LoginRequiredMixin, View):
             fr_id = doi_service.import_from_doi(doi, override)
         except DOIAlreadyImported as e:
             messages.error(request, self._format_error(e))
+            return redirect("fundingrequests:doi_preview_detail", session_key=session_key)
+        except InvalidMetadataError as e:
+            messages.error(request, str(e))
             return redirect("fundingrequests:doi_preview_detail", session_key=session_key)
 
         del request.session[session_key]

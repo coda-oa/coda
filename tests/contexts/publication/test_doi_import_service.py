@@ -6,10 +6,10 @@ Tests are parametrized to run with both fake and real Crossref clients.
 
 import datetime
 from collections.abc import Callable
-from typing import Literal
 
 import pytest
 from tests import domainfactory
+from tests.contexts.publication import metadatafactory
 from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
@@ -53,8 +53,8 @@ from coda.domain.string import NonEmptyStr
 
 # Test data constants
 NATURE_DOI = "10.1038/nature12373"
-NATURE_EISSN = "1476-4687"
-NATURE_JOURNAL_TITLE = "Nature"
+NATURE_EISSN = metadatafactory.NATURE_EISSN
+NATURE_JOURNAL_TITLE = metadatafactory.NATURE_JOURNAL_TITLE
 SPRINGER_NATURE_PUBLISHER = "Springer Nature"
 SPRINGER_NATURE_REAL_PUBLISHER = "Springer Science and Business Media LLC"
 
@@ -64,106 +64,40 @@ SPRINGER_BOOK_TITLE = "Quantum Microscopy of Biological Systems"
 SPRINGER_BOOK_PUBLISHER = "Springer International Publishing"
 
 
+def _make_client(doi: str, metadata: "ExternalPublicationMetadata") -> FakeDOIMetadataClient:
+    client = FakeDOIMetadataClient()
+    client.data[doi] = metadata
+    return client
+
+
 def make_article_metadata(
     *,
     doi: str = "10.1234/test",
-    title: str = "Test Article",
-    authors: list[ExternalAuthor] | None = None,
-    journal: ExternalJournal | Literal["unset"] | None = "unset",
-    publisher: str | None = "Test Publisher",
-    license: str | None = None,
-    online_publication_date: datetime.date | None = datetime.date(2024, 1, 1),
-    print_publication_date: datetime.date | None = None,
-    publication_type: str = "journal-article",
+    **kwargs: object,
 ) -> tuple[FakeDOIMetadataClient, Doi]:
-    """Create test metadata with sensible defaults and return configured client + DOI.
+    """Build article metadata and return a configured (client, Doi) pair.
 
-    Args:
-        doi: DOI string for the test article
-        title: Article title
-        authors: List of authors (defaults to single author "Test Author")
-        journal: Journal metadata (defaults to Nature-like journal)
-        publisher: Publisher name (defaults to "Test Publisher", or None if journal is None)
-        license: License string (defaults to None)
-        online_publication_date: Online publication date (defaults to 2024-01-01)
-        print_publication_date: Print publication date (defaults to None)
-        publication_type: Publication type (defaults to "journal-article")
-
-    Returns:
-        Tuple of (configured FakeDOIMetadataClient, Doi object)
+    All keyword arguments are forwarded to metadatafactory.article_metadata().
     """
-    if authors is None:
-        authors = [ExternalAuthor(name="Test Author")]
+    from tests.contexts.publication.metadatafactory import article_metadata  # noqa: PLC0415
 
-    if journal == "unset":
-        journal = ExternalJournal(title=NATURE_JOURNAL_TITLE, eissn=NATURE_EISSN)
-
-    metadata = ExternalPublicationMetadata(
-        title=title,
-        authors=authors,
-        publication_type=publication_type,
-        journal=journal,
-        publisher=publisher,
-        license=license,
-        online_publication_date=online_publication_date,
-        print_publication_date=print_publication_date,
-    )
-
-    fake_client = FakeDOIMetadataClient()
-    fake_client.data[doi] = metadata
-
-    return fake_client, Doi(doi)
+    metadata = article_metadata(**kwargs)  # type: ignore[arg-type]
+    return _make_client(doi, metadata), Doi(doi)
 
 
 def make_book_metadata(
     *,
-    publisher: str | None,
     doi: str = "10.1234/test-book",
-    title: str = "Test Book",
-    authors: list[ExternalAuthor] | None = None,
-    isbn: str | None = None,
-    journal: ExternalJournal | None = None,
-    publication_type: str = "book",
-    online_publication_date: datetime.date | None = None,
-    print_publication_date: datetime.date | None = None,
-    license: str | None = None,
+    **kwargs: object,
 ) -> tuple[FakeDOIMetadataClient, Doi]:
-    """Create book/monograph test metadata and return configured client + DOI.
+    """Build book metadata and return a configured (client, Doi) pair.
 
-    Args:
-        publisher: Publisher name (required for books)
-        doi: DOI string for the book (defaults to "10.1234/test-book")
-        title: Book title (defaults to "Test Book")
-        authors: List of authors (defaults to single author "Test Author")
-        isbn: ISBN for the book (optional)
-        journal: Journal metadata (optional, for book chapters in series)
-        publication_type: Publication type (defaults to "book")
-        online_publication_date: Online publication date (defaults to None)
-        print_publication_date: Print publication date (defaults to None)
-        license: License string (defaults to None)
-
-    Returns:
-        Tuple of (configured FakeDOIMetadataClient, Doi object)
+    All keyword arguments are forwarded to metadatafactory.book_metadata().
     """
-    if authors is None:
-        authors = [ExternalAuthor(name="Test Author")]
+    from tests.contexts.publication.metadatafactory import book_metadata  # noqa: PLC0415
 
-    metadata = ExternalPublicationMetadata(
-        title=title,
-        authors=authors,
-        publication_type=publication_type,
-        journal=journal,
-        publisher=publisher,
-        isbn=isbn,
-        online_publication_date=online_publication_date,
-        print_publication_date=print_publication_date,
-        license=license,
-    )
-
-    fake_client = FakeDOIMetadataClient()
-    fake_client.data[doi] = metadata
-
-    return fake_client, Doi(doi)
+    metadata = book_metadata(**kwargs)  # type: ignore[arg-type]
+    return _make_client(doi, metadata), Doi(doi)
 
 
 def get_publication_from_funding_request(

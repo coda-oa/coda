@@ -12,6 +12,7 @@ import datetime
 from typing import Any, Literal, cast
 
 import pytest
+from django.contrib.messages import get_messages
 from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
@@ -27,7 +28,6 @@ from coda.apps.journals.models import Journal
 from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
     ExternalJournal,
-    ExternalPublicationMetadata,
 )
 from coda.domain.author import Author, AuthorNames, Role
 from coda.domain.contract import PublisherId
@@ -46,6 +46,7 @@ from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import UnknownConcept
 from tests import modelfactory
 from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
+from tests.contexts.publication import metadatafactory
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 
@@ -174,23 +175,15 @@ def configure_fake_client_from_expected(
     # Extract license
     license_str = None if publication.license == License.Unknown else publication.license.value
 
-    # Build external metadata
-    metadata = ExternalPublicationMetadata(
+    # Configure fake client
+    fake_client.data[str(doi)] = metadatafactory.article_metadata(
         title=str(publication.title),
         authors=external_authors,
-        publication_type="journal-article",
-        journal=ExternalJournal(
-            title=journal_title,
-            eissn=journal_eissn,
-        ),
+        journal=ExternalJournal(title=journal_title, eissn=journal_eissn),
         publisher=publisher_name,
         license=license_str,
         online_publication_date=online_date,
-        print_publication_date=None,
     )
-
-    # Configure fake client
-    fake_client.data[str(doi)] = metadata
 
 
 @pytest.fixture
@@ -517,16 +510,10 @@ def test_submit_type_change_to_article_stores_journal_id_in_session(
     # Start with a monograph DOI
     doi_str = "10.1234/book.test"
     doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = ExternalPublicationMetadata(
+    fake_doi_client.data[str(doi)] = metadatafactory.book_metadata(
         title="Test Book",
-        authors=[ExternalAuthor(name="Test Author")],
-        publication_type="book",
-        journal=None,
         publisher=publisher_name,
         isbn="978-3-16-148410-0",
-        license=None,
-        online_publication_date=None,
-        print_publication_date=None,
     )
 
     response = submit_for_preview(client, doi_str)
@@ -604,16 +591,10 @@ def test_submit_type_change_article_without_journal_shows_inline_error(
     """Submitting article form without selecting a journal returns partial with error."""
     doi_str = "10.1234/book.no-journal"
     doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = ExternalPublicationMetadata(
+    fake_doi_client.data[str(doi)] = metadatafactory.book_metadata(
         title="Test Book",
-        authors=[ExternalAuthor(name="Test Author")],
-        publication_type="book",
-        journal=None,
         publisher="Test Publisher",
         isbn="978-3-16-148410-0",
-        license=None,
-        online_publication_date=None,
-        print_publication_date=None,
     )
 
     response = submit_for_preview(client, doi_str)
@@ -671,16 +652,11 @@ def test_override_article_to_monograph_and_save(
     doi = Doi(doi_str)
 
     publisher = modelfactory.publisher(name="Springer")
-    fake_doi_client.data[str(doi)] = ExternalPublicationMetadata(
+    fake_doi_client.data[str(doi)] = metadatafactory.article_metadata(
         title="Test Article",
-        authors=[ExternalAuthor(name="Test Author")],
-        publication_type="journal-article",
         journal=ExternalJournal(title="Nature", eissn="1476-4687"),
         publisher="Springer",
-        isbn=None,
-        license=None,
         online_publication_date=datetime.date(2024, 1, 1),
-        print_publication_date=None,
     )
 
     response = submit_for_preview(client, doi_str)
@@ -707,16 +683,10 @@ def test_override_monograph_to_article_and_save(
     doi_str = "10.1234/book.override"
     doi = Doi(doi_str)
 
-    fake_doi_client.data[str(doi)] = ExternalPublicationMetadata(
+    fake_doi_client.data[str(doi)] = metadatafactory.book_metadata(
         title="Test Book",
-        authors=[ExternalAuthor(name="Test Author")],
-        publication_type="book",
-        journal=None,
         publisher=publisher_name,
         isbn="978-3-16-148410-0",
-        license=None,
-        online_publication_date=None,
-        print_publication_date=None,
     )
 
     response = submit_for_preview(client, doi_str)
@@ -770,3 +740,37 @@ def test_doi_input_handles_not_found_error(client: Client) -> None:
     assert response.status_code == 200
     assert b"Import Error" in response.content or b"error" in response.content.lower()
     assert b"Failed to import DOI" in response.content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__save_preview__article_with_print_issn_only__redirects_back_with_error(
+    client: Client,
+    fake_doi_client: FakeDOIMetadataClient,
+) -> None:
+    """Saving a preview with a print-ISSN-only journal shows an error and redirects back.
+
+    When a journal article has a journal with only a print ISSN (no E-ISSN),
+    DOIPreviewSaveView must catch InvalidMetadataError and surface it as a Django
+    messages error — redirecting back to the preview page — instead of raising a 500.
+    """
+    doi_str = "10.1234/print-issn-only"
+    doi = Doi(doi_str)
+    fake_doi_client.data[str(doi)] = metadatafactory.article_metadata(
+        title="Print-ISSN-Only Article",
+        journal=ExternalJournal(title="Print-Only Journal", issn="1234-5678", eissn=None),
+        online_publication_date=None,
+    )
+
+    response = submit_for_preview(client, doi_str)
+    session_key = get_session_key(response)
+    save_response = save_doi_import(client, session_key)
+
+    # Must redirect back to the preview page (not crash with 500)
+    assertRedirects(
+        save_response,
+        reverse("fundingrequests:doi_preview_detail", kwargs={"session_key": session_key}),
+    )
+    # Must surface an error message to the user (read from the redirect response's request)
+    msgs = list(get_messages(cast(Any, save_response).wsgi_request))
+    assert any("E-ISSN" in str(m) for m in msgs)
