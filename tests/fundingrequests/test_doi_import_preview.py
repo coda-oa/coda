@@ -774,3 +774,31 @@ def test__save_preview__article_with_print_issn_only__redirects_back_with_error(
     # Must surface an error message to the user (read from the redirect response's request)
     msgs = list(get_messages(cast(Any, save_response).wsgi_request))
     assert any("E-ISSN" in str(m) for m in msgs)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__preview_page__article_with_print_issn_only__does_not_display_print_issn(
+    client: Client,
+    fake_doi_client: FakeDOIMetadataClient,
+) -> None:
+    """Preview page must not display the print ISSN when a journal has no E-ISSN.
+
+    Coda only supports online journals (E-ISSN required). When a journal article
+    has only a print ISSN, the preview page should not show that ISSN at all —
+    the E-ISSN missing warning already informs the user. Displaying the print ISSN
+    would be misleading since it cannot be used to identify the journal in coda.
+    """
+    doi_str = "10.1234/print-issn-only.preview"
+    doi = Doi(doi_str)
+    fake_doi_client.data[str(doi)] = metadatafactory.article_metadata(
+        title="Print-ISSN-Only Article",
+        journal=ExternalJournal(title="Print-Only Journal", issn="1234-5678", eissn=None),
+    )
+
+    response = submit_for_preview(client, doi_str)
+    preview_url = response["Location"]
+    preview_response = client.get(preview_url)
+
+    assert preview_response.status_code == 200
+    assert b"1234-5678" not in preview_response.content

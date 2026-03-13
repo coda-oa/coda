@@ -80,8 +80,8 @@ def _build_publication_detail_from_preview(
             entity_name = preview_pub.journal.title
             if preview_pub.publisher_name:
                 entity_name = f"{entity_name}, {preview_pub.publisher_name}"
-            identifier_name = "EISSN" if preview_pub.journal.eissn else "ISSN"
-            identifier = preview_pub.journal.eissn or preview_pub.journal.issn or ""
+            identifier_name = "EISSN" if preview_pub.journal.eissn else ""
+            identifier = preview_pub.journal.eissn or ""
         else:
             entity_name = "(journal not specified)"
             identifier_name = ""
