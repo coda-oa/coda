@@ -4,6 +4,8 @@ Converts session-stored preview DTOs to detail models.
 This allows reusing the existing fundingrequest_detail.html template structure.
 """
 
+from dataclasses import dataclass
+from functools import singledispatch
 from typing import Any, Literal
 
 from coda.apps.authors.dto import AuthorDto
@@ -18,6 +20,14 @@ from coda.domain.orcid import Orcid
 from coda.domain.publication.links import Doi, Isbn, Link
 
 from .models import AuthorDetail, PublicationDetail, UnpaidDetail
+
+
+@dataclass
+class _EntityInfo:
+    type: Literal["Journal", "Publisher"]
+    name: str
+    identifier_name: str
+    identifier: str
 
 
 def build_preview_context(preview_fr: PreviewFundingRequest, session_key: str) -> dict[str, Any]:
@@ -72,32 +82,12 @@ def _build_publication_detail_from_preview(
     Returns:
         PublicationDetail ready for template display
     """
-    # Determine publishing entity info from preview data
-    entity_type: Literal["Journal", "Publisher"]
-    if isinstance(preview_pub, PreviewArticle):
-        entity_type = "Journal"
-        if preview_pub.journal is not None:
-            entity_name = preview_pub.journal.title
-            if preview_pub.publisher_name:
-                entity_name = f"{entity_name}, {preview_pub.publisher_name}"
-            identifier_name = "EISSN" if preview_pub.journal.eissn else ""
-            identifier = preview_pub.journal.eissn or ""
-        else:
-            entity_name = "(journal not specified)"
-            identifier_name = ""
-            identifier = ""
-    else:  # PreviewMonograph
-        entity_type = "Publisher"
-        entity_name = preview_pub.publisher_name or "(publisher not specified)"
-        identifier_name = ""
-        identifier = ""
+    entity = _entity_info(preview_pub)
 
-    # Extract publication date from state
     publication_date = (
         preview_pub.meta.online_publication_date or preview_pub.meta.print_publication_date
     )
 
-    # Build links from DOI (and ISBN for monographs)
     links: list[Link] = [Doi(preview_pub.doi)]
     if isinstance(preview_pub, PreviewMonograph) and preview_pub.isbn:
         links.append(Isbn(preview_pub.isbn))
@@ -108,10 +98,10 @@ def _build_publication_detail_from_preview(
         request_remarks="",  # No remarks in preview
         relevant_authors=author_details,
         other_authors=[],  # Preview doesn't have other authors
-        publishing_entity_type=entity_type,
-        publishing_entity_name=entity_name,
-        publishing_entity_identifier_name=identifier_name,
-        publishing_entity_identifier=identifier,
+        publishing_entity_type=entity.type,
+        publishing_entity_name=entity.name,
+        publishing_entity_identifier_name=entity.identifier_name,
+        publishing_entity_identifier=entity.identifier,
         publication_state=preview_pub.meta.publication_state,
         publication_date=publication_date,
         license=preview_pub.meta.license,
@@ -121,6 +111,40 @@ def _build_publication_detail_from_preview(
         references=links,
         contracts=[],  # No contracts in preview
         payment_details=UnpaidDetail(),  # Preview is always unpaid
+    )
+
+
+@singledispatch
+def _entity_info(preview_pub: PreviewArticle | PreviewMonograph) -> _EntityInfo:
+    raise NotImplementedError(f"Unsupported publication type: {type(preview_pub)}")
+
+
+@_entity_info.register
+def _article_entity_info(article: PreviewArticle) -> _EntityInfo:
+    if article.journal is None:
+        return _EntityInfo(
+            type="Journal", name="(journal not specified)", identifier_name="", identifier=""
+        )
+
+    name = article.journal.title
+    if article.publisher_name:
+        name = f"{name}, {article.publisher_name}"
+
+    return _EntityInfo(
+        type="Journal",
+        name=name,
+        identifier_name="EISSN" if article.journal.eissn else "",
+        identifier=article.journal.eissn or "",
+    )
+
+
+@_entity_info.register
+def _monograph_entity_info(monograph: PreviewMonograph) -> _EntityInfo:
+    return _EntityInfo(
+        type="Publisher",
+        name=monograph.publisher_name or "(publisher not specified)",
+        identifier_name="",
+        identifier="",
     )
 
 
