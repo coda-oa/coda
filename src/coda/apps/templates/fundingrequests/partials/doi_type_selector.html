@@ -1,6 +1,6 @@
 {# Publication type selector with HTMX form loading #}
 {# Parameters: session_key, current_publication_type #}
-<section class="card mb-1" id="type-selector-section">
+<section class="card my-2" id="type-selector-section">
     <h3>Publication Type</h3>
     <p class="text-muted">Select the publication type. The form below will update to collect required information.</p>
     <div class="form-field">
@@ -13,7 +13,7 @@
                    hx-target="#type-change-form"
                    hx-swap="innerHTML"
                    {% if current_publication_type == "article" %}checked{% endif %}>
-            Article (Journal Publication)
+            Article
         </label>
     </div>
     <div class="form-field">
@@ -26,7 +26,7 @@
                    hx-target="#type-change-form"
                    hx-swap="innerHTML"
                    {% if current_publication_type == "monograph" %}checked{% endif %}>
-            Monograph (Book / Book Chapter)
+            Monograph
         </label>
     </div>
     <div id="type-change-form" class="mt-1">
