@@ -32,4 +32,15 @@
             <p>{{ error }}</p>
         </article>
     {% endif %}
+    {% if demo_dois %}
+        <article>
+            <p>
+                <strong>Demo mode:</strong> This instance does not make real calls to Crossref.
+                Only the following DOIs are available:
+            </p>
+            <ul>
+                {% for doi in demo_dois %}<li>{{ doi }}</li>{% endfor %}
+            </ul>
+        </article>
+    {% endif %}
 {% endblock content %}
