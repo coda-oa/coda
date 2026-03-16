@@ -199,6 +199,49 @@ class DOIPreviewSaveView(LoginRequiredMixin, View):
         )
 
 
+def _render_article_type_form(
+    request: HttpRequest,
+    session_key: str,
+    original_metadata: dict[str, Any],
+    *,
+    error: str = "",
+) -> HttpResponse:
+    """Render the article type-change form partial, pre-filling from original metadata."""
+    journal_data = original_metadata.get("journal") or {}
+    metadata_title = journal_data.get("title", "")
+    journal_title_search = request.GET.get("journal_title", "") or metadata_title
+    journals = (
+        list(journal_services.find_by_title(journal_title_search)) if journal_title_search else []
+    )
+    context: dict[str, Any] = {
+        "session_key": session_key,
+        "journal_title": journal_title_search,
+        "journals": journals,
+    }
+    if error:
+        context["error"] = error
+    return render(request, "fundingrequests/partials/doi_type_change_to_article.html", context)
+
+
+def _render_monograph_type_form(
+    request: HttpRequest,
+    session_key: str,
+    original_metadata: dict[str, Any],
+    *,
+    error: str = "",
+) -> HttpResponse:
+    """Render the monograph type-change form partial, pre-filling from original metadata."""
+    suggested_publisher = request.POST.get("publisher_name", original_metadata.get("publisher", ""))
+    context: dict[str, Any] = {
+        "session_key": session_key,
+        "suggested_publisher": suggested_publisher,
+        "publishers": [],
+    }
+    if error:
+        context["error"] = error
+    return render(request, "fundingrequests/partials/doi_type_change_to_monograph.html", context)
+
+
 @login_required
 def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpResponse:
     """HTMX endpoint: Load form partial for switching publication type.
@@ -215,36 +258,8 @@ def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpRe
     original_metadata = session_data.get("original_metadata", {})
 
     if requested_type == "article":
-        journal_data = original_metadata.get("journal") or {}
-        # Use the metadata title as fallback so the initial load auto-searches.
-        metadata_title = journal_data.get("title", "")
-        journal_title_search = request.GET.get("journal_title", "") or metadata_title
-        journals = (
-            list(journal_services.find_by_title(journal_title_search))
-            if journal_title_search
-            else []
-        )
-        context = {
-            "session_key": session_key,
-            "journal_title": journal_title_search,
-            "journals": journals,
-        }
-        return render(
-            request,
-            "fundingrequests/partials/doi_type_change_to_article.html",
-            context,
-        )
-    else:
-        context = {
-            "session_key": session_key,
-            "suggested_publisher": original_metadata.get("publisher", ""),
-            "publishers": [],
-        }
-        return render(
-            request,
-            "fundingrequests/partials/doi_type_change_to_monograph.html",
-            context,
-        )
+        return _render_article_type_form(request, session_key, original_metadata)
+    return _render_monograph_type_form(request, session_key, original_metadata)
 
 
 @login_required
@@ -273,19 +288,11 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
         case "article":
             journal_id_str = request.POST.get("journal")
             if not journal_id_str:
-                journal_data = original_metadata.get("journal") or {}
-                context = {
-                    "session_key": session_key,
-                    "journal_title": request.POST.get(
-                        "journal_title", journal_data.get("title", "")
-                    ),
-                    "journals": [],
-                    "error": "Please select a journal before applying.",
-                }
-                return render(
+                return _render_article_type_form(
                     request,
-                    "fundingrequests/partials/doi_type_change_to_article.html",
-                    context,
+                    session_key,
+                    original_metadata,
+                    error="Please select a journal before applying.",
                 )
             session_data["publication_type"] = "article"
             session_data["journal_id"] = int(journal_id_str)
@@ -293,18 +300,11 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
         case "monograph":
             publisher_id_str = request.POST.get("publisher")
             if not publisher_id_str:
-                context = {
-                    "session_key": session_key,
-                    "suggested_publisher": request.POST.get(
-                        "publisher_name", original_metadata.get("publisher", "")
-                    ),
-                    "publishers": [],
-                    "error": "Please select a publisher before applying.",
-                }
-                return render(
+                return _render_monograph_type_form(
                     request,
-                    "fundingrequests/partials/doi_type_change_to_monograph.html",
-                    context,
+                    session_key,
+                    original_metadata,
+                    error="Please select a publisher before applying.",
                 )
             session_data["publication_type"] = "monograph"
             session_data["publisher_id"] = int(publisher_id_str)

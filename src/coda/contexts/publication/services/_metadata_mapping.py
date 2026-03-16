@@ -15,11 +15,6 @@ import datetime
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.publications.dto import (
     ConceptDto,
-    JournalDto,
-    LinkDto,
-    MonographDto,
-    PublicationDto,
-    PublicationMetaDto,
 )
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.dto.preview import (
@@ -28,8 +23,7 @@ from coda.contexts.publication.dto.preview import (
     PreviewMonograph,
     PreviewPublicationMeta,
 )
-from coda.domain.contract import PublisherId
-from coda.domain.publication import JournalId, License
+from coda.domain.publication import License
 from coda.domain.publication.links import Doi
 from coda.domain.publication.publication import (
     InvalidLicenseType,
@@ -114,6 +108,34 @@ def extract_print_date(publication_state: PublicationState) -> datetime.date | N
     return publication_state.print if isinstance(publication_state, Published) else None
 
 
+def _build_meta(metadata: ExternalPublicationMetadata) -> PreviewPublicationMeta:
+    """Build shared publication metadata from external metadata.
+
+    Extracts and maps all common publication fields (title, license, dates, etc.)
+    into a PreviewPublicationMeta.  Used by both article and monograph builders.
+
+    Args:
+        metadata: External publication metadata
+
+    Returns:
+        PreviewPublicationMeta with all common fields populated
+    """
+    publication_state = map_publication_state(
+        metadata.online_publication_date,
+        metadata.print_publication_date,
+    )
+    return PreviewPublicationMeta(
+        title=metadata.title,
+        publication_type=ConceptDto.from_concept(UnknownConcept),
+        subject_area=ConceptDto.from_concept(UnknownConcept),
+        license=map_license(metadata.license).name,
+        open_access_type="Unknown",
+        publication_state=publication_state.name(),
+        online_publication_date=extract_online_date(publication_state),
+        print_publication_date=extract_print_date(publication_state),
+    )
+
+
 def build_preview_article(
     doi: Doi,
     metadata: ExternalPublicationMetadata,
@@ -131,11 +153,6 @@ def build_preview_article(
         is absent the returned DTO will have ``journal=None`` and a non-empty
         ``warnings`` list so the caller can present a fix form to the user.
     """
-    publication_state = map_publication_state(
-        metadata.online_publication_date,
-        metadata.print_publication_date,
-    )
-
     journal = (
         PreviewJournal(
             title=metadata.journal.title,
@@ -147,16 +164,7 @@ def build_preview_article(
     )
 
     return PreviewArticle(
-        meta=PreviewPublicationMeta(
-            title=metadata.title,
-            publication_type=ConceptDto.from_concept(UnknownConcept),
-            subject_area=ConceptDto.from_concept(UnknownConcept),
-            license=map_license(metadata.license).name,
-            open_access_type="Unknown",
-            publication_state=publication_state.name(),
-            online_publication_date=extract_online_date(publication_state),
-            print_publication_date=extract_print_date(publication_state),
-        ),
+        meta=_build_meta(metadata),
         journal=journal,
         doi=str(doi),
         authors=authors_dto,
@@ -181,110 +189,10 @@ def build_preview_monograph(
         metadata is absent the returned DTO will have ``publisher_name=None``
         and a non-empty ``warnings`` list so the caller can present a fix form.
     """
-    publication_state = map_publication_state(
-        metadata.online_publication_date,
-        metadata.print_publication_date,
-    )
-
     return PreviewMonograph(
-        meta=PreviewPublicationMeta(
-            title=metadata.title,
-            publication_type=ConceptDto.from_concept(UnknownConcept),
-            subject_area=ConceptDto.from_concept(UnknownConcept),
-            license=map_license(metadata.license).name,
-            open_access_type="Unknown",
-            publication_state=publication_state.name(),
-            online_publication_date=extract_online_date(publication_state),
-            print_publication_date=extract_print_date(publication_state),
-        ),
+        meta=_build_meta(metadata),
         publisher_name=metadata.publisher,
         doi=str(doi),
         isbn=metadata.isbn,
         authors=authors_dto,
-    )
-
-
-def build_publication_dto(
-    doi: Doi,
-    metadata: ExternalPublicationMetadata,
-    journal_id: JournalId,
-    authors_dto: list[AuthorDto],
-) -> PublicationDto:
-    """Build PublicationDto from DOI metadata with resolved database IDs.
-
-    This is used for actual database persistence (not preview).
-
-    Args:
-        doi: DOI identifier
-        metadata: External publication metadata
-        journal_id: Resolved journal database ID
-        authors_dto: List of author DTOs
-
-    Returns:
-        PublicationDto ready for database persistence
-    """
-    publication_state = map_publication_state(
-        metadata.online_publication_date,
-        metadata.print_publication_date,
-    )
-
-    return PublicationDto(
-        meta=PublicationMetaDto(
-            title=metadata.title,
-            publication_type=ConceptDto.from_concept(UnknownConcept),
-            subject_area=ConceptDto.from_concept(UnknownConcept),
-            license=map_license(metadata.license).name,
-            open_access_type="Unknown",
-            publication_state=publication_state.name(),
-            online_publication_date=extract_online_date(publication_state),
-            print_publication_date=extract_print_date(publication_state),
-        ),
-        journal=JournalDto(id=journal_id),
-        contracts=[],
-        links=[LinkDto(link_type=doi.type(), link_value=doi.value())],
-        relevant_authors=authors_dto,
-        other_authors=[],
-    )
-
-
-def build_monograph_dto(
-    doi: Doi,
-    metadata: ExternalPublicationMetadata,
-    publisher_id: PublisherId,
-    authors_dto: list[AuthorDto],
-) -> MonographDto:
-    """Build MonographDto from DOI metadata with resolved database IDs.
-
-    This is used for actual database persistence (not preview).
-
-    Args:
-        doi: DOI identifier
-        metadata: External publication metadata
-        publisher_id: Resolved publisher database ID
-        authors_dto: List of author DTOs
-
-    Returns:
-        MonographDto ready for database persistence
-    """
-    publication_state = map_publication_state(
-        metadata.online_publication_date,
-        metadata.print_publication_date,
-    )
-
-    return MonographDto(
-        meta=PublicationMetaDto(
-            title=metadata.title,
-            publication_type=ConceptDto.from_concept(UnknownConcept),
-            subject_area=ConceptDto.from_concept(UnknownConcept),
-            license=map_license(metadata.license).name,
-            open_access_type="Unknown",
-            publication_state=publication_state.name(),
-            online_publication_date=extract_online_date(publication_state),
-            print_publication_date=extract_print_date(publication_state),
-        ),
-        publisher=publisher_id,
-        contracts=[],
-        links=[LinkDto(link_type=doi.type(), link_value=doi.value())],
-        relevant_authors=authors_dto,
-        other_authors=[],
     )

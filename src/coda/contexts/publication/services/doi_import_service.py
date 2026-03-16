@@ -204,6 +204,31 @@ class DOIImportService:
             title=NonEmptyStr(publication.journal.title), eissn=issn, publisher_id=publisher_id
         )
 
+    def _resolve_article_dto(self, publication: PreviewArticle) -> PublicationDto:
+        """Resolve journal entity and convert article preview to creation DTO.
+
+        Raises:
+            InvalidMetadataError: If journal metadata or E-ISSN is missing
+        """
+        if publication.journal is None:
+            raise InvalidMetadataError("Journal article missing journal metadata")
+        if publication.journal.eissn is None:
+            raise InvalidMetadataError(f"Journal '{publication.journal.title}' missing E-ISSN")
+        issn = Issn(publication.journal.eissn)
+        journal_id = self._match_or_create_journal(issn, publication)
+        return publication.to_publication_dto(journal_id=journal_id)
+
+    def _resolve_monograph_dto(self, publication: PreviewMonograph) -> MonographDto:
+        """Resolve publisher entity and convert monograph preview to creation DTO.
+
+        Raises:
+            InvalidMetadataError: If publisher name is missing
+        """
+        if publication.publisher_name is None:
+            raise InvalidMetadataError("Monograph missing publisher name")
+        publisher_id = self._match_or_create_publisher(publication.publisher_name)
+        return publication.to_monograph_dto(publisher_id=publisher_id)
+
     def _convert_preview_to_creation_dto(
         self,
         preview: PreviewFundingRequest,
@@ -238,27 +263,13 @@ class DOIImportService:
                 publication_dto = preview.publication.to_monograph_dto(publisher_id=publisher_id)
 
             case None:
-                if isinstance(preview.publication, PreviewArticle):
-                    if preview.publication.journal is None:
-                        raise InvalidMetadataError("Journal article missing journal metadata")
-                    if preview.publication.journal.eissn is None:
-                        raise InvalidMetadataError(
-                            f"Journal '{preview.publication.journal.title}' missing E-ISSN"
-                        )
-                    issn = Issn(preview.publication.journal.eissn)
-                    journal_id = self._match_or_create_journal(issn, preview.publication)
-                    publication_dto = preview.publication.to_publication_dto(journal_id=journal_id)
-                elif isinstance(preview.publication, PreviewMonograph):
-                    if preview.publication.publisher_name is None:
-                        raise InvalidMetadataError("Monograph missing publisher name")
-                    publisher_id = self._match_or_create_publisher(
-                        preview.publication.publisher_name
-                    )
-                    publication_dto = preview.publication.to_monograph_dto(
-                        publisher_id=publisher_id
-                    )
-                else:
-                    raise ValueError("Invalid Preview type")
+                match preview.publication:
+                    case PreviewArticle() as article:
+                        publication_dto = self._resolve_article_dto(article)
+                    case PreviewMonograph() as monograph:
+                        publication_dto = self._resolve_monograph_dto(monograph)
+                    case _:
+                        raise ValueError("Invalid Preview type")
 
         return CreateFundingRequestDto(
             publication=publication_dto,

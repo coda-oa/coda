@@ -251,12 +251,24 @@ class CrossrefDoiClient:
         return url if url else None
 
     def _extract_creative_commons_license(self, url: str) -> str:
-        """Extract Creative Commons license type from URL."""
+        """Extract Creative Commons license identifier from a creativecommons.org URL.
+
+        Crossref license URLs follow the pattern:
+          https://creativecommons.org/licenses/<type>/<version>/
+        e.g. https://creativecommons.org/licenses/by/4.0/ → "CC-BY"
+
+        The second-to-last path segment is the license type slug (e.g. "by", "by-nc").
+        We upper-case it and prepend "CC-" to produce the canonical identifier.
+        If the URL does not have enough path segments to extract a type, we return
+        the raw URL unchanged so the caller can fall back to License.Unknown.
+        """
         parts = url.rstrip("/").split("/")
-        if len(parts) >= 2:
-            license_type = parts[-2].upper()
-            return f"CC-{license_type}" if not license_type.startswith("CC") else license_type
-        return url
+        # Need at least: ['https:', '', 'creativecommons.org', 'licenses', '<type>', '<version>']
+        if len(parts) < 2:
+            return url
+
+        license_type = parts[-2].upper()  # e.g. "BY", "BY-NC-ND"
+        return f"CC-{license_type}"
 
     def _parse_date(self, date_data: dict[str, Any] | None) -> datetime.date | None:
         """Parse date from Crossref format (date-parts array)."""

@@ -4,9 +4,20 @@ This module contains fake/stub implementations for testing purposes only.
 The fake client starts empty - tests should configure it with test data.
 """
 
+from typing import Literal
+
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.services.doi_client import DOIFetchError, DOINotFoundError
 from coda.domain.publication.links import Doi
+
+ErrorType = Literal["timeout", "network", "server_error", "rate_limit"]
+
+_ERROR_MESSAGES: dict[ErrorType, str] = {
+    "timeout": "Request timeout",
+    "network": "Network connection failed",
+    "server_error": "Server returned 500 error",
+    "rate_limit": "Rate limit exceeded (429)",
+}
 
 
 class FakeDOIMetadataClient:
@@ -24,9 +35,9 @@ class FakeDOIMetadataClient:
     def __init__(self) -> None:
         # Empty by default - tests configure with specific data
         self.data: dict[str, ExternalPublicationMetadata] = {}
-        self._errors: dict[str, str] = {}
+        self._errors: dict[str, ErrorType] = {}
 
-    def configure_error(self, doi: Doi, error_type: str) -> None:
+    def configure_error(self, doi: Doi, error_type: ErrorType) -> None:
         """Configure the client to raise an error for a specific DOI.
 
         Args:
@@ -39,21 +50,10 @@ class FakeDOIMetadataClient:
         """Fetch metadata from hardcoded test data or raise configured error."""
         doi_str = str(doi)
 
-        # Check if this DOI is configured to raise an error
         if doi_str in self._errors:
             error_type = self._errors[doi_str]
-            if error_type == "timeout":
-                raise DOIFetchError(doi, "Request timeout")
-            elif error_type == "network":
-                raise DOIFetchError(doi, "Network connection failed")
-            elif error_type == "server_error":
-                raise DOIFetchError(doi, "Server returned 500 error")
-            elif error_type == "rate_limit":
-                raise DOIFetchError(doi, "Rate limit exceeded (429)")
-            else:
-                raise DOIFetchError(doi, f"Unknown error type: {error_type}")
+            raise DOIFetchError(doi, _ERROR_MESSAGES[error_type])
 
-        # Normal behavior
         if doi_str not in self.data:
             raise DOINotFoundError(doi)
 
