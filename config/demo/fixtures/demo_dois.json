@@ -1,0 +1,143 @@
+{
+  "10.1038/s41586-020-2649-2": {
+    "title": "Array programming with NumPy",
+    "authors": [
+      {"name": "Charles R. Harris", "affiliation": "SciPy community", "ror_id": null},
+      {"name": "K. Jarrod Millman", "affiliation": null, "ror_id": null}
+    ],
+    "publication_type": "journal-article",
+    "journal": {"title": "Nature", "issn": "0028-0836", "eissn": "1476-4687"},
+    "publisher": "Springer Science and Business Media LLC",
+    "isbn": null,
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "online_publication_date": "2020-09-16",
+    "print_publication_date": null
+  },
+  "10.1126/science.1249098": {
+    "title": "An integrated map of genetic variation from 1,092 human genomes",
+    "authors": [
+      {"name": "Gonçalo R. Abecasis", "affiliation": "University of Michigan", "ror_id": "https://ror.org/00jmfr291"},
+      {"name": "Adam Auton", "affiliation": null, "ror_id": null}
+    ],
+    "publication_type": "journal-article",
+    "journal": {"title": "Science", "issn": "0036-8075", "eissn": "1095-9203"},
+    "publisher": "American Association for the Advancement of Science",
+    "isbn": null,
+    "license": null,
+    "online_publication_date": "2014-01-17",
+    "print_publication_date": null
+  },
+  "10.1038/nature14539": {
+    "title": "Human-level control through deep reinforcement learning",
+    "authors": [
+      {"name": "Volodymyr Mnih", "affiliation": "Google DeepMind", "ror_id": null},
+      {"name": "Koray Kavukcuoglu", "affiliation": "Google DeepMind", "ror_id": null}
+    ],
+    "publication_type": "journal-article",
+    "journal": {"title": "Nature", "issn": "0028-0836", "eissn": "1476-4687"},
+    "publisher": "Springer Science and Business Media LLC",
+    "isbn": null,
+    "license": null,
+    "online_publication_date": "2015-02-25",
+    "print_publication_date": "2015-02-26"
+  },
+  "10.1145/3290605.3300675": {
+    "title": "Attention is All You Need",
+    "authors": [
+      {"name": "Ashish Vaswani", "affiliation": "Google Brain", "ror_id": null},
+      {"name": "Noam Shazeer", "affiliation": "Google Brain", "ror_id": null}
+    ],
+    "publication_type": "journal-article",
+    "journal": {"title": "Advances in Neural Information Processing Systems", "issn": null, "eissn": null},
+    "publisher": "ACM",
+    "isbn": null,
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "online_publication_date": "2019-05-04",
+    "print_publication_date": null
+  },
+  "10.1371/journal.pmed.0020124": {
+    "title": "Why Most Published Research Findings Are False",
+    "authors": [
+      {"name": "John P. A. Ioannidis", "affiliation": "University of Ioannina", "ror_id": "https://ror.org/03t1yn043"}
+    ],
+    "publication_type": "journal-article",
+    "journal": {"title": "PLOS Medicine", "issn": null, "eissn": "1549-1676"},
+    "publisher": "Public Library of Science",
+    "isbn": null,
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "online_publication_date": "2005-08-30",
+    "print_publication_date": null
+  },
+  "10.1007/978-3-319-18938-3": {
+    "title": "Deep Learning",
+    "authors": [
+      {"name": "Ian Goodfellow", "affiliation": "Google Brain", "ror_id": null},
+      {"name": "Yoshua Bengio", "affiliation": "Université de Montréal", "ror_id": "https://ror.org/0161xgx34"},
+      {"name": "Aaron Courville", "affiliation": "Université de Montréal", "ror_id": "https://ror.org/0161xgx34"}
+    ],
+    "publication_type": "book",
+    "journal": null,
+    "publisher": "MIT Press",
+    "isbn": "9780262035613",
+    "license": null,
+    "online_publication_date": null,
+    "print_publication_date": "2016-11-01"
+  },
+  "10.1007/978-0-387-84858-7": {
+    "title": "The Elements of Statistical Learning",
+    "authors": [
+      {"name": "Trevor Hastie", "affiliation": "Stanford University", "ror_id": "https://ror.org/00f54p054"},
+      {"name": "Robert Tibshirani", "affiliation": "Stanford University", "ror_id": "https://ror.org/00f54p054"},
+      {"name": "Jerome Friedman", "affiliation": "Stanford University", "ror_id": "https://ror.org/00f54p054"}
+    ],
+    "publication_type": "book",
+    "journal": null,
+    "publisher": "Springer New York",
+    "isbn": "9780387848570",
+    "license": null,
+    "online_publication_date": null,
+    "print_publication_date": "2009-01-01"
+  },
+  "10.1007/978-3-031-44064-9": {
+    "title": "Pattern Recognition and Machine Learning",
+    "authors": [
+      {"name": "Christopher M. Bishop", "affiliation": "Microsoft Research", "ror_id": null}
+    ],
+    "publication_type": "book",
+    "journal": null,
+    "publisher": "Springer International Publishing",
+    "isbn": "9780387310732",
+    "license": null,
+    "online_publication_date": null,
+    "print_publication_date": "2006-01-01"
+  },
+  "10.1093/oso/9780198812791.001.0001": {
+    "title": "The Art of Statistics: Learning from Data",
+    "authors": [
+      {"name": "David Spiegelhalter", "affiliation": "University of Cambridge", "ror_id": "https://ror.org/013meh722"}
+    ],
+    "publication_type": "book",
+    "journal": null,
+    "publisher": "Oxford University Press",
+    "isbn": "9780198812791",
+    "license": null,
+    "online_publication_date": null,
+    "print_publication_date": "2019-09-01"
+  },
+  "10.1007/978-1-4614-7138-7": {
+    "title": "An Introduction to Statistical Learning",
+    "authors": [
+      {"name": "Gareth James", "affiliation": "University of Southern California", "ror_id": "https://ror.org/03taz7m60"},
+      {"name": "Daniela Witten", "affiliation": "University of Washington", "ror_id": "https://ror.org/00cvxb145"},
+      {"name": "Trevor Hastie", "affiliation": "Stanford University", "ror_id": "https://ror.org/00f54p054"},
+      {"name": "Robert Tibshirani", "affiliation": "Stanford University", "ror_id": "https://ror.org/00f54p054"}
+    ],
+    "publication_type": "book",
+    "journal": null,
+    "publisher": "Springer New York",
+    "isbn": "9781461471370",
+    "license": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+    "online_publication_date": null,
+    "print_publication_date": "2013-01-01"
+  }
+}
