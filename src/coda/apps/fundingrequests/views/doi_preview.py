@@ -18,7 +18,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.views import View
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.fundingrequests.queries.preview_context_builder import build_preview_context
 from coda.apps.journals import services as journal_services
@@ -243,6 +243,7 @@ def _render_monograph_type_form(
 
 
 @login_required
+@require_GET
 def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpResponse:
     """HTMX endpoint: Load form partial for switching publication type.
 
