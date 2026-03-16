@@ -21,7 +21,6 @@ from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
     ExternalPublicationMetadata,
 )
-from coda.domain.publication import JournalId
 from coda.domain.publication.links import Doi
 from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 from tests.fundingrequests.test_doi_import_preview import (
@@ -124,14 +123,13 @@ def test_preview_page__monograph_without_publisher__shows_warning_and_fix_form(
 def test_preview_page__override_applied__no_warnings(
     client: Client,
     fake_doi_client: FakeDOIMetadataClient,
-    test_journal: tuple[JournalId, str, str, str],
+    test_journal: Journal,
 ) -> None:
     """After journal override applied, warnings are gone from preview page.
 
     Once the user supplies a journal via the fix form, the preview page should
     render without any warning banner.
     """
-    journal_id, journal_title, journal_eissn, publisher_name = test_journal
     doi_str = "10.1234/no-journal.override"
     doi = Doi(doi_str)
     fake_doi_client.data[str(doi)] = ExternalPublicationMetadata(
@@ -149,8 +147,7 @@ def test_preview_page__override_applied__no_warnings(
     response = submit_for_preview(client, doi_str)
     session_key = get_session_key(response)
 
-    journal = Journal.objects.get(pk=int(journal_id))
-    submit_type_change(client, session_key, "article", journal=journal.pk)
+    submit_type_change(client, session_key, "article", journal=test_journal.pk)
 
     preview_url = response["Location"]
     preview_response = client.get(preview_url)

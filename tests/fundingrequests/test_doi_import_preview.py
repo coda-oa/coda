@@ -202,18 +202,17 @@ def inject_fake_doi_client(fake_doi_client: FakeDOIMetadataClient) -> None:
 
 @pytest.fixture
 def expected_fundingrequest(
-    test_journal: tuple[JournalId, str, str, str],
+    test_journal: Journal,
     fake_doi_client: FakeDOIMetadataClient,
 ) -> FundingRequest[Publication]:
     """Build expected FundingRequest and configure fake client to produce it."""
-    journal_id, journal_title, journal_eissn, publisher_name = test_journal
     doi_str = "10.1234/preview.test"
     doi = Doi(doi_str)
 
     # Build expected FundingRequest (what we WANT)
     expected = build_expected_fundingrequest(
         doi=doi,
-        journal_id=journal_id,
+        journal_id=JournalId(test_journal.pk),
         title="Test DOI Preview Article",
         publication_date=datetime.date(2024, 1, 1),
     )
@@ -223,9 +222,9 @@ def expected_fundingrequest(
         fake_client=fake_doi_client,
         doi=doi,
         expected_fr=expected,
-        journal_title=journal_title,
-        journal_eissn=journal_eissn,
-        publisher_name=publisher_name,
+        journal_title=test_journal.title,
+        journal_eissn=test_journal.eissn,
+        publisher_name=test_journal.publisher.name,
     )
 
     return expected
@@ -318,15 +317,13 @@ def test_saving_preview_redirects_to_detail_page(client: Client) -> None:
 def test_multiple_previews_can_coexist(
     client: Client,
     fake_doi_client: FakeDOIMetadataClient,
-    test_journal: tuple[JournalId, str, str, str],
+    test_journal: Journal,
 ) -> None:
     """Multiple preview sessions can coexist; saving one does not affect others."""
-    journal_id, journal_title, journal_eissn, publisher_name = test_journal
-
     doi1 = Doi("10.1234/preview.test")
     expected1 = build_expected_fundingrequest(
         doi=doi1,
-        journal_id=journal_id,
+        journal_id=JournalId(test_journal.pk),
         title="Test DOI Preview Article",
         publication_date=datetime.date(2024, 1, 1),
     )
@@ -334,15 +331,15 @@ def test_multiple_previews_can_coexist(
         fake_client=fake_doi_client,
         doi=doi1,
         expected_fr=expected1,
-        journal_title=journal_title,
-        journal_eissn=journal_eissn,
-        publisher_name=publisher_name,
+        journal_title=test_journal.title,
+        journal_eissn=test_journal.eissn,
+        publisher_name=test_journal.publisher.name,
     )
 
     doi2 = Doi("10.5678/another.article")
     expected2 = build_expected_fundingrequest(
         doi=doi2,
-        journal_id=journal_id,
+        journal_id=JournalId(test_journal.pk),
         title="Another Test Article",
         publication_date=datetime.date(2024, 2, 1),
     )
@@ -350,9 +347,9 @@ def test_multiple_previews_can_coexist(
         fake_client=fake_doi_client,
         doi=doi2,
         expected_fr=expected2,
-        journal_title=journal_title,
-        journal_eissn=journal_eissn,
-        publisher_name=publisher_name,
+        journal_title=test_journal.title,
+        journal_eissn=test_journal.eissn,
+        publisher_name=test_journal.publisher.name,
     )
 
     response1 = submit_for_preview(client, str(doi1))
@@ -502,33 +499,29 @@ def test_submit_type_change_to_monograph_stores_publisher_id_in_session(
 def test_submit_type_change_to_article_stores_journal_id_in_session(
     client: Client,
     fake_doi_client: FakeDOIMetadataClient,
-    test_journal: tuple[JournalId, str, str, str],
+    test_journal: Journal,
 ) -> None:
     """Submitting article form with journal should store journal_id in session."""
-    journal_id, journal_title, journal_eissn, publisher_name = test_journal
-
     # Start with a monograph DOI
     doi_str = "10.1234/book.test"
     doi = Doi(doi_str)
     fake_doi_client.data[str(doi)] = metadatafactory.book_metadata(
         title="Test Book",
-        publisher=publisher_name,
+        publisher=test_journal.publisher.name,
         isbn="978-3-16-148410-0",
     )
 
     response = submit_for_preview(client, doi_str)
     session_key = get_session_key(response)
 
-    journal = Journal.objects.get(pk=int(journal_id))
-
-    change_response = submit_type_change(client, session_key, "article", journal=journal.pk)
+    change_response = submit_type_change(client, session_key, "article", journal=test_journal.pk)
 
     assert change_response.status_code == 200
     assert f"/doi-preview/{session_key}/" in change_response["HX-Redirect"]
 
     session_data = client.session[session_key]
     assert session_data["publication_type"] == "article"
-    assert session_data["journal_id"] == journal.pk
+    assert session_data["journal_id"] == test_journal.pk
 
 
 @pytest.mark.django_db
@@ -676,24 +669,22 @@ def test_override_article_to_monograph_and_save(
 def test_override_monograph_to_article_and_save(
     client: Client,
     fake_doi_client: FakeDOIMetadataClient,
-    test_journal: tuple[JournalId, str, str, str],
+    test_journal: Journal,
 ) -> None:
     """Full workflow: monograph DOI → override to article → save creates Publication."""
-    journal_id, journal_title, journal_eissn, publisher_name = test_journal
     doi_str = "10.1234/book.override"
     doi = Doi(doi_str)
 
     fake_doi_client.data[str(doi)] = metadatafactory.book_metadata(
         title="Test Book",
-        publisher=publisher_name,
+        publisher=test_journal.publisher.name,
         isbn="978-3-16-148410-0",
     )
 
     response = submit_for_preview(client, doi_str)
     session_key = get_session_key(response)
 
-    journal = Journal.objects.get(pk=int(journal_id))
-    submit_type_change(client, session_key, "article", journal=journal.pk)
+    submit_type_change(client, session_key, "article", journal=test_journal.pk)
     save_doi_import(client, session_key)
 
     fr = repository.first()

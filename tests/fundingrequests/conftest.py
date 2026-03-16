@@ -3,16 +3,16 @@
 import pytest
 
 from coda.apps.journals import services as journal_services
+from coda.apps.journals.models import Journal
 from coda.domain.contract import PublisherId
 from coda.domain.issn import Issn
-from coda.domain.publication import JournalId
 from coda.domain.string import NonEmptyStr
 from tests import modelfactory
 
 
 @pytest.fixture
-def test_journal() -> tuple[JournalId, str, str, str]:
-    """Create test journal and return (id, title, eissn, publisher_name)."""
+def test_journal() -> Journal:
+    """Create and return a test journal."""
     publisher_name = "Test Publisher"
     journal_title = "Nature"
     journal_eissn = "1476-4687"
@@ -24,4 +24,4 @@ def test_journal() -> tuple[JournalId, str, str, str]:
         publisher_id=publisher_id,
     )
 
-    return journal_id, journal_title, journal_eissn, publisher_name
+    return Journal.objects.get(pk=int(journal_id))
