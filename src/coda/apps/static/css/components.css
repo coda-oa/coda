@@ -73,6 +73,7 @@ search-select:not(:defined) {
 }
 
 .messages {
+  max-width: var(--messages-max-width, 100%);
   padding: var(--coda-spacing) !important;
   margin-block: var(--coda-spacing) !important;
   background-color: var(--_background-color);

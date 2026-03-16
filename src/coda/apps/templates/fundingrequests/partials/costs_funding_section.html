@@ -1,0 +1,51 @@
+<article>
+    <header class="flex justify-between align-center">
+        <h2 class="fundingrequest__detail-title">Costs and Funding</h2>
+        {% if edit_funding_url %}<a href="{{ edit_funding_url }}" role="button">Edit</a>{% endif %}
+    </header>
+    <table class="fundingrequest-table">
+        <tbody>
+            <tr>
+                <th scope="row">Estimated Cost</th>
+                <td>{{ funding_request.estimated_cost.amount.amount }} {{ funding_request.estimated_cost.amount.currency.code }}</td>
+                {% if not is_preview %}
+                    <th scope="row">Decided Funding Amount</th>
+                    <td>{{ funding_request.funding_amount }}</td>
+                {% endif %}
+            </tr>
+            <tr>
+                <th scope="row">Payment Method</th>
+                <td {% if is_preview %}colspan="3"{% endif %}>{{ funding_request.estimated_cost.method.value|title }}</td>
+            </tr>
+            <tr>
+                <th scope="row">External Cost Splitting</th>
+                {% if funding_request.external_costsplitting %}
+                    <td>Yes</td>
+                {% else %}
+                    <td>No</td>
+                {% endif %}
+            </tr>
+        </tbody>
+    </table>
+    {% if external_funding %}
+        <h3 class="mt-1_5">External Research Funding</h3>
+        <table class="fundingrequest-table">
+            <thead>
+                <tr>
+                    <td>Organization</td>
+                    <td>Project ID</td>
+                    <td>Project Name</td>
+                </tr>
+            </thead>
+            <tbody>
+                {% for funding in external_funding %}
+                    <tr>
+                        <td>{{ funding.organization }}</td>
+                        <td>{{ funding.project_id }}</td>
+                        <td>{{ funding.project_name }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</article>

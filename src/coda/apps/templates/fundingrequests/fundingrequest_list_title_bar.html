@@ -1,12 +1,20 @@
 <div class="flex justify-between align-center my-2">
     <h1>{{ entity_name }}</h1>
-    <div>
+    <div class="flex align-centej">
         <a href="{% url entity_create_url %}" class="secondary" role="button">New Article</a>
         <a href="{% url entity_secondary_create_url %}"
            class="secondary"
            role="button">New Monograph</a>
-        <a href="{% url "fundingrequests:import" %}"
-           class="secondary"
-           role="button">Import</a>
+        <details class="dropdown m-0">
+            <summary role="button" class="secondary">Import</summary>
+            <ul>
+                <li>
+                    <a href="{% url 'fundingrequests:doi_import_input' %}">From DOI</a>
+                </li>
+                <li>
+                    <a href="{% url 'fundingrequests:import' %}">From JSON</a>
+                </li>
+            </ul>
+        </details>
     </div>
 </div>

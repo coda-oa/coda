@@ -73,6 +73,12 @@ class PublicFundingRequestId:
         _date = date
         return cls(_date, _id)
 
+    @classmethod
+    def temporary(cls, date: datetime.date | None = None) -> "PublicFundingRequestId":
+        date = date or datetime.date.today()
+        _id = _encode_number(0)
+        return cls(date, _id)
+
     def __init__(self, date: datetime.date, id_: str) -> None:
         self._date = date
         self._id = id_

@@ -4,7 +4,7 @@ import random
 from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Protocol, overload
+from typing import Protocol, cast, overload
 
 from coda.apps.fundingrequests import repository
 from coda.apps.institutions import repository as institution_repository
@@ -38,7 +38,8 @@ from coda.domain.string import NonEmptyStr
 class RequestIdGenerator(Protocol):
     def __call__(
         self, date: datetime.date | None = None, rng: random.Random | None = None
-    ) -> PublicFundingRequestId: ...
+    ) -> PublicFundingRequestId:
+        ...
 
 
 def create_fundingrequest(
@@ -62,7 +63,7 @@ def create_fundingrequest(
         request_remarks=creation_dto.extra_information.request_remarks,
     )
 
-    fr_id = repository.create(fr)
+    fr_id = repository.create(cast(AnyFundingRequest, fr))
     run_checks(fr_id, checkfactory=checkfactory)
 
     return fr_id
@@ -125,18 +126,21 @@ def try_into_funding_request(
         CreateFundingRequestFailed: If validation fails during conversion
     """
     try:
-        return FundingRequest(
-            id=None,
-            request_id=request_id,
-            publication=creation_dto.publication.to_publication(
-                get_contract_by_id=get_contract_by_id
+        return cast(
+            AnyFundingRequest,
+            FundingRequest(
+                id=None,
+                request_id=request_id,
+                publication=creation_dto.publication.to_publication(
+                    get_contract_by_id=get_contract_by_id
+                ),
+                estimated_cost=creation_dto.payment.to_payment(),
+                external_funding=[f.to_external_funding() for f in creation_dto.funding],
+                extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
+                request_remarks=creation_dto.extra_information.request_remarks,
+                legacy_request_id=creation_dto.legacy_request_id,
+                review=_create_review_from_dto(creation_dto.review),
             ),
-            estimated_cost=creation_dto.payment.to_payment(),
-            external_funding=[f.to_external_funding() for f in creation_dto.funding],
-            extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
-            request_remarks=creation_dto.extra_information.request_remarks,
-            legacy_request_id=creation_dto.legacy_request_id,
-            review=_create_review_from_dto(creation_dto.review),
         )
     except ValueError as e:
         raise CreateFundingRequestFailed(
@@ -354,11 +358,13 @@ def _keep_result(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) -
 @overload
 def get_institutions_allowed_as_affiliation(
     for_authors: Iterable[Author],
-) -> Iterable[Institution]: ...
+) -> Iterable[Institution]:
+    ...
 
 
 @overload
-def get_institutions_allowed_as_affiliation() -> Iterable[Institution]: ...
+def get_institutions_allowed_as_affiliation() -> Iterable[Institution]:
+    ...
 
 
 def get_institutions_allowed_as_affiliation(

@@ -1,0 +1,171 @@
+{
+  "10.1038/s41586-020-2649-2": {
+    "title": "Array programming with NumPy",
+    "authors": [
+      {"name": "Charles R. Harris", "affiliation": null, "ror_id": null},
+      {"name": "K. Jarrod Millman", "affiliation": null, "ror_id": null},
+      {"name": "Stéfan J. van der Walt", "affiliation": null, "ror_id": null},
+      {"name": "Ralf Gommers", "affiliation": null, "ror_id": null},
+      {"name": "Pauli Virtanen", "affiliation": null, "ror_id": null}
+    ],
+    "publication_type": "journal-article",
+    "journal": {"title": "Nature", "issn": "0028-0836", "eissn": "1476-4687"},
+    "publisher": "Springer Science and Business Media LLC",
+    "isbn": null,
+    "license": "https://creativecommons.org/licenses/by/4.0",
+    "online_publication_date": "2020-09-16",
+    "print_publication_date": "2020-09-17"
+  },
+  "10.1126/science.1249098": {
+    "title": "Sleep promotes branch-specific formation of dendritic spines after learning",
+    "authors": [
+      {"name": "Guang Yang", "affiliation": "Skirball Institute, Department of Neuroscience and Physiology, New York University School of Medicine", "ror_id": null},
+      {"name": "Cora Sau Wan Lai", "affiliation": null, "ror_id": null},
+      {"name": "Joseph Cichon", "affiliation": null, "ror_id": null},
+      {"name": "Lei Ma", "affiliation": null, "ror_id": null},
+      {"name": "Wei Li", "affiliation": null, "ror_id": null},
+      {"name": "Wen-Biao Gan", "affiliation": null, "ror_id": null}
+    ],
+    "publication_type": "journal-article",
+    "journal": {"title": "Science", "issn": "0036-8075", "eissn": "1095-9203"},
+    "publisher": "American Association for the Advancement of Science (AAAS)",
+    "isbn": null,
+    "license": null,
+    "online_publication_date": null,
+    "print_publication_date": "2014-06-06"
+  },
+  "10.1038/nature14539": {
+    "title": "Deep learning",
+    "authors": [
+      {"name": "Yann LeCun", "affiliation": null, "ror_id": null},
+      {"name": "Yoshua Bengio", "affiliation": null, "ror_id": null},
+      {"name": "Geoffrey Hinton", "affiliation": null, "ror_id": null}
+    ],
+    "publication_type": "journal-article",
+    "journal": {"title": "Nature", "issn": "0028-0836", "eissn": "1476-4687"},
+    "publisher": "Springer Science and Business Media LLC",
+    "isbn": null,
+    "license": null,
+    "online_publication_date": "2015-05-27",
+    "print_publication_date": "2015-05-28"
+  },
+  "10.1371/journal.pmed.0020124": {
+    "title": "Why Most Published Research Findings Are False",
+    "authors": [
+      {"name": "John P. A. Ioannidis", "affiliation": null, "ror_id": null}
+    ],
+    "publication_type": "journal-article",
+    "journal": {"title": "PLoS Medicine", "issn": null, "eissn": "1549-1676"},
+    "publisher": "Public Library of Science (PLoS)",
+    "isbn": null,
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "online_publication_date": "2005-08-30",
+    "print_publication_date": null
+  },
+  "10.1007/978-0-387-84858-7": {
+    "title": "The Elements of Statistical Learning",
+    "authors": [
+      {"name": "Trevor Hastie", "affiliation": null, "ror_id": null},
+      {"name": "Robert Tibshirani", "affiliation": null, "ror_id": null},
+      {"name": "Jerome Friedman", "affiliation": null, "ror_id": null}
+    ],
+    "publication_type": "book",
+    "journal": {"title": "Springer Series in Statistics", "issn": "0172-7397", "eissn": "2197-568X"},
+    "publisher": "Springer New York",
+    "isbn": "9780387848570",
+    "license": null,
+    "online_publication_date": null,
+    "print_publication_date": "2009-01-01"
+  },
+  "10.1007/978-1-4614-7138-7": {
+    "title": "An Introduction to Statistical Learning",
+    "authors": [
+      {"name": "Gareth James", "affiliation": null, "ror_id": null},
+      {"name": "Daniela Witten", "affiliation": null, "ror_id": null},
+      {"name": "Trevor Hastie", "affiliation": null, "ror_id": null},
+      {"name": "Robert Tibshirani", "affiliation": null, "ror_id": null}
+    ],
+    "publication_type": "book",
+    "journal": {"title": "Springer Texts in Statistics", "issn": "1431-875X", "eissn": "2197-4136"},
+    "publisher": "Springer New York",
+    "isbn": "9781461471370",
+    "license": null,
+    "online_publication_date": null,
+    "print_publication_date": "2013-01-01"
+  },
+  "10.1145/3458817.3476209": {
+    "title": "Efficient large-scale language model training on GPU clusters using megatron-LM",
+    "authors": [
+      {"name": "Deepak Narayanan", "affiliation": "NVIDIA and Microsoft Research", "ror_id": null},
+      {"name": "Mohammad Shoeybi", "affiliation": "NVIDIA", "ror_id": null},
+      {"name": "Jared Casper", "affiliation": "NVIDIA", "ror_id": null},
+      {"name": "Patrick LeGresley", "affiliation": "NVIDIA", "ror_id": null},
+      {"name": "Mostofa Patwary", "affiliation": "NVIDIA", "ror_id": null},
+      {"name": "Vijay Korthikanti", "affiliation": "NVIDIA", "ror_id": null},
+      {"name": "Dmitri Vainbrand", "affiliation": "NVIDIA", "ror_id": null},
+      {"name": "Prethvi Kashinkunti", "affiliation": "NVIDIA", "ror_id": null},
+      {"name": "Julie Bernauer", "affiliation": "NVIDIA", "ror_id": null},
+      {"name": "Bryan Catanzaro", "affiliation": "NVIDIA", "ror_id": null},
+      {"name": "Amar Phanishayee", "affiliation": "Microsoft Research", "ror_id": null},
+      {"name": "Matei Zaharia", "affiliation": "Stanford University", "ror_id": null}
+    ],
+    "publication_type": "proceedings-article",
+    "journal": {"title": "Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis", "issn": null, "eissn": null},
+    "publisher": "ACM",
+    "isbn": null,
+    "license": null,
+    "online_publication_date": "2021-11-13",
+    "print_publication_date": "2021-11-14"
+  },
+  "10.1007/978-0-387-45528-0": {
+    "title": "Pattern Recognition and Machine Learning",
+    "authors": [],
+    "publication_type": "book",
+    "journal": null,
+    "publisher": "Springer New York",
+    "isbn": null,
+    "license": null,
+    "online_publication_date": null,
+    "print_publication_date": "2006-01-01"
+  },
+  "10.7554/eLife.13273": {
+    "title": "Regulation of cell protrusions by small GTPases during fusion of the neural folds",
+    "authors": [
+      {"name": "Ana Rolo", "affiliation": "Newlife Birth Defects Research Centre, Institute of Child Health, University College London, London, United Kingdom", "ror_id": null},
+      {"name": "Dawn Savery", "affiliation": "Newlife Birth Defects Research Centre, Institute of Child Health, University College London, London, United Kingdom", "ror_id": null},
+      {"name": "Sarah Escuin", "affiliation": "Newlife Birth Defects Research Centre, Institute of Child Health, University College London, London, United Kingdom", "ror_id": null},
+      {"name": "Sandra C de Castro", "affiliation": "Newlife Birth Defects Research Centre, Institute of Child Health, University College London, London, United Kingdom", "ror_id": null},
+      {"name": "Hannah EJ Armer", "affiliation": "Imaging Unit, Institute of Ophthalmology, University College London, London, United Kingdom", "ror_id": null},
+      {"name": "Peter MG Munro", "affiliation": "Imaging Unit, Institute of Ophthalmology, University College London, London, United Kingdom", "ror_id": null},
+      {"name": "Matteo A Molè", "affiliation": "Newlife Birth Defects Research Centre, Institute of Child Health, University College London, London, United Kingdom", "ror_id": null},
+      {"name": "Nicholas DE Greene", "affiliation": "Newlife Birth Defects Research Centre, Institute of Child Health, University College London, London, United Kingdom", "ror_id": null},
+      {"name": "Andrew J Copp", "affiliation": "Newlife Birth Defects Research Centre, Institute of Child Health, University College London, London, United Kingdom", "ror_id": null}
+    ],
+    "publication_type": "journal-article",
+    "journal": {"title": "eLife", "issn": null, "eissn": "2050-084X"},
+    "publisher": "eLife Sciences Publications, Ltd",
+    "isbn": null,
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "online_publication_date": "2016-04-26",
+    "print_publication_date": null
+  },
+  "10.1038/s41467-021-21817-w": {
+    "title": "Oxalate production via oxidation of ascorbate rather than reduction of carbon dioxide",
+    "authors": [
+      {"name": "Fatemeh Khamespanah", "affiliation": null, "ror_id": null},
+      {"name": "Maximilian Marx", "affiliation": null, "ror_id": null},
+      {"name": "David B. Crochet", "affiliation": null, "ror_id": null},
+      {"name": "Uttam R. Pokharel", "affiliation": null, "ror_id": null},
+      {"name": "Frank R. Fronczek", "affiliation": null, "ror_id": null},
+      {"name": "Andrew W. Maverick", "affiliation": null, "ror_id": null},
+      {"name": "Matthias Beller", "affiliation": null, "ror_id": null}
+    ],
+    "publication_type": "journal-article",
+    "journal": {"title": "Nature Communications", "issn": null, "eissn": "2041-1723"},
+    "publisher": "Springer Science and Business Media LLC",
+    "isbn": null,
+    "license": "https://creativecommons.org/licenses/by/4.0",
+    "online_publication_date": "2021-03-25",
+    "print_publication_date": null
+  }
+}

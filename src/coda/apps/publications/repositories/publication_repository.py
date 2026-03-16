@@ -29,6 +29,7 @@ from coda.domain.publication import (
     UnpublishedState,
     links,
 )
+from coda.domain.publication.links import Doi
 from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import ConceptId, UnknownConcept, VocabularyConcept, VocabularyId
 
@@ -212,6 +213,40 @@ def first() -> BasePublication | None:
         return None
 
     return as_domain_object(p)
+
+
+def find_by_doi(doi: Doi) -> BasePublication | None:
+    """Find publication by DOI.
+
+    Args:
+        doi: DOI to search for
+
+    Returns:
+        Publication if found, None otherwise
+    """
+    model = (
+        PublicationModel.objects.select_related(
+            "article_journal",
+            "monograph_publisher",
+            "publication_type",
+            "subject_area",
+        )
+        .prefetch_related(
+            "relevant_authors__affiliation",
+            "relevant_authors__identifier",
+            "attached_contracts__contract__publishers",
+            "attached_contracts__contract__journals",
+            "links__type",
+        )
+        .filter(links__type__name="DOI", links__value=doi.value())
+        .distinct()
+        .first()
+    )
+
+    if not model:
+        return None
+
+    return as_domain_object(model)
 
 
 def find_publications_by_vocabulary(vocabulary_id: VocabularyId) -> list[BasePublication]:

@@ -32,7 +32,7 @@ button.undecorated {
 }
 
 .button {
-  padding: var(--coda-form-element-spacing-horizontal) var(--coda-form-element-spacing-vertical);
+  padding: var(--coda-form-element-spacing-vertical) var(--coda-form-element-spacing-horizontal);
   border: 1px solid var(--coda-border-color);
   border-radius: var(--coda-border-radius);
   text-decoration: none;
