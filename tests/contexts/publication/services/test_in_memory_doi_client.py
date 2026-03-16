@@ -49,24 +49,27 @@ def client() -> InMemoryDOIMetadataClient:
     return c
 
 
-def test_fetch_returns_metadata_for_known_doi(client: InMemoryDOIMetadataClient) -> None:
+def test__fetch__known_doi__returns_metadata(client: InMemoryDOIMetadataClient) -> None:
     result = client.fetch(ARTICLE_DOI)
     assert result == ARTICLE_METADATA
 
 
-def test_fetch_raises_doi_not_found_for_unknown_doi(client: InMemoryDOIMetadataClient) -> None:
+def test__fetch__unknown_doi__raises_doi_not_found_error(client: InMemoryDOIMetadataClient) -> None:
     with pytest.raises(DOINotFoundError) as exc_info:
         client.fetch(Doi("10.9999/unknown"))
     assert "not available in the demo dataset" in str(exc_info.value)
 
 
-def test_fetch_raises_configured_error(client: InMemoryDOIMetadataClient) -> None:
+def test__fetch__configured_error__raises_doi_fetch_error(
+    client: InMemoryDOIMetadataClient,
+) -> None:
     client.configure_error(ARTICLE_DOI, "rate_limit")
-    with pytest.raises(DOIFetchError):
+    with pytest.raises(DOIFetchError) as exc_info:
         client.fetch(ARTICLE_DOI)
+    assert "Rate limit exceeded" in str(exc_info.value)
 
 
-def test_from_json_loads_and_validates_fixture(tmp_path: Path) -> None:
+def test__from_json__valid_fixture__loads_and_validates_all_entries(tmp_path: Path) -> None:
     fixture = {
         str(ARTICLE_DOI): ARTICLE_METADATA.model_dump(mode="json"),
         str(BOOK_DOI): BOOK_METADATA.model_dump(mode="json"),
@@ -80,20 +83,22 @@ def test_from_json_loads_and_validates_fixture(tmp_path: Path) -> None:
     assert loaded_client.fetch(BOOK_DOI) == BOOK_METADATA
 
 
-def test_from_json_raises_on_invalid_metadata(tmp_path: Path) -> None:
+def test__from_json__invalid_metadata__raises_validation_error(tmp_path: Path) -> None:
+    from pydantic import ValidationError
+
     fixture = {
         "10.1038/bad": {"title": "Missing required fields"}
     }  # missing authors, publication_type
     fixture_file = tmp_path / "demo_dois.json"
     fixture_file.write_text(json.dumps(fixture))
 
-    with pytest.raises(Exception):  # Pydantic ValidationError
+    with pytest.raises(ValidationError):
         InMemoryDOIMetadataClient.from_json(fixture_file)
 
 
-def test_from_json_raises_on_malformed_json(tmp_path: Path) -> None:
+def test__from_json__malformed_json__raises_decode_error(tmp_path: Path) -> None:
     fixture_file = tmp_path / "demo_dois.json"
     fixture_file.write_text("not valid json {{{")
 
-    with pytest.raises(Exception):  # json.JSONDecodeError
+    with pytest.raises(json.JSONDecodeError):
         InMemoryDOIMetadataClient.from_json(fixture_file)

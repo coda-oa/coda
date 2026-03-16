@@ -29,8 +29,8 @@ class InMemoryDOIMetadataClient:
         self.data: dict[str, ExternalPublicationMetadata] = {}
         self._errors: dict[str, ErrorType] = {}
 
-    @staticmethod
-    def from_json(path: Path) -> InMemoryDOIMetadataClient:
+    @classmethod
+    def from_json(cls, path: Path) -> InMemoryDOIMetadataClient:
         """Load and validate a JSON fixture file.
 
         JSON format: { "<doi>": <ExternalPublicationMetadata as JSON>, ... }
@@ -39,7 +39,7 @@ class InMemoryDOIMetadataClient:
             json.JSONDecodeError: if file content is not valid JSON
             pydantic.ValidationError: if any entry fails ExternalPublicationMetadata validation
         """
-        client = InMemoryDOIMetadataClient()
+        client = cls()
         raw: dict[str, object] = json.loads(path.read_text())
         client.data = {
             doi: ExternalPublicationMetadata.model_validate(meta) for doi, meta in raw.items()
@@ -47,7 +47,10 @@ class InMemoryDOIMetadataClient:
         return client
 
     def configure_error(self, doi: Doi, error_type: ErrorType) -> None:
-        """Configure a DOI to raise a specific error type. Used in tests."""
+        """Configure a DOI to raise a specific error when fetched.
+
+        Useful in tests to simulate network/API failure scenarios.
+        """
         self._errors[str(doi)] = error_type
 
     def fetch(self, doi: Doi) -> ExternalPublicationMetadata:
