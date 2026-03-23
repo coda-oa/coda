@@ -1,11 +1,11 @@
 """
 With these settings, tests run faster.
 """
+
 from pathlib import Path
 
 from .base import *  # noqa
 from .base import env
-
 
 # CODA SETTINGS
 # ------------------------------------------------------------------------------
@@ -41,3 +41,7 @@ TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore # noqa: F405
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#media-url
 MEDIA_URL = "http://media.testserver"
+
+# HOSTS
+# ------------------------------------------------------------------------------
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]

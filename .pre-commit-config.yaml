@@ -52,6 +52,7 @@ repos:
             'polars',
             'pydantic',
             'pydantic-extra-types',
+            'pytest-playwright',
           ]
 
   - repo: https://github.com/psf/black
