@@ -1,10 +1,12 @@
 from io import BytesIO, StringIO
 from typing import Any
+from django.utils import timezone
 
 import polars as pl
 
 from coda.apps.institutions.models import Institution, InstitutionLinkType
 from coda.domain.institution.links import create_link
+from coda.apps.invoices.models import FundingSource
 
 from dataclasses import dataclass, field
 
@@ -142,3 +144,65 @@ HEADER_OFFSET = 2
 
 def _parent_row_number(parent_row_number_in_file: int) -> int:
     return parent_row_number_in_file - HEADER_OFFSET
+
+
+def can_delete_institution(institution: Institution) -> tuple[bool, list[str]]:
+    blocking: list[str] = []
+
+    check_child_institutions(institution, blocking)
+    check_author_affiliations(institution, blocking)
+    check_funding_sources(institution, blocking)
+    check_institution_links(institution, blocking)
+
+    can_delete = len(blocking) == 0
+    return can_delete, blocking
+
+
+def check_institution_links(institution: Institution, blocking: list[str]) -> None:
+    if institution.links.exists():
+        blocking.append(f"{institution.links.count()} identifiers/links")
+
+
+def check_funding_sources(institution: Institution, blocking: list[str]) -> None:
+    funding_sources = FundingSource.objects.filter(institution=institution)
+    if funding_sources.exists():
+        blocking.append(f"{funding_sources.count()} funding sources")
+
+
+def check_author_affiliations(institution: Institution, blocking: list[str]) -> None:
+    if hasattr(institution, "affiliated_authors"):
+        authors_count = institution.affiliated_authors.count()
+        if authors_count > 0:
+            blocking.append(f"{authors_count} author affiliations")
+
+
+def check_child_institutions(institution: Institution, blocking: list[str]) -> None:
+    if institution.children.exists():
+        blocking.append(f"{institution.children.count()} child institutions")
+
+
+def archive_and_create_successor(institution: Institution, successor_name: str) -> Institution:
+    if institution.archived_at is not None:
+        raise ValueError("Institution is already archived")
+
+    successor = Institution.objects.create(name=successor_name)
+
+    institution.archived_at = timezone.now()
+    institution.succeeded_by.add(successor)
+    institution.save()
+
+    return successor
+
+
+def archive_with_existing_successor(
+    institution: Institution, successors: list[Institution]
+) -> None:
+    if institution.archived_at is not None:
+        raise ValueError("Institution is already archived")
+
+    if not successors:
+        raise ValueError("Must provide at least one successor institution")
+
+    institution.archived_at = timezone.now()
+    institution.succeeded_by.add(*successors)
+    institution.save()
