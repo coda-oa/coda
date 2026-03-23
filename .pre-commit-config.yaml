@@ -21,7 +21,7 @@ repos:
       - id: detect-private-key
 
   - repo: https://github.com/adamchainz/django-upgrade
-    rev: '1.29.1'
+    rev: '1.30.0'
     hooks:
       - id: django-upgrade
         args: ['--target-version', '6.0']
@@ -52,27 +52,28 @@ repos:
             'polars',
             'pydantic',
             'pydantic-extra-types',
+            'pytest-playwright',
           ]
 
   - repo: https://github.com/psf/black
-    rev: 23.11.0
+    rev: 26.3.1
     hooks:
       - id: black
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.7
+    rev: v0.15.7
     hooks:
       - id: ruff
 
   - repo: https://github.com/Riverside-Healthcare/djLint
-    rev: v1.34.0
+    rev: v1.36.4
     hooks:
       - id: djlint-reformat-django
         args: ['--extension=html']
       - id: djlint-django
 
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.8.3
+    rev: v4.13.9
     hooks:
       - id: commitizen
       - id: commitizen-branch

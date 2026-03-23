@@ -41,4 +41,5 @@ RUN pip install --upgrade pip && \
   pip install -U pdm  && \
   pdm venv create -n dev && \
   pdm use --venv dev && \
-  pdm install --dev
+  pdm install --dev && \
+  pdm run playwright install --with-deps chromium
