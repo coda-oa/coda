@@ -1,0 +1,73 @@
+import pytest
+from django.utils import timezone
+
+from coda.apps.institutions import repository
+from coda.apps.institutions.models import Institution
+
+
+@pytest.mark.django_db
+def test__search__excludes_archived_by_default() -> None:
+    active = Institution.objects.create(name="Active University")
+    archived = Institution.objects.create(name="Archived University", archived_at=timezone.now())
+
+    results = list(repository.search())
+
+    assert active in results
+    assert archived not in results
+
+
+@pytest.mark.django_db
+def test__archived_only__returns_only_archived() -> None:
+    active = Institution.objects.create(name="Active University")
+    archived = Institution.objects.create(name="Archived University", archived_at=timezone.now())
+
+    results = list(repository.archived_only())
+
+    assert archived in results
+    assert active not in results
+
+
+@pytest.mark.django_db
+def test__search__includes_archived_when_requested() -> None:
+    active = Institution.objects.create(name="Active University")
+    archived = Institution.objects.create(name="Archived University", archived_at=timezone.now())
+
+    results = list(repository.search(include_archived=True))
+
+    assert active in results
+    assert archived in results
+
+
+@pytest.mark.django_db
+def test__search__filters_by_name() -> None:
+    Institution.objects.create(name="University of Berlin")
+    Institution.objects.create(name="University of Munich")
+    Institution.objects.create(name="Technical Institute")
+
+    results = list(repository.search(name="University"))
+
+    assert results[0].name in ["University of Berlin", "University of Munich"]
+    assert results[1].name in ["University of Berlin", "University of Munich"]
+    assert len(results) == 2
+
+
+@pytest.mark.django_db
+def test__search__filters_by_name_and_excludes_archived() -> None:
+    active = Institution.objects.create(name="Test University")
+    archived = Institution.objects.create(name="Test College", archived_at=timezone.now())
+
+    results = list(repository.search(name="Test"))
+
+    assert active in results
+    assert archived not in results
+
+
+@pytest.mark.django_db
+def test__search__filters_by_name_and_includes_archived() -> None:
+    active = Institution.objects.create(name="Test University")
+    archived = Institution.objects.create(name="Test College", archived_at=timezone.now())
+
+    results = list(repository.search(name="Test", include_archived=True))
+
+    assert active in results
+    assert archived in results
