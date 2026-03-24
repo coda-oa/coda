@@ -1,14 +1,18 @@
 from io import BytesIO, StringIO
 from typing import Any
+from django.db.models import QuerySet
 from django.utils import timezone
 
 import polars as pl
 
-from coda.apps.institutions.models import Institution, InstitutionLinkType
+from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from coda.domain.institution.links import create_link
 from coda.apps.invoices.models import FundingSource
 
 from dataclasses import dataclass, field
+
+from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.invoices.models import Invoice
 
 
 @dataclass
@@ -206,3 +210,45 @@ def archive_with_existing_successor(
     institution.archived_at = timezone.now()
     institution.succeeded_by.add(*successors)
     institution.save()
+
+
+@dataclass
+class InstitutionRelationships:
+    children: QuerySet[Institution]
+    funding_requests: QuerySet[FundingRequest]
+    invoices: QuerySet[Invoice]
+    links: QuerySet[InstitutionLink]
+
+    @property
+    def has_any(self) -> bool:
+        return (
+            self.children.exists()
+            or self.funding_requests.exists()
+            or self.invoices.exists()
+            or self.links.exists()
+        )
+
+
+def get_institution_relationships(institution: Institution) -> InstitutionRelationships:
+    children = institution.children.all()
+
+    funding_requests = FundingRequest.objects.filter(
+        publication__relevant_authors__affiliation=institution
+    ).distinct()
+
+    funding_sources = FundingSource.objects.filter(institution=institution)
+    if funding_sources.exists():
+        invoices = Invoice.objects.filter(
+            positions__funding_assignments__funding_source__in=funding_sources
+        ).distinct()
+    else:
+        invoices = Invoice.objects.none()
+
+    links = institution.links.all()
+
+    return InstitutionRelationships(
+        children=children,
+        funding_requests=funding_requests,
+        invoices=invoices,
+        links=links,
+    )

@@ -5,8 +5,13 @@ from coda.apps.institutions.services import (
     archive_and_create_successor,
     archive_with_existing_successor,
     can_delete_institution,
+    get_institution_relationships,
 )
+from tests import modelfactory
 from django.utils import timezone
+from coda.domain.author import InstitutionId
+from coda.domain.publication import Authors
+from tests import domainfactory
 
 
 @pytest.fixture
@@ -141,3 +146,59 @@ def test__institution__archive_with_existing_successor__raises_error_if_no_succe
 
     with pytest.raises(ValueError, match="Must provide at least one successor"):
         archive_with_existing_successor(institution, [])
+
+
+@pytest.mark.django_db
+def test__institution_without_relationships__get_institution_relationships__returns_no_relationships(
+    institution: Institution,
+) -> None:
+    relationships = get_institution_relationships(institution)
+
+    assert relationships.children.count() == 0
+    assert relationships.funding_requests.count() == 0
+    assert relationships.invoices.count() == 0
+    assert relationships.links.count() == 0
+    assert relationships.has_any is False
+
+
+@pytest.mark.django_db
+def test__institution_with_children__get_institution_relationships__returns_children(
+    institution: Institution,
+) -> None:
+    child = Institution.objects.create(name="Child", parent=institution)
+
+    relationships = get_institution_relationships(institution)
+
+    assert relationships.children.count() == 1
+    assert child in relationships.children
+    assert relationships.has_any is True
+
+
+@pytest.mark.django_db
+def test__institution_with_funding_request_author_affiliation__get_institution_relationships__returns_funding_request(
+    institution: Institution,
+) -> None:
+    author = domainfactory.author(affiliation=InstitutionId(institution.pk))
+    funding_request = modelfactory.fundingrequest(authors=Authors([author]))
+
+    relationships = get_institution_relationships(institution)
+
+    assert relationships.funding_requests.count() == 1
+    assert funding_request in relationships.funding_requests
+    assert relationships.has_any is True
+
+
+@pytest.mark.django_db
+def test__institution_with_links__get_institution_relationships__returns_links(
+    institution: Institution,
+) -> None:
+    link_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
+    link = InstitutionLink.objects.create(
+        institution=institution, type=link_type, value="https://ror.org/123"
+    )
+
+    relationships = get_institution_relationships(institution)
+
+    assert relationships.links.count() == 1
+    assert link in relationships.links
+    assert relationships.has_any is True
