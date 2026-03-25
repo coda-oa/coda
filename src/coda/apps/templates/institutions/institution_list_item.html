@@ -1,9 +1,22 @@
 <article class="flex justify-between align-center">
     <div>
-        <p class="my-0">{{ entity.name }}</p>
+        <p class="my-0">
+            <a href="{% url 'institutions:detail' pk=entity.id %}">{{ entity.name }}</a>
+            {% if entity.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+        </p>
         {% if entity.parent %}
             <p class="my-0">
                 <small><i>Part of {{ entity.parent.name }}</i></small>
+            </p>
+        {% endif %}
+        {% if entity.succeeded_by.exists %}
+            <p class="my-0">
+                <small><i>Succeeded by
+                    {% for successor in entity.succeeded_by.all %}
+                        {{ successor.name }}
+                        {% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                </i></small>
             </p>
         {% endif %}
     </div>

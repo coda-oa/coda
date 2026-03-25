@@ -185,13 +185,18 @@ def check_child_institutions(institution: Institution, blocking: list[str]) -> N
         blocking.append(f"{institution.children.count()} child institutions")
 
 
-def archive_and_create_successor(institution: Institution, successor_name: str) -> Institution:
-    if institution.archived_at is not None:
-        raise ValueError("Institution is already archived")
+def archive_and_create_successor(
+    institution: Institution, successor_name: str, new_parent: Institution | None = None
+) -> Institution:
+    successor = Institution.objects.create(
+        name=successor_name,
+        parent=new_parent if new_parent is not None else institution.parent,
+        virtual=institution.virtual,
+    )
 
-    successor = Institution.objects.create(name=successor_name)
+    institution.children.update(parent=successor)
 
-    institution.archived_at = timezone.now()
+    _archive_institution(institution)
     institution.succeeded_by.add(successor)
     institution.save()
 
@@ -201,15 +206,25 @@ def archive_and_create_successor(institution: Institution, successor_name: str) 
 def archive_with_existing_successor(
     institution: Institution, successors: list[Institution]
 ) -> None:
-    if institution.archived_at is not None:
-        raise ValueError("Institution is already archived")
-
     if not successors:
         raise ValueError("Must provide at least one successor institution")
 
-    institution.archived_at = timezone.now()
+    _archive_institution(institution)
     institution.succeeded_by.add(*successors)
     institution.save()
+
+
+def archive_without_successor(institution: Institution) -> None:
+    _archive_institution(institution)
+    institution.save()
+
+
+def _archive_institution(institution: Institution) -> None:
+    if institution.archived_at is not None:
+        raise ValueError("Institution is already archived")
+
+    institution.archived_at = timezone.now()
+    institution.virtual = True
 
 
 @dataclass

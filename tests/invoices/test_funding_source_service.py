@@ -1,6 +1,9 @@
 import pytest
+from django.utils import timezone
 
+from coda.apps.institutions.models import Institution
 from coda.apps.invoices import funding_source_repository
+from coda.apps.invoices.views.position_context import funding_sources_context
 from coda.contexts.finance.services.funding_source_service import resolve_funding_source
 from coda.domain.author import InstitutionId
 from coda.domain.finance.funding_sources import Budget, SplitSource
@@ -61,3 +64,17 @@ def test__given_non_existing_institution_id__resolve_funding_source__raises_erro
 
     with pytest.raises(ValueError):
         _ = resolve_funding_source(institution_source)
+
+
+@pytest.mark.django_db
+def test__archived_institution__selecting_institution_funding_source__archived_institution_is_excluded_from_dropdown() -> (
+    None
+):
+    active = Institution.objects.create(name="Active University")
+    archived = Institution.objects.create(name="Archived University", archived_at=timezone.now())
+
+    context = funding_sources_context()
+    institutions_list = list(context["institutions"])
+
+    assert active in institutions_list
+    assert archived not in institutions_list

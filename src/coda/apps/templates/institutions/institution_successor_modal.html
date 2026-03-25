@@ -1,0 +1,65 @@
+<dialog open>
+    <article>
+        <header>
+            <h2 class="my-1">Archive Institution</h2>
+        </header>
+        <p class="my-2">
+            This will archive <strong>{{ institution.name }}</strong>.
+            Archived institutions are no longer available for selection but remain visible in historical data.
+        </p>
+        <form method="post"
+              action="{% url 'institutions:set_successor' pk=institution.pk %}"
+              id="successor-form">
+            {% csrf_token %}
+            <fieldset>
+                <legend>Choose archiving option:</legend>
+                <label>
+                    <input type="radio"
+                           name="successor_type"
+                           value="no_successor"
+                           id="radio-no-successor"
+                           checked>
+                    Archive without successor
+                </label>
+                <label>
+                    <input type="radio"
+                           name="successor_type"
+                           value="create_new"
+                           id="radio-create-new">
+                    Create new institution as successor
+                </label>
+                <label>
+                    <input type="radio"
+                           name="successor_type"
+                           value="select_existing"
+                           id="radio-select-existing">
+                    Select existing institution as successor
+                </label>
+            </fieldset>
+            <div id="new-name-field">
+                <label for="new_name">
+                    New institution name:
+                    <input type="text"
+                           id="new_name"
+                           name="new_name"
+                           placeholder="Enter new institution name">
+                </label>
+            </div>
+            <div id="existing-selector-field">
+                <label for="successor_id">
+                    Select successor institution:
+                    <select id="successor_id" name="successor_id">
+                        <option value="">-- Select Institution --</option>
+                        {% for inst in available_institutions %}<option value="{{ inst.pk }}">{{ inst.name }}</option>{% endfor %}
+                    </select>
+                </label>
+            </div>
+            <footer class="grid">
+                <button type="button"
+                        class="secondary"
+                        onclick="this.closest('dialog').remove()">Cancel</button>
+                <button type="submit" class="primary">Archive</button>
+            </footer>
+        </form>
+    </article>
+</dialog>

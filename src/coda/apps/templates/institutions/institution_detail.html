@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="flex justify-between align-center">
+        <h1 class="my-2">
+            Institution
+            {% if institution.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+        </h1>
+        <div class="flex">
+            <a href="{% url 'institutions:edit' pk=institution.pk %}"
+               role="button"
+               class="secondary">Edit</a>
+        </div>
+    </div>
+    <article>
+        <header>
+            <h2 class="my-0">{{ institution.name }}</h2>
+        </header>
+        {% if institution.parent %}
+            <p>
+                <strong>Parent Institution:</strong>
+                <a href="{% url 'institutions:detail' pk=institution.parent.pk %}">{{ institution.parent.name }}</a>
+            </p>
+        {% endif %}
+        {% if institution.virtual %}
+            <p>
+                <strong>Usable as author affiliation:</strong>
+                <span>No</span>
+            </p>
+        {% else %}
+            <p>
+                <strong>Usable as author affiliation:</strong>
+                <span>Yes</span>
+            </p>
+        {% endif %}
+        {% if institution.archived_at %}
+            <p>
+                <strong>Archived:</strong> {{ institution.archived_at }}
+            </p>
+            {% if institution.succeeded_by.exists %}
+                <h3>Succeeded By</h3>
+                <ul>
+                    {% for successor in institution.succeeded_by.all %}
+                        <li>
+                            <a href="{% url 'institutions:detail' pk=successor.pk %}">{{ successor.name }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endif %}
+    </article>
+    {% if relationships.has_any %}
+        <article>
+            <header>
+                <h2 class="my-0">Relationships</h2>
+            </header>
+            {% if relationships.children.exists %}
+                <section>
+                    <h3>Child Institutions ({{ relationships.children.count }})</h3>
+                    <ul>
+                        {% for child in relationships.children %}
+                            <li>
+                                <a href="{% url 'institutions:detail' pk=child.pk %}">{{ child.name }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </section>
+            {% endif %}
+            {% if relationships.funding_requests.exists %}
+                <section>
+                    <h3>Funding Requests ({{ relationships.funding_requests.count }})</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Request ID</th>
+                                <th>Request Date</th>
+                                <th>Title</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in relationships.funding_requests %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'fundingrequests:detail' pk=request.pk %}">{{ request.request_id }}</a>
+                                    </td>
+                                    <td>{{ request.request_date }}</td>
+                                    <td>{{ request.publication.title|truncatewords:10 }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </section>
+            {% endif %}
+            {% if relationships.invoices.exists %}
+                <section class="my-3">
+                    <h3>Invoices ({{ relationships.invoices.count }})</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Number</th>
+                                <th>Date</th>
+                                <th>Creditor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invoice in relationships.invoices %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'invoices:detail' pk=invoice.pk %}">{{ invoice.number }}</a>
+                                    </td>
+                                    <td>{{ invoice.date }}</td>
+                                    <td>{{ invoice.creditor.name }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </section>
+            {% endif %}
+            {% if relationships.links.exists %}
+                <section>
+                    <h3>Identifiers</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for link in relationships.links %}
+                                <tr>
+                                    <td>{{ link.type.name }}</td>
+                                    <td>{{ link.value }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </section>
+            {% endif %}
+        </article>
+    {% endif %}
+    {% if not institution.archived_at %}
+        <div class="flex justify-end my-2">
+            <button class="secondary"
+                    hx-get="{% url 'institutions:request_set_successor' pk=institution.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Archive</button>
+            {% if can_delete %}
+                <button class="danger"
+                        hx-get="{% url 'institutions:request_delete' pk=institution.pk %}"
+                        hx-target="body"
+                        hx-swap="beforeend">Delete</button>
+            {% else %}
+                <span {% if blocking_reasons %}data-tooltip="Cannot delete: {{ blocking_reasons|join:", " }}"{% endif %}>
+                    <button class="danger"  disabled>Delete</button>
+                </span>
+            {% endif %}
+        </div>
+    {% endif %}
+{% endblock content %}

@@ -10,7 +10,7 @@ def create(name: str, parent: Institution | None = None) -> Institution:
 
 
 def get_by_id(id: int) -> Institution:
-    return Institution.objects.get(pk=id)
+    return Institution.all_objects.get(pk=id)
 
 
 def get_many_by_id(ids: Container[int]) -> Iterable[Institution]:

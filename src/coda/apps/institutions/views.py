@@ -5,18 +5,20 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.uploadedfile import UploadedFile
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, UpdateView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from coda.apps.institutions import services
+from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.institutions import services, repository
 from coda.apps.institutions.forms import InstitutionForm, InstitutionLinkForm
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from coda.apps.views import SimpleSearchEntityListView
-from django.utils.safestring import mark_safe
 
 
 INSTITUTION_IMPORT_VIEW_URL = "institutions:import_view"
@@ -72,12 +74,22 @@ class InstitutionListView(LoginRequiredMixin, SimpleSearchEntityListView[Institu
     entity_create_url = "institutions:create"
     entity_secondary_create_url = INSTITUTION_IMPORT_VIEW_URL
     use_generic_entity_filter = True
-    entity_filter_template = "entity_generic_filter.html"
+    supports_archiving = True
     search_placeholder = "Search institutions..."
+
+    def get_entities(self, request: HttpRequest) -> Any:
+        search_term = request.GET.get("query", "").strip()
+        include_archived = request.GET.get("include_archived") == "on"
+
+        qs = repository.search(
+            name=search_term if search_term else None, include_archived=include_archived
+        )
+        return DomainQuerySet(qs, lambda x: x)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {
-            "entity_secondary_create_url": self.entity_secondary_create_url
+            "entity_secondary_create_url": self.entity_secondary_create_url,
+            "include_archived": self.request.GET.get("include_archived") == "on",
         }
 
 
@@ -123,6 +135,9 @@ class UpdateInstitutionView(
     model = Institution
     form_class = InstitutionForm
 
+    def get_queryset(self) -> QuerySet[Institution]:
+        return Institution.all_objects.all()
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context["title"] = "Edit Institution"
@@ -161,8 +176,151 @@ update_institution_view = UpdateInstitutionView.as_view()
 
 
 @login_required
+@breadcrumb("Institution Detail", parent_url_name="institutions:list")
+def institution_detail(request: HttpRequest, pk: int) -> HttpResponse:
+    institution = get_object_or_404(Institution.all_objects, pk=pk)
+    relationships = services.get_institution_relationships(institution)
+    can_delete, blocking_reasons = services.can_delete_institution(institution)
+
+    return render(
+        request,
+        "institutions/institution_detail.html",
+        {
+            "institution": institution,
+            "relationships": relationships,
+            "can_delete": can_delete,
+            "blocking_reasons": blocking_reasons,
+        },
+    )
+
+
+def request_set_successor(request: HttpRequest, pk: int) -> HttpResponse:
+    institution = get_object_or_404(Institution.objects, pk=pk)
+    available_institutions = Institution.objects.exclude(pk=pk).order_by("name")
+
+    return render(
+        request,
+        "institutions/institution_successor_modal.html",
+        {
+            "institution": institution,
+            "available_institutions": available_institutions,
+        },
+    )
+
+
+def request_delete_institution(request: HttpRequest, pk: int) -> HttpResponse:
+    institution = get_object_or_404(Institution.objects, pk=pk)
+
+    return render(
+        request,
+        "partials/entity_deletion_modal.html",
+        {
+            "entity_type": "Institution",
+            "entity_name": institution.name,
+            "delete_url": reverse("institutions:delete", kwargs={"pk": pk}),
+        },
+    )
+
+
+def _archive_no_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
+    services.archive_without_successor(institution)
+    messages.success(request, f"Institution '{institution.name}' archived successfully.")
+    return redirect("institutions:detail", pk=institution.pk)
+
+
+def _archive_with_new_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
+    successor_name = request.POST.get("new_name")
+    if not successor_name:
+        messages.error(request, "New institution name is required.")
+        return redirect("institutions:detail", pk=institution.pk)
+
+    successor = services.archive_and_create_successor(institution, successor_name=successor_name)
+    messages.success(request, f"Institution archived and succeeded by {successor.name}.")
+    return redirect("institutions:detail", pk=successor.pk)
+
+
+def _archive_with_existing_successor(
+    request: HttpRequest, institution: Institution
+) -> HttpResponse:
+    successor_id = request.POST.get("successor_id")
+    if not successor_id:
+        messages.error(request, "Please select a successor institution.")
+        return redirect("institutions:detail", pk=institution.pk)
+
+    try:
+        successor = Institution.objects.get(pk=successor_id)
+    except Institution.DoesNotExist:
+        messages.error(request, "Selected successor institution not found.")
+        return redirect("institutions:detail", pk=institution.pk)
+
+    services.archive_with_existing_successor(institution, [successor])
+    messages.success(request, f"Institution archived and succeeded by {successor.name}.")
+    return redirect("institutions:detail", pk=institution.pk)
+
+
+@login_required
+@require_POST
+def set_successor(request: HttpRequest, pk: int) -> HttpResponse:
+    institution = get_object_or_404(Institution.all_objects, pk=pk)
+
+    if institution.archived_at:
+        messages.error(request, "Institution is already archived.")
+        return redirect("institutions:detail", pk=pk)
+
+    successor_handlers = {
+        "no_successor": _archive_no_successor,
+        "create_new": _archive_with_new_successor,
+        "select_existing": _archive_with_existing_successor,
+    }
+
+    successor_type = request.POST.get("successor_type") or ""
+    handler = successor_handlers.get(successor_type)
+
+    if not handler:
+        messages.error(request, "Invalid successor type.")
+        return redirect("institutions:detail", pk=pk)
+
+    try:
+        return handler(request, institution)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("institutions:detail", pk=institution.pk)
+
+
+def _htmx_redirect(url: str) -> HttpResponse:
+    response = HttpResponse(status=200)
+    response["HX-Redirect"] = url
+    return response
+
+
+@login_required
+@require_POST
+def delete_institution(request: HttpRequest, pk: int) -> HttpResponse:
+    institution = get_object_or_404(Institution.all_objects, pk=pk)
+
+    # Cannot delete archived institutions
+    if institution.archived_at:
+        messages.error(request, "Cannot delete archived institutions.")
+        return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": pk}))
+
+    # Check if can delete
+    can_delete, blocking_reasons = services.can_delete_institution(institution)
+
+    if not can_delete:
+        messages.error(request, f"Cannot delete institution: {', '.join(blocking_reasons)}")
+        return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": pk}))
+
+    # Delete the institution
+    institution_name = institution.name
+    institution.delete()
+    messages.success(request, f"Institution '{institution_name}' deleted successfully.")
+
+    return _htmx_redirect(reverse("institutions:list"))
+
+
+@login_required
 def toggle_selectable(request: HttpRequest, pk: int) -> HttpResponse:
-    institution = Institution.objects.get(pk=pk)
+    institution = Institution.all_objects.get(pk=pk)
     institution.virtual = not institution.virtual
     institution.save()
     return HttpResponse()
