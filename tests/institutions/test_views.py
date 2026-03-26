@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from coda.apps.institutions.models import Institution
+from coda.apps.preferences.models import GlobalPreferences
 
 from coda.apps.institutions.views import request_set_successor
 
@@ -91,7 +92,9 @@ def test__set_successor_with_create_new_institution__click_archive__creates_new_
         {"successor_type": "create_new", "new_name": "New University"},
     )
 
-    assert response.status_code == 302
+    # HTMX redirect response
+    assert response.status_code == 200
+    assert "HX-Redirect" in response
     institution.refresh_from_db()
     assert institution.archived_at is not None
     assert institution.succeeded_by.count() == 1
@@ -113,7 +116,9 @@ def test__set_successor_with_selecting_existing_successor__click_archive__archiv
         {"successor_type": "select_existing", "successor_id": new_institution.pk},
     )
 
-    assert response.status_code == 302
+    # HTMX redirect response
+    assert response.status_code == 200
+    assert "HX-Redirect" in response
     old_institution.refresh_from_db()
     assert old_institution.archived_at is not None
     assert new_institution in old_institution.succeeded_by.all()
@@ -121,7 +126,7 @@ def test__set_successor_with_selecting_existing_successor__click_archive__archiv
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__set_successor__already_archived__redirects_with_error(
+def test__set_successor__already_archived__shows_error_in_modal(
     client: Client,
 ) -> None:
     _, archived = create_institution_scenario()
@@ -131,7 +136,11 @@ def test__set_successor__already_archived__redirects_with_error(
         {"successor_type": "create_new", "new_name": "New University"},
     )
 
-    assert response.status_code == 302
+    # Should re-render modal with error
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert "Institution is already archived" in html
+    assert "<dialog open>" in html
 
 
 @pytest.mark.django_db
@@ -225,3 +234,100 @@ def test__successor_modal__excludes_current_institution_from_successor_dropdown(
 
     assert other_institution.name in dropdown_html
     assert institution.name not in dropdown_html
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__successor_modal__normal_institution__shows_all_archiving_options(client: Client) -> None:
+    institution = Institution.objects.create(name="Test University")
+
+    response = client.get(
+        reverse("institutions:request_set_successor", kwargs={"pk": institution.pk})
+    )
+
+    assert response.context["is_home_institution"] is False
+
+    html = response.content.decode()
+    assert 'value="no_successor"' in html
+    assert 'value="create_new"' in html
+    assert 'value="select_existing"' in html
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__successor_modal__home_institution__hides_no_successor_option(client: Client) -> None:
+    institution = Institution.objects.create(name="Home University")
+    GlobalPreferences.objects.create(home_institution=institution)
+
+    response = client.get(
+        reverse("institutions:request_set_successor", kwargs={"pk": institution.pk})
+    )
+
+    assert response.context["is_home_institution"] is True
+
+    html = response.content.decode()
+    assert 'value="no_successor"' not in html
+    assert "radio-no-successor" not in html
+
+    assert 'value="create_new"' in html
+    assert 'value="select_existing"' in html
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__successor_modal__home_institution__shows_warning_message(client: Client) -> None:
+    institution = Institution.objects.create(name="Home University")
+    GlobalPreferences.objects.create(home_institution=institution)
+
+    response = client.get(
+        reverse("institutions:request_set_successor", kwargs={"pk": institution.pk})
+    )
+
+    assert response.context["is_home_institution"] is True
+
+    html = response.content.decode()
+    assert "currently set as your home institution" in html
+    assert "must select a successor" in html
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__archive_with_empty_new_name__shows_inline_error_in_modal(client: Client) -> None:
+    institution = Institution.objects.create(name="Test University")
+
+    response = client.post(
+        reverse("institutions:set_successor", kwargs={"pk": institution.pk}),
+        {"successor_type": "create_new", "new_name": ""},
+    )
+
+    assert response.status_code == 200
+
+    assert response.context["form_data"]["successor_type"] == "create_new"
+    assert response.context["form_data"]["new_name"] == ""
+
+    html = response.content.decode()
+
+    assert 'aria-invalid="true"' in html
+    assert "New institution name is required" in html
+    assert "<dialog open>" in html
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__archive_with_no_successor_selected__shows_inline_error_in_modal(client: Client) -> None:
+    institution = Institution.objects.create(name="Test University")
+
+    response = client.post(
+        reverse("institutions:set_successor", kwargs={"pk": institution.pk}),
+        {"successor_type": "select_existing", "successor_id": ""},
+    )
+
+    assert response.status_code == 200
+
+    assert response.context["form_data"]["successor_type"] == "select_existing"
+    assert response.context["form_data"]["successor_id"] == ""
+
+    html = response.content.decode()
+    assert 'aria-invalid="true"' in html
+    assert "Please select a successor institution" in html
+    assert "<dialog open>" in html

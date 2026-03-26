@@ -8,6 +8,7 @@ import polars as pl
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from coda.domain.institution.links import create_link
 from coda.apps.invoices.models import FundingSource
+from coda.apps.preferences.models import GlobalPreferences
 
 from dataclasses import dataclass, field
 
@@ -157,32 +158,38 @@ def can_delete_institution(institution: Institution) -> tuple[bool, list[str]]:
     check_author_affiliations(institution, blocking)
     check_funding_sources(institution, blocking)
     check_institution_links(institution, blocking)
+    check_home_institution(institution, blocking)
 
     can_delete = len(blocking) == 0
     return can_delete, blocking
 
 
+def check_home_institution(institution: Institution, blocking: list[str]) -> None:
+    if GlobalPreferences.objects.filter(home_institution=institution).exists():
+        blocking.append("set as home institution in preferences")
+
+
 def check_institution_links(institution: Institution, blocking: list[str]) -> None:
     if institution.links.exists():
-        blocking.append(f"{institution.links.count()} identifiers/links")
+        blocking.append(f"{institution.links.count()} identifier(s)/link(s)")
 
 
 def check_funding_sources(institution: Institution, blocking: list[str]) -> None:
     funding_sources = FundingSource.objects.filter(institution=institution)
     if funding_sources.exists():
-        blocking.append(f"{funding_sources.count()} funding sources")
+        blocking.append(f"{funding_sources.count()} funding source(s)")
 
 
 def check_author_affiliations(institution: Institution, blocking: list[str]) -> None:
     if hasattr(institution, "affiliated_authors"):
         authors_count = institution.affiliated_authors.count()
         if authors_count > 0:
-            blocking.append(f"{authors_count} author affiliations")
+            blocking.append(f"{authors_count} author affiliation(s)")
 
 
 def check_child_institutions(institution: Institution, blocking: list[str]) -> None:
     if institution.children.exists():
-        blocking.append(f"{institution.children.count()} child institutions")
+        blocking.append(f"{institution.children.count()} child institution(s)")
 
 
 def archive_and_create_successor(
@@ -200,6 +207,8 @@ def archive_and_create_successor(
     institution.succeeded_by.add(successor)
     institution.save()
 
+    _update_home_institution_if_needed(institution, successor)
+
     return successor
 
 
@@ -213,8 +222,13 @@ def archive_with_existing_successor(
     institution.succeeded_by.add(*successors)
     institution.save()
 
+    _update_home_institution_if_needed(institution, successors[0])
+
 
 def archive_without_successor(institution: Institution) -> None:
+    if _is_home_institution(institution):
+        raise ValueError("Cannot archive home institution without successor")
+
     _archive_institution(institution)
     institution.save()
 
@@ -225,6 +239,19 @@ def _archive_institution(institution: Institution) -> None:
 
     institution.archived_at = timezone.now()
     institution.virtual = True
+
+
+def _is_home_institution(institution: Institution) -> bool:
+    return GlobalPreferences.objects.filter(home_institution=institution).exists()
+
+
+def _update_home_institution_if_needed(institution: Institution, successor: Institution) -> None:
+    try:
+        preferences = GlobalPreferences.objects.get(home_institution=institution)
+        preferences.home_institution = successor
+        preferences.save()
+    except GlobalPreferences.DoesNotExist:
+        pass
 
 
 @dataclass

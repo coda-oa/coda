@@ -18,6 +18,7 @@ from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.institutions import services, repository
 from coda.apps.institutions.forms import InstitutionForm, InstitutionLinkForm
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import SimpleSearchEntityListView
 
 
@@ -198,12 +199,15 @@ def request_set_successor(request: HttpRequest, pk: int) -> HttpResponse:
     institution = get_object_or_404(Institution.objects, pk=pk)
     available_institutions = Institution.objects.exclude(pk=pk).order_by("name")
 
+    is_home_institution = GlobalPreferences.objects.filter(home_institution=institution).exists()
+
     return render(
         request,
         "institutions/institution_successor_modal.html",
         {
             "institution": institution,
             "available_institutions": available_institutions,
+            "is_home_institution": is_home_institution,
         },
     )
 
@@ -225,18 +229,20 @@ def request_delete_institution(request: HttpRequest, pk: int) -> HttpResponse:
 def _archive_no_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
     services.archive_without_successor(institution)
     messages.success(request, f"Institution '{institution.name}' archived successfully.")
-    return redirect("institutions:detail", pk=institution.pk)
+    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
 
 
 def _archive_with_new_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
-    successor_name = request.POST.get("new_name")
+    successor_name = request.POST.get("new_name", "").strip()
     if not successor_name:
-        messages.error(request, "New institution name is required.")
-        return redirect("institutions:detail", pk=institution.pk)
+        # Re-render modal with error
+        return _render_successor_modal_with_errors(
+            request, institution, errors={"new_name": "New institution name is required."}
+        )
 
     successor = services.archive_and_create_successor(institution, successor_name=successor_name)
     messages.success(request, f"Institution archived and succeeded by {successor.name}.")
-    return redirect("institutions:detail", pk=successor.pk)
+    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": successor.pk}))
 
 
 def _archive_with_existing_successor(
@@ -244,18 +250,45 @@ def _archive_with_existing_successor(
 ) -> HttpResponse:
     successor_id = request.POST.get("successor_id")
     if not successor_id:
-        messages.error(request, "Please select a successor institution.")
-        return redirect("institutions:detail", pk=institution.pk)
+        return _render_successor_modal_with_errors(
+            request, institution, errors={"successor_id": "Please select a successor institution."}
+        )
 
     try:
         successor = Institution.objects.get(pk=successor_id)
     except Institution.DoesNotExist:
-        messages.error(request, "Selected successor institution not found.")
-        return redirect("institutions:detail", pk=institution.pk)
+        return _render_successor_modal_with_errors(
+            request,
+            institution,
+            errors={"successor_id": "Selected successor institution not found."},
+        )
 
     services.archive_with_existing_successor(institution, [successor])
     messages.success(request, f"Institution archived and succeeded by {successor.name}.")
-    return redirect("institutions:detail", pk=institution.pk)
+    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
+
+
+def _render_successor_modal_with_errors(
+    request: HttpRequest,
+    institution: Institution,
+    errors: dict[str, str] | None = None,
+    general_error: str | None = None,
+) -> HttpResponse:
+    available_institutions = Institution.objects.exclude(pk=institution.pk).order_by("name")
+    is_home_institution = GlobalPreferences.objects.filter(home_institution=institution).exists()
+
+    return render(
+        request,
+        "institutions/institution_successor_modal.html",
+        {
+            "institution": institution,
+            "available_institutions": available_institutions,
+            "is_home_institution": is_home_institution,
+            "errors": errors or {},
+            "general_error": general_error,
+            "form_data": request.POST,
+        },
+    )
 
 
 @login_required
@@ -264,8 +297,9 @@ def set_successor(request: HttpRequest, pk: int) -> HttpResponse:
     institution = get_object_or_404(Institution.all_objects, pk=pk)
 
     if institution.archived_at:
-        messages.error(request, "Institution is already archived.")
-        return redirect("institutions:detail", pk=pk)
+        return _render_successor_modal_with_errors(
+            request, institution, general_error="Institution is already archived."
+        )
 
     successor_handlers = {
         "no_successor": _archive_no_successor,
@@ -277,14 +311,14 @@ def set_successor(request: HttpRequest, pk: int) -> HttpResponse:
     handler = successor_handlers.get(successor_type)
 
     if not handler:
-        messages.error(request, "Invalid successor type.")
-        return redirect("institutions:detail", pk=pk)
+        return _render_successor_modal_with_errors(
+            request, institution, general_error="Invalid successor type."
+        )
 
     try:
         return handler(request, institution)
     except ValueError as e:
-        messages.error(request, str(e))
-        return redirect("institutions:detail", pk=institution.pk)
+        return _render_successor_modal_with_errors(request, institution, general_error=str(e))
 
 
 def _htmx_redirect(url: str) -> HttpResponse:

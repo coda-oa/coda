@@ -11,6 +11,7 @@ from coda.apps.institutions.services import (
     can_delete_institution,
     get_institution_relationships,
 )
+from coda.apps.preferences.models import GlobalPreferences
 from tests import modelfactory
 from django.utils import timezone
 from coda.domain.author import InstitutionId
@@ -38,7 +39,7 @@ def test__cannot_delete_institution_with_children(institution: Institution) -> N
     can_delete, blocking = can_delete_institution(institution)
 
     assert can_delete is False
-    assert "1 child institutions" in blocking[0]
+    assert "1 child institution(s)" in blocking[0]
 
 
 @pytest.mark.django_db
@@ -51,7 +52,7 @@ def test__cannot_delete_institution_with_links(institution: Institution) -> None
     can_delete, blocking = can_delete_institution(institution)
 
     assert can_delete is False
-    assert "identifiers/links" in blocking[0]
+    assert "1 identifier(s)/link(s)" in blocking[0]
 
 
 @pytest.mark.django_db
@@ -66,6 +67,16 @@ def test__cannot_delete_institution_with_multiple_relationships(institution: Ins
 
     assert can_delete is False
     assert len(blocking) == 2
+
+
+@pytest.mark.django_db
+def test__cannot_delete_institution_when_set_as_home_institution(institution: Institution) -> None:
+    GlobalPreferences.objects.create(home_institution=institution)
+
+    can_delete, blocking = can_delete_institution(institution)
+
+    assert can_delete is False
+    assert "set as home institution in preferences" in blocking[0]
 
 
 @pytest.mark.django_db
@@ -293,3 +304,42 @@ def test__institution_with_links__get_institution_relationships__returns_links(
     assert relationships.links.count() == 1
     assert link in relationships.links
     assert relationships.has_any is True
+
+
+@pytest.mark.django_db
+def test__cannot_archive_home_institution_without_successor() -> None:
+    institution = Institution.objects.create(name="Home University")
+    GlobalPreferences.objects.create(home_institution=institution)
+
+    with pytest.raises(
+        ValueError,
+        match="Cannot archive home institution without successor",
+    ):
+        archive_without_successor(institution)
+
+
+@pytest.mark.django_db
+def test__archive_home_institution__create_successor__updates_home_institution_to_successor() -> (
+    None
+):
+    institution = Institution.objects.create(name="Old Home University")
+    preferences = GlobalPreferences.objects.create(home_institution=institution)
+
+    successor = archive_and_create_successor(institution, "New Home University")
+
+    preferences.refresh_from_db()
+    assert preferences.home_institution == successor
+
+
+@pytest.mark.django_db
+def test__archive_home_institution__select_existing_successor__updates_home_institution_to_selected_successor() -> (
+    None
+):
+    institution = Institution.objects.create(name="Old Home University")
+    successor = Institution.objects.create(name="New Home University")
+    preferences = GlobalPreferences.objects.create(home_institution=institution)
+
+    archive_with_existing_successor(institution, [successor])
+
+    preferences.refresh_from_db()
+    assert preferences.home_institution == successor
