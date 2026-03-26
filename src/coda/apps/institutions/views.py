@@ -21,7 +21,6 @@ from coda.apps.institutions.models import Institution, InstitutionLink, Institut
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import SimpleSearchEntityListView
 
-
 INSTITUTION_IMPORT_VIEW_URL = "institutions:import_view"
 
 
@@ -200,6 +199,7 @@ def request_set_successor(request: HttpRequest, pk: int) -> HttpResponse:
     available_institutions = Institution.objects.exclude(pk=pk).order_by("name")
 
     is_home_institution = GlobalPreferences.objects.filter(home_institution=institution).exists()
+    has_children = institution.children.exists()
 
     return render(
         request,
@@ -208,6 +208,7 @@ def request_set_successor(request: HttpRequest, pk: int) -> HttpResponse:
             "institution": institution,
             "available_institutions": available_institutions,
             "is_home_institution": is_home_institution,
+            "has_children": has_children,
         },
     )
 
@@ -276,6 +277,7 @@ def _render_successor_modal_with_errors(
 ) -> HttpResponse:
     available_institutions = Institution.objects.exclude(pk=institution.pk).order_by("name")
     is_home_institution = GlobalPreferences.objects.filter(home_institution=institution).exists()
+    has_children = institution.children.exists()
 
     return render(
         request,
@@ -284,6 +286,7 @@ def _render_successor_modal_with_errors(
             "institution": institution,
             "available_institutions": available_institutions,
             "is_home_institution": is_home_institution,
+            "has_children": has_children,
             "errors": errors or {},
             "general_error": general_error,
             "form_data": request.POST,

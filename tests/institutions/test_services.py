@@ -319,6 +319,18 @@ def test__cannot_archive_home_institution_without_successor() -> None:
 
 
 @pytest.mark.django_db
+def test__cannot_archive_institution_with_children_without_successor() -> None:
+    parent = Institution.objects.create(name="Parent University")
+    Institution.objects.create(name="Child Department", parent=parent)
+
+    with pytest.raises(
+        ValueError,
+        match="Cannot archive institution with children without successor",
+    ):
+        archive_without_successor(parent)
+
+
+@pytest.mark.django_db
 def test__archive_home_institution__create_successor__updates_home_institution_to_successor() -> (
     None
 ):

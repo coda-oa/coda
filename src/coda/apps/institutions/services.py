@@ -229,6 +229,9 @@ def archive_without_successor(institution: Institution) -> None:
     if _is_home_institution(institution):
         raise ValueError("Cannot archive home institution without successor")
 
+    if institution.children.exists():
+        raise ValueError("Cannot archive institution with children without successor")
+
     _archive_institution(institution)
     institution.save()
 
