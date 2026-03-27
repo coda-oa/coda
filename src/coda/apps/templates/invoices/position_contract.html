@@ -10,19 +10,14 @@
            target="_blank"
            class="outline secondary">{{ position.item.name }} ↗</a>
     </h4>
-    {% with index=counter|stringformat:"s" %}
-        {% with error_key="positions-"|add:index|add:"-error" %}
-            {% if error_key in errors %}<p class="messages error">{{ errors|getitem:error_key }}</p>{% endif %}
-            <div class="form-row">
-                <label for="id-positions-{{ counter }}-year" class="form-row-item-sm">Year</label>
-                <input type="text"
-                       id="id-positions-{{ counter }}-year"
-                       name="positions-{{ counter }}-item-year"
-                       value="{{ position.item.year }}"
-                       {% if error_key in errors %}aria-invalid="true"{% endif %}>
-            </div>
-        {% endwith %}
-    {% endwith %}
+    <div class="form-row">
+        <label for="id-positions-{{ counter }}-year" class="form-row-item-sm">Year</label>
+        <input type="text"
+               id="id-positions-{{ counter }}-year"
+               name="positions-{{ counter }}-item-year"
+               value="{{ position.item.year }}"
+               {% if position.error %}aria-invalid="true"{% endif %}>
+    </div>
     <input type="hidden"
            name="positions-{{ counter }}-item-id"
            value="{{ position.item.id }}">

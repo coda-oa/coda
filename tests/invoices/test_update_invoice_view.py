@@ -99,7 +99,7 @@ def test__given_invoice__goto_update_view__has_invoice_positions_in_context___po
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__given_invoice__saving_updated_invoice__updates_invoice___position_list(
+def test__given_invoice__saving_updated_invoice__updates_invoice(
     client: Client,
 ) -> None:
     creditor = modelfactory.creditor()
@@ -212,6 +212,37 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
     response = save_invoice_view(client, invoice.id, post_data)
 
     assert response.context["position_list"] == position_list
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__given_position_with_invalid_contract_year__update__returns_error(
+    client: Client,
+) -> None:
+    contract = domainfactory.contract()
+    contract.id = contract_services.create(contract)
+    contract_item_dto = ContractItemDto(id=contract.id, name=contract.name, year=1)
+    contract_year = PositionDto(item=contract_item_dto)
+    position_list = PositionList(positions=[contract_year])
+
+    invoice_head = InvoiceHeadDto(
+        number="1234",
+        date=datetime.date.today(),
+        creditor=CreditorId(modelfactory.creditor().pk),
+        currency=Currency.JPY,
+        status=PaymentStatus.Unpaid,
+    )
+    response = client.post(
+        reverse("invoices:create"),
+        {"action": "create"}
+        | formdata.map_to_dict(invoice_head)
+        | formdata.map_to_dict(position_list),
+    )
+
+    assert (
+        response.context["position_list"].positions[0].error
+        == f"Contract {contract_item_dto.name} is not active in {contract_item_dto.year}"
+    )
 
 
 @pytest.mark.django_db

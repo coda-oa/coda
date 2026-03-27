@@ -1,6 +1,7 @@
 """Position parsing functions for invoice position views."""
 
 from collections.abc import Callable
+from types import NotImplementedType
 
 from django.http import HttpRequest
 
@@ -12,6 +13,9 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     PublicationItemDto,
     RelatedFundingRequest,
 )
+from coda.contexts.finance.services import invoice_parser
+from coda.contexts.finance.services.invoice_parser._parser import PositionParseError
+from coda.domain.money._currency import Currency
 from coda.domain.publication.publication import PublicationId
 
 
@@ -58,6 +62,21 @@ def maybe_request_context(publication: Publication) -> RelatedFundingRequest:
     return RelatedFundingRequest()
 
 
+class PositionDtoWithErrors(PositionDto):
+    error: str
+
+    @classmethod
+    def from_dto(cls, dto: PositionDto, error: str) -> "PositionDtoWithErrors":
+        return PositionDtoWithErrors.model_validate(dto.model_dump() | {"error": error})
+
+    def __eq__(self, other: object) -> bool | NotImplementedType:
+        """We ignore the error field in comparisons as it is just used as extra information in the view"""
+        if not isinstance(other, PositionDto):
+            return NotImplemented
+
+        return self.model_dump(exclude={"error"}) == other.model_dump(exclude={"error"})
+
+
 def _generic_position_parser(prefix: str) -> Callable[[HttpRequest], PositionDto | None]:
     """Create a parser function for positions with given prefix.
 
@@ -70,7 +89,14 @@ def _generic_position_parser(prefix: str) -> Callable[[HttpRequest], PositionDto
         if not filtered_by_prefix:
             return None
 
-        return formdata.map_to_model(PositionDto, filtered_by_prefix, prefix=prefix)
+        dto = formdata.map_to_model(PositionDto, filtered_by_prefix, prefix=prefix)
+        try:
+            ignored_currency = Currency.EUR
+            invoice_parser.to_position(dto, ignored_currency)
+        except PositionParseError as e:
+            dto = PositionDtoWithErrors.from_dto(dto, e.message())
+
+        return dto
 
     return parse
 
