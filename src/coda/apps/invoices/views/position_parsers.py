@@ -91,8 +91,8 @@ def _generic_position_parser(prefix: str) -> Callable[[HttpRequest], PositionDto
 
         dto = formdata.map_to_model(PositionDto, filtered_by_prefix, prefix=prefix)
         try:
-            ignored_currency = Currency.EUR
-            invoice_parser.to_position(dto, ignored_currency)
+            any_currency = Currency.EUR
+            invoice_parser.to_position(dto, any_currency)
         except PositionParseError as e:
             dto = PositionDtoWithErrors.from_dto(dto, e.message())
 

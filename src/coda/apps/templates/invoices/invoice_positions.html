@@ -18,11 +18,11 @@
                 {% endif %}
             </section>
             <hr>
+        {% empty %}
+            <p class="my-2 text-center">
+                <b>No positions</b>
+            </p>
         {% endfor %}
     </section>
-    <div id="positions-summary">
-        {% if position_list %}
-            {% include "invoices/position_summary.html" with net=net tax=tax total=total %}
-        {% endif %}
-    </div>
+    {% include "invoices/position_summary.html" with net=net tax=tax total=total %}
 </article>

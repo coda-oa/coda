@@ -49,11 +49,11 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     parsed_invoice, errors = try_parse_invoice(
         request,
         position_list,
-        invoice_id=invoice.id,
         conversions=invoice.conversions(),
     )
 
     if parsed_invoice:
+        parsed_invoice.id = invoice.id
         invoice_service.save(parsed_invoice)
         return redirect("invoices:detail", pk=invoice.id)
 

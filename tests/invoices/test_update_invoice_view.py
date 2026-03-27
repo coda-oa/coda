@@ -219,6 +219,16 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
 def test__given_position_with_invalid_contract_year__update__returns_error(
     client: Client,
 ) -> None:
+    creditor = modelfactory.creditor()
+    invoice = Invoice.new(
+        number="123",
+        creditor=CreditorId(creditor.pk),
+        date=datetime.date.today(),
+        positions=[],
+    )
+
+    invoice.id = repository.create(invoice)
+
     contract = domainfactory.contract()
     contract.id = contract_services.create(contract)
     contract_item_dto = ContractItemDto(id=contract.id, name=contract.name, year=1)
@@ -233,7 +243,7 @@ def test__given_position_with_invalid_contract_year__update__returns_error(
         status=PaymentStatus.Unpaid,
     )
     response = client.post(
-        reverse("invoices:create"),
+        reverse("invoices:update", kwargs={"pk": invoice.id}),
         {"action": "create"}
         | formdata.map_to_dict(invoice_head)
         | formdata.map_to_dict(position_list),

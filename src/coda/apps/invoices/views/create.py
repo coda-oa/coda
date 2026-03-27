@@ -13,7 +13,7 @@ from coda.apps.invoices.views.position_parsers import PositionDtoWithErrors
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser, invoice_service
-from coda.domain.finance.invoice import Invoice, InvoiceId, UnassignedCosts
+from coda.domain.finance.invoice import Invoice, UnassignedCosts
 from coda.domain.money import Currency
 
 
@@ -59,7 +59,6 @@ def try_parse_invoice(
     request: HttpRequest,
     position_list: PositionList,
     *,
-    invoice_id: InvoiceId | None = None,
     conversions: dict[Currency, Decimal],
 ) -> tuple[Invoice | None, invoice_parser.InvoiceParseError | None]:
     form = InvoiceForm(request.POST)
@@ -68,7 +67,6 @@ def try_parse_invoice(
 
     try:
         invoice = invoice_parser.parse_invoice(form.invoice_head(), position_list.positions)
-        invoice.id = invoice_id
         for currency, rate in conversions.items():
             invoice.add_conversion(rate, currency)
 
