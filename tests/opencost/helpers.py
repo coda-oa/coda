@@ -11,6 +11,9 @@ from coda.apps.opencost.transformers import report_publication_to_pydantic, to_o
 from coda.apps.publications.models import Publication
 from coda.domain.opencost import Data
 from coda.domain.opencost._publication import PublicationType
+from coda.apps.publications.models._attachedentities import AttachedContract
+
+from tests import modelfactory
 
 
 def create_creditor(name: str = "Test Creditor") -> Creditor:
@@ -165,15 +168,12 @@ def create_contract_with_identifiers(
     ezb: str | None = None,
     local: str | None = None,
 ) -> Contract:
-    """Create a contract with optional ESAC, OAI, EZB, and Local identifiers."""
-    from coda.domain.contract import PublicationBilling
 
-    contract = Contract.objects.create(
-        name=name,
-        start_date=start_date,
-        end_date=end_date,
-        publication_billing=PublicationBilling.Individually.value,
-    )
+    contract = modelfactory.contract()
+    contract.name = name
+    contract.start_date = start_date
+    contract.end_date = end_date
+    contract.save()
 
     if esac:
         esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
@@ -274,8 +274,6 @@ def create_realistic_report_data(
     Returns:
         OpenCostReport with realistic data volumes
     """
-    from coda.apps.publications.models._attachedentities import AttachedContract
-    from tests import modelfactory
 
     # Create contracts with invoices
     contracts = []

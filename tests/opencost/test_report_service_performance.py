@@ -36,6 +36,7 @@ from coda.apps.opencost.report_service import (
 from coda.apps.publications.models import Publication
 from coda.apps.publications.models._attachedentities import AttachedContract
 from coda.apps.publications.models._links import LinkType, Link
+from coda.domain.publication.publication import Authors
 from tests import modelfactory
 from tests.opencost.helpers import (
     create_creditor,
@@ -238,9 +239,7 @@ def test_generate_report_fetches_invoices_only_once() -> None:
 
     # Create 20 invoices shared between publications and contract
     for i in range(20):
-        pub = modelfactory.publication()
-        pub.title = f"Article {i}"
-        pub.save()
+        fr = modelfactory.fundingrequest(title=f"Article {i}")
 
         invoice = create_invoice(
             creditor=creditor,
@@ -251,7 +250,7 @@ def test_generate_report_fetches_invoices_only_once() -> None:
         # Position links to both publication and contract
         create_position(
             invoice=invoice,
-            publication=pub,
+            publication=fr.publication,
             contract=contract,
             cost_amount=Decimal("2000.00"),
         )
@@ -508,18 +507,19 @@ def _create_publications_with_authors(
         # Assign corresponding author with institution
         institution = all_leaf_institutions[i % len(all_leaf_institutions)]
 
-        pub = Publication.objects.create(
-            title=f"Publication {i} - {institution.name}",
+        # Pass empty Authors() to prevent factory from creating default authors
+        fr = modelfactory.fundingrequest(
+            title=f"Publication {i} - {institution.name}", authors=Authors(())
         )
 
         create_corresponding_author(
-            publication=pub,
+            publication=fr.publication,
             name=f"Author {i}",
             email=f"author{i}@example.com",
             affiliation=institution,
         )
 
-        publications.append(pub)
+        publications.append(fr.publication)
 
     return publications
 

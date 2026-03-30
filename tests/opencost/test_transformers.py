@@ -30,7 +30,6 @@ from tests.opencost.helpers import (
     create_contract_with_invoice,
     generate_opencost_report_from_contract,
 )
-from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.models import LinkType, Link
 from coda.domain.opencost import CoarPublicationType
 
@@ -44,12 +43,14 @@ from coda.domain.contract import PublicationBilling
 def test__report_article_publication__transforming_to_opencost__returns_valid_opencost_publication() -> (
     None
 ):
-    publication = modelfactory.publication(title="Invoice Test Publication")
-    publication.online_publication_date = date(2024, 5, 15)
-    publication.save()
+    fr = modelfactory.fundingrequest(title="Invoice Test Publication")
+    fr.publication.online_publication_date = date(2024, 5, 15)
+    # Remove DOI to test bibliographic_information path
+    fr.publication.links.filter(type__name="DOI").delete()
+    fr.publication.save()
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 1),
         invoice_number="INV-2024-001",
         creditor_name="Invoice Creditor",
@@ -69,13 +70,16 @@ def test__report_monograph_publication__transforming_to_opencost__returns_valid_
     None
 ):
     publisher = modelfactory.publisher(name="Academic Press")
-    publication = PublicationModel.objects.create(
-        title="Test Monograph",
-        monograph_publisher=publisher,
-    )
+    # Create funding request first, then convert to monograph
+    fr = modelfactory.fundingrequest(title="Test Monograph")
+    fr.publication.article_journal = None
+    fr.publication.monograph_publisher = publisher
+    # Remove DOI to test bibliographic_information path
+    fr.publication.links.filter(type__name="DOI").delete()
+    fr.publication.save()
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 5, 20),
         invoice_number="INV-MONO-001",
         cost_amount=Decimal("2000.00"),
@@ -94,41 +98,36 @@ def test__report_monograph_publication__transforming_to_opencost__returns_valid_
 def test__report_publication_with_doi__transforming_to_opencost__doi_is_included_in_primary_identifier() -> (
     None
 ):
-    publication = modelfactory.publication(title="Test Publication with DOI")
 
-    doi_type, _ = LinkType.objects.get_or_create(name="DOI")
-    Link.objects.create(
-        publication=publication,
-        type=doi_type,
-        value="10.1234/test.doi",
-    )
+    fr = modelfactory.fundingrequest(title="Test Publication with DOI")
+
     create_publication_with_invoice(
-        publication,
+        publication=fr.publication,
         invoice_date=date(2024, 5, 20),
         invoice_number="INV-DOI-001",
     )
 
     oc_publication = transform_first_publication_to_pydantic()
 
-    assert oc_publication.primary_identifier.doi == "10.1234/test.doi"
+    assert oc_publication.primary_identifier.doi == "10.1234/5678"  # domainfactory default
 
 
 @pytest.mark.django_db
 def test__report_publication_with_publication_type__transforming_to_opencost__publication_type_is_included() -> (
     None
 ):
-    publication = modelfactory.publication(title="Test Publication with a COAR publication type")
+    fr = modelfactory.fundingrequest(title="Test Publication with a COAR publication type")
 
     vocabulary = Vocabulary.objects.create(name="COAR", version="1.0")
 
     coar_concept = PublicationAttachedConcept.objects.create(
         vocabulary=vocabulary, name="conference paper"
     )
-    publication.publication_type = coar_concept
-    publication.save()
+    fr.publication.publication_type = coar_concept
+    fr.publication.save()
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 5, 20),
         invoice_number="INV-COAR-001",
     )
@@ -142,16 +141,16 @@ def test__report_publication_with_publication_type__transforming_to_opencost__pu
 def test__report_publication_with_secondary_identifiers__transforming_to_opencost__secondary_identifiers_are_included() -> (
     None
 ):
-    publication = modelfactory.publication(title="Publication with Secondary IDs")
+    fr = modelfactory.fundingrequest(title="Publication with Secondary IDs")
 
     handle_type, _ = LinkType.objects.get_or_create(name="Handle")
-    Link.objects.create(publication=publication, type=handle_type, value="hdl:1234/5678")
+    Link.objects.create(publication=fr.publication, type=handle_type, value="hdl:1234/5678")
 
     urn_type, _ = LinkType.objects.get_or_create(name="URN")
-    Link.objects.create(publication=publication, type=urn_type, value="urn:nbn:de:1234-5678")
+    Link.objects.create(publication=fr.publication, type=urn_type, value="urn:nbn:de:1234-5678")
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 5, 20),
         invoice_number="INV-COAR-001",
     )
@@ -159,7 +158,7 @@ def test__report_publication_with_secondary_identifiers__transforming_to_opencos
     oc_publication = transform_first_publication_to_pydantic()
 
     assert oc_publication.secondary_identifiers is not None
-    assert len(oc_publication.secondary_identifiers.id) == 2
+    assert len(oc_publication.secondary_identifiers.id) == 3  # ISBN (factory) + Handle + URN
 
     handle_ids = [
         sid
@@ -188,16 +187,17 @@ def test__report_publication_with_institution_data__transforming_to_opencost__in
         isni="0000 0001 2345 6789",
     )
 
-    publication = modelfactory.publication(title="Test Publication")
+    fr = modelfactory.fundingrequest(title="Test Publication")
+    fr.publication.relevant_authors.all().delete()
     create_corresponding_author(
-        publication=publication,
+        publication=fr.publication,
         name="Test Author",
         email="test@example.com",
         affiliation=institution,
     )
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 15),
         invoice_number="INV-2024-001",
     )
@@ -225,10 +225,10 @@ def test__report_publication_with_institution_data__transforming_to_opencost__in
 def test__report_publication_with_invoice__transforming_to_opencost__cost_data_includes_invoice_with_correct_position_data() -> (
     None
 ):
-    publication = modelfactory.publication(title="Publication with Invoice")
+    fr = modelfactory.fundingrequest(title="Publication with Invoice")
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 1),
         invoice_number="INV-2024-001",
         creditor_name="Invoice Creditor",
@@ -262,7 +262,7 @@ def test__report_publication_with_invoice__transforming_to_opencost__cost_data_i
 def test__report_publication_with_invoice_multiple_positions__transforming_to_opencost__amount_invoice_and_amounts_paid_are_correct() -> (
     None
 ):
-    publication = modelfactory.publication(title="Publication with Invoice and Multiple Positions")
+    fr = modelfactory.fundingrequest(title="Publication with Invoice and Multiple Positions")
 
     creditor = create_creditor(name="Invoice Creditor")
     invoice = create_invoice(
@@ -270,13 +270,13 @@ def test__report_publication_with_invoice_multiple_positions__transforming_to_op
     )
     create_position(
         invoice,
-        publication,
+        fr.publication,
         description="APC for test article - Part 1",
         cost_amount=Decimal("1000.00"),
     )
     create_position(
         invoice,
-        publication,
+        fr.publication,
         description="APC for test article - Part 2",
         cost_amount=Decimal("500.00"),
     )
@@ -303,7 +303,7 @@ def test__report_publication_with_invoice_multiple_positions__transforming_to_op
 def test__report_publication_with_multiple_invoices__transforming_to_opencost__all_invoices_are_included() -> (
     None
 ):
-    publication = modelfactory.publication(title="Publication with Multiple Invoices")
+    fr = modelfactory.fundingrequest(title="Publication with Multiple Invoices")
 
     creditor1 = create_creditor(name="First Creditor")
     invoice1 = create_invoice(
@@ -311,7 +311,7 @@ def test__report_publication_with_multiple_invoices__transforming_to_opencost__a
     )
     create_position(
         invoice1,
-        publication,
+        fr.publication,
         description="APC for test article - Invoice 1",
         cost_amount=Decimal("800.00"),
     )
@@ -322,7 +322,7 @@ def test__report_publication_with_multiple_invoices__transforming_to_opencost__a
     )
     create_position(
         invoice2,
-        publication,
+        fr.publication,
         description="APC for test article - Invoice 2",
         cost_amount=Decimal("700.00"),
     )
@@ -585,11 +585,11 @@ def test__publication_with_linked_contract__transforming_to_opencost__attached_c
         esac="https://esac.org/id/test-contract-123",
     )
 
-    publication = modelfactory.publication(title="Publication with Attached Contract")
-    publication.attached_contracts.create(contract=contract, contract_year=2024)
+    fr = modelfactory.fundingrequest(title="Publication with Attached Contract")
+    fr.publication.attached_contracts.create(contract=contract, contract_year=2024)
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 1),
         invoice_number="INV-2024-001",
         creditor_name="Invoice Creditor",
