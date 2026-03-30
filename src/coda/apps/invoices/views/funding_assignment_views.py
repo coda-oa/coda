@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from coda import formdata
 from coda.apps.invoices.views.position_context import funding_sources_context
+from coda.apps.invoices.views.position_parsers import PositionDtoWithErrors
 from coda.apps.invoices.views.position_views import render_positions, render_single_position
 from coda.contexts.finance.dto.edit_position_dtos import (
     FundingAssignmentDto,
@@ -42,14 +43,16 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
         )
 
         display_mode = CostBasis(position_dto.cost_basis_mode)
-        position = invoice_parser.to_position(position_dto, currency)
+        position = invoice_parser.to_position(position_dto, currency, parse_safe=True)
 
         add_empty_assignment = (
             position.unassigned_costs().amount == 0 and len(position.funding_assignments()) != 0
         )
         position.assign_remaining(None)
 
+        unsafe_item = position_dto.item
         position_dto = invoice_parser.position_to_dto(position, display_mode)
+        position_dto.item = unsafe_item
         if add_empty_assignment:
             position_dto.funding_assignments.append(FundingAssignmentDto(amount=Decimal(0)))
 
@@ -87,9 +90,11 @@ def remove_funding_assignment(request: HttpRequest) -> HttpResponse:
 
         # Recalculate and convert to display mode
         try:
-            position = invoice_parser.to_position(position_dto, currency)
+            position = invoice_parser.to_position(position_dto, currency, parse_safe=True)
             # Convert back to display mode (domain handles conversion)
+            unsafe_item = position_dto.item
             position_dto = invoice_parser.position_to_dto(position, display_mode)
+            position_dto.item = unsafe_item
         except InvalidSplitAmount:
             # If assignments are invalid, set unassigned_costs to 0 to avoid confusion
             position_dto.unassigned_costs = Decimal(0)
@@ -111,35 +116,26 @@ def refresh_unassigned_costs(request: HttpRequest) -> HttpResponse:
     Expects position_index in POST data for granular updates.
     Only re-renders the affected position + OOB summary update.
     """
-    errors: dict[str, str] | None = None
-
     try:
         currency = Currency.from_code(request.POST["currency"])
         position_index = int(request.POST["position_index"])
-
-        # Parse only the targeted position using prefix
         position_dto = formdata.map_to_model(
             PositionDto, request.POST, prefix=f"positions-{position_index}"
         )
-
-        # Get display mode (form values match this mode)
-        display_mode = CostBasis(position_dto.cost_basis_mode)
-
-        # Calculate unassigned costs and convert to display mode
-        try:
-            # Parser interprets amounts according to display_mode
-            position = invoice_parser.to_position(position_dto, currency)
-            # Convert back to display mode (domain handles conversion)
-            position_dto = invoice_parser.position_to_dto(position, display_mode)
-        except InvalidSplitAmount:
-            errors = {
-                f"positions-{position_index}-funding_assignments-errors": "Invalid funding assignment!"
-            }
-
-        return render_single_position(request, position_dto, position_index, errors)
-
     except (IndexError, KeyError, ValueError):
         return render_positions(request, PositionList())
+
+    display_mode = CostBasis(position_dto.cost_basis_mode)
+
+    try:
+        # Parser interprets amounts according to display_mode
+        position = invoice_parser.to_position(position_dto, currency)
+        # Convert back to display mode (domain handles conversion)
+        position_dto = invoice_parser.position_to_dto(position, display_mode)
+    except InvalidSplitAmount:
+        position_dto = PositionDtoWithErrors.from_dto(position_dto, "Invalid funding assignment")
+
+    return render_single_position(request, position_dto, position_index)
 
 
 @login_required

@@ -252,7 +252,27 @@ def invoice_post_data(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__given_position_with_invalid_contract_year__create__returns_error___position_list(
+def test__adding_position_with_invalid_contract_year__adds_position_with_error(
+    client: Client,
+) -> None:
+    contract = contract_mapper.as_domain_object(modelfactory.contract())
+    contract_item_dto = ContractItemDto(
+        id=cast(int, contract.id),
+        name=contract.name,
+        year=1,
+    )
+    contract_dto = PositionDto(item=contract_item_dto)
+    response = add_contract_position(client, contract_dto)
+
+    assert (
+        response.context["position"].error
+        == f"Contract {contract_item_dto.name} is not active in {contract_item_dto.year}"
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__given_position_with_invalid_contract_year__create__returns_error(
     client: Client,
 ) -> None:
     contract = contract_mapper.as_domain_object(modelfactory.contract())
@@ -278,10 +298,10 @@ def test__given_position_with_invalid_contract_year__create__returns_error___pos
         | formdata.map_to_dict(position_list),
     )
 
-    expected = {
-        "positions-1-error": f"Contract {contract_item_dto.name} is not active in {contract_item_dto.year}",
-    }
-    assert expected == response.context["errors"]
+    assert (
+        response.context["position_list"].positions[0].error
+        == f"Contract {contract_item_dto.name} is not active in {contract_item_dto.year}"
+    )
 
 
 @pytest.mark.django_db
