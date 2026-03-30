@@ -120,20 +120,20 @@ def test__publication_with_all_info_and_invoice__generate_xml__creates_valid_ope
 def test__publication_with_invoice_multiple_positions__generate_xml__opencost_xml_has_right_amount() -> (
     None
 ):
-    publication = modelfactory.publication(title="Publication with Invoice and Multiple Positions")
+    fr = modelfactory.fundingrequest(title="Publication with Invoice and Multiple Positions")
     creditor = create_creditor(name="Invoice Creditor")
     invoice = create_invoice(
         creditor=creditor, invoice_date=date(2024, 6, 1), number="INV-2024-002"
     )
     create_position(
         invoice,
-        publication,
+        fr.publication,
         description="APC for test article - Part 1",
         cost_amount=Decimal("1000.00"),
     )
     create_position(
         invoice,
-        publication,
+        fr.publication,
         description="APC for test article - Part 2",
         cost_amount=Decimal("500.00"),
     )
@@ -168,16 +168,16 @@ def test__publication_with_invoice_multiple_positions__generate_xml__opencost_xm
 
 @pytest.mark.django_db
 def test__publication_with_multiple_invoices__generate_xml__creates_valid_opencost_xml() -> None:
-    publication = modelfactory.publication(title="Publication with Multiple Invoices")
+    fr = modelfactory.fundingrequest(title="Publication with Multiple Invoices")
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 5),
         invoice_number="INV-MULTI-001",
         creditor_name="Multi Creditor 1",
         cost_amount=Decimal("800.00"),
     )
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 15),
         invoice_number="INV-MULTI-002",
         creditor_name="Multi Creditor 2",
@@ -230,11 +230,11 @@ def test__publication_with_linked_contract__generate_xml__part_of_contract_is_in
     )
 
     # Create publication and link it to the contract
-    publication = modelfactory.publication(title="Publication Linked to Contract")
-    publication.attached_contracts.create(contract=contract, contract_year=2024)
+    fr = modelfactory.fundingrequest(title="Publication Linked to Contract")
+    fr.publication.attached_contracts.create(contract=contract, contract_year=2024)
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 1),
         invoice_number="INV-2024-LINKED-001",
         creditor_name="Invoice Creditor",
@@ -459,12 +459,12 @@ def test__report_publication_with_external_costsplitting__generate_xml__includes
 def test__report_publication_without_external_costsplitting__generate_xml__costsplitting_element_is_omitted() -> (
     None
 ):
-    publication_without_cost_splitting = modelfactory.publication(
-        title="Publication without Cost Splitting",
-    )
+    fr = modelfactory.fundingrequest(title="Publication without Cost Splitting")
+    fr.external_costsplitting = None
+    fr.save()
 
     create_publication_with_invoice(
-        publication_without_cost_splitting,
+        fr.publication,
         invoice_date=date(2024, 8, 10),
         invoice_number="INV-No-Split-001",
         creditor_name="Creditor",
