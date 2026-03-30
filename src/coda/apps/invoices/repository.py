@@ -1,10 +1,13 @@
+import abc
 import logging
 from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
 from decimal import Decimal
+from functools import singledispatch
 from typing import TypeVar
 
 from django.db import transaction
-from django.db.models import Case, DecimalField, F, Q, Exists, OuterRef, QuerySet, Sum, Value, When
+from django.db.models import Case, DecimalField, Exists, F, OuterRef, Q, QuerySet, Sum, Value, When
 from django.db.models.functions import Coalesce, ExtractYear
 
 from coda.apps.domainqueryset import DomainQuerySet
@@ -79,9 +82,51 @@ def get_other_paid_invoice_with_publication(
     return invoice_mapper.as_domain_object(invoice)
 
 
+T = TypeVar("T")
+
+
+def empty_if_none(crit: Callable[[T], Q]) -> Callable[[T | None], Q]:
+    def _wrapped(value: T | None) -> Q:
+        if value is None:
+            return Q()
+        return crit(value)
+
+    return _wrapped
+
+
+class UnsupportedCriterion(TypeError):
+    pass
+
+
+@dataclass(frozen=True)
+class InvoiceSearchCriterion(abc.ABC):
+    pass
+
+
+@singledispatch
+def to_query(criterion: InvoiceSearchCriterion) -> Q:
+    raise UnsupportedCriterion(criterion.__class__.__name__)
+
+
+@dataclass(frozen=True)
+class GenericSearchCriterion(InvoiceSearchCriterion):
+    generic_search: str
+
+
+@empty_if_none
+@to_query.register
+def generic_search_criterion(criterion: GenericSearchCriterion) -> Q:
+    return (
+        invoice_number_criterion(criterion.generic_search)
+        | creditor_criterion(criterion.generic_search)
+        | Q(positions__publication__fundingrequest__request_id__iexact=criterion.generic_search)
+        | Q(external_invoice_id__iexact=criterion.generic_search)
+    )
+
+
 def search(
-    *,
-    generic_search: str | None = None,
+    *criteria: InvoiceSearchCriterion,
+    generic_search: str = "",
     status: PaymentStatus | None = None,
     date_range: DateRange | None = None,
     funding_source: FundingSourceId | None = None,
@@ -95,7 +140,7 @@ def search(
     has_errors: bool | None = None,
 ) -> Sequence[InvoiceListItem]:
     query = (
-        generic_search_criterion(generic_search)
+        generic_search_criterion(GenericSearchCriterion(generic_search))
         & status_criterion(status)
         & date_range_criterion(date_range)
         & funding_source_criterion(funding_source)
@@ -104,6 +149,9 @@ def search(
         & contract_year_criterion(contract_year, contract_positions_only)
         & has_errors_criterion(has_errors)
     )
+
+    for c in criteria:
+        query &= to_query(c)
 
     logging.info("Query: %s", query)
     qs = InvoiceModel.objects.filter(query).distinct()
@@ -115,28 +163,6 @@ def search(
     list_items = get_sorted_list_items(qs, sort_by)
 
     return list_items
-
-
-T = TypeVar("T")
-
-
-def empty_if_none(crit: Callable[[T], Q]) -> Callable[[T | None], Q]:
-    def _wrapped(value: T | None) -> Q:
-        if value is None:
-            return Q()
-        return crit(value)
-
-    return _wrapped
-
-
-@empty_if_none
-def generic_search_criterion(generic_search: str) -> Q:
-    return (
-        invoice_number_criterion(generic_search)
-        | creditor_criterion(generic_search)
-        | Q(positions__publication__fundingrequest__request_id__iexact=generic_search)
-        | Q(external_invoice_id__iexact=generic_search)
-    )
 
 
 @empty_if_none
