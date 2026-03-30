@@ -1,14 +1,17 @@
 from decimal import Decimal
 from typing import cast
-from django.template.response import TemplateResponse
+
 import pytest
+from django.template.response import TemplateResponse
 from django.test import Client
 from django.urls import reverse
 
 from coda import formdata
+from coda.apps.contracts import repository as contracct_repository
 from coda.apps.invoices import funding_source_repository
-from coda.contexts.finance.dto.edit_position_dtos import PositionDto, PositionList
+from coda.contexts.finance.dto.edit_position_dtos import ContractItemDto, PositionDto, PositionList
 from coda.contexts.finance.services import invoice_parser
+from coda.domain.contract import ContractYear
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.funding_sources import Budget
@@ -115,6 +118,49 @@ def test__two_funding_assignments__remove_first__only_has_second_assignment(clie
     assert len(actual.funding_assignments) == 1
     assert actual.funding_assignments[0].funding_source == last_assignment.funding_source.id
     assert actual.funding_assignments[0].amount == position.funding_assignments()[-1].amount.amount
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invalid_position__can_still_add_funding_assignment(client: Client) -> None:
+    invalid_year = invalid_contract_year()
+
+    position = domainfactory.contract_position(invalid_year, Currency.EUR)
+    dto = invoice_parser.position_to_dto(position)
+
+    response = add_funding_assignment(client, PositionList(positions=[dto]))
+
+    actual: PositionDto = response.context["position"]
+    assert_has_contract_year(actual, invalid_year)
+    assert len(actual.funding_assignments) == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__can_remove_funding_assignment_from_invalid_position(client: Client) -> None:
+    invalid_year = invalid_contract_year()
+
+    position = domainfactory.contract_position(invalid_year, Currency.EUR)
+    position.assign_remaining(None)
+
+    dto = invoice_parser.position_to_dto(position)
+    response = remove_funding_assignment(client, PositionList(positions=[dto]), 0)
+
+    actual: PositionDto = response.context["position"]
+    assert_has_contract_year(actual, invalid_year)
+    assert len(actual.funding_assignments) == 0
+
+
+def invalid_contract_year() -> ContractYear:
+    contract = domainfactory.contract()
+    contract.id = contracct_repository.create(contract)
+    contract_year = contract.in_first_year()
+    return ContractYear(contract_year.year - 1, contract)
+
+
+def assert_has_contract_year(actual: PositionDto, contract_year: ContractYear) -> None:
+    assert isinstance(actual.item, ContractItemDto)
+    assert actual.item.year == contract_year.year
 
 
 def remove_funding_assignment(

@@ -43,14 +43,16 @@ def add_funding_assignment(request: HttpRequest) -> HttpResponse:
         )
 
         display_mode = CostBasis(position_dto.cost_basis_mode)
-        position = invoice_parser.to_position(position_dto, currency)
+        position = invoice_parser.to_position(position_dto, currency, parse_safe=True)
 
         add_empty_assignment = (
             position.unassigned_costs().amount == 0 and len(position.funding_assignments()) != 0
         )
         position.assign_remaining(None)
 
+        unsafe_item = position_dto.item
         position_dto = invoice_parser.position_to_dto(position, display_mode)
+        position_dto.item = unsafe_item
         if add_empty_assignment:
             position_dto.funding_assignments.append(FundingAssignmentDto(amount=Decimal(0)))
 
@@ -88,9 +90,11 @@ def remove_funding_assignment(request: HttpRequest) -> HttpResponse:
 
         # Recalculate and convert to display mode
         try:
-            position = invoice_parser.to_position(position_dto, currency)
+            position = invoice_parser.to_position(position_dto, currency, parse_safe=True)
             # Convert back to display mode (domain handles conversion)
+            unsafe_item = position_dto.item
             position_dto = invoice_parser.position_to_dto(position, display_mode)
+            position_dto.item = unsafe_item
         except InvalidSplitAmount:
             # If assignments are invalid, set unassigned_costs to 0 to avoid confusion
             position_dto.unassigned_costs = Decimal(0)
