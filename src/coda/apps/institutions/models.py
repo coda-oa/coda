@@ -23,6 +23,14 @@ class InstitutionManager(models.Manager["Institution"]):
 
 class Institution(models.Model):
     name = models.CharField(max_length=255)
+    internal_id = models.CharField(
+        max_length=50,
+        unique=True,
+        blank=True,
+        null=True,
+        default=None,
+        help_text="Stable identifier for import/export matching",
+    )
     virtual = models.BooleanField(default=False)
     parent = models.ForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"

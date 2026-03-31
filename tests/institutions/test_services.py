@@ -9,6 +9,7 @@ from coda.apps.institutions.services import (
     archive_with_existing_successor,
     archive_without_successor,
     can_delete_institution,
+    generate_internal_id,
     get_institution_relationships,
 )
 from coda.apps.preferences.models import GlobalPreferences
@@ -355,3 +356,25 @@ def test__archive_home_institution__select_existing_successor__updates_home_inst
 
     preferences.refresh_from_db()
     assert preferences.home_institution == successor
+
+
+def test__generate_internal_id__id_generated__has_correct_format() -> None:
+    internal_id = generate_internal_id()
+
+    assert internal_id.startswith("inst_")
+    assert len(internal_id) == 13  # inst_ (5) + 8 chars
+
+
+def test__generate_internal_id__multiple_generated__all_ids_unique() -> None:
+    ids = {generate_internal_id() for _ in range(1000)}
+
+    assert len(ids) == 1000
+
+
+def test__generate_internal_id__id_generated__uses_url_safe_characters() -> None:
+    internal_id = generate_internal_id()
+    id_part = internal_id.replace("inst_", "")
+
+    remaining = id_part.replace("-", "").replace("_", "")
+
+    assert remaining.isalnum(), f"ID part '{id_part}' contains non-URL-safe characters"

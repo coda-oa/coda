@@ -18,6 +18,7 @@ urlpatterns = [
     path("toggle-selectable/<int:pk>", views.toggle_selectable, name="toggle_selectable"),
     path("import/", views.import_view, name="import_view"),
     path("import-file/", views.import_from_file, name="import"),
+    path("export/", views.export_institutions, name="export"),
     path(
         "partial/add-institution-linkrow/",
         views.add_institution_linkrow,

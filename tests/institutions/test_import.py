@@ -2,6 +2,7 @@ from io import StringIO
 from pathlib import Path
 
 import pytest
+from django.utils import timezone
 
 from coda.apps.institutions import services
 from coda.apps.institutions.models import Institution
@@ -172,3 +173,209 @@ def test__institution_without_identifier_matched_by_name() -> None:
 def _imported_institutions_with_identifiers() -> None:
     with Path(ordered_institutions_path_with_identifiers).open() as file:
         services.import_from_file(StringIO(file.read()))
+
+
+# Internal ID matching tests
+
+
+@pytest.mark.django_db
+def test__institution_with_internal_id__import_with_same_internal_id_but_different_name__matches_by_internal_id_first() -> (
+    None
+):
+    existing = Institution.objects.create(name="Old Name", internal_id="inst_test123")
+
+    csv_data = StringIO("internal_id;name;ROR;ISNI;Ringgold\ninst_test123;New Name;;;")
+    services.import_from_file(csv_data)
+
+    assert Institution.objects.count() == 1
+    existing.refresh_from_db()
+    assert existing.name == "New Name"
+    assert existing.internal_id == "inst_test123"
+
+
+@pytest.mark.django_db
+def test__two_institutions_one_with_matching_internal_id_and_one_with_matching_ror__import__prefers_internal_id() -> (
+    None
+):
+    """Given: Two institutions exist - one with matching internal_id, one with matching ROR
+    When: CSV import has both internal_id and ROR that match different institutions
+    Then: Should prioritize internal_id matching over ROR matching"""
+    # Create two institutions: one with internal_id, one with ROR
+    inst_with_id = Institution.objects.create(name="Institution A", internal_id="inst_aaa111")
+    inst_with_ror = Institution.objects.create(name="Institution B")
+    inst_with_ror.links.create(type_id=1, value="https://ror.org/123456")
+
+    csv_data = StringIO(
+        "internal_id;name;ROR;ISNI;Ringgold\n" "inst_aaa111;Updated Name;https://ror.org/123456;;"
+    )
+    services.import_from_file(csv_data)
+
+    assert Institution.objects.count() == 2
+    inst_with_id.refresh_from_db()
+    assert inst_with_id.name == "Updated Name"
+    assert inst_with_id.internal_id == "inst_aaa111"
+
+
+@pytest.mark.django_db
+def test__institution_with_ror__import_with_no_internal_id_provided__falls_back_to_ror_matching() -> (
+    None
+):
+    existing = Institution.objects.create(name="Test Institution")
+    existing.links.create(type_id=1, value="https://ror.org/999888")  # ROR type_id=1
+
+    csv_data = StringIO("name;ROR;ISNI;Ringgold\nUpdated Name;https://ror.org/999888;;")
+    services.import_from_file(csv_data)
+
+    assert Institution.objects.count() == 1
+    existing.refresh_from_db()
+    assert existing.name == "Updated Name"
+
+
+@pytest.mark.django_db
+def test__parent_institution_with_internal_id_in_csv__import_child_institution_with_parent_internal_id__links_parent_correctly() -> (
+    None
+):
+    parent = Institution.objects.create(name="Parent Institution", internal_id="inst_parent1")
+
+    csv_data = StringIO(
+        "internal_id;name;parent;ROR;ISNI;Ringgold\n"
+        "inst_child1;Child Institution;inst_parent1;;;"
+    )
+    services.import_from_file(csv_data)
+
+    child = Institution.objects.get(internal_id="inst_child1")
+    assert child.parent == parent
+    assert child.parent.internal_id == "inst_parent1"
+
+
+@pytest.mark.django_db
+def test__csv_with_full_institution_hierarchy__import__creates_proper_tree() -> None:
+    csv_data = StringIO(
+        "internal_id;name;parent;ROR;ISNI;Ringgold\n"
+        "inst_root;Root Institution;;;;\n"
+        "inst_child1;Child 1;inst_root;;;\n"
+        "inst_child2;Child 2;inst_root;;;\n"
+        "inst_grandchild;Grandchild;inst_child1;;;"
+    )
+
+    services.import_from_file(csv_data)
+
+    root = Institution.objects.get(internal_id="inst_root")
+    child1 = Institution.objects.get(internal_id="inst_child1")
+    child2 = Institution.objects.get(internal_id="inst_child2")
+    grandchild = Institution.objects.get(internal_id="inst_grandchild")
+
+    assert root.parent is None
+    assert child1.parent == root
+    assert child2.parent == root
+    assert grandchild.parent == child1
+
+
+@pytest.mark.django_db
+def test__csv_with_archived_institutions__import__sets_archived_at() -> None:
+    """Given: CSV contains archived=true
+    When: Institution is imported
+    Then: Institution should be archived (archived_at set)"""
+    csv_data = StringIO(
+        "internal_id;name;archived;ROR;ISNI;Ringgold\n" "inst_arch1;Archived Institution;true;;;"
+    )
+    services.import_from_file(csv_data)
+
+    inst = Institution.all_objects.get(internal_id="inst_arch1")
+    assert inst.archived_at is not None
+
+
+@pytest.mark.django_db
+def test__archived_institution_in_db__import_setting_archived_false_in_csv__clears_archived_at() -> (
+    None
+):
+    inst = Institution.objects.create(
+        name="Previously Archived", internal_id="inst_prev1", archived_at=timezone.now()
+    )
+
+    csv_data = StringIO(
+        "internal_id;name;archived;ROR;ISNI;Ringgold\n" "inst_prev1;Previously Archived;false;;;"
+    )
+    services.import_from_file(csv_data)
+
+    inst.refresh_from_db()
+    assert inst.archived_at is None
+
+
+@pytest.mark.django_db
+def test__csv_with_archived_column_absent__import__leaves_status_unchanged() -> None:
+    archived_inst = Institution.objects.create(
+        name="Archived", internal_id="inst_keep_arch", archived_at=timezone.now()
+    )
+    archived_time = archived_inst.archived_at
+    active_inst = Institution.objects.create(name="Active", internal_id="inst_keep_active")
+
+    csv_data = StringIO(
+        "internal_id;name;ROR;ISNI;Ringgold\n"
+        "inst_keep_arch;Archived Updated;;;\n"
+        "inst_keep_active;Active Updated;;;"
+    )
+    services.import_from_file(csv_data)
+
+    archived_inst.refresh_from_db()
+    assert archived_inst.archived_at == archived_time
+    active_inst.refresh_from_db()
+    assert active_inst.archived_at is None
+
+
+@pytest.mark.django_db
+def test__institution_with_matching_internal_id_and_changed_ror__import__updates_ror() -> None:
+    inst = Institution.objects.create(name="Test University", internal_id="inst_typo1")
+    inst.links.create(type_id=1, value="https://ror.org/02mhbdp94")  # Old ROR
+
+    csv_data = StringIO(
+        "internal_id;name;ROR;ISNI;Ringgold\n"
+        "inst_typo1;Test University;https://ror.org/010nsgg66;;"
+    )
+    services.import_from_file(csv_data)
+
+    inst.refresh_from_db()
+    assert inst.links.filter(type__name="ROR", value="https://ror.org/010nsgg66").exists()
+    assert not inst.links.filter(type__name="ROR", value="https://ror.org/02mhbdp94").exists()
+
+
+@pytest.mark.django_db
+def test__institution_with_matching_internal_id_and_empty_ror__import__preserves_existing_ror() -> (
+    None
+):
+    inst = Institution.objects.create(name="Test University", internal_id="inst_keep1")
+    inst.links.create(type_id=1, value="https://ror.org/010nsgg66")
+
+    csv_data = StringIO(
+        "internal_id;name;ROR;ISNI;Ringgold\n" "inst_keep1;Test University Updated;;;"
+    )
+    services.import_from_file(csv_data)
+
+    inst.refresh_from_db()
+    assert inst.links.filter(type__name="ROR", value="https://ror.org/010nsgg66").exists()
+
+
+@pytest.mark.django_db
+def test__institution_with_matching_internal_id_and_updated_identifiers__import__updates_all_identifiers() -> (
+    None
+):
+    inst = Institution.objects.create(name="Test University", internal_id="inst_multi1")
+    inst.links.create(type_id=1, value="https://ror.org/02mhbdp94")
+    inst.links.create(type_id=2, value="0000000121032683")
+    inst.links.create(type_id=3, value="111111")
+
+    csv_data = StringIO(
+        "internal_id;name;ROR;ISNI;Ringgold\n"
+        "inst_multi1;Test University;https://ror.org/010nsgg66;000000012281955X;123456"
+    )
+    services.import_from_file(csv_data)
+
+    inst.refresh_from_db()
+    assert inst.links.filter(type__name="ROR", value="https://ror.org/010nsgg66").exists()
+    assert not inst.links.filter(type__name="ROR", value="https://ror.org/02mhbdp94").exists()
+
+    assert inst.links.filter(type__name="ISNI", value="000000012281955X").exists()
+    assert not inst.links.filter(type__name="ISNI", value="0000000121032683").exists()
+
+    assert inst.links.filter(type__name="Ringgold", value="123456").exists()
+    assert not inst.links.filter(type__name="Ringgold", value="111111").exists()

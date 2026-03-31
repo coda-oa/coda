@@ -1,3 +1,4 @@
+from datetime import datetime
 from io import BytesIO
 from typing import Any
 
@@ -10,7 +11,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.views.generic import CreateView, UpdateView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -427,3 +428,16 @@ def add_institution_linkrow(request: HttpRequest) -> HttpResponse:
         "partials/linkrow.html",
         {"link_types": InstitutionLinkType.objects.all()},
     )
+
+
+@login_required
+@require_GET
+def export_institutions(request: HttpRequest) -> HttpResponse:
+    csv_content = services.export_to_csv()
+    response = HttpResponse(csv_content, content_type="text/csv")
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"institutions_export_{timestamp}.csv"
+    response["Content-Disposition"] = f"attachment; filename={filename}"
+
+    return response

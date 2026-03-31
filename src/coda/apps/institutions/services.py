@@ -1,7 +1,9 @@
 from io import BytesIO, StringIO
 from typing import Any
 from django.db.models import QuerySet
+from django.db import transaction
 from django.utils import timezone
+import secrets
 
 import polars as pl
 
@@ -14,6 +16,11 @@ from dataclasses import dataclass, field
 
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.models import Invoice
+
+
+def generate_internal_id() -> str:
+    random_part = secrets.token_urlsafe(6)
+    return f"inst_{random_part[:8]}"
 
 
 @dataclass
@@ -46,6 +53,7 @@ def import_from_file(file: BytesIO | StringIO) -> ImportResult:
         row = df.row(i, named=True)
 
         _handle_affiliation(institution, row)
+        _handle_archived_status(institution, row)
 
         _link_parent_institution(df, institution, row)
 
@@ -64,10 +72,16 @@ def import_from_file(file: BytesIO | StringIO) -> ImportResult:
 def _link_parent_institution(
     df: pl.DataFrame, institution: Institution, row: dict[str, Any]
 ) -> None:
-    parent_row_number_in_file = row.get("parent")
-    if parent_row_number_in_file is not None:
-        parent_name: str = _parent_row(df, parent_row_number_in_file).get("name", "")
-        parent = Institution.objects.get(name=parent_name)
+    parent_value = row.get("parent")
+    if not parent_value:
+        return
+
+    parent_id = str(parent_value).strip()
+    if not parent_id:
+        return
+
+    parent = Institution.all_objects.filter(internal_id=parent_id).first()
+    if parent:
         institution.parent = parent
 
 
@@ -88,7 +102,9 @@ def _handle_identifiers(
 
         try:
             link = create_link(link_type_name, value)
-            institution.links.get_or_create(type=link_types[link_type_name], value=link.value())
+            link_type = link_types[link_type_name]
+            institution.links.filter(type=link_type).delete()
+            institution.links.create(type=link_type, value=link.value())
         except Exception as e:
             had_errors = True
             result.errors.append(
@@ -112,43 +128,83 @@ def _handle_affiliation(institution: Institution, row: dict[str, Any]) -> None:
             institution.virtual = False
 
 
+def _handle_archived_status(institution: Institution, row: dict[str, Any]) -> None:
+    archived_value = row.get("archived")
+    if archived_value is not None:
+        archived_str = str(archived_value).strip().lower()
+        if archived_str == "true":
+            if not institution.archived_at:
+                institution.archived_at = timezone.now()
+        elif archived_str == "false":
+            institution.archived_at = None
+
+
+def _match_by_internal_id(row: dict[str, Any]) -> Institution | None:
+    internal_id = row.get("internal_id")
+    if not internal_id:
+        return None
+
+    internal_id = str(internal_id).strip()
+    if not internal_id:
+        return None
+
+    institution = Institution.all_objects.filter(internal_id=internal_id).first()
+    if institution:
+        institution.name = str(row.get("name"))
+
+    return institution
+
+
+def _match_by_external_identifier(row: dict[str, Any]) -> Institution | None:
+    for id_type in ["ROR", "ISNI", "Ringgold"]:
+        id_value = row.get(id_type)
+        if not id_value:
+            continue
+
+        id_value = str(id_value).strip()
+        if not id_value:
+            continue
+
+        institution = Institution.all_objects.filter(
+            links__type__name=id_type, links__value=id_value
+        ).first()
+
+        if institution:
+            institution.name = str(row.get("name"))
+            return institution
+
+    return None
+
+
+def _get_or_create_by_name(row: dict[str, Any]) -> Institution:
+    name = row.get("name")
+    institution, _ = Institution.all_objects.get_or_create(name=name)
+    return institution
+
+
+def _set_internal_id_if_needed(institution: Institution, row: dict[str, Any]) -> None:
+    internal_id = row.get("internal_id")
+    if internal_id:
+        internal_id = str(internal_id).strip()
+        if internal_id and not institution.internal_id:
+            institution.internal_id = internal_id
+
+
 def _match_or_create_institutions(df: pl.DataFrame) -> list[Institution]:
     institutions = []
     for i in range(len(df)):
         row = df.row(i, named=True)
-        name = row.get("name")
 
-        institution = None
-        for id_type in ["ROR", "ISNI", "Ringgold"]:
-            id_value = row.get(id_type)
-            if id_value:
-                id_value = str(id_value).strip()
-                existing = Institution.objects.filter(
-                    links__type__name=id_type, links__value=id_value
-                ).first()
-                if existing:
-                    institution = existing
-                    institution.name = str(name)
-                    break
+        institution = (
+            _match_by_internal_id(row)
+            or _match_by_external_identifier(row)
+            or _get_or_create_by_name(row)
+        )
 
-        if not institution:
-            institution, _ = Institution.objects.get_or_create(name=name)
-
+        _set_internal_id_if_needed(institution, row)
         institutions.append(institution)
 
     return institutions
-
-
-def _parent_row(df: pl.DataFrame, parent_row_number_in_file: int) -> dict[str, Any]:
-    return df.row(_parent_row_number(parent_row_number_in_file), named=True)
-
-
-# NOTE: HEADER_OFFSET is 2 because the first row is the header and we start counting numbers from 0 after the header
-HEADER_OFFSET = 2
-
-
-def _parent_row_number(parent_row_number_in_file: int) -> int:
-    return parent_row_number_in_file - HEADER_OFFSET
 
 
 def can_delete_institution(institution: Institution) -> tuple[bool, list[str]]:
@@ -297,3 +353,62 @@ def get_institution_relationships(institution: Institution) -> InstitutionRelati
         invoices=invoices,
         links=links,
     )
+
+
+def _ensure_all_institutions_have_internal_ids(
+    institutions: QuerySet[Institution],
+) -> dict[int, str]:
+    id_mapping = {}
+    for inst in institutions:
+        if not inst.internal_id:
+            inst.internal_id = generate_internal_id()
+            inst.save()
+        assert inst.internal_id is not None  # For mypy: always set at this point
+        id_mapping[inst.pk] = inst.internal_id
+    return id_mapping
+
+
+def _extract_external_identifiers(institution: Institution) -> dict[str, str]:
+    identifiers = {"ROR": "", "ISNI": "", "Ringgold": ""}
+
+    for link in institution.links.all():
+        if link.type.name in identifiers:
+            identifiers[link.type.name] = link.value
+
+    return identifiers
+
+
+def _institution_to_csv_row(inst: Institution, id_mapping: dict[int, str]) -> dict[str, str]:
+    parent_id = ""
+    if inst.parent_id:
+        parent_id = id_mapping.get(inst.parent_id, "")
+
+    usable_affiliation = "false" if inst.virtual else "true"
+    archived = "true" if inst.archived_at else "false"
+
+    identifiers = _extract_external_identifiers(inst)
+
+    return {
+        "internal_id": id_mapping[inst.pk],
+        "name": inst.name,
+        "parent": parent_id,
+        "usableAffiliation": usable_affiliation,
+        "archived": archived,
+        "ROR": identifiers["ROR"],
+        "ISNI": identifiers["ISNI"],
+        "Ringgold": identifiers["Ringgold"],
+    }
+
+
+def export_to_csv() -> str:
+    institutions = Institution.all_objects.select_related("parent").prefetch_related("links").all()
+
+    with transaction.atomic():
+        id_mapping = _ensure_all_institutions_have_internal_ids(institutions)
+        rows = [_institution_to_csv_row(inst, id_mapping) for inst in institutions]
+
+    df = pl.DataFrame(rows)
+    csv_buffer = StringIO()
+    df.write_csv(csv_buffer, separator=";")
+
+    return csv_buffer.getvalue()
