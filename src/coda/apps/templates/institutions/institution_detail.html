@@ -15,6 +15,12 @@
         <header>
             <h2 class="my-0">{{ institution.name }}</h2>
         </header>
+        {% if institution.internal_id %}
+            <p>
+                <strong>Internal ID:</strong>
+                <span>{{ institution.internal_id }}</span>
+            </p>
+        {% endif %}
         {% if institution.parent %}
             <p>
                 <strong>Parent Institution:</strong>

@@ -399,12 +399,24 @@ def import_from_file(request: HttpRequest) -> HttpResponse:
         )
         return redirect(INSTITUTION_IMPORT_VIEW_URL)
 
+    matching_details = []
+    if result.matched_by_internal_id > 0:
+        matching_details.append(f"{result.matched_by_internal_id} matched by internal_id")
+    if result.matched_by_identifier > 0:
+        matching_details.append(f"{result.matched_by_identifier} matched by identifier")
+    if result.created_new > 0:
+        matching_details.append(f"{result.created_new} created new")
+
+    matching_info = f" ({', '.join(matching_details)})" if matching_details else ""
+
     if result.fully_imported == result.total:
-        messages.success(request, f"{result.total} institutions imported successfully")
+        messages.success(
+            request, f"{result.total} institutions imported successfully{matching_info}"
+        )
     elif result.partially_imported > 0:
         messages.warning(
             request,
-            f"{result.fully_imported} institutions imported successfully, "
+            f"{result.fully_imported} institutions imported successfully{matching_info}, "
             f"{result.partially_imported} with incomplete data (invalid identifiers skipped)",
         )
 

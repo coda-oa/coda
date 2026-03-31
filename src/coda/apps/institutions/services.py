@@ -34,6 +34,9 @@ class ImportResult:
     total: int = 0
     fully_imported: int = 0
     partially_imported: int = 0
+    matched_by_internal_id: int = 0
+    matched_by_identifier: int = 0
+    created_new: int = 0
     errors: list[ImportError] = field(default_factory=list)
 
 
@@ -44,7 +47,7 @@ def import_from_file(file: BytesIO | StringIO) -> ImportResult:
 
     link_types = {lt.name: lt for lt in InstitutionLinkType.objects.all()}
 
-    institutions = _match_or_create_institutions(df)
+    institutions = _match_or_create_institutions(df, result)
 
     for i, institution in enumerate(institutions):
         result.total += 1
@@ -190,16 +193,21 @@ def _set_internal_id_if_needed(institution: Institution, row: dict[str, Any]) ->
             institution.internal_id = internal_id
 
 
-def _match_or_create_institutions(df: pl.DataFrame) -> list[Institution]:
+def _match_or_create_institutions(df: pl.DataFrame, result: ImportResult) -> list[Institution]:
     institutions = []
     for i in range(len(df)):
         row = df.row(i, named=True)
 
-        institution = (
-            _match_by_internal_id(row)
-            or _match_by_external_identifier(row)
-            or _get_or_create_by_name(row)
-        )
+        institution = _match_by_internal_id(row)
+        if institution:
+            result.matched_by_internal_id += 1
+        else:
+            institution = _match_by_external_identifier(row)
+            if institution:
+                result.matched_by_identifier += 1
+            else:
+                institution = _get_or_create_by_name(row)
+                result.created_new += 1
 
         _set_internal_id_if_needed(institution, row)
         institutions.append(institution)
