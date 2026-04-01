@@ -13,15 +13,29 @@
             <p>
                 <strong>This action cannot be undone.</strong>
             </p>
+            {% if can_delete == False %}
+                <div class="messages error undecorated mt-2">
+                    <p class="error">
+                        <strong>Cannot delete this {{ entity_type|lower }}:</strong>
+                    </p>
+                    <ul class="error">
+                        {% for reason in blocking_reasons %}<li>{{ reason }}</li>{% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
         </div>
         <footer class="grid">
             <button type="button"
                     class="secondary"
                     onclick="this.closest('dialog').remove()">Cancel</button>
-            <button type="button"
-                    class="danger"
-                    hx-post="{{ delete_url }}"
-                    hx-target="closest dialog">Delete</button>
+            {% if can_delete == False %}
+                <button type="button" class="danger" disabled>Delete</button>
+            {% else %}
+                <button type="button"
+                        class="danger"
+                        hx-post="{{ delete_url }}"
+                        hx-target="closest dialog">Delete</button>
+            {% endif %}
         </footer>
     </article>
 </dialog>

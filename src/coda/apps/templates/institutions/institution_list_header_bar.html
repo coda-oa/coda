@@ -1,12 +1,12 @@
 <div class="flex justify-between align-center my-2">
     <h1>{{ entity_name }}</h1>
     <div>
-        <a href="{% url 'institutions:export' %}"
-           class="secondary"
-           role="button">Export</a>
         <a href="{% url entity_create_url %}" class="secondary" role="button">New</a>
         <a href="{% url entity_secondary_create_url %}"
            class="secondary"
            role="button">Import</a>
+        <a href="{% url 'institutions:export' %}"
+           class="secondary"
+           role="button">Export</a>
     </div>
 </div>

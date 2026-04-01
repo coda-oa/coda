@@ -39,13 +39,6 @@ class Institution(models.Model):
     archived_at = models.DateTimeField(
         null=True, blank=True, db_index=True, help_text="When this institution was archived"
     )
-    succeeded_by = models.ManyToManyField(
-        "self",
-        symmetrical=False,
-        related_name="predecessor_of",
-        blank=True,
-        help_text="The institution(s) that succeeded this one",
-    )
 
     objects = InstitutionManager()
     all_objects = models.Manager()

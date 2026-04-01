@@ -241,8 +241,10 @@ def check_institution_links(institution: Institution, blocking: list[str]) -> No
 
 def check_funding_sources(institution: Institution, blocking: list[str]) -> None:
     funding_sources = FundingSource.objects.filter(institution=institution)
-    if funding_sources.exists():
-        blocking.append(f"{funding_sources.count()} funding source(s)")
+    # Only count funding sources that are actually being used
+    used_funding_sources = funding_sources.filter(funding_assignments__isnull=False).distinct()
+    if used_funding_sources.exists():
+        blocking.append(f"{used_funding_sources.count()} active funding source(s)")
 
 
 def check_author_affiliations(institution: Institution, blocking: list[str]) -> None:
@@ -257,45 +259,16 @@ def check_child_institutions(institution: Institution, blocking: list[str]) -> N
         blocking.append(f"{institution.children.count()} child institution(s)")
 
 
-def archive_and_create_successor(
-    institution: Institution, successor_name: str, new_parent: Institution | None = None
-) -> Institution:
-    successor = Institution.objects.create(
-        name=successor_name,
-        parent=new_parent if new_parent is not None else institution.parent,
-        virtual=institution.virtual,
-    )
-
-    institution.children.update(parent=successor)
-
-    _archive_institution(institution)
-    institution.succeeded_by.add(successor)
-    institution.save()
-
-    _update_home_institution_if_needed(institution, successor)
-
-    return successor
-
-
-def archive_with_existing_successor(
-    institution: Institution, successors: list[Institution]
-) -> None:
-    if not successors:
-        raise ValueError("Must provide at least one successor institution")
-
-    _archive_institution(institution)
-    institution.succeeded_by.add(*successors)
-    institution.save()
-
-    _update_home_institution_if_needed(institution, successors[0])
-
-
-def archive_without_successor(institution: Institution) -> None:
-    if _is_home_institution(institution):
-        raise ValueError("Cannot archive home institution without successor")
+def archive(institution: Institution, replacement: Institution | None = None) -> None:
+    if _is_home_institution(institution) and replacement is None:
+        raise ValueError("Cannot archive home institution without replacement")
 
     if institution.archived_at is not None:
         raise ValueError("Institution is already archived")
+
+    if replacement is not None:
+        institution.children.update(parent=replacement)
+        _update_home_institution_if_needed(institution, replacement)
 
     timestamp = timezone.now()
     _archive_institution_tree(institution, timestamp)
@@ -310,16 +283,32 @@ def _archive_institution_tree(institution: Institution, timestamp: datetime) -> 
         institution.virtual = True
         institution.save()
 
-    for successor in institution.succeeded_by.all():
-        _archive_institution_tree(successor, timestamp)
+
+def restore_without_children(
+    institution: Institution, new_parent: Institution | None = None
+) -> None:
+    institution.archived_at = None
+    institution.virtual = False
+    if new_parent is not None:
+        institution.parent = new_parent
+    institution.save()
 
 
-def _archive_institution(institution: Institution) -> None:
+def restore_with_children(institution: Institution, new_parent: Institution | None = None) -> None:
+    if new_parent is not None:
+        institution.parent = new_parent
+        institution.save()
+    _restore_institution_tree(institution)
+
+
+def _restore_institution_tree(institution: Institution) -> None:
     if institution.archived_at is not None:
-        raise ValueError("Institution is already archived")
+        institution.archived_at = None
+        institution.virtual = False
+        institution.save()
 
-    institution.archived_at = timezone.now()
-    institution.virtual = True
+    for child in Institution.all_objects.filter(parent=institution):
+        _restore_institution_tree(child)
 
 
 def _is_home_institution(institution: Institution) -> bool:
@@ -353,7 +342,7 @@ class InstitutionRelationships:
 
 
 def get_institution_relationships(institution: Institution) -> InstitutionRelationships:
-    children = institution.children.all()
+    children = Institution.all_objects.filter(parent=institution)
 
     funding_requests = FundingRequest.objects.filter(
         publication__relevant_authors__affiliation=institution

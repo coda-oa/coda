@@ -42,16 +42,6 @@
             <p>
                 <strong>Archived:</strong> {{ institution.archived_at }}
             </p>
-            {% if institution.succeeded_by.exists %}
-                <h3>Succeeded By</h3>
-                <ul>
-                    {% for successor in institution.succeeded_by.all %}
-                        <li>
-                            <a href="{% url 'institutions:detail' pk=successor.pk %}">{{ successor.name }}</a>
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
         {% endif %}
     </article>
     {% if relationships.has_any %}
@@ -66,6 +56,7 @@
                         {% for child in relationships.children %}
                             <li>
                                 <a href="{% url 'institutions:detail' pk=child.pk %}">{{ child.name }}</a>
+                                {% if child.archived_at %}<small class="text danger">Archived</small>{% endif %}
                             </li>
                         {% endfor %}
                     </ul>
@@ -144,22 +135,23 @@
             {% endif %}
         </article>
     {% endif %}
-    {% if not institution.archived_at %}
+    {% if institution.archived_at %}
+        <div class="flex justify-end my-2">
+            <button class="outline success"
+                    hx-get="{% url 'institutions:request_restore' pk=institution.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Restore</button>
+        </div>
+    {% else %}
         <div class="flex justify-end my-2">
             <button class="secondary"
                     hx-get="{% url 'institutions:request_set_successor' pk=institution.pk %}"
                     hx-target="body"
                     hx-swap="beforeend">Archive</button>
-            {% if can_delete %}
-                <button class="danger"
-                        hx-get="{% url 'institutions:request_delete' pk=institution.pk %}"
-                        hx-target="body"
-                        hx-swap="beforeend">Delete</button>
-            {% else %}
-                <span {% if blocking_reasons %}data-tooltip="Cannot delete: {{ blocking_reasons|join:", " }}"{% endif %}>
-                    <button class="danger"  disabled>Delete</button>
-                </span>
-            {% endif %}
+            <button class="danger"
+                    hx-get="{% url 'institutions:request_delete' pk=institution.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Delete</button>
         </div>
     {% endif %}
 {% endblock content %}

@@ -36,6 +36,8 @@ button.undecorated {
   border: 1px solid var(--coda-border-color);
   border-radius: var(--coda-border-radius);
   text-decoration: none;
+  background-color: var(--pico-primary-background);
+  color: var(--coda-validation-text-color);
 }
 
 .button.contrast {
@@ -46,7 +48,6 @@ button.undecorated {
 
 a.button.secondary {
   background-color: var(--coda-secondary-background);
-  padding: var(--coda-form-element-spacing-horizontal) var(--coda-form-element-spacing-vertical);
   color: var(--coda-secondary-inverse);
 
 }

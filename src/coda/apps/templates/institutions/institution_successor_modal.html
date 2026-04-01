@@ -19,7 +19,8 @@
         {% if has_children %}
             <p class="messages info undecorated">
                 <strong>Note:</strong> This institution has child institutions.
-                If you archive it, the children will be archived as well. You can choose to create a new institution as successor or select an existing institution as successor, and the children will be re-parented to the successor institution.
+                If you archive it without choosing a successor, the children will be archived as well.
+                You can choose to create a new institution as successor or select an existing institution as successor, and the children will be re-parented to the successor institution.
             </p>
         {% endif %}
         {% if general_error %}<p class="messages error undecorated">{{ general_error }}</p>{% endif %}

@@ -181,7 +181,6 @@ update_institution_view = UpdateInstitutionView.as_view()
 def institution_detail(request: HttpRequest, pk: int) -> HttpResponse:
     institution = get_object_or_404(Institution.all_objects, pk=pk)
     relationships = services.get_institution_relationships(institution)
-    can_delete, blocking_reasons = services.can_delete_institution(institution)
 
     return render(
         request,
@@ -189,8 +188,6 @@ def institution_detail(request: HttpRequest, pk: int) -> HttpResponse:
         {
             "institution": institution,
             "relationships": relationships,
-            "can_delete": can_delete,
-            "blocking_reasons": blocking_reasons,
         },
     )
 
@@ -217,6 +214,8 @@ def request_set_successor(request: HttpRequest, pk: int) -> HttpResponse:
 def request_delete_institution(request: HttpRequest, pk: int) -> HttpResponse:
     institution = get_object_or_404(Institution.objects, pk=pk)
 
+    can_delete, blocking_reasons = services.can_delete_institution(institution)
+
     return render(
         request,
         "partials/entity_deletion_modal.html",
@@ -224,50 +223,10 @@ def request_delete_institution(request: HttpRequest, pk: int) -> HttpResponse:
             "entity_type": "Institution",
             "entity_name": institution.name,
             "delete_url": reverse("institutions:delete", kwargs={"pk": pk}),
+            "can_delete": can_delete,
+            "blocking_reasons": blocking_reasons,
         },
     )
-
-
-def _archive_no_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
-    services.archive_without_successor(institution)
-    messages.success(request, f"Institution '{institution.name}' archived successfully.")
-    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
-
-
-def _archive_with_new_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
-    successor_name = request.POST.get("new_name", "").strip()
-    if not successor_name:
-        # Re-render modal with error
-        return _render_successor_modal_with_errors(
-            request, institution, errors={"new_name": "New institution name is required."}
-        )
-
-    successor = services.archive_and_create_successor(institution, successor_name=successor_name)
-    messages.success(request, f"Institution archived and succeeded by {successor.name}.")
-    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": successor.pk}))
-
-
-def _archive_with_existing_successor(
-    request: HttpRequest, institution: Institution
-) -> HttpResponse:
-    successor_id = request.POST.get("successor_id")
-    if not successor_id:
-        return _render_successor_modal_with_errors(
-            request, institution, errors={"successor_id": "Please select a successor institution."}
-        )
-
-    try:
-        successor = Institution.objects.get(pk=successor_id)
-    except Institution.DoesNotExist:
-        return _render_successor_modal_with_errors(
-            request,
-            institution,
-            errors={"successor_id": "Selected successor institution not found."},
-        )
-
-    services.archive_with_existing_successor(institution, [successor])
-    messages.success(request, f"Institution archived and succeeded by {successor.name}.")
-    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
 
 
 def _render_successor_modal_with_errors(
@@ -295,6 +254,55 @@ def _render_successor_modal_with_errors(
     )
 
 
+def _archive_without_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
+    services.archive(institution)
+    messages.success(request, f"Institution '{institution.name}' archived successfully.")
+    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
+
+
+def _archive_and_create_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
+    successor_name = request.POST.get("new_name", "").strip()
+    if not successor_name:
+        return _render_successor_modal_with_errors(
+            request, institution, errors={"new_name": "New institution name is required."}
+        )
+
+    successor = Institution.objects.create(
+        name=successor_name,
+        parent=institution.parent,
+        virtual=institution.virtual,
+    )
+
+    services.archive(institution, replacement=successor)
+
+    messages.success(request, f"Institution archived and succeeded by '{successor.name}'.")
+    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": successor.pk}))
+
+
+def _archive_with_existing_successor(
+    request: HttpRequest, institution: Institution
+) -> HttpResponse:
+    successor_id = request.POST.get("successor_id")
+    if not successor_id:
+        return _render_successor_modal_with_errors(
+            request, institution, errors={"successor_id": "Please select a successor institution."}
+        )
+
+    try:
+        successor = Institution.objects.get(pk=successor_id)
+    except Institution.DoesNotExist:
+        return _render_successor_modal_with_errors(
+            request,
+            institution,
+            errors={"successor_id": "Selected successor institution not found."},
+        )
+
+    services.archive(institution, replacement=successor)
+
+    messages.success(request, f"Institution archived and succeeded by '{successor.name}'.")
+    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
+
+
 @login_required
 @require_POST
 def set_successor(request: HttpRequest, pk: int) -> HttpResponse:
@@ -306,8 +314,8 @@ def set_successor(request: HttpRequest, pk: int) -> HttpResponse:
         )
 
     successor_handlers = {
-        "no_successor": _archive_no_successor,
-        "create_new": _archive_with_new_successor,
+        "no_successor": _archive_without_successor,
+        "create_new": _archive_and_create_successor,
         "select_existing": _archive_with_existing_successor,
     }
 
@@ -354,6 +362,144 @@ def delete_institution(request: HttpRequest, pk: int) -> HttpResponse:
     messages.success(request, f"Institution '{institution_name}' deleted successfully.")
 
     return _htmx_redirect(reverse("institutions:list"))
+
+
+@login_required
+@require_GET
+def request_restore(request: HttpRequest, pk: int) -> HttpResponse:
+    institution = get_object_or_404(Institution.all_objects, pk=pk)
+
+    # Check if has archived children
+    has_archived_children = Institution.all_objects.filter(
+        parent=institution, archived_at__isnull=False
+    ).exists()
+
+    # Check if parent needs selection (parent is archived or null)
+    needs_parent_selection = (
+        institution.parent is None or institution.parent.archived_at is not None
+    )
+
+    # Get available parents (active institutions only)
+    available_parents = Institution.objects.exclude(pk=pk).order_by("name")
+
+    # Get grandparent ID for default selection
+    grandparent_id = None
+    if institution.parent and institution.parent.parent:
+        grandparent_id = institution.parent.parent.pk
+
+    return render(
+        request,
+        "institutions/institution_restore_modal.html",
+        {
+            "institution": institution,
+            "has_archived_children": has_archived_children,
+            "needs_parent_selection": needs_parent_selection,
+            "available_parents": available_parents,
+            "grandparent_id": grandparent_id,
+        },
+    )
+
+
+def _restore_without_children(request: HttpRequest, institution: Institution) -> HttpResponse:
+    new_parent_id = request.POST.get("new_parent_id")
+    new_parent = None
+
+    if new_parent_id:
+        try:
+            new_parent = Institution.objects.get(pk=new_parent_id)
+        except Institution.DoesNotExist:
+            return _render_restore_modal_with_errors(
+                request,
+                institution,
+                errors={"new_parent_id": "Selected parent institution not found."},
+            )
+
+    services.restore_without_children(institution, new_parent=new_parent)
+    messages.success(request, f"Institution '{institution.name}' has been restored successfully.")
+    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
+
+
+def _restore_with_children(request: HttpRequest, institution: Institution) -> HttpResponse:
+    new_parent_id = request.POST.get("new_parent_id")
+    new_parent = None
+
+    if new_parent_id:
+        try:
+            new_parent = Institution.objects.get(pk=new_parent_id)
+        except Institution.DoesNotExist:
+            return _render_restore_modal_with_errors(
+                request,
+                institution,
+                errors={"new_parent_id": "Selected parent institution not found."},
+            )
+
+    services.restore_with_children(institution, new_parent=new_parent)
+    messages.success(
+        request,
+        f"Institution '{institution.name}' and child institutions have been restored successfully.",
+    )
+    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
+
+
+def _render_restore_modal_with_errors(
+    request: HttpRequest,
+    institution: Institution,
+    errors: dict[str, str] | None = None,
+    general_error: str | None = None,
+) -> HttpResponse:
+    has_archived_children = Institution.all_objects.filter(
+        parent=institution, archived_at__isnull=False
+    ).exists()
+    needs_parent_selection = (
+        institution.parent is None or institution.parent.archived_at is not None
+    )
+    available_parents = Institution.objects.exclude(pk=institution.pk).order_by("name")
+    grandparent_id = None
+    if institution.parent and institution.parent.parent:
+        grandparent_id = institution.parent.parent.pk
+
+    return render(
+        request,
+        "institutions/institution_restore_modal.html",
+        {
+            "institution": institution,
+            "has_archived_children": has_archived_children,
+            "needs_parent_selection": needs_parent_selection,
+            "available_parents": available_parents,
+            "grandparent_id": grandparent_id,
+            "errors": errors or {},
+            "general_error": general_error,
+            "form_data": request.POST,
+        },
+    )
+
+
+@login_required
+@require_POST
+def restore(request: HttpRequest, pk: int) -> HttpResponse:
+    institution = get_object_or_404(Institution.all_objects, pk=pk)
+
+    if not institution.archived_at:
+        messages.info(request, "This institution is already active.")
+        return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
+
+    restore_handlers = {
+        "without_children": _restore_without_children,
+        "with_children": _restore_with_children,
+    }
+
+    restore_type = request.POST.get("restore_type") or ""
+    handler = restore_handlers.get(restore_type)
+
+    if not handler:
+        return _render_restore_modal_with_errors(
+            request, institution, general_error="Invalid restore type."
+        )
+
+    try:
+        return handler(request, institution)
+    except ValueError as e:
+        return _render_restore_modal_with_errors(request, institution, general_error=str(e))
 
 
 @login_required
