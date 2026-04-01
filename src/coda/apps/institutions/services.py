@@ -1,5 +1,6 @@
 from io import BytesIO, StringIO
 from typing import Any
+from datetime import datetime
 from django.db.models import QuerySet
 from django.db import transaction
 from django.utils import timezone
@@ -293,11 +294,24 @@ def archive_without_successor(institution: Institution) -> None:
     if _is_home_institution(institution):
         raise ValueError("Cannot archive home institution without successor")
 
-    if institution.children.exists():
-        raise ValueError("Cannot archive institution with children without successor")
+    if institution.archived_at is not None:
+        raise ValueError("Institution is already archived")
 
-    _archive_institution(institution)
-    institution.save()
+    timestamp = timezone.now()
+    _archive_institution_tree(institution, timestamp)
+
+
+def _archive_institution_tree(institution: Institution, timestamp: datetime) -> None:
+    for child in institution.children.all():
+        _archive_institution_tree(child, timestamp)
+
+    if institution.archived_at is None:
+        institution.archived_at = timestamp
+        institution.virtual = True
+        institution.save()
+
+    for successor in institution.succeeded_by.all():
+        _archive_institution_tree(successor, timestamp)
 
 
 def _archive_institution(institution: Institution) -> None:

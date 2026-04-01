@@ -292,26 +292,6 @@ def test__successor_modal__home_institution__shows_warning_message(client: Clien
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__successor_modal__institution_with_children__hides_no_successor_option(
-    client: Client,
-) -> None:
-    parent = Institution.objects.create(name="Parent University")
-    Institution.objects.create(name="Child Department", parent=parent)
-
-    response = client.get(reverse("institutions:request_set_successor", kwargs={"pk": parent.pk}))
-
-    assert response.context["has_children"] is True
-
-    html = response.content.decode()
-    assert 'value="no_successor"' not in html
-    assert "radio-no-successor" not in html
-
-    assert 'value="create_new"' in html
-    assert 'value="select_existing"' in html
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
 def test__successor_modal__institution_with_children__shows_warning_message(client: Client) -> None:
     parent = Institution.objects.create(name="Parent University")
     Institution.objects.create(name="Child Department", parent=parent)
@@ -322,7 +302,7 @@ def test__successor_modal__institution_with_children__shows_warning_message(clie
 
     html = response.content.decode()
     assert "has child institutions" in html
-    assert "must select a successor" in html
+    assert "children will be archived as well" in html
 
 
 @pytest.mark.django_db

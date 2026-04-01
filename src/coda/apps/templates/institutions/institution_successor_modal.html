@@ -19,7 +19,7 @@
         {% if has_children %}
             <p class="messages info undecorated">
                 <strong>Note:</strong> This institution has child institutions.
-                You must select a successor, and the children will be reassigned to the successor.
+                If you archive it, the children will be archived as well. You can choose to create a new institution as successor or select an existing institution as successor, and the children will be re-parented to the successor institution.
             </p>
         {% endif %}
         {% if general_error %}<p class="messages error undecorated">{{ general_error }}</p>{% endif %}
@@ -32,7 +32,7 @@
             {% csrf_token %}
             <fieldset>
                 <legend>Choose archiving option:</legend>
-                {% if not is_home_institution and not has_children %}
+                {% if not is_home_institution %}
                     <label>
                         <input type="radio"
                                name="successor_type"
@@ -47,7 +47,7 @@
                            name="successor_type"
                            value="create_new"
                            id="radio-create-new"
-                           {% if form_data.successor_type == "create_new" %}checked{% elif is_home_institution or has_children and not form_data.successor_type %}checked{% endif %}>
+                           {% if form_data.successor_type == "create_new" %}checked{% elif is_home_institution and not form_data.successor_type %}checked{% endif %}>
                     Create new institution as successor
                 </label>
                 <label>

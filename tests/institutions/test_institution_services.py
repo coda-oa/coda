@@ -320,15 +320,74 @@ def test__cannot_archive_home_institution_without_successor() -> None:
 
 
 @pytest.mark.django_db
-def test__cannot_archive_institution_with_children_without_successor() -> None:
-    parent = Institution.objects.create(name="Parent University")
-    Institution.objects.create(name="Child Department", parent=parent)
+def test__institution_with_children__archive_institution__archives_all_children_recursively() -> (
+    None
+):
+    faculty = Institution.objects.create(name="Faculty of Science")
+    department = Institution.objects.create(name="Department of Biology", parent=faculty)
+    research_group = Institution.objects.create(name="Genetics Lab", parent=department)
 
-    with pytest.raises(
-        ValueError,
-        match="Cannot archive institution with children without successor",
-    ):
-        archive_without_successor(parent)
+    archive_without_successor(faculty)
+
+    faculty.refresh_from_db()
+    department.refresh_from_db()
+    research_group.refresh_from_db()
+
+    assert faculty.archived_at is not None
+    assert department.archived_at is not None
+    assert research_group.archived_at is not None
+
+
+@pytest.mark.django_db
+def test__institution_with_children__archive_institution__all_get_same_timestamp() -> None:
+    parent = Institution.objects.create(name="Faculty")
+    child1 = Institution.objects.create(name="Department 1", parent=parent)
+    child2 = Institution.objects.create(name="Department 2", parent=parent)
+
+    archive_without_successor(parent)
+
+    parent.refresh_from_db()
+    child1.refresh_from_db()
+    child2.refresh_from_db()
+
+    assert parent.archived_at == child1.archived_at
+    assert parent.archived_at == child2.archived_at
+
+
+@pytest.mark.django_db
+def test__institution_with_children__archive_institution__all_become_virtual() -> None:
+    parent = Institution.objects.create(name="Faculty", virtual=False)
+    child = Institution.objects.create(name="Department", parent=parent, virtual=False)
+
+    archive_without_successor(parent)
+
+    parent.refresh_from_db()
+    child.refresh_from_db()
+
+    assert parent.virtual is True
+    assert child.virtual is True
+
+
+@pytest.mark.django_db
+def test__institution_with_child_that_has_successor__archive_institution__archives_successor_too() -> (
+    None
+):
+    faculty = Institution.objects.create(name="Faculty of Theology")
+    old_institute = Institution.objects.create(name="Institute A", parent=faculty)
+    new_institute = Institution.objects.create(name="Institute B", parent=faculty)
+
+    old_institute.succeeded_by.add(new_institute)
+    old_institute.save()
+
+    archive_without_successor(faculty)
+
+    faculty.refresh_from_db()
+    old_institute.refresh_from_db()
+    new_institute.refresh_from_db()
+
+    assert faculty.archived_at is not None
+    assert old_institute.archived_at is not None
+    assert new_institute.archived_at is not None
 
 
 @pytest.mark.django_db
