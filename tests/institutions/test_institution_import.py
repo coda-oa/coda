@@ -131,7 +131,7 @@ def test__institution_with_author_affiliation__is_imported__author_affiliation_i
 @pytest.mark.django_db
 def test__institution_with_identifier_gets_updated_when_name_changes() -> None:
     first_import = StringIO(
-        "name;ROR;ISNI;Ringgold\n" "Biology Department;https://ror.org/010nsgg66;;"
+        "name;ROR;ISNI;Ringgold\n" + "Biology Department;https://ror.org/010nsgg66;;"
     )
     services.import_from_file(first_import)
 
@@ -142,7 +142,7 @@ def test__institution_with_identifier_gets_updated_when_name_changes() -> None:
     ).exists()
 
     second_import = StringIO(
-        "name;ROR;ISNI;Ringgold\n" "Department of Biological Sciences;https://ror.org/010nsgg66;;"
+        "name;ROR;ISNI;Ringgold\n" + "Department of Biological Sciences;https://ror.org/010nsgg66;;"
     )
     services.import_from_file(second_import)
 
@@ -157,13 +157,13 @@ def test__institution_with_identifier_gets_updated_when_name_changes() -> None:
 
 @pytest.mark.django_db
 def test__institution_without_identifier_matched_by_name() -> None:
-    first_import = StringIO("name;ROR;ISNI;Ringgold\n" "General Department;;;")
+    first_import = StringIO("name;ROR;ISNI;Ringgold\n" + "General Department;;;")
     services.import_from_file(first_import)
 
     original_institution = Institution.objects.get(name="General Department")
     original_pk = original_institution.pk
 
-    second_import = StringIO("name;ROR;ISNI;Ringgold\n" "General Department;;;")
+    second_import = StringIO("name;ROR;ISNI;Ringgold\n" + "General Department;;;")
     services.import_from_file(second_import)
 
     assert Institution.objects.count() == 1
@@ -206,7 +206,7 @@ def test__two_institutions_one_with_matching_internal_id_and_one_with_matching_r
     inst_with_ror.links.create(type_id=1, value="https://ror.org/123456")
 
     csv_data = StringIO(
-        "internal_id;name;ROR;ISNI;Ringgold\n" "inst_aaa111;Updated Name;https://ror.org/123456;;"
+        "internal_id;name;ROR;ISNI;Ringgold\n" + "inst_aaa111;Updated Name;https://ror.org/123456;;"
     )
     services.import_from_file(csv_data)
 
@@ -277,7 +277,7 @@ def test__csv_with_archived_institutions__import__sets_archived_at() -> None:
     When: Institution is imported
     Then: Institution should be archived (archived_at set)"""
     csv_data = StringIO(
-        "internal_id;name;archived;ROR;ISNI;Ringgold\n" "inst_arch1;Archived Institution;true;;;"
+        "internal_id;name;archived;ROR;ISNI;Ringgold\n" + "inst_arch1;Archived Institution;true;;;"
     )
     services.import_from_file(csv_data)
 
@@ -294,7 +294,7 @@ def test__archived_institution_in_db__import_setting_archived_false_in_csv__clea
     )
 
     csv_data = StringIO(
-        "internal_id;name;archived;ROR;ISNI;Ringgold\n" "inst_prev1;Previously Archived;false;;;"
+        "internal_id;name;archived;ROR;ISNI;Ringgold\n" + "inst_prev1;Previously Archived;false;;;"
     )
     services.import_from_file(csv_data)
 
@@ -347,7 +347,7 @@ def test__institution_with_matching_internal_id_and_empty_ror__import__preserves
     inst.links.create(type_id=1, value="https://ror.org/010nsgg66")
 
     csv_data = StringIO(
-        "internal_id;name;ROR;ISNI;Ringgold\n" "inst_keep1;Test University Updated;;;"
+        "internal_id;name;ROR;ISNI;Ringgold\n" + "inst_keep1;Test University Updated;;;"
     )
     services.import_from_file(csv_data)
 
