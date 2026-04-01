@@ -82,6 +82,7 @@ To add a new institution to your organizational structure:
 1. Click the **New** button on the Organization Structure overview page
 2. Fill in the **Basic Information**:
    - **Name**: The full name of the institution (e.g., "Department of Biology")
+   - **Internal ID**: You can provide a custom identifier, or leave blank to auto-generate one (format: `inst_XXXXXXXX`)
    - **Parent**: Optionally select a parent institution to create hierarchical relationships
    - **Usable as author affiliation**: Check this box if authors should be able to select this institution when adding their affiliations
 
@@ -144,36 +145,43 @@ For bulk operations, CODA allows you to import multiple institutions at once fro
 Your CSV file should use **semicolons (;)** as separators and include the following columns:
 
 ```
-name;ROR;ISNI;Ringgold;parent;usableAffiliation
+internal_id;name;ROR;ISNI;Ringgold;parent;usableAffiliation;archived
 ```
 
 **Column descriptions**:
+- **internal_id** (optional): A unique identifier for the institution in CODA.  If not provided, CODA will auto-generate one. Use this to link parent institutions and for reliable re-imports.
 - **name** (required): The institution's full name
 - **ROR** (optional): ROR identifier URL
 - **ISNI** (optional): ISNI value (16 digits)
 - **Ringgold** (optional): Ringgold numeric ID
-- **parent** (optional): Row number of the parent institution (see below)
-- **usableAffiliation** (optional): `true` or empty to to enable as author affiliation, `false` to disable
+- **parent** (optional): The internal_id of the parent institution (see below)
+- **usableAffiliation** (optional): `true` or empty to enable as author affiliation, `false` to disable
+- **archived** (optional): `true` to mark institution as archived, `false` or empty for active institutions
 
 **Example CSV**:
 ```csv
-name;ROR;ISNI;Ringgold;parent;usableAffiliation
-University of Example;https://ror.org/02mhbdp94;;;
-Faculty of Sciences;;;123456;1;
-Department of Biology;https://ror.org/05dxps055;0000000121032683;;2;false
+internal_id;name;ROR;ISNI;Ringgold;parent;usableAffiliation;archived
+inst_ABC123;University of Example;https://ror.org/02mhbdp94;;;;;true;false
+inst_XYZ789;Faculty of Sciences;;;123456;inst_ABC123;true;false
+inst_BIO456;Department of Biology;https://ror.org/05dxps055;0000000121032683;;inst_XYZ789;false;false
 ```
 
 You can download an example schema file [here](/_static/downloads/CODA_Institutes_example_file.csv). 
 
 ### Understanding the Parent Column
 
-The `parent` column uses **row numbers** (starting from 1, excluding the header) to reference parent institutions:
+The `parent` column uses **internal_id** values to reference parent institutions. This makes hierarchies more maintainable and allows you to reorder rows without breaking relationships.
 
-- Row 1: "University of Example" (no parent)
-- Row 2: "Faculty of Sciences" (parent=1, refers to row 1)
-- Row 3: "Department of Biology" (parent=2, refers to row 2)
+**Example from the CSV above**:
+- Row 1: "University of Example" (internal_id=inst_ABC123, no parent)
+- Row 2: "Faculty of Sciences" (internal_id=inst_XYZ789, parent=inst_ABC123)
+- Row 3: "Department of Biology" (internal_id=inst_BIO456, parent=inst_XYZ789)
 
 This creates: University → Faculty → Department
+
+```{admonition} Auto-Generated IDs
+If you don't provide internal_id values in your CSV, CODA will automatically generate them (format: `inst_XXXXXXXX`). You can export your institutions later to get the generated IDs for future updates.
+```
 
 ### Import Process
 
@@ -187,12 +195,19 @@ To import institutions:
 
 CODA will:
 - Create new institutions that don't exist
-- Update existing institutions if they match by identifier (ROR, ISNI, or Ringgold)
+- Update existing institutions using smart matching (see below)
+- Set archived status based on the `archived` column (active institutions can be archived, and archived institutions can be reactivated)
 - Validate all identifiers and skip invalid ones (import institution but without identifier)
 - Show a summary of successful imports and errors, if any
 
-```{admonition} Smart Matching
-If an institution with the same ROR, ISNI, or Ringgold ID already exists, CODA will update that institution instead of creating a duplicate. This makes it safe to re-import updated files. If no identifier is given, CODA matches by institution name.
+```{admonition} Smart Matching Priority
+When importing, CODA uses the following priority to match institutions:
+
+1. **internal_id** (highest priority): If provided and matches an existing institution, that institution is updated
+2. **External identifiers**: If the institution has a matching ROR, ISNI, or Ringgold ID, it will be updated
+3. **Name matching**: If no ID matches, CODA matches by institution name
+
+This makes it safe to re-import updated files - institutions with internal_id will be reliably matched and updated instead of creating duplicates.
 ```
 
 ### Import Results
@@ -200,6 +215,7 @@ If an institution with the same ROR, ISNI, or Ringgold ID already exists, CODA w
 After importing, CODA will display:
 
 - **Total institutions processed**
+- **Matching statistics**: How institutions were matched (by internal_id, by external identifier, or created new)
 - **Fully imported**: Institutions created/updated without any issues
 - **Partially imported**: Institutions created but with some invalid identifiers that were skipped
 - **Error details**: Which institutions had problems and what the issues were
@@ -211,9 +227,30 @@ Common import errors include:
 - **Invalid ROR format**: Make sure ROR IDs start with `https://ror.org/`
 - **Invalid ISNI format**: ISNI must be exactly 16 digits
 - **Invalid Ringgold**: Must be a numeric value
-- **Parent reference errors**: Make sure parent row numbers are correct
+- **Parent reference errors**: Make sure the parent internal_id matches an existing institution
+- **Duplicate internal_id**: Each internal_id must be unique
 
 If an institution has an invalid identifier, CODA will still import the institution but skip the problematic identifier. This allows your import to continue even if some data needs correction.
+
+## Exporting Institutions to CSV
+
+You can export all your institutions to a CSV file for backup, reporting, or updating in bulk. The export includes all institution data including auto-generated internal_id values.
+
+To export institutions:
+
+1. Click the **Export** button on the Organization Structure overview page
+2. A CSV file will be downloaded to your computer with all current institutions
+
+The exported CSV file:
+- Includes all institutions (both active and archived)
+- Contains all identifiers (ROR, ISNI, Ringgold) and internal_id values
+- Includes the archived status for each institution
+- Uses the same format as the import CSV, so you can modify and re-import it
+- Shows parent relationships using internal_id values
+
+```{admonition} Round-Trip Workflow
+You can export institutions, modify the CSV file (e.g., update names, add identifiers, change hierarchies), and then re-import the file. CODA will use the internal_id column to reliably match and update existing institutions.
+```
 
 ## What's Next?
 
