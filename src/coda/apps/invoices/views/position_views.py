@@ -114,7 +114,7 @@ def render_single_position(
             "counter": counter,
         }
         | DefaultContext
-        | funding_sources_context(position_list.positions)
+        | funding_sources_context([position_dto])
     )
 
     return render(request, "invoices/position_single_with_summary.html", context)

@@ -51,3 +51,8 @@ a.button.secondary {
   color: var(--coda-secondary-inverse);
 
 }
+
+#search-form .button {
+  color: var(--pico-accordion-active-summary-color);
+  background-color: transparent;
+}
