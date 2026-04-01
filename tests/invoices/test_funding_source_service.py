@@ -2,12 +2,16 @@ import pytest
 from django.utils import timezone
 
 from coda.apps.institutions.models import Institution
-from coda.apps.invoices import funding_source_repository
-from coda.apps.invoices.views.position_context import funding_sources_context
-from coda.contexts.finance.services.funding_source_service import resolve_funding_source
+from coda.apps.invoices import funding_source_repository, repository
+from coda.contexts.finance.services import invoice_parser, invoice_service
+from coda.contexts.finance.services.funding_source_service import (
+    get_institutions_allowed_as_funding_source,
+    resolve_funding_source,
+)
 from coda.domain.author import InstitutionId
 from coda.domain.finance.funding_sources import Budget, SplitSource
-from tests import modelfactory
+from coda.domain.finance.invoice import CreditorId
+from tests import domainfactory, modelfactory
 
 
 @pytest.mark.django_db
@@ -73,8 +77,77 @@ def test__archived_institution__selecting_institution_funding_source__archived_i
     active = Institution.objects.create(name="Active University")
     archived = Institution.objects.create(name="Archived University", archived_at=timezone.now())
 
-    context = funding_sources_context()
-    institutions_list = list(context["institutions"])
+    institutions_list = list(get_institutions_allowed_as_funding_source())
 
     assert active in institutions_list
     assert archived not in institutions_list
+
+
+@pytest.mark.django_db
+def test__existing_position_with_archived_institution__editing_invoice__archived_institution_remains_in_dropdown() -> (
+    None
+):
+    institution = modelfactory.institution()
+    institution_id = InstitutionId(institution.pk)
+
+    creditor = modelfactory.creditor()
+    invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk))
+    position = domainfactory.free_position()
+    split_source = SplitSource.new(institution_id, institution.name)
+    position.assign_remaining(split_source)
+    invoice.positions = [position]
+    invoice.id = invoice_service.save(invoice)
+
+    institution.archived_at = timezone.now()
+    institution.save()
+
+    loaded_invoice = repository.get_by_id(invoice.id)
+    position_dtos = [invoice_parser.position_to_dto(p) for p in loaded_invoice.positions]
+
+    institutions_list = list(
+        get_institutions_allowed_as_funding_source(for_positions=position_dtos)
+    )
+
+    archived_institution = Institution.all_objects.get(pk=institution.pk)
+    assert archived_institution in institutions_list
+
+
+@pytest.mark.django_db
+def test__multiple_positions_with_different_archived_institutions__editing_invoice__all_archived_institutions_remain_in_dropdown() -> (
+    None
+):
+    institution_1 = modelfactory.institution()
+    institution_2 = modelfactory.institution()
+    institution_id_1 = InstitutionId(institution_1.pk)
+    institution_id_2 = InstitutionId(institution_2.pk)
+
+    creditor = modelfactory.creditor()
+    invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk))
+
+    position_1 = domainfactory.free_position()
+    split_source_1 = SplitSource.new(institution_id_1, institution_1.name)
+    position_1.assign_remaining(split_source_1)
+
+    position_2 = domainfactory.free_position()
+    split_source_2 = SplitSource.new(institution_id_2, institution_2.name)
+    position_2.assign_remaining(split_source_2)
+
+    invoice.positions = [position_1, position_2]
+    invoice.id = invoice_service.save(invoice)
+
+    institution_1.archived_at = timezone.now()
+    institution_1.save()
+    institution_2.archived_at = timezone.now()
+    institution_2.save()
+
+    loaded_invoice = repository.get_by_id(invoice.id)
+    position_dtos = [invoice_parser.position_to_dto(p) for p in loaded_invoice.positions]
+
+    institutions_list = list(
+        get_institutions_allowed_as_funding_source(for_positions=position_dtos)
+    )
+
+    archived_institution_1 = Institution.all_objects.get(pk=institution_1.pk)
+    archived_institution_2 = Institution.all_objects.get(pk=institution_2.pk)
+    assert archived_institution_1 in institutions_list
+    assert archived_institution_2 in institutions_list
