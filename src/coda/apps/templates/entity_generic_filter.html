@@ -13,6 +13,7 @@
                    role="switch"
                    name="include_archived"
                    id="id-include-archived"
+                   aria-checked="{% if include_archived %}true{% else %}false{% endif %}"
                    {% if include_archived %}checked{% endif %}>
             Include archived
         </label>

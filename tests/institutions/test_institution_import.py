@@ -131,7 +131,7 @@ def test__institution_with_author_affiliation__is_imported__author_affiliation_i
 @pytest.mark.django_db
 def test__institution_with_identifier_gets_updated_when_name_changes() -> None:
     first_import = StringIO(
-        "name;ROR;ISNI;Ringgold\nBiology Department;https://ror.org/010nsgg66;;"
+        "name;ROR;ISNI;Ringgold\n" "Biology Department;https://ror.org/010nsgg66;;"
     )
     services.import_from_file(first_import)
 
@@ -142,7 +142,7 @@ def test__institution_with_identifier_gets_updated_when_name_changes() -> None:
     ).exists()
 
     second_import = StringIO(
-        "name;ROR;ISNI;Ringgold\nDepartment of Biological Sciences;https://ror.org/010nsgg66;;"
+        "name;ROR;ISNI;Ringgold\n" "Department of Biological Sciences;https://ror.org/010nsgg66;;"
     )
     services.import_from_file(second_import)
 
@@ -157,13 +157,13 @@ def test__institution_with_identifier_gets_updated_when_name_changes() -> None:
 
 @pytest.mark.django_db
 def test__institution_without_identifier_matched_by_name() -> None:
-    first_import = StringIO("name;ROR;ISNI;Ringgold\nGeneral Department;;;")
+    first_import = StringIO("name;ROR;ISNI;Ringgold\n" "General Department;;;")
     services.import_from_file(first_import)
 
     original_institution = Institution.objects.get(name="General Department")
     original_pk = original_institution.pk
 
-    second_import = StringIO("name;ROR;ISNI;Ringgold\nGeneral Department;;;")
+    second_import = StringIO("name;ROR;ISNI;Ringgold\n" "General Department;;;")
     services.import_from_file(second_import)
 
     assert Institution.objects.count() == 1

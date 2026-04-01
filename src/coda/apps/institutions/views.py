@@ -23,6 +23,7 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import SimpleSearchEntityListView
 
 INSTITUTION_IMPORT_VIEW_URL = "institutions:import_view"
+INSTITUTION_DETAIL_VIEW_URL = "institutions:detail"
 
 
 class InstitutionLinkFormMixin:
@@ -260,7 +261,7 @@ def _render_successor_modal_with_errors(
 def _archive_without_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
     services.archive(institution)
     messages.success(request, f"Institution '{institution.name}' archived successfully.")
-    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
+    return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
 
 
 def _archive_and_create_successor(request: HttpRequest, institution: Institution) -> HttpResponse:
@@ -279,7 +280,7 @@ def _archive_and_create_successor(request: HttpRequest, institution: Institution
     services.archive(institution, replacement=successor)
 
     messages.success(request, f"Institution archived and succeeded by '{successor.name}'.")
-    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": successor.pk}))
+    return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": successor.pk}))
 
 
 def _archive_with_existing_successor(
@@ -303,7 +304,7 @@ def _archive_with_existing_successor(
     services.archive(institution, replacement=successor)
 
     messages.success(request, f"Institution archived and succeeded by '{successor.name}'.")
-    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
+    return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
 
 
 @login_required
@@ -350,7 +351,7 @@ def delete_institution(request: HttpRequest, pk: int) -> HttpResponse:
     # Cannot delete archived institutions
     if institution.archived_at:
         messages.error(request, "Cannot delete archived institutions.")
-        return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": pk}))
+        return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": pk}))
 
     # Check if can delete
     can_delete, blocking_reasons = services.can_delete_institution(institution)
@@ -419,7 +420,7 @@ def _restore_without_children(request: HttpRequest, institution: Institution) ->
 
     services.restore_without_children(institution, new_parent=new_parent)
     messages.success(request, f"Institution '{institution.name}' has been restored successfully.")
-    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
+    return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
 
 
 def _restore_with_children(request: HttpRequest, institution: Institution) -> HttpResponse:
@@ -441,7 +442,7 @@ def _restore_with_children(request: HttpRequest, institution: Institution) -> Ht
         request,
         f"Institution '{institution.name}' and child institutions have been restored successfully.",
     )
-    return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
+    return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
 
 
 def _render_restore_modal_with_errors(
@@ -484,7 +485,7 @@ def restore(request: HttpRequest, pk: int) -> HttpResponse:
 
     if not institution.archived_at:
         messages.info(request, "This institution is already active.")
-        return _htmx_redirect(reverse("institutions:detail", kwargs={"pk": institution.pk}))
+        return _htmx_redirect(reverse(INSTITUTION_DETAIL_VIEW_URL, kwargs={"pk": institution.pk}))
 
     restore_handlers = {
         "without_children": _restore_without_children,
