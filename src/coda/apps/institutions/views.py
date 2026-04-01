@@ -177,6 +177,7 @@ update_institution_view = UpdateInstitutionView.as_view()
 
 
 @login_required
+@require_GET
 @breadcrumb("Institution Detail", parent_url_name="institutions:list")
 def institution_detail(request: HttpRequest, pk: int) -> HttpResponse:
     institution = get_object_or_404(Institution.all_objects, pk=pk)
@@ -192,6 +193,7 @@ def institution_detail(request: HttpRequest, pk: int) -> HttpResponse:
     )
 
 
+@require_GET
 def request_set_successor(request: HttpRequest, pk: int) -> HttpResponse:
     institution = get_object_or_404(Institution.objects, pk=pk)
     available_institutions = Institution.objects.exclude(pk=pk).order_by("name")
@@ -211,6 +213,7 @@ def request_set_successor(request: HttpRequest, pk: int) -> HttpResponse:
     )
 
 
+@require_GET
 def request_delete_institution(request: HttpRequest, pk: int) -> HttpResponse:
     institution = get_object_or_404(Institution.objects, pk=pk)
 
@@ -503,6 +506,7 @@ def restore(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def toggle_selectable(request: HttpRequest, pk: int) -> HttpResponse:
     institution = Institution.all_objects.get(pk=pk)
     institution.virtual = not institution.virtual
