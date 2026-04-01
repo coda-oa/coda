@@ -71,3 +71,23 @@ def test__search__filters_by_name_and_includes_archived() -> None:
 
     assert active in results
     assert archived in results
+
+
+@pytest.mark.django_db
+def test__hierarchical_institutions__search__returns_hierarchical_order() -> None:
+    zebra = Institution.objects.create(name="Zebra University")
+    bio = Institution.objects.create(name="Biology Department", parent=zebra)
+    mol_lab = Institution.objects.create(name="Molecular Lab", parent=bio)
+    cs = Institution.objects.create(name="Computer Science Department", parent=zebra)
+
+    alpha = Institution.objects.create(name="Alpha University")
+    math = Institution.objects.create(name="Mathematics Department", parent=alpha)
+
+    results = list(repository.search())
+
+    assert results.index(alpha) < results.index(zebra)
+    assert results.index(math) == results.index(alpha) + 1
+    assert results.index(bio) > results.index(math)
+    assert results.index(bio) < results.index(cs)
+    assert results.index(mol_lab) == results.index(bio) + 1
+    assert results.index(cs) == results.index(mol_lab) + 1

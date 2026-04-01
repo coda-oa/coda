@@ -1,6 +1,6 @@
 from collections.abc import Container, Iterable
 
-from django.db.models import QuerySet
+from django.db.models import Case, IntegerField, QuerySet, When
 
 from coda.apps.institutions.models import Institution
 
@@ -39,8 +39,42 @@ def search(name: str | None = None, include_archived: bool = False) -> QuerySet[
     if name is not None:
         qs = qs.filter(name__icontains=name)
 
-    return qs.order_by("parent__name", "name")
+    return _sort_hierarchically(qs)
 
 
 def archived_only() -> QuerySet[Institution]:
     return Institution.objects.archived_only()
+
+
+def _get_hierarchical_sort_path(institution: Institution) -> tuple[str, ...]:
+    path: list[str] = []
+    current: Institution | None = institution
+    while current is not None:
+        path.insert(0, current.name.lower())
+        current = current.parent
+    return tuple(path)
+
+
+def _sort_hierarchically(queryset: QuerySet[Institution]) -> QuerySet[Institution]:
+    institutions = list(
+        queryset.select_related(
+            "parent",
+            "parent__parent",
+            "parent__parent__parent",
+            "parent__parent__parent__parent",
+            "parent__parent__parent__parent__parent",
+            "parent__parent__parent__parent__parent__parent",
+        )
+    )
+
+    institutions.sort(key=_get_hierarchical_sort_path)
+
+    if institutions:
+        id_order = {inst.id: idx for idx, inst in enumerate(institutions)}
+        preserved_order = Case(
+            *[When(pk=pk, then=pos) for pk, pos in id_order.items()],
+            output_field=IntegerField(),
+        )
+        return queryset.filter(id__in=id_order.keys()).order_by(preserved_order)
+
+    return queryset
