@@ -20,9 +20,10 @@ class VocabularyProvider(Protocol):
     """Protocol for supplying the active vocabularies to ``AllowedConcepts``.
 
     Conforming types only need to implement the three methods below.
-    ``GlobalPreferences`` satisfies this protocol out of the box (its methods
-    are ``@staticmethod`` which are callable as instance methods); unit tests
-    can supply a lightweight stub to avoid database access.
+    ``GlobalPreferences`` satisfies this protocol out of the box (its static
+    methods are callable as unbound callables on the class object); unit tests
+    can supply a lightweight stub with plain instance methods to avoid database
+    access.
     """
 
     def get_article_publication_type_vocabulary(self) -> VocabularyProtocol: ...

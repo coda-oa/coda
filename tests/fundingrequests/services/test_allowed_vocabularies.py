@@ -433,7 +433,7 @@ def test__for_existing_publication__limited_vocab__grandfathers_disallowed_exist
     )
 
     for create_pub, kind in (
-        (lambda: domainfactory.publication(JournalId(1)), "article"),
+        (lambda: domainfactory.publication(), "article"),
         (lambda: domainfactory.monograph(), "monograph"),
     ):
         publication = create_pub()
