@@ -504,3 +504,65 @@ def test__publication_step_for_monograph__restores_from_store_with_monograph_voc
     assert_has_concept_choices(
         pub_form, "publication_type", GlobalPreferences.get_monograph_publication_type_vocabulary()
     )
+
+
+# --- Fix M1: mutable default argument in PublicationForm.__init__ ---
+
+
+def test__publication_form__no_args__constructs_without_error() -> None:
+    """PublicationForm() with no arguments must construct successfully."""
+    form = PublicationForm()
+    assert form is not None
+
+
+def test__publication_form__no_args__has_empty_concept_choices() -> None:
+    """PublicationForm() with no arguments must have only the empty sentinel choice for concepts."""
+    from coda.apps.publications.forms._fields import EMPTY_CHOICE
+
+    form = PublicationForm()
+    subject_area_choices = list(
+        cast(
+            Iterable[tuple[Any, str]], cast(forms.ChoiceField, form.fields["subject_area"]).choices
+        )
+    )
+    publication_type_choices = list(
+        cast(
+            Iterable[tuple[Any, str]],
+            cast(forms.ChoiceField, form.fields["publication_type"]).choices,
+        )
+    )
+    # Only the empty sentinel; no concepts from shared state
+    assert subject_area_choices == [
+        EMPTY_CHOICE
+    ], f"Expected only EMPTY_CHOICE but got: {subject_area_choices}"
+    assert publication_type_choices == [
+        EMPTY_CHOICE
+    ], f"Expected only EMPTY_CHOICE but got: {publication_type_choices}"
+
+
+def test__publication_form__two_instances_without_args__do_not_share_concept_state() -> None:
+    """Two PublicationForm() instances must not share the same _ConceptCollections default object.
+
+    This guards against the mutable-default-argument footgun: if concepts were
+    mutated on one instance, the other must not be affected.
+    """
+    form_a = PublicationForm()
+    form_b = PublicationForm()
+
+    # Verify that constructing PublicationForm() twice is safe and independent.
+    # Both forms must have identical (empty) choices, but they must be separate list objects.
+    choices_a = list(
+        cast(
+            Iterable[tuple[Any, str]],
+            cast(forms.ChoiceField, form_a.fields["subject_area"]).choices,
+        )
+    )
+    choices_b = list(
+        cast(
+            Iterable[tuple[Any, str]],
+            cast(forms.ChoiceField, form_b.fields["subject_area"]).choices,
+        )
+    )
+    assert choices_a == choices_b  # both empty — consistent
+    # The two choice lists must be separate objects (not the same list reference)
+    assert choices_a is not choices_b

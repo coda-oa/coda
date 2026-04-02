@@ -118,10 +118,13 @@ class PublicationForm(CodaFormBase):
     def __init__(
         self,
         data: Mapping[str, Any] | None = None,
-        concepts: _ConceptCollections = _ConceptCollections(),
+        concepts: _ConceptCollections | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        # Avoid mutable default argument: construct a fresh instance when not provided
+        if concepts is None:
+            concepts = _ConceptCollections()
         super().__init__(data, *args, **kwargs)
 
         self._set_concepts("subject_area", concepts.subject_areas)
