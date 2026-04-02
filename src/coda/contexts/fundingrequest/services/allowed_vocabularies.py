@@ -19,19 +19,17 @@ class InvalidSubjectType(DomainError):
 class VocabularyProvider(Protocol):
     """Protocol for supplying the active vocabularies to ``AllowedConcepts``.
 
-    Conforming types only need to implement the three static/class methods below.
-    ``GlobalPreferences`` satisfies this protocol out of the box; unit tests can
-    supply a lightweight stub to avoid database access.
+    Conforming types only need to implement the three methods below.
+    ``GlobalPreferences`` satisfies this protocol out of the box (its methods
+    are ``@staticmethod`` which are callable as instance methods); unit tests
+    can supply a lightweight stub to avoid database access.
     """
 
-    @staticmethod
-    def get_article_publication_type_vocabulary() -> VocabularyProtocol: ...
+    def get_article_publication_type_vocabulary(self) -> VocabularyProtocol: ...
 
-    @staticmethod
-    def get_monograph_publication_type_vocabulary() -> VocabularyProtocol: ...
+    def get_monograph_publication_type_vocabulary(self) -> VocabularyProtocol: ...
 
-    @staticmethod
-    def get_subject_classification_vocabulary() -> VocabularyProtocol: ...
+    def get_subject_classification_vocabulary(self) -> VocabularyProtocol: ...
 
 
 def _get_concepts_from_vocabulary(
