@@ -4,7 +4,7 @@ from typing import Literal
 
 from coda.apps.preferences.models import GlobalPreferences
 from coda.domain.errors import DomainError
-from coda.domain.publication.publication import BasePublication, Publication
+from coda.domain.publication.publication import BasePublication
 from coda.domain.vocabulary import UnknownConcept, VocabularyConcept, VocabularyProtocol
 
 
@@ -48,10 +48,6 @@ def _get_subject_types(
     return _get_concepts_from_vocabulary(vocabulary, allow_extra)
 
 
-def _kind_of(publication: BasePublication) -> Literal["article", "monograph"]:
-    return "article" if isinstance(publication, Publication) else "monograph"
-
-
 @dataclass(frozen=True)
 class AllowedConcepts:
     """Encapsulates the allowed vocabulary concepts for a publication.
@@ -85,7 +81,7 @@ class AllowedConcepts:
         even if they have since been removed from the active vocabulary."""
         return cls(
             publication_types=_get_publication_types_for_kind(
-                _kind_of(publication), allow_extra=publication.publication_type
+                publication.kind, allow_extra=publication.publication_type
             ),
             subject_types=_get_subject_types(allow_extra=publication.subject_area),
         )

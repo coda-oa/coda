@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
+    Literal,
     NamedTuple,
     NewType,
     Self,
@@ -154,6 +155,11 @@ class BasePublication(ABC):
 
     def is_kind(self, kind: type[PublicationKind]) -> TypeGuard[PublicationKind]:
         return isinstance(self, kind)
+
+    @property
+    def kind(self) -> Literal["article", "monograph"]:
+        """Return the publication kind as a discriminator string."""
+        return "article" if isinstance(self, Publication) else "monograph"
 
 
 @dataclass(kw_only=True)
