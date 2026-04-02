@@ -22,8 +22,8 @@ class _ConceptCollections:
         subject_areas: Collection[VocabularyConcept] | None = None,
         publication_types: Collection[VocabularyConcept] | None = None,
     ) -> None:
-        self.subject_areas = subject_areas
-        self.publication_types = publication_types
+        self.subject_areas: Collection[VocabularyConcept] = subject_areas or []
+        self.publication_types: Collection[VocabularyConcept] = publication_types or []
 
 
 class PublicationForm(CodaFormBase):
@@ -118,10 +118,13 @@ class PublicationForm(CodaFormBase):
     def __init__(
         self,
         data: Mapping[str, Any] | None = None,
-        concepts: _ConceptCollections = _ConceptCollections(),
+        concepts: _ConceptCollections | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
+        # Avoid mutable default argument: construct a fresh instance when not provided
+        if concepts is None:
+            concepts = _ConceptCollections()
         super().__init__(data, *args, **kwargs)
 
         self._set_concepts("subject_area", concepts.subject_areas)

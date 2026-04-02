@@ -504,3 +504,68 @@ def test__publication_step_for_monograph__restores_from_store_with_monograph_voc
     assert_has_concept_choices(
         pub_form, "publication_type", GlobalPreferences.get_monograph_publication_type_vocabulary()
     )
+
+
+# --- Fix M1: mutable default argument in PublicationForm.__init__ ---
+
+
+def test__publication_form__no_args__constructs_without_error() -> None:
+    """PublicationForm() with no arguments must construct successfully."""
+    PublicationForm()
+
+
+def test__publication_form__no_args__has_empty_concept_choices() -> None:
+    """PublicationForm() with no arguments must have only the empty sentinel choice for concepts."""
+    from coda.apps.publications.forms._fields import EMPTY_CHOICE
+
+    form = PublicationForm()
+    subject_area_choices = list(
+        cast(
+            Iterable[tuple[Any, str]], cast(forms.ChoiceField, form.fields["subject_area"]).choices
+        )
+    )
+    publication_type_choices = list(
+        cast(
+            Iterable[tuple[Any, str]],
+            cast(forms.ChoiceField, form.fields["publication_type"]).choices,
+        )
+    )
+    # Only the empty sentinel; no concepts from shared state
+    assert subject_area_choices == [
+        EMPTY_CHOICE
+    ], f"Expected only EMPTY_CHOICE but got: {subject_area_choices}"
+    assert publication_type_choices == [
+        EMPTY_CHOICE
+    ], f"Expected only EMPTY_CHOICE but got: {publication_type_choices}"
+
+
+def test__publication_form__two_instances_without_args__do_not_share_concept_state() -> None:
+    """Two PublicationForm() instances must not share the same _ConceptCollections default object.
+
+    This guards against the mutable-default-argument footgun: if concepts were
+    mutated on one instance, the other must not be affected.
+    """
+    from coda.apps.publications.forms._fields import ConceptChoiceField
+    from coda.domain.vocabulary import UnknownConcept
+
+    form_a = PublicationForm()
+    form_b = PublicationForm()
+
+    # Mutate the internal concept list on form_a's subject_area field directly.
+    # If the two forms share state (the original mutable-default bug), this mutation
+    # would also appear in form_b — which must NOT happen.
+    subject_area_field_a = cast(ConceptChoiceField, form_a.fields["subject_area"])
+    subject_area_field_b = cast(ConceptChoiceField, form_b.fields["subject_area"])
+
+    # Confirm both start empty
+    assert list(subject_area_field_a._concepts) == []
+    assert list(subject_area_field_b._concepts) == []
+
+    # Mutate form_a's concept collection
+    sentinel_concept = UnknownConcept
+    subject_area_field_a._concepts = [sentinel_concept]
+
+    # form_b must remain unaffected — this is the key assertion that catches the bug
+    assert (
+        list(subject_area_field_b._concepts) == []
+    ), "form_b's subject_area concepts were affected by mutating form_a — shared state detected!"
