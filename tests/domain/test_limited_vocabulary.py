@@ -2,6 +2,7 @@ import pytest
 
 from coda.domain.vocabulary import (
     ConceptId,
+    ConceptNotAllowedError,
     LimitedVocabulary,
     Vocabulary,
     VocabularyConcept,
@@ -200,3 +201,34 @@ def test__multiple_nested_limited_vocabularies__get_root_base_vocabulary__return
 
     assert root == base_vocab
     assert root.id == VocabularyId(0)
+
+
+# C1: get_concept_by_id UUID/string type mismatch fix
+def test__disallowed_concept__get_concept_by_id__raises_concept_not_allowed_error() -> None:
+    """get_concept_by_id must raise ConceptNotAllowedError when the concept's string ID
+    is in the disallow list, even though _disallowed holds str values and `id` is a UUID."""
+    vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
+    forbidden_concept_id = "journal-article"
+    vocabulary.add_concept(forbidden_concept_id)
+
+    sut = LimitedVocabulary(id=VocabularyId(1), base_vocabulary=vocabulary)
+    sut.disallow(forbidden_concept_id)
+
+    # Retrieve the UUID of the disallowed concept from the base vocabulary
+    uuid = vocabulary.get_concept(forbidden_concept_id).id
+
+    with pytest.raises(ConceptNotAllowedError):
+        sut.get_concept_by_id(uuid)
+
+
+# M4: is_concept_allowed misleading semantics fix
+def test__is_concept_allowed__nonexistent_concept__returns_false() -> None:
+    """is_concept_allowed must return False for concept IDs that do not exist in the
+    base vocabulary, even if they are not on the disallow list."""
+    vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
+    vocabulary.add_concept("real-concept")
+
+    sut = LimitedVocabulary(id=VocabularyId(1), base_vocabulary=vocabulary)
+
+    # "ghost-concept" is not disallowed and not in base vocab — should be False
+    assert not sut.is_concept_allowed("ghost-concept")
