@@ -222,7 +222,7 @@ class LimitedVocabulary:
         return self.base_vocabulary.get_concept(concept_id)
 
     def get_concept(self, concept_id: str) -> VocabularyConcept:
-        if concept_id in self._disallowed:
+        if not self.has_concept(concept_id):
             raise ConceptNotAllowedError(self, concept_id)
 
         return self._move_concept_to_self(self.base_vocabulary.get_concept(concept_id))
