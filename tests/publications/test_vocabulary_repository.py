@@ -118,6 +118,44 @@ def sorted_by_concept_id(concepts: Collection[VocabularyConcept]) -> list[Vocabu
     return sorted(concepts, key=lambda c: c.concept_id)
 
 
+# --- Fix M5: first_by_name → get_by_name naming vs. behaviour mismatch ---
+
+
+@pytest.mark.django_db
+def test__vocabulary_repository__get_by_name__returns_matching_vocabulary() -> None:
+    """get_by_name must return the vocabulary with the given name (happy path)."""
+    v = vocabulary_repository.create(name="my-vocabulary", version="1.0")
+    vocabulary_repository.save(v)
+
+    result = vocabulary_repository.get_by_name("my-vocabulary")
+
+    assert result.name == "my-vocabulary"
+
+
+@pytest.mark.django_db
+def test__vocabulary_repository__get_by_name__nonexistent_name__raises_not_found() -> None:
+    """get_by_name must raise VocabularyNotFoundError for an unknown name."""
+    with pytest.raises(vocabulary_repository.VocabularyNotFoundError):
+        vocabulary_repository.get_by_name("does-not-exist")
+
+
+@pytest.mark.django_db
+def test__vocabulary_repository__get_by_name__multiple_matches__raises_error() -> None:
+    """get_by_name must raise when multiple vocabularies share the same name.
+
+    There is no DB unique constraint on name, so duplicates can exist.
+    The method semantics are 'get the single vocabulary with this name'; if
+    there are multiple matches it must signal an error rather than silently
+    returning an arbitrary one.
+    """
+    vocabulary_repository.create(name="duplicate", version="1.0")
+    vocabulary_repository.create(name="duplicate", version="2.0")
+
+    with pytest.raises(Exception):
+        # MultipleObjectsReturned (or a project-specific error) is expected
+        vocabulary_repository.get_by_name("duplicate")
+
+
 def create_publication_with_publication_type(concept: VocabularyConcept) -> PublicationId:
     journal = JournalId(modelfactory.journal().pk)
     p = domainfactory.publication(journal, publication_type=concept)

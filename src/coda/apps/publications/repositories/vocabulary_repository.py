@@ -149,7 +149,15 @@ def get_limited_by_id(id: VocabularyId) -> LimitedVocabulary:
     return v
 
 
-def first_by_name(name: str) -> VocabularyProtocol:
+def get_by_name(name: str) -> VocabularyProtocol:
+    """Return the single vocabulary matching *name*.
+
+    Raises:
+        VocabularyNotFoundError: if no vocabulary with that name exists.
+        django.core.exceptions.MultipleObjectsReturned: if more than one
+            vocabulary shares the name (there is no DB unique constraint on
+            name — adding one is tracked as a follow-up task).
+    """
     try:
         concepts_prefetch, base_vocab_prefetch = _get_prefetch_for_vocabularies()
         v = VocabularyModel.objects.prefetch_related(
