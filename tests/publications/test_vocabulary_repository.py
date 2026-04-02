@@ -1,6 +1,7 @@
 from collections.abc import Collection
 
 import pytest
+from django.core.exceptions import MultipleObjectsReturned
 
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.domain.publication import JournalId, PublicationId
@@ -151,8 +152,7 @@ def test__vocabulary_repository__get_by_name__multiple_matches__raises_error() -
     vocabulary_repository.create(name="duplicate", version="1.0")
     vocabulary_repository.create(name="duplicate", version="2.0")
 
-    with pytest.raises(Exception):
-        # MultipleObjectsReturned (or a project-specific error) is expected
+    with pytest.raises(MultipleObjectsReturned):
         vocabulary_repository.get_by_name("duplicate")
 
 
