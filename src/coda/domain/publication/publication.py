@@ -1,10 +1,11 @@
 import datetime
 import enum
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
+    Literal,
     NamedTuple,
     NewType,
     Self,
@@ -155,10 +156,19 @@ class BasePublication(ABC):
     def is_kind(self, kind: type[PublicationKind]) -> TypeGuard[PublicationKind]:
         return isinstance(self, kind)
 
+    @property
+    @abstractmethod
+    def kind(self) -> Literal["article", "monograph"]:
+        """Return the publication kind as a discriminator string."""
+
 
 @dataclass(kw_only=True)
 class Publication(BasePublication):
     journal: JournalId
+
+    @property
+    def kind(self) -> Literal["article"]:
+        return "article"
 
     @classmethod
     def new(
@@ -192,6 +202,10 @@ class Publication(BasePublication):
 @dataclass(kw_only=True)
 class Monograph(BasePublication):
     publisher: PublisherId
+
+    @property
+    def kind(self) -> Literal["monograph"]:
+        return "monograph"
 
     @classmethod
     def new(

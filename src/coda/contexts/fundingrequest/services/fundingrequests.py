@@ -4,7 +4,7 @@ import random
 from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Literal, Protocol, cast, overload
+from typing import Protocol, cast, overload
 
 from coda.apps.fundingrequests import repository
 from coda.apps.institutions import repository as institution_repository
@@ -33,7 +33,7 @@ from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.fundingrequest.review import Review, ReviewResult
 from coda.domain.money import Currency, Money
 from coda.domain.publication import Authors, JournalId, License, OpenAccessType
-from coda.domain.publication.publication import BasePublication, Monograph, Publication
+from coda.domain.publication.publication import Monograph, Publication
 from coda.domain.string import NonEmptyStr
 
 
@@ -43,10 +43,6 @@ class RequestIdGenerator(Protocol):
     ) -> PublicFundingRequestId: ...
 
 
-def _publication_kind(publication: BasePublication) -> Literal["article", "monograph"]:
-    return "article" if isinstance(publication, Publication) else "monograph"
-
-
 def create_fundingrequest(
     creation_dto: CreateFundingRequestDto,
     *,
@@ -54,7 +50,7 @@ def create_fundingrequest(
     checkfactory: CheckFactory | None = None,
 ) -> FundingRequestId:
     publication = creation_dto.publication.to_publication()
-    AllowedConcepts.for_new_publication(_publication_kind(publication)).validate(
+    AllowedConcepts.for_new_publication(publication.kind).validate(
         publication.publication_type,
         publication.subject_area,
     )

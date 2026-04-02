@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Literal, NamedTuple, cast
 
 import pytest
@@ -12,8 +13,59 @@ from coda.contexts.fundingrequest.services.allowed_vocabularies import (
 )
 from coda.domain.contract import PublisherId
 from coda.domain.publication.publication import BasePublication, JournalId
-from coda.domain.vocabulary import UnknownConcept, Vocabulary
+from coda.domain.vocabulary import (
+    LimitedVocabulary,
+    UnknownConcept,
+    Vocabulary,
+    VocabularyId,
+    VocabularyProtocol,
+)
 from tests import domainfactory, modelfactory
+
+# ---------------------------------------------------------------------------
+# Stub VocabularyProvider — no database needed (demonstrates Fix 1 / I4 DIP)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class StubVocabularyProvider:
+    """Lightweight VocabularyProvider stub that satisfies the protocol.
+
+    Holds three in-memory VocabularyProtocol objects so tests can inject
+    arbitrary vocabularies (including LimitedVocabulary) without any DB access.
+    """
+
+    article_vocab: VocabularyProtocol
+    monograph_vocab: VocabularyProtocol
+    subject_vocab: VocabularyProtocol
+
+    def get_article_publication_type_vocabulary(self) -> VocabularyProtocol:
+        return self.article_vocab
+
+    def get_monograph_publication_type_vocabulary(self) -> VocabularyProtocol:
+        return self.monograph_vocab
+
+    def get_subject_classification_vocabulary(self) -> VocabularyProtocol:
+        return self.subject_vocab
+
+
+def _make_vocab(*concept_ids: str) -> Vocabulary:
+    """Build an in-memory Vocabulary with the given concept IDs (no DB)."""
+    v = Vocabulary(id=VocabularyId(1), name="test", version="1.0")
+    for cid in concept_ids:
+        v.add_concept(cid)
+    return v
+
+
+def _make_limited(base: Vocabulary, *disallowed: str) -> LimitedVocabulary:
+    """Wrap base Vocabulary in a LimitedVocabulary and disallow the given concept IDs."""
+    limited = LimitedVocabulary(
+        id=VocabularyId(2), base_vocabulary=base, name="limited", version="1.0"
+    )
+    for cid in disallowed:
+        limited.disallow(cid)
+    return limited
+
 
 PublicationFactory = Callable[[], BasePublication]
 VocabularySetter = Callable[[Vocabulary], None]
@@ -310,3 +362,116 @@ def vocabulary_with_concepts(name: str, *, concepts: list[str]) -> Vocabulary:
 
     vocabulary_repository.save(v)
     return v
+
+
+# ---------------------------------------------------------------------------
+# LimitedVocabulary as active vocabulary
+# (uses StubVocabularyProvider — no database required, demonstrating DIP)
+# ---------------------------------------------------------------------------
+
+
+def test__for_new_publication__limited_vocab__disallowed_concept_not_in_allowed_types() -> None:
+    """Disallowed concepts in the active LimitedVocabulary must not appear
+    in AllowedConcepts.publication_types for a new publication."""
+    base = _make_vocab("allowed_type", "disallowed_type")
+    limited = _make_limited(base, "disallowed_type")
+    subject_base = _make_vocab("subject_a")
+    provider = StubVocabularyProvider(
+        article_vocab=limited,
+        monograph_vocab=limited,
+        subject_vocab=subject_base,
+    )
+
+    for kind in ("article", "monograph"):
+        allowed = AllowedConcepts.for_new_publication(
+            kind,
+            vocabulary_provider=provider,
+        )
+        concept_ids = [c.concept_id for c in allowed.publication_types]
+        assert (
+            "disallowed_type" not in concept_ids
+        ), f"kind={kind}: disallowed_type should be absent"
+        assert "allowed_type" in concept_ids, f"kind={kind}: allowed_type should be present"
+
+
+def test__for_new_publication__limited_vocab__allowed_concept_in_allowed_types() -> None:
+    """Allowed concepts in the active LimitedVocabulary DO appear in
+    AllowedConcepts.publication_types for a new publication."""
+    base = _make_vocab("type_a", "type_b", "type_c")
+    limited = _make_limited(base, "type_b")  # only type_b is disallowed
+    subject_base = _make_vocab("subject_a")
+    provider = StubVocabularyProvider(
+        article_vocab=limited,
+        monograph_vocab=limited,
+        subject_vocab=subject_base,
+    )
+
+    for kind in ("article", "monograph"):
+        allowed = AllowedConcepts.for_new_publication(
+            kind,
+            vocabulary_provider=provider,
+        )
+        concept_ids = [c.concept_id for c in allowed.publication_types]
+        assert "type_a" in concept_ids, f"kind={kind}: type_a should be present"
+        assert "type_c" in concept_ids, f"kind={kind}: type_c should be present"
+        assert "type_b" not in concept_ids, f"kind={kind}: type_b should be absent (disallowed)"
+
+
+def test__for_existing_publication__limited_vocab__grandfathers_disallowed_existing_concept() -> (
+    None
+):
+    """When a publication's existing concept is disallowed by the active
+    LimitedVocabulary, the grandfather clause must still include it."""
+    base = _make_vocab("new_type", "old_type")
+    # Simulate vocabulary switch: old_type is now disallowed
+    limited = _make_limited(base, "old_type")
+    subject_base = _make_vocab("subject_a")
+    provider = StubVocabularyProvider(
+        article_vocab=limited,
+        monograph_vocab=limited,
+        subject_vocab=subject_base,
+    )
+
+    for create_pub, kind in (
+        (lambda: domainfactory.publication(), "article"),
+        (lambda: domainfactory.monograph(), "monograph"),
+    ):
+        publication = create_pub()
+        # The publication already has old_type as its concept (pre-switch)
+        publication.publication_type = base.get_concept("old_type")
+        publication.subject_area = subject_base.get_concept("subject_a")
+
+        allowed = AllowedConcepts.for_existing_publication(
+            publication,
+            vocabulary_provider=provider,
+        )
+
+        concept_ids = [c.concept_id for c in allowed.publication_types]
+        assert (
+            "old_type" in concept_ids
+        ), f"kind={kind}: old_type must be grandfathered even though it was disallowed"
+        assert "new_type" in concept_ids, f"kind={kind}: new_type should also be present"
+
+
+def test__validate__limited_vocab__disallowed_concept_raises_invalid_publication_type() -> None:
+    """validate() raises InvalidPublicationType when the supplied concept
+    is disallowed by the active LimitedVocabulary (and not grandfathered)."""
+    base = _make_vocab("allowed_type", "disallowed_type")
+    limited = _make_limited(base, "disallowed_type")
+    subject_base = _make_vocab("subject_a")
+    provider = StubVocabularyProvider(
+        article_vocab=limited,
+        monograph_vocab=limited,
+        subject_vocab=subject_base,
+    )
+
+    for kind in ("article", "monograph"):
+        allowed = AllowedConcepts.for_new_publication(
+            kind,
+            vocabulary_provider=provider,
+        )
+        with pytest.raises(InvalidPublicationType):
+            allowed.validate(
+                base.get_concept("disallowed_type"),
+                subject_base.get_concept("subject_a"),
+            )

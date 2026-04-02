@@ -1,10 +1,10 @@
 from collections.abc import Collection
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol
 
 from coda.apps.preferences.models import GlobalPreferences
 from coda.domain.errors import DomainError
-from coda.domain.publication.publication import BasePublication, Publication
+from coda.domain.publication.publication import BasePublication
 from coda.domain.vocabulary import UnknownConcept, VocabularyConcept, VocabularyProtocol
 
 
@@ -14,6 +14,23 @@ class InvalidPublicationType(DomainError):
 
 class InvalidSubjectType(DomainError):
     pass
+
+
+class VocabularyProvider(Protocol):
+    """Protocol for supplying the active vocabularies to ``AllowedConcepts``.
+
+    Conforming types only need to implement the three methods below.
+    ``GlobalPreferences`` satisfies this protocol out of the box (its static
+    methods are callable as unbound callables on the class object); unit tests
+    can supply a lightweight stub with plain instance methods to avoid database
+    access.
+    """
+
+    def get_article_publication_type_vocabulary(self) -> VocabularyProtocol: ...
+
+    def get_monograph_publication_type_vocabulary(self) -> VocabularyProtocol: ...
+
+    def get_subject_classification_vocabulary(self) -> VocabularyProtocol: ...
 
 
 def _get_concepts_from_vocabulary(
@@ -32,24 +49,22 @@ def _is_concept_allowed(concept: VocabularyConcept, allowed: Collection[Vocabula
 
 def _get_publication_types_for_kind(
     kind: Literal["article", "monograph"],
+    provider: VocabularyProvider,
     allow_extra: VocabularyConcept | None = None,
 ) -> Collection[VocabularyConcept]:
     if kind == "article":
-        vocabulary = GlobalPreferences.get_article_publication_type_vocabulary()
+        vocabulary = provider.get_article_publication_type_vocabulary()
     else:
-        vocabulary = GlobalPreferences.get_monograph_publication_type_vocabulary()
+        vocabulary = provider.get_monograph_publication_type_vocabulary()
     return _get_concepts_from_vocabulary(vocabulary, allow_extra)
 
 
 def _get_subject_types(
+    provider: VocabularyProvider,
     allow_extra: VocabularyConcept | None = None,
 ) -> Collection[VocabularyConcept]:
-    vocabulary = GlobalPreferences.get_subject_classification_vocabulary()
+    vocabulary = provider.get_subject_classification_vocabulary()
     return _get_concepts_from_vocabulary(vocabulary, allow_extra)
-
-
-def _kind_of(publication: BasePublication) -> Literal["article", "monograph"]:
-    return "article" if isinstance(publication, Publication) else "monograph"
 
 
 @dataclass(frozen=True)
@@ -66,28 +81,45 @@ class AllowedConcepts:
     Use ``for_existing_publication`` when the publication already owns
     concepts that must remain selectable even after a vocabulary switch
     (grandfather clause).
+
+    The optional ``vocabulary_provider`` parameter on each factory method
+    satisfies the Dependency Inversion Principle: production code uses the
+    default (``GlobalPreferences``); tests can inject a lightweight stub
+    without touching the database.
     """
 
     publication_types: Collection[VocabularyConcept]
     subject_types: Collection[VocabularyConcept]
 
     @classmethod
-    def for_new_publication(cls, kind: Literal["article", "monograph"]) -> "AllowedConcepts":
+    def for_new_publication(
+        cls,
+        kind: Literal["article", "monograph"],
+        *,
+        vocabulary_provider: VocabularyProvider = GlobalPreferences,
+    ) -> "AllowedConcepts":
         """No grandfather clause — only the current vocabulary is valid."""
         return cls(
-            publication_types=_get_publication_types_for_kind(kind),
-            subject_types=_get_subject_types(),
+            publication_types=_get_publication_types_for_kind(kind, vocabulary_provider),
+            subject_types=_get_subject_types(vocabulary_provider),
         )
 
     @classmethod
-    def for_existing_publication(cls, publication: BasePublication) -> "AllowedConcepts":
+    def for_existing_publication(
+        cls,
+        publication: BasePublication,
+        *,
+        vocabulary_provider: VocabularyProvider = GlobalPreferences,
+    ) -> "AllowedConcepts":
         """Grandfather clause: the publication's current concepts are always allowed,
         even if they have since been removed from the active vocabulary."""
         return cls(
             publication_types=_get_publication_types_for_kind(
-                _kind_of(publication), allow_extra=publication.publication_type
+                publication.kind, vocabulary_provider, allow_extra=publication.publication_type
             ),
-            subject_types=_get_subject_types(allow_extra=publication.subject_area),
+            subject_types=_get_subject_types(
+                vocabulary_provider, allow_extra=publication.subject_area
+            ),
         )
 
     @classmethod
@@ -96,6 +128,8 @@ class AllowedConcepts:
         kind: Literal["article", "monograph"],
         publication_type: VocabularyConcept,
         subject_area: VocabularyConcept,
+        *,
+        vocabulary_provider: VocabularyProvider = GlobalPreferences,
     ) -> "AllowedConcepts":
         """Grandfather clause for when the domain object is not available.
 
@@ -105,8 +139,10 @@ class AllowedConcepts:
         ``for_existing_publication``.
         """
         return cls(
-            publication_types=_get_publication_types_for_kind(kind, allow_extra=publication_type),
-            subject_types=_get_subject_types(allow_extra=subject_area),
+            publication_types=_get_publication_types_for_kind(
+                kind, vocabulary_provider, allow_extra=publication_type
+            ),
+            subject_types=_get_subject_types(vocabulary_provider, allow_extra=subject_area),
         )
 
     def validate(
