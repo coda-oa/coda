@@ -1,6 +1,6 @@
 import uuid
-from collections.abc import Collection
 from collections import defaultdict
+from collections.abc import Collection
 from dataclasses import dataclass
 from typing import NewType, Protocol
 

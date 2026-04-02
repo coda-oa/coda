@@ -6,9 +6,9 @@ import pytest
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository
-from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.fundingrequests.repository import get_by_id
 from coda.apps.institutions.models import Institution
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import ContractYearDto, PublicationDto
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.contexts.fundingrequest import services
