@@ -6,6 +6,7 @@ import pytest
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.fundingrequests.repository import get_by_id
 from coda.apps.institutions.models import Institution
 from coda.apps.publications.dto import ContractYearDto, PublicationDto
@@ -40,7 +41,7 @@ from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
 from coda.domain.publication import JournalId
 from coda.domain.string import NonEmptyStr
-from coda.domain.vocabulary import Vocabulary, VocabularyConcept
+from coda.domain.vocabulary import VocabularyConcept
 from tests import domainfactory, modelfactory
 from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
@@ -391,18 +392,60 @@ def builder(request: pytest.FixtureRequest) -> Builder:
     return request.param()  # type: ignore[no-any-return]
 
 
-def disallowed_concept(vocabulary: Vocabulary) -> VocabularyConcept:
-    other = vocabulary_repository.create("other vocabulary", "1.0")
-    other.add_concept("disallowed_concept")
-    vocabulary_repository.save(other)
-    return other.get_concept("disallowed_concept")
+def disallowed_publication_type(builder: Builder) -> VocabularyConcept:
+    """Return a concept that is disallowed in the active publication-type vocabulary.
+
+    Adds a second concept to the base vocabulary (the publication keeps concept[0]),
+    wraps the base in a LimitedVocabulary that disallows only the second concept,
+    and registers it as active.  Because the publication's existing concept[0] is NOT
+    disallowed, the grandfather clause in for_existing_publication does not protect
+    concept[1] — so an update command using concept[1] correctly raises.
+    """
+    assert builder.publication_types.id is not None
+    builder.publication_types.add_concept("disallowed_concept")
+    vocabulary_repository.save(builder.publication_types)
+    # Re-fetch so the new concept has a DB-assigned entity_id
+    refreshed = vocabulary_repository.get_by_id(builder.publication_types.id)
+    disallowed = next(c for c in refreshed.concepts if c.concept_id == "disallowed_concept")
+    limited = vocabulary_repository.create_limited(
+        builder.publication_types.id, "limited_publication_types"
+    )
+    limited.disallow(disallowed.concept_id)
+    vocabulary_repository.save(limited)
+    GlobalPreferences.set_article_publication_type_vocabulary(limited)
+    GlobalPreferences.set_monograph_publication_type_vocabulary(limited)
+    return disallowed
+
+
+def disallowed_subject_area(builder: Builder) -> VocabularyConcept:
+    """Return a concept that is disallowed in the active subject-area vocabulary.
+
+    Adds a second concept to the base vocabulary (the publication keeps concept[0]),
+    wraps the base in a LimitedVocabulary that disallows only the second concept,
+    and registers it as active.  Because the publication's existing concept[0] is NOT
+    disallowed, the grandfather clause in for_existing_publication does not protect
+    concept[1] — so an update command using concept[1] correctly raises.
+    """
+    assert builder.subject_areas.id is not None
+    builder.subject_areas.add_concept("disallowed_concept")
+    vocabulary_repository.save(builder.subject_areas)
+    # Re-fetch so the new concept has a DB-assigned entity_id
+    refreshed = vocabulary_repository.get_by_id(builder.subject_areas.id)
+    disallowed = next(c for c in refreshed.concepts if c.concept_id == "disallowed_concept")
+    limited = vocabulary_repository.create_limited(
+        builder.subject_areas.id, "limited_subject_areas"
+    )
+    limited.disallow(disallowed.concept_id)
+    vocabulary_repository.save(limited)
+    GlobalPreferences.set_subject_classification_vocabulary(limited)
+    return disallowed
 
 
 @pytest.mark.django_db
 def test__create_fundingrequest__disallowed_publication_type__raises_invalid_publication_type(
     builder: Builder,
 ) -> None:
-    builder.publication.publication_type = disallowed_concept(builder.publication_types)
+    builder.publication.publication_type = disallowed_publication_type(builder)
 
     with pytest.raises(InvalidPublicationType):
         services.fundingrequests.create_fundingrequest(builder.creation_dto())
@@ -412,7 +455,7 @@ def test__create_fundingrequest__disallowed_publication_type__raises_invalid_pub
 def test__create_fundingrequest__disallowed_subject_area__raises_invalid_subject_type(
     builder: Builder,
 ) -> None:
-    builder.publication.subject_area = disallowed_concept(builder.subject_areas)
+    builder.publication.subject_area = disallowed_subject_area(builder)
 
     with pytest.raises(InvalidSubjectType):
         services.fundingrequests.create_fundingrequest(builder.creation_dto())
@@ -424,7 +467,7 @@ def test__update_publication_metadata__disallowed_publication_type__raises_inval
 ) -> None:
     fr_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
 
-    builder.publication.publication_type = disallowed_concept(builder.publication_types)
+    builder.publication.publication_type = disallowed_publication_type(builder)
     dto = builder.publication_dto()
     command = UpdatePublicationMetadataCommand(
         meta=dto.meta,
@@ -443,7 +486,7 @@ def test__update_publication_metadata__disallowed_subject_area__raises_invalid_s
 ) -> None:
     fr_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
 
-    builder.publication.subject_area = disallowed_concept(builder.subject_areas)
+    builder.publication.subject_area = disallowed_subject_area(builder)
     dto = builder.publication_dto()
     command = UpdatePublicationMetadataCommand(
         meta=dto.meta,
