@@ -149,8 +149,10 @@ def test__vocabulary_repository__get_by_name__multiple_matches__raises_error() -
     there are multiple matches it must signal an error rather than silently
     returning an arbitrary one.
     """
-    vocabulary_repository.create(name="duplicate", version="1.0")
-    vocabulary_repository.create(name="duplicate", version="2.0")
+    v1 = vocabulary_repository.create(name="duplicate", version="1.0")
+    vocabulary_repository.save(v1)
+    v2 = vocabulary_repository.create(name="duplicate", version="2.0")
+    vocabulary_repository.save(v2)
 
     with pytest.raises(MultipleObjectsReturned):
         vocabulary_repository.get_by_name("duplicate")

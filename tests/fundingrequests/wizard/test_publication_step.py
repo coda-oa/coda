@@ -511,8 +511,7 @@ def test__publication_step_for_monograph__restores_from_store_with_monograph_voc
 
 def test__publication_form__no_args__constructs_without_error() -> None:
     """PublicationForm() with no arguments must construct successfully."""
-    form = PublicationForm()
-    assert form is not None
+    PublicationForm()
 
 
 def test__publication_form__no_args__has_empty_concept_choices() -> None:
@@ -546,23 +545,27 @@ def test__publication_form__two_instances_without_args__do_not_share_concept_sta
     This guards against the mutable-default-argument footgun: if concepts were
     mutated on one instance, the other must not be affected.
     """
+    from coda.apps.publications.forms._fields import ConceptChoiceField
+    from coda.domain.vocabulary import UnknownConcept
+
     form_a = PublicationForm()
     form_b = PublicationForm()
 
-    # Verify that constructing PublicationForm() twice is safe and independent.
-    # Both forms must have identical (empty) choices, but they must be separate list objects.
-    choices_a = list(
-        cast(
-            Iterable[tuple[Any, str]],
-            cast(forms.ChoiceField, form_a.fields["subject_area"]).choices,
-        )
-    )
-    choices_b = list(
-        cast(
-            Iterable[tuple[Any, str]],
-            cast(forms.ChoiceField, form_b.fields["subject_area"]).choices,
-        )
-    )
-    assert choices_a == choices_b  # both empty — consistent
-    # The two choice lists must be separate objects (not the same list reference)
-    assert choices_a is not choices_b
+    # Mutate the internal concept list on form_a's subject_area field directly.
+    # If the two forms share state (the original mutable-default bug), this mutation
+    # would also appear in form_b — which must NOT happen.
+    subject_area_field_a = cast(ConceptChoiceField, form_a.fields["subject_area"])
+    subject_area_field_b = cast(ConceptChoiceField, form_b.fields["subject_area"])
+
+    # Confirm both start empty
+    assert list(subject_area_field_a._concepts) == []
+    assert list(subject_area_field_b._concepts) == []
+
+    # Mutate form_a's concept collection
+    sentinel_concept = UnknownConcept
+    subject_area_field_a._concepts = [sentinel_concept]
+
+    # form_b must remain unaffected — this is the key assertion that catches the bug
+    assert (
+        list(subject_area_field_b._concepts) == []
+    ), "form_b's subject_area concepts were affected by mutating form_a — shared state detected!"

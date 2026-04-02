@@ -22,8 +22,8 @@ class _ConceptCollections:
         subject_areas: Collection[VocabularyConcept] | None = None,
         publication_types: Collection[VocabularyConcept] | None = None,
     ) -> None:
-        self.subject_areas = subject_areas
-        self.publication_types = publication_types
+        self.subject_areas: Collection[VocabularyConcept] = subject_areas or []
+        self.publication_types: Collection[VocabularyConcept] = publication_types or []
 
 
 class PublicationForm(CodaFormBase):
