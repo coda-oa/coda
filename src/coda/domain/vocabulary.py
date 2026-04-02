@@ -168,7 +168,7 @@ class LimitedVocabulary:
         return concept_id not in self._disallowed and self.base_vocabulary.has_concept(concept_id)
 
     def is_concept_allowed(self, concept_id: str) -> bool:
-        return concept_id not in self._disallowed
+        return self.has_concept(concept_id)
 
     def get_concept_hierarchy(
         self,
@@ -212,10 +212,10 @@ class LimitedVocabulary:
         ]
 
     def get_concept_by_id(self, id: ConceptId) -> VocabularyConcept:
-        if id in self._disallowed:
-            raise ConceptNotAllowedError(self, str(id))
-
-        return self._move_concept_to_self(self.base_vocabulary.get_concept_by_id(id))
+        concept = self.base_vocabulary.get_concept_by_id(id)
+        if concept.concept_id in self._disallowed:
+            raise ConceptNotAllowedError(self, concept.concept_id)
+        return self._move_concept_to_self(concept)
 
     def get_base_concept(self, concept_id: str) -> VocabularyConcept:
         """Get a concept from the base vocabulary by its concept ID"""
