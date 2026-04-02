@@ -3,6 +3,7 @@ import pytest
 from coda.domain.vocabulary import (
     ConceptId,
     ConceptNotAllowedError,
+    ConceptNotFoundError,
     LimitedVocabulary,
     Vocabulary,
     VocabularyConcept,
@@ -121,7 +122,7 @@ def test__disallowed_concept__get_concept__raises_error() -> None:
     sut = LimitedVocabulary(id=VocabularyId(1), base_vocabulary=vocabulary)
     sut.disallow(forbidden_id)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ConceptNotAllowedError):
         sut.get_concept(forbidden_id)
 
 
@@ -203,7 +204,6 @@ def test__multiple_nested_limited_vocabularies__get_root_base_vocabulary__return
     assert root.id == VocabularyId(0)
 
 
-# C1: get_concept_by_id UUID/string type mismatch fix
 def test__disallowed_concept__get_concept_by_id__raises_concept_not_allowed_error() -> None:
     """get_concept_by_id must raise ConceptNotAllowedError when the concept's string ID
     is in the disallow list, even though _disallowed holds str values and `id` is a UUID."""
@@ -215,13 +215,12 @@ def test__disallowed_concept__get_concept_by_id__raises_concept_not_allowed_erro
     sut.disallow(forbidden_concept_id)
 
     # Retrieve the UUID of the disallowed concept from the base vocabulary
-    uuid = vocabulary.get_concept(forbidden_concept_id).id
+    concept_uuid = vocabulary.get_concept(forbidden_concept_id).id
 
     with pytest.raises(ConceptNotAllowedError):
-        sut.get_concept_by_id(uuid)
+        sut.get_concept_by_id(concept_uuid)
 
 
-# M4: is_concept_allowed misleading semantics fix
 def test__is_concept_allowed__nonexistent_concept__returns_false() -> None:
     """is_concept_allowed must return False for concept IDs that do not exist in the
     base vocabulary, even if they are not on the disallow list."""
@@ -232,3 +231,18 @@ def test__is_concept_allowed__nonexistent_concept__returns_false() -> None:
 
     # "ghost-concept" is not disallowed and not in base vocab — should be False
     assert not sut.is_concept_allowed("ghost-concept")
+
+
+def test__get_concept_by_id__uuid_not_in_base_vocabulary__raises_concept_not_found_error() -> None:
+    """get_concept_by_id must propagate ConceptNotFoundError when the UUID does not
+    exist in the base vocabulary at all."""
+    vocabulary = Vocabulary(id=VocabularyId(0), name="test", version="1.0")
+    vocabulary.add_concept("existing-concept")
+
+    sut = LimitedVocabulary(id=VocabularyId(1), base_vocabulary=vocabulary)
+
+    # A freshly-generated ConceptId that was never added to the vocabulary
+    nonexistent_id = ConceptId.new()
+
+    with pytest.raises(ConceptNotFoundError):
+        sut.get_concept_by_id(nonexistent_id)

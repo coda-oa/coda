@@ -168,7 +168,7 @@ class LimitedVocabulary:
         return concept_id not in self._disallowed and self.base_vocabulary.has_concept(concept_id)
 
     def is_concept_allowed(self, concept_id: str) -> bool:
-        return concept_id not in self._disallowed and self.base_vocabulary.has_concept(concept_id)
+        return self.has_concept(concept_id)
 
     def get_concept_hierarchy(
         self,
