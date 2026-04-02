@@ -6,6 +6,10 @@ import pytest
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository
+from coda.apps.fundingrequests.repository import get_by_id
+from coda.apps.institutions.models import Institution
+from coda.apps.publications.dto import ContractYearDto, PublicationDto
+from coda.apps.publications.repositories import vocabulary_repository
 from coda.contexts.fundingrequest import services
 from coda.contexts.fundingrequest.dto.commands import (
     ExternalFundingDto,
@@ -15,9 +19,10 @@ from coda.contexts.fundingrequest.dto.commands import (
     UpdatePublicationMetadataCommand,
     UpdateReviewDto,
 )
-from coda.apps.fundingrequests.repository import get_by_id
-from coda.apps.institutions.models import Institution
-from coda.apps.publications.dto import ContractYearDto, PublicationDto
+from coda.contexts.fundingrequest.services.allowed_vocabularies import (
+    InvalidPublicationType,
+    InvalidSubjectType,
+)
 from coda.domain.author import InstitutionId
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest import (
@@ -35,6 +40,7 @@ from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
 from coda.domain.publication import JournalId
 from coda.domain.string import NonEmptyStr
+from coda.domain.vocabulary import Vocabulary, VocabularyConcept
 from tests import domainfactory, modelfactory
 from tests.fundingrequests.wizard.databuilders.article import ArticleRequestDataBuilder
 from tests.fundingrequests.wizard.databuilders.monograph import MonographRequestDataBuilder
@@ -366,3 +372,85 @@ def assert_fundingrequest_contact_eq(
     actual: FundingRequestContact, expected: FundingRequestContact
 ) -> None:
     assert actual == expected
+
+
+# ---------------------------------------------------------------------------
+# Vocabulary validation
+# ---------------------------------------------------------------------------
+
+Builder = ArticleRequestDataBuilder | MonographRequestDataBuilder
+
+
+@pytest.fixture(
+    params=[
+        ArticleRequestDataBuilder,
+        MonographRequestDataBuilder,
+    ]
+)
+def builder(request: pytest.FixtureRequest) -> Builder:
+    return request.param()  # type: ignore[no-any-return]
+
+
+def disallowed_concept(vocabulary: Vocabulary) -> VocabularyConcept:
+    other = vocabulary_repository.create("other vocabulary", "1.0")
+    other.add_concept("disallowed_concept")
+    vocabulary_repository.save(other)
+    return other.get_concept("disallowed_concept")
+
+
+@pytest.mark.django_db
+def test__create_fundingrequest__disallowed_publication_type__raises_invalid_publication_type(
+    builder: Builder,
+) -> None:
+    builder.publication.publication_type = disallowed_concept(builder.publication_types)
+
+    with pytest.raises(InvalidPublicationType):
+        services.fundingrequests.create_fundingrequest(builder.creation_dto())
+
+
+@pytest.mark.django_db
+def test__create_fundingrequest__disallowed_subject_area__raises_invalid_subject_type(
+    builder: Builder,
+) -> None:
+    builder.publication.subject_area = disallowed_concept(builder.subject_areas)
+
+    with pytest.raises(InvalidSubjectType):
+        services.fundingrequests.create_fundingrequest(builder.creation_dto())
+
+
+@pytest.mark.django_db
+def test__update_publication_metadata__disallowed_publication_type__raises_invalid_publication_type(
+    builder: Builder,
+) -> None:
+    fr_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
+
+    builder.publication.publication_type = disallowed_concept(builder.publication_types)
+    dto = builder.publication_dto()
+    command = UpdatePublicationMetadataCommand(
+        meta=dto.meta,
+        relevant_authors=dto.relevant_authors,
+        other_authors=dto.other_authors,
+        links=dto.links,
+    )
+
+    with pytest.raises(InvalidPublicationType):
+        services.fundingrequests.update_publication_metadata(fr_id, command)
+
+
+@pytest.mark.django_db
+def test__update_publication_metadata__disallowed_subject_area__raises_invalid_subject_type(
+    builder: Builder,
+) -> None:
+    fr_id = services.fundingrequests.create_fundingrequest(builder.creation_dto())
+
+    builder.publication.subject_area = disallowed_concept(builder.subject_areas)
+    dto = builder.publication_dto()
+    command = UpdatePublicationMetadataCommand(
+        meta=dto.meta,
+        relevant_authors=dto.relevant_authors,
+        other_authors=dto.other_authors,
+        links=dto.links,
+    )
+
+    with pytest.raises(InvalidSubjectType):
+        services.fundingrequests.update_publication_metadata(fr_id, command)

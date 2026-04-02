@@ -15,7 +15,7 @@ def test__limited_vocabulary__all_concepts_are_allowed_by_default() -> None:
 
     sut = LimitedVocabulary(id=VocabularyId(1), base_vocabulary=vocabulary)
 
-    list(sut.concepts) == list(vocabulary.concepts)
+    assert list(sut.concepts) == list(vocabulary.concepts)
 
 
 def test__limited_vocabulary__all_concepts_belong_to_limited_vocabulary() -> None:

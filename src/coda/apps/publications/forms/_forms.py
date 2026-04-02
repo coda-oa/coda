@@ -1,36 +1,29 @@
 import datetime
 import logging
-from collections.abc import Iterable, Mapping
-from typing import Any, NamedTuple, cast
+from collections.abc import Collection, Iterable, Mapping
+from typing import Any, Literal, cast
 
 from django import forms
 
 from coda.apps import widgets
 from coda.apps.formbase import CodaFormBase
-from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import ConceptDto, LinkDto, PublicationMetaDto
 from coda.apps.publications.models import LinkType, Publication
-from coda.apps.publications.repositories import vocabulary_repository
+from coda.contexts.fundingrequest.services.allowed_vocabularies import AllowedConcepts
 from coda.domain.publication import License, OpenAccessType, Published, UnpublishedState, links
-from coda.domain.vocabulary import UnknownConcept, VocabularyConcept, VocabularyProtocol
+from coda.domain.vocabulary import VocabularyConcept
 
 from ._fields import ConceptChoiceField, encode_concept_dto
 
 
-def vocabulary_from_settings(vocabulary_type: str) -> VocabularyProtocol:
-    match vocabulary_type:
-        case "publication_type":
-            vocabulary = GlobalPreferences.get_article_publication_type_vocabulary()
-        case "subject_area":
-            vocabulary = GlobalPreferences.get_subject_classification_vocabulary()
-        case _:
-            raise ValueError("unknown vocabulary type")
-    return vocabulary
-
-
-class Vocabularies(NamedTuple):
-    subject_areas: VocabularyProtocol | None = None
-    publication_types: VocabularyProtocol | None = None
+class _ConceptCollections:
+    def __init__(
+        self,
+        subject_areas: Collection[VocabularyConcept] | None = None,
+        publication_types: Collection[VocabularyConcept] | None = None,
+    ) -> None:
+        self.subject_areas = subject_areas
+        self.publication_types = publication_types
 
 
 class PublicationForm(CodaFormBase):
@@ -44,13 +37,13 @@ class PublicationForm(CodaFormBase):
         label="License*",
     )
     publication_type = ConceptChoiceField(
-        choices=lambda: vocabulary_from_settings("publication_type"),
+        choices=[],
         required=True,
         widget=widgets.SearchSelectWidget,
         label="Publication type*",
     )
     subject_area = ConceptChoiceField(
-        choices=lambda: vocabulary_from_settings("subject_area"),
+        choices=[],
         required=True,
         widget=widgets.SearchSelectWidget,
         label="Subject area*",
@@ -75,24 +68,14 @@ class PublicationForm(CodaFormBase):
     )
 
     @classmethod
-    def from_dto(cls, dto: PublicationMetaDto) -> "PublicationForm":
-        subject_vocabulary_id = dto.subject_area.vocabulary
-        if subject_vocabulary_id != UnknownConcept.vocabulary:
-            subject_areas = vocabulary_repository.get_by_id(subject_vocabulary_id)
-        else:
-            subject_areas = None
-
-        pub_type_vocabulary_id = dto.publication_type.vocabulary
-        if pub_type_vocabulary_id != UnknownConcept.vocabulary:
-            publication_types = vocabulary_repository.get_by_id(pub_type_vocabulary_id)
-        else:
-            publication_types = None
-
-        vocabularies = Vocabularies(
-            subject_areas=subject_areas,
-            publication_types=publication_types,
+    def from_dto(
+        cls, dto: PublicationMetaDto, kind: Literal["article", "monograph"] = "article"
+    ) -> "PublicationForm":
+        allowed = AllowedConcepts.for_existing_concepts(
+            kind,
+            publication_type=dto.publication_type.to_concept(),
+            subject_area=dto.subject_area.to_concept(),
         )
-
         return cls(
             data={
                 "title": dto.title,
@@ -104,49 +87,56 @@ class PublicationForm(CodaFormBase):
                 "online_publication_date": dto.online_publication_date,
                 "print_publication_date": dto.print_publication_date,
             },
-            vocabularies=vocabularies,
+            concepts=_ConceptCollections(
+                subject_areas=allowed.subject_types,
+                publication_types=allowed.publication_types,
+            ),
         )
 
     @classmethod
     def with_article_vocabulary(cls, data: Mapping[str, Any] | None = None) -> "PublicationForm":
-        vocabularies = Vocabularies(
-            subject_areas=GlobalPreferences.get_subject_classification_vocabulary(),
-            publication_types=GlobalPreferences.get_article_publication_type_vocabulary(),
+        allowed = AllowedConcepts.for_new_publication("article")
+        return cls(
+            data,
+            concepts=_ConceptCollections(
+                subject_areas=allowed.subject_types,
+                publication_types=allowed.publication_types,
+            ),
         )
-
-        return cls(data, vocabularies=vocabularies)
 
     @classmethod
     def with_monograph_vocabulary(cls, data: Mapping[str, Any] | None = None) -> "PublicationForm":
-        vocabularies = Vocabularies(
-            subject_areas=GlobalPreferences.get_subject_classification_vocabulary(),
-            publication_types=GlobalPreferences.get_monograph_publication_type_vocabulary(),
+        allowed = AllowedConcepts.for_new_publication("monograph")
+        return cls(
+            data,
+            concepts=_ConceptCollections(
+                subject_areas=allowed.subject_types,
+                publication_types=allowed.publication_types,
+            ),
         )
-
-        return cls(data, vocabularies=vocabularies)
 
     def __init__(
         self,
         data: Mapping[str, Any] | None = None,
-        vocabularies: Vocabularies = Vocabularies(),
+        concepts: _ConceptCollections = _ConceptCollections(),
         *args: Any,
         **kwargs: Any,
     ) -> None:
         super().__init__(data, *args, **kwargs)
 
-        self._set_vocabulary("subject_area", vocabularies.subject_areas)
-        self._set_vocabulary("publication_type", vocabularies.publication_types)
+        self._set_concepts("subject_area", concepts.subject_areas)
+        self._set_concepts("publication_type", concepts.publication_types)
         logging.info(
-            "PublicationForm initialized with vocabularies: subject_areas=%s, publication_types=%s",
-            vocabularies.subject_areas,
-            vocabularies.publication_types,
+            "PublicationForm initialized with concepts: subject_areas=%s, publication_types=%s",
+            concepts.subject_areas,
+            concepts.publication_types,
         )
 
         if data:
             _ = self.is_valid()
 
-    def _set_vocabulary(self, field: str, vocabulary: VocabularyProtocol | None) -> None:
-        cast(ConceptChoiceField, self.fields[field]).set_vocabulary(vocabulary)
+    def _set_concepts(self, field: str, concepts: Collection[VocabularyConcept] | None) -> None:
+        cast(ConceptChoiceField, self.fields[field]).set_vocabulary(concepts)
 
     def full_clean(self) -> None:
         super().full_clean()

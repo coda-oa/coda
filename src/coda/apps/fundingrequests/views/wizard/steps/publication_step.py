@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
@@ -17,11 +17,9 @@ from coda.domain.author import AuthorNames
 
 
 class FormLike(Protocol):
-    def is_valid(self) -> bool:
-        ...
+    def is_valid(self) -> bool: ...
 
-    def full_clean(self) -> None:
-        ...
+    def full_clean(self) -> None: ...
 
 
 class PublicationStep(TemplateStep):
@@ -41,6 +39,7 @@ class PublicationStep(TemplateStep):
         return cls("monograph")
 
     def __init__(self, publication_kind: str = "article") -> None:
+        self.publication_kind = publication_kind
         self.make_publication_form = self.form_constructors[publication_kind]
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
@@ -77,7 +76,10 @@ class PublicationStep(TemplateStep):
         if PublicationForm.form_posted(request.POST):
             return self.make_publication_form(request.POST)
         elif step_dto:
-            return PublicationForm.from_dto(UpdatePublicationMetadataCommand(**step_dto).meta)
+            kind = cast(Literal["article", "monograph"], self.publication_kind)
+            return PublicationForm.from_dto(
+                UpdatePublicationMetadataCommand(**step_dto).meta, kind=kind
+            )
         else:
             return self.make_publication_form()
 
