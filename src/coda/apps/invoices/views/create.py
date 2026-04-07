@@ -50,7 +50,7 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
             "mode_name": "Create",
             "form": InvoiceForm(request.POST if request.POST else None),
             "home_currency_ceate": home_currency.code,
-            "position_list": formdata.map_to_model(PositionList, request.POST),
+            "position_list": position_list,
             "creditors": Creditor.objects.all().order_by("name"),
         }
         | DefaultContext
