@@ -9,6 +9,7 @@ from coda.apps.dto import CodaBaseDto
 from coda.apps.fundingrequests.forms import ContractFormset
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.publications.dto import ContractYearDto
+from coda.apps.publishers import services as publisher_services
 from coda.apps.publishers.models import Publisher
 from coda.apps.wizard import TemplateStep, Store
 from coda.domain.publication import Monograph
@@ -81,13 +82,14 @@ class PublisherStep(TemplateStep):
 @login_required
 def find_publisher(request: HttpRequest) -> HttpResponse:
     search_term = request.POST.get("publisher_name", "")
-    publishers = Publisher.objects.filter(name__icontains=search_term)
+    publishers = publisher_services.find_by_name_contains(search_term)
     return render(
         request,
         "fundingrequests/partials/publisher_search_results.html",
         {
             "publishers": publishers,
             "search_term": search_term,
+            "row_template": "fundingrequests/partials/publisher_row.html",
         },
     )
 

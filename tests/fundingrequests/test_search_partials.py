@@ -30,3 +30,18 @@ def test__find_publisher__no_results__shows_no_results_message(client: Client) -
 
     assert response.status_code == 200
     assert "No results" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__find_publisher__returns_results_sorted_by_name(client: Client) -> None:
+    modelfactory.publisher(name="Zebra Press")
+    modelfactory.publisher(name="Alpha Press")
+
+    response = client.post(
+        reverse("fundingrequests:wizard_find_publisher"),
+        data={"publisher_name": "press"},
+    )
+
+    content = response.content.decode()
+    assert content.index("Alpha Press") < content.index("Zebra Press")
