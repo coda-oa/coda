@@ -36,8 +36,8 @@ def publisher(name: str = "") -> Publisher:
     return Publisher.objects.create(name=name or _faker.company())
 
 
-def journal(publisher_id: int | None = None) -> Journal:
-    title = _faker.sentence()
+def journal(publisher_id: int | None = None, title: str = "") -> Journal:
+    title = title or _faker.sentence()
     return Journal.objects.create(
         title=title, eissn=_issn(), publisher_id=publisher_id or publisher().pk
     )
