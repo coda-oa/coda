@@ -45,3 +45,49 @@ def test__find_publisher__returns_results_sorted_by_name(client: Client) -> None
 
     content = response.content.decode()
     assert content.index("Alpha Press") < content.index("Zebra Press")
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__find_journal__returns_journal_title_in_row(client: Client) -> None:
+    publisher = modelfactory.publisher(name="Springer")
+    modelfactory.journal(title="Nature", publisher_id=publisher.pk)
+
+    response = client.post(
+        reverse("fundingrequests:wizard_find_journal"),
+        data={"journal_title": "Nature"},
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "Nature" in content
+    assert "Springer" in content
+    assert 'name="journal"' in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__find_journal__no_results__shows_no_results_message(client: Client) -> None:
+    response = client.post(
+        reverse("fundingrequests:wizard_find_journal"),
+        data={"journal_title": "nonexistent"},
+    )
+
+    assert response.status_code == 200
+    assert "No results" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__find_journal__returns_results_sorted_by_title(client: Client) -> None:
+    publisher = modelfactory.publisher()
+    modelfactory.journal(title="Zebra Journal", publisher_id=publisher.pk)
+    modelfactory.journal(title="Alpha Journal", publisher_id=publisher.pk)
+
+    response = client.post(
+        reverse("fundingrequests:wizard_find_journal"),
+        data={"journal_title": "journal"},
+    )
+
+    content = response.content.decode()
+    assert content.index("Alpha Journal") < content.index("Zebra Journal")

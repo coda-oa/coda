@@ -25,9 +25,9 @@ from coda.contexts.publication.dto.external_metadata import ExternalPublicationM
 from coda.contexts.publication.services._crossref_type_detector import detect_publication_type
 from coda.contexts.publication.services.doi_client import (
     CrossrefDoiClient,
+    DOIFetchError,
     DOIMetadataClient,
     DOINotFoundError,
-    DOIFetchError,
 )
 from coda.contexts.publication.services.doi_import_service import (
     DOIImportService,
