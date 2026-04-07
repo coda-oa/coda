@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.shortcuts import render
 
 from coda.apps.fundingrequests.forms import ContractFormset
+from coda.apps.fundingrequests.views.wizard.steps._search_views import make_search_view
 from coda.apps.fundingrequests.views.wizard.steps.composed_step import ComposedStep
 from coda.apps.fundingrequests.views.wizard.steps.contract_step import ContractStep
 from coda.apps.journals.models import Journal
@@ -62,6 +63,7 @@ class JournalStep(TemplateStep):
         logging.info(f"Journal step done. Journal: {store['journal']}")
 
 
+@login_required
 @require_POST
 def clear_journal_error(request: HttpRequest) -> HttpResponse:
     journal_title = request.POST.get("journal_title", "")
@@ -72,16 +74,10 @@ def clear_journal_error(request: HttpRequest) -> HttpResponse:
     )
 
 
-@login_required
-def find_journal(request: HttpRequest) -> HttpResponse:
-    search_term = request.POST.get("journal_title", "")
-    journals = journal_services.find_by_title(search_term)
-    return render(
-        request,
-        "fundingrequests/partials/journal_search_results.html",
-        {
-            "journals": journals,
-            "search_term": search_term,
-            "row_template": "fundingrequests/partials/journal_row.html",
-        },
-    )
+find_journal = make_search_view(
+    param_name="journal_title",
+    search_fn=journal_services.find_by_title,
+    results_key="journals",
+    results_template="fundingrequests/partials/journal_search_results.html",
+    default_row_template="fundingrequests/partials/journal_row.html",
+)

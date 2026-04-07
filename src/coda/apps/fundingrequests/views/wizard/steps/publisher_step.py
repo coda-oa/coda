@@ -7,6 +7,7 @@ from django.views.decorators.http import require_POST
 
 from coda.apps.dto import CodaBaseDto
 from coda.apps.fundingrequests.forms import ContractFormset
+from coda.apps.fundingrequests.views.wizard.steps._search_views import make_search_view
 from coda.apps.htmx_components.converters import to_htmx_formset_data
 from coda.apps.publications.dto import ContractYearDto
 from coda.apps.publishers import services as publisher_services
@@ -80,20 +81,6 @@ class PublisherStep(TemplateStep):
 
 
 @login_required
-def find_publisher(request: HttpRequest) -> HttpResponse:
-    search_term = request.POST.get("publisher_name", "")
-    publishers = publisher_services.find_by_name_contains(search_term)
-    return render(
-        request,
-        "fundingrequests/partials/publisher_search_results.html",
-        {
-            "publishers": publishers,
-            "search_term": search_term,
-            "row_template": "fundingrequests/partials/publisher_row.html",
-        },
-    )
-
-
 @require_POST
 def clear_publisher_error(request: HttpRequest) -> HttpResponse:
     publisher_name = request.POST.get("publisher_name", "")
@@ -102,3 +89,12 @@ def clear_publisher_error(request: HttpRequest) -> HttpResponse:
         "fundingrequests/partials/clear_publisher_error.html",
         {"publisher_name": publisher_name},
     )
+
+
+find_publisher = make_search_view(
+    param_name="publisher_name",
+    search_fn=publisher_services.find_by_name_contains,
+    results_key="publishers",
+    results_template="fundingrequests/partials/publisher_search_results.html",
+    default_row_template="fundingrequests/partials/publisher_row.html",
+)
