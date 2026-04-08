@@ -1,5 +1,5 @@
-from collections.abc import Callable
 import datetime
+from collections.abc import Callable
 from decimal import Decimal
 from typing import Any, NamedTuple, cast
 
@@ -36,8 +36,7 @@ from coda.domain.finance.invoice import (
     UnassignedCosts,
 )
 from coda.domain.invoice_list_item import InvoiceListItem
-from coda.domain.money import Money
-from coda.domain.money._currency import Currency
+from coda.domain.money import Currency, Money
 
 _advanced_search_fields = [
     "payment_status",
@@ -65,11 +64,11 @@ _query_params_to_criteria: dict[str, Callable[[str, HttpRequest], iq.InvoiceSear
     ),
     "has_errors": lambda *_: iq.HasErrorsCriterion(),
     "status": lambda param, _: iq.PaymentStatusCriterion(PaymentStatus(param)),
-    "data_range_start": lambda _, request: iq.DateRangeCriterion(
-        DateRange.try_fromisoformat(
-            start=request.GET.get("date_start"),
-            end=request.GET.get("date_end"),
-        )
+    "date_start": lambda _, request: iq.DateRangeCriterion(
+        DateRange.try_fromisoformat(start=request.GET.get("date_start"))
+    ),
+    "date_end": lambda _, request: iq.DateRangeCriterion(
+        DateRange.try_fromisoformat(end=request.GET.get("date_end"))
     ),
 }
 
@@ -108,18 +107,6 @@ class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
 
     def get_entities(self, request: HttpRequest) -> list[InvoiceListItem]:
         return list(iq.search(*build_query(request)))
-
-    def try_into_paymentstatus(self, status: str) -> PaymentStatus | None:
-        try:
-            return PaymentStatus(status)
-        except ValueError:
-            return None
-
-    def bool_like(self, value: str | None) -> bool | None:
-        if not value:
-            return None
-
-        return value.lower() == "true"
 
 
 invoice_list = InvoiceListView.as_view()

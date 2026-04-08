@@ -268,7 +268,7 @@ def test__invoice_with_non_existing_publication_position__import_invoices__does_
 
     assert "INV-001" in actual.invoices_with_errors()
     assert actual.valid_invoices == 0
-    assert len(invoice_query.search(generic_search="INV-001")) == 0
+    assert len(invoice_query.search(invoice_query.GenericSearchCriterion("INV-001"))) == 0
 
 
 @pytest.mark.django_db

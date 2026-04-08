@@ -52,11 +52,21 @@ class GenericSearchCriterion(InvoiceSearchCriterion):
 @to_query.register
 def generic_search_criterion(criterion: GenericSearchCriterion) -> Q:
     return (
-        invoice_number_criterion(criterion.generic_search)
-        | creditor_criterion(criterion.generic_search)
+        _invoice_number_criterion(criterion.generic_search)
+        | _creditor_criterion(criterion.generic_search)
         | Q(positions__publication__fundingrequest__request_id__iexact=criterion.generic_search)
         | Q(external_invoice_id__iexact=criterion.generic_search)
     )
+
+
+@empty_if_none
+def _invoice_number_criterion(invoice_number: str) -> Q:
+    return Q(number__icontains=invoice_number)
+
+
+@empty_if_none
+def _creditor_criterion(creditor: str) -> Q:
+    return Q(creditor__name__icontains=creditor)
 
 
 @dataclass(frozen=True)
@@ -190,47 +200,14 @@ def has_errors_criterion(criterion: HasErrorsCriterion) -> Q:
 
 
 def search(
-    *criteria: InvoiceSearchCriterion,
-    generic_search: str = "",
-    status: PaymentStatus | None = None,
-    date_range: DateRange | None = None,
-    funding_source: FundingSourceId | None = None,
-    has_external_id: bool | None = None,
-    home_currency: Currency | None = None,
-    has_foreign_currency: bool | None = None,
-    sort_by: str = "date_desc",
-    contract_id: str | int | None = None,
-    contract_year: str | int | None = None,
-    contract_positions_only: bool = False,
-    has_errors: bool | None = None,
+    *criteria: InvoiceSearchCriterion, sort_by: str = "date_desc"
 ) -> Sequence[InvoiceListItem]:
-    query = (
-        to_query(GenericSearchCriterion(generic_search)) & to_query(PaymentStatusCriterion(status))
-        if status
-        else Q()
-    )
-    if date_range:
-        query &= to_query(DateRangeCriterion(date_range))
-
-    query &= to_query(FundingSourceCriterion(funding_source)) if funding_source else Q()
-    if has_external_id:
-        query &= to_query(MissingExternalIdCriterion())
-    query &= (
-        to_query(ContractCriterion(contract_id, contract_positions_only)) if contract_id else Q()
-    )
-    if contract_year:
-        query &= to_query(ContractYearCriterion(contract_year, contract_positions_only))
-    if has_errors:
-        query &= to_query(HasErrorsCriterion())
-
+    query = Q()
     for c in criteria:
         query &= to_query(c)
 
     logging.info("Query: %s", query)
     qs = InvoiceModel.objects.filter(query).distinct()
-
-    if has_foreign_currency and home_currency:
-        query &= to_query(MissingCurrencyConversionCriterion(home_currency))
 
     list_items = get_sorted_list_items(qs, sort_by)
 
@@ -289,16 +266,6 @@ def _annotate_position_based_data(qs: QuerySet[InvoiceModel]) -> QuerySet[Invoic
             )
         ),
     )
-
-
-@empty_if_none
-def invoice_number_criterion(invoice_number: str) -> Q:
-    return Q(number__icontains=invoice_number)
-
-
-@empty_if_none
-def creditor_criterion(creditor: str) -> Q:
-    return Q(creditor__name__icontains=creditor)
 
 
 def _ordered_alphabetically(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:

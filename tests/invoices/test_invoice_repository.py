@@ -145,7 +145,7 @@ def test__has_errors_criterion__filters_invoices_with_invalid_contract_years() -
     no_contract_invoice.id = repository.create(no_contract_invoice)
 
     # Search with has_errors=True
-    results_with_errors = list(invoice_query.search(has_errors=True))
+    results_with_errors = list(invoice_query.search(invoice_query.HasErrorsCriterion()))
     result_ids_with_errors = {r.id for r in results_with_errors}
 
     # Should only return invoices with invalid contract years
@@ -155,7 +155,7 @@ def test__has_errors_criterion__filters_invoices_with_invalid_contract_years() -
     assert no_contract_invoice.id not in result_ids_with_errors
 
     # Search with has_errors=False (should return all)
-    results_all = list(invoice_query.search(has_errors=False))
+    results_all = list(invoice_query.search())
     result_ids_all = {r.id for r in results_all}
 
     assert invalid_invoice_before.id in result_ids_all
