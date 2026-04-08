@@ -20,11 +20,13 @@ from coda.contexts.fundingrequest.dto.commands import (
     UpdatePublicationMetadataCommand,
     UpdateReviewDto,
 )
+from coda.contexts.fundingrequest.services.allowed_vocabularies import (
+    AllowedConcepts,
+)
 from coda.contexts.fundingrequest.services.checks import run_checks
 from coda.domain import errors
-from coda.domain.contract import GetContractById
 from coda.domain.author import Author, AuthorNames
-from coda.domain.contract import PublisherId
+from coda.domain.contract import GetContractById, PublisherId
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
@@ -38,8 +40,7 @@ from coda.domain.string import NonEmptyStr
 class RequestIdGenerator(Protocol):
     def __call__(
         self, date: datetime.date | None = None, rng: random.Random | None = None
-    ) -> PublicFundingRequestId:
-        ...
+    ) -> PublicFundingRequestId: ...
 
 
 def create_fundingrequest(
@@ -49,6 +50,10 @@ def create_fundingrequest(
     checkfactory: CheckFactory | None = None,
 ) -> FundingRequestId:
     publication = creation_dto.publication.to_publication()
+    AllowedConcepts.for_new_publication(publication.kind).validate(
+        publication.publication_type,
+        publication.subject_area,
+    )
     # For single creation, fetch existing IDs to ensure uniqueness
     existing_ids = set(repository.get_all_request_ids())
 
@@ -232,9 +237,17 @@ def update_publication_metadata(
     publication = fr.publication
 
     meta = command.meta
+    incoming_publication_type = meta.publication_type.to_concept()
+    incoming_subject_area = meta.subject_area.to_concept()
+
+    AllowedConcepts.for_existing_publication(publication).validate(
+        incoming_publication_type,
+        incoming_subject_area,
+    )
+
     publication.title = NonEmptyStr(meta.title)
-    publication.publication_type = meta.publication_type.to_concept()
-    publication.subject_area = meta.subject_area.to_concept()
+    publication.publication_type = incoming_publication_type
+    publication.subject_area = incoming_subject_area
     publication.open_access_type = OpenAccessType[meta.open_access_type]
     publication.license = License.of(meta.license)
     publication.publication_state = parse_publication_state(meta)
@@ -358,13 +371,11 @@ def _keep_result(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) -
 @overload
 def get_institutions_allowed_as_affiliation(
     for_authors: Iterable[Author],
-) -> Iterable[Institution]:
-    ...
+) -> Iterable[Institution]: ...
 
 
 @overload
-def get_institutions_allowed_as_affiliation() -> Iterable[Institution]:
-    ...
+def get_institutions_allowed_as_affiliation() -> Iterable[Institution]: ...
 
 
 def get_institutions_allowed_as_affiliation(
