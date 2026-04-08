@@ -1,0 +1,27 @@
+<div id="entity-creation-modal-wrapper" hx-swap-oob="true"></div>
+<div id="publisher-search-results"
+     hx-swap-oob="true"
+     class="scroll-container max-h-30">
+    <table class="my-2">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Select</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{ publisher.name }}</td>
+                <td>
+                    <input type="radio" name="publisher" value="{{ publisher.pk }}" checked>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<div id="publisher-name-wrapper" hx-swap-oob="true">
+    <input type="search"
+           name="publisher_name"
+           id="publisher_name"
+           value="{{ publisher.name }}">
+</div>

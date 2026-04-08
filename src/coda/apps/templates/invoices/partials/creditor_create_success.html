@@ -1,0 +1,6 @@
+{# Clear the modal wrapper #}
+<div id="entity-creation-modal-wrapper" hx-swap-oob="true"></div>
+{# Update the creditor select with OOB swap #}
+<div id="creditor-select-wrapper" hx-swap-oob="true" class="w-100 mb-1">
+    {% include "invoices/partials/creditor_select.html" with creditors=creditors selected_creditor_id=selected_creditor_id required=required %}
+</div>

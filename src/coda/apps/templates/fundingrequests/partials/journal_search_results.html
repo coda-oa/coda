@@ -1,32 +1,35 @@
-<div id="publisher-search-results" class="scroll-container max-h-30">
-    {% if publishers %}
+<div id="journal-search-results" class="scroll-container max-h-30">
+    {% if journals %}
         <table class="my-2">
             <thead>
                 <tr>
-                    <th>Name</th>
+                    <th>Title</th>
+                    <th>Publisher</th>
                     <th>Select</th>
                 </tr>
             </thead>
             <tbody>
-                {% for publisher in publishers %}
-                    {% include row_template|default:"fundingrequests/partials/publisher_row.html" %}
+                {% for journal in journals %}
+                    {% include row_template|default:"fundingrequests/partials/journal_row.html" %}
                 {% endfor %}
             </tbody>
         </table>
         <div class="flex justify-between align-center my-2">
-            <p>Couldn't find the right publisher?</p>
+            <p>Couldn't find the right journal?</p>
             <button type="button"
-                    hx-get="{% url 'publishing:publishers:create_modal' %}"
+                    class="secondary"
+                    hx-get="{% url 'publishing:journals:create_modal' %}"
                     hx-target="#entity-creation-modal-wrapper"
-                    class="secondary">New Publisher</button>
+                    hx-swap="innerHTML">New Journal</button>
         </div>
     {% elif search_term %}
         <div class="flex justify-between align-center my-2">
             <p>No results for "{{ search_term }}".</p>
             <button type="button"
-                    hx-get="{% url 'publishing:publishers:create_modal' %}"
+                    class="secondary"
+                    hx-get="{% url 'publishing:journals:create_modal' %}"
                     hx-target="#entity-creation-modal-wrapper"
-                    class="secondary">New Publisher</button>
+                    hx-swap="innerHTML">New Journal</button>
         </div>
     {% endif %}
     <div id="entity-creation-modal-wrapper"></div>

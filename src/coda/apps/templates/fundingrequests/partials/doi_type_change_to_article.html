@@ -1,5 +1,5 @@
 {# Form for changing to article type - requires journal selection #}
-{# Parameters: session_key, journal_title, journals, selected_journal, error #}
+{# Parameters: session_key, journals, selected_journal, error #}
 {# Note: form submission requires JavaScript (HTMX). Non-JS fallback is not supported. #}
 <form method="post"
       action="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
@@ -8,6 +8,9 @@
       hx-swap="innerHTML">
     {% csrf_token %}
     <input type="hidden" name="publication_type" value="article">
+    <input type="hidden"
+           name="row_template"
+           value="fundingrequests/partials/doi_journal_row.html">
     <h4 class="mt-1">Select Journal</h4>
     <p class="text-muted">Search for the journal where this article was published.</p>
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
@@ -15,43 +18,14 @@
         <input type="search"
                name="journal_title"
                id="journal_title"
-               placeholder="Search journal by title..."
-               value="{{ journal_title }}">
+               placeholder="Search journal by title...">
         <button type="button"
-                hx-get="{% url 'fundingrequests:doi_preview_load_type_form' session_key=session_key %}"
-                hx-include="[name='journal_title'], [name='publication_type']"
-                hx-target="#type-change-form"
-                hx-swap="innerHTML"
+                hx-post="{% url 'fundingrequests:wizard_find_journal' %}"
+                hx-target="#journal-search-results"
+                hx-swap="outerHTML"
                 class="inline-search-pill pill-right">Search</button>
     </fieldset>
-    {% if journals %}
-        <div class="scroll-container max-h-30 mt-1">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Publisher</th>
-                        <th>Select</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for journal in journals %}
-                        <tr>
-                            <td>{{ journal.title }}</td>
-                            <td>{{ journal.publisher.name }}</td>
-                            <td>
-                                <input type="radio"
-                                       name="journal"
-                                       value="{{ journal.pk }}"
-                                       {% if selected_journal and journal.pk == selected_journal.pk %}checked{% endif %}
-                                       required>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% endif %}
+    {% include "fundingrequests/partials/journal_search_results.html" %}
     <div class="grid">
         <button type="submit" class="mt-1">Apply Change to Article</button>
         <button type="button"

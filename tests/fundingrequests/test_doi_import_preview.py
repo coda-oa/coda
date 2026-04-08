@@ -457,6 +457,21 @@ def test_load_article_form_shows_journal_search(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
+def test_load_article_form_search_button_uses_find_journal_endpoint(client: Client) -> None:
+    """Article type-change form search button should use wizard_find_journal endpoint."""
+    doi_str = "10.1234/preview.test"
+    response = submit_for_preview(client, doi_str)
+    session_key = get_session_key(response)
+
+    form_response = load_type_form(client, session_key, "article")
+
+    content = form_response.content.decode()
+    assert reverse("fundingrequests:wizard_find_journal") in content
+    assert 'hx-target="#journal-search-results"' in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
 def test_load_monograph_form_shows_prefilled_publisher(client: Client) -> None:
     """HTMX endpoint for monograph form should pre-fill publisher from original metadata."""
     doi_str = "10.1234/preview.test"

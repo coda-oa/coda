@@ -21,14 +21,13 @@ from django.views import View
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.fundingrequests.queries.preview_context_builder import build_preview_context
-from coda.apps.journals import services as journal_services
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.services._crossref_type_detector import detect_publication_type
 from coda.contexts.publication.services.doi_client import (
     CrossrefDoiClient,
+    DOIFetchError,
     DOIMetadataClient,
     DOINotFoundError,
-    DOIFetchError,
 )
 from coda.contexts.publication.services.doi_import_service import (
     DOIImportService,
@@ -206,17 +205,10 @@ def _render_article_type_form(
     *,
     error: str = "",
 ) -> HttpResponse:
-    """Render the article type-change form partial, pre-filling from original metadata."""
-    journal_data = original_metadata.get("journal") or {}
-    metadata_title = journal_data.get("title", "")
-    journal_title_search = request.GET.get("journal_title", "") or metadata_title
-    journals = (
-        list(journal_services.find_by_title(journal_title_search)) if journal_title_search else []
-    )
+    """Render the article type-change form partial. Journal search is handled by wizard_find_journal."""
     context: dict[str, Any] = {
         "session_key": session_key,
-        "journal_title": journal_title_search,
-        "journals": journals,
+        "journals": [],
     }
     if error:
         context["error"] = error

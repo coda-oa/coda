@@ -1,0 +1,12 @@
+{# Context: journal, selected_journal #}
+{# Stripped-down row for DOI preview context — no wizard clear_journal_error HTMX #}
+<tr>
+    <td>{{ journal.title }}</td>
+    <td>{{ journal.publisher.name }}</td>
+    <td>
+        <input type="radio"
+               name="journal"
+               value="{{ journal.pk }}"
+               {% if journal.pk == selected_journal.pk %}checked{% endif %}>
+    </td>
+</tr>

@@ -7,7 +7,8 @@ from django.shortcuts import redirect, render
 
 from coda import formdata
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from coda.apps.invoices.forms import InvoiceForm
+from coda.apps.invoices.forms import InvoiceForm, CreditorForm
+from coda.apps.invoices.models import Creditor
 from coda.apps.invoices.views.position_context import DefaultContext, funding_sources_context
 from coda.apps.invoices.views.position_parsers import PositionDtoWithErrors
 from coda.apps.preferences.models import GlobalPreferences
@@ -15,6 +16,7 @@ from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser, invoice_service
 from coda.domain.finance.invoice import Invoice, UnassignedCosts
 from coda.domain.money import Currency
+from django.views.decorators.http import require_GET, require_POST
 
 
 @login_required
@@ -49,6 +51,7 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
             "form": InvoiceForm(request.POST if request.POST else None),
             "home_currency_ceate": home_currency.code,
             "position_list": position_list,
+            "creditors": Creditor.objects.all().order_by("name"),
         }
         | DefaultContext
         | funding_sources_context(),
@@ -91,3 +94,49 @@ def build_position_errors(
             error_positions.positions.append(dto)
 
     return error_positions
+
+
+@login_required
+@require_GET
+def creditor_create_modal(request: HttpRequest) -> HttpResponse:
+    form = CreditorForm()
+    return render(
+        request,
+        "partials/entity_creation_modal.html",
+        {
+            "entity_name": "Creditor",
+            "form": form,
+            "entity_create_url": "invoices:creditor_create_modal_submit",
+        },
+    )
+
+
+@login_required
+@require_POST
+def creditor_create_modal_submit(request: HttpRequest) -> HttpResponse:
+    form = CreditorForm(request.POST)
+
+    if form.is_valid():
+        creditor = form.save()
+
+        creditors = Creditor.objects.all().order_by("name")
+
+        return render(
+            request,
+            "invoices/partials/creditor_create_success.html",
+            {
+                "creditors": creditors,
+                "selected_creditor_id": creditor.id,
+                "required": True,
+            },
+        )
+    else:
+        return render(
+            request,
+            "partials/entity_creation_modal.html",
+            {
+                "entity_name": "Creditor",
+                "form": form,
+                "entity_create_url": "invoices:creditor_create_modal_submit",
+            },
+        )

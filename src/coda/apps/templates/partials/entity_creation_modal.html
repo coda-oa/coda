@@ -1,0 +1,29 @@
+<dialog open id="entity-creation-modal">
+    <article>
+        <header class="flex justify-between align-center mb-1">
+            <h2 class="my-1">Create New {{ entity_name }}</h2>
+            <button aria-label="Close"
+                    class="close"
+                    onclick="this.closest('dialog').close(); document.getElementById('{% if modal_target_wrapper %}{{ modal_target_wrapper }}{% else %}entity-creation-modal-wrapper{% endif %}').innerHTML = '';">
+            </button>
+        </header>
+        <form id="entity-creation-form"
+              hx-post="{% if entity_create_url_path %}{{ entity_create_url_path }}{% else %}{% url entity_create_url %}{% endif %}"
+              hx-target="#{% if modal_target_wrapper %}{{ modal_target_wrapper }}{% else %}entity-creation-modal-wrapper{% endif %}"
+              hx-swap="innerHTML"
+              {% if hx_include %}hx-include="{{ hx_include }}"{% endif %}>
+            {% csrf_token %}
+            <div class="my-2">{{ form }}</div>
+            {% if extra_content %}{{ extra_content }}{% endif %}
+            <footer class="grid">
+                <button type="button"
+                        class="secondary"
+                        onclick="this.closest('dialog').close(); document.getElementById('{% if modal_target_wrapper %}{{ modal_target_wrapper }}{% else %}entity-creation-modal-wrapper{% endif %}').innerHTML = '';">
+                    Cancel
+                </button>
+                <button type="submit" class="primary">Create</button>
+            </footer>
+        </form>
+    </article>
+</dialog>
+{% if extra_content %}<div id="nested-entity-creation-modal-wrapper"></div>{% endif %}

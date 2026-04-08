@@ -40,11 +40,17 @@
                                 <td>{{ field.label_tag }}</td>
                                 <td>
                                     <div class="flex align-start">
-                                        {{ field }}
                                         {% if field.name == "creditor" %}
-                                            <a href="{% url "invoices:creditor_create" %}"
-                                               class="secondary"
-                                               role="button">New</a>
+                                            <div id="creditor-select-wrapper" class="w-100 mb-1">
+                                                {% include "invoices/partials/creditor_select.html" with creditors=creditors selected_creditor_id=form.creditor.value required=field.field.required %}
+                                            </div>
+                                            <button class="secondary"
+                                                    hx-get="{% url "invoices:creditor_create_modal" %}"
+                                                    hx-target="#entity-creation-modal-wrapper"
+                                                    hx-trigger="click"
+                                                    hx-swap="innerHTML">New</button>
+                                        {% else %}
+                                            {{ field }}
                                         {% endif %}
                                     </div>
                                 </td>
@@ -56,6 +62,7 @@
         </article>
         {% include "invoices/invoice_positions.html" %}
     </form>
+    <div id="entity-creation-modal-wrapper"></div>
     {% include "invoices/add_positions.html" with tab="publications" %}
     <div class="grid wizard-nav">
         {% if mode_name == "Edit" %}
