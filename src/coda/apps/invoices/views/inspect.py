@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Callable
 from decimal import Decimal
 from typing import Any, NamedTuple, cast
 
@@ -12,10 +13,13 @@ from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.contracts.models import Contract
+from coda.apps.invoices import invoice_query as iq
 from coda.apps.invoices import repository
 from coda.apps.invoices.models import Creditor
 from coda.apps.invoices.views.position_context import (
     DefaultContext as _DefaultContext,
+)
+from coda.apps.invoices.views.position_context import (
     funding_sources_context,
 )
 from coda.apps.preferences.models import GlobalPreferences
@@ -24,10 +28,15 @@ from coda.contexts.finance.dto.detail_position_dtos import PositionDetailDto
 from coda.contexts.finance.dto.edit_position_dtos import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.contexts.finance.services import invoice_service
 from coda.domain.date import DateRange
-from coda.domain.finance.invoice import Invoice, InvoiceId, PaymentStatus, UnassignedCosts
+from coda.domain.finance.invoice import (
+    FundingSourceId,
+    Invoice,
+    InvoiceId,
+    PaymentStatus,
+    UnassignedCosts,
+)
 from coda.domain.invoice_list_item import InvoiceListItem
-from coda.domain.money import Money
-from coda.domain.money._currency import Currency
+from coda.domain.money import Currency, Money
 
 _advanced_search_fields = [
     "payment_status",
@@ -39,6 +48,38 @@ _advanced_search_fields = [
     "contract_name",
     "contract_year",
 ]
+
+_query_params_to_criteria: dict[str, Callable[[str, HttpRequest], iq.InvoiceSearchCriterion]] = {
+    "search_term": lambda param, _: iq.GenericSearchCriterion(param),
+    "funding_source": lambda param, _: iq.FundingSourceCriterion(FundingSourceId(int(param))),
+    "contract_name": lambda param, request: iq.ContractCriterion(
+        param, request.GET.get("contract_positions_only") == "true"
+    ),
+    "contract_year": lambda param, request: iq.ContractYearCriterion(
+        param, request.GET.get("contract_positions_only") == "true"
+    ),
+    "has_external_id": lambda *_: iq.MissingExternalIdCriterion(),
+    "has_foreign_currency": lambda *_: iq.MissingCurrencyConversionCriterion(
+        GlobalPreferences.get_home_currency()
+    ),
+    "has_errors": lambda *_: iq.HasErrorsCriterion(),
+    "status": lambda param, _: iq.PaymentStatusCriterion(PaymentStatus(param)),
+    "date_start": lambda _, request: iq.DateRangeCriterion(
+        DateRange.try_fromisoformat(start=request.GET.get("date_start"))
+    ),
+    "date_end": lambda _, request: iq.DateRangeCriterion(
+        DateRange.try_fromisoformat(end=request.GET.get("date_end"))
+    ),
+}
+
+
+def build_query(request: HttpRequest) -> list[iq.InvoiceSearchCriterion]:
+    query = []
+    for param_name, get_query in _query_params_to_criteria.items():
+        if param := request.GET.get(param_name):
+            query.append(get_query(param, request))
+
+    return query
 
 
 def get_contract_list_context() -> dict[str, Any]:
@@ -65,37 +106,7 @@ class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
         return ctx
 
     def get_entities(self, request: HttpRequest) -> list[InvoiceListItem]:
-        query: dict[str, Any] = {
-            "generic_search": request.GET.get("search_term"),
-            "funding_source": request.GET.get("funding_source") or None,
-            "contract_id": request.GET.get("contract_name") or None,
-            "contract_year": request.GET.get("contract_year") or None,
-            "contract_positions_only": request.GET.get("contract_positions_only") == "true",
-            "home_currency": GlobalPreferences.get_home_currency(),
-            "has_external_id": self.bool_like(request.GET.get("has_external_id")),
-            "has_foreign_currency": self.bool_like(request.GET.get("has_foreign_currency")),
-            "has_errors": self.bool_like(request.GET.get("has_errors")),
-            "sort_by": request.GET.get("sort_by"),
-            "status": self.try_into_paymentstatus(request.GET.get("payment_status", "")),
-            "date_range": DateRange.try_fromisoformat(
-                start=request.GET.get("date_start"),
-                end=request.GET.get("date_end"),
-            ),
-        }
-
-        return list(repository.search(**query))
-
-    def try_into_paymentstatus(self, status: str) -> PaymentStatus | None:
-        try:
-            return PaymentStatus(status)
-        except ValueError:
-            return None
-
-    def bool_like(self, value: str | None) -> bool | None:
-        if not value:
-            return None
-
-        return value.lower() == "true"
+        return list(iq.search(*build_query(request)))
 
 
 invoice_list = InvoiceListView.as_view()

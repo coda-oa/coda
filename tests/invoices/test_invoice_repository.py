@@ -6,7 +6,7 @@ import pytest
 
 from coda.apps.contracts import repository as contract_services
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-from coda.apps.invoices import funding_source_repository, repository
+from coda.apps.invoices import funding_source_repository, invoice_query, repository
 from coda.domain.author import InstitutionId
 from coda.domain.contract import Contract, ContractYear, PublisherId
 from coda.domain.date import DateRange
@@ -94,7 +94,7 @@ def test__invoice_with_vat_position__invoice_list_item__has_only_tax_costs() -> 
     invoice = domainfactory.invoice(positions=[position_1], creditor=creditor)
     invoice.id = repository.create(invoice)
 
-    actual, *_ = repository.search()
+    actual, *_ = invoice_query.search()
 
     assert actual.net == Money(0, position_1.cost.currency)
     assert actual.total == actual.tax == position_1.total()
@@ -145,7 +145,7 @@ def test__has_errors_criterion__filters_invoices_with_invalid_contract_years() -
     no_contract_invoice.id = repository.create(no_contract_invoice)
 
     # Search with has_errors=True
-    results_with_errors = list(repository.search(has_errors=True))
+    results_with_errors = list(invoice_query.search(invoice_query.HasErrorsCriterion()))
     result_ids_with_errors = {r.id for r in results_with_errors}
 
     # Should only return invoices with invalid contract years
@@ -155,7 +155,7 @@ def test__has_errors_criterion__filters_invoices_with_invalid_contract_years() -
     assert no_contract_invoice.id not in result_ids_with_errors
 
     # Search with has_errors=False (should return all)
-    results_all = list(repository.search(has_errors=False))
+    results_all = list(invoice_query.search())
     result_ids_all = {r.id for r in results_all}
 
     assert invalid_invoice_before.id in result_ids_all
@@ -186,7 +186,7 @@ def test__has_errors_criterion__list_item_has_error_flag() -> None:
     invalid_invoice.id = repository.create(invalid_invoice)
 
     # Search and check the flag
-    results = list(repository.search())
+    results = list(invoice_query.search())
     invoice_item = next(r for r in results if r.id == invalid_invoice.id)
 
     assert invoice_item.has_invalid_contract_years is True
