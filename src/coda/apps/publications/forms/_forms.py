@@ -1,7 +1,7 @@
 import datetime
 import logging
 from collections.abc import Collection, Iterable, Mapping
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 from django import forms
 
@@ -16,16 +16,6 @@ from coda.domain.vocabulary import VocabularyConcept
 from ._fields import ConceptChoiceField, encode_concept_dto
 
 
-class _ConceptCollections:
-    def __init__(
-        self,
-        subject_areas: Collection[VocabularyConcept] | None = None,
-        publication_types: Collection[VocabularyConcept] | None = None,
-    ) -> None:
-        self.subject_areas: Collection[VocabularyConcept] = subject_areas or []
-        self.publication_types: Collection[VocabularyConcept] = publication_types or []
-
-
 class PublicationForm(CodaFormBase):
     use_required_attribute = False
 
@@ -37,13 +27,13 @@ class PublicationForm(CodaFormBase):
         label="License*",
     )
     publication_type = ConceptChoiceField(
-        choices=[],
+        concepts=[],
         required=True,
         widget=widgets.SearchSelectWidget,
         label="Publication type*",
     )
     subject_area = ConceptChoiceField(
-        choices=[],
+        concepts=[],
         required=True,
         widget=widgets.SearchSelectWidget,
         label="Subject area*",
@@ -68,14 +58,7 @@ class PublicationForm(CodaFormBase):
     )
 
     @classmethod
-    def from_dto(
-        cls, dto: PublicationMetaDto, kind: Literal["article", "monograph"] = "article"
-    ) -> "PublicationForm":
-        allowed = AllowedConcepts.for_existing_concepts(
-            kind,
-            publication_type=dto.publication_type.to_concept(),
-            subject_area=dto.subject_area.to_concept(),
-        )
+    def from_dto(cls, dto: PublicationMetaDto, allowed: AllowedConcepts) -> "PublicationForm":
         return cls(
             data={
                 "title": dto.title,
@@ -87,51 +70,23 @@ class PublicationForm(CodaFormBase):
                 "online_publication_date": dto.online_publication_date,
                 "print_publication_date": dto.print_publication_date,
             },
-            concepts=_ConceptCollections(
-                subject_areas=allowed.subject_types,
-                publication_types=allowed.publication_types,
-            ),
-        )
-
-    @classmethod
-    def with_article_vocabulary(cls, data: Mapping[str, Any] | None = None) -> "PublicationForm":
-        allowed = AllowedConcepts.for_new_publication("article")
-        return cls(
-            data,
-            concepts=_ConceptCollections(
-                subject_areas=allowed.subject_types,
-                publication_types=allowed.publication_types,
-            ),
-        )
-
-    @classmethod
-    def with_monograph_vocabulary(cls, data: Mapping[str, Any] | None = None) -> "PublicationForm":
-        allowed = AllowedConcepts.for_new_publication("monograph")
-        return cls(
-            data,
-            concepts=_ConceptCollections(
-                subject_areas=allowed.subject_types,
-                publication_types=allowed.publication_types,
-            ),
+            concepts=allowed,
         )
 
     def __init__(
         self,
         data: Mapping[str, Any] | None = None,
-        concepts: _ConceptCollections | None = None,
+        concepts: AllowedConcepts = AllowedConcepts((), ()),
         *args: Any,
         **kwargs: Any,
     ) -> None:
-        # Avoid mutable default argument: construct a fresh instance when not provided
-        if concepts is None:
-            concepts = _ConceptCollections()
         super().__init__(data, *args, **kwargs)
 
-        self._set_concepts("subject_area", concepts.subject_areas)
+        self._set_concepts("subject_area", concepts.subject_types)
         self._set_concepts("publication_type", concepts.publication_types)
-        logging.info(
+        logging.debug(
             "PublicationForm initialized with concepts: subject_areas=%s, publication_types=%s",
-            concepts.subject_areas,
+            concepts.subject_types,
             concepts.publication_types,
         )
 

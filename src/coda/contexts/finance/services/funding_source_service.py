@@ -30,7 +30,6 @@ def _try_get_insitution(id: InstitutionId) -> Institution:
     try:
         institution = institution_repository.get_by_id(id)
     except Exception as e:
-        print(e)
         raise ValueError(f"Institution with {id=} does not exist") from e
 
     return institution

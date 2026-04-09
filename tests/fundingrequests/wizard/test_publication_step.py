@@ -14,6 +14,7 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import LinkDto, MonographDto, PublicationDto
 from coda.apps.publications.forms import PublicationForm
 from coda.apps.publications.repositories import vocabulary_repository
+from coda.contexts.fundingrequest.services.allowed_vocabularies import AllowedConcepts
 from coda.domain.author import Author, AuthorNames, InstitutionId, Role
 from coda.domain.publication import Authors
 from coda.domain.string import NonEmptyStr
@@ -386,7 +387,7 @@ def assert_has_concept_choices(
 def test__with_article_vocabulary__shows_allowed_article_publication_types() -> None:
     v = article_vocabulary()
 
-    form = PublicationForm.with_article_vocabulary()
+    form = PublicationForm(concepts=AllowedConcepts.for_new_publication("article"))
 
     assert_has_concept_choices(form, "publication_type", v)
 
@@ -395,7 +396,7 @@ def test__with_article_vocabulary__shows_allowed_article_publication_types() -> 
 def test__with_monograph_vocabulary__shows_allowed_monograph_publication_types() -> None:
     v = monograph_vocabulary()
 
-    form = PublicationForm.with_monograph_vocabulary()
+    form = PublicationForm(concepts=AllowedConcepts.for_new_publication("monograph"))
 
     assert_has_concept_choices(form, "publication_type", v)
 
@@ -404,7 +405,7 @@ def test__with_monograph_vocabulary__shows_allowed_monograph_publication_types()
 def test__with_article_vocabulary__shows_allowed_subject_areas() -> None:
     v = subject_areas()
 
-    form = PublicationForm.with_article_vocabulary()
+    form = PublicationForm(concepts=AllowedConcepts.for_new_publication("monograph"))
 
     assert_has_concept_choices(form, "subject_area", v)
 
@@ -417,7 +418,7 @@ def test__from_dto__article_kind__shows_allowed_article_publication_types() -> N
     )
     dto = PublicationDto.from_publication(publication).meta
 
-    form = PublicationForm.from_dto(dto, kind="article")
+    form = PublicationForm.from_dto(dto, AllowedConcepts.for_existing_publication(publication))
 
     assert_has_concept_choices(
         form, "publication_type", GlobalPreferences.get_article_publication_type_vocabulary()
@@ -432,7 +433,7 @@ def test__from_dto__monograph_kind__shows_allowed_monograph_publication_types() 
     )
     dto = MonographDto.from_monograph(publication).meta
 
-    form = PublicationForm.from_dto(dto, kind="monograph")
+    form = PublicationForm.from_dto(dto, AllowedConcepts.for_existing_publication(publication))
 
     assert_has_concept_choices(
         form, "publication_type", GlobalPreferences.get_monograph_publication_type_vocabulary()
@@ -455,7 +456,7 @@ def test__from_dto__article_kind__grandfathers_existing_pub_type_removed_from_vo
     )
     dto = PublicationDto.from_publication(publication).meta
 
-    form = PublicationForm.from_dto(dto, kind="article")
+    form = PublicationForm.from_dto(dto, AllowedConcepts.for_existing_publication(publication))
 
     field = cast(forms.ChoiceField, form.fields["publication_type"])
     choice_names = [name for _, name in cast(Iterable[tuple[Any, str]], field.choices)]

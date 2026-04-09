@@ -8,11 +8,13 @@ from django.shortcuts import render
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorFormset
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
+from coda.apps.publications.dto import PublicationMetaDto
 from coda.apps.publications.forms import LinkForm, PublicationForm
 from coda.apps.publications.models import LinkType
 from coda.apps.wizard import Store, TemplateStep
 from coda.contexts.fundingrequest.dto.commands import UpdatePublicationMetadataCommand
 from coda.contexts.fundingrequest.services import fundingrequests
+from coda.contexts.fundingrequest.services.allowed_vocabularies import AllowedConcepts
 from coda.domain.author import AuthorNames
 
 
@@ -24,11 +26,7 @@ class FormLike(Protocol):
 
 class PublicationStep(TemplateStep):
     template_name: str = "fundingrequests/fundingrequest_publication.html"
-    publication_kind: str
-    form_constructors = {
-        "article": PublicationForm.with_article_vocabulary,
-        "monograph": PublicationForm.with_monograph_vocabulary,
-    }
+    publication_kind: Literal["article", "monograph"]
 
     @classmethod
     def for_article(cls) -> "PublicationStep":
@@ -38,9 +36,8 @@ class PublicationStep(TemplateStep):
     def for_monograph(cls) -> "PublicationStep":
         return cls("monograph")
 
-    def __init__(self, publication_kind: str = "article") -> None:
+    def __init__(self, publication_kind: Literal["article", "monograph"] = "article") -> None:
         self.publication_kind = publication_kind
-        self.make_publication_form = self.form_constructors[publication_kind]
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         return {
@@ -73,15 +70,30 @@ class PublicationStep(TemplateStep):
 
     def get_publication_form(self, request: HttpRequest, store: Store) -> PublicationForm:
         step_dto = store.get("publication_step")
+        meta = None
+        if step_dto:
+            meta = UpdatePublicationMetadataCommand(**step_dto).meta
+
+        allowed = self.get_allowed_concepts(meta)
+
         if PublicationForm.form_posted(request.POST):
-            return self.make_publication_form(request.POST)
-        elif step_dto:
-            kind = cast(Literal["article", "monograph"], self.publication_kind)
-            return PublicationForm.from_dto(
-                UpdatePublicationMetadataCommand(**step_dto).meta, kind=kind
-            )
+            return PublicationForm(request.POST, allowed)
+        elif meta:
+            return PublicationForm.from_dto(meta, allowed)
         else:
-            return self.make_publication_form()
+            return PublicationForm(concepts=allowed)
+
+    def get_allowed_concepts(self, meta: PublicationMetaDto | None) -> AllowedConcepts:
+        if not meta:
+            return AllowedConcepts.for_new_publication(self.publication_kind)
+
+        publication_type = meta.publication_type.to_concept()
+        subject_area = meta.subject_area.to_concept()
+        return AllowedConcepts.for_existing_concepts(
+            self.publication_kind,
+            publication_type=publication_type,
+            subject_area=subject_area,
+        )
 
     def get_authors(self, request: HttpRequest, store: Store) -> AuthorNames:
         if request.POST.get("authors"):
@@ -112,14 +124,14 @@ class PublicationStep(TemplateStep):
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
         authors_formset = self.get_author_formset(request, store)
-        publication_form = self.make_publication_form(request.POST)
+        publication_form = self.get_publication_form(request, store)
         link_formset = self.link_forms(request)
         valid = self.all_valid((authors_formset, publication_form, *link_formset))
         return valid
 
     def done(self, request: HttpRequest, store: Store) -> None:
         authors_formset = self.get_author_formset(request, store)
-        publication_form = self.make_publication_form(request.POST)
+        publication_form = self.get_publication_form(request, store)
         link_forms = self.link_forms(request)
         self.clean_all((publication_form, *link_forms))
 

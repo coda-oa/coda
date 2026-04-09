@@ -47,9 +47,7 @@ class ConceptChoiceField(forms.ChoiceField):
 
     def __init__(
         self,
-        concepts: (
-            Collection[VocabularyConcept] | Callable[[], Collection[VocabularyConcept]] | None
-        ) = None,
+        concepts: Collection[VocabularyConcept] | Callable[[], Collection[VocabularyConcept]],
         *args: Any,
         **kwargs: Any,
     ) -> None:

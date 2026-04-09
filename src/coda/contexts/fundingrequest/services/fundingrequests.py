@@ -236,7 +236,11 @@ def update_publication_metadata(
     fr = repository.get_by_id(fundingrequest_id)
     publication = fr.publication
 
+    import logging
+
     meta = command.meta
+
+    logging.info(repr(meta))
     incoming_publication_type = meta.publication_type.to_concept()
     incoming_subject_area = meta.subject_area.to_concept()
 
