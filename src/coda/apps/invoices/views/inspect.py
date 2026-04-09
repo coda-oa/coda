@@ -222,14 +222,18 @@ def _try_pay(invoice: Invoice, request: HttpRequest) -> None:
 @login_required
 def position_cost_type_options(request: HttpRequest) -> HttpResponse:
     counter = request.GET.get("counter")
-    cost_type_key = f"positions-{counter}-cost_type"
+    cost_type_key = f"positions-{counter}-item-cost_type"
     cost_type = request.GET.get(cost_type_key)
     if cost_type == "vat":
         return HttpResponse("")
+
+    tax_rate_key = f"positions-{counter}-tax_rate"
+    tax_rate = request.GET.get(tax_rate_key, DEFAULT_TAX_RATE_PERCENTAGE)
+
     return render(
         request,
         "invoices/position_tax_rate.html",
-        {"counter": counter, "tax_rate": DEFAULT_TAX_RATE_PERCENTAGE},
+        {"counter": counter, "tax_rate": tax_rate},
     )
 
 
