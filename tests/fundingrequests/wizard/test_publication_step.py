@@ -6,10 +6,12 @@ import pytest
 from django import forms
 from django.http import HttpRequest
 from django.test import RequestFactory
+from django.utils import timezone
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorFormset
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
+from coda.apps.institutions.models import Institution
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.dto import LinkDto, MonographDto, PublicationDto
 from coda.apps.publications.forms import PublicationForm
@@ -308,6 +310,31 @@ def test__existing_author_with_disabled_affiliation_in_store__using_disabled_aff
     None
 ):
     affiliation = modelfactory.institution(enabled=False)
+    publication = domainfactory.publication()
+    publication.relevant_authors = Authors(
+        [domainfactory.author(affiliation=InstitutionId(affiliation.pk))]
+    )
+    publication_dto = PublicationDto.from_publication(publication)
+
+    store = DictStore()
+    store["publication_step"] = publication_dto.to_post_data()
+    store.save()
+
+    sut = PublicationStep()
+    stepdata = publication_step.stepdata(publication_dto)
+    request = request_factory.post("/", stepdata)
+
+    assert sut.is_valid(request, store)
+
+
+@pytest.mark.django_db
+def test__existing_author_with_archived_affiliation_in_store__using_archived_affiliation_is_valid() -> (
+    None
+):
+    affiliation = Institution.objects.create(name="Archived University")
+    affiliation.archived_at = timezone.now()
+    affiliation.save()
+
     publication = domainfactory.publication()
     publication.relevant_authors = Authors(
         [domainfactory.author(affiliation=InstitutionId(affiliation.pk))]

@@ -123,7 +123,7 @@ def render_edit_view(
         request,
         "invoices/create.html",
         _DefaultContext
-        | funding_sources_context()
+        | funding_sources_context(position_list.positions)
         | asdict(safe_invoice_total(position_list.positions, invoice.currency()))
         | {
             "mode_name": "Edit",

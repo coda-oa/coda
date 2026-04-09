@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
     <section class="my-2">
-        <h1>{{ title }}</h1>
+        <h1>
+            {{ title }}
+            {% if institution.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+        </h1>
         <form method="post">
             {% csrf_token %}
             <article>

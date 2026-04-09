@@ -46,3 +46,8 @@ a.undecorated {
     font-style: italic;
     font-display: swap;
 }
+
+.text.danger {
+    color: var(--coda-validation-invalid-color);
+    background-color: transparent;
+}

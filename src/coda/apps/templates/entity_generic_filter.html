@@ -1,10 +1,23 @@
-<form method="get" class="form-row pill">
-    <input type="search"
-           name="query"
-           id="id-query"
-           placeholder="{{ search_placeholder|default:"Search..." }}"
-           value="{{ request.GET.query }}">
-    <button type="submit" class="form-row-item-sm">Search</button>
+<form method="get">
+    <div role="search">
+        <input type="search"
+               name="query"
+               id="id-query"
+               placeholder="{{ search_placeholder|default:"Search..." }}"
+               value="{{ request.GET.query }}">
+        <button type="submit" class="form-row-item-sm">Search</button>
+    </div>
+    {% if supports_archiving %}
+        <label class="form-row-item">
+            <input type="checkbox"
+                   role="switch"
+                   name="include_archived"
+                   id="id-include-archived"
+                   aria-checked="{% if include_archived %}true{% else %}false{% endif %}"
+                   {% if include_archived %}checked{% endif %}>
+            Include archived
+        </label>
+    {% endif %}
 </form>
 {% if request.GET.query and entities|length == 0 %}
     <p class="my-2">No results found for "{{ request.GET.query }}".</p>

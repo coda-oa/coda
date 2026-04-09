@@ -1,0 +1,82 @@
+<dialog open>
+    <article>
+        <header class="flex justify-between align-center mb-1">
+            <h2 class="my-1">Restore Institution</h2>
+            <button aria-label="Close"
+                    class="close"
+                    onclick="this.closest('dialog').remove()"></button>
+        </header>
+        <p class="my-2">
+            This will restore <strong>{{ institution.name }}</strong> from the archive.
+            The institution will become available for selection again.
+        </p>
+        {% if general_error %}<p class="messages error undecorated">{{ general_error }}</p>{% endif %}
+        <form method="post"
+              action="{% url 'institutions:restore' pk=institution.pk %}"
+              hx-post="{% url 'institutions:restore' pk=institution.pk %}"
+              hx-target="closest dialog"
+              hx-swap="outerHTML"
+              id="restore-form">
+            {% csrf_token %}
+            {% if has_archived_children %}
+                <fieldset>
+                    <legend>Choose restore option:</legend>
+                    <label>
+                        <input type="radio"
+                               name="restore_type"
+                               value="without_children"
+                               id="radio-without-children"
+                               {% if not form_data.restore_type or form_data.restore_type == "without_children" %}checked{% endif %}>
+                        Restore without children
+                    </label>
+                    <label>
+                        <input type="radio"
+                               name="restore_type"
+                               value="with_children"
+                               id="radio-with-children"
+                               {% if form_data.restore_type == "with_children" %}checked{% endif %}>
+                        Restore with children
+                    </label>
+                </fieldset>
+            {% else %}
+                <input type="hidden" name="restore_type" value="without_children">
+            {% endif %}
+            {% if needs_parent_selection %}
+                <div id="parent-selector-field">
+                    <label for="new_parent_id">
+                        Select parent institution:
+                        {% if errors.new_parent_id %}
+                            <span data-tooltip="{{ errors.new_parent_id }}">
+                                <select id="new_parent_id" name="new_parent_id" aria-invalid="true">
+                                    <option value="">-- Select Institution --</option>
+                                    {% for inst in available_parents %}
+                                        <option value="{{ inst.pk }}"
+                                                {% if form_data.new_parent_id == inst.pk|stringformat:"s" %}selected{% elif inst.pk == grandparent_id %}selected{% endif %}>
+                                            {{ inst.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </span>
+                        {% else %}
+                            <select id="new_parent_id" name="new_parent_id">
+                                <option value="">-- Select Institution --</option>
+                                {% for inst in available_parents %}
+                                    <option value="{{ inst.pk }}"
+                                            {% if form_data.new_parent_id == inst.pk|stringformat:"s" %}selected{% elif inst.pk == grandparent_id %}selected{% endif %}>
+                                        {{ inst.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+                    </label>
+                </div>
+            {% endif %}
+            <footer class="grid">
+                <button type="button"
+                        class="secondary"
+                        onclick="this.closest('dialog').remove()">Cancel</button>
+                <button type="submit" class="primary">Restore</button>
+            </footer>
+        </form>
+    </article>
+</dialog>

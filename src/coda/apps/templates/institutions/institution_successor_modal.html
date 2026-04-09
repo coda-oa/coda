@@ -1,0 +1,120 @@
+<dialog open>
+    <article>
+        <header class="flex justify-between align-center mb-1">
+            <h2 class="my-1">Archive Institution</h2>
+            <button aria-label="Close"
+                    class="close"
+                    onclick="this.closest('dialog').remove()"></button>
+        </header>
+        <p class="my-2">
+            This will archive <strong>{{ institution.name }}</strong>.
+            Archived institutions are no longer available for selection but remain visible in historical data.
+        </p>
+        {% if is_home_institution %}
+            <p class="messages info undecorated">
+                <strong>Note:</strong> This institution is currently set as your home institution.
+                You must select a successor institution, which will become your new home institution.
+            </p>
+        {% endif %}
+        {% if has_children %}
+            <p class="messages info undecorated">
+                <strong>Note:</strong> This institution has child institutions.
+                If you archive it without choosing a successor, the children will be archived as well.
+                You can choose to create a new institution as successor or select an existing institution as successor, and the children will be re-parented to the successor institution.
+            </p>
+        {% endif %}
+        {% if general_error %}<p class="messages error undecorated">{{ general_error }}</p>{% endif %}
+        <form method="post"
+              action="{% url 'institutions:set_successor' pk=institution.pk %}"
+              hx-post="{% url 'institutions:set_successor' pk=institution.pk %}"
+              hx-target="closest dialog"
+              hx-swap="outerHTML"
+              id="successor-form">
+            {% csrf_token %}
+            <fieldset>
+                <legend>Choose archiving option:</legend>
+                {% if not is_home_institution %}
+                    <label>
+                        <input type="radio"
+                               name="successor_type"
+                               value="no_successor"
+                               id="radio-no-successor"
+                               {% if not form_data.successor_type or form_data.successor_type == "no_successor" %}checked{% endif %}>
+                        Archive without successor
+                    </label>
+                {% endif %}
+                <label>
+                    <input type="radio"
+                           name="successor_type"
+                           value="create_new"
+                           id="radio-create-new"
+                           {% if form_data.successor_type == "create_new" %}checked{% elif is_home_institution and not form_data.successor_type %}checked{% endif %}>
+                    Create new institution as successor
+                </label>
+                <label>
+                    <input type="radio"
+                           name="successor_type"
+                           value="select_existing"
+                           id="radio-select-existing"
+                           {% if form_data.successor_type == "select_existing" %}checked{% endif %}>
+                    Select existing institution as successor
+                </label>
+            </fieldset>
+            <div id="new-name-field">
+                <label for="new_name">
+                    New institution name:
+                    {% if errors.new_name %}
+                        <span data-tooltip="{{ errors.new_name }}">
+                            <input type="text"
+                                   id="new_name"
+                                   name="new_name"
+                                   value="{{ form_data.new_name|default:'' }}"
+                                   placeholder="Enter new institution name"
+                                   aria-invalid="true">
+                        </span>
+                    {% else %}
+                        <input type="text"
+                               id="new_name"
+                               name="new_name"
+                               value="{{ form_data.new_name|default:'' }}"
+                               placeholder="Enter new institution name">
+                    {% endif %}
+                </label>
+            </div>
+            <div id="existing-selector-field">
+                <label for="successor_id">
+                    Select successor institution:
+                    {% if errors.successor_id %}
+                        <span data-tooltip="{{ errors.successor_id }}">
+                            <select id="successor_id" name="successor_id" aria-invalid="true">
+                                <option value="">-- Select Institution --</option>
+                                {% for inst in available_institutions %}
+                                    <option value="{{ inst.pk }}"
+                                            {% if form_data.successor_id == inst.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ inst.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </span>
+                    {% else %}
+                        <select id="successor_id" name="successor_id">
+                            <option value="">-- Select Institution --</option>
+                            {% for inst in available_institutions %}
+                                <option value="{{ inst.pk }}"
+                                        {% if form_data.successor_id == inst.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ inst.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    {% endif %}
+                </label>
+            </div>
+            <footer class="grid">
+                <button type="button"
+                        class="secondary"
+                        onclick="this.closest('dialog').remove()">Cancel</button>
+                <button type="submit" class="primary">Archive</button>
+            </footer>
+        </form>
+    </article>
+</dialog>

@@ -114,7 +114,7 @@ def render_single_position(
             "counter": counter,
         }
         | DefaultContext
-        | funding_sources_context()
+        | funding_sources_context([position_dto])
     )
 
     return render(request, "invoices/position_single_with_summary.html", context)
@@ -138,6 +138,6 @@ def render_positions(request: HttpRequest, position_list: PositionList) -> HttpR
         "invoices/invoice_positions.html",
         {"position_list": position_list}
         | DefaultContext
-        | funding_sources_context()
+        | funding_sources_context(position_list.positions)
         | asdict(invoice_total),
     )

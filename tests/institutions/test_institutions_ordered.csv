@@ -1,6 +1,6 @@
-name;parent
-the-root;
-first-child;2
-second-child;2
-first-child-child;3
-second-child-child;4
+internal_id;name;parent
+inst_root;the-root;
+inst_fc;first-child;inst_root
+inst_sc;second-child;inst_root
+inst_fcc;first-child-child;inst_fc
+inst_scc;second-child-child;inst_sc
