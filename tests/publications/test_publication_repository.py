@@ -32,8 +32,7 @@ class PublicationFactory(Protocol):
         subject_area: VocabularyConcept = UnknownConcept,
         publication_type: VocabularyConcept = UnknownConcept,
         publication_id: PublicationId | None = None,
-    ) -> BasePublication:
-        ...
+    ) -> BasePublication: ...
 
 
 def create_publication(
@@ -212,6 +211,33 @@ def test__can_save_publication_with_author_that_has_existing_orcid() -> None:
     id = publication_repository.create(publication)
 
     assert_publication_eq(publication_repository.get_by_id(id), publication)
+
+
+@pytest.mark.django_db
+def test__publication_saved_with_concept__concept_later_disallowed_in_limited_vocabulary__get_by_id__restores_publication() -> (
+    None
+):
+    """Regression test: a concept that was allowed when the publication was created
+    but has since been disallowed in a LimitedVocabulary must still be restorable
+    from the database without raising ConceptNotAllowedError."""
+
+    base = vocabulary_with_concepts("grandfathered-concept")
+    assert base.id is not None
+
+    limited = vocabulary_repository.create_limited(base.id, "Restricted")
+    concept = limited.get_concept("grandfathered-concept")
+    publication = create_publication(
+        subject_area=concept,
+        publication_type=concept,
+    )
+    pub_id = publication_repository.create(publication)
+
+    limited.disallow("grandfathered-concept")
+    vocabulary_repository.save(limited)
+
+    restored = publication_repository.get_by_id(pub_id)
+    assert restored.subject_area.concept_id == "grandfathered-concept"
+    assert restored.publication_type.concept_id == "grandfathered-concept"
 
 
 @pytest.mark.django_db

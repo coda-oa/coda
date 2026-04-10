@@ -1,3 +1,4 @@
+import dataclasses
 from collections.abc import Iterable, Sequence
 from typing import TypedDict, cast
 
@@ -31,7 +32,13 @@ from coda.domain.publication import (
 )
 from coda.domain.publication.links import Doi
 from coda.domain.string import NonEmptyStr
-from coda.domain.vocabulary import ConceptId, UnknownConcept, VocabularyConcept, VocabularyId
+from coda.domain.vocabulary import (
+    ConceptId,
+    LimitedVocabulary,
+    UnknownConcept,
+    VocabularyConcept,
+    VocabularyId,
+)
 
 
 @transaction.atomic
@@ -363,7 +370,18 @@ def _deserialize_concept(model_concept: PublicationAttachedConcept) -> Vocabular
         return UnknownConcept
 
     v = vocabulary_repository.get_by_id(cast(VocabularyId, model_concept.vocabulary_id))
-    return v.get_concept_by_id(ConceptId(str(model_concept.entity_id)))
+    concept_id = ConceptId(str(model_concept.entity_id))
+    vocabulary_id = cast(VocabularyId, model_concept.vocabulary_id)
+
+    # Reconstitution must never apply vocabulary restrictions. For a
+    # LimitedVocabulary, retrieve from the root base (no allow/disallow gate)
+    # then re-stamp the vocabulary id so the concept remains attributed to the
+    # vocabulary that owns it in the database.
+    if isinstance(v, LimitedVocabulary):
+        concept = v.get_root_base_vocabulary().get_concept_by_id(concept_id)
+        return dataclasses.replace(concept, vocabulary=vocabulary_id)
+
+    return v.get_concept_by_id(concept_id)
 
 
 def _deserialize_links(links_: Iterable[LinkModel]) -> set[Link]:
