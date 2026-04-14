@@ -8,7 +8,11 @@
         <div>
             {% if entity.has_invalid_contract_years %}
                 <span data-tooltip="One or more contract years are outside the contract period">
-                    <img src="{% static "assets/exclamation.svg" %}" alt="Contract year warning" height="auto" width="auto" class="mb-0_5">
+                    <img src="{% static "assets/exclamation.svg" %}"
+                         alt="Contract year warning"
+                         height="auto"
+                         width="auto"
+                         class="mb-0_5">
                 </span>
             {% endif %}
             <span class="pill status-label {{ entity.status }}">{{ entity.status }}</span>
@@ -38,6 +42,7 @@
             {% include "fundingrequests/partials/payment_status.html" with payment_status=entity.payment_status %}
         </div>
     </div>
+    <p class="mt-1">Publication state: {{ entity.publication_state }}</p>
     <div class="flex justify-between">
         <p class="flex mb-0_5 mt-2">
             {% url "fundingrequests:list" as list_url %}

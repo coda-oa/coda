@@ -349,3 +349,15 @@ def test__search_with_invalid_contract_year_criteria__filters_correctly() -> Non
 
     for item in items:
         assert item.has_invalid_contract_years is True
+
+
+@pytest.mark.django_db
+def test__get_list_items__includes_publication_state() -> None:
+    fr = modelfactory.fundingrequest()
+    fr.publication.publication_state = "Published"
+    fr.publication.save()
+
+    queryset = FundingRequestModel.objects.filter(id=fr.pk)
+    items = list_query.get_list_items(queryset)
+
+    assert items[0].publication_state == "Published"

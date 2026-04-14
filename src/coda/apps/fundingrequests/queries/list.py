@@ -93,6 +93,7 @@ def _build_list_item(
             labels=fr_model.labels.all(),
             status=fr_model.review.review_result,
             payment_status=detail._build_payment_details(payment_status, fr_model.request_id),
+            publication_state=fr_model.publication.publication_state,
             journal_publisher_name=str(journal.publisher) if journal.publisher else None,
             journal_publisher_url=(
                 journal.publisher.get_absolute_url() if journal.publisher else None
@@ -116,6 +117,7 @@ def _build_list_item(
             labels=fr_model.labels.all(),
             status=fr_model.review.review_result,
             payment_status=detail._build_payment_details(payment_status, fr_model.request_id),
+            publication_state=fr_model.publication.publication_state,
             journal_publisher_name=None,
             journal_publisher_url=None,
             has_invalid_contract_years=_has_invalid_contract_years(fr_model),

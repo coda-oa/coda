@@ -129,6 +129,17 @@ class OpenAccessTypeCriteria:
 
 
 @dataclass
+class PublicationStateCriteria:
+    publication_states: list[str] = field(default_factory=list)
+
+    def _to_query(self) -> Q:
+        if not self.publication_states:
+            return Q()
+
+        return Q(publication__publication_state__in=self.publication_states)
+
+
+@dataclass
 class GenericSearchCriteria:
     search_term: str = ""
 

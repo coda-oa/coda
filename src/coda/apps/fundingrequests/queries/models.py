@@ -177,6 +177,7 @@ class FundingRequestListItem:
     labels: Iterable[Any]  # Django Label QuerySet (avoid circular import)
     status: str  # ReviewResult value
     payment_status: PublicationPaymentDetail
+    publication_state: str
     # Article-specific fields (None for monographs)
     journal_publisher_name: str | None = None
     journal_publisher_url: str | None = None
