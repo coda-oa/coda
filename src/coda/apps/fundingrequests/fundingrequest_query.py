@@ -3,10 +3,10 @@ import enum
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from django.db.models import F, Q, QuerySet
+from django.db.models import F, Prefetch, Q, QuerySet
 from django.db.models.functions import ExtractYear
 
-from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.fundingrequests.models import FundingRequest, Label
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
@@ -281,7 +281,7 @@ def search(
             "publication__monograph_publisher",
         )
         .prefetch_related(
-            "labels",
+            Prefetch("labels", queryset=Label.objects.order_by("name")),
             "publication__relevant_authors",
             "publication__attached_contracts__contract",
         )
