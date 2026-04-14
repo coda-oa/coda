@@ -22,6 +22,7 @@
         <i><small>last updated at {{ entity.updated_at }}</small></i>
     </p>
     <hr class="mb-2">
+    <p class="mb-2">Request ID: {{ entity.request_id }}</p>
     <div class="grid">
         <div>
             {% if entity.authors %}<p>Authors: {{ entity.authors|join:", " }}</p>{% endif %}

@@ -168,6 +168,7 @@ class FundingRequestListItem:
     type: Literal["Article", "Monograph"]
     id: int
     url: str
+    request_id: str
     publication_title: str
     authors: list[str]  # Author names only (not full Author objects)
     publishing_entity_type: Literal["Journal", "Publisher"]
