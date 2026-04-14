@@ -139,7 +139,8 @@ class PublicationDetail:
 
     # Publication state
     publication_state: str
-    publication_date: datetime.date | None
+    online_publication_date: datetime.date | None
+    print_publication_date: datetime.date | None
 
     # Vocabularies (already strings in domain)
     license: str

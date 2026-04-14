@@ -84,10 +84,6 @@ def _build_publication_detail_from_preview(
     """
     entity = _entity_info(preview_pub)
 
-    publication_date = (
-        preview_pub.meta.online_publication_date or preview_pub.meta.print_publication_date
-    )
-
     links: list[Link] = [Doi(preview_pub.doi)]
     if isinstance(preview_pub, PreviewMonograph) and preview_pub.isbn:
         links.append(Isbn(preview_pub.isbn))
@@ -103,7 +99,8 @@ def _build_publication_detail_from_preview(
         publishing_entity_identifier_name=entity.identifier_name,
         publishing_entity_identifier=entity.identifier,
         publication_state=preview_pub.meta.publication_state,
-        publication_date=publication_date,
+        online_publication_date=preview_pub.meta.online_publication_date,
+        print_publication_date=preview_pub.meta.print_publication_date,
         license=preview_pub.meta.license,
         publication_type=preview_pub.meta.publication_type.name,
         subject_area=preview_pub.meta.subject_area.name,
