@@ -4,6 +4,7 @@ from datetime import date
 from typing import cast
 
 import pytest
+from django.test import Client
 from django.urls import reverse
 
 from coda.apps.contracts import repository as contract_repository
@@ -387,3 +388,29 @@ def test__searching_by_missing_currency_conversion__excludes_invoices_without_po
     actual = iq.search(iq.MissingCurrencyConversionCriterion(home_currency))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invoice_list_view__searching_by_payment_status_via_http_request__finds_matching_invoices(
+    client: Client,
+) -> None:
+    creditor = modelfactory.creditor()
+    creditor_id = CreditorId(creditor.pk)
+
+    unpaid_invoice = domainfactory.invoice(creditor=creditor_id, positions=())
+    unpaid_invoice.reset_payment()
+    unpaid_invoice.id = invoice_service.save(unpaid_invoice)
+
+    paid_invoice = domainfactory.invoice(creditor=creditor_id, positions=())
+    paid_invoice.pay()
+    paid_invoice.id = invoice_service.save(paid_invoice)
+
+    response = client.get("/invoices/list/", {"payment_status": "unpaid"})
+
+    assert response.status_code == 200
+    invoice_list = response.context["entities"]
+
+    invoice_ids = [item.id for item in invoice_list]
+    assert unpaid_invoice.id in invoice_ids
+    assert paid_invoice.id not in invoice_ids
