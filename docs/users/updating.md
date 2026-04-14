@@ -50,17 +50,17 @@ Or for local environment:
 Update your local repository with the latest changes from the Git repository:
 
 ```{code-block} bash
-git pull origin main
+git pull origin stable
 ```
 
 ```{admonition} Note
 :class: tip
-If you're tracking a different branch or have customizations, adjust the git command accordingly. For example, if you're on a `stable` branch, use `git pull origin stable`.
+The `stable` branch is the default and recommended option. You can pull it as shown above. If you need access to more recent changes, you can alternatively pull from the `develop` branch using `git pull origin develop`.
 ```
 
 ### 4. Restart CODA
 
-Start CODA with the updated code. The `--build` flag ensures that Docker containers are rebuilt with the latest changes:
+Start CODA with the updated code by running the start command:
 
 ```{code-block} bash
 ./commands/start-coda.sh --production
