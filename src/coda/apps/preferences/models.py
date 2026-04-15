@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
 from typing import cast
 from django.db import models
 
@@ -29,6 +32,29 @@ def default_publication_type_vocabulary() -> int:
     return v.pk
 
 
+@dataclass(frozen=True)
+class PreloadedVocabularyProvider:
+    """A lightweight, immutable provider that holds all three vocabularies
+    already fetched from the database.  Satisfies the ``VocabularyProvider``
+    protocol without any additional DB queries.
+
+    Obtain an instance via ``GlobalPreferences.preloaded()``.
+    """
+
+    _article_publication_type_vocabulary: VocabularyProtocol
+    _subject_classification_vocabulary: VocabularyProtocol
+    _monograph_publication_type_vocabulary: VocabularyProtocol
+
+    def get_article_publication_type_vocabulary(self) -> VocabularyProtocol:
+        return self._article_publication_type_vocabulary
+
+    def get_subject_classification_vocabulary(self) -> VocabularyProtocol:
+        return self._subject_classification_vocabulary
+
+    def get_monograph_publication_type_vocabulary(self) -> VocabularyProtocol:
+        return self._monograph_publication_type_vocabulary
+
+
 class GlobalPreferences(models.Model):
     home_currency = models.CharField(max_length=255, default=Currency.EUR.code)
     home_institution = models.ForeignKey(
@@ -57,32 +83,94 @@ class GlobalPreferences(models.Model):
         related_name="+",
     )
 
-    @staticmethod
-    def get_subject_classification_vocabulary() -> VocabularyProtocol:
-        prefs, _ = GlobalPreferences.objects.get_or_create()
+    @classmethod
+    def _get_prefs_with_vocabularies(cls) -> GlobalPreferences:
+        """Fetch the singleton prefs row with all three vocabulary FKs and their
+        concepts loaded in a single query + prefetch batches.  Callers that need
+        to read vocabulary data should use this instead of bare get_or_create().
+        """
+        prefs, _ = (
+            cls.objects.select_related(
+                "article_publication_type_vocabulary",
+                "subject_classification_vocabulary",
+                "monograph_publication_type_vocabulary",
+            )
+            .prefetch_related(
+                *vocabulary_repository.prefetches_for("article_publication_type_vocabulary"),
+                *vocabulary_repository.prefetches_for("subject_classification_vocabulary"),
+                *vocabulary_repository.prefetches_for("monograph_publication_type_vocabulary"),
+            )
+            .get_or_create()
+        )
+        return prefs
+
+    @classmethod
+    def preloaded(cls) -> PreloadedVocabularyProvider:
+        """Return a ``PreloadedVocabularyProvider`` populated with all three
+        vocabularies fetched in a single DB round-trip.
+
+        Use this as the ``vocabulary_provider`` argument to
+        ``AllowedConcepts.for_*`` factory methods instead of passing the
+        ``GlobalPreferences`` class directly, to avoid one DB hit per
+        vocabulary accessor call.
+        """
+        prefs = cls._get_prefs_with_vocabularies()
+
+        # Resolve defaults for any None vocabularies (same logic as the individual statics)
+        if prefs.article_publication_type_vocabulary is None:
+            prefs.article_publication_type_vocabulary_id = default_publication_type_vocabulary()
+            prefs.save()
+            prefs = cls._get_prefs_with_vocabularies()
         if prefs.subject_classification_vocabulary is None:
             prefs.subject_classification_vocabulary_id = default_subject_classification_vocabulary()
             prefs.save()
+            prefs = cls._get_prefs_with_vocabularies()
+        if prefs.monograph_publication_type_vocabulary is None:
+            prefs.monograph_publication_type_vocabulary_id = default_publication_type_vocabulary()
+            prefs.save()
+            prefs = cls._get_prefs_with_vocabularies()
+
+        return PreloadedVocabularyProvider(
+            _article_publication_type_vocabulary=vocabulary_repository.as_domain_object(
+                cast(VocabularyModel, prefs.article_publication_type_vocabulary)
+            ),
+            _subject_classification_vocabulary=vocabulary_repository.as_domain_object(
+                cast(VocabularyModel, prefs.subject_classification_vocabulary)
+            ),
+            _monograph_publication_type_vocabulary=vocabulary_repository.as_domain_object(
+                cast(VocabularyModel, prefs.monograph_publication_type_vocabulary)
+            ),
+        )
+
+    @staticmethod
+    def get_subject_classification_vocabulary() -> VocabularyProtocol:
+        prefs = GlobalPreferences._get_prefs_with_vocabularies()
+        if prefs.subject_classification_vocabulary is None:
+            prefs.subject_classification_vocabulary_id = default_subject_classification_vocabulary()
+            prefs.save()
+            prefs = GlobalPreferences._get_prefs_with_vocabularies()
 
         vocabulary = cast(VocabularyModel, prefs.subject_classification_vocabulary)
         return vocabulary_repository.as_domain_object(vocabulary)
 
     @staticmethod
     def get_article_publication_type_vocabulary() -> VocabularyProtocol:
-        prefs, _ = GlobalPreferences.objects.get_or_create()
+        prefs = GlobalPreferences._get_prefs_with_vocabularies()
         if prefs.article_publication_type_vocabulary is None:
             prefs.article_publication_type_vocabulary_id = default_publication_type_vocabulary()
             prefs.save()
+            prefs = GlobalPreferences._get_prefs_with_vocabularies()
 
         vocabulary = cast(VocabularyModel, prefs.article_publication_type_vocabulary)
         return vocabulary_repository.as_domain_object(vocabulary)
 
     @staticmethod
     def get_monograph_publication_type_vocabulary() -> VocabularyProtocol:
-        prefs, _ = GlobalPreferences.objects.get_or_create()
+        prefs = GlobalPreferences._get_prefs_with_vocabularies()
         if prefs.monograph_publication_type_vocabulary is None:
             prefs.monograph_publication_type_vocabulary_id = default_publication_type_vocabulary()
             prefs.save()
+            prefs = GlobalPreferences._get_prefs_with_vocabularies()
 
         vocabulary = cast(VocabularyModel, prefs.monograph_publication_type_vocabulary)
         return vocabulary_repository.as_domain_object(vocabulary)

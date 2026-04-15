@@ -1,5 +1,6 @@
 from collections.abc import Generator
 from django.db import models
+from django.utils import timezone
 
 
 class InstitutionQuerySet(models.QuerySet["Institution"]):
@@ -47,6 +48,13 @@ class Institution(models.Model):
         yield self
         for child in self.children.all():
             yield from child.walk()
+
+    def archive(self) -> None:
+        self.archived_at = timezone.now()
+        self.save()
+
+    def __repr__(self) -> str:
+        return f"Institution(id={self.pk}, name={self.name})"
 
     def __str__(self) -> str:
         return self.name

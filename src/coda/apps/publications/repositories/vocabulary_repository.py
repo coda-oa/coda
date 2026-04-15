@@ -78,30 +78,50 @@ def _build_recursive_base_vocab_prefetch(
     )
 
 
-def _get_prefetch_for_vocabularies() -> (
-    tuple[Prefetch[str, QuerySet[Model, Model], str], Prefetch[str, QuerySet[Model, Model], str]]
-):
-    """Get prefetch objects for vocabularies with nested limited vocabulary support.
+def prefetches_for(
+    prefix: str | None = None,
+) -> list[Prefetch[str, QuerySet[Model, Model], str]]:
+    """Return Prefetch objects to fully hydrate a VocabularyModel at the given
+    ORM traversal prefix.
 
-    This handles chains of limited vocabularies (e.g., Base -> Limited1 -> Limited2)
-    by recursively prefetching base vocabularies and their concepts up to MAX_VOCABULARY_NESTING_DEPTH.
+    Covers:
+    - {prefix}__concepts (with parent select_related)
+    - {prefix}__base_vocabulary (recursive chain up to MAX_VOCABULARY_NESTING_DEPTH,
+      each level including its own concepts)
+
+    Args:
+        prefix: ORM traversal path to the VocabularyModel, e.g.
+                "publication_type__vocabulary". None means the queryset is
+                already scoped to VocabularyModel rows.
+
+    Examples:
+        # Standalone vocabulary queryset:
+        VocabularyModel.objects.prefetch_related(*prefetches_for())
+
+        # Nested inside a publication queryset:
+        PublicationModel.objects.prefetch_related(
+            *prefetches_for("publication_type__vocabulary")
+        )
     """
+
+    def path(field: str) -> str:
+        return f"{prefix}__{field}" if prefix else field
+
     concepts_prefetch = Prefetch(
-        "concepts",
+        path("concepts"),
         queryset=ConceptModel.objects.select_related("parent"),
     )
 
-    # Build recursive prefetch for the entire chain
-    base_vocab_prefetch = _build_recursive_base_vocab_prefetch(MAX_VOCABULARY_NESTING_DEPTH)
-
-    # If for some reason we get None (shouldn't happen with depth > 0), provide a default
-    if not base_vocab_prefetch:
-        base_vocab_prefetch = Prefetch(
-            "base_vocabulary",
-            queryset=VocabularyModel.objects.prefetch_related(concepts_prefetch),
+    nested = _build_recursive_base_vocab_prefetch(MAX_VOCABULARY_NESTING_DEPTH)
+    if nested is not None:
+        base_vocab_prefetch: Prefetch[str, QuerySet[Model, Model], str] | None = Prefetch(
+            path("base_vocabulary"),
+            queryset=nested.queryset,
         )
+    else:
+        base_vocab_prefetch = None
 
-    return concepts_prefetch, base_vocab_prefetch
+    return [p for p in [concepts_prefetch, base_vocab_prefetch] if p is not None]
 
 
 def create(name: str, version: str) -> Vocabulary:
@@ -128,11 +148,7 @@ def create_limited(base_vocabulary_id: VocabularyId, name: str) -> LimitedVocabu
 
 def get_by_id(id: VocabularyId) -> VocabularyProtocol:
     try:
-        concepts_prefetch, base_vocab_prefetch = _get_prefetch_for_vocabularies()
-        v = VocabularyModel.objects.prefetch_related(
-            concepts_prefetch,
-            base_vocab_prefetch,
-        ).get(pk=id)
+        v = VocabularyModel.objects.prefetch_related(*prefetches_for()).get(pk=id)
     except VocabularyModel.DoesNotExist:
         raise VocabularyNotFoundError(Vocabulary, query_name="id", query_value=id)
 
@@ -159,11 +175,7 @@ def get_by_name(name: str) -> VocabularyProtocol:
             name — adding one is tracked as a follow-up task).
     """
     try:
-        concepts_prefetch, base_vocab_prefetch = _get_prefetch_for_vocabularies()
-        v = VocabularyModel.objects.prefetch_related(
-            concepts_prefetch,
-            base_vocab_prefetch,
-        ).get(name=name)
+        v = VocabularyModel.objects.prefetch_related(*prefetches_for()).get(name=name)
     except VocabularyModel.DoesNotExist:
         raise VocabularyNotFoundError(Vocabulary, query_name="name", query_value=name)
 
@@ -171,9 +183,8 @@ def get_by_name(name: str) -> VocabularyProtocol:
 
 
 def newest_base_vocabulary_by_name(name: str) -> Vocabulary:
-    concepts_prefetch, _ = _get_prefetch_for_vocabularies()
     vocabularies_by_name = VocabularyModel.objects.filter(name=name, is_limited=False)
-    vocabularies_by_name = vocabularies_by_name.prefetch_related(concepts_prefetch).order_by(
+    vocabularies_by_name = vocabularies_by_name.prefetch_related(*prefetches_for()).order_by(
         "-version"
     )
 
@@ -185,33 +196,23 @@ def newest_base_vocabulary_by_name(name: str) -> Vocabulary:
 
 
 def find_limited_by_base_vocabulary(base_vocabulary_id: VocabularyId) -> list[LimitedVocabulary]:
-    concepts_prefetch, base_vocab_prefetch = _get_prefetch_for_vocabularies()
     return [
         cast(LimitedVocabulary, as_domain_object(v))
-        for v in VocabularyModel.objects.prefetch_related(
-            concepts_prefetch,
-            base_vocab_prefetch,
-        ).filter(base_vocabulary_id=base_vocabulary_id)
+        for v in VocabularyModel.objects.prefetch_related(*prefetches_for()).filter(
+            base_vocabulary_id=base_vocabulary_id
+        )
     ]
 
 
 def all() -> Sequence[VocabularyProtocol]:
-    concepts_prefetch, base_vocab_prefetch = _get_prefetch_for_vocabularies()
-    queryset = VocabularyModel.objects.prefetch_related(
-        concepts_prefetch,
-        base_vocab_prefetch,
-    )
+    queryset = VocabularyModel.objects.prefetch_related(*prefetches_for())
     return DomainQuerySet(queryset, as_domain_object)
 
 
 def all_limited() -> list[LimitedVocabulary]:
-    concepts_prefetch, base_vocab_prefetch = _get_prefetch_for_vocabularies()
     return [
         cast(LimitedVocabulary, as_domain_object(v))
-        for v in VocabularyModel.objects.prefetch_related(
-            concepts_prefetch,
-            base_vocab_prefetch,
-        ).filter(is_limited=True)
+        for v in VocabularyModel.objects.prefetch_related(*prefetches_for()).filter(is_limited=True)
     ]
 
 

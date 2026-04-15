@@ -12,8 +12,9 @@ from coda.apps.publications.models import AttachedContract, LinkType, Publicatio
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.repositories import vocabulary_repository
-from coda.domain.author import Author, AuthorId, AuthorNames
+from coda.domain.author import Author, AuthorNames
 from coda.domain.contract import ContractId, ContractYear, PublisherId
+from coda.domain.fundingrequest.fundingrequest import FundingRequestId
 from coda.domain.publication import (
     Authors,
     BasePublication,
@@ -191,23 +192,60 @@ def _save_model_concept(
 
 
 def get_by_id(publication_id: PublicationId) -> BasePublication:
-    model = (
-        PublicationModel.objects.select_related(
-            "article_journal",
-            "monograph_publisher",
-            "publication_type",
-            "subject_area",
+    return as_domain_object(_single_model_query().get(pk=publication_id))
+
+
+def prefetches_for(
+    prefix: str | None = None,
+) -> list[models.Prefetch[str, models.QuerySet[models.Model, models.Model], str]]:
+    """Return Prefetch objects to fully hydrate a PublicationModel at the given
+    ORM traversal prefix.
+
+    Covers:
+    - publication_type__vocabulary (concepts + recursive base_vocabulary chain)
+    - subject_area__vocabulary (concepts + recursive base_vocabulary chain)
+    - relevant_authors (with identifier and affiliation via select_related)
+
+    Args:
+        prefix: ORM traversal path to the PublicationModel, e.g. "publication".
+                None means the queryset is already scoped to PublicationModel rows.
+
+    Examples:
+        # Standalone publication queryset:
+        PublicationModel.objects.prefetch_related(*prefetches_for())
+
+        # Nested inside a fundingrequest queryset:
+        FundingRequestModel.objects.prefetch_related(
+            *prefetches_for("publication")
         )
-        .prefetch_related(
-            "relevant_authors__affiliation",
-            "relevant_authors__identifier",
-            "attached_contracts__contract__publishers",
-            "attached_contracts__contract__journals",
-            "links__type",
-        )
-        .get(pk=publication_id)
+    """
+
+    def path(field: str) -> str:
+        return f"{prefix}__{field}" if prefix else field
+
+    return [
+        *vocabulary_repository.prefetches_for(path("publication_type__vocabulary")),
+        *vocabulary_repository.prefetches_for(path("subject_area__vocabulary")),
+        *author_services.prefetches_for(path("relevant_authors")),
+    ]
+
+
+def _single_model_query() -> models.QuerySet[PublicationModel]:
+    return PublicationModel.objects.select_related(
+        "article_journal",
+        "article_journal__publisher",
+        "monograph_publisher",
+        "publication_type",
+        "subject_area",
+    ).prefetch_related(
+        "attached_contracts",
+        "links__type",
+        *prefetches_for(),
     )
-    return as_domain_object(model)
+
+
+def get_by_fundingrequest_id(fundingrequest_id: FundingRequestId) -> BasePublication:
+    return as_domain_object(_single_model_query().get(fundingrequest=fundingrequest_id))
 
 
 def all() -> Sequence[BasePublication]:
@@ -215,7 +253,7 @@ def all() -> Sequence[BasePublication]:
 
 
 def first() -> BasePublication | None:
-    p = PublicationModel.objects.first()
+    p = _single_model_query().first()
     if not p:
         return None
 
@@ -232,19 +270,7 @@ def find_by_doi(doi: Doi) -> BasePublication | None:
         Publication if found, None otherwise
     """
     model = (
-        PublicationModel.objects.select_related(
-            "article_journal",
-            "monograph_publisher",
-            "publication_type",
-            "subject_area",
-        )
-        .prefetch_related(
-            "relevant_authors__affiliation",
-            "relevant_authors__identifier",
-            "attached_contracts__contract__publishers",
-            "attached_contracts__contract__journals",
-            "links__type",
-        )
+        _single_model_query()
         .filter(links__type__name="DOI", links__value=doi.value())
         .distinct()
         .first()
@@ -338,7 +364,7 @@ def _common_args(model: PublicationModel) -> "_CommonPublicationArgs":
 
 def _initial_article(publication: Publication) -> PublicationModel:
     if publication.id:
-        p = PublicationModel.objects.get(pk=publication.id)
+        p = _single_model_query().get(pk=publication.id)
         p.article_journal_id = publication.journal
     else:
         p = PublicationModel.objects.create(article_journal_id=publication.journal)
@@ -348,7 +374,7 @@ def _initial_article(publication: Publication) -> PublicationModel:
 
 def _initial_monograph(publication: Monograph) -> PublicationModel:
     if publication.id:
-        p = PublicationModel.objects.get(pk=publication.id)
+        p = _single_model_query().get(pk=publication.id)
         p.monograph_publisher_id = publication.publisher
     else:
         p = PublicationModel.objects.create(monograph_publisher_id=publication.publisher)
@@ -369,7 +395,7 @@ def _deserialize_concept(model_concept: PublicationAttachedConcept) -> Vocabular
     if model_concept.entity_id == UnknownConcept.id:
         return UnknownConcept
 
-    v = vocabulary_repository.get_by_id(cast(VocabularyId, model_concept.vocabulary_id))
+    v = vocabulary_repository.as_domain_object(model_concept.vocabulary)
     concept_id = ConceptId(str(model_concept.entity_id))
     vocabulary_id = cast(VocabularyId, model_concept.vocabulary_id)
 
@@ -455,9 +481,11 @@ def _attach_links_bulk(
 
 
 def _attach_authors(id: PublicationId, relevant_authors: Iterable[Author]) -> None:
-    for author in relevant_authors:
-        author_id = author_services.author_create(author, id)
-        author.id = AuthorId(author_id)
+    author_services.create_many(list(relevant_authors), id)
+    # for author in relevant_authors:
+    #     author_id = author_services.author_create(author, id)
+    #     author.id = AuthorId(author_id)
+    #
 
 
 def _create_authors_bulk(

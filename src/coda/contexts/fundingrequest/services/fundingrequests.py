@@ -392,7 +392,5 @@ def get_institutions_allowed_as_affiliation(
         for affiliation in author_affiliations
         if not any(affiliation == inst.pk for inst in allowed_institutions)
     }
-    author_institutions = (
-        institution_repository.get_by_id(affiliation) for affiliation in author_affiliations
-    )
+    author_institutions = list(institution_repository.get_many_by_id(author_affiliations))
     return itertools.chain(author_institutions, allowed_institutions)
