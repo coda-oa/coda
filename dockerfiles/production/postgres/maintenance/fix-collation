@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+
+
+### Fix collation version mismatch.
+###
+### This script checks if the database has a collation version mismatch
+### (which can happen after PostgreSQL or OS updates) and fixes it if needed.
+###
+### Usage:
+###     $ docker compose -f <environment>.yml (exec |run --rm) postgres fix-collation
+
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+
+working_dir="$(dirname ${0})"
+source "${working_dir}/_sourced/constants.sh"
+source "${working_dir}/_sourced/messages.sh"
+
+
+message_welcome "Checking for collation version mismatch in '${POSTGRES_DB}' database..."
+
+
+if [[ "${POSTGRES_USER}" == "postgres" ]]; then
+    message_error "Running as 'postgres' user is not supported. Assign 'POSTGRES_USER' env with another one and try again."
+    exit 1
+fi
+
+export PGHOST="${POSTGRES_HOST}"
+export PGPORT="${POSTGRES_PORT}"
+export PGUSER="${POSTGRES_USER}"
+export PGPASSWORD="${POSTGRES_PASSWORD}"
+export PGDATABASE="${POSTGRES_DB}"
+
+# Get list of all databases that have collation mismatches
+message_info "Checking all databases for collation version mismatches..."
+
+DATABASES_WITH_MISMATCH=$(psql -d postgres -tAc "
+    SELECT datname
+    FROM pg_database
+    WHERE datname NOT IN ('template0')
+      AND datcollversion IS DISTINCT FROM pg_database_collation_actual_version(oid)
+    ORDER BY datname;
+")
+
+if [[ -z "$DATABASES_WITH_MISMATCH" ]]; then
+    message_success "No collation version mismatches found in any database."
+    exit 0
+fi
+
+message_info "Found collation mismatches in the following databases:"
+echo "$DATABASES_WITH_MISMATCH" | while read -r db; do
+    echo "  - $db"
+done
+
+# Fix each database with a mismatch
+echo "$DATABASES_WITH_MISMATCH" | while read -r dbname; do
+    message_info "Fixing collation version for database: $dbname"
+
+    # Refresh the collation version
+    psql -d postgres -v ON_ERROR_STOP=1 <<SQL
+ALTER DATABASE "$dbname" REFRESH COLLATION VERSION;
+SQL
+    message_info "Collation version refreshed for $dbname."
+
+    # Reindex the database
+    message_info "Reindexing database $dbname (this may take a while)..."
+    reindexdb -d "$dbname"
+    message_success "Database $dbname reindexed successfully."
+    echo ""
+done
+
+message_success "All collation mismatches have been fixed."
+
+message_success "Collation check and fix completed for '${POSTGRES_DB}' database."
