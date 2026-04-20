@@ -17,6 +17,7 @@ The overview provides powerful filtering options to find specific requests:
 - Filter by publication type (Article, Monograph)
 - Filter by payment method (Direct, Reimbursement, Unknown) and payment status (Paid, Unpaid, Invoice received and Coverd by contract)
 - Filter by open access type
+- Filter by publication state (Published, Unknown, Submitted, Accepted, Rejected)
 - Filter by labels (include or exclude specific labels)
 - Filter by date range
 - Search by journal, publisher, or contract
@@ -31,7 +32,7 @@ Selecting a funding request from the overview leads to a comprehensive detail pa
 
 The left side displays complete information about the request:
 
-- **Publication metadata**: Title, authors, DOI, license, publication type, subject area
+- **Publication metadata**: Title, authors, DOI, license, publication type, subject area, publication state and date(s)
 - **Journal information**: Journal name, publisher, E-ISSN, with links to detailed pages
 - **Contract coverage**: Whether the publication is covered by an existing [contract](contracts.md)
 - **Cost details**: Estimated publication costs and currency

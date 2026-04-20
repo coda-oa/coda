@@ -48,6 +48,18 @@
                 <th>Publication State</th>
                 <td>{{ publication.publication_state }}</td>
             </tr>
+            {% if publication.online_publication_date %}
+                <tr>
+                    <th>Online publication date</th>
+                    <td>{{ publication.online_publication_date }}</td>
+                </tr>
+            {% endif %}
+            {% if publication.print_publication_date %}
+                <tr>
+                    <th>Print publication date</th>
+                    <td>{{ publication.print_publication_date }}</td>
+                </tr>
+            {% endif %}
             <tr>
                 <th>{{ publication.publishing_entity_type }}</th>
                 <td>{{ publication.publishing_entity_name }}</td>
@@ -83,7 +95,11 @@
                                 <a href="{% url "contracts:detail" pk=contract_year.contract_id %}">{{ contract_year.name }} ({{ contract_year.year }})</a>
                                 {% if not contract_year.is_in_contract_period %}
                                     <span data-tooltip="This contract year is outside the contract period">
-                                        <img src="{% static "assets/exclamation.svg" %}" alt="This contract year is outside the contract period" height="auto" width="auto" class="mb-0_5">
+                                        <img src="{% static "assets/exclamation.svg" %}"
+                                             alt="This contract year is outside the contract period"
+                                             height="auto"
+                                             width="auto"
+                                             class="mb-0_5">
                                     </span>
                                 {% endif %}
                             </p>

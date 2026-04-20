@@ -220,3 +220,22 @@ def test__searching_for_funding_requests_by_invalid_contract_years__shows_only_m
 
     expected: set[AnyFundingRequest] = {request_with_invalid}
     assert_contains(response.context, expected)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_for_funding_requests_by_publications_publication_state__shows_matching_funding_requests(
+    client: Client,
+) -> None:
+    matching_request = modelfactory.fundingrequest()
+    matching_request.publication.publication_state = "Published"
+    matching_request.publication.save()
+
+    non_matching_request = modelfactory.fundingrequest()
+    non_matching_request.publication.publication_state = "Rejected"
+    non_matching_request.publication.save()
+
+    query = {"publication_states": ["Published"]}
+    response = search_fundingrequests(client, query)
+
+    assert_contains(response.context, {matching_request})

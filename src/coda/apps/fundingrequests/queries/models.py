@@ -139,7 +139,8 @@ class PublicationDetail:
 
     # Publication state
     publication_state: str
-    publication_date: datetime.date | None
+    online_publication_date: datetime.date | None
+    print_publication_date: datetime.date | None
 
     # Vocabularies (already strings in domain)
     license: str
@@ -168,6 +169,7 @@ class FundingRequestListItem:
     type: Literal["Article", "Monograph"]
     id: int
     url: str
+    request_id: str
     publication_title: str
     authors: list[str]  # Author names only (not full Author objects)
     publishing_entity_type: Literal["Journal", "Publisher"]
@@ -177,6 +179,7 @@ class FundingRequestListItem:
     labels: Iterable[Any]  # Django Label QuerySet (avoid circular import)
     status: str  # ReviewResult value
     payment_status: PublicationPaymentDetail
+    publication_state: str
     # Article-specific fields (None for monographs)
     journal_publisher_name: str | None = None
     journal_publisher_url: str | None = None

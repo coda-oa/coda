@@ -63,7 +63,7 @@ _query_params_to_criteria: dict[str, Callable[[str, HttpRequest], iq.InvoiceSear
         GlobalPreferences.get_home_currency()
     ),
     "has_errors": lambda *_: iq.HasErrorsCriterion(),
-    "status": lambda param, _: iq.PaymentStatusCriterion(PaymentStatus(param)),
+    "payment_status": lambda param, _: iq.PaymentStatusCriterion(PaymentStatus(param)),
     "date_start": lambda _, request: iq.DateRangeCriterion(
         DateRange.try_fromisoformat(start=request.GET.get("date_start"))
     ),

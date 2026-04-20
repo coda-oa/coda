@@ -79,11 +79,17 @@ def build_contract_year_details(
     ]
 
 
-def extract_publication_date(state: PublicationState) -> datetime.date | None:
-    """Extract publication date from domain PublicationState."""
+def extract_publication_dates(
+    state: PublicationState,
+) -> tuple[datetime.date | None, datetime.date | None]:
+    """Extract online and print publication dates from domain PublicationState.
+
+    Returns:
+        Tuple of (online_date, print_date)
+    """
     if isinstance(state, Published):
-        return state.online
-    return None
+        return (state.online, state.print)
+    return (None, None)
 
 
 def get_publication_edit_url(pub: BasePublication, fr_id: int | None) -> str:
@@ -162,7 +168,7 @@ def build_publication_detail_from_domain(
         PublicationDetail with all display data resolved
     """
     entity_type, entity_name, identifier_name, identifier = build_publishing_entity_info(pub)
-    publication_date = extract_publication_date(pub.publication_state)
+    online_date, print_date = extract_publication_dates(pub.publication_state)
     contract_details = build_contract_year_details(pub.contracts)
 
     return PublicationDetail(
@@ -176,7 +182,8 @@ def build_publication_detail_from_domain(
         publishing_entity_identifier_name=identifier_name,
         publishing_entity_identifier=identifier,
         publication_state=pub.publication_state.name(),
-        publication_date=publication_date,
+        online_publication_date=online_date,
+        print_publication_date=print_date,
         license=pub.license.value,
         publication_type=pub.publication_type.name,
         subject_area=pub.subject_area.name,

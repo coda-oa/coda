@@ -12,12 +12,14 @@ from typing import Any, cast
 from urllib.parse import urlencode
 
 from django.db import models
+from django.db.models import Prefetch
 from django.urls import reverse
 
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.models import deserialize_role
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.forms import ChooseLabelForm
+from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.publications.models import Publication as PublicationModel
 from coda.apps.publications.services import publications as publication_service
@@ -73,7 +75,7 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
 
     fr_model = (
         FundingRequestModel.objects.select_related("extra_contact", "review")
-        .prefetch_related("labels")
+        .prefetch_related(Prefetch("labels", queryset=Label.objects.order_by("name")))
         .get(pk=fr.id)
     )
 

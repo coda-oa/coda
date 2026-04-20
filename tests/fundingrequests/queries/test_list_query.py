@@ -3,13 +3,14 @@
 import datetime
 
 import pytest
+from django.db.models import Prefetch
 from pytest_django import DjangoAssertNumQueries
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.contracts.models import Contract
 from coda.apps.fundingrequests import fundingrequest_query as fq
 from coda.apps.fundingrequests import repository as fr_repository
-from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
+from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel, Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import CoveredByContractDetail, FundingRequestListItem
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
@@ -131,6 +132,27 @@ def test__get_list_items__with_labels() -> None:
 
 
 @pytest.mark.django_db
+def test__get_list_items__labels_are_alphabetically_ordered() -> None:
+    fr = modelfactory.fundingrequest()
+
+    zebra = label_create("Zebra", Color())
+    banana = label_create("Banana", Color())
+    apple = label_create("Apple", Color())
+
+    label_attach(fr, zebra)
+    label_attach(fr, banana)
+    label_attach(fr, apple)
+
+    queryset = fq.search()
+    items = list_query.get_list_items(queryset)
+
+    item = next(item for item in items if item.id == fr.pk)
+    label_names = [label.name for label in item.labels]
+
+    assert label_names == ["Apple", "Banana", "Zebra"]
+
+
+@pytest.mark.django_db
 def test__get_list_items__with_consolidated_billing_contract() -> None:
     """Items with consolidated billing contracts show correct payment status."""
     fr = modelfactory.fundingrequest()
@@ -212,7 +234,7 @@ def test__get_list_items__query_count_is_constant(
             "publication__monograph_publisher",
         )
         .prefetch_related(
-            "labels",
+            Prefetch("labels", queryset=Label.objects.order_by("name")),
             "publication__relevant_authors",
             "publication__attached_contracts__contract",
         )
@@ -349,3 +371,15 @@ def test__search_with_invalid_contract_year_criteria__filters_correctly() -> Non
 
     for item in items:
         assert item.has_invalid_contract_years is True
+
+
+@pytest.mark.django_db
+def test__get_list_items__includes_publication_state() -> None:
+    fr = modelfactory.fundingrequest()
+    fr.publication.publication_state = "Published"
+    fr.publication.save()
+
+    queryset = FundingRequestModel.objects.filter(id=fr.pk)
+    items = list_query.get_list_items(queryset)
+
+    assert items[0].publication_state == "Published"

@@ -18,6 +18,7 @@ from coda.apps.views import EntityListView
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
+from coda.domain.publication.publication import UnpublishedState
 
 _advanced_search_fields = [
     "labels",
@@ -44,6 +45,11 @@ _payment_status_choices = [
     ("unpaid", "Unpaid"),
     ("invoice_received", "Invoice Received"),
     ("covered_by_contract", "Covered by Contract"),
+]
+
+_publication_state_choices = [
+    ("Published", "Published"),
+    *((s.name, s.value) for s in UnpublishedState),
 ]
 
 _default_choices = {"publication_type": "all"}
@@ -90,6 +96,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             "publication_types": publication_types,
             "selected_publication_types": selected_publication_types,
             "payment_methods": payment_methods,
+            "publication_states": _publication_state_choices,
         }
 
 
@@ -106,6 +113,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     ]
     payment_methods = [PaymentMethod(pm) for pm in request.GET.getlist("payment_methods")]
     show_invalid_contract_years = request.GET.get("invalid_contract_years") == "on"
+    publication_states = request.GET.getlist("publication_states")
 
     return fq.search(
         fq.GenericSearchCriteria(request.GET.get("search_term", "")),
@@ -125,6 +133,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
             map_or_none(int, request.GET.get("contract_year")),
         ),
         fq.PaymentMethodCriteria(payment_methods),
+        fq.PublicationStateCriteria(publication_states),
         fq.InvalidContractYearCriteria(show_invalid_contract_years),
         sort_order=fq.SortOrder.try_parse(request.GET.get("sort_by")),
     )
