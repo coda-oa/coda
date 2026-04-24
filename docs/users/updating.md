@@ -115,3 +115,94 @@ git log HEAD..origin/main --oneline
 
 This shows you what commits are available for download.
 
+## Update PostgreSQL Version
+
+If you pull a new release that requires an upgrade of the PostgreSQL version (mentioned in the release notes), you have to also run the `upgrade-postgres` command. 
+
+Before you start, it's recommended to verify you have recent backups available. 
+
+To check existing backups:
+
+```{code-block} bash
+./commands/backups.sh --production list
+```
+
+Or for local enviroments:
+
+```{code-block} bash
+./commands/backups.sh --local list
+```
+
+### Running the Upgrade
+
+To upgrade PostgreSQL to a new version, use the upgrade script with the version specified in the CODA release notes:
+
+```{code-block} bash
+./commands/upgrade-postgres.sh --production --postgres-version <version>
+```
+
+**Example:**
+
+If the release notes specify upgrading to PostgreSQL 17:
+```{code-block} bash
+./commands/upgrade-postgres.sh --production --postgres-version 17
+```
+
+### What the Script Does
+
+The upgrade script automatically performs the following steps:
+
+1. **Creates a backup** of your current database
+2. **Stops CODA** services to ensure data consistency
+3. **Upgrades the database** using [pgautoupgrade](https://github.com/pgautoupgrade/docker-pgautoupgrade)
+4. **Updates configuration** to use the new PostgreSQL version
+5. **Rebuilds the database container** with the new version
+6. **Starts PostgreSQL** and waits for it to be ready
+7. **Fixes collation mismatches** automatically if any (see below)
+
+The entire process typically takes a few minutes, depending on your database size.
+
+### For Local Development
+
+To upgrade a local development database use:
+
+```{code-block} bash
+./commands/upgrade-postgres.sh --local --postgres-version <version>
+```
+
+### Fixing Collation Version Mismatches
+
+If there is a major version step between the PostgreSQL versions, it is possible that you face a `collation version mismatch` error. 
+
+You might see warnings like:
+```
+WARNING: database "coda" has a collation version mismatch
+DETAIL: The database was created using collation version 2.31, but the operating system provides version 2.36.
+```
+
+The `upgrade-postgres.sh` script automatically fixes collation mismatches. However, you can also run the fix manually if needed: 
+
+```{code-block} bash
+./commands/fix-collation.sh --production
+```
+
+Or for local development:
+
+```{code-block} bash
+./commands/fix-collation.sh --local
+```
+
+### After Upgrading
+
+**Start CODA services**. The database update script shuts down CODA. After the update is done you have to manually start CODA again, by using the starting script:
+
+```{code-block} bash
+./commands/start-coda.sh --production
+```
+
+Or for local development:
+```{code-block} bash
+./commands/start-coda.sh --local
+```
+
+It is recommended to **keep the pre-upgrade backup** for at least a few days as a safety measure
