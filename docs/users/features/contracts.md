@@ -54,14 +54,14 @@ To add a new contract:
 CODA supports two billing models:
 
 **Individually**
-- Each publication appears as a separate line item on invoices
-- Allows detailed cost tracking per publication
 - Use this when each article has its own APC (Article Processing Charge)
+- Supports detailed cost tracking per publication
+- Articles without invoice will be marked as unpaid
 
 **Consolidated**
-- The entire contract is invoiced as a single amount
-- Publications don't appear as individual invoice positions
-- Use this when you pay a fixed annual fee regardless of publication count
+- Use this when you pay an annual fee for the entire contract
+- Fees for the contract will be distributed among the linked articles
+- Articles associated with this contract will be marked as paid
 
 ## Contract Identifiers
 
@@ -177,6 +177,6 @@ ESAC IDs are required for generating a valid openCost report.
 
 Contract information helps organize invoices:
 
-- Contract positions in invoices are used to represent costs for consolidaed contracts
+- Contract positions in invoices are used to represent costs for consolidated contracts
 - Contract positions in invoices are used to generate the costs for contracts in [openCost reports](reporting.md).
 

@@ -83,7 +83,7 @@ Even though this step appears to finish quickly, it can take a couple of minutes
 
 ### Creating a superuser
 
-After CODA has launched, you need to create a superuser to log in and create other users.
+After CODA has launched, you need to create a superuser to log in and [create other users](usercreation.md).
 Run the following command in your shell:
 
 ```{code-block} bash

@@ -4,7 +4,7 @@ The Creditors feature allows you to manage the entities that send invoices to yo
 
 ## Overview
 
-You can access the Creditors page from the **Finances** section in the navigation menu. The overview displays all creditors in your system, showing their names with links to detailed information.
+You can access the Creditors page from the **Finances** section in the navigation menu. The overview displays all creditors in your system, showing their names with links to the creditor's detail page. The detail page shows related invoices.
 
 You can search for creditors by name using the search box at the top of the page.
 

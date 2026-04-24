@@ -44,6 +44,7 @@ Each institution has a toggle switch labeled **"Usable as author affiliation"**.
 - Administrative units that don't publish research
 - Organizational placeholders used only for hierarchy management
 - Institutions used primarily for internal organization but not for external identification
+- An institute gets a new name and the old name should not be selectable in the author affiliations anymore
 
 ```{admonition} Note
 Disabling this toggle doesn't delete the institution or affect existing publications. It only removes the institution from appearing in future author affiliation selections in the [funding requests](fundingrequests.md).

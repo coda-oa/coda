@@ -6,9 +6,13 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+from datetime import datetime
+
+year = datetime.now().year
+
 project = "CODA"
-copyright = "2024, TU Braunschweig"
-author = "Sven Marcus"
+copyright = f"{year}, TU Braunschweig"
+author = "Sven Marcus & Linda Achilles"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -26,3 +30,6 @@ html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
 html_css_files = ["vars.css", "custom.css"]
 html_additional_pages = {"index": "index.html"}
+html_context = {
+    "year": datetime.now().year,
+}
