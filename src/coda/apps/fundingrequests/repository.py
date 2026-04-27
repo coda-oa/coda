@@ -1,8 +1,7 @@
 from collections.abc import Iterable, Sequence
-from typing import Any
+from typing import Any, TypeIs
 
-from django.db import models, transaction
-from typing import TypeIs
+from django.db import transaction
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.fundingrequests import mapper as fundingrequest_mapper
@@ -52,26 +51,6 @@ def _save(fundingrequest: AnyFundingRequest) -> FundingRequestModel:
     fundingrequest_mapper.synchronize_relationships(fundingrequest, fr)
     fr.save()
     return fr
-
-
-def _single_model_query() -> models.QuerySet[FundingRequestModel]:
-    """Return a queryset with all relations needed to hydrate a FundingRequest
-    domain object without any lazy loads."""
-    return FundingRequestModel.objects.select_related(
-        "publication",
-        "publication__article_journal",
-        "publication__article_journal__publisher",
-        "publication__monograph_publisher",
-        "publication__publication_type__vocabulary",
-        "publication__subject_area__vocabulary",
-        "extra_contact",
-        "review",
-    ).prefetch_related(
-        "external_funding",
-        "publication__attached_contracts",
-        "publication__links__type",
-        *publication_repository.prefetches_for("publication"),
-    )
 
 
 @transaction.atomic
@@ -159,6 +138,11 @@ def request_id_exists(request_id: PublicFundingRequestId) -> bool:
     return FundingRequestModel.objects.filter(request_id=str(request_id)).exists()
 
 
+def get_request_id_for(id: FundingRequestId) -> PublicFundingRequestId:
+    request_id, *_ = FundingRequestModel.objects.filter(pk=id).values_list("request_id").get()
+    return PublicFundingRequestId.from_str(request_id)
+
+
 def get_all_request_ids() -> list[str]:
     """Fetch all existing request IDs for bulk existence checking.
 
@@ -169,12 +153,12 @@ def get_all_request_ids() -> list[str]:
 
 
 def first() -> AnyFundingRequest | None:
-    model = _single_model_query().first()
+    model = FundingRequestModel.objects.for_domain().first()
     return fundingrequest_mapper.as_domain_object(model) if model else None
 
 
 def get_by_id(id: FundingRequestId) -> AnyFundingRequest:
-    model = _single_model_query().get(pk=id)
+    model = FundingRequestModel.objects.for_domain().get(pk=id)
     return fundingrequest_mapper.as_domain_object(model)
 
 
@@ -211,7 +195,7 @@ def get_monograph_request(id: FundingRequestId) -> FundingRequest[Monograph]:
 
 
 def get_by_request_id(request_id: PublicFundingRequestId) -> AnyFundingRequest:
-    model = _single_model_query().get(request_id=str(request_id))
+    model = FundingRequestModel.objects.for_domain().get(request_id=str(request_id))
     return fundingrequest_mapper.as_domain_object(model)
 
 
@@ -223,7 +207,7 @@ def find_reference_by_publication(publication: PublicationId) -> FundingRequestR
 
 
 def get_by_publication_id(publication_id: PublicationId) -> AnyFundingRequest:
-    model = _single_model_query().get(publication_id=publication_id)
+    model = FundingRequestModel.objects.for_domain().get(publication_id=publication_id)
     return fundingrequest_mapper.as_domain_object(model)
 
 

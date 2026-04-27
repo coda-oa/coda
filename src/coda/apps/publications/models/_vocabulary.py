@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 
 from coda.domain.vocabulary import UnknownConcept
+from coda.apps.publications.models.queryset_vocabulary import VocabularyManager
 
 
 class Vocabulary(models.Model):
@@ -10,6 +11,8 @@ class Vocabulary(models.Model):
 
     is_limited = models.BooleanField(default=False)
     base_vocabulary = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True)
+
+    objects: VocabularyManager = VocabularyManager()
 
     @staticmethod
     def empty() -> "Vocabulary":

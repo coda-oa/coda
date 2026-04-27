@@ -4,9 +4,9 @@ from typing import TypedDict, cast
 
 from django.db import models, transaction
 
-from coda.apps.authors import services as author_services
 from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.contracts.models import Contract
+from coda.apps.authors import services as author_services
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.publications.models import AttachedContract, LinkType, PublicationAttachedConcept
 from coda.apps.publications.models import Link as LinkModel
@@ -192,60 +192,13 @@ def _save_model_concept(
 
 
 def get_by_id(publication_id: PublicationId) -> BasePublication:
-    return as_domain_object(_single_model_query().get(pk=publication_id))
-
-
-def prefetches_for(
-    prefix: str | None = None,
-) -> list[models.Prefetch[str, models.QuerySet[models.Model, models.Model], str]]:
-    """Return Prefetch objects to fully hydrate a PublicationModel at the given
-    ORM traversal prefix.
-
-    Covers:
-    - publication_type__vocabulary (concepts + recursive base_vocabulary chain)
-    - subject_area__vocabulary (concepts + recursive base_vocabulary chain)
-    - relevant_authors (with identifier and affiliation via select_related)
-
-    Args:
-        prefix: ORM traversal path to the PublicationModel, e.g. "publication".
-                None means the queryset is already scoped to PublicationModel rows.
-
-    Examples:
-        # Standalone publication queryset:
-        PublicationModel.objects.prefetch_related(*prefetches_for())
-
-        # Nested inside a fundingrequest queryset:
-        FundingRequestModel.objects.prefetch_related(
-            *prefetches_for("publication")
-        )
-    """
-
-    def path(field: str) -> str:
-        return f"{prefix}__{field}" if prefix else field
-
-    return [
-        *vocabulary_repository.prefetches_for(path("publication_type__vocabulary")),
-        *vocabulary_repository.prefetches_for(path("subject_area__vocabulary")),
-        *author_services.prefetches_for(path("relevant_authors")),
-    ]
-
-
-def _single_model_query() -> models.QuerySet[PublicationModel]:
-    return PublicationModel.objects.select_related(
-        "article_journal",
-        "article_journal__publisher",
-        "monograph_publisher",
-        "publication_type",
-        "subject_area",
-    ).prefetch_related(
-        "attached_contracts",
-        "links__type",
-        *prefetches_for(),
-    )
+    return as_domain_object(PublicationModel.objects.for_domain().get(pk=publication_id))
 
 
 def get_by_fundingrequest_id(fundingrequest_id: FundingRequestId) -> BasePublication:
-    return as_domain_object(_single_model_query().get(fundingrequest=fundingrequest_id))
+    return as_domain_object(
+        PublicationModel.objects.for_domain().get(fundingrequest=fundingrequest_id)
+    )
 
 
 def all() -> Sequence[BasePublication]:
@@ -253,7 +206,7 @@ def all() -> Sequence[BasePublication]:
 
 
 def first() -> BasePublication | None:
-    p = _single_model_query().first()
+    p = PublicationModel.objects.for_domain().first()
     if not p:
         return None
 
@@ -270,7 +223,7 @@ def find_by_doi(doi: Doi) -> BasePublication | None:
         Publication if found, None otherwise
     """
     model = (
-        _single_model_query()
+        PublicationModel.objects.for_domain()
         .filter(links__type__name="DOI", links__value=doi.value())
         .distinct()
         .first()
@@ -364,7 +317,7 @@ def _common_args(model: PublicationModel) -> "_CommonPublicationArgs":
 
 def _initial_article(publication: Publication) -> PublicationModel:
     if publication.id:
-        p = _single_model_query().get(pk=publication.id)
+        p = PublicationModel.objects.for_domain().get(pk=publication.id)
         p.article_journal_id = publication.journal
     else:
         p = PublicationModel.objects.create(article_journal_id=publication.journal)
@@ -374,7 +327,7 @@ def _initial_article(publication: Publication) -> PublicationModel:
 
 def _initial_monograph(publication: Monograph) -> PublicationModel:
     if publication.id:
-        p = _single_model_query().get(pk=publication.id)
+        p = PublicationModel.objects.for_domain().get(pk=publication.id)
         p.monograph_publisher_id = publication.publisher
     else:
         p = PublicationModel.objects.create(monograph_publisher_id=publication.publisher)

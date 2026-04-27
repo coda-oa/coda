@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import cast
+from typing import Any, cast
 from django.db import models
+from django.db.models import Prefetch
 
+from coda.apps.publications.models import Concept as ConceptModel
 from coda.apps.publications.models import Vocabulary as VocabularyModel
 from coda.apps.publications.repositories import vocabulary_repository
 from coda.domain.money import Currency
@@ -89,6 +91,19 @@ class GlobalPreferences(models.Model):
         concepts loaded in a single query + prefetch batches.  Callers that need
         to read vocabulary data should use this instead of bare get_or_create().
         """
+
+        def vocab_prefetches(prefix: str) -> list[Prefetch[Any, Any, Any]]:
+            return [
+                Prefetch(
+                    f"{prefix}__concepts",
+                    queryset=ConceptModel.objects.select_related("parent"),
+                ),
+                Prefetch(
+                    f"{prefix}__base_vocabulary",
+                    queryset=VocabularyModel.objects.for_domain(),
+                ),
+            ]
+
         prefs, _ = (
             cls.objects.select_related(
                 "article_publication_type_vocabulary",
@@ -96,9 +111,9 @@ class GlobalPreferences(models.Model):
                 "monograph_publication_type_vocabulary",
             )
             .prefetch_related(
-                *vocabulary_repository.prefetches_for("article_publication_type_vocabulary"),
-                *vocabulary_repository.prefetches_for("subject_classification_vocabulary"),
-                *vocabulary_repository.prefetches_for("monograph_publication_type_vocabulary"),
+                *vocab_prefetches("article_publication_type_vocabulary"),
+                *vocab_prefetches("subject_classification_vocabulary"),
+                *vocab_prefetches("monograph_publication_type_vocabulary"),
             )
             .get_or_create()
         )

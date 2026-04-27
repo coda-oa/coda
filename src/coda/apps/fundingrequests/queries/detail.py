@@ -14,7 +14,6 @@ from urllib.parse import urlencode
 from django.db.models import Prefetch
 from django.urls import reverse
 
-from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.forms import ChooseLabelForm
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
@@ -48,12 +47,11 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
     """Get complete context for funding request detail view.
 
     Orchestrates all queries efficiently:
-    1. Fetch domain model from repository (with contracts)
-    2. Fetch Django models with optimal joins/prefetches
+    1. Fetch Django model with for_detail() — single query covering domain
+       hydration AND display-only fields (labels, updated_at)
+    2. Map to domain object via mapper
     3. Build detail models where needed
     4. Return complete context dict
-
-    Total queries: ~4-6 optimized queries
 
     Args:
         fr_id: Funding request ID
@@ -61,18 +59,15 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
     Returns:
         Context dict for template with mix of domain models and detail models
     """
-    fr = repository.get_by_id(fr_id)
+    from coda.apps.fundingrequests import mapper as fundingrequest_mapper
+
+    fr_model = FundingRequestModel.objects.for_detail().get(pk=fr_id)
+    fr = fundingrequest_mapper.as_domain_object(fr_model)
 
     if fr.id is None:
         raise ValueError("Cannot create context for unsaved FundingRequest")
     if fr.publication.id is None:
         raise ValueError("Cannot create context for FundingRequest with unsaved Publication")
-
-    fr_model = (
-        FundingRequestModel.objects.select_related("extra_contact", "review")
-        .prefetch_related(Prefetch("labels", queryset=Label.objects.order_by("name")))
-        .get(pk=fr.id)
-    )
 
     external_funding_details = build_external_funding_details(fr.external_funding)
 

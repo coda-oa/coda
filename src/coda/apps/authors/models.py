@@ -2,6 +2,7 @@ from django.db import models
 
 from coda.apps.institutions.models import Institution
 from coda.domain.author import Role
+from coda.apps.authors.queryset import AuthorManager
 
 
 class PersonId(models.Model):
@@ -43,3 +44,5 @@ class Author(models.Model):
     )
     roles = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    objects: AuthorManager = AuthorManager()

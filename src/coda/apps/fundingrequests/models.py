@@ -6,6 +6,7 @@ from django.urls import reverse
 from coda.apps.publications.models import Publication
 from coda.domain.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
+from coda.apps.fundingrequests.queryset import FundingRequestManager
 
 
 class FundingRequestContact(models.Model):
@@ -53,34 +54,8 @@ class FundingRequestReview(models.Model):
     remarks = models.TextField(blank=True)
 
 
-class FundingRequestQuerySet(models.QuerySet["FundingRequest"]):
-    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
-        publication_ids = self.values_list("publication_id", flat=True)
-        publication_qs = Publication.objects.filter(id__in=publication_ids)
-        publication_deletions = [publication_qs.delete()[1]] if publication_ids else []
-
-        deleted_entity_names = {
-            key for deletion in publication_deletions for key in deletion.keys()
-        }
-        counted_deletions = {entity_name: 0 for entity_name in deleted_entity_names}
-        counted_deletions.update(
-            {
-                entity_name: sum(deletion.get(entity_name, 0) for deletion in publication_deletions)
-                for entity_name in deleted_entity_names
-            }
-        )
-
-        _, fundingrequest_deletions = super().delete(*args, **kwargs)
-        counted_deletions = {
-            key: counted_deletions.get(key, 0) + fundingrequest_deletions.get(key, 0)
-            for key in set(counted_deletions) | set(fundingrequest_deletions)
-        }
-
-        return (sum(counted_deletions.values()), counted_deletions)
-
-
 class FundingRequest(models.Model):
-    objects = FundingRequestQuerySet.as_manager()
+    objects: FundingRequestManager = FundingRequestManager()
 
     PROCESSING_CHOICES = [
         (ReviewResult.Approved.value, "Approved"),

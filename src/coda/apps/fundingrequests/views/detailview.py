@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -10,10 +11,18 @@ from coda.domain.fundingrequest import FundingRequestId
 template_name = "fundingrequests/fundingrequest_detail.html"
 
 
+@dataclass(frozen=True)
+class _DummyRequestIdWrapper:
+    """This is just a wrapper because breadcrumbs currently work by attribute"""
+
+    name: str
+
+
 funding_request_breadcrumb_title = generate_dynamic_title(
     model_name="Funding Request",
-    fetch_fn=lambda pk: repository.get_by_id(FundingRequestId(int(pk))),
-    label_attr="request_id",
+    fetch_fn=lambda pk: _DummyRequestIdWrapper(
+        str(repository.get_request_id_for(FundingRequestId(int(pk))))
+    ),
     fallback_attr="id",
     default_title="Funding Request Details",
 )
