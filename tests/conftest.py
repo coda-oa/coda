@@ -31,39 +31,68 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
 
 
 @pytest.fixture(scope="session")
-def coda_page(
-    live_server: LiveServer,
-    django_db_blocker: DjangoDbBlocker,
-    django_db_setup: Any,
-) -> Generator[Page | None]:
-    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-    with django_db_blocker.unblock():
-        user = User.objects.create_superuser("superuser", password="superuser_password")
+def _browser_context(live_server: LiveServer) -> Generator[tuple[Page, LiveServer]]:
+    """
+    Session-scoped browser context for performance.
 
+    Creates a single browser instance shared across all UI tests.
+    Individual tests handle authentication separately.
+    """
+    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(channel="chromium")
+        context = browser.new_context()
+        page = context.new_page()
+
+        yield page, live_server
+
+        browser.close()
+
+
+@pytest.fixture
+def coda_page(
+    _browser_context: tuple[Page, LiveServer],
+    django_db_blocker: DjangoDbBlocker,
+) -> Generator[Page]:
+    """
+    Function-scoped fixture that provides an authenticated Playwright page.
+
+    Reuses the session-scoped browser (fast!) but authenticates fresh for each test
+    to avoid database rollback issues. Best of both worlds!
+    """
+    page, live_server = _browser_context
+
+    # Create fresh user for this test
+    with django_db_blocker.unblock():
+        # Clean up any existing test users to avoid conflicts
+        User.objects.filter(username="ui_test_user").delete()
+        user = User.objects.create_superuser("ui_test_user", password="test_password")
+
+        # Create new session
         session = SessionStore()
         session[SESSION_KEY] = str(user.pk)
         session[BACKEND_SESSION_KEY] = "django.contrib.auth.backends.ModelBackend"
         session[HASH_SESSION_KEY] = user.get_session_auth_hash()
         session.save()
 
-        with sync_playwright() as p:
-            browser = p.chromium.launch(channel="chromium")
-            context = browser.new_context()
-            context.add_cookies(
-                [
-                    {
-                        "name": "sessionid",
-                        "value": str(session.session_key),
-                        "domain": "localhost",
-                        "path": "/",
-                    }
-                ]
-            )
-            page = context.new_page()
-            page.goto(live_server.url)
-            yield page
+    # Update cookies for this test (reuses existing browser!)
+    page.context.clear_cookies()
+    page.context.add_cookies(
+        [
+            {
+                "name": "sessionid",
+                "value": str(session.session_key),
+                "domain": "localhost",
+                "path": "/",
+            }
+        ]
+    )
 
-            browser.close()
+    yield page
+
+    # Cleanup: clear cookies for next test
+    page.context.clear_cookies()
 
 
 @pytest.fixture

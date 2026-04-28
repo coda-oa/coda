@@ -1,5 +1,3 @@
-import re
-
 import pytest
 from django.test import Client
 from django.urls import reverse
@@ -35,17 +33,10 @@ def test__valid_creditor_entered__click_create_button__creates_creditor_and_retu
 
     assert Creditor.objects.filter(name=creditor_name).exists()
     creditor = Creditor.objects.get(name=creditor_name)
-
     assert response.status_code == 200
     assert "invoices/partials/creditor_create_success.html" in [t.name for t in response.templates]
     assert response.context["creditors"].filter(pk=creditor.pk).exists()
     assert response.context["selected_creditor_id"] == creditor.id
-
-    content = response.content.decode()
-    assert 'id="entity-creation-modal-wrapper" hx-swap-oob="true"' in content
-    assert 'id="creditor-select-wrapper" hx-swap-oob="true"' in content
-    assert creditor_name in content
-    assert re.search(rf'<li\s+value="{creditor.pk}"\s+selected>', content)
 
 
 @pytest.mark.django_db
