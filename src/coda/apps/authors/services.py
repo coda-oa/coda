@@ -1,66 +1,28 @@
 from typing import cast
 
 from django.core.exceptions import ValidationError
-from django.db.models import Model, Prefetch, QuerySet
 
-from coda.apps.authors.models import Author as AuthorModel, deserialize_role
+from coda.apps.authors.mappers import AuthorDomainMapper
+from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.models import PersonId, serialize_role
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
 from coda.domain.author import Author, AuthorId, InstitutionId
 from coda.domain.orcid import Orcid
 from coda.domain.publication import PublicationId
-from coda.domain.string import NonEmptyStr
-
-
-def prefetches_for(prefix: str | None = None) -> list[Prefetch[str, QuerySet[Model, Model], str]]:
-    """Return a Prefetch object to fully hydrate AuthorModel rows at the given
-    ORM traversal prefix, with identifier (PersonId) and affiliation (Institution)
-    loaded via select_related (avoiding N+1 on forward FKs).
-
-    Args:
-        prefix: ORM traversal path to the reverse FK relation, e.g.
-                "relevant_authors" or "publication__relevant_authors".
-                None defaults to "relevant_authors" (the standard field name
-                on PublicationModel).
-
-    Example:
-        PublicationModel.objects.prefetch_related(
-            *author_services.prefetches_for("relevant_authors")
-        )
-    """
-    field = prefix if prefix is not None else "relevant_authors"
-    return [
-        Prefetch(
-            field,
-            queryset=AuthorModel.objects.select_related("identifier", "affiliation"),
-        )
-    ]
 
 
 def first() -> Author | None:
-    model = AuthorModel.objects.first()
+    model = AuthorDomainMapper.prefetch(AuthorModel.objects.all()).first()
     if model is None:
         return None
 
-    return as_domain_object(model)
+    return AuthorDomainMapper.map(model)
 
 
 def get_by_id(author_id: AuthorId) -> Author:
     model = AuthorModel.objects.get(pk=author_id)
-    return as_domain_object(model)
-
-
-def as_domain_object(model: AuthorModel) -> Author:
-    person_id = cast(PersonId, model.identifier)
-    return Author.restore(
-        id=AuthorId(model.pk),
-        name=NonEmptyStr(model.name),
-        email=model.email or "",
-        orcid=Orcid(person_id.orcid) if person_id.orcid else None,
-        affiliation=InstitutionId(model.affiliation.pk) if model.affiliation else None,
-        role=deserialize_role(model.roles or ""),
-    )
+    return AuthorDomainMapper.map(model)
 
 
 def author_create(author: Author, publication: PublicationId | None = None) -> AuthorId:

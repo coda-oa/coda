@@ -15,7 +15,7 @@ from django.db.models import Prefetch
 from django.urls import reverse
 
 from coda.apps.fundingrequests.forms import ChooseLabelForm
-from coda.apps.fundingrequests.models import Label
+from coda.apps.fundingrequests.mappers import FundingRequestDetailMapper
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.publications.services import publications as publication_service
 from coda.contexts.fundingrequest.services import checks as checks_service
@@ -59,10 +59,8 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
     Returns:
         Context dict for template with mix of domain models and detail models
     """
-    from coda.apps.fundingrequests import mapper as fundingrequest_mapper
-
-    fr_model = FundingRequestModel.objects.for_detail().get(pk=fr_id)
-    fr = fundingrequest_mapper.as_domain_object(fr_model)
+    fr_model = FundingRequestDetailMapper.prefetch(FundingRequestModel.objects.all()).get(pk=fr_id)
+    fr = FundingRequestDetailMapper.map(fr_model)
 
     if fr.id is None:
         raise ValueError("Cannot create context for unsaved FundingRequest")

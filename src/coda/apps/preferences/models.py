@@ -5,9 +5,9 @@ from typing import Any, cast
 from django.db import models
 from django.db.models import Prefetch
 
+from coda.apps.publications.mappers import VocabularyDomainMapper
 from coda.apps.publications.models import Concept as ConceptModel
 from coda.apps.publications.models import Vocabulary as VocabularyModel
-from coda.apps.publications.repositories import vocabulary_repository
 from coda.domain.money import Currency
 from coda.domain.vocabulary import VocabularyProtocol
 
@@ -100,7 +100,7 @@ class GlobalPreferences(models.Model):
                 ),
                 Prefetch(
                     f"{prefix}__base_vocabulary",
-                    queryset=VocabularyModel.objects.for_domain(),
+                    queryset=VocabularyDomainMapper.prefetch(VocabularyModel.objects.all()),
                 ),
             ]
 
@@ -146,13 +146,13 @@ class GlobalPreferences(models.Model):
             prefs = cls._get_prefs_with_vocabularies()
 
         return PreloadedVocabularyProvider(
-            _article_publication_type_vocabulary=vocabulary_repository.as_domain_object(
+            _article_publication_type_vocabulary=VocabularyDomainMapper.map(
                 cast(VocabularyModel, prefs.article_publication_type_vocabulary)
             ),
-            _subject_classification_vocabulary=vocabulary_repository.as_domain_object(
+            _subject_classification_vocabulary=VocabularyDomainMapper.map(
                 cast(VocabularyModel, prefs.subject_classification_vocabulary)
             ),
-            _monograph_publication_type_vocabulary=vocabulary_repository.as_domain_object(
+            _monograph_publication_type_vocabulary=VocabularyDomainMapper.map(
                 cast(VocabularyModel, prefs.monograph_publication_type_vocabulary)
             ),
         )
@@ -166,7 +166,7 @@ class GlobalPreferences(models.Model):
             prefs = GlobalPreferences._get_prefs_with_vocabularies()
 
         vocabulary = cast(VocabularyModel, prefs.subject_classification_vocabulary)
-        return vocabulary_repository.as_domain_object(vocabulary)
+        return VocabularyDomainMapper.map(vocabulary)
 
     @staticmethod
     def get_article_publication_type_vocabulary() -> VocabularyProtocol:
@@ -177,7 +177,7 @@ class GlobalPreferences(models.Model):
             prefs = GlobalPreferences._get_prefs_with_vocabularies()
 
         vocabulary = cast(VocabularyModel, prefs.article_publication_type_vocabulary)
-        return vocabulary_repository.as_domain_object(vocabulary)
+        return VocabularyDomainMapper.map(vocabulary)
 
     @staticmethod
     def get_monograph_publication_type_vocabulary() -> VocabularyProtocol:
@@ -188,7 +188,7 @@ class GlobalPreferences(models.Model):
             prefs = GlobalPreferences._get_prefs_with_vocabularies()
 
         vocabulary = cast(VocabularyModel, prefs.monograph_publication_type_vocabulary)
-        return vocabulary_repository.as_domain_object(vocabulary)
+        return VocabularyDomainMapper.map(vocabulary)
 
     @staticmethod
     def get_home_currency() -> Currency:

@@ -6,6 +6,7 @@ from typing import Protocol
 from django.db.models import F, Prefetch, Q, QuerySet
 from django.db.models.functions import ExtractYear
 
+from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.models import FundingRequest, Label
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
@@ -272,18 +273,5 @@ def search(
     *criteria: FundingRequestSearchCriteria,
     sort_order: SortOrder = SortOrder.default(),
 ) -> QuerySet[FundingRequest]:
-    return (
-        FundingRequest.objects.filter(_to_query(*criteria))
-        .distinct()
-        .select_related(
-            "review",
-            "publication__article_journal",
-            "publication__monograph_publisher",
-        )
-        .prefetch_related(
-            Prefetch("labels", queryset=Label.objects.order_by("name")),
-            "publication__relevant_authors",
-            "publication__attached_contracts__contract",
-        )
-        .order_by(sort_order)
-    )
+    qs = FundingRequest.objects.filter(_to_query(*criteria)).distinct().order_by(sort_order)
+    return FundingRequestListMapper.prefetch(qs)

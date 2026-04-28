@@ -5,6 +5,7 @@ from django.db import transaction
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.fundingrequests import mapper as fundingrequest_mapper
+from coda.apps.fundingrequests.mappers import FundingRequestDomainMapper
 from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequestReview
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
@@ -153,13 +154,13 @@ def get_all_request_ids() -> list[str]:
 
 
 def first() -> AnyFundingRequest | None:
-    model = FundingRequestModel.objects.for_domain().first()
-    return fundingrequest_mapper.as_domain_object(model) if model else None
+    model = FundingRequestDomainMapper.prefetch(FundingRequestModel.objects.all()).first()
+    return FundingRequestDomainMapper.map(model) if model else None
 
 
 def get_by_id(id: FundingRequestId) -> AnyFundingRequest:
-    model = FundingRequestModel.objects.for_domain().get(pk=id)
-    return fundingrequest_mapper.as_domain_object(model)
+    model = FundingRequestDomainMapper.prefetch(FundingRequestModel.objects.all()).get(pk=id)
+    return FundingRequestDomainMapper.map(model)
 
 
 def all() -> Sequence[AnyFundingRequest]:
@@ -174,7 +175,7 @@ def all() -> Sequence[AnyFundingRequest]:
             "labels",
             "publication__relevant_authors",
         ),
-        fundingrequest_mapper.as_domain_object,
+        FundingRequestDomainMapper.map,
     )
 
 
@@ -195,8 +196,10 @@ def get_monograph_request(id: FundingRequestId) -> FundingRequest[Monograph]:
 
 
 def get_by_request_id(request_id: PublicFundingRequestId) -> AnyFundingRequest:
-    model = FundingRequestModel.objects.for_domain().get(request_id=str(request_id))
-    return fundingrequest_mapper.as_domain_object(model)
+    model = FundingRequestDomainMapper.prefetch(FundingRequestModel.objects.all()).get(
+        request_id=str(request_id)
+    )
+    return FundingRequestDomainMapper.map(model)
 
 
 def find_reference_by_publication(publication: PublicationId) -> FundingRequestReference | None:
@@ -207,8 +210,10 @@ def find_reference_by_publication(publication: PublicationId) -> FundingRequestR
 
 
 def get_by_publication_id(publication_id: PublicationId) -> AnyFundingRequest:
-    model = FundingRequestModel.objects.for_domain().get(publication_id=publication_id)
-    return fundingrequest_mapper.as_domain_object(model)
+    model = FundingRequestDomainMapper.prefetch(FundingRequestModel.objects.all()).get(
+        publication_id=publication_id
+    )
+    return FundingRequestDomainMapper.map(model)
 
 
 def _is_publication_type(

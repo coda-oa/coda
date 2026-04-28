@@ -2,13 +2,13 @@ from collections.abc import Collection, Sequence
 from typing import Any, cast
 
 from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.publications.mappers import VocabularyDomainMapper
 from coda.apps.publications.models import Concept as ConceptModel
 from coda.apps.publications.models import Vocabulary as VocabularyModel
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.errors import DomainError
 from coda.domain.publication import BasePublication
 from coda.domain.vocabulary import (
-    ConceptId,
     LimitedVocabulary,
     Vocabulary,
     VocabularyConcept,
@@ -41,7 +41,7 @@ class VocabularyInUseError(DomainError):
 def create(name: str, version: str) -> Vocabulary:
     return cast(
         Vocabulary,
-        as_domain_object(VocabularyModel.objects.create(name=name, version=version)),
+        VocabularyDomainMapper.map(VocabularyModel.objects.create(name=name, version=version)),
     )
 
 
@@ -49,7 +49,7 @@ def create_limited(base_vocabulary_id: VocabularyId, name: str) -> LimitedVocabu
     base_vocabulary = get_by_id(base_vocabulary_id)
     return cast(
         LimitedVocabulary,
-        as_domain_object(
+        VocabularyDomainMapper.map(
             VocabularyModel.objects.create(
                 name=name,
                 version=base_vocabulary.version,
@@ -62,11 +62,11 @@ def create_limited(base_vocabulary_id: VocabularyId, name: str) -> LimitedVocabu
 
 def get_by_id(id: VocabularyId) -> VocabularyProtocol:
     try:
-        v = VocabularyModel.objects.for_domain().get(pk=id)
+        v = VocabularyDomainMapper.prefetch(VocabularyModel.objects.all()).get(pk=id)
     except VocabularyModel.DoesNotExist:
         raise VocabularyNotFoundError(Vocabulary, query_name="id", query_value=id)
 
-    vocabulary = as_domain_object(v)
+    vocabulary = VocabularyDomainMapper.map(v)
 
     return vocabulary
 
@@ -89,43 +89,43 @@ def get_by_name(name: str) -> VocabularyProtocol:
             name — adding one is tracked as a follow-up task).
     """
     try:
-        v = VocabularyModel.objects.for_domain().get(name=name)
+        v = VocabularyDomainMapper.prefetch(VocabularyModel.objects.all()).get(name=name)
     except VocabularyModel.DoesNotExist:
         raise VocabularyNotFoundError(Vocabulary, query_name="name", query_value=name)
 
-    return as_domain_object(v)
+    return VocabularyDomainMapper.map(v)
 
 
 def newest_base_vocabulary_by_name(name: str) -> Vocabulary:
-    vocabularies_by_name = (
-        VocabularyModel.objects.for_domain()
-        .filter(name=name, is_limited=False)
-        .order_by("-version")
-    )
+    vocabularies_by_name = VocabularyDomainMapper.prefetch(
+        VocabularyModel.objects.filter(name=name, is_limited=False)
+    ).order_by("-version")
 
     v = vocabularies_by_name.first()
     if not v:
         raise VocabularyNotFoundError(Vocabulary, query_name="name", query_value=name)
 
-    return cast(Vocabulary, as_domain_object(v))
+    return cast(Vocabulary, VocabularyDomainMapper.map(v))
 
 
 def find_limited_by_base_vocabulary(base_vocabulary_id: VocabularyId) -> list[LimitedVocabulary]:
     return [
-        cast(LimitedVocabulary, as_domain_object(v))
-        for v in VocabularyModel.objects.for_domain().filter(base_vocabulary_id=base_vocabulary_id)
+        cast(LimitedVocabulary, VocabularyDomainMapper.map(v))
+        for v in VocabularyDomainMapper.prefetch(
+            VocabularyModel.objects.filter(base_vocabulary_id=base_vocabulary_id)
+        )
     ]
 
 
 def all() -> Sequence[VocabularyProtocol]:
-    queryset = VocabularyModel.objects.for_domain()
-    return DomainQuerySet(queryset, as_domain_object)
+    queryset = VocabularyDomainMapper.prefetch(VocabularyModel.objects.all())
+    return DomainQuerySet(queryset, VocabularyDomainMapper.map)
 
 
 def all_limited() -> list[LimitedVocabulary]:
     return [
-        cast(LimitedVocabulary, as_domain_object(v))
-        for v in VocabularyModel.objects.for_domain().filter(is_limited=True)
+        cast(LimitedVocabulary, VocabularyDomainMapper.map(v))
+        for v in VocabularyDomainMapper.prefetch(VocabularyModel.objects.filter(is_limited=True))
     ]
 
 
@@ -284,40 +284,3 @@ def delete(vocabulary: VocabularyProtocol) -> None:
         )
 
     VocabularyModel.objects.get(pk=id).delete()
-
-
-def as_domain_object(v: VocabularyModel) -> VocabularyProtocol:
-    vocabulary: VocabularyProtocol
-
-    if v.is_limited:
-        base_vocabulary_model = cast(VocabularyModel, v.base_vocabulary)
-
-        base_vocabulary_domain = as_domain_object(base_vocabulary_model)
-
-        vocabulary = LimitedVocabulary(
-            id=VocabularyId(v.pk),
-            base_vocabulary=base_vocabulary_domain,
-            name=v.name,
-            version=base_vocabulary_model.version,
-        )
-        for c in v.concepts.all():
-            vocabulary.disallow(c.concept_id)
-    else:
-        vocabulary = Vocabulary(
-            id=VocabularyId(v.pk),
-            name=v.name,
-            version=v.version,
-            concepts=[
-                VocabularyConcept(
-                    id=ConceptId(str(c.entity_id)),
-                    concept_id=c.concept_id,
-                    vocabulary=VocabularyId(v.pk),
-                    name=c.name,
-                    description=c.hint,
-                    parent=ConceptId(str(c.parent.entity_id)) if c.parent else None,
-                )
-                for c in v.concepts.all()
-            ],
-        )
-
-    return vocabulary

@@ -6,7 +6,6 @@ from coda.domain.author import AuthorNames
 from coda.domain.publication import License, OpenAccessType, UnpublishedState
 
 from ._attachedentities import PublicationAttachedConcept
-from .queryset_publication import PublicationManager
 
 
 class Publication(models.Model):
@@ -51,5 +50,3 @@ class Publication(models.Model):
     @property
     def authors(self) -> AuthorNames:
         return AuthorNames.from_str(self.author_list or "")
-
-    objects: PublicationManager = PublicationManager()
