@@ -8,8 +8,3 @@ Following CQRS-lite pattern:
 
 Function-based (not class-based) for simplicity (KISS).
 """
-
-from coda.apps.fundingrequests.queries.detail import get_detail_context
-from coda.apps.fundingrequests.queries.list import get_list_items
-
-__all__ = ["get_detail_context", "get_list_items"]

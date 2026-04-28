@@ -159,6 +159,48 @@ class PublicationDetail:
 
 
 @dataclass(frozen=True)
+class ReviewDetail:
+    """Flattened review state for display."""
+
+    value: str  # ReviewResult enum value string e.g. "open", "approved"
+    remarks: str
+    funding_amount: Any  # Money — kept as-is for template rendering
+
+
+@dataclass(frozen=True)
+class EstimatedCostDetail:
+    """Flattened estimated cost for display."""
+
+    amount: Any  # Money
+    method: Any  # PaymentMethod enum — template uses .value
+
+
+@dataclass(frozen=True)
+class FundingRequestDetail:
+    """Fully resolved detail model for the funding request detail view.
+
+    Replaces passing the domain AnyFundingRequest into the template.
+    All IDs resolved to names, all nested objects flattened to display values.
+    """
+
+    id: int
+    request_id: str
+    request_date: datetime.date
+    review: ReviewDetail
+    review_remarks: str  # convenience alias for review.remarks
+    funding_amount: Any  # decided amount (Money) — template shortcut
+    estimated_cost: EstimatedCostDetail
+    external_costsplitting: bool
+    publication: PublicationDetail
+    external_funding: list[ExternalFundingDetail]
+    updated_at: datetime.date
+    labels: Iterable[Any]  # Django Label QuerySet (avoid circular import)
+    edit_submitter_url: str
+    edit_funding_url: str
+    contact: Any  # FilledContact | NoContact — kept as-is for template rendering
+
+
+@dataclass(frozen=True)
 class FundingRequestListItem:
     """List item for funding request display.
 
