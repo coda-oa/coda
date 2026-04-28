@@ -1,22 +1,13 @@
-from urllib.parse import urlencode
-
 from django.db.models import Prefetch, QuerySet
-from django.urls import reverse
 
 from coda.apps.authors.mappers._domain import AuthorDomainMapper
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.contracts import mapper as contract_mapper
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
-from coda.apps.fundingrequests.queries.models import (
-    CoveredByContractDetail,
-    FundingRequestListItem,
-    IndividuallyPaidDetail,
-    InvoiceReceivedDetail,
-    PublicationPaymentDetail,
-    UnpaidDetail,
-)
+from coda.apps.fundingrequests.queries.mappers import PaymentDetailMapper
+from coda.apps.fundingrequests.queries.models import FundingRequestListItem
 from coda.domain.contract import ContractYear
-from coda.domain.publication.payment import PublicationCoveredByContract, PublicationPaymentStatus
+from coda.domain.publication.payment import PublicationPaymentStatus
 
 
 class FundingRequestListMapper:
@@ -43,7 +34,7 @@ class FundingRequestListMapper:
         model: FundingRequestModel,
         payment_status: PublicationPaymentStatus,
     ) -> FundingRequestListItem:
-        payment_detail = _map_payment_status(payment_status, model.request_id)
+        payment_detail = PaymentDetailMapper.map(payment_status, model.request_id)
         if model.publication.article_journal is not None:
             journal = model.publication.article_journal
             return FundingRequestListItem(
@@ -85,28 +76,6 @@ class FundingRequestListMapper:
                 journal_publisher_url=None,
                 has_invalid_contract_years=_has_invalid_contract_years(model),
             )
-
-
-def _map_payment_status(
-    payment_status: PublicationPaymentStatus, request_id: str
-) -> PublicationPaymentDetail:
-    if isinstance(payment_status, PublicationCoveredByContract):
-        return CoveredByContractDetail(
-            contract_id=str(payment_status.contract_id),
-            contract_name=payment_status.contract_name,
-            contract_year=str(payment_status.contract_year),
-            url=reverse("contracts:detail", kwargs={"pk": payment_status.contract_id}),
-        )
-
-    invoice_list_url = f"{reverse('invoices:list')}?{urlencode({'search_term': request_id})}"
-
-    if not payment_status.payments():
-        return UnpaidDetail()
-    if payment_status.all_paid():
-        return IndividuallyPaidDetail(url=invoice_list_url)
-    if payment_status.has_pending_payments():
-        return InvoiceReceivedDetail(url=invoice_list_url)
-    return UnpaidDetail()
 
 
 def _has_invalid_contract_years(model: FundingRequestModel) -> bool:

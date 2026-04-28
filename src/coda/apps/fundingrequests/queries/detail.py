@@ -7,9 +7,7 @@ Function-based query service following CQRS-lite pattern:
 - Returns domain models where they work fine
 """
 
-from collections.abc import Iterable
-from typing import Any
-from urllib.parse import urlencode
+from typing import Any, Literal
 
 from django.db.models import Prefetch
 from django.urls import reverse
@@ -20,26 +18,14 @@ from coda.apps.fundingrequests.models import FundingRequest as FundingRequestMod
 from coda.apps.publications.services import publications as publication_service
 from coda.contexts.fundingrequest.services import checks as checks_service
 from coda.domain.author import Author, InstitutionId
-from coda.domain.fundingrequest import FundingRequestId
-from coda.domain.publication import BasePublication
-from coda.domain.publication.payment import (
-    PublicationCoveredByContract,
-    PublicationPaymentStatus,
-)
+from coda.domain.fundingrequest import ExternalFunding, FundingRequestId
+from coda.domain.publication import BasePublication, Monograph, Publication
 
-from .builders import (
-    build_external_funding_details,
-    build_publication_detail_from_domain,
-    get_publication_edit_url,
-)
-from .models import (
-    AuthorDetail,
-    CoveredByContractDetail,
-    IndividuallyPaidDetail,
-    InvoiceReceivedDetail,
-    PublicationDetail,
-    PublicationPaymentDetail,
-    UnpaidDetail,
+from .mappers import (
+    AuthorDetailMapper,
+    ExternalFundingDetailMapper,
+    PaymentDetailMapper,
+    PublicationDetailMapper,
 )
 
 
@@ -47,11 +33,12 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
     """Get complete context for funding request detail view.
 
     Orchestrates all queries efficiently:
-    1. Fetch Django model with for_detail() — single query covering domain
+    1. Fetch Django model with prefetch — single query covering domain
        hydration AND display-only fields (labels, updated_at)
     2. Map to domain object via mapper
-    3. Build detail models where needed
-    4. Return complete context dict
+    3. Fetch supporting data (affiliations, org names, publishing entity)
+    4. Build detail models via view model mappers
+    5. Return complete context dict
 
     Args:
         fr_id: Funding request ID
@@ -67,13 +54,26 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
     if fr.publication.id is None:
         raise ValueError("Cannot create context for FundingRequest with unsaved Publication")
 
-    external_funding_details = build_external_funding_details(fr.external_funding)
+    # Fetch supporting data
+    affiliation_names = _fetch_affiliation_names(list(fr.publication.relevant_authors))
+    org_names = _fetch_org_names(list(fr.external_funding))
+    entity_type, entity_name, identifier_name, identifier = _fetch_publishing_entity(fr.publication)
+    payment_status = publication_service.get_payment_status(fr.publication.id)
 
-    publication_detail = _build_publication_detail(
+    # Build view models
+    author_details = AuthorDetailMapper.map_all(fr.publication.relevant_authors, affiliation_names)
+    payment_details = PaymentDetailMapper.map(payment_status, str(fr.request_id))
+    external_funding_details = ExternalFundingDetailMapper.map_all(fr.external_funding, org_names)
+    publication_detail = PublicationDetailMapper.map(
         pub=fr.publication,
-        fr_id=fr.id,
-        request_id=str(fr.request_id),
+        author_details=author_details,
+        edit_url=PublicationDetailMapper.get_edit_url(fr.publication, fr.id),
         request_remarks=fr.request_remarks,
+        payment_details=payment_details,
+        publishing_entity_type=entity_type,
+        publishing_entity_name=entity_name,
+        publishing_entity_identifier_name=identifier_name,
+        publishing_entity_identifier=identifier,
     )
 
     checkrun = checks_service.get_checkrun(fr.id)
@@ -87,25 +87,18 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
         "labels": fr_model.labels.all(),
         "label_form": ChooseLabelForm(),
         "checks": checkrun,
-        # Edit URLs for partials
         "edit_submitter_url": reverse("fundingrequests:update_submitter", kwargs={"pk": fr.id}),
         "edit_funding_url": reverse("fundingrequests:update_funding", kwargs={"pk": fr.id}),
     }
 
 
-def _fetch_affiliation_names(
-    authors: Iterable[Author],
-) -> dict[InstitutionId, str]:
-    """Bulk-fetch institution names for a set of authors.
+# ============================================================================
+# PRIVATE QUERY HELPERS
+# ============================================================================
 
-    Single query regardless of number of authors.
 
-    Args:
-        authors: Domain Author objects whose affiliation IDs to resolve
-
-    Returns:
-        Mapping of InstitutionId → institution name. Empty dict if no affiliations.
-    """
+def _fetch_affiliation_names(authors: list[Author]) -> dict[InstitutionId, str]:
+    """Bulk-fetch institution names for a set of authors (single query)."""
     # Local import to avoid circular dependency between fundingrequests and institutions apps
     from coda.apps.institutions.models import Institution
 
@@ -119,98 +112,32 @@ def _fetch_affiliation_names(
     }
 
 
-def _build_author_details(
-    authors: Iterable[Author],
-    affiliation_names: dict[InstitutionId, str],
-) -> list[AuthorDetail]:
-    """Convert domain Author objects to AuthorDetail.
+def _fetch_org_names(fundings: list[ExternalFunding]) -> dict[int, str]:
+    """Bulk-fetch funding organization names (single query)."""
+    from coda.apps.fundingrequests.models import FundingOrganization
 
-    Args:
-        authors: Domain Author objects (already loaded on publication)
-        affiliation_names: Pre-fetched mapping of InstitutionId → name
+    if not fundings:
+        return {}
 
-    Returns:
-        List of AuthorDetail with institution names resolved
-    """
-    return [
-        AuthorDetail(
-            name=author.name,
-            email=author.email,
-            affiliation=affiliation_names.get(author.affiliation, "") if author.affiliation else "",
-            role=author.role,
-            orcid=author.orcid,
-        )
-        for author in authors
-    ]
+    org_ids = [f.organization for f in fundings]
+    return {
+        org["id"]: org["name"]
+        for org in FundingOrganization.objects.filter(id__in=org_ids).values("id", "name")
+    }
 
 
-def _build_payment_details(
-    payment_status: PublicationPaymentStatus, request_id: str
-) -> PublicationPaymentDetail:
-    """Build payment details from payment status.
-
-    Args:
-        payment_status: Domain payment status
-        request_id: Funding request ID for invoice URL
-
-    Returns:
-        Appropriate payment detail model based on status
-    """
-    if isinstance(payment_status, PublicationCoveredByContract):
-        return CoveredByContractDetail(
-            contract_id=str(payment_status.contract_id),
-            contract_name=payment_status.contract_name,
-            contract_year=str(payment_status.contract_year),
-            url=reverse("contracts:detail", kwargs={"pk": payment_status.contract_id}),
-        )
-
-    invoice_list_url = f"{reverse('invoices:list')}?{urlencode({'search_term': request_id})}"
-
-    if not payment_status.payments():
-        return UnpaidDetail()
-
-    if payment_status.all_paid():
-        return IndividuallyPaidDetail(url=invoice_list_url)
-
-    if payment_status.has_pending_payments():
-        return InvoiceReceivedDetail(url=invoice_list_url)
-
-    return UnpaidDetail()
-
-
-def _build_publication_detail(
+def _fetch_publishing_entity(
     pub: BasePublication,
-    fr_id: FundingRequestId,
-    request_id: str,
-    request_remarks: str,
-) -> PublicationDetail:
-    """Build PublicationDetail with all resolved names.
+) -> tuple[Literal["Journal", "Publisher"], str, str, str]:
+    """Fetch publishing entity display info from DB (single query)."""
+    from coda.apps.journals.models import Journal
+    from coda.apps.publishers.models import Publisher
 
-    Authors and affiliation names are derived from the domain publication
-    object — no additional Django model queries needed.
-
-    Args:
-        pub: Domain publication with pre-loaded authors
-        fr_id: Funding request ID for URL generation
-        request_id: Funding request string ID for invoice URLs
-        request_remarks: Request remarks
-
-    Returns:
-        PublicationDetail with all display data resolved
-    """
-    edit_url = get_publication_edit_url(pub, fr_id)
-    affiliation_names = _fetch_affiliation_names(pub.relevant_authors)
-    author_details = _build_author_details(pub.relevant_authors, affiliation_names)
-
-    if pub.id is None:
-        raise ValueError("Publication must have an ID")
-    payment_status = publication_service.get_payment_status(pub.id)
-    payment_details = _build_payment_details(payment_status, request_id)
-
-    return build_publication_detail_from_domain(
-        pub=pub,
-        author_details=author_details,
-        edit_url=edit_url,
-        request_remarks=request_remarks,
-        payment_details=payment_details,
-    )
+    if isinstance(pub, Publication):
+        journal = Journal.objects.select_related("publisher").get(pk=pub.journal)
+        return ("Journal", f"{journal.title}, {journal.publisher.name}", "EISSN", journal.eissn)
+    elif isinstance(pub, Monograph):
+        publisher = Publisher.objects.get(pk=pub.publisher)
+        return ("Publisher", publisher.name, "", "")
+    else:
+        raise ValueError(f"Unknown publication type: {type(pub)}")
