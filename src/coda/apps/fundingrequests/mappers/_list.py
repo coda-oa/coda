@@ -2,7 +2,7 @@ from django.db.models import Prefetch, QuerySet
 
 from coda.apps.authors.mappers._domain import AuthorDomainMapper
 from coda.apps.authors.models import Author as AuthorModel
-from coda.apps.contracts import mapper as contract_mapper
+from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.queries.mappers import PaymentDetailMapper
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
@@ -80,7 +80,7 @@ class FundingRequestListMapper:
 
 def _has_invalid_contract_years(model: FundingRequestModel) -> bool:
     for attached_contract in model.publication.attached_contracts.all():
-        contract = contract_mapper.as_domain_object(attached_contract.contract)
+        contract = ContractDomainMapper.map(attached_contract.contract)
         if not ContractYear(attached_contract.contract_year, contract).is_in_contract_period():
             return True
     return False

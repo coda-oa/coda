@@ -6,7 +6,7 @@ from django.db.models import Model, Prefetch, QuerySet
 
 from coda.apps.authors.mappers._domain import AuthorDomainMapper
 from coda.apps.authors.models import Author as AuthorModel
-from coda.apps.contracts import mapper as contract_mapper
+from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.mappers import prefixed
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
@@ -67,7 +67,8 @@ class PublicationDomainMapper:
                 prefixed(prefix, "relevant_authors"),
                 queryset=AuthorDomainMapper.prefetch(AuthorModel.objects.all()),
             ),
-            prefixed(prefix, "attached_contracts"),
+            prefixed(prefix, "attached_contracts__contract__publishers"),
+            prefixed(prefix, "attached_contracts__contract__journals"),
             prefixed(prefix, "links__type"),
         )
         return qs
@@ -101,7 +102,7 @@ def _common_args(model: PublicationModel) -> dict[str, Any]:
         other_authors=AuthorNames.from_str(model.author_list or ""),
         publication_state=_deserialize_publication_state(model),
         contracts=tuple(
-            ContractYear(c.contract_year, contract_mapper.as_domain_object(c.contract))
+            ContractYear(c.contract_year, ContractDomainMapper.map(c.contract))
             for c in model.attached_contracts.order_by("id")
         ),
         links=_deserialize_links(model.links.all()),

@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts import repository
-from coda.apps.contracts import mapper as contract_mapper
+from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.contracts.forms import ContractForm, ContractLinkForm, EntityFormset
 from coda.apps.contracts.models import Contract as ContractModel, ContractLink, ContractLinkType
 from coda.apps.domainqueryset import DomainQuerySet
@@ -36,14 +36,14 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
         if search_term:
             contracts = contracts.filter(name__icontains=search_term)
 
-        return DomainQuerySet(contracts, contract_mapper.as_domain_object)
+        return DomainQuerySet(ContractDomainMapper.prefetch(contracts), ContractDomainMapper.map)
 
 
 @login_required
 @breadcrumb("Contract Detail", parent_url_name="contracts:list", preserve_filters=True)
 def contract_detail(request: HttpRequest, pk: int) -> HttpResponse:
     contract = get_object_or_404(ContractModel, pk=pk)
-    domain_contract = contract_mapper.as_domain_object(contract)
+    domain_contract = ContractDomainMapper.map(contract)
     return render(
         request,
         "contracts/contract_detail.html",

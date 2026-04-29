@@ -4,7 +4,7 @@ from typing import TypedDict, cast
 from django.db import models, transaction
 
 from coda.apps.authors import services as author_services
-from coda.apps.contracts import mapper as contract_mapper
+from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.publications.mappers import PublicationDomainMapper
@@ -262,7 +262,7 @@ def get_contracts_for_publications(
     for ac in attached_contracts:
         pub_id = PublicationId(ac.publication_id)
 
-        contract = contract_mapper.as_domain_object(ac.contract)
+        contract = ContractDomainMapper.map(ac.contract)
         contract_year = ContractYear(ac.contract_year, contract)
         result.setdefault(pub_id, []).append(contract_year)
 
@@ -270,7 +270,7 @@ def get_contracts_for_publications(
 
 
 def _map_to_contract_year(c: AttachedContract) -> ContractYear:
-    contract = contract_mapper.as_domain_object(c.contract)
+    contract = ContractDomainMapper.map(c.contract)
     return ContractYear(c.contract_year, contract)
 
 

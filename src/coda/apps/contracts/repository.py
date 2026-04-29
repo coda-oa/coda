@@ -2,45 +2,52 @@ from collections.abc import Iterable, Sequence
 
 from django.db import transaction
 
-from coda.apps.contracts import mapper
+from coda.apps.contracts import django_mapper
+from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.domain.contract import Contract, ContractId
 from coda.coda_itertools import LazyCachedIterable
+from coda.domain.contract import Contract, ContractId
 
 
 def first() -> Contract | None:
-    c = ContractModel.objects.first()
+    c = ContractDomainMapper.prefetch(ContractModel.objects.all()).first()
     if not c:
         return None
 
-    return mapper.as_domain_object(c)
+    return ContractDomainMapper.map(c)
 
 
 def get_by_id(id: ContractId) -> Contract:
-    contract_model = ContractModel.objects.get(pk=id)
-    return mapper.as_domain_object(contract_model)
+    contract_model = ContractDomainMapper.prefetch(ContractModel.objects.all()).get(pk=id)
+    return ContractDomainMapper.map(contract_model)
 
 
 def all() -> Sequence[Contract]:
-    return DomainQuerySet(ContractModel.objects.all(), mapper.as_domain_object)
+    return DomainQuerySet(
+        ContractDomainMapper.prefetch(ContractModel.objects.all()), ContractDomainMapper.map
+    )
 
 
 def get_by_name(name: str) -> Contract | None:
-    contract = ContractModel.objects.filter(name=name).first()
+    contract = ContractDomainMapper.prefetch(ContractModel.objects.all()).filter(name=name).first()
     if not contract:
         return None
 
-    return mapper.as_domain_object(contract)
+    return ContractDomainMapper.map(contract)
 
 
 def find_all_by_names(names: Iterable[str]) -> list[Contract]:
-    contracts = ContractModel.objects.filter(name__in=names).order_by("id")
-    return [mapper.as_domain_object(contract) for contract in contracts]
+    contracts = ContractDomainMapper.prefetch(
+        ContractModel.objects.filter(name__in=names).order_by("id")
+    )
+    return [ContractDomainMapper.map(contract) for contract in contracts]
 
 
 def get_active_contracts() -> Iterable[Contract]:
-    all_contracts = DomainQuerySet(ContractModel.objects.all(), mapper.as_domain_object)
+    all_contracts = DomainQuerySet(
+        ContractDomainMapper.prefetch(ContractModel.objects.all()), ContractDomainMapper.map
+    )
     all_active_contracts = LazyCachedIterable(
         contract for contract in all_contracts if contract.is_active()
     )
@@ -52,9 +59,9 @@ def create(contract: Contract) -> ContractId:
     if contract.id:
         raise ContractAlreadyExists(contract.id)
 
-    contract_model = mapper.as_django_model(contract)
+    contract_model = django_mapper.as_django_model(contract)
     contract_model.save()
-    mapper.synchronize_relationships(contract, contract_model)
+    django_mapper.synchronize_relationships(contract, contract_model)
     contract_model.save()
     return ContractId(contract_model.pk)
 
@@ -77,19 +84,19 @@ def create_many(contracts: Iterable[Contract]) -> list[Contract]:
     if not contracts:
         return []
 
-    models = [mapper.as_django_model(contract) for contract in contracts]
+    models = [django_mapper.as_django_model(contract) for contract in contracts]
     models = ContractModel.objects.bulk_create(models)
-    mapper.synchronize_relationships_bulk(contracts, models)
+    django_mapper.synchronize_relationships_bulk(contracts, models)
 
-    return [mapper.as_domain_object(model) for model in models]
+    return [ContractDomainMapper.map(model) for model in models]
 
 
 def update(contract: Contract) -> None:
     if not contract.id:
         raise UnsavedContract(contract)
 
-    contract_model = mapper.as_django_model(contract)
-    mapper.synchronize_relationships(contract, contract_model)
+    contract_model = django_mapper.as_django_model(contract)
+    django_mapper.synchronize_relationships(contract, contract_model)
     contract_model.save()
 
 
