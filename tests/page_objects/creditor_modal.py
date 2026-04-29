@@ -1,37 +1,12 @@
-from playwright.sync_api import Page, expect
+from tests.page_objects.entity_creation_modal import SimpleNameModal
 
 
-class CreditorModal:
-    def __init__(self, page: Page):
-        self.page = page
-        self._modal = page.locator("#entity-creation-modal")
+class CreditorModal(SimpleNameModal):
+    """
+    Page Object for the Creditor creation modal.
 
-    def should_be_visible(self) -> None:
-        expect(self._modal).to_be_visible()
+    Creditors have a simple 'name' field, so this inherits from SimpleNameModal
+    which provides all necessary functionality.
+    """
 
-    def should_not_be_visible(self) -> None:
-        expect(self._modal).not_to_be_visible()
-
-    def should_have_title(self, expected_title: str) -> None:
-        expect(self._modal.locator("h2")).to_have_text(expected_title)
-
-    def should_have_name_input(self) -> None:
-        expect(self._modal.locator('input[name="name"]')).to_be_visible()
-
-    def should_have_cancel_button(self) -> None:
-        expect(self._modal.get_by_role("button", name="Cancel")).to_be_visible()
-
-    def should_have_create_button(self) -> None:
-        expect(self._modal.get_by_role("button", name="Create")).to_be_visible()
-
-    def click_create_button(self) -> None:
-        self._modal.get_by_role("button", name="Create").click()
-
-    def click_cancel_button(self) -> None:
-        self._modal.get_by_role("button", name="Cancel").click()
-
-    def click_close_button(self) -> None:
-        self._modal.get_by_role("button", name="Close").click()
-
-    def fill_name(self, name: str) -> None:
-        self._modal.locator('input[name="name"]').fill(name)
+    pass

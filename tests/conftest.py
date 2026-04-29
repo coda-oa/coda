@@ -61,13 +61,13 @@ def coda_page(
     Reuses the session-scoped browser (fast!) but authenticates fresh for each test
     to avoid database rollback issues. Best of both worlds!
     """
-    page, live_server = _browser_context
+    page, _ = _browser_context
 
     # Create fresh user for this test
     with django_db_blocker.unblock():
         # Clean up any existing test users to avoid conflicts
-        User.objects.filter(username="ui_test_user").delete()
-        user = User.objects.create_superuser("ui_test_user", password="test_password")
+        User.objects.filter(username="superuser").delete()
+        user = User.objects.create_superuser("superuser", password="superuser_password")
 
         # Create new session
         session = SessionStore()
