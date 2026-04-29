@@ -1,22 +1,16 @@
-from decimal import Decimal
 from typing import TypedDict, cast
 
-from django.urls import reverse
 
-from coda.apps.contracts import mapper as contract_mapper
+from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.invoices import models as invoice_models
-from coda.coda_itertools import LazyCachedIterable
 from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import (
-    CreditorId,
     FundingSourceId,
     Invoice,
-    InvoiceId,
-    PaymentStatus,
 )
 from coda.domain.finance.invoice_positions import (
     ContractItem,
@@ -27,79 +21,8 @@ from coda.domain.finance.invoice_positions import (
     PublicationItem,
 )
 from coda.domain.finance.taxrate import TaxRate
-from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Currency, Money
 from coda.domain.publication import PublicationId
-
-
-def as_domain_object(model: invoice_models.Invoice) -> Invoice:
-    """Convert InvoiceModel to Invoice domain object."""
-    invoice = Invoice(
-        id=InvoiceId(model.pk),
-        date=model.date,
-        number=model.number,
-        creditor=CreditorId(model.creditor.pk),
-        status=PaymentStatus(model.status),
-        positions=LazyCachedIterable(
-            _as_position_domain_object(position) for position in model.positions.order_by("id")
-        ),
-        comment=model.comment,
-        external_invoice_id=model.external_invoice_id,
-    )
-
-    conversions = model.currency_conversions.all()
-    for conversion in conversions:
-        invoice.add_conversion(
-            conversion.exchange_rate, Currency.from_code(conversion.target_currency)
-        )
-
-    return invoice
-
-
-def as_list_item(model: invoice_models.Invoice) -> InvoiceListItem:
-    """
-    Convert InvoiceModel to InvoiceListItem using pre-computed annotations.
-    This version relies on database-level calculations for maximum performance.
-    """
-
-    net_amount = getattr(model, "net_total", Decimal("0"))
-    tax_amount = getattr(model, "tax_total", Decimal("0"))
-    total_amount = net_amount + tax_amount
-
-    has_invalid_contract_years = getattr(model, "has_invalid_contract_years", False)
-
-    currency_code = getattr(model, "first_position_currency", "EUR")
-    currency = Currency.from_code(currency_code)
-
-    net = Money(net_amount, currency)
-    tax = Money(tax_amount, currency)
-    total = Money(total_amount, currency)
-
-    conversions = {}
-    for conversion in model.currency_conversions.all():
-        conversions[Currency.from_code(conversion.target_currency)] = conversion.exchange_rate
-
-    creditor_name = model.creditor.name
-
-    url = reverse("invoices:detail", kwargs={"pk": model.pk})
-
-    return InvoiceListItem(
-        id=InvoiceId(model.pk),
-        number=model.number,
-        date=model.date,
-        creditor=CreditorId(model.creditor.pk),
-        creditor_name=creditor_name,
-        status=PaymentStatus(model.status),
-        currency=currency,
-        net=net,
-        tax=tax,
-        total=total,
-        comment=model.comment,
-        external_invoice_id=model.external_invoice_id,
-        conversions=conversions,
-        url=url,
-        has_invalid_contract_years=has_invalid_contract_years,
-    )
 
 
 def as_django_model(invoice: Invoice) -> invoice_models.Invoice:
@@ -275,7 +198,7 @@ def _extract_common_position_args(position: invoice_models.Position) -> _CommonP
 def _get_item_from_position_model(position: invoice_models.Position) -> PositionItemType:
     """Extract item from PositionModel."""
     if position.contract and position.contract_year:
-        contract = contract_mapper.as_domain_object(position.contract)
+        contract = ContractDomainMapper.map(position.contract)
         return ContractItem(
             ContractYear(position.contract_year, contract), ContractCostType(position.cost_type)
         )
