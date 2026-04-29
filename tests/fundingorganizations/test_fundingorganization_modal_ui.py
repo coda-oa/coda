@@ -6,7 +6,7 @@ from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest
 from coda.apps.publications.models import LinkType
 from tests import modelfactory
 from tests.page_objects.funding_organization_modal import FundingOrganizationModal
-from tests.page_objects.fundingrequest_page import FundingRequestUpdatePage
+from tests.page_objects.fundingrequest_funding_page import FundingRequestFundingPage
 
 
 def _create_test_funding_request() -> FundingRequest:
@@ -163,9 +163,9 @@ def test__fundingrequest_funding_section__click_close_button_in_funding_org_moda
 
 def navigate_to_funding_section_and_open_modal(
     coda_page: Page, live_server: LiveServer, funding_request: FundingRequest
-) -> tuple[FundingRequestUpdatePage, FundingOrganizationModal]:
-    funding_page = FundingRequestUpdatePage(coda_page, live_server.url)
-    funding_page.navigate_to_funding_section(funding_request.pk)
+) -> tuple[FundingRequestFundingPage, FundingOrganizationModal]:
+    funding_page = FundingRequestFundingPage(coda_page, live_server.url)
+    funding_page.navigate(funding_request.pk)
     funding_page.click_create_new_funding_organization_button()
 
     modal = FundingOrganizationModal(coda_page)
