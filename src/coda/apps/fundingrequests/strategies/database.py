@@ -5,6 +5,7 @@ from coda.apps.publications.dto import (
     PublicationBaseDto,
     PublicationDto,
 )
+from coda.apps.publications.repositories import publication_repository
 from coda.contexts.fundingrequest.dto.commands import (
     ExternalFundingDto,
     ExtraInformationDto,
@@ -43,11 +44,11 @@ class DatabasePersistenceStrategy:
         and the corresponding DTO is created via from_publication/from_monograph.
         """
 
-        fr = fundingrequest_repository.get_by_id(self.funding_request_id)
-        if isinstance(fr.publication, Publication):
-            return PublicationDto.from_publication(fr.publication)
-        elif isinstance(fr.publication, Monograph):
-            return MonographDto.from_monograph(fr.publication)
+        publication = publication_repository.get_by_fundingrequest_id(self.funding_request_id)
+        if isinstance(publication, Publication):
+            return PublicationDto.from_publication(publication)
+        elif isinstance(publication, Monograph):
+            return MonographDto.from_monograph(publication)
 
         raise ValueError("Invalid FundingRequest")
 

@@ -1,30 +1,25 @@
-import datetime
 from collections.abc import Callable
-from decimal import Decimal
-from typing import Any, NamedTuple, cast
+from dataclasses import dataclass
+from typing import Any
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
-from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices import invoice_query as iq
 from coda.apps.invoices import repository
-from coda.apps.invoices.models import Creditor
-from coda.apps.invoices.views.position_context import (
-    DefaultContext as _DefaultContext,
-)
-from coda.apps.invoices.views.position_context import (
-    funding_sources_context,
-)
+from coda.apps.invoices.models import Invoice as InvoiceModel
+from coda.apps.invoices.mappers import InvoiceDetailMapper
+from coda.apps.invoices.mappers._domain import InvoiceDomainMapper
+from coda.apps.invoices.views.position_context import DefaultContext as _DefaultContext
+from coda.apps.invoices.views.position_context import funding_sources_context
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
-from coda.contexts.finance.dto.detail_position_dtos import PositionDetailDto
 from coda.contexts.finance.dto.edit_position_dtos import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.contexts.finance.services import invoice_service
 from coda.domain.date import DateRange
@@ -36,7 +31,7 @@ from coda.domain.finance.invoice import (
     UnassignedCosts,
 )
 from coda.domain.invoice_list_item import InvoiceListItem
-from coda.domain.money import Currency, Money
+from coda.domain.money import Currency
 
 _advanced_search_fields = [
     "payment_status",
@@ -112,9 +107,15 @@ class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
 invoice_list = InvoiceListView.as_view()
 
 
+@dataclass
+class _InvoiceNumber:
+    id: int | str
+    number: str
+
+
 invoice_breadcrumb_title = generate_dynamic_title(
     model_name="Invoice",
-    fetch_fn=lambda pk: repository.get_by_id(InvoiceId(int(pk))),
+    fetch_fn=lambda pk: _InvoiceNumber(pk, repository.invoice_number_of(InvoiceId(int(pk)))),
     label_attr="number",
     fallback_attr="id",
     default_title="Invoice Details",
@@ -125,11 +126,14 @@ invoice_breadcrumb_title = generate_dynamic_title(
 @require_GET
 @breadcrumb(invoice_breadcrumb_title, parent_url_name="invoices:list", preserve_filters=True)
 def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
-    invoice = repository.get_by_id(InvoiceId(pk))
+    model = InvoiceDetailMapper.prefetch(InvoiceModel.objects.all()).get(pk=pk)
+    invoice = InvoiceDomainMapper.map(model)
+    base_vm = InvoiceDetailMapper.map(model)
     display_currency = Currency.from_code(
         request.GET.get("display_currency", invoice.currency().code)
     )
     display_invoice = invoice.convert(display_currency)
+    display_vm = base_vm.with_conversion(display_invoice)
     editable = False
     return render(
         request,
@@ -137,10 +141,10 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
         _DefaultContext
         | funding_sources_context()
         | {
-            "invoice": invoice_viewmodel(invoice),
+            "invoice": base_vm,
             "conversions": invoice.conversions(),
             "display_currency": display_currency,
-            "display_invoice": invoice_viewmodel(display_invoice),
+            "display_invoice": display_vm,
             "editable": editable,
         },
     )
@@ -171,31 +175,6 @@ def load_conversion_section(request: HttpRequest) -> HttpResponse:
             "home_currency": home_currency,
             "conversions": conversions,
         },
-    )
-
-
-def invoice_viewmodel(invoice: Invoice) -> "InvoiceViewModel":
-    creditor_name = Creditor.objects.get(id=invoice.creditor).name
-    id = cast(InvoiceId, invoice.id)
-    url = reverse("invoices:detail", kwargs={"pk": id})
-
-    return InvoiceViewModel(
-        id=id,
-        url=url,
-        status=invoice.status.name,
-        number=invoice.number,
-        date=invoice.date,
-        creditor=invoice.creditor,
-        creditor_name=creditor_name,
-        currency=invoice.currency(),
-        positions=[PositionDetailDto.from_position(p) for p in invoice.positions],
-        tax=invoice.tax(),
-        total=invoice.total(),
-        net=invoice.net(),
-        comment=invoice.comment,
-        external_invoice_id=invoice.external_invoice_id,
-        conversions=invoice.conversions(),
-        unassigned_costs=invoice.unassigned_costs().amount,
     )
 
 
@@ -235,22 +214,3 @@ def position_cost_type_options(request: HttpRequest) -> HttpResponse:
         "invoices/position_tax_rate.html",
         {"counter": counter, "tax_rate": tax_rate},
     )
-
-
-class InvoiceViewModel(NamedTuple):
-    id: int
-    url: str
-    status: str
-    number: str
-    date: datetime.date
-    creditor: int
-    creditor_name: str
-    currency: Currency
-    positions: list[PositionDetailDto]
-    tax: Money
-    total: Money
-    net: Money
-    comment: str
-    external_invoice_id: str
-    conversions: dict[Currency, Decimal]
-    unassigned_costs: Decimal

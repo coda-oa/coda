@@ -4,9 +4,8 @@ Converts session-stored preview DTOs to detail models.
 This allows reusing the existing fundingrequest_detail.html template structure.
 """
 
-from dataclasses import dataclass
 from functools import singledispatch
-from typing import Any, Literal
+from typing import Any
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.institutions import repository as institution_repository
@@ -19,15 +18,7 @@ from coda.domain.author import Role
 from coda.domain.orcid import Orcid
 from coda.domain.publication.links import Doi, Isbn, Link
 
-from .models import AuthorDetail, PublicationDetail, UnpaidDetail
-
-
-@dataclass
-class _EntityInfo:
-    type: Literal["Journal", "Publisher"]
-    name: str
-    identifier_name: str
-    identifier: str
+from .models import AuthorDetail, PublicationDetail, PublishingEntityInfo, UnpaidDetail
 
 
 def build_preview_context(preview_fr: PreviewFundingRequest, session_key: str) -> dict[str, Any]:
@@ -45,10 +36,7 @@ def build_preview_context(preview_fr: PreviewFundingRequest, session_key: str) -
     Returns:
         Context dict compatible with fundingrequest_detail.html template
     """
-    # Build author details from preview authors
     author_details = _build_author_details_from_dtos(preview_fr.publication.authors)
-
-    # Build publication detail directly from preview DTO (no domain objects needed)
     publication_detail = _build_publication_detail_from_preview(
         preview_pub=preview_fr.publication,
         author_details=author_details,
@@ -71,33 +59,27 @@ def _build_publication_detail_from_preview(
     preview_pub: PreviewArticle | PreviewMonograph,
     author_details: list[AuthorDetail],
 ) -> PublicationDetail:
-    """Build PublicationDetail directly from preview DTO without database lookups.
+    """Build PublicationDetail directly from preview DTO without ORM lookups.
 
-    This is preview-specific and doesn't require journal/publisher to exist in database.
-
-    Args:
-        preview_pub: Preview publication DTO
-        author_details: Already-converted author details
-
-    Returns:
-        PublicationDetail ready for template display
+    Preview-specific: journal/publisher need not exist in the database.
+    Publishing entity info is derived directly from the DTO.
     """
-    entity = _entity_info(preview_pub)
+    entity_type, entity_name, identifier_name, identifier = _entity_info(preview_pub)
 
     links: list[Link] = [Doi(preview_pub.doi)]
     if isinstance(preview_pub, PreviewMonograph) and preview_pub.isbn:
         links.append(Isbn(preview_pub.isbn))
 
     return PublicationDetail(
-        edit_url="",  # Preview is read-only
+        edit_url="",
         title=preview_pub.meta.title,
-        request_remarks="",  # No remarks in preview
+        request_remarks="",
         relevant_authors=author_details,
-        other_authors=[],  # Preview doesn't have other authors
-        publishing_entity_type=entity.type,
-        publishing_entity_name=entity.name,
-        publishing_entity_identifier_name=entity.identifier_name,
-        publishing_entity_identifier=entity.identifier,
+        other_authors=[],
+        publishing_entity_type=entity_type,
+        publishing_entity_name=entity_name,
+        publishing_entity_identifier_name=identifier_name,
+        publishing_entity_identifier=identifier,
         publication_state=preview_pub.meta.publication_state,
         online_publication_date=preview_pub.meta.online_publication_date,
         print_publication_date=preview_pub.meta.print_publication_date,
@@ -106,76 +88,59 @@ def _build_publication_detail_from_preview(
         subject_area=preview_pub.meta.subject_area.name,
         oa_type=preview_pub.meta.open_access_type,
         references=links,
-        contracts=[],  # No contracts in preview
-        payment_details=UnpaidDetail(),  # Preview is always unpaid
+        contracts=[],
+        payment_details=UnpaidDetail(),
     )
 
 
 @singledispatch
-def _entity_info(preview_pub: PreviewArticle | PreviewMonograph) -> _EntityInfo:
+def _entity_info(
+    preview_pub: PreviewArticle | PreviewMonograph,
+) -> PublishingEntityInfo:
     raise NotImplementedError(f"Unsupported publication type: {type(preview_pub)}")
 
 
 @_entity_info.register
-def _article_entity_info(article: PreviewArticle) -> _EntityInfo:
+def _(article: PreviewArticle) -> PublishingEntityInfo:
     if article.journal is None:
-        return _EntityInfo(
-            type="Journal", name="(journal not specified)", identifier_name="", identifier=""
-        )
+        return PublishingEntityInfo("Journal", "(journal not specified)", "", "")
 
     name = article.journal.title
     if article.publisher_name:
         name = f"{name}, {article.publisher_name}"
 
-    return _EntityInfo(
-        type="Journal",
-        name=name,
-        identifier_name="EISSN" if article.journal.eissn else "",
-        identifier=article.journal.eissn or "",
+    return PublishingEntityInfo(
+        "Journal", name, "EISSN" if article.journal.eissn else "", article.journal.eissn or ""
     )
 
 
 @_entity_info.register
-def _monograph_entity_info(monograph: PreviewMonograph) -> _EntityInfo:
-    return _EntityInfo(
-        type="Publisher",
-        name=monograph.publisher_name or "(publisher not specified)",
-        identifier_name="",
-        identifier="",
+def _(monograph: PreviewMonograph) -> PublishingEntityInfo:
+    return PublishingEntityInfo(
+        "Publisher", monograph.publisher_name or "(publisher not specified)", "", ""
     )
 
 
 def _build_author_details_from_dtos(author_dtos: list[AuthorDto]) -> list[AuthorDetail]:
-    """Convert AuthorDtos to AuthorDetails with affiliation names resolved.
-
-    Args:
-        author_dtos: List of AuthorDto objects
-
-    Returns:
-        List of AuthorDetail with institution names
-    """
-    result = []
-
+    """Convert AuthorDtos to AuthorDetails with affiliation names resolved (single query)."""
     affiliation_ids = [dto.affiliation for dto in author_dtos if dto.affiliation]
     institutions = {
         inst.pk: inst.name for inst in institution_repository.get_many_by_id(affiliation_ids)
     }
 
+    result = []
     for dto in author_dtos:
         affiliation_name = ""
         if dto.affiliation:
             affiliation_name = institutions.get(dto.affiliation, f"Unknown ({dto.affiliation})")
-
-        orcid = Orcid(dto.orcid) if dto.orcid else None
-        role = Role[dto.role] if dto.role else Role.CO_AUTHOR
 
         result.append(
             AuthorDetail(
                 name=dto.name,
                 email=dto.email or "",
                 affiliation=affiliation_name,
-                role=role,
-                orcid=orcid,
+                role=Role[dto.role] if dto.role else Role.CO_AUTHOR,
+                orcid=Orcid(dto.orcid) if dto.orcid else None,
             )
         )
 

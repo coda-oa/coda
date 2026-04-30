@@ -33,6 +33,11 @@ class VocabularyProvider(Protocol):
     def get_subject_classification_vocabulary(self) -> VocabularyProtocol: ...
 
 
+def _default_vocabulary_provider() -> VocabularyProvider:
+    """Return a ``PreloadedVocabularyProvider`` fetched in a single DB round-trip."""
+    return GlobalPreferences.preloaded()
+
+
 def _get_concepts_from_vocabulary(
     vocabulary: VocabularyProtocol, allow_extra: VocabularyConcept | None = None
 ) -> Collection[VocabularyConcept]:
@@ -96,12 +101,17 @@ class AllowedConcepts:
         cls,
         kind: Literal["article", "monograph"],
         *,
-        vocabulary_provider: VocabularyProvider = GlobalPreferences,
+        vocabulary_provider: VocabularyProvider | None = None,
     ) -> "AllowedConcepts":
         """No grandfather clause — only the current vocabulary is valid."""
+        provider = (
+            vocabulary_provider
+            if vocabulary_provider is not None
+            else _default_vocabulary_provider()
+        )
         return cls(
-            publication_types=_get_publication_types_for_kind(kind, vocabulary_provider),
-            subject_types=_get_subject_types(vocabulary_provider),
+            publication_types=_get_publication_types_for_kind(kind, provider),
+            subject_types=_get_subject_types(provider),
         )
 
     @classmethod
@@ -109,17 +119,20 @@ class AllowedConcepts:
         cls,
         publication: BasePublication,
         *,
-        vocabulary_provider: VocabularyProvider = GlobalPreferences,
+        vocabulary_provider: VocabularyProvider | None = None,
     ) -> "AllowedConcepts":
         """Grandfather clause: the publication's current concepts are always allowed,
         even if they have since been removed from the active vocabulary."""
+        provider = (
+            vocabulary_provider
+            if vocabulary_provider is not None
+            else _default_vocabulary_provider()
+        )
         return cls(
             publication_types=_get_publication_types_for_kind(
-                publication.kind, vocabulary_provider, allow_extra=publication.publication_type
+                publication.kind, provider, allow_extra=publication.publication_type
             ),
-            subject_types=_get_subject_types(
-                vocabulary_provider, allow_extra=publication.subject_area
-            ),
+            subject_types=_get_subject_types(provider, allow_extra=publication.subject_area),
         )
 
     @classmethod
@@ -129,7 +142,7 @@ class AllowedConcepts:
         publication_type: VocabularyConcept,
         subject_area: VocabularyConcept,
         *,
-        vocabulary_provider: VocabularyProvider = GlobalPreferences,
+        vocabulary_provider: VocabularyProvider | None = None,
     ) -> "AllowedConcepts":
         """Grandfather clause for when the domain object is not available.
 
@@ -138,11 +151,16 @@ class AllowedConcepts:
         The supplied concepts are grandfathered in the same way as
         ``for_existing_publication``.
         """
+        provider = (
+            vocabulary_provider
+            if vocabulary_provider is not None
+            else _default_vocabulary_provider()
+        )
         return cls(
             publication_types=_get_publication_types_for_kind(
-                kind, vocabulary_provider, allow_extra=publication_type
+                kind, provider, allow_extra=publication_type
             ),
-            subject_types=_get_subject_types(vocabulary_provider, allow_extra=subject_area),
+            subject_types=_get_subject_types(provider, allow_extra=subject_area),
         )
 
     def validate(

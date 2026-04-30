@@ -1,5 +1,4 @@
 import abc
-import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -9,7 +8,7 @@ from typing import TypeVar
 from django.db.models import Case, DecimalField, Exists, F, OuterRef, Q, QuerySet, Sum, Value, When
 from django.db.models.functions import Coalesce, ExtractYear
 
-from coda.apps.invoices import mapper as invoice_mapper
+from coda.apps.invoices.mappers._list import InvoiceListMapper
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
 from coda.domain.date import DateRange
@@ -206,7 +205,6 @@ def search(
     for c in criteria:
         query &= to_query(c)
 
-    logging.info("Query: %s", query)
     qs = InvoiceModel.objects.filter(query).distinct()
 
     list_items = get_sorted_list_items(qs, sort_by)
@@ -221,23 +219,20 @@ def get_sorted_list_items(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[
         "date_desc": _ordered_date_desc,
     }
     sort_function = sort_functions.get(sort_by, _ordered_date_desc)
-    qs = _annotate_position_based_data(
-        sort_function(qs).select_related("creditor").prefetch_related("currency_conversions")
-    )
-
-    return [invoice_mapper.as_list_item(model) for model in qs]
+    qs = _annotate_position_based_data(InvoiceListMapper.prefetch(sort_function(qs)))
+    return [
+        InvoiceListMapper.map(
+            model,
+            net_total=getattr(model, "net_total"),
+            tax_total=getattr(model, "tax_total"),
+            first_position_currency=getattr(model, "first_position_currency"),
+            has_invalid_contract_years=getattr(model, "has_invalid_contract_years"),
+        )
+        for model in qs
+    ]
 
 
 def _annotate_position_based_data(qs: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
-    """
-    Annotate invoice queryset with aggregated position data.
-
-    This function mirrors the domain behavior for cost calculations:
-    - Regular positions: net = cost, tax = cost * tax_rate
-    - VAT positions: net = 0, tax = cost (full amount is tax)
-
-    This matches VatCalculation and RegularCostCalculation in invoice_positions.py.
-    """
     return qs.annotate(
         net_total=Coalesce(
             Sum(

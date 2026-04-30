@@ -6,7 +6,6 @@ import pytest
 from django import forms
 from django.http import HttpRequest
 from django.test import RequestFactory
-from django.utils import timezone
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.authors.forms import AuthorFormset
@@ -332,13 +331,13 @@ def test__existing_author_with_archived_affiliation_in_store__using_archived_aff
     None
 ):
     affiliation = Institution.objects.create(name="Archived University")
-    affiliation.archived_at = timezone.now()
-    affiliation.save()
+    affiliation.archive()
 
     publication = domainfactory.publication()
     publication.relevant_authors = Authors(
         [domainfactory.author(affiliation=InstitutionId(affiliation.pk))]
     )
+
     publication_dto = PublicationDto.from_publication(publication)
 
     store = DictStore()

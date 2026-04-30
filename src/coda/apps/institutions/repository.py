@@ -14,7 +14,7 @@ def get_by_id(id: int) -> Institution:
 
 
 def get_many_by_id(ids: Container[int]) -> Iterable[Institution]:
-    return Institution.objects.filter(id__in=ids)
+    return Institution.all_objects.filter(pk__in=ids).distinct()
 
 
 def all() -> Iterable[Institution]:
@@ -24,6 +24,10 @@ def all() -> Iterable[Institution]:
 
 def non_virtuals() -> Iterable[Institution]:
     return Institution.objects.filter(virtual=False)
+
+
+def active_non_virtuals() -> Iterable[Institution]:
+    return Institution.objects.filter(virtual=False, archived_at__isnull=True)
 
 
 def first_by_name(name: str) -> Institution | None:

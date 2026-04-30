@@ -377,6 +377,7 @@ def test__search_with_invalid_contract_year_criteria__filters_correctly() -> Non
 def test__get_list_items__includes_publication_state() -> None:
     fr = modelfactory.fundingrequest()
     fr.publication.publication_state = "Published"
+    fr.publication.online_publication_date = datetime.date(2023, 1, 1)
     fr.publication.save()
 
     queryset = FundingRequestModel.objects.filter(id=fr.pk)

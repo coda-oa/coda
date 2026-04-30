@@ -1,22 +1,5 @@
 from coda.apps.contracts.models import Contract as ContractModel
-from coda.domain.contract import Contract, ContractId, PublicationBilling, PublisherId
-from coda.domain.date import DateRange
-from coda.domain.publication.publication import JournalId
-from coda.domain.string import NonEmptyStr
-from coda.coda_itertools import LazyCachedIterable
-
-
-def as_domain_object(contract_model: ContractModel) -> Contract:
-    return Contract(
-        id=ContractId(contract_model.pk),
-        name=NonEmptyStr(contract_model.name),
-        publishers=LazyCachedIterable(
-            PublisherId(p.pk) for p in contract_model.publishers.iterator()
-        ),
-        journals=LazyCachedIterable(JournalId(j.pk) for j in contract_model.journals.iterator()),
-        period=DateRange.create(start=contract_model.start_date, end=contract_model.end_date),
-        publication_billing=PublicationBilling(contract_model.publication_billing),
-    )
+from coda.domain.contract import Contract
 
 
 def as_django_model(contract: Contract) -> ContractModel:
@@ -61,24 +44,20 @@ def synchronize_relationships_bulk(contracts: list[Contract], models: list[Contr
         - Executes 1 query for publishers + 1 query for journals when relationships exist
         - Significantly faster than calling .set() in a loop (N×2 queries)
     """
-    # Collect all publisher relationships across all contracts
     publisher_through_entries = [
         ContractModel.publishers.through(contract_id=model.pk, publisher_id=publisher_id)
         for contract, model in zip(contracts, models)
         for publisher_id in contract.publishers
     ]
 
-    # Collect all journal relationships across all contracts
     journal_through_entries = [
         ContractModel.journals.through(contract_id=model.pk, journal_id=journal_id)
         for contract, model in zip(contracts, models)
         for journal_id in contract.journals
     ]
 
-    # Bulk insert publisher relationships (single query, or 0 if empty)
     if publisher_through_entries:
         ContractModel.publishers.through.objects.bulk_create(publisher_through_entries)
 
-    # Bulk insert journal relationships (single query, or 0 if empty)
     if journal_through_entries:
         ContractModel.journals.through.objects.bulk_create(journal_through_entries)
