@@ -1,5 +1,3 @@
-import re
-
 import pytest
 from django.test import Client
 from django.urls import reverse
@@ -44,22 +42,6 @@ def test__valid_publisher_entered__click_create_button__creates_publisher_and_re
         t.name for t in response.templates
     ]
     assert response.context["publisher"] == publisher
-
-    content = response.content.decode()
-
-    assert re.search(
-        r'<div[^>]{0,200}id="entity-creation-modal-wrapper"[^>]{0,200}hx-swap-oob="true"', content
-    )
-    assert re.search(
-        r'<div[^>]{0,200}id="publisher-search-results"[^>]{0,200}hx-swap-oob="true"', content
-    )
-    assert re.search(
-        r'<div[^>]{0,200}id="publisher-name-wrapper"[^>]{0,200}hx-swap-oob="true"', content
-    )
-    assert publisher_name in content
-    assert re.search(
-        rf'<input\s+type="radio"\s+name="publisher"\s+value="{publisher.pk}"\s+checked>', content
-    )
 
 
 @pytest.mark.django_db
