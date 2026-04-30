@@ -6,10 +6,8 @@ from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Literal,
-    NamedTuple,
     NewType,
     Self,
-    TypeAlias,
     TypeGuard,
     TypeVar,
 )
@@ -83,7 +81,24 @@ class InvalidPublicationState(DomainError):
     pass
 
 
-class Unpublished(NamedTuple):
+@dataclass(slots=True, frozen=True)
+class PublicationState(ABC):
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+    @staticmethod
+    def parse(
+        state: str, online: datetime.date | None = None, print: datetime.date | None = None
+    ) -> "PublicationState":
+        if state.lower() == Published.name().lower():
+            return Published(online=online, print=print)
+
+        return Unpublished.of(state)
+
+
+@dataclass(slots=True, frozen=True)
+class Unpublished(PublicationState):
     state: UnpublishedState = UnpublishedState.Unknown
 
     @classmethod
@@ -99,7 +114,7 @@ class Unpublished(NamedTuple):
 
 
 @dataclass(slots=True, frozen=True)
-class Published:
+class Published(PublicationState):
     online: datetime.date | None = None
     print: datetime.date | None = None
 
@@ -110,9 +125,6 @@ class Published:
     @staticmethod
     def name() -> str:
         return "Published"
-
-
-PublicationState: TypeAlias = Unpublished | Published
 
 
 class TooManySubmittingAuthors(DomainError):
