@@ -135,17 +135,16 @@ Or for local enviroments:
 
 ### Running the Upgrade
 
-To upgrade PostgreSQL to a new version, use the upgrade script with the version specified in the CODA release notes:
+To upgrade PostgreSQL to a new version, use the upgrade:
 
 ```{code-block} bash
-./commands/upgrade-postgres.sh --production --postgres-version <version>
+./commands/upgrade-postgres.sh --production
 ```
 
-**Example:**
+Or for local enviroments:
 
-If the release notes specify upgrading to PostgreSQL 17:
 ```{code-block} bash
-./commands/upgrade-postgres.sh --production --postgres-version 17
+./commands/upgrade-postgres.sh --local 
 ```
 
 ### What the Script Does
@@ -155,20 +154,11 @@ The upgrade script automatically performs the following steps:
 1. **Creates a backup** of your current database
 2. **Stops CODA** services to ensure data consistency
 3. **Upgrades the database** using [pgautoupgrade](https://github.com/pgautoupgrade/docker-pgautoupgrade)
-4. **Updates configuration** to use the new PostgreSQL version
-5. **Rebuilds the database container** with the new version
-6. **Starts PostgreSQL** and waits for it to be ready
-7. **Fixes collation mismatches** automatically if any (see below)
+4. **Rebuilds the database container** with the new version
+5. **Starts PostgreSQL** and waits for it to be ready
+6. **Fixes collation mismatches** automatically if any (see below)
 
 The entire process typically takes a few minutes, depending on your database size.
-
-### For Local Development
-
-To upgrade a local development database use:
-
-```{code-block} bash
-./commands/upgrade-postgres.sh --local --postgres-version <version>
-```
 
 ### Fixing Collation Version Mismatches
 
@@ -201,6 +191,7 @@ Or for local development:
 ```
 
 Or for local development:
+
 ```{code-block} bash
 ./commands/start-coda.sh --local
 ```
