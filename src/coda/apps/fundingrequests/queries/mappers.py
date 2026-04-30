@@ -153,9 +153,11 @@ class PublicationDetailMapper:
         publishing_entity_identifier_name: str,
         publishing_entity_identifier: str,
     ) -> PublicationDetail:
-        publication_date: datetime.date | None = None
+        online_publication_date: datetime.date | None = None
+        print_publication_date: datetime.date | None = None
         if isinstance(pub.publication_state, Published):
-            publication_date = pub.publication_state.online
+            online_publication_date = pub.publication_state.online
+            print_publication_date = pub.publication_state.print
 
         return PublicationDetail(
             edit_url=edit_url,
@@ -168,7 +170,8 @@ class PublicationDetailMapper:
             publishing_entity_identifier_name=publishing_entity_identifier_name,
             publishing_entity_identifier=publishing_entity_identifier,
             publication_state=pub.publication_state.name(),
-            publication_date=publication_date,
+            online_publication_date=online_publication_date,
+            print_publication_date=print_publication_date,
             license=pub.license.value,
             publication_type=pub.publication_type.name,
             subject_area=pub.subject_area.name,

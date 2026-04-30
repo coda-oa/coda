@@ -229,6 +229,7 @@ def test__searching_for_funding_requests_by_publications_publication_state__show
 ) -> None:
     matching_request = modelfactory.fundingrequest()
     matching_request.publication.publication_state = "Published"
+    matching_request.publication.online_publication_date = datetime.date(2023, 1, 1)
     matching_request.publication.save()
 
     non_matching_request = modelfactory.fundingrequest()
