@@ -12,7 +12,7 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 from coda import formdata
-from coda.apps.contracts import mapper as contract_mapper
+from coda.apps.contracts.mappers._domain import ContractDomainMapper
 from coda.apps.contracts.models import ContractLink, ContractLinkType
 from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.invoices import repository
@@ -77,7 +77,7 @@ def test__searching_for_publication_with_funding_request_id__returns_matches_in_
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__searching_for_contract__returns_matches_in_response(client: Client) -> None:
-    contract = contract_mapper.as_domain_object(modelfactory.contract())
+    contract = ContractDomainMapper.map(modelfactory.contract())
     response = client.post(reverse("invoices:contract_search"), {"contract_query": contract.name})
 
     expected_context = expect_contract_search_result(contract)
@@ -99,7 +99,7 @@ def test__searching_for_contract_with_esac__returns_matches_in_response(
 
     response = client.post(reverse("invoices:contract_search"), {"contract_query": esac_link.value})
 
-    contract = contract_mapper.as_domain_object(contract_model)
+    contract = ContractDomainMapper.map(contract_model)
     expected_context = expect_contract_search_result(contract)
     assert [expected_context] == response.context["contracts"]
 
@@ -119,7 +119,7 @@ def test__add_publication_as_position__returns_position_in_response(client: Clie
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__add_contract_as_position__returns_position_in_response(client: Client) -> None:
-    contract = contract_mapper.as_domain_object(modelfactory.contract())
+    contract = ContractDomainMapper.map(modelfactory.contract())
     contract_year = domainfactory.contract_year(contract)
     expected = expect_new_contract_position(contract_year)
 
@@ -148,7 +148,7 @@ def test__posting_position_data__includes_positions_in_context___position_list(
     publication = modelfactory.publication()
     publication_position = domainfactory.publication_position(PublicationId(publication.pk))
 
-    contract = contract_mapper.as_domain_object(modelfactory.contract())
+    contract = ContractDomainMapper.map(modelfactory.contract())
     contract_year = domainfactory.contract_year(contract)
     contract_position = domainfactory.contract_position(contract_year)
 
@@ -193,7 +193,7 @@ def test__given_positions__create__saves_new_invoice__position_list(client: Clie
         PublicationId(publication.pk), currency=Currency.JPY
     )
 
-    contract = contract_mapper.as_domain_object(modelfactory.contract())
+    contract = ContractDomainMapper.map(modelfactory.contract())
     contract_year = domainfactory.contract_year(contract)
     contract_position = domainfactory.contract_position(contract_year, currency=Currency.JPY)
 
@@ -255,7 +255,7 @@ def invoice_post_data(
 def test__adding_position_with_invalid_contract_year__adds_position_with_error(
     client: Client,
 ) -> None:
-    contract = contract_mapper.as_domain_object(modelfactory.contract())
+    contract = ContractDomainMapper.map(modelfactory.contract())
     contract_item_dto = ContractItemDto(
         id=cast(int, contract.id),
         name=contract.name,
@@ -275,7 +275,7 @@ def test__adding_position_with_invalid_contract_year__adds_position_with_error(
 def test__given_position_with_invalid_contract_year__create__returns_error(
     client: Client,
 ) -> None:
-    contract = contract_mapper.as_domain_object(modelfactory.contract())
+    contract = ContractDomainMapper.map(modelfactory.contract())
     contract_item_dto = ContractItemDto(
         id=cast(int, contract.id),
         name=contract.name,
