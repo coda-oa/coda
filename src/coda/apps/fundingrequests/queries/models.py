@@ -12,11 +12,18 @@ created for the detail view.
 import datetime
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 from coda.domain.author import Role
 from coda.domain.orcid import Orcid
 from coda.domain.publication.links import Link
+
+
+class PublishingEntityInfo(NamedTuple):
+    entity_type: Literal["Journal", "Publisher"]
+    entity_name: str
+    identifier_name: str
+    identifier: str
 
 
 @dataclass

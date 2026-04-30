@@ -22,7 +22,6 @@ Usage:
 
 import datetime
 from collections.abc import Iterable
-from typing import Literal
 from urllib.parse import urlencode
 
 from django.urls import reverse
@@ -43,6 +42,7 @@ from .models import (
     InvoiceReceivedDetail,
     PublicationDetail,
     PublicationPaymentDetail,
+    PublishingEntityInfo,
     UnpaidDetail,
 )
 
@@ -148,10 +148,7 @@ class PublicationDetailMapper:
         edit_url: str,
         request_remarks: str,
         payment_details: PublicationPaymentDetail,
-        publishing_entity_type: Literal["Journal", "Publisher"],
-        publishing_entity_name: str,
-        publishing_entity_identifier_name: str,
-        publishing_entity_identifier: str,
+        publishing_entity: PublishingEntityInfo,
     ) -> PublicationDetail:
         online_publication_date: datetime.date | None = None
         print_publication_date: datetime.date | None = None
@@ -165,10 +162,10 @@ class PublicationDetailMapper:
             request_remarks=request_remarks,
             relevant_authors=author_details,
             other_authors=list(pub.other_authors),
-            publishing_entity_type=publishing_entity_type,
-            publishing_entity_name=publishing_entity_name,
-            publishing_entity_identifier_name=publishing_entity_identifier_name,
-            publishing_entity_identifier=publishing_entity_identifier,
+            publishing_entity_type=publishing_entity.entity_type,
+            publishing_entity_name=publishing_entity.entity_name,
+            publishing_entity_identifier_name=publishing_entity.identifier_name,
+            publishing_entity_identifier=publishing_entity.identifier,
             publication_state=pub.publication_state.name(),
             online_publication_date=online_publication_date,
             print_publication_date=print_publication_date,

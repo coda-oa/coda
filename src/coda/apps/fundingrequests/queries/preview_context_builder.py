@@ -5,9 +5,10 @@ This allows reusing the existing fundingrequest_detail.html template structure.
 """
 
 from functools import singledispatch
-from typing import Any, Literal
+from typing import Any
 
 from coda.apps.authors.dto import AuthorDto
+from coda.apps.institutions import repository as institution_repository
 from coda.contexts.publication.dto.preview import (
     PreviewArticle,
     PreviewFundingRequest,
@@ -17,7 +18,7 @@ from coda.domain.author import Role
 from coda.domain.orcid import Orcid
 from coda.domain.publication.links import Doi, Isbn, Link
 
-from .models import AuthorDetail, PublicationDetail, UnpaidDetail
+from .models import AuthorDetail, PublicationDetail, PublishingEntityInfo, UnpaidDetail
 
 
 def build_preview_context(preview_fr: PreviewFundingRequest, session_key: str) -> dict[str, Any]:
@@ -95,31 +96,33 @@ def _build_publication_detail_from_preview(
 @singledispatch
 def _entity_info(
     preview_pub: PreviewArticle | PreviewMonograph,
-) -> tuple[Literal["Journal", "Publisher"], str, str, str]:
+) -> PublishingEntityInfo:
     raise NotImplementedError(f"Unsupported publication type: {type(preview_pub)}")
 
 
 @_entity_info.register
-def _(article: PreviewArticle) -> tuple[Literal["Journal", "Publisher"], str, str, str]:
+def _(article: PreviewArticle) -> PublishingEntityInfo:
     if article.journal is None:
-        return ("Journal", "(journal not specified)", "", "")
+        return PublishingEntityInfo("Journal", "(journal not specified)", "", "")
 
     name = article.journal.title
     if article.publisher_name:
         name = f"{name}, {article.publisher_name}"
 
-    return ("Journal", name, "EISSN" if article.journal.eissn else "", article.journal.eissn or "")
+    return PublishingEntityInfo(
+        "Journal", name, "EISSN" if article.journal.eissn else "", article.journal.eissn or ""
+    )
 
 
 @_entity_info.register
-def _(monograph: PreviewMonograph) -> tuple[Literal["Journal", "Publisher"], str, str, str]:
-    return ("Publisher", monograph.publisher_name or "(publisher not specified)", "", "")
+def _(monograph: PreviewMonograph) -> PublishingEntityInfo:
+    return PublishingEntityInfo(
+        "Publisher", monograph.publisher_name or "(publisher not specified)", "", ""
+    )
 
 
 def _build_author_details_from_dtos(author_dtos: list[AuthorDto]) -> list[AuthorDetail]:
     """Convert AuthorDtos to AuthorDetails with affiliation names resolved (single query)."""
-    from coda.apps.institutions import repository as institution_repository
-
     affiliation_ids = [dto.affiliation for dto in author_dtos if dto.affiliation]
     institutions = {
         inst.pk: inst.name for inst in institution_repository.get_many_by_id(affiliation_ids)

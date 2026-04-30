@@ -1,5 +1,4 @@
 import datetime
-from typing import Literal
 
 from django.db.models import Prefetch, QuerySet
 from django.urls import reverse
@@ -13,6 +12,7 @@ from coda.apps.fundingrequests.queries.models import (
     ExternalFundingDetail,
     FundingRequestDetail,
     PublicationPaymentDetail,
+    PublishingEntityInfo,
     ReviewDetail,
 )
 from coda.apps.publications.mappers._domain import PublicationDomainMapper
@@ -46,9 +46,7 @@ class FundingRequestDetailMapper:
     ) -> FundingRequestDetail:
         fr = FundingRequestDomainMapper.map(model)
         pub_model = model.publication
-        entity_type, entity_name, identifier_name, identifier = _resolve_publishing_entity(
-            pub_model
-        )
+        publishing_entity = _resolve_publishing_entity(pub_model)
 
         author_details = AuthorDetailMapper.map_all(
             fr.publication.relevant_authors, affiliation_names
@@ -60,10 +58,7 @@ class FundingRequestDetailMapper:
             edit_url=_get_edit_url(pub_model, model.pk),
             request_remarks=model.request_remarks,
             payment_details=payment_details,
-            publishing_entity_type=entity_type,
-            publishing_entity_name=entity_name,
-            publishing_entity_identifier_name=identifier_name,
-            publishing_entity_identifier=identifier,
+            publishing_entity=publishing_entity,
         )
 
         external_funding = [
@@ -107,18 +102,16 @@ class FundingRequestDetailMapper:
         )
 
 
-def _resolve_publishing_entity(
-    pub_model: PublicationModel,
-) -> tuple[Literal["Journal", "Publisher"], str, str, str]:
+def _resolve_publishing_entity(pub_model: PublicationModel) -> PublishingEntityInfo:
     if pub_model.article_journal is not None:
         journal = pub_model.article_journal
         publisher_name = journal.publisher.name if journal.publisher else ""
         name = f"{journal.title}, {publisher_name}" if publisher_name else journal.title
-        return ("Journal", name, "EISSN", journal.eissn or "")
+        return PublishingEntityInfo("Journal", name, "EISSN", journal.eissn or "")
     else:
         publisher = pub_model.monograph_publisher
         assert publisher is not None
-        return ("Publisher", publisher.name, "", "")
+        return PublishingEntityInfo("Publisher", publisher.name, "", "")
 
 
 def _get_edit_url(pub_model: PublicationModel, fr_id: int) -> str:
