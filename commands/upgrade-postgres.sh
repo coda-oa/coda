@@ -60,4 +60,33 @@ echo "Shutting down CODA before PostgreSQL upgrade"
 source ${script_dir}/stop-coda.sh
 stop_coda
 
-docker run --rm -e PGAUTO_ONESHOT=yes --env-file $POSTGRES_ENV_FILE -v ${POSTGRES_DATA_VOLUME}:/var/lib/postgresql/data pgautoupgrade/pgautoupgrade:${POSTGRES_VERSION}-alpine
+echo "Using pgautoupgrade image: pgautoupgrade/pgautoupgrade:${POSTGRES_VERSION}"
+docker run --rm -e PGAUTO_ONESHOT=yes --env-file $POSTGRES_ENV_FILE -v ${POSTGRES_DATA_VOLUME}:/var/lib/postgresql/data pgautoupgrade/pgautoupgrade:${POSTGRES_VERSION}
+
+echo ""
+echo "# PostgreSQL upgrade completed. Rebuilding container with new version..."
+echo ""
+
+# Rebuild postgres image with new version
+docker compose -f $COMPOSE_FILE --env-file $ENV_DIR/coda.env --env-file $POSTGRES_ENV_FILE build --build-arg POSTGRES_VERSION=${POSTGRES_VERSION} postgres
+
+echo ""
+echo "# Starting PostgreSQL ${POSTGRES_VERSION} and checking collation version..."
+echo ""
+
+# Start with the new version
+docker compose -f $COMPOSE_FILE --env-file $ENV_DIR/coda.env --env-file $POSTGRES_ENV_FILE up -d postgres
+
+# Wait for postgres to be ready (with retries)
+echo "Waiting for PostgreSQL to be ready..."
+for i in {1..30}; do
+    if docker compose -f $COMPOSE_FILE --env-file $ENV_DIR/coda.env --env-file $POSTGRES_ENV_FILE exec -T postgres pg_isready -U django > /dev/null 2>&1; then
+        echo "PostgreSQL is ready!"
+        break
+    fi
+    echo "Waiting... ($i/30)"
+    sleep 2
+done
+
+# Run collation fix
+docker compose -f $COMPOSE_FILE --env-file $ENV_DIR/coda.env --env-file $POSTGRES_ENV_FILE run --rm postgres fix-collation

@@ -1,7 +1,6 @@
-version: "3"
-
 volumes:
   coda_local_postgres_data: {}
+  coda_local_postgres_data_backups: {}
 
 services:
   django:
@@ -29,11 +28,17 @@ services:
     command: /start
 
   postgres:
-    image: postgres:${POSTGRES_VERSION}-alpine
+    image: coda_local_postgres:${POSTGRES_VERSION}
     container_name: coda_local_postgres
+    build:
+      context: .
+      dockerfile: ./dockerfiles/production/postgres/Dockerfile
+      args:
+          POSTGRES_VERSION: ${POSTGRES_VERSION}
 
     volumes:
       - coda_local_postgres_data:/var/lib/postgresql/data/
+      - coda_local_postgres_data_backups:/backups
 
     env_file:
       - ./.envs/.local/postgres.env

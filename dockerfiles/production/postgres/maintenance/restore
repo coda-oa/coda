@@ -53,3 +53,6 @@ message_info "Applying the backup to the new database..."
 gunzip -c "${backup_filename}" | psql "${POSTGRES_DB}"
 
 message_success "The '${POSTGRES_DB}' database has been restored from the '${backup_filename}' backup."
+
+message_info "Checking and fixing collation version if needed..."
+"${working_dir}/fix-collation"
