@@ -1,4 +1,3 @@
-import datetime
 import enum
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -158,29 +157,18 @@ class GenericSearchCriteria:
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class DateRangeCriteria:
-    start: datetime.date | str | None = None
-    end: datetime.date | str | None = None
+    date_range: DateRange
 
     def _to_query(self) -> Q:
-        start: datetime.date | None
-        end: datetime.date | None
-        if isinstance(self.start, str) and self.start:
-            start = datetime.date.fromisoformat(self.start)
-        else:
-            start = self.start or None
-
-        if isinstance(self.end, str) and self.end:
-            end = datetime.date.fromisoformat(self.end)
-        else:
-            end = self.end or None
-
-        date_range = DateRange.create(start=start, end=end)
-        if date_range.is_unbounded():
+        if self.date_range.is_unbounded():
             return Q()
 
-        return Q(request_date__gte=date_range.start, request_date__lte=date_range.end)
+        return Q(
+            request_date__gte=self.date_range.start,
+            request_date__lte=self.date_range.end,
+        )
 
 
 class PublicationEntityType(enum.Enum):

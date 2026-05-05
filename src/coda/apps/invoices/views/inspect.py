@@ -59,12 +59,6 @@ _query_params_to_criteria: dict[str, Callable[[str, HttpRequest], iq.InvoiceSear
     ),
     "has_errors": lambda *_: iq.HasErrorsCriterion(),
     "payment_status": lambda param, _: iq.PaymentStatusCriterion(PaymentStatus(param)),
-    "date_start": lambda _, request: iq.DateRangeCriterion(
-        DateRange.try_fromisoformat(start=request.GET.get("date_start"))
-    ),
-    "date_end": lambda _, request: iq.DateRangeCriterion(
-        DateRange.try_fromisoformat(end=request.GET.get("date_end"))
-    ),
 }
 
 
@@ -73,6 +67,16 @@ def build_query(request: HttpRequest) -> list[iq.InvoiceSearchCriterion]:
     for param_name, get_query in _query_params_to_criteria.items():
         if param := request.GET.get(param_name):
             query.append(get_query(param, request))
+
+    try:
+        if "date_start" in request.GET or "date_end" in request.GET:
+            date_range = DateRange.try_fromisoformat(
+                start=request.GET.get("date_start"),
+                end=request.GET.get("date_end"),
+            )
+            query.append(iq.DateRangeCriterion(date_range))
+    except ValueError as e:
+        messages.warning(request, str(e))
 
     return query
 
