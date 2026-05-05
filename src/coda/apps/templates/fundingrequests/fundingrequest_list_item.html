@@ -1,8 +1,8 @@
 {% load static %}
 {% load param_replace %}
 <article class="fundingrequest">
-    <div class="flex justify-between align-center">
-        <h2 class="flex-basis-80 text-ellipsis">
+    <div class="flex justify-between align-center mb-1">
+        <h2 class="flex-basis-80 text-ellipsis my-0">
             <a href="{% url "fundingrequests:detail" pk=entity.id %}">{{ entity.publication_title }}</a>
         </h2>
         <div>
@@ -18,11 +18,18 @@
             <span class="pill status-label {{ entity.status }}">{{ entity.status }}</span>
         </div>
     </div>
-    <p class="my-0">
-        <i><small>last updated at {{ entity.updated_at }}</small></i>
-    </p>
+    <div class="flex my-0">
+        <p class="my-0">
+            <i><small>{{ entity.request_id }}</small></i>
+        </p>
+        <p class="my-0">
+            <small><span>—</span></small>
+        </p>
+        <p class="my-0">
+            <i><small>last updated at {{ entity.updated_at }}</small></i>
+        </p>
+    </div>
     <hr class="mb-2">
-    <p class="mb-2">Request ID: {{ entity.request_id }}</p>
     <div class="grid">
         <div>
             {% if entity.authors %}<p>Authors: {{ entity.authors|join:", " }}</p>{% endif %}
