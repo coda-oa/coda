@@ -1,4 +1,4 @@
-from typing_extensions import TypeIs
+from typing import TypeIs
 
 from coda.apps.contracts import repository
 from coda.contexts.finance.dto.edit_position_dtos import ContractItemDto, ItemDto, PositionDto
@@ -34,7 +34,7 @@ def to_itemdto(position: Position) -> ItemDto:
     contract = repository.get_by_id(position.item.item.contract_id)
     assert contract.id is not None
     return ContractItemDto(
-        id=contract.id,
+        id=contract.id.pk,
         name=contract.name,
         cost_type=position.item.cost_type.value,
         year=position.item.item.year,

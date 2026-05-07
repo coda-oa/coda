@@ -2,9 +2,9 @@ from collections.abc import Iterable, Mapping
 from functools import cache
 from typing import Any
 
+import pydantic
 from django import forms
 from django.forms.utils import ErrorList
-import pydantic
 
 from coda.apps import widgets
 from coda.apps.authors.dto import AuthorDto
@@ -12,7 +12,7 @@ from coda.apps.formbase import CodaFormBase
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 from coda.apps.institutions import repository
 from coda.apps.institutions.models import Institution
-from coda.domain.author import Author, InstitutionId, NoEmailForCorrespondingAuthor, Role
+from coda.domain.author import Author, NoEmailForCorrespondingAuthor, Role
 from coda.domain.orcid import Orcid
 from coda.domain.publication import Authors
 from coda.validation import as_validator
@@ -47,17 +47,22 @@ class AuthorForm(CodaFormBase):
     )
 
     def is_valid(self) -> bool:
+        print("AuthorForm validation")
         valid = super().is_valid()
         if not valid:
             return False
+        print("passed base validation")
 
         try:
             self.to_dto().to_author()
-        except pydantic.ValidationError:
+        except pydantic.ValidationError as e:
+            print(e)
             return False
         except NoEmailForCorrespondingAuthor as e:
+            print(e)
             self.add_error("email", str(e))
             return False
+        print("passed domain validation")
 
         return True
 
@@ -125,15 +130,15 @@ class AuthorFormset(HtmxDynamicFormset[AuthorForm]):
         return True
 
 
-def get_affiliation_pk(data: Mapping[str, Any]) -> InstitutionId | None:
+def get_affiliation_pk(data: Mapping[str, Any]) -> int | None:
     if not data.get("affiliation"):
         return None
 
     affiliation = data["affiliation"]
     match affiliation:
         case int() | str():
-            return InstitutionId(int(affiliation))
+            return int(affiliation)
         case Institution():
-            return InstitutionId(affiliation.pk)
+            return affiliation.pk
         case _:
             return None

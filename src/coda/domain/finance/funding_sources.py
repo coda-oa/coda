@@ -7,14 +7,14 @@ from coda.domain.finance.invoice import FundingSourceId
 
 @dataclass
 class Budget:
-    id: FundingSourceId | None
+    id: FundingSourceId
     name: str = field(compare=False)
 
     @classmethod
     def new(cls, name: str) -> "Budget":
-        return cls(None, name)
+        return cls(FundingSourceId(), name)
 
-    def identity(self) -> FundingSourceId | None:
+    def identity(self) -> FundingSourceId:
         return self.id
 
     def kind(self) -> Literal["budget"]:
@@ -23,13 +23,13 @@ class Budget:
 
 @dataclass
 class SplitSource:
-    id: FundingSourceId | None = field(compare=False)
+    id: FundingSourceId = field(compare=False)
     institution: InstitutionId
     institution_name: str = field(compare=False)
 
     @classmethod
     def new(cls, institution: InstitutionId, institution_name: str) -> "SplitSource":
-        return cls(None, institution, institution_name)
+        return cls(FundingSourceId(), institution, institution_name)
 
     @property
     def name(self) -> str:

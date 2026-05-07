@@ -48,18 +48,20 @@ class NoPaymentForInvoice(ValueError):
     def __init__(
         self,
         publication_id: PublicationId,
-        invoice_id: int,
+        invoice_id: InvoiceId,
         invoice_number: str = "",
         *args: object,
     ) -> None:
         super().__init__(
             " ".join(
                 (
-                    f"Publication {publication_id} has no payment"
-                    + f"for invoice {invoice_id}"
-                    + f"({invoice_number})"
-                    if invoice_number
-                    else "",
+                    (
+                        f"Publication {publication_id} has no payment"
+                        + f"for invoice {invoice_id}"
+                        + f"({invoice_number})"
+                        if invoice_number
+                        else ""
+                    ),
                 )
             ).strip(),
             *args,

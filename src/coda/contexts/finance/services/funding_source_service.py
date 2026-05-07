@@ -12,8 +12,8 @@ from coda.contexts.finance.dto.edit_position_dtos import PositionDto
 
 def resolve_funding_source(funding_source: FundingSource) -> FundingSource:
     match funding_source:
-        case Budget(id=int(id)):
-            return funding_source_repository.get_by_id(id)
+        case Budget() as b:
+            return funding_source_repository.get_by_id(b.id)
         case SplitSource(institution=institution):
             return _ensure_institution_source(institution)
 
@@ -33,7 +33,7 @@ def _ensure_institution_source(id: InstitutionId) -> SplitSource:
 
 def _try_get_insitution(id: InstitutionId) -> Institution:
     try:
-        institution = institution_repository.get_by_id(id)
+        institution = institution_repository.get_by_id(id.pk)
     except Exception as e:
         raise ValueError(f"Institution with {id=} does not exist") from e
 

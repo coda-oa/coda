@@ -90,13 +90,12 @@ class Command(BaseCommand):
         request.id = repository.create(request)
 
         review = Review(
-            request.id,
             decided_funding=Money(100, Currency.EUR),
             remarks=faker.sentence(),
             result=review_status,
         )
 
-        repository.save_review(review)
+        repository.save_review(request.id, review)
 
     def extra_contact(self) -> FundingRequestContact:
         return FilledContact(

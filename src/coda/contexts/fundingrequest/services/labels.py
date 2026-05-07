@@ -39,7 +39,8 @@ def label_attach_bulk_by_id(funding_request_id: FundingRequestId, labels: list[L
     through_model = FundingRequestModel.labels.through
 
     through_objects = [
-        through_model(fundingrequest_id=funding_request_id, label_id=label.id) for label in labels
+        through_model(fundingrequest_id=funding_request_id.pk, label_id=label.pk)
+        for label in labels
     ]
 
     through_model.objects.bulk_create(through_objects, ignore_conflicts=True)
@@ -64,7 +65,7 @@ def label_attach_bulk_many(request_labels: dict[FundingRequestId, list[Label]]) 
     through_model = FundingRequestModel.labels.through
 
     through_objects = [
-        through_model(fundingrequest_id=fr_id, label_id=label.id)
+        through_model(fundingrequest_id=fr_id.pk, label_id=label.pk)
         for fr_id, labels in request_labels.items()
         for label in labels
     ]

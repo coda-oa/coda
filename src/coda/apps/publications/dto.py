@@ -1,11 +1,8 @@
 import abc
 import datetime
 import uuid
-from typing import Annotated, Any, Literal, cast
+from typing import Literal
 
-from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
-from pydantic.json_schema import JsonSchemaValue
-from pydantic_core import core_schema
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.contracts import repository as contract_services
@@ -15,7 +12,6 @@ from coda.domain.contract import ContractId, ContractYear, GetContractById, Publ
 from coda.domain.publication import (
     Authors,
     BasePublication,
-    JournalId,
     License,
     Link,
     Monograph,
@@ -27,6 +23,7 @@ from coda.domain.publication import (
     Unpublished,
     links,
 )
+from coda.domain.publication.publication import JournalId
 from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import ConceptId, VocabularyConcept, VocabularyId
 
@@ -82,47 +79,16 @@ class PublicationMetaDto(CodaBaseDto):
 
 
 class JournalDto(CodaBaseDto):
-    id: JournalId
-
-
-class ContractIdAnnotation:
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls,
-        _source_type: Any,
-        _handler: GetCoreSchemaHandler,
-    ) -> core_schema.CoreSchema:
-        def validate_from_int(value: int) -> ContractId:
-            return ContractId(value)
-
-        from_int_schema = core_schema.chain_schema(
-            [
-                core_schema.int_schema(),
-                core_schema.no_info_plain_validator_function(validate_from_int),
-            ]
-        )
-
-        return core_schema.json_or_python_schema(
-            json_schema=from_int_schema,
-            python_schema=core_schema.union_schema(
-                [core_schema.is_instance_schema(int), from_int_schema]
-            ),
-        )
-
-    @classmethod
-    def __get_pydantic_json_schema__(
-        cls, _core_schema: core_schema.CoreSchema, handler: GetJsonSchemaHandler
-    ) -> JsonSchemaValue:
-        return handler(core_schema.int_schema())
+    id: int
 
 
 class ContractYearDto(CodaBaseDto):
-    contract: Annotated[ContractId, ContractIdAnnotation]
+    contract: int
     year: int
 
     @classmethod
     def from_contract_year(cls, contract_year: ContractYear) -> "ContractYearDto":
-        return cls(contract=cast(ContractId, contract_year.contract.id), year=contract_year.year)
+        return cls(contract=contract_year.contract.id.pk, year=contract_year.year)
 
     def to_contract_year(self, get_contract_by_id: GetContractById | None = None) -> ContractYear:
         """Convert DTO to domain ContractYear object.
@@ -137,7 +103,7 @@ class ContractYearDto(CodaBaseDto):
         if get_contract_by_id is None:
             get_contract_by_id = contract_services.get_by_id
 
-        contract = get_contract_by_id(self.contract)
+        contract = get_contract_by_id(ContractId(self.contract))
         return contract.in_year(self.year)
 
 
@@ -180,9 +146,9 @@ class PublicationDto(PublicationBaseDto):
                 online_publication_date=online_pub_date,
                 print_publication_date=print_pub_date,
             ),
-            journal=JournalDto(id=publication.journal),
+            journal=JournalDto(id=publication.journal.pk),
             contracts=[
-                ContractYearDto(contract=cast(ContractId, c.contract.id), year=c.year)
+                ContractYearDto(contract=c.contract.id.pk, year=c.year)
                 for c in publication.contracts
             ],
             links=[LinkDto.from_link(link) for link in publication.links],
@@ -204,7 +170,7 @@ class PublicationDto(PublicationBaseDto):
             Domain Publication object
         """
         return Publication(
-            id=id,
+            id=id or PublicationId(),
             title=NonEmptyStr(self.meta.title),
             license=License.of(self.meta.license),
             publication_type=self.meta.publication_type.to_concept(),
@@ -215,7 +181,7 @@ class PublicationDto(PublicationBaseDto):
             other_authors=AuthorNames(self.other_authors),
             links={link.to_link() for link in self.links},
             contracts=tuple(c.to_contract_year(get_contract_by_id) for c in self.contracts),
-            journal=self.journal.id,
+            journal=JournalId(self.journal.id),
         )
 
 
@@ -265,7 +231,7 @@ class MonographDto(PublicationBaseDto):
             Domain Monograph object
         """
         return Monograph(
-            id=id,
+            id=id or PublicationId(),
             title=NonEmptyStr(self.meta.title),
             license=License.of(self.meta.license),
             publication_type=self.meta.publication_type.to_concept(),

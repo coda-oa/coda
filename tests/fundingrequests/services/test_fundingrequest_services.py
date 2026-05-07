@@ -284,7 +284,6 @@ def test__update_fundingrequest_review__updates_the_review() -> None:
     )
 
     review = Review(
-        new_id,
         Money(100, Currency.GBP),
         remarks="Something interesing",
         result=ReviewResult.Approved,

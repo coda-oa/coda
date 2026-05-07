@@ -44,7 +44,7 @@ class FundingRequestCreationWizard(LoginRequiredMixin, Wizard, abc.ABC, Generic[
                 extra_information=extra_information,
             ),
         )
-        store["funding_request"] = funding_request_id
+        store["funding_request"] = funding_request_id.pk
         store.save()
 
     def parse_funding(self, store: Store) -> list[ExternalFundingDto]:
@@ -54,5 +54,4 @@ class FundingRequestCreationWizard(LoginRequiredMixin, Wizard, abc.ABC, Generic[
         return ExtraContactDto(**store.get("contact", {}))
 
     @abc.abstractmethod
-    def parse_publication(self, store: Store) -> TPublicationDto:
-        ...
+    def parse_publication(self, store: Store) -> TPublicationDto: ...

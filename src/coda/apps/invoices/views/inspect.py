@@ -22,6 +22,7 @@ from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 from coda.contexts.finance.dto.edit_position_dtos import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.contexts.finance.services import invoice_service
+from coda.domain.contract import ContractId
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import (
     FundingSourceId,
@@ -48,7 +49,7 @@ _query_params_to_criteria: dict[str, Callable[[str, HttpRequest], iq.InvoiceSear
     "search_term": lambda param, _: iq.GenericSearchCriterion(param),
     "funding_source": lambda param, _: iq.FundingSourceCriterion(FundingSourceId(int(param))),
     "contract_name": lambda param, request: iq.ContractCriterion(
-        param, request.GET.get("contract_positions_only") == "true"
+        ContractId(int(param)), request.GET.get("contract_positions_only") == "true"
     ),
     "contract_year": lambda param, request: iq.ContractYearCriterion(
         param, request.GET.get("contract_positions_only") == "true"

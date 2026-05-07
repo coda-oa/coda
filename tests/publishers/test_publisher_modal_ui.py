@@ -22,7 +22,7 @@ def _create_test_monograph_funding_request() -> FundingRequestModel:
 
     request_id = repository.create(FundingRequest.new(monograph, domainfactory.payment()))
 
-    return FundingRequestModel.objects.get(pk=request_id)
+    return FundingRequestModel.objects.get(pk=request_id.pk)
 
 
 @pytest.mark.ui_test

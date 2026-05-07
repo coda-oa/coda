@@ -105,7 +105,7 @@ def _handle_contract_post(
 
 
 def _save_contract_links(contract_id: ContractId, link_forms: list[ContractLinkForm]) -> None:
-    contract_model = ContractModel.objects.get(pk=contract_id)
+    contract_model = ContractModel.objects.get(pk=contract_id.pk)
     ContractLink.objects.filter(contract=contract_model).delete()
 
     for link_form in link_forms:
@@ -123,7 +123,7 @@ def create_contract(
     form: ContractForm, publisher_formset: EntityFormset, journal_formset: EntityFormset
 ) -> ContractId:
     publishers = cast(list[PublisherId], publisher_formset.entity_ids())
-    journals = cast(list[JournalId], journal_formset.entity_ids())
+    journals = [JournalId(j) for j in journal_formset.entity_ids()]
     contract = Contract.new(
         form.get_name(), publishers, form.get_period(), journals, form.get_billing()
     )
@@ -137,7 +137,7 @@ def update_contract(
     journal_formset: EntityFormset,
 ) -> ContractId:
     publishers = cast(list[PublisherId], publisher_formset.entity_ids())
-    journals = cast(list[JournalId], journal_formset.entity_ids())
+    journals = [JournalId(j) for j in journal_formset.entity_ids()]
 
     contract.name = form.get_name()
     contract.publishers = tuple(publishers)
@@ -146,7 +146,7 @@ def update_contract(
     contract.publication_billing = form.get_billing()
     repository.update(contract)
 
-    return cast(ContractId, contract.id)
+    return contract.id
 
 
 def get_context(
@@ -160,7 +160,7 @@ def get_context(
 
     contract_model = None
     if initial_contract is not None and initial_contract.id is not None:
-        contract_model = ContractModel.objects.get(pk=initial_contract.id)
+        contract_model = ContractModel.objects.get(pk=initial_contract.id.pk)
 
     links_data = get_existing_links(contract_model) if contract_model else []
 

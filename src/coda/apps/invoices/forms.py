@@ -1,10 +1,11 @@
 from typing import Self
+
 from django import forms
 
 from coda.apps.fields import currency_field
 from coda.apps.invoices.models import Creditor, FundingSource
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
-from coda.domain.finance.invoice import CreditorId, Invoice, PaymentStatus
+from coda.domain.finance.invoice import Invoice, PaymentStatus
 from coda.domain.money import Currency
 
 
@@ -44,7 +45,7 @@ class InvoiceForm(forms.Form):
             number=self.cleaned_data["number"],
             date=self.cleaned_data["date"],
             status=PaymentStatus(self.cleaned_data["status"]),
-            creditor=CreditorId(self.cleaned_data["creditor"].id),
+            creditor=self.cleaned_data["creditor"].id,
             comment=self.cleaned_data["comment"],
             external_invoice_id=self.cleaned_data["external_invoice_id"],
             currency=self.get_currency(),

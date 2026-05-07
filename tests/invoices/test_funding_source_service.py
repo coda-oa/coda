@@ -58,7 +58,7 @@ def test__given_non_existing_institution_source__resolve_funding_source__creates
     assert actual.id is not None
     fs = funding_source_repository.get_by_id(actual.id)
     assert isinstance(fs, SplitSource)
-    assert fs.institution == institution.pk
+    assert fs.institution == InstitutionId(institution.pk)
 
 
 @pytest.mark.django_db

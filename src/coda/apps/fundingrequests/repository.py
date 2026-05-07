@@ -6,6 +6,7 @@ from django.db import transaction
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.fundingrequests import mapper as fundingrequest_mapper
 from coda.apps.fundingrequests.mappers import FundingRequestDomainMapper
+from coda.apps.fundingrequests.mappers._domain import FundingRequestReviewMapper
 from coda.apps.fundingrequests.models import ExternalFunding as ExternalFundingModel
 from coda.apps.fundingrequests.models import FundingOrganization, FundingRequestReview
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
@@ -28,7 +29,7 @@ from coda.domain.publication import Monograph, Publication, PublicationId
 
 @transaction.atomic
 def create(fundingrequest: AnyFundingRequest) -> FundingRequestId:
-    if fundingrequest.id:
+    if fundingrequest.id.resolved:
         raise FundingRequestAlreadyExists(fundingrequest.id)
 
     pid = publication_repository.create(fundingrequest.publication)
@@ -40,7 +41,7 @@ def create(fundingrequest: AnyFundingRequest) -> FundingRequestId:
 
 @transaction.atomic
 def update(fundingrequest: AnyFundingRequest) -> None:
-    if not fundingrequest.id:
+    if not fundingrequest.id.resolved:
         raise UnsavedFundingRequest(fundingrequest)
 
     publication_repository.update(fundingrequest.publication)
@@ -107,15 +108,15 @@ class UnsavedFundingRequest(ValueError):
 
 
 @transaction.atomic
-def save_review(review: Review) -> None:
-    review_model = FundingRequestReview.objects.filter(fundingrequest=review.fundingrequest).get()
-    fundingrequest_mapper._update_review_model(review, review_model)
+def save_review(fundingrequest_id: FundingRequestId, review: Review) -> None:
+    review_model = FundingRequestReview.objects.filter(fundingrequest=fundingrequest_id.pk).get()
+    fundingrequest_mapper.update_review_model(review, review_model)
     review_model.save()
 
 
 @transaction.atomic
 def save_contact(id: FundingRequestId, contact: FundingRequestContact) -> None:
-    fr = FundingRequestModel.objects.get(pk=id)
+    fr = FundingRequestModel.objects.get(pk=id.pk)
     fundingrequest_mapper._synchronize_contact(fr, contact)
 
 
@@ -125,7 +126,7 @@ def save_funding(
     payment: Payment,
     funding: Iterable[ExternalFunding],
 ) -> None:
-    fr = FundingRequestModel.objects.get(pk=id)
+    fr = FundingRequestModel.objects.get(pk=id.pk)
 
     fundingrequest_mapper.update_payment_fields(payment, fr)
 
@@ -140,7 +141,7 @@ def request_id_exists(request_id: PublicFundingRequestId) -> bool:
 
 
 def get_request_id_for(id: FundingRequestId) -> PublicFundingRequestId:
-    request_id, *_ = FundingRequestModel.objects.filter(pk=id).values_list("request_id").get()
+    request_id, *_ = FundingRequestModel.objects.filter(pk=id.pk).values_list("request_id").get()
     return PublicFundingRequestId.from_str(request_id)
 
 
@@ -159,7 +160,7 @@ def first() -> AnyFundingRequest | None:
 
 
 def get_by_id(id: FundingRequestId) -> AnyFundingRequest:
-    model = FundingRequestDomainMapper.prefetch(FundingRequestModel.objects.all()).get(pk=id)
+    model = FundingRequestDomainMapper.prefetch(FundingRequestModel.objects.all()).get(pk=id.pk)
     return FundingRequestDomainMapper.map(model)
 
 
@@ -203,7 +204,7 @@ def get_by_request_id(request_id: PublicFundingRequestId) -> AnyFundingRequest:
 
 
 def find_reference_by_publication(publication: PublicationId) -> FundingRequestReference | None:
-    model = FundingRequestModel.objects.filter(publication_id=publication).first()
+    model = FundingRequestModel.objects.filter(publication_id=publication.pk).first()
     if not model:
         return None
     return FundingRequestReference(request_id=model.request_id, url=model.get_absolute_url())
@@ -211,7 +212,7 @@ def find_reference_by_publication(publication: PublicationId) -> FundingRequestR
 
 def get_by_publication_id(publication_id: PublicationId) -> AnyFundingRequest:
     model = FundingRequestDomainMapper.prefetch(FundingRequestModel.objects.all()).get(
-        publication_id=publication_id
+        publication_id=publication_id.pk
     )
     return FundingRequestDomainMapper.map(model)
 
@@ -223,8 +224,8 @@ def _is_publication_type(
 
 
 def get_review(id: FundingRequestId) -> Review:
-    model = FundingRequestReview.objects.filter(fundingrequest=id).first()
-    return fundingrequest_mapper._as_review_domain_object(model, id)
+    model = FundingRequestReview.objects.filter(fundingrequest=id.pk).get()
+    return FundingRequestReviewMapper.map(model)
 
 
 def get_funding_organization(pk: int) -> FundingOrganization:

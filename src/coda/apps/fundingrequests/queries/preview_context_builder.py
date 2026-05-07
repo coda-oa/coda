@@ -14,7 +14,7 @@ from coda.contexts.publication.dto.preview import (
     PreviewFundingRequest,
     PreviewMonograph,
 )
-from coda.domain.author import Role
+from coda.domain.author import InstitutionId, Role
 from coda.domain.orcid import Orcid
 from coda.domain.publication.links import Doi, Isbn, Link
 
@@ -123,7 +123,7 @@ def _(monograph: PreviewMonograph) -> PublishingEntityInfo:
 
 def _build_author_details_from_dtos(author_dtos: list[AuthorDto]) -> list[AuthorDetail]:
     """Convert AuthorDtos to AuthorDetails with affiliation names resolved (single query)."""
-    affiliation_ids = [dto.affiliation for dto in author_dtos if dto.affiliation]
+    affiliation_ids = [InstitutionId(dto.affiliation) for dto in author_dtos if dto.affiliation]
     institutions = {
         inst.pk: inst.name for inst in institution_repository.get_many_by_id(affiliation_ids)
     }

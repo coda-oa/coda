@@ -28,7 +28,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 )
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.contexts.finance.services import invoice_parser
-from coda.domain.contract import Contract, ContractId, ContractYear
+from coda.domain.contract import Contract, ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.invoice import CreditorId, PaymentStatus
 from coda.domain.money import Currency
@@ -211,7 +211,7 @@ def test__given_positions__create__saves_new_invoice__position_list(client: Clie
     invoice_head = InvoiceHeadDto(
         number=expected.number,
         date=expected.date,
-        creditor=expected.creditor,
+        creditor=expected.creditor.pk,
         currency=expected.currency(),
         external_invoice_id=expected.external_invoice_id,
         status=expected.status,
@@ -257,7 +257,7 @@ def test__adding_position_with_invalid_contract_year__adds_position_with_error(
 ) -> None:
     contract = ContractDomainMapper.map(modelfactory.contract())
     contract_item_dto = ContractItemDto(
-        id=cast(int, contract.id),
+        id=contract.id.pk,
         name=contract.name,
         year=1,
     )
@@ -277,7 +277,7 @@ def test__given_position_with_invalid_contract_year__create__returns_error(
 ) -> None:
     contract = ContractDomainMapper.map(modelfactory.contract())
     contract_item_dto = ContractItemDto(
-        id=cast(int, contract.id),
+        id=contract.id.pk,
         name=contract.name,
         year=1,
     )
@@ -287,7 +287,7 @@ def test__given_position_with_invalid_contract_year__create__returns_error(
     invoice_head = InvoiceHeadDto(
         number="1234",
         date=datetime.date.today(),
-        creditor=CreditorId(modelfactory.creditor().pk),
+        creditor=modelfactory.creditor().pk,
         currency=Currency.JPY,
         status=PaymentStatus.Unpaid,
     )
@@ -313,7 +313,7 @@ def test__invoice_with_unassigned_costs__save_as_paid__shows_error(client: Clien
     invoice_head = InvoiceHeadDto(
         number="1234",
         date=datetime.date.today(),
-        creditor=CreditorId(modelfactory.creditor().pk),
+        creditor=modelfactory.creditor().pk,
         currency=Currency.JPY,
         status=PaymentStatus.Paid,
     )
@@ -398,12 +398,15 @@ def expect_new_free_position() -> PositionDto:
 
 
 def expect_new_contract_position(contract_year: ContractYear) -> PositionDto:
-    contract_id = cast(ContractId, contract_year.contract_id)
+    contract_id = contract_year.contract_id
     year = contract_year.year
     contract_name = contract_year.name
     return PositionDto(
         item=ContractItemDto(
-            id=contract_id, name=contract_name, year=year, cost_type=ContractCostType.Publish.value
+            id=contract_id.pk,
+            name=contract_name,
+            year=year,
+            cost_type=ContractCostType.Publish.value,
         ),
         cost_amount=Decimal("0.00"),
         tax_rate=Decimal(DEFAULT_TAX_RATE_PERCENTAGE),
@@ -427,7 +430,7 @@ def expect_new_publication_position(publication: Publication) -> PositionDto:
 
 def expect_contract_search_result(contract: Contract) -> dict[str, Any]:
     return {
-        "id": contract.id,
+        "id": contract.id.pk,
         "name": contract.name,
         "url": reverse("contracts:detail", kwargs={"pk": contract.id}),
     }
@@ -438,7 +441,7 @@ def expect_publication_search_result(publication: Publication) -> dict[str, Any]
     ref = fundingrequest_repository.find_reference_by_publication(pub_id)
     assert ref is not None
     return {
-        "id": pub_id,
+        "id": pub_id.pk,
         "title": publication.title,
         "funding_request": ({"request_id": ref.request_id, "url": ref.url}),
     }

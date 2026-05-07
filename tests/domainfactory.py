@@ -80,7 +80,7 @@ def author(
         role = random_role()
 
     return Author.restore(
-        id=id,
+        id=id or AuthorId(),
         name=NonEmptyStr(_faker.name()),
         email=_faker.email(),
         orcid=random_orcid(),
@@ -96,7 +96,7 @@ def contract(id: ContractId | None = None, period: DateRange | None = None) -> C
         period = DateRange.create(start=start, end=end)
 
     return Contract(
-        id=id,
+        id=id or ContractId(),
         name=NonEmptyStr(_faker.sentence()),
         publishers=(),
         period=period,
@@ -117,7 +117,7 @@ def invoice(
 ) -> Invoice:
     status = random.choice([s for s in PaymentStatus])
     return Invoice(
-        id=id,
+        id=id or InvoiceId(),
         date=date.fromisoformat(_faker.date()),
         number=NonEmptyStr(str(_faker.uuid4())),
         creditor=creditor or CreditorId(random.randint(1, 1000)),
@@ -183,7 +183,7 @@ def free_position(
 
 
 def budget(id: FundingSourceId | None = None) -> Budget:
-    return Budget(id, _faker.company())
+    return Budget(id or FundingSourceId(), _faker.company())
 
 
 def split_source(institution: InstitutionId | None = None, name: str = "") -> SplitSource:
@@ -203,9 +203,9 @@ def publication(
     id: PublicationId | None = None,
 ) -> Publication:
     return Publication(
-        id=id,
+        id=id or PublicationId(),
         title=NonEmptyStr(title or _faker.sentence()),
-        journal=journal or JournalId(random.randint(1, 1000)),
+        journal=journal or JournalId(0),
         relevant_authors=relevant_authors if relevant_authors is not None else _relevant_authors(),
         other_authors=random_authorlist(),
         license=random_license(),
@@ -227,7 +227,7 @@ def monograph(
     id: PublicationId | None = None,
 ) -> Monograph:
     return Monograph(
-        id=id,
+        id=id or PublicationId(),
         publisher=publisher or PublisherId(random.randint(1, 1000)),
         title=NonEmptyStr(_faker.sentence()),
         relevant_authors=_relevant_authors(),
@@ -300,7 +300,7 @@ def fundingrequest(
     review: Review | None = None,
 ) -> FundingRequest[Publication]:
     return FundingRequest(
-        id=id or None,
+        id=id or FundingRequestId(),
         request_id=request_id or PublicFundingRequestId.create(),
         publication=publication(journal_id or JournalId(random.randint(1, 1000))),
         extra_contact=fundingrequest_contact(),

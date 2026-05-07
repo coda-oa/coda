@@ -1,7 +1,6 @@
 import datetime
 from dataclasses import dataclass, replace
 from decimal import Decimal
-from typing import cast
 
 from django.db.models import Prefetch, QuerySet
 from django.urls import reverse
@@ -15,7 +14,7 @@ from coda.contexts.finance.dto.detail_position_dtos import (
     PositionDetailDto,
 )
 from coda.contexts.finance.dto.edit_position_dtos import RelatedFundingRequest
-from coda.domain.finance.invoice import Invoice, InvoiceId
+from coda.domain.finance.invoice import Invoice
 from coda.domain.finance.invoice_positions import ContractItem, FreeItem, Position, PublicationItem
 from coda.domain.money import Currency, Money
 
@@ -76,15 +75,15 @@ class InvoiceDetailMapper:
     @staticmethod
     def map(model: InvoiceModel) -> InvoiceDetail:
         invoice = InvoiceDomainMapper.map(model)
-        id = cast(InvoiceId, invoice.id)
+        id = invoice.id
 
         return InvoiceDetail(
-            id=id,
-            url=reverse("invoices:detail", kwargs={"pk": id}),
+            id=id.pk,
+            url=reverse("invoices:detail", kwargs={"pk": id.pk}),
             status=invoice.status.name,
             number=invoice.number,
             date=invoice.date,
-            creditor=invoice.creditor,
+            creditor=invoice.creditor.pk,
             creditor_name=model.creditor.name,
             currency=invoice.currency(),
             positions=[
@@ -164,7 +163,7 @@ def _map_position_dto(model: PositionModel) -> PositionDetailDto:
 def _map_funding_assignments(position: Position) -> list[FundingAssignmentDetailDto]:
     return [
         FundingAssignmentDetailDto(
-            funding_source_id=fa.funding_source.id if fa.funding_source else None,
+            funding_source_id=fa.funding_source.id.pk if fa.funding_source else None,
             funding_source_name=fa.funding_source.name if fa.funding_source else "unspecified",
             amount=fa.amount.amount,
         )

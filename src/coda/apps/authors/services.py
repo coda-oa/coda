@@ -21,7 +21,7 @@ def first() -> Author | None:
 
 
 def get_by_id(author_id: AuthorId) -> Author:
-    model = AuthorModel.objects.get(pk=author_id)
+    model = AuthorModel.objects.get(pk=author_id.pk)
     return AuthorDomainMapper.map(model)
 
 
@@ -39,12 +39,12 @@ def author_create(author: Author, publication: PublicationId | None = None) -> A
         identifier=_id,
         affiliation=affiliation,
         roles=roles,
-        publication_id=publication,
+        publication_id=publication.pk if publication else None,
     )
     return AuthorId(_author.pk)
 
 
-def create_many(authors: list[Author], publication: PublicationId | None = None) -> list[AuthorId]:
+def create_many(authors: list[Author], publication: PublicationId) -> list[AuthorId]:
     person_ids = _assign_person_ids_for_authors(authors)
 
     # Bulk fetch all institutions in one query instead of N queries
@@ -64,7 +64,7 @@ def create_many(authors: list[Author], publication: PublicationId | None = None)
             identifier=pid,
             affiliation=aff,
             roles=serialize_role(a.role),
-            publication_id=publication,
+            publication_id=publication.pk,
         )
         for a, pid, aff in zip(authors, person_ids, affiliations)
     ]
@@ -125,7 +125,7 @@ def create_many_with_publications(
             identifier=person_id,
             affiliation=affiliation,
             roles=serialize_role(a.role),
-            publication_id=pub_id,
+            publication_id=pub_id.pk,
         )
         for a, person_id, affiliation, pub_id in zip(authors, person_ids, affiliations, pub_ids)
     ]
@@ -189,7 +189,7 @@ def author_update(author: Author) -> Author:
     if not author.id:
         raise ValidationError("Author ID is required")
 
-    model = AuthorModel.objects.get(pk=author.id)
+    model = AuthorModel.objects.get(pk=author.id.pk)
     identifier = cast(PersonId, model.identifier)
     if author.orcid:
         existing = PersonId.objects.filter(orcid=author.orcid)
@@ -212,9 +212,9 @@ def author_update(author: Author) -> Author:
     return author
 
 
-def _find_affiliation(affiliation_pk: int | None) -> Institution | None:
+def _find_affiliation(affiliation_pk: InstitutionId | None) -> Institution | None:
     if affiliation_pk:
-        affiliation = institution_repository.get_by_id(affiliation_pk)
+        affiliation = institution_repository.get_by_id(affiliation_pk.pk)
     else:
         affiliation = None
     return affiliation

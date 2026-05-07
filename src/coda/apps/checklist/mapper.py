@@ -24,7 +24,7 @@ def as_django_model(checkrun: CheckRun) -> CheckRunModel:
     result_type = _map_result_to_str(checkrun)
 
     return CheckRunModel(
-        fundingrequest_id=checkrun.fundingrequest,
+        fundingrequest_id=checkrun.fundingrequest.pk,
         check_name=checkrun.check.__class__.__name__,
         check_parameters=checkrun.check.params,
         result=result_type,

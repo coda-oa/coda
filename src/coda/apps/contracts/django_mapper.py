@@ -4,7 +4,7 @@ from coda.domain.contract import Contract
 
 def as_django_model(contract: Contract) -> ContractModel:
     return ContractModel(
-        pk=contract.id,
+        pk=contract.id.pk if contract.id.resolved else None,
         name=contract.name,
         start_date=contract.period.start,
         end_date=contract.period.end,
@@ -23,7 +23,7 @@ def synchronize_relationships(contract: Contract, model: ContractModel) -> None:
         model: ContractModel Django model to update
     """
     model.publishers.set(contract.publishers)
-    model.journals.set(contract.journals)
+    model.journals.set(j.pk for j in contract.journals)
 
 
 def synchronize_relationships_bulk(contracts: list[Contract], models: list[ContractModel]) -> None:
@@ -51,7 +51,7 @@ def synchronize_relationships_bulk(contracts: list[Contract], models: list[Contr
     ]
 
     journal_through_entries = [
-        ContractModel.journals.through(contract_id=model.pk, journal_id=journal_id)
+        ContractModel.journals.through(contract_id=model.pk, journal_id=journal_id.pk)
         for contract, model in zip(contracts, models)
         for journal_id in contract.journals
     ]

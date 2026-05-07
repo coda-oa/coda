@@ -17,7 +17,11 @@ from coda.domain.contract import ContractYear
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice
-from coda.domain.finance.invoice_positions import ItemType, Position, PositionItemType
+from coda.domain.finance.invoice_positions import (
+    ItemType,
+    Position,
+    PositionItemType,
+)
 from coda.domain.finance.taxable_money import CostBasis
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money._currency import Currency
@@ -46,7 +50,8 @@ def parse_invoice(invoice_head: InvoiceHeadDto, positions: list[PositionDto]) ->
         raise InvoiceParseError(parsed_positions.errors())
 
     invoice = Invoice.new(
-        **invoice_head.model_dump(exclude={"currency"}),
+        **invoice_head.model_dump(exclude={"currency", "creditor"}),
+        creditor=CreditorId(invoice_head.creditor),
         positions=parsed_positions.values(),
     )
 
@@ -107,6 +112,7 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
             case _:
                 fs = None
 
+        print(repr(fs))
         if fs is not None or not _is_all_amount(f.amount):
             _position.assign_funding(fs, amount, position.cost_basis_mode)
 
@@ -132,7 +138,7 @@ def _position_to_dto(position: Position, item_dto: ItemDto, cost_basis: CostBasi
         external_position_id=position.external_position_id,
         funding_assignments=[
             FundingAssignmentDto(
-                funding_source=f.funding_source.identity() if f.funding_source else None,
+                funding_source=f.funding_source.identity().pk if f.funding_source else None,
                 funding_source_type=f.funding_source.kind() if f.funding_source else "budget",
                 amount=f.amount.amount,
             )

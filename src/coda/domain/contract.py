@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, NewType
 from coda.domain.date import DateRange
 from coda.domain.errors import DomainError
 from coda.domain.string import NonEmptyStr
+from coda.entityid import EntityId
 
 if TYPE_CHECKING:
     from coda.domain.publication import JournalId
 
 
-class ContractId(int):
-    __slots__ = ()
+class ContractId(EntityId): ...
 
 
 # Type alias for contract fetching function
@@ -30,7 +30,7 @@ class PublicationBilling(enum.StrEnum):
 
 @dataclass(slots=True)
 class Contract:
-    id: ContractId | None
+    id: ContractId
     name: NonEmptyStr
     publishers: Iterable[PublisherId]
     period: DateRange = DateRange.create()
@@ -46,7 +46,7 @@ class Contract:
         journals: Iterable["JournalId"] = (),
         publication_billing: PublicationBilling = PublicationBilling.Individually,
     ) -> "Contract":
-        return cls(None, name, publishers, period, journals, publication_billing)
+        return cls(ContractId(), name, publishers, period, journals, publication_billing)
 
     def uses_consolidated_billing(self) -> bool:
         return self.publication_billing == PublicationBilling.Consolidated
@@ -95,7 +95,7 @@ class ContractYear:
         return self.contract.id
 
     @property
-    def contract_id(self) -> ContractId | None:
+    def contract_id(self) -> ContractId:
         return self.contract.id
 
     @property

@@ -35,7 +35,7 @@ from coda.domain.finance.taxrate import TaxRate
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest, FundingOrganizationId
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.money import Currency, Money
-from coda.domain.publication import JournalId, PublicationId
+from coda.domain.publication import JournalId
 from coda.domain.publication.payment import PublicationPayments
 from coda.domain.string import NonEmptyStr
 from tests import domainfactory, modelfactory
@@ -510,7 +510,7 @@ def test__unpaid_invoice_with_publication_position_import_invoices_funding_reque
 
     _ = import_invoices_from_dto_json(import_dto)
 
-    publication_id = cast(PublicationId, funding_request.publication.id)
+    publication_id = funding_request.publication.id
     payment_status = publications.get_payment_status(publication_id)
     imported_invoice = repository.first()
 
@@ -634,7 +634,7 @@ def expected_publication_position(import_dto: PublicationPositionImportDto) -> P
     request = fundingrequest_repository.get_by_request_id(
         PublicFundingRequestId.from_str(str(import_dto.request_id))
     )
-    publication_id = cast(PublicationId, request.publication.id)
+    publication_id = request.publication.id
     position = invoice_positions.create(
         item=PublicationItem(
             publication_id,

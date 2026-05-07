@@ -38,6 +38,7 @@ def test__create_invoice_with_positions_with_split_costs__saves_to_db(client: Cl
 
     _invoice_head = invoice_head(expected)
     position_dto = PositionList(positions=[invoice_parser.position_to_dto(position)])
+    print(repr(position_dto.positions))
 
     _ = client.post(
         reverse("invoices:create"),
@@ -95,11 +96,13 @@ def test__invalid_split_amount__update_invoice__shows_error(client: Client) -> N
     _invoice_head = invoice_head(invoice)
     position_dto = invoice_parser.position_to_dto(position)
     position_dto.funding_assignments.append(
-        FundingAssignmentDto(funding_source=budget.id, amount=Decimal(position.cost.amount + 100))
+        FundingAssignmentDto(
+            funding_source=budget.id.pk, amount=Decimal(position.cost.amount + 100)
+        )
     )
 
     response = client.post(
-        reverse("invoices:update", kwargs={"pk": invoice.id}),
+        reverse("invoices:update", kwargs={"pk": invoice.id.pk}),
         {"action": "create"}
         | formdata.map_to_dict(_invoice_head)
         | formdata.map_to_dict(PositionList(positions=[position_dto])),
@@ -134,7 +137,7 @@ def test__existing_invoice__update_with_positions_with_split_costs__saves_to_db(
     position_dto = PositionList(positions=[invoice_parser.position_to_dto(position)])
 
     _ = client.post(
-        reverse("invoices:update", kwargs={"pk": expected.id}),
+        reverse("invoices:update", kwargs={"pk": expected.id.pk}),
         {"action": "create"}
         | formdata.map_to_dict(_invoice_head)
         | formdata.map_to_dict(position_dto),
@@ -177,7 +180,7 @@ def invoice_head(expected: Invoice) -> InvoiceHeadDto:
     return InvoiceHeadDto(
         number=expected.number,
         date=expected.date,
-        creditor=expected.creditor,
+        creditor=expected.creditor.pk,
         currency=expected.currency(),
         external_invoice_id=expected.external_invoice_id,
         status=expected.status,

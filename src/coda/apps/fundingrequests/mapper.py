@@ -4,60 +4,15 @@ from collections.abc import Iterable
 from typing import Any
 
 from coda.apps.fundingrequests import models as fundingrequest_models
-from coda.apps.publications.mappers import PublicationDomainMapper
 from coda.domain.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
-    FilledContact,
-    FundingOrganizationId,
-    FundingRequest,
     FundingRequestContact,
-    FundingRequestId,
-    NoContact,
     Payment,
-    PaymentMethod,
     Review,
 )
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
-from coda.domain.fundingrequest.review import ReviewResult
-from coda.domain.money import Currency, Money
 from coda.domain.publication import PublicationId
-from coda.domain.string import NonEmptyStr
-
-
-def as_domain_object(model: fundingrequest_models.FundingRequest) -> AnyFundingRequest:
-    """Convert FundingRequestModel to domain object."""
-    fr_id = FundingRequestId(model.pk)
-    review = _as_review_domain_object(getattr(model, "review", None), fr_id)
-
-    fr = FundingRequest(
-        id=fr_id,
-        request_id=PublicFundingRequestId.from_str(model.request_id),
-        publication=PublicationDomainMapper.map(model.publication),
-        extra_contact=(
-            FilledContact(NonEmptyStr(model.extra_contact.name), model.extra_contact.email)
-            if model.extra_contact
-            else NoContact
-        ),
-        estimated_cost=Payment(
-            amount=Money(model.estimated_cost, Currency.from_code(model.estimated_cost_currency)),
-            method=PaymentMethod(model.payment_method),
-            external_costsplitting=model.external_costsplitting,
-        ),
-        external_funding=[
-            ExternalFunding(
-                organization=FundingOrganizationId(ef.organization_id),
-                project_id=NonEmptyStr(ef.project_id),
-                project_name=ef.project_name,
-            )
-            for ef in getattr(model, "external_funding").all()
-        ],
-        request_remarks=model.request_remarks,
-        review=review,
-        legacy_request_id=model.legacy_request_id,
-    )
-
-    return fr
 
 
 def as_django_model(fundingrequest: AnyFundingRequest) -> fundingrequest_models.FundingRequest:
@@ -74,14 +29,14 @@ def as_django_model(fundingrequest: AnyFundingRequest) -> fundingrequest_models.
         **_map_payment_to_model_fields(fundingrequest.estimated_cost),
     }
 
-    if fundingrequest.id is None:
+    if not fundingrequest.id.resolved:
         model = fundingrequest_models.FundingRequest(**fields)
     else:
-        model = fundingrequest_models.FundingRequest.objects.get(pk=fundingrequest.id)
+        model = fundingrequest_models.FundingRequest.objects.get(pk=fundingrequest.id.pk)
         for field, value in fields.items():
             setattr(model, field, value)
 
-    setattr(model, "publication_id", fundingrequest.publication.id)
+    setattr(model, "publication_id", fundingrequest.publication.id.pk)
     return model
 
 
@@ -120,7 +75,7 @@ def create_bulk_models(
     """Create FundingRequestModel instances for bulk creation."""
     return [
         fundingrequest_models.FundingRequest(
-            publication_id=pid,
+            publication_id=pid.pk,
             request_remarks=fundingrequest.request_remarks,
             review=review,
             legacy_request_id=fundingrequest.legacy_request_id,
@@ -153,25 +108,6 @@ def _map_request_id_to_model_fields(request_id: PublicFundingRequestId) -> dict[
     }
 
 
-def _as_review_domain_object(
-    model: fundingrequest_models.FundingRequestReview | None, fr_id: FundingRequestId
-) -> Review:
-    """Convert FundingRequestReview model to domain Review."""
-    if not model:
-        return Review(fr_id)
-
-    review_result = ReviewResult.of(model.review_result)
-    return Review(
-        fr_id,
-        decided_funding=Money(
-            model.decided_funding_amount or 0,
-            Currency.from_code(model.decided_funding_currency or "EUR"),
-        ),
-        remarks=model.remarks,
-        result=review_result,
-    )
-
-
 def _create_review_model(review: Review) -> fundingrequest_models.FundingRequestReview:
     """Create new Django model instance from domain Review."""
     return fundingrequest_models.FundingRequestReview(
@@ -184,7 +120,7 @@ def _create_review_model(review: Review) -> fundingrequest_models.FundingRequest
     )
 
 
-def _update_review_model(
+def update_review_model(
     review: Review, review_model: fundingrequest_models.FundingRequestReview
 ) -> None:
     """Update existing Django model with domain Review data."""
@@ -235,7 +171,7 @@ def _create_external_funding_models(
     return [
         fundingrequest_models.ExternalFunding(
             funding_request_id=fr_id,
-            organization_id=ef.organization,
+            organization_id=ef.organization.pk,
             project_id=ef.project_id,
             project_name=ef.project_name,
         )
@@ -265,7 +201,7 @@ def create_bulk_external_funding_models(
     return [
         fundingrequest_models.ExternalFunding(
             funding_request_id=fr.pk,
-            organization_id=ef.organization,
+            organization_id=ef.organization.pk,
             project_id=ef.project_id,
             project_name=ef.project_name,
         )

@@ -1,7 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date
-from typing import cast
 
 import pytest
 from django.test import Client
@@ -19,10 +18,10 @@ from coda.contexts.fundingrequest.dto.commands import (
     PaymentDto,
 )
 from coda.contexts.fundingrequest.services import fundingrequests
-from coda.domain.contract import Contract, ContractId
+from coda.domain.contract import Contract
 from coda.domain.date import DateRange
 from coda.domain.finance.funding_sources import Budget
-from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice, InvoiceId
+from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice
 from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Currency
 from coda.domain.publication.publication import JournalId
@@ -37,7 +36,7 @@ class MatchingQueryConfig:
 
 
 def list_item_from_invoice(invoice: Invoice, creditor_name: str) -> InvoiceListItem:
-    invoice_id = cast(InvoiceId, invoice.id)
+    invoice_id = invoice.id
     return InvoiceListItem(
         id=invoice_id,
         number=invoice.number,
@@ -266,7 +265,7 @@ def test__searching_by_contract__finds_invoices_with_matching_contract() -> None
     )
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.ContractCriterion(cast(ContractId, matching_contract.id)))
+    actual = iq.search(iq.ContractCriterion(matching_contract.id))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -319,7 +318,7 @@ def test__searching_by_has_errors__finds_invoices_with_invalid_contract_years() 
     valid_contract = domainfactory.contract(
         period=DateRange(start=date(2024, 1, 1), end=date(2024, 12, 31))
     )
-    contract_repository.create(valid_contract)
+    valid_contract.id = contract_repository.create(valid_contract)
     valid_position = domainfactory.contract_position(domainfactory.contract_year(valid_contract))
 
     non_matching_invoice = domainfactory.invoice(

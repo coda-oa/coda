@@ -146,6 +146,7 @@ class PublicationStep(TemplateStep):
     def all_valid(self, forms: Iterable[FormLike]) -> bool:
         for form in forms:
             if not form.is_valid():
+                print(form.__class__, "is not valid")
                 return False
 
         return True

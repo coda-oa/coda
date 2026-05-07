@@ -18,7 +18,7 @@ from coda.contexts.fundingrequest.services import fundingrequests
 from coda.apps.invoices.repository import create
 from coda.apps.publications.dto import PublicationDto
 from coda.contexts.finance.dto.detail_position_dtos import PositionDetailDto
-from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
+from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.finance.invoice_positions import Position
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId, FundingRequest
 from coda.domain.publication.publication import JournalId, Publication
@@ -34,7 +34,7 @@ def test__invoice_with_publication_position__viewing_invoice_details__publicatio
     publication_position = domainfactory.publication_position(fr.publication.id)
     invoice = invoice_with_position(publication_position)
 
-    response = goto_invoice_detail_view(client, cast(InvoiceId, invoice.id))
+    response = goto_invoice_detail_view(client, invoice.id.pk)
 
     actual_invoice = response.context["display_invoice"]
     first_position: PositionDetailDto = actual_invoice.positions[0]

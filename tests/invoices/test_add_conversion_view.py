@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import cast
 
 import pytest
 from django.test import Client
@@ -7,7 +6,7 @@ from django.urls import reverse
 
 from coda.apps.invoices import repository
 from coda.apps.preferences.models import GlobalPreferences
-from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
+from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.money._currency import Currency
 from tests import domainfactory, modelfactory
 from tests.invoices.test_create_invoice_view import invoice_post_data
@@ -85,7 +84,7 @@ def test__saved_invoice_with_conversion__form_field_for_exchange_rate_is_cleared
         "conversion_currency_JPY": Currency.JPY.code,
         "exchange_rate_JPY": "",
     }
-    url = reverse("invoices:update", kwargs={"pk": invoice.id})
+    url = reverse("invoices:update", kwargs={"pk": invoice.id.pk})
 
     _ = client.post(url, data)
 
@@ -101,11 +100,11 @@ def test__saved_invoice_with_conversion__invoice_currency_is_changed_to_home_cur
     GlobalPreferences.set_home_currency(Currency.USD)
     invoice = build_invoice_with_jpy_currency_and_usd_conversion()
     data = {**invoice_form_data(invoice), "currency": Currency.USD.code}
-    url = reverse("invoices:update", kwargs={"pk": invoice.id})
+    url = reverse("invoices:update", kwargs={"pk": invoice.id.pk})
 
     _ = client.post(url, data)
 
-    updated_invoice = repository.get_by_id(cast(InvoiceId, invoice.id))
+    updated_invoice = repository.get_by_id(invoice.id)
     assert Currency.USD not in updated_invoice.conversions()
 
 
@@ -124,7 +123,7 @@ def test__invoice_with_foreign_curency_has_conversion_to_home_currency__home_cur
     GlobalPreferences.set_home_currency(Currency.USD)
     _ = client.post(url, data)
 
-    updated_invoice = repository.get_by_id(cast(InvoiceId, invoice.id))
+    updated_invoice = repository.get_by_id(invoice.id)
     assert updated_invoice.conversions() == invoice.conversions()
 
 
@@ -187,7 +186,7 @@ def test__invoice_with_foreign_currency_and_multiple_conversions__home_currency_
 
     _ = client.post(url, data)
 
-    updated_invoice = repository.get_by_id(cast(InvoiceId, invoice.id))
+    updated_invoice = repository.get_by_id(invoice.id)
     assert Currency.USD in updated_invoice.conversions()
     assert Currency.EUR not in updated_invoice.conversions()
 
@@ -209,7 +208,7 @@ def test__invoice_with_foreign_currency_and_exchange_rate_to_home_currency_is_ze
 
     _ = client.post(url, data)
 
-    updated_invoice = repository.get_by_id(cast(InvoiceId, invoice.id))
+    updated_invoice = repository.get_by_id(invoice.id)
     assert Currency.EUR not in updated_invoice.conversions()
 
 

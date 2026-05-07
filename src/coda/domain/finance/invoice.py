@@ -2,17 +2,27 @@ import datetime
 import enum
 from collections.abc import Iterable
 from decimal import Decimal
-from typing import TYPE_CHECKING, NewType, Self
+from typing import TYPE_CHECKING, Self
 
 from coda.domain import errors
 from coda.domain.money import Currency, CurrencyExchange, Money
+from coda.entityid import EntityId
 
 if TYPE_CHECKING:
     from coda.domain.finance.invoice_positions import Position
 
-InvoiceId = NewType("InvoiceId", int)
-CreditorId = NewType("CreditorId", int)
-FundingSourceId = NewType("FundingSourceId", int)
+# InvoiceId = NewType("InvoiceId", int)
+# CreditorId = NewType("CreditorId", int)
+# FundingSourceId = NewType("FundingSourceId", int)
+
+
+class InvoiceId(EntityId): ...
+
+
+class CreditorId(EntityId): ...
+
+
+class FundingSourceId(EntityId): ...
 
 
 type Positions = Iterable[Position]
@@ -40,7 +50,7 @@ def _internal_exchange(exchange_rates: dict[Currency, Decimal]) -> CurrencyExcha
 class Invoice:
     def __init__(
         self,
-        id: InvoiceId | None,
+        id: InvoiceId,
         number: str,
         date: datetime.date,
         creditor: CreditorId,
@@ -73,7 +83,9 @@ class Invoice:
         comment: str = "",
         external_invoice_id: str = "",
     ) -> Self:
-        return cls(None, number, date, creditor, positions, status, comment, external_invoice_id)
+        return cls(
+            InvoiceId(), number, date, creditor, positions, status, comment, external_invoice_id
+        )
 
     @property
     def positions(self) -> Positions:

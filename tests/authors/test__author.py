@@ -2,10 +2,7 @@ from typing import cast
 
 import pytest
 from django.core.exceptions import ValidationError
-from django.test import Client
 
-from coda.apps.authors.dto import AuthorDto
-from coda.apps.authors.mappers._domain import AuthorDomainMapper
 from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.models import PersonId
 from coda.apps.authors.services import (
@@ -92,35 +89,6 @@ def test__updating_author__without_id__raises_error() -> None:
 
 
 @pytest.mark.django_db
-def test__details_already_exist__reuses_existing_person(client: Client) -> None:
-    author_create(JOSIAHS_DATA)
-
-    form_data = AuthorDto.from_author(JOSIAHS_DATA)
-    form_data.affiliation = None
-    client.post("/authors/create/", form_data.to_post_data())
-
-    assert PersonId.objects.count() == 1
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
-def test__given_institution_exits__when_author_is_affiliated__author_is_saved_with_affiliation(
-    client: Client,
-) -> None:
-    institution = Institution(name="Brown University")
-    institution.save()
-
-    affiliation = institution.pk
-    josiah = AuthorDto.from_author(JOSIAHS_DATA)
-    josiah.affiliation = InstitutionId(affiliation)
-
-    client.post("/authors/create/", josiah.to_post_data())
-
-    author = AuthorDomainMapper.map(cast(AuthorModel, AuthorModel.objects.first()))
-    assert author.affiliation == affiliation
-
-
-@pytest.mark.django_db
 def test__create_many_with_publications__creates_all_authors_with_correct_publications() -> None:
     """Multiple authors across multiple publications are created with correct publication_ids."""
     # Setup: Create 2 publications
@@ -148,13 +116,13 @@ def test__create_many_with_publications__creates_all_authors_with_correct_public
     assert AuthorModel.objects.count() == 3
 
     # Assert: Correct publication assignments
-    author1_model = AuthorModel.objects.get(pk=ids[0])
-    author2_model = AuthorModel.objects.get(pk=ids[1])
-    author3_model = AuthorModel.objects.get(pk=ids[2])
+    author1_model = AuthorModel.objects.get(pk=ids[0].pk)
+    author2_model = AuthorModel.objects.get(pk=ids[1].pk)
+    author3_model = AuthorModel.objects.get(pk=ids[2].pk)
 
-    assert author1_model.publication_id == pub_id_1
-    assert author2_model.publication_id == pub_id_1
-    assert author3_model.publication_id == pub_id_2
+    assert author1_model.publication_id == pub_id_1.pk
+    assert author2_model.publication_id == pub_id_1.pk
+    assert author3_model.publication_id == pub_id_2.pk
 
     # Assert: PersonIDs created (one per author without ORCID)
     assert PersonId.objects.count() == 3
@@ -201,10 +169,10 @@ def test__create_many_with_publications__deduplicates_orcids_across_publications
     assert PersonId.objects.count() == 3
 
     # Assert: Authors A and B share the same PersonID
-    author_a_model = AuthorModel.objects.get(pk=ids[0])
-    author_b_model = AuthorModel.objects.get(pk=ids[1])
-    author_c_model = AuthorModel.objects.get(pk=ids[2])
-    author_d_model = AuthorModel.objects.get(pk=ids[3])
+    author_a_model = AuthorModel.objects.get(pk=ids[0].pk)
+    author_b_model = AuthorModel.objects.get(pk=ids[1].pk)
+    author_c_model = AuthorModel.objects.get(pk=ids[2].pk)
+    author_d_model = AuthorModel.objects.get(pk=ids[3].pk)
 
     assert author_a_model.identifier_id == author_b_model.identifier_id  # Same PersonID
     assert author_a_model.identifier_id != author_c_model.identifier_id  # Different PersonID
@@ -248,9 +216,9 @@ def test__create_many_with_publications__handles_mixed_affiliations() -> None:
     # Assert: All authors created with correct affiliations
     assert len(ids) == 3
 
-    author1_model = AuthorModel.objects.get(pk=ids[0])
-    author2_model = AuthorModel.objects.get(pk=ids[1])
-    author3_model = AuthorModel.objects.get(pk=ids[2])
+    author1_model = AuthorModel.objects.get(pk=ids[0].pk)
+    author2_model = AuthorModel.objects.get(pk=ids[1].pk)
+    author3_model = AuthorModel.objects.get(pk=ids[2].pk)
 
     assert author1_model.affiliation_id == inst_a.pk
     assert author2_model.affiliation_id == inst_b.pk

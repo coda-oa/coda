@@ -1,5 +1,3 @@
-from typing import cast
-
 import pytest
 
 from coda.apps.contracts import repository as contract_repository
@@ -7,7 +5,7 @@ from coda.apps.invoices import repository as invoice_repository
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publications.services import publications
 from coda.domain.contract import ContractYear, PublicationBilling
-from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
+from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.publication.payment import (
     InvoicePaymentReset,
     InvoiceReceived,
@@ -25,16 +23,14 @@ def test__publication_with_paid_invoice__mark_paid__publication_is_paid() -> Non
     publication = create_publication()
     invoice = pay_publication(publication)
 
-    paid = PublicationPaid(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number)
+    paid = PublicationPaid(invoice_id=invoice.id, invoice_number=invoice.number)
     publications.update_payment(publication, paid)
 
     payment_status = publications.get_payment_status(publication)
     assert isinstance(payment_status, PublicationPayments)
     assert payment_status.all_paid()
     assert payment_status.payments() == [
-        Payment(
-            invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=False
-        )
+        Payment(invoice_id=invoice.id, invoice_number=invoice.number, pending=False)
     ]
 
 
@@ -71,16 +67,14 @@ def test__publication_with_unpaid_invoice__invoice_received__publication_has_inv
     publication_id = create_publication()
     invoice = create_invoice_for_publication(publication_id)
 
-    invoice_received = InvoiceReceived(
-        invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number
-    )
+    invoice_received = InvoiceReceived(invoice_id=invoice.id, invoice_number=invoice.number)
 
     publications.update_payment(publication_id, invoice_received)
 
     payment_status = get_individual_paymentstatus(publication_id)
     assert payment_status.has_pending_payments()
     assert payment_status.payments() == [
-        Payment(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=True)
+        Payment(invoice_id=invoice.id, invoice_number=invoice.number, pending=True)
     ]
 
 
@@ -88,22 +82,16 @@ def test__publication_with_unpaid_invoice__invoice_received__publication_has_inv
 def test__publication_with_invoice_received__invoice_paid__publication_is_paid() -> None:
     publication_id = create_publication()
     invoice = create_invoice_for_publication(publication_id)
-    invoice_received = InvoiceReceived(
-        invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number
-    )
+    invoice_received = InvoiceReceived(invoice_id=invoice.id, invoice_number=invoice.number)
     publications.update_payment(publication_id, invoice_received)
 
     invoice.pay()
     invoice_repository.update(invoice)
-    publications.update_payment(
-        publication_id, PublicationPaid(cast(InvoiceId, invoice.id), invoice.number)
-    )
+    publications.update_payment(publication_id, PublicationPaid(invoice.id, invoice.number))
 
     payment_status = get_individual_paymentstatus(publication_id)
     assert payment_status.all_paid()
-    assert payment_status.payments() == [
-        Payment(cast(InvoiceId, invoice.id), invoice.number, pending=False)
-    ]
+    assert payment_status.payments() == [Payment(invoice.id, invoice.number, pending=False)]
 
 
 @pytest.mark.django_db
@@ -114,29 +102,21 @@ def test__publication_with_paid_invoice__new_invoice_received__publication_is_pa
     invoice = pay_publication(publication_id)
     publications.update_payment(
         publication_id,
-        PublicationPaid(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number),
+        PublicationPaid(invoice_id=invoice.id, invoice_number=invoice.number),
     )
 
     next_invoice = create_invoice_for_publication(publication_id)
     publications.update_payment(
         publication_id,
-        InvoiceReceived(
-            invoice_id=cast(InvoiceId, next_invoice.id), invoice_number=next_invoice.number
-        ),
+        InvoiceReceived(invoice_id=next_invoice.id, invoice_number=next_invoice.number),
     )
 
     payment_status = get_individual_paymentstatus(publication_id)
     assert payment_status.has_pending_payments()
     assert payment_status.partially_paid()
     assert payment_status.payments() == [
-        Payment(
-            invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=False
-        ),
-        Payment(
-            invoice_id=cast(InvoiceId, next_invoice.id),
-            invoice_number=next_invoice.number,
-            pending=True,
-        ),
+        Payment(invoice_id=invoice.id, invoice_number=invoice.number, pending=False),
+        Payment(invoice_id=next_invoice.id, invoice_number=next_invoice.number, pending=True),
     ]
 
 
@@ -149,15 +129,13 @@ def test__publicatoin_with_two_paid_invoices__unpay_one_publication__publication
     second_invoice = pay_publication(publication_id)
 
     publications.update_payment(
-        publication_id, PublicationPaid(cast(InvoiceId, first_invoice.id), first_invoice.number)
+        publication_id, PublicationPaid(first_invoice.id, first_invoice.number)
     )
     publications.update_payment(
-        publication_id, PublicationPaid(cast(InvoiceId, second_invoice.id), second_invoice.number)
+        publication_id, PublicationPaid(second_invoice.id, second_invoice.number)
     )
 
-    publications.update_payment(
-        publication_id, InvoicePaymentReset(cast(InvoiceId, first_invoice.id))
-    )
+    publications.update_payment(publication_id, InvoicePaymentReset(first_invoice.id))
 
     payment_status = get_individual_paymentstatus(publication_id)
     assert payment_status.partially_paid()
@@ -189,7 +167,7 @@ def test__contract_with_individual_publication_billing__paid_publication__paymen
     publication = create_publication(contract.in_first_year())
     invoice = pay_publication(publication)
 
-    paid = PublicationPaid(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number)
+    paid = PublicationPaid(invoice_id=invoice.id, invoice_number=invoice.number)
     publications.update_payment(publication, paid)
 
     payment_status = get_individual_paymentstatus(publication)
@@ -207,16 +185,14 @@ def test__contract_with_individual_publication_billing__unpaid_publication_with_
 
     publication = create_publication(contract.in_first_year())
     invoice = create_invoice_for_publication(publication)
-    invoice_received = InvoiceReceived(
-        invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number
-    )
+    invoice_received = InvoiceReceived(invoice_id=invoice.id, invoice_number=invoice.number)
 
     publications.update_payment(publication, invoice_received)
     payment_status = get_individual_paymentstatus(publication)
 
     assert payment_status.has_pending_payments()
     assert payment_status.payments() == [
-        Payment(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=True)
+        Payment(invoice_id=invoice.id, invoice_number=invoice.number, pending=True)
     ]
 
 
@@ -246,10 +222,10 @@ def test__paid_publication__invoice_deleted__publication_has_no_payments() -> No
     invoice = pay_publication(publication)
     publications.update_payment(
         publication,
-        PublicationPaid(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number),
+        PublicationPaid(invoice_id=invoice.id, invoice_number=invoice.number),
     )
 
-    publications.invoice_deleted(publication, cast(InvoiceId, invoice.id))
+    publications.invoice_deleted(publication, invoice.id)
     payments = get_individual_paymentstatus(publication)
     assert payments.payments() == []
 
@@ -260,7 +236,7 @@ def test__many_publications__can_retrieve_many_payment_statuses_at_once() -> Non
     invoice = pay_publication(paid_publication)
     publications.update_payment(
         paid_publication,
-        PublicationPaid(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number),
+        PublicationPaid(invoice_id=invoice.id, invoice_number=invoice.number),
     )
 
     consolidated_billing_contract = domainfactory.contract()
@@ -278,7 +254,7 @@ def test__many_publications__can_retrieve_many_payment_statuses_at_once() -> Non
     unpaid_invoice = create_invoice_for_publication(invoice_received_publication)
     publications.update_payment(
         invoice_received_publication,
-        InvoiceReceived(cast(InvoiceId, unpaid_invoice.id), unpaid_invoice.number),
+        InvoiceReceived(unpaid_invoice.id, unpaid_invoice.number),
     )
 
     actual = publications.get_payment_statuses(

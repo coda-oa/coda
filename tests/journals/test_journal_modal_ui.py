@@ -24,7 +24,7 @@ def _create_test_article_funding_request() -> FundingRequestModel:
 
     funding_request_id = repository.create(FundingRequest.new(article, domainfactory.payment()))
 
-    return FundingRequestModel.objects.get(pk=funding_request_id)
+    return FundingRequestModel.objects.get(pk=funding_request_id.pk)
 
 
 @pytest.mark.ui_test

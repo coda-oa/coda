@@ -64,7 +64,7 @@ def _build_funding_assignments(position: Position) -> list[FundingAssignmentDeta
 
     return [
         FundingAssignmentDetailDto(
-            funding_source_id=fs.funding_source.id if fs.funding_source else None,
+            funding_source_id=fs.funding_source.id.pk if fs.funding_source else None,
             funding_source_name=fs.funding_source.name if fs.funding_source else "unspecified",
             amount=fs.amount.amount,
         )

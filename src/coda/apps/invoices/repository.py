@@ -9,6 +9,7 @@ from coda.apps.invoices.mappers._domain import InvoiceDomainMapper
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
 from coda.domain.publication import PublicationId
+from coda.uow import UnitOfWork
 
 
 def first() -> Invoice | None:
@@ -21,12 +22,12 @@ def first() -> Invoice | None:
 
 def get_by_id(invoice_id: InvoiceId) -> Invoice:
     qs = InvoiceDomainMapper.prefetch(InvoiceModel.objects.all())
-    return InvoiceDomainMapper.map(qs.get(id=invoice_id))
+    return InvoiceDomainMapper.map(qs.get(id=invoice_id.pk))
 
 
 def get_by_creditor(creditor_id: CreditorId) -> Sequence[Invoice]:
     return DomainQuerySet(
-        _ordered_date_desc(InvoiceModel.objects.filter(creditor_id=creditor_id)),
+        _ordered_date_desc(InvoiceModel.objects.filter(creditor_id=creditor_id.pk)),
         InvoiceDomainMapper.map,
     )
 
@@ -36,7 +37,7 @@ def all() -> Sequence[Invoice]:
 
 
 def invoice_with_publication(publication_id: PublicationId) -> Invoice | None:
-    invoice = InvoiceModel.objects.filter(positions__publication_id=publication_id).first()
+    invoice = InvoiceModel.objects.filter(positions__publication_id=publication_id.pk).first()
 
     if not invoice:
         return None
@@ -45,11 +46,11 @@ def invoice_with_publication(publication_id: PublicationId) -> Invoice | None:
 
 
 def invoice_number_of(invoice_id: InvoiceId) -> str:
-    return InvoiceModel.objects.only("number").get(pk=invoice_id).number
+    return InvoiceModel.objects.only("number").get(pk=invoice_id.pk).number
 
 
 def create(invoice: Invoice) -> InvoiceId:
-    if invoice.id:
+    if invoice.id.resolved:
         raise InvoiceAlreadyExists(invoice.id)
 
     invoice_model = invoice_mapper.as_django_model(invoice)
@@ -75,6 +76,13 @@ def create_many(invoices: Iterable[Invoice]) -> list[InvoiceId]:
     return [InvoiceId(m.pk) for m in models]
 
 
+def flush(uow: UnitOfWork) -> None:
+    staged = [invoice for invoice, _ in uow.get_staged(Invoice)]
+    ids = create_many(staged)
+    for invoice, invoice_id in zip(staged, ids):
+        invoice.id.resolve(invoice_id.pk)
+
+
 def update(invoice: Invoice) -> None:
     if not invoice.id:
         raise UnsavedInvoice(invoice)
@@ -85,7 +93,7 @@ def update(invoice: Invoice) -> None:
 
 
 def delete(invoice_id: InvoiceId) -> None:
-    InvoiceModel.objects.filter(id=invoice_id).delete()
+    InvoiceModel.objects.filter(id=invoice_id.pk).delete()
 
 
 class InvoiceAlreadyExists(ValueError):

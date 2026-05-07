@@ -162,7 +162,7 @@ def test__position_dto_with_funding_assignment_in_gross__convert_to_position__po
 
     total = position.total().amount
     dto.cost_basis_mode = CostBasis.gross
-    dto.funding_assignments.append(FundingAssignmentDto(funding_source=budget.id, amount=total))
+    dto.funding_assignments.append(FundingAssignmentDto(funding_source=budget.id.pk, amount=total))
 
     actual = invoice_parser.to_position(dto, position.cost.currency)
 
@@ -190,7 +190,7 @@ def test__position_with_funding_assignments__convert_to_dto_as_gross__returns_dt
     assert dto.cost_basis_mode == CostBasis.gross
     assert dto.funding_assignments == [
         FundingAssignmentDto(
-            funding_source=cast(FundingSource, fa.funding_source).id,
+            funding_source=cast(FundingSource, fa.funding_source).id.pk,
             amount=fa.amount.amount,
         )
         for fa in position.funding_assignments(CostBasis.gross)
@@ -263,7 +263,7 @@ def test__position_dto_with_amount_all_and_selected_funding_source__assigns_full
 
     dto.funding_assignments.append(
         FundingAssignmentDto(
-            funding_source=funding_source.identity(),
+            funding_source=funding_source.identity().pk,
             funding_source_type=funding_source.kind(),
             amount="all",
         )

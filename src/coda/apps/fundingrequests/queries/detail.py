@@ -37,7 +37,9 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
     Returns:
         Context dict for template
     """
-    fr_model = FundingRequestDetailMapper.prefetch(FundingRequestModel.objects.all()).get(pk=fr_id)
+    fr_model = FundingRequestDetailMapper.prefetch(FundingRequestModel.objects.all()).get(
+        pk=fr_id.pk
+    )
 
     affiliation_names = _fetch_affiliation_names(list(fr_model.publication.relevant_authors.all()))
     payment_status = publication_service.get_payment_status(PublicationId(fr_model.publication_id))

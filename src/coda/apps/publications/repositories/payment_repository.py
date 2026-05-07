@@ -42,13 +42,13 @@ REVERSE_STATUS_MAPPING: Final = {
 
 def save_payment(publication: PublicationId, publication_payment: PaymentEvent) -> None:
     payments = PublicationPaymentModel.objects.filter(
-        publication_id=publication,
-        invoice_id=publication_payment.invoice_id,
+        publication_id=publication.pk,
+        invoice_id=publication_payment.invoice_id.pk,
     ).first()
 
     if not payments:
         payments = PublicationPaymentModel(
-            publication_id=publication, invoice_id=publication_payment.invoice_id
+            publication_id=publication.pk, invoice_id=publication_payment.invoice_id.pk
         )
 
     payments.status = STATUS_MAPPING[type(publication_payment)]
@@ -57,12 +57,13 @@ def save_payment(publication: PublicationId, publication_payment: PaymentEvent) 
 
 def delete_payment(publication: PublicationId, invoice_id: InvoiceId) -> None:
     PublicationPaymentModel.objects.filter(
-        publication_id=publication, invoice_id=invoice_id
+        publication_id=publication.pk,
+        invoice_id=invoice_id.pk,
     ).delete()
 
 
 def find_payment(publication: PublicationId) -> PublicationPayments | None:
-    queryset = PublicationPaymentModel.objects.filter(publication_id=publication)
+    queryset = PublicationPaymentModel.objects.filter(publication_id=publication.pk)
     if queryset.count() == 0:
         return None
 
@@ -157,14 +158,14 @@ def _bulk_update_payment_status(
         invoice_id = payment.invoice_id
 
         if publication_id in existing_payments:
-            model = existing_payments[publication_id]
+            model = existing_payments[publication_id.pk]
             model.status = status
-            model.invoice_id = invoice_id
+            model.invoice_id = invoice_id.pk
             payments_to_update.append(model)
         else:
             payments_to_create.append(
                 PublicationPaymentModel(
-                    publication_id=publication_id, status=status, invoice_id=invoice_id
+                    publication_id=publication_id.pk, status=status, invoice_id=invoice_id.pk
                 )
             )
 

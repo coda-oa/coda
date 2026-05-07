@@ -1,5 +1,3 @@
-from typing import cast
-
 import pytest
 
 from coda.apps.invoices import repository
@@ -9,7 +7,7 @@ from coda.contexts.finance.services import invoice_service
 from coda.domain.author import InstitutionId
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.funding_sources import SplitSource
-from coda.domain.finance.invoice import CreditorId, Invoice, InvoiceId
+from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.finance.invoice_positions import Position
 from coda.domain.publication.payment import Payment, PublicationPayments
 from coda.domain.publication.publication import JournalId, PublicationId
@@ -54,7 +52,7 @@ def assert_invoice_received(invoice: Invoice, publication: PublicationId) -> Non
     assert isinstance(payment_status, PublicationPayments)
     assert payment_status.has_pending_payments()
     assert payment_status.payments() == [
-        Payment(invoice_id=cast(InvoiceId, invoice.id), invoice_number=invoice.number, pending=True)
+        Payment(invoice_id=invoice.id, invoice_number=invoice.number, pending=True)
     ]
 
 
@@ -77,7 +75,7 @@ def assert_publication_paid(publication: PublicationId, *invoices: Invoice) -> N
     assert payment_status.all_paid()
     assert payment_status.payments() == [
         Payment(
-            invoice_id=cast(InvoiceId, invoice.id),
+            invoice_id=invoice.id,
             invoice_number=invoice.number,
             pending=False,
         )
@@ -271,12 +269,12 @@ def assert_publication_partially_paid(publication: PublicationId, *invoices: Inv
     assert payments.partially_paid()
 
     def _sort_by_id(payments: list[Payment]) -> list[Payment]:
-        return sorted(payments, key=lambda p: p.invoice_id)
+        return sorted(payments, key=lambda p: p.invoice_id.pk)
 
     assert _sort_by_id(payments.payments()) == _sort_by_id(
         [
             Payment(
-                invoice_id=cast(InvoiceId, invoice.id),
+                invoice_id=invoice.id,
                 invoice_number=invoice.number,
                 pending=not invoice.is_paid(),
             )

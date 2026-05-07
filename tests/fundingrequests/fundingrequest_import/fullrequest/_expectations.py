@@ -11,17 +11,13 @@ from coda.apps.publishers.models import Publisher
 from coda.domain import orcid
 from coda.domain.author import Author, InstitutionId, Role
 from coda.domain.contract import ContractYear, PublisherId
-from coda.domain.fundingrequest import (
-    FundingRequestId,
-    PublicFundingRequestId,
-    Review,
-    ReviewResult,
-)
+from coda.domain.fundingrequest import PublicFundingRequestId, Review, ReviewResult
 from coda.domain.fundingrequest.fundingrequest import (
     ExternalFunding,
     FilledContact,
     FundingOrganizationId,
     FundingRequest,
+    FundingRequestId,
     Payment,
     PaymentMethod,
     TPublication,
@@ -50,9 +46,8 @@ from tests.fundingrequests.fundingrequest_import.entitynames import (
 )
 
 
-def expected_review(id: FundingRequestId | None = None) -> Review:
+def expected_review() -> Review:
     return Review(
-        fundingrequest=id,
         result=ReviewResult.Approved,
         decided_funding=Money("1000.00", Currency.EUR),
         remarks="Remarks from the reviewer",
@@ -72,11 +67,11 @@ def expected_request(*, for_: TPublication) -> FundingRequest[TPublication]:
         name=IMPORT_RESEARCH_FUNDER_NAME
     ).first()
     assert funding_organization is not None, "Expected funding organization not found"
-    funding_org_id = FundingOrganizationId(funding_organization.id)
+    funding_org_id = FundingOrganizationId(funding_organization.pk)
 
     request_id = PublicFundingRequestId.create(date=datetime.date(2025, 3, 19))
     expected = FundingRequest(
-        id=None,
+        id=FundingRequestId(),
         request_id=request_id,
         legacy_request_id="the-legacy-id",
         publication=for_,
@@ -102,7 +97,7 @@ def expected_article() -> Publication:
     journal = cast(Journal, journal_services.find_by_eissn(IMPORT_JOURNAL_ISSN))
     publication = Publication.new(
         title=IMPORT_PUBLICATION_TITLE,
-        journal=JournalId(journal.id),
+        journal=JournalId(journal.pk),
         license=License.CC_BY,
         open_access_type=OpenAccessType.Gold,
         publication_state=Published(online=datetime.date(2025, 3, 19)),
@@ -120,7 +115,7 @@ def expected_monograph() -> Monograph:
     assert publisher is not None, "Expected publisher not found"
     monograph = Monograph.new(
         title=NonEmptyStr("My article"),
-        publisher=PublisherId(publisher.id),
+        publisher=PublisherId(publisher.pk),
         license=License.CC_BY,
         open_access_type=OpenAccessType.Gold,
         publication_state=Published(online=datetime.date(2025, 3, 19)),
@@ -173,7 +168,7 @@ def expected_authors() -> Authors:
                 email="a.doe@example.com",
                 orcid=orcid.Orcid("0000-0002-1825-0097"),
                 role=Role.CORRESPONDING_AUTHOR,
-                affiliation=InstitutionId(first_match.id),
+                affiliation=InstitutionId(first_match.pk),
             )
         ]
     )

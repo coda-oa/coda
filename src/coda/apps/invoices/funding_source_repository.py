@@ -1,13 +1,13 @@
 from collections.abc import Iterable
 from typing import Any, Protocol, TypeVar, cast
 
-
-from coda.apps.invoices import mapper as invoice_mapper
+from coda.apps.invoices.mappers._domain import FundingSourceDomainMapper
 from coda.apps.invoices.models import FundingSource as FundingSourceModel
 from coda.domain.author import InstitutionId
 from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.string import NonEmptyStr
+from coda.entityid import UnresolvedEntityId
 
 K = TypeVar("K")  # Lookup key type
 T = TypeVar("T", Budget, SplitSource)  # Source type
@@ -57,18 +57,20 @@ class FundingSourceNotFound(ValueError):
 
 def get_by_id(id: FundingSourceId) -> FundingSource:
     try:
-        model = FundingSourceModel.objects.get(pk=id)
+        model = FundingSourceModel.objects.get(pk=id.pk)
     except FundingSourceModel.DoesNotExist as e:
-        raise FundingSourceNotFound(id) from e
+        raise FundingSourceNotFound(id.pk) from e
+    except UnresolvedEntityId as e:
+        raise FundingSourceNotFound() from e
 
-    return invoice_mapper.as_domain_funding_source(model)
+    return FundingSourceDomainMapper.map(model)
 
 
 def get_by_institution(id: InstitutionId) -> SplitSource:
     try:
-        model = FundingSourceModel.objects.get(institution_id=id)
+        model = FundingSourceModel.objects.get(institution_id=id.pk)
     except FundingSourceModel.DoesNotExist as e:
-        raise FundingSourceNotFound(id) from e
+        raise FundingSourceNotFound(id.pk) from e
 
     return SplitSource(FundingSourceId(model.pk), id, NonEmptyStr(model.name))
 
@@ -79,7 +81,7 @@ def get_by_name(name: str) -> FundingSource:
     except FundingSourceModel.DoesNotExist as e:
         raise FundingSourceNotFound(name=name) from e
 
-    return invoice_mapper.as_domain_funding_source(model)
+    return FundingSourceDomainMapper.map(model)
 
 
 def create(source: FundingSource) -> FundingSourceId:
@@ -88,8 +90,8 @@ def create(source: FundingSource) -> FundingSourceId:
         institution_id = None
     elif isinstance(source, SplitSource):
         type = "institution"
-        institution_id = source.institution
-        existing = FundingSourceModel.objects.filter(institution_id=source.institution).first()
+        institution_id = source.institution.pk
+        existing = FundingSourceModel.objects.filter(institution_id=source.institution.pk).first()
         if existing:
             return FundingSourceId(existing.pk)
 
@@ -128,16 +130,14 @@ class InstitutionStrategy:
     filter_field = "institution_id"
 
     @staticmethod
-    def extract_source_key(source: SplitSource) -> InstitutionId:
+    def extract_source_key(source: SplitSource) -> int:
         """Extract the lookup key (institution_id) from a SplitSource."""
-        return source.institution
+        return source.institution.pk
 
     @staticmethod
-    def extract_model_key(model: FundingSourceModel) -> InstitutionId:
+    def extract_model_key(model: FundingSourceModel) -> int | None:
         """Extract the lookup key (institution_id) from a FundingSourceModel."""
-        return cast(
-            InstitutionId, model.institution_id
-        )  # pyright: ignore[reportAttributeAccessIssue]
+        return model.institution_id
 
     @staticmethod
     def build_model(source: SplitSource) -> FundingSourceModel:
@@ -145,7 +145,7 @@ class InstitutionStrategy:
         return FundingSourceModel(
             type="institution",
             name=source.name,
-            institution_id=source.institution,
+            institution_id=source.institution.pk,
         )
 
 

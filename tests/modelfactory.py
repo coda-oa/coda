@@ -45,7 +45,7 @@ def journal(publisher_id: int | None = None, title: str = "") -> Journal:
 
 def author() -> AuthorModel:
     id = author_create(domainfactory.author())
-    return AuthorModel.objects.get(pk=id)
+    return AuthorModel.objects.get(pk=id.pk)
 
 
 def publication(title: str = "") -> Publication:
@@ -102,7 +102,7 @@ def fundingrequest(title: str = "", authors: Authors | None = None) -> FundingRe
             extra_contact=domainfactory.fundingrequest_contact(),
         )
     )
-    return FundingRequestModel.objects.get(pk=request_id)
+    return FundingRequestModel.objects.get(pk=request_id.pk)
 
 
 def invoice() -> Invoice:

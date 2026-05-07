@@ -34,9 +34,10 @@ class FundingRequestDomainMapper:
     @staticmethod
     def map(model: FundingRequestModel) -> AnyFundingRequest:
         fr_id = FundingRequestId(model.pk)
-        review = _map_review(getattr(model, "review", None), fr_id)
+        if review := getattr(model, "review", None):
+            review = FundingRequestReviewMapper.map(model.review)
 
-        return FundingRequest(
+        fr = FundingRequest(
             id=fr_id,
             request_id=PublicFundingRequestId.from_str(model.request_id),
             publication=PublicationDomainMapper.map(model.publication),
@@ -61,22 +62,21 @@ class FundingRequestDomainMapper:
                 for ef in model.external_funding.all()
             ],
             request_remarks=model.request_remarks,
-            review=review,
             legacy_request_id=model.legacy_request_id,
+            review=review,
         )
+        return fr
 
 
-def _map_review(model: FundingRequestReviewModel | None, fr_id: FundingRequestId) -> Review:
-    if not model:
-        return Review(fr_id)
-
-    review_result = ReviewResult.of(model.review_result)
-    return Review(
-        fr_id,
-        decided_funding=Money(
-            model.decided_funding_amount or 0,
-            Currency.from_code(model.decided_funding_currency or "EUR"),
-        ),
-        remarks=model.remarks,
-        result=review_result,
-    )
+class FundingRequestReviewMapper:
+    @staticmethod
+    def map(model: FundingRequestReviewModel) -> Review:
+        review_result = ReviewResult.of(model.review_result)
+        return Review(
+            decided_funding=Money(
+                model.decided_funding_amount or 0,
+                Currency.from_code(model.decided_funding_currency or "EUR"),
+            ),
+            remarks=model.remarks,
+            result=review_result,
+        )

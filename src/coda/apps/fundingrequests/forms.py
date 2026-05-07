@@ -36,7 +36,7 @@ class ExtraContactForm(CodaFormBase):
 class ContractForm(CodaFormBase):
     contract = forms.ChoiceField(
         choices=lambda: (
-            (contract.id, contract.name) for contract in repository.get_active_contracts()
+            (contract.id.pk, contract.name) for contract in repository.get_active_contracts()
         )
     )
     year = forms.IntegerField()

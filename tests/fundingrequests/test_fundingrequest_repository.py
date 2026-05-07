@@ -26,7 +26,7 @@ from tests.fundingrequests.services.test_fundingrequest_services import assert_f
 
 @pytest.mark.django_db
 def test__saving_fungingrequest__get_by_id__returns_fundingrequest() -> None:
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
     request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
     id = repository.create(request)
@@ -38,7 +38,7 @@ def test__saving_fungingrequest__get_by_id__returns_fundingrequest() -> None:
 
 @pytest.mark.django_db
 def test__existing_fundingrequest__create_again__raises_error() -> None:
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
     request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
     request.id = repository.create(request)
@@ -49,7 +49,7 @@ def test__existing_fundingrequest__create_again__raises_error() -> None:
 
 @pytest.mark.django_db
 def test__existing_fundingrequest__update__updates_fundingrequest() -> None:
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
     id = repository.create(
         domainfactory.fundingrequest(
@@ -78,7 +78,7 @@ def test__existing_fundingrequest__update__updates_fundingrequest() -> None:
 
 @pytest.mark.django_db
 def test__unsaved_fundingrequest__update__raises_error() -> None:
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
     request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
 
@@ -90,7 +90,7 @@ def test__unsaved_fundingrequest__update__raises_error() -> None:
 def test__fundingrequest_without_extra_contact__save__get_by_id_returns_fundingrequest_without_contact() -> (
     None
 ):
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     funding_org = FundingOrganizationId(modelfactory.funding_organization().pk)
     request = domainfactory.fundingrequest(journal_id=journal, funding_org_id=funding_org)
     request.extra_contact = NoContact
@@ -151,14 +151,14 @@ def test__searching_for_funding_requests_by_process_state__returns_matching_fund
     None
 ):
     approved_request = modelfactory.fundingrequest()
-    approved_request_id = FundingRequestId(approved_request.id)
+    approved_request_id = FundingRequestId(approved_request.pk)
     repository.save_review(
-        Review(approved_request_id).update_review(ReviewResult.Approved, Money(100, Currency.EUR))
+        approved_request_id, Review(Money(100, Currency.EUR), ReviewResult.Approved)
     )
 
     rejected_request = modelfactory.fundingrequest()
-    rejected_request_id = FundingRequestId(rejected_request.id)
-    repository.save_review(Review(rejected_request_id).update_review(ReviewResult.Rejected))
+    rejected_request_id = FundingRequestId(rejected_request.pk)
+    repository.save_review(rejected_request_id, Review().update_review(ReviewResult.Rejected))
 
     in_progress_request = modelfactory.fundingrequest()  # noqa: F841
 

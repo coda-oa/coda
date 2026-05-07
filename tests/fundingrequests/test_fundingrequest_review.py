@@ -109,8 +109,8 @@ def test__fundingrequest__close__stores_in_database(client: Client) -> None:
 def test__closed_fundingrequest__re_opening__stores_in_database(client: Client) -> None:
     fr = fundingrequest()
     fr.id = repository.create(fr)
-    review = Review(fr.id).update_review(ReviewResult.Open)
-    repository.save_review(review)
+    review = Review().update_review(ReviewResult.Open)
+    repository.save_review(fr.id, review)
 
     remarks = "Re-opened for further review"
 
@@ -134,8 +134,8 @@ def test__closed_fundingrequest__re_opening__stores_in_database(client: Client) 
 def test__action_return__updates_without_changing_result(client: Client) -> None:
     fr = fundingrequest()
     fr.id = repository.create(fr)
-    review = Review(fr.id).update_review(ReviewResult.Approved)
-    repository.save_review(review)
+    review = Review().update_review(ReviewResult.Approved)
+    repository.save_review(fr.id, review)
 
     remarks = "Some new remarks"
 

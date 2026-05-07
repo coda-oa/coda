@@ -18,7 +18,7 @@ from coda.apps.publications.models import AttachedContract
 from coda.domain.color import Color
 from coda.domain.contract import ContractYear, PublicationBilling
 from coda.domain.date import DateRange
-from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
+from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId, FundingRequestId
 from coda.domain.publication import JournalId
 from tests import domainfactory, modelfactory
 
@@ -257,7 +257,7 @@ def test__get_list_items__with_valid_contract_year__no_warning() -> None:
     contract.id = contract_repository.create(contract)
     fr = modelfactory.fundingrequest()
 
-    contract_model = Contract.objects.get(id=contract.id)
+    contract_model = Contract.objects.get(id=contract.id.pk)
     AttachedContract.objects.create(
         publication=fr.publication, contract=contract_model, contract_year=2024
     )
@@ -279,7 +279,7 @@ def test__get_list_items__with_invalid_contract_year__shows_warning() -> None:
 
     fr = modelfactory.fundingrequest()
 
-    contract_model = Contract.objects.get(id=contract.id)
+    contract_model = Contract.objects.get(id=contract.id.pk)
     invalid_year = 2026
     AttachedContract.objects.create(
         publication=fr.publication, contract=contract_model, contract_year=invalid_year
@@ -302,9 +302,7 @@ def test__get_list_items__with_mixed_contract_years__shows_warning() -> None:
 
     fr = modelfactory.fundingrequest()
 
-    from coda.apps.contracts.models import Contract
-
-    contract_model = Contract.objects.get(id=contract.id)
+    contract_model = Contract.objects.get(id=contract.id.pk)
 
     valid_year = 2024
     AttachedContract.objects.create(
@@ -365,7 +363,7 @@ def test__search_with_invalid_contract_year_criteria__filters_correctly() -> Non
     items = list_query.get_list_items(queryset)
 
     assert len(items) == 2
-    item_ids = {item.id for item in items}
+    item_ids = {FundingRequestId(item.id) for item in items}
     assert fr_invalid_before.id in item_ids
     assert fr_invalid_after.id in item_ids
 

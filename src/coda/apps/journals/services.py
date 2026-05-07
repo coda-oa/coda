@@ -13,8 +13,8 @@ def create(title: NonEmptyStr, eissn: Issn, publisher_id: PublisherId) -> Journa
     return JournalId(journal.pk)
 
 
-def get_by_pk(pk: int) -> Journal:
-    return Journal.objects.select_related("publisher").get(pk=pk)
+def get_by_pk(id: JournalId) -> Journal:
+    return Journal.objects.select_related("publisher").get(pk=id.pk)
 
 
 def all() -> Sequence[Journal]:
@@ -31,8 +31,8 @@ def find_by_eissn(eissn: Issn) -> Journal | None:
     return Journal.objects.filter(eissn=eissn).first()
 
 
-def eissn_for(pk: int) -> Issn:
-    return Issn(Journal.objects.filter(pk=pk).values_list("eissn", flat=True).get())
+def eissn_for(id: JournalId) -> Issn:
+    return Issn(Journal.objects.filter(pk=id.pk).values_list("eissn", flat=True).get())
 
 
 def _map_self(journal: Journal) -> Journal:

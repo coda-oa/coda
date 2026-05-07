@@ -102,7 +102,7 @@ class PreviewArticle(CodaBaseDto):
                 online_publication_date=self.meta.online_publication_date,
                 print_publication_date=self.meta.print_publication_date,
             ),
-            journal=JournalDto(id=journal_id),
+            journal=JournalDto(id=journal_id.pk),
             links=[LinkDto(link_type="doi", link_value=self.doi)],
             relevant_authors=self.authors,
             other_authors=[],

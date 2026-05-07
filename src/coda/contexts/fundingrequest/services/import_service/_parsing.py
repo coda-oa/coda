@@ -4,6 +4,15 @@ Consolidates all DTO parsers into focused functions organized by entity type.
 """
 
 from coda.apps.authors.dto import AuthorDto
+from coda.apps.publications.dto import (
+    ConceptDto,
+    ContractYearDto,
+    JournalDto,
+    LinkDto,
+    MonographDto,
+    PublicationDto,
+    PublicationMetaDto,
+)
 from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
     CreateReviewDto,
@@ -11,16 +20,6 @@ from coda.contexts.fundingrequest.dto.commands import (
     ExtraContactDto,
     ExtraInformationDto,
     PaymentDto,
-)
-from coda.apps.publications.dto import (
-    ConceptDto,
-    ContractYearDto,
-    JournalDto,
-    LinkDto,
-    MonographDto,
-    PublicationBaseDto,
-    PublicationDto,
-    PublicationMetaDto,
 )
 from coda.contexts.fundingrequest.dto.import_dtos import (
     AuthorImportDto,
@@ -33,10 +32,7 @@ from coda.contexts.fundingrequest.dto.import_dtos import (
     ResearchFundingImportDto,
     ReviewImportDto,
 )
-from coda.domain.author import InstitutionId
 from coda.domain.contract import PublisherId
-from coda.domain.fundingrequest import FundingOrganizationId
-from coda.domain.publication import JournalId
 from coda.domain.vocabulary import UnknownConcept
 
 from .types import ImportLookups
@@ -90,7 +86,7 @@ def _parse_single_request(
 def parse_publication(
     import_dto: PublicationImportDto,
     lookups: ImportLookups,
-) -> PublicationBaseDto:
+) -> PublicationDto | MonographDto:
     """Parse publication DTO (article or monograph)."""
     links = [
         LinkDto(
@@ -166,7 +162,7 @@ def _parse_journal(import_dto: PublicationImportDto, lookups: ImportLookups) -> 
     journal = lookups.journals.get(import_dto.eissn)
     if not journal:
         raise ValueError(f"Journal with EISSN '{import_dto.eissn}' not found in lookups")
-    return JournalDto(id=JournalId(journal.pk))
+    return JournalDto(id=journal.pk)
 
 
 def _parse_publisher(import_dto: PublicationImportDto, lookups: ImportLookups) -> PublisherId:
@@ -193,20 +189,20 @@ def parse_author(import_dto: AuthorImportDto, lookups: ImportLookups) -> AuthorD
     )
 
 
-def _parse_affiliation(import_dto: AuthorImportDto, lookups: ImportLookups) -> InstitutionId | None:
+def _parse_affiliation(import_dto: AuthorImportDto, lookups: ImportLookups) -> int | None:
     """Parse affiliation from import DTO using lookups."""
     if import_dto.affiliation is None:
         return None
 
     institution = lookups.institutions[import_dto.affiliation]
-    return InstitutionId(institution.pk)
+    return institution.pk
 
 
 def parse_contract(import_dto: ContractImportDto, lookups: ImportLookups) -> ContractYearDto:
     """Parse contract DTO with contract lookup."""
     contract = lookups.contracts[import_dto.name]
-    assert contract.id is not None
-    return ContractYearDto(contract=contract.id, year=import_dto.year)
+    assert contract.id.resolved
+    return ContractYearDto(contract=contract.id.pk, year=import_dto.year)
 
 
 def parse_concept(import_dto: ConceptImportDto, lookups: ImportLookups) -> ConceptDto:
@@ -248,12 +244,10 @@ def parse_funding(
     )
 
 
-def _parse_funder(
-    import_dto: ResearchFundingImportDto, lookups: ImportLookups
-) -> FundingOrganizationId:
+def _parse_funder(import_dto: ResearchFundingImportDto, lookups: ImportLookups) -> int:
     """Parse funder organization using lookups."""
     org = lookups.funding_organizations[import_dto.funder]
-    return FundingOrganizationId(org.pk)
+    return org.pk
 
 
 def parse_extra_information(import_dto: FundingRequestImportDto) -> ExtraInformationDto:

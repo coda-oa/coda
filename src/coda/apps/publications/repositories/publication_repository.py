@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Sequence
-from typing import TypedDict, cast
+from typing import cast
 
 from django.db import models, transaction
 
@@ -11,32 +11,24 @@ from coda.apps.publications.mappers import PublicationDomainMapper
 from coda.apps.publications.models import AttachedContract, LinkType, PublicationAttachedConcept
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
-from coda.domain.author import Author, AuthorNames
-from coda.domain.contract import ContractId, ContractYear
+from coda.domain.author import Author
+from coda.domain.contract import ContractYear
 from coda.domain.fundingrequest.fundingrequest import FundingRequestId
 from coda.domain.publication import (
-    Authors,
     BasePublication,
-    License,
     Link,
     Monograph,
-    OpenAccessType,
     Publication,
     PublicationId,
-    PublicationState,
     Published,
 )
 from coda.domain.publication.links import Doi
-from coda.domain.string import NonEmptyStr
-from coda.domain.vocabulary import (
-    VocabularyConcept,
-    VocabularyId,
-)
+from coda.domain.vocabulary import VocabularyConcept, VocabularyId
 
 
 @transaction.atomic
 def create(publication: BasePublication) -> PublicationId:
-    if publication.id:
+    if publication.id.resolved:
         raise PublicationAlreadyCreated(publication.id)
 
     return _save(publication)
@@ -44,7 +36,7 @@ def create(publication: BasePublication) -> PublicationId:
 
 @transaction.atomic
 def update(publication: BasePublication) -> None:
-    if not publication.id:
+    if not publication.id.resolved:
         raise UnsavedPublication(publication)
 
     _save(publication)
@@ -93,7 +85,7 @@ def create_many(publications: Iterable[BasePublication]) -> list[PublicationId]:
                     open_access_type=pub.open_access_type.name,
                     author_list=str(pub.other_authors),
                     publication_state=pub.publication_state.name(),
-                    article_journal_id=pub.journal,
+                    article_journal_id=pub.journal.pk,
                     publication_type=publication_type_concept,
                     subject_area=subject_area_concept,
                 )
@@ -185,14 +177,14 @@ def _save_model_concept(
 
 def get_by_id(publication_id: PublicationId) -> BasePublication:
     return PublicationDomainMapper.map(
-        PublicationDomainMapper.prefetch(PublicationModel.objects.all()).get(pk=publication_id)
+        PublicationDomainMapper.prefetch(PublicationModel.objects.all()).get(pk=publication_id.pk)
     )
 
 
 def get_by_fundingrequest_id(fundingrequest_id: FundingRequestId) -> BasePublication:
     return PublicationDomainMapper.map(
         PublicationDomainMapper.prefetch(PublicationModel.objects.all()).get(
-            fundingrequest=fundingrequest_id
+            fundingrequest=fundingrequest_id.pk
         )
     )
 
@@ -239,7 +231,7 @@ def find_publications_by_vocabulary(vocabulary_id: VocabularyId) -> list[BasePub
 
 
 def get_contracts_for_publication(publication_id: PublicationId) -> Sequence[ContractYear]:
-    contracts = AttachedContract.objects.filter(publication_id=publication_id).select_related(
+    contracts = AttachedContract.objects.filter(publication_id=publication_id.pk).select_related(
         "contract"
     )
     return DomainQuerySet(contracts, _map_to_contract_year)  # type: ignore[type-var]
@@ -276,16 +268,20 @@ def _map_to_contract_year(c: AttachedContract) -> ContractYear:
 
 def _initial_article(publication: Publication) -> PublicationModel:
     if publication.id:
-        p = PublicationDomainMapper.prefetch(PublicationModel.objects.all()).get(pk=publication.id)
-        p.article_journal_id = publication.journal
+        p = PublicationDomainMapper.prefetch(PublicationModel.objects.all()).get(
+            pk=publication.id.pk
+        )
+        p.article_journal_id = publication.journal.pk
     else:
-        p = PublicationModel.objects.create(article_journal_id=publication.journal)
+        p = PublicationModel.objects.create(article_journal_id=publication.journal.pk)
     return p
 
 
 def _initial_monograph(publication: Monograph) -> PublicationModel:
     if publication.id:
-        p = PublicationDomainMapper.prefetch(PublicationModel.objects.all()).get(pk=publication.id)
+        p = PublicationDomainMapper.prefetch(PublicationModel.objects.all()).get(
+            pk=publication.id.pk
+        )
         p.monograph_publisher_id = publication.publisher
     else:
         p = PublicationModel.objects.create(monograph_publisher_id=publication.publisher)
@@ -360,10 +356,6 @@ def _attach_links_bulk(
 
 def _attach_authors(id: PublicationId, relevant_authors: Iterable[Author]) -> None:
     author_services.create_many(list(relevant_authors), id)
-    # for author in relevant_authors:
-    #     author_id = author_services.author_create(author, id)
-    #     author.id = AuthorId(author_id)
-    #
 
 
 def _create_authors_bulk(
@@ -395,11 +387,11 @@ def _attach_contracts(p: PublicationModel, contracts: Iterable[ContractYear]) ->
     contract_ids = {cy.contract.id for cy in contracts if cy.contract.id}
     model_contracts = Contract.objects.filter(id__in=contract_ids).order_by("id")
 
-    sorted_contracts = sorted(contracts, key=lambda c: cast(ContractId, c.contract.id))
+    sorted_contracts = sorted(contracts, key=lambda c: c.contract.id.pk)
     model_contract_dict = {c.pk: c for c in model_contracts}
 
     for contract_year in sorted_contracts:
-        cid = cast(ContractId, contract_year.contract.id)
+        cid = contract_year.contract.id.pk
         model_contract = model_contract_dict[cid]
         AttachedContract.objects.get_or_create(
             publication_id=p.pk,
@@ -438,11 +430,11 @@ def _build_contract_attachment(
     if not cy.contract.id:
         return None
 
-    key = (pub_pk, cy.contract.id, cy.year)
+    key = (pub_pk, cy.contract.id.pk, cy.year)
     if key in existing:
         return None
 
-    model_contract = model_contracts.get(cy.contract.id)
+    model_contract = model_contracts.get(cy.contract.id.pk)
     if not model_contract:
         return None
 
@@ -504,17 +496,3 @@ class UnsavedPublication(ValueError):
     def __init__(self, publication: BasePublication) -> None:
         super().__init__(f"Publication {publication.title} is not saved and has no id.")
         self.publication = publication
-
-
-class _CommonPublicationArgs(TypedDict):
-    id: PublicationId
-    title: NonEmptyStr
-    license: License
-    relevant_authors: Authors
-    other_authors: AuthorNames
-    subject_area: VocabularyConcept
-    publication_type: VocabularyConcept
-    open_access_type: OpenAccessType
-    publication_state: PublicationState
-    contracts: tuple[ContractYear, ...]
-    links: set[Link]

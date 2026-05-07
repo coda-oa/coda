@@ -50,7 +50,7 @@ def test__given_invoice__goto_update_view__has_invoice_head_in_form(client: Clie
 
     invoice.id = repository.create(invoice)
 
-    response = goto_update_view(client, invoice.id)
+    response = goto_update_view(client, invoice.id.pk)
 
     invoice_form: InvoiceForm = response.context["form"]
 
@@ -89,7 +89,7 @@ def test__given_invoice__goto_update_view__has_invoice_positions_in_context___po
 
     invoice.id = repository.create(invoice)
 
-    response = goto_update_view(client, invoice.id)
+    response = goto_update_view(client, invoice.id.pk)
 
     expected = PositionList(
         positions=[invoice_parser.position_to_dto(p) for p in invoice.positions]
@@ -196,7 +196,7 @@ def test__given_invoice__invalid_position__keeps_entered_position_data(client: C
 
     contract = domainfactory.contract()
     contract.id = contract_services.create(contract)
-    contract_year = PositionDto(item=ContractItemDto(id=contract.id, name=contract.name, year=1))
+    contract_year = PositionDto(item=ContractItemDto(id=contract.id.pk, name=contract.name, year=1))
     position_list = PositionList(positions=[contract_year])
 
     post_data = {
@@ -231,14 +231,14 @@ def test__given_position_with_invalid_contract_year__update__returns_error(
 
     contract = domainfactory.contract()
     contract.id = contract_services.create(contract)
-    contract_item_dto = ContractItemDto(id=contract.id, name=contract.name, year=1)
+    contract_item_dto = ContractItemDto(id=contract.id.pk, name=contract.name, year=1)
     contract_year = PositionDto(item=contract_item_dto)
     position_list = PositionList(positions=[contract_year])
 
     invoice_head = InvoiceHeadDto(
         number="1234",
         date=datetime.date.today(),
-        creditor=CreditorId(modelfactory.creditor().pk),
+        creditor=modelfactory.creditor().pk,
         currency=Currency.JPY,
         status=PaymentStatus.Unpaid,
     )
@@ -281,7 +281,7 @@ def test__invoice_with_vat_position__invoice_is_saved__tax_rate_of_vat_position_
 
     invoice.id = repository.create(invoice)
 
-    response = goto_update_view(client, invoice.id)
+    response = goto_update_view(client, invoice.id.pk)
 
     position_list = response.context["position_list"]
     assert position_list.positions[0].tax_rate == 0
@@ -297,7 +297,7 @@ def test__invoice_with_unassigned_costs__save_as_paid__shows_error(client: Clien
     invoice_head = InvoiceHeadDto(
         number=invoice.number,
         date=invoice.date,
-        creditor=invoice.creditor,
+        creditor=invoice.creditor.pk,
         currency=invoice.currency(),
         status=PaymentStatus.Paid,
     )

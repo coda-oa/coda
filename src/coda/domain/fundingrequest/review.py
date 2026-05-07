@@ -1,11 +1,7 @@
 import enum
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from coda.domain.money import Currency, Money
-
-if TYPE_CHECKING:
-    from coda.domain.fundingrequest import FundingRequestId
 
 
 class ReviewResult(enum.Enum):
@@ -22,7 +18,6 @@ class ReviewResult(enum.Enum):
 
 @dataclass(frozen=True)
 class Review:
-    fundingrequest: "FundingRequestId | None" = None
     decided_funding: Money = field(default_factory=lambda: Money(0, Currency.EUR))
     result: ReviewResult = ReviewResult.Open
     remarks: str = ""
@@ -34,7 +29,6 @@ class Review:
         remarks: str = "",
     ) -> "Review":
         return Review(
-            self.fundingrequest,
             self.decided_funding if decided_funding is None else decided_funding,
             self.result if result is None else result,
             remarks or self.remarks,

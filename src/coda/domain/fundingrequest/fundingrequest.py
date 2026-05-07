@@ -2,16 +2,23 @@ import datetime
 import enum
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Final, Generic, NamedTuple, NewType, TypeAlias, TypeVar
+from typing import Final, Generic, NamedTuple, TypeAlias, TypeVar
 
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.fundingrequest.review import Review, ReviewResult
 from coda.domain.money import Money
 from coda.domain.publication import BasePublication, Monograph, Publication
 from coda.domain.string import NonEmptyStr
+from coda.entityid import EntityId
 
-FundingRequestId = NewType("FundingRequestId", int)
-FundingOrganizationId = NewType("FundingOrganizationId", int)
+# FundingRequestId = NewType("FundingRequestId", int)
+# FundingOrganizationId = NewType("FundingOrganizationId", int)
+
+
+class FundingRequestId(EntityId): ...
+
+
+class FundingOrganizationId(EntityId): ...
 
 
 class ExternalFunding(NamedTuple):
@@ -62,7 +69,7 @@ FundingRequestContact = FilledContact | _NoContact
 class FundingRequest(Generic[TPublication]):
     def __init__(
         self,
-        id: FundingRequestId | None,
+        id: FundingRequestId,
         request_id: PublicFundingRequestId,
         publication: TPublication,
         estimated_cost: Payment,
@@ -79,8 +86,8 @@ class FundingRequest(Generic[TPublication]):
         self.extra_contact = extra_contact
         self.estimated_cost = estimated_cost
         self.external_funding = tuple(external_funding)
-        self._review = review or Review(self.id)
         self.request_remarks = request_remarks
+        self._review = review or Review()
 
     @classmethod
     def new(
@@ -94,7 +101,7 @@ class FundingRequest(Generic[TPublication]):
         legacy_request_id: str = "",
     ) -> "FundingRequest[TPublication]":
         return cls(
-            None,
+            FundingRequestId(),
             request_id=request_id or PublicFundingRequestId.create(),
             publication=publication,
             estimated_cost=estimated_cost,
@@ -103,6 +110,9 @@ class FundingRequest(Generic[TPublication]):
             request_remarks=request_remarks,
             legacy_request_id=legacy_request_id,
         )
+
+    def set_review(self, result: ReviewResult, decided_funding: Money, remarks: str) -> None:
+        self._review = Review(decided_funding, result, remarks)
 
     @property
     def request_date(self) -> datetime.date:

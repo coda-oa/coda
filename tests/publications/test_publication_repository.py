@@ -40,7 +40,7 @@ def create_publication(
     publication_type: VocabularyConcept = UnknownConcept,
     publication_id: PublicationId | None = None,
 ) -> Publication:
-    journal = JournalId(modelfactory.journal().id)
+    journal = JournalId(modelfactory.journal().pk)
     contracts = [ContractDomainMapper.map(modelfactory.contract()) for _ in range(4)]
     contract_years = [domainfactory.contract_year(contract) for contract in contracts]
     publication = domainfactory.publication(
@@ -58,7 +58,7 @@ def create_monograph(
     publication_type: VocabularyConcept = UnknownConcept,
     publication_id: PublicationId | None = None,
 ) -> Monograph:
-    publisher = modelfactory.publisher().id
+    publisher = modelfactory.publisher().pk
     publication = domainfactory.monograph(
         publisher=PublisherId(publisher),
         subject_area=subject_area,

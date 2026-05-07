@@ -116,7 +116,7 @@ def test__two_funding_assignments__remove_first__only_has_second_assignment(clie
 
     assert last_assignment.funding_source is not None
     assert len(actual.funding_assignments) == 1
-    assert actual.funding_assignments[0].funding_source == last_assignment.funding_source.id
+    assert actual.funding_assignments[0].funding_source == last_assignment.funding_source.id.pk
     assert actual.funding_assignments[0].amount == position.funding_assignments()[-1].amount.amount
 
 

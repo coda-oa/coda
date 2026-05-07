@@ -9,12 +9,11 @@ from django.urls import reverse
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
-from coda.domain.fundingrequest import AnyFundingRequest, FundingRequestId, Review
+from coda.domain.fundingrequest import FundingRequestId, Review
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.fundingrequest.review import ReviewResult
@@ -27,7 +26,7 @@ from tests import domainfactory, modelfactory
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__searching_for_funding_requests__shows_all_funding_requests(client: Client) -> None:
-    requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
+    requests = {modelfactory.fundingrequest().pk, modelfactory.fundingrequest().pk}
 
     response = search_fundingrequests(client)
 
@@ -46,7 +45,7 @@ def test__searching_for_funding_requests_by_title__shows_only_matching_funding_r
 
     response = search_fundingrequests(client, by_title(title))
 
-    assert_contains(response.context, {matching_request})
+    assert_contains(response.context, {matching_request.pk})
 
 
 @pytest.mark.django_db
@@ -63,13 +62,13 @@ def test__searching_funding_request_by_author__shows_only_matching_funding_reque
 
     response = search_fundingrequests(client, by_submitter(matching_author.name))
 
-    assert_contains(response.context, {matching_request})
+    assert_contains(response.context, {matching_request.pk})
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__searching_with_invalid_search_type__shows_all_funding_requests(client: Client) -> None:
-    requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
+    requests = {modelfactory.fundingrequest().pk, modelfactory.fundingrequest().pk}
 
     response = search_fundingrequests(client, {"search_type": "invalid"})
 
@@ -91,7 +90,7 @@ def test__searching_for_funding_requests_by_label__shows_only_matching_funding_r
 
     response = search_fundingrequests(client, {"labels": [first.pk, second.pk]})
 
-    assert_contains(response.context, {matching_request})
+    assert_contains(response.context, {matching_request.pk})
 
 
 @pytest.mark.django_db
@@ -102,19 +101,19 @@ def test__searching_for_funding_requests_by_process_state__shows_only_matching_f
     approved_request = modelfactory.fundingrequest()
     approved_request_id = FundingRequestId(approved_request.pk)
     repository.save_review(
-        Review(approved_request_id).update_review(ReviewResult.Approved, Money(100, Currency.EUR))
+        approved_request_id, Review().update_review(ReviewResult.Approved, Money(100, Currency.EUR))
     )
 
     rejected_request = modelfactory.fundingrequest()
     rejected_request_id = FundingRequestId(rejected_request.pk)
-    repository.save_review(Review(rejected_request_id).update_review(ReviewResult.Rejected))
+    repository.save_review(rejected_request_id, Review().update_review(ReviewResult.Rejected))
 
     in_progress_request = modelfactory.fundingrequest()  # noqa: F841
 
     query = {"processing_status": [ReviewResult.Approved.value, ReviewResult.Rejected.value]}
     response = search_fundingrequests(client, query)
 
-    assert_contains(response.context, {approved_request, rejected_request})
+    assert_contains(response.context, {approved_request.pk, rejected_request.pk})
 
 
 @pytest.mark.django_db
@@ -137,7 +136,7 @@ def test__searching_for_funding_requests_by_date__shows_matching_funding_request
     query = {"start_date": request_date.isoformat(), "end_date": request_date.isoformat()}
     response = search_fundingrequests(client, query)
 
-    requests: set[AnyFundingRequest] = {matching_request}
+    requests: set[int] = {matching_request.id.pk}
     assert_contains(response.context, requests)
 
 
@@ -155,12 +154,9 @@ def test__searching_for_funding_requests_by_payment_method__shows_matching_fundi
     non_matching_request.save()
 
     query = {"payment_methods": ["direct"]}
-    response = search_fundingrequests(
-        client,
-        query,
-    )
+    response = search_fundingrequests(client, query)
 
-    assert_contains(response.context, {matching_request})
+    assert_contains(response.context, {matching_request.pk})
 
 
 def search_fundingrequests(client: Client, query: dict[str, Any] | None = None) -> TemplateResponse:
@@ -175,12 +171,10 @@ def by_submitter(submitter: str) -> dict[str, str]:
     return {"search_type": "author", "search_term": submitter}
 
 
-def assert_contains(
-    context: RequestContext, requests: set[FundingRequestModel] | set[AnyFundingRequest]
-) -> None:
+def assert_contains(context: RequestContext, requests: set[int]) -> None:
     ids = [viewmodel.id for viewmodel in context["entities"]]
     assert len(ids) == len(requests)
-    assert all(request.id in ids for request in requests)
+    assert all(request in ids for request in requests)
 
 
 @pytest.mark.django_db
@@ -218,7 +212,7 @@ def test__searching_for_funding_requests_by_invalid_contract_years__shows_only_m
     query = {"invalid_contract_years": "on"}
     response = search_fundingrequests(client, query)
 
-    expected: set[AnyFundingRequest] = {request_with_invalid}
+    expected = {request_with_invalid.id.pk}
     assert_contains(response.context, expected)
 
 
@@ -239,4 +233,4 @@ def test__searching_for_funding_requests_by_publications_publication_state__show
     query = {"publication_states": ["Published"]}
     response = search_fundingrequests(client, query)
 
-    assert_contains(response.context, {matching_request})
+    assert_contains(response.context, {matching_request.pk})

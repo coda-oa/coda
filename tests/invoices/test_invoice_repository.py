@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import cast
 
 import faker
 import pytest
@@ -206,7 +205,7 @@ def full_invoice() -> Invoice:
     contracts = [domainfactory.contract_year(random_contract()) for _ in range(3)]
 
     invoice = domainfactory.invoice(
-        creditor=CreditorId(creditor_id),
+        creditor=creditor_id,
         positions=(
             *[publication_position(publication) for publication in publications],
             *[contract_position(contract) for contract in contracts],
@@ -278,7 +277,7 @@ def random_publication(publisher_id: int | None = None) -> PublicationId:
         journal_id=journal_id, funding_org_id=funding_organization_id
     )
     fundingrequest.id = fundingrequest_repository.create(fundingrequest)
-    return cast(PublicationId, fundingrequest.publication.id)
+    return fundingrequest.publication.id
 
 
 def random_contract() -> Contract:

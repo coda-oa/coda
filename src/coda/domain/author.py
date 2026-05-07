@@ -1,14 +1,21 @@
 import enum
 import re
 from collections.abc import Iterable, Iterator
-from typing import Any, NewType
+from typing import Any
 
 from coda.domain import errors
 from coda.domain.orcid import Orcid
 from coda.domain.string import NonEmptyStr
+from coda.entityid import EntityId
 
-AuthorId = NewType("AuthorId", int)
-InstitutionId = NewType("InstitutionId", int)
+# AuthorId = NewType("AuthorId", int)
+# InstitutionId = NewType("InstitutionId", int)
+
+
+class AuthorId(EntityId): ...
+
+
+class InstitutionId(EntityId): ...
 
 
 class NoEmailForCorrespondingAuthor(errors.DomainError):
@@ -40,7 +47,7 @@ class Author:
 
     def __init__(
         self,
-        id: AuthorId | None,
+        id: AuthorId,
         name: NonEmptyStr,
         orcid: Orcid | None = None,
         affiliation: InstitutionId | None = None,
@@ -109,7 +116,7 @@ class Author:
                 and email is empty.
         """
         return cls(
-            id=None,
+            id=AuthorId(),
             name=name,
             orcid=orcid,
             affiliation=affiliation,
@@ -121,7 +128,7 @@ class Author:
     @classmethod
     def restore(
         cls,
-        id: AuthorId | None,
+        id: AuthorId,
         name: NonEmptyStr,
         email: str = "",
         orcid: Orcid | None = None,

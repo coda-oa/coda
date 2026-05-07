@@ -35,7 +35,7 @@ def test__contract_step__get_context_data__formset_choices_contain_contracts() -
 
     formset: ContractFormset = context["contract_formset"]
     form = formset.forms[0]
-    assert sorted(contract_choices(form)) == sorted([(c.id, c.name) for c in contracts])
+    assert sorted(contract_choices(form)) == sorted([(c.id.pk, c.name) for c in contracts])
 
 
 @pytest.mark.django_db
@@ -179,7 +179,7 @@ def save_all(contracts: list[Contract]) -> None:
 def assert_contracts_selected_in_formset(
     contracts: list[Contract], formset: ContractFormset
 ) -> None:
-    assert selected_contract_ids(formset) == [c.id for c in contracts]
+    assert selected_contract_ids(formset) == [c.id.pk for c in contracts]
 
 
 @pytest.mark.django_db

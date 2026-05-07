@@ -102,7 +102,7 @@ class ContractYearDetailMapper:
     @staticmethod
     def map(contract_year: ContractYear) -> ContractYearDetail:
         return ContractYearDetail(
-            contract_id=contract_year.contract_id or 0,
+            contract_id=contract_year.contract_id.pk or 0,
             name=contract_year.name,
             year=contract_year.year,
             is_in_contract_period=contract_year.is_in_contract_period(),
@@ -122,7 +122,9 @@ class ExternalFundingDetailMapper:
     @staticmethod
     def map(funding: ExternalFunding, org_names: dict[int, str]) -> ExternalFundingDetail:
         return ExternalFundingDetail(
-            organization=org_names.get(funding.organization, f"Unknown ({funding.organization})"),
+            organization=org_names.get(
+                funding.organization.pk, f"Unknown ({funding.organization})"
+            ),
             project_id=funding.project_id,
             project_name=funding.project_name,
         )

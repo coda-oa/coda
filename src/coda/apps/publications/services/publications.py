@@ -1,8 +1,7 @@
 from collections.abc import Iterable
-from typing import cast
 
 from coda.apps.publications.repositories import payment_repository, publication_repository
-from coda.domain.contract import ContractId, ContractYear
+from coda.domain.contract import ContractYear
 from coda.domain.finance.invoice import InvoiceId
 from coda.domain.publication import PublicationId
 from coda.domain.publication.payment import (
@@ -22,7 +21,7 @@ def _determine_payment_status(
 
     if consolidated_billing:
         return PublicationCoveredByContract(
-            contract_id=cast(ContractId, consolidated_billing.contract.id),
+            contract_id=consolidated_billing.contract.id,
             contract_name=consolidated_billing.name,
             contract_year=consolidated_billing.year,
         )

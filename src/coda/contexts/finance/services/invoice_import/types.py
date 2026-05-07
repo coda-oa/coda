@@ -3,10 +3,6 @@
 from dataclasses import dataclass
 
 from coda.domain import errors
-from coda.domain.contract import Contract
-from coda.domain.finance.funding_sources import FundingSource
-from coda.domain.finance.invoice import CreditorId, FundingSourceId
-from coda.domain.publication.publication import PublicationId
 
 
 class InvoiceProcessingError(errors.DomainError):
@@ -27,14 +23,3 @@ class InvoiceImportReport:
 
     def invoices_with_errors(self) -> list[str]:
         return [err.invoice_number for err in self.errors]
-
-
-@dataclass
-class ImportLookups:
-    """Unified lookup structure for invoice import."""
-
-    creditor_lookup: dict[str, CreditorId]
-    funding_sources_lookup: dict[str, FundingSourceId]
-    request_id_lookup: dict[str, PublicationId]
-    contract_lookup: dict[str, Contract]
-    funding_assignments_lookup: dict[str, FundingSource]

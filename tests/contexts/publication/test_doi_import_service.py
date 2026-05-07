@@ -459,7 +459,7 @@ def test__import_from_doi__journal_exists_in_database__does_not_create_publisher
     funding_request = fundingrequest_repository.get_by_id(funding_request_id)
     publication = funding_request.publication
     assert isinstance(publication, Publication)
-    assert publication.journal == int(journal_id)
+    assert publication.journal == journal_id
 
 
 @pytest.mark.django_db

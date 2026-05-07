@@ -1,4 +1,4 @@
-from typing import TypedDict, cast
+from typing import TypedDict
 
 from django.db.models import Model, Prefetch, QuerySet
 
@@ -118,7 +118,7 @@ class FundingSourceDomainMapper:
             assert model.institution is not None
             return SplitSource(
                 FundingSourceId(model.pk),
-                cast(InstitutionId, model.institution.pk),
+                InstitutionId(model.institution.pk),
                 model.institution.name,
             )
         raise ValueError("Invalid model type")

@@ -19,7 +19,7 @@ def first() -> Contract | None:
 
 
 def get_by_id(id: ContractId) -> Contract:
-    contract_model = ContractDomainMapper.prefetch(ContractModel.objects.all()).get(pk=id)
+    contract_model = ContractDomainMapper.prefetch(ContractModel.objects.all()).get(pk=id.pk)
     return ContractDomainMapper.map(contract_model)
 
 
@@ -56,13 +56,12 @@ def get_active_contracts() -> Iterable[Contract]:
 
 
 def create(contract: Contract) -> ContractId:
-    if contract.id:
+    if contract.id.resolved:
         raise ContractAlreadyExists(contract.id)
 
     contract_model = django_mapper.as_django_model(contract)
     contract_model.save()
     django_mapper.synchronize_relationships(contract, contract_model)
-    contract_model.save()
     return ContractId(contract_model.pk)
 
 
@@ -92,7 +91,7 @@ def create_many(contracts: Iterable[Contract]) -> list[Contract]:
 
 
 def update(contract: Contract) -> None:
-    if not contract.id:
+    if not contract.id.resolved:
         raise UnsavedContract(contract)
 
     contract_model = django_mapper.as_django_model(contract)

@@ -1,4 +1,4 @@
-from typing_extensions import TypeIs
+from typing import TypeIs
 
 from coda.apps.fundingrequests import repository
 from coda.apps.publications.repositories import publication_repository
@@ -41,7 +41,7 @@ def to_itemdto(position: Position) -> ItemDto:
         )
 
     return PublicationItemDto(
-        id=publication.id,
+        id=publication.id.pk,
         title=publication.title,
         cost_type=position.item.cost_type.value,
         funding_request=funding_request,

@@ -9,7 +9,6 @@ from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
     PublisherStepDto,
 )
 from coda.apps.publications.dto import ContractYearDto
-from coda.domain.contract import ContractId
 from coda.domain.date import DateRange
 from tests import domainfactory, modelfactory
 from tests.test_wizard import DictStore
@@ -57,7 +56,7 @@ def test__publisher_step__with_contract_year_outside_period__is_invalid() -> Non
         "/",
         PublisherStepDto(
             publisher=publisher.pk,
-            contracts=[ContractYearDto(contract=contract_id, year=invalid_year)],
+            contracts=[ContractYearDto(contract=contract_id.pk, year=invalid_year)],
         ).page_input(),
     )
 
@@ -75,7 +74,7 @@ def test__publisher_step__with_publisher_and_contracts__done_saves_data_to_store
     sut = PublisherStep()
     expected = PublisherStepDto(
         publisher=publisher.pk,
-        contracts=[ContractYearDto(contract=contract_id, year=contract_year.year)],
+        contracts=[ContractYearDto(contract=contract_id.pk, year=contract_year.year)],
     )
 
     request = RequestFactory().post("/", expected.page_input())
@@ -99,7 +98,7 @@ def test__publisher_step_data_in_store__when_posting_invalid_data__returns_conte
     store = DictStore()
     stored_data = PublisherStepDto(
         publisher=0,
-        contracts=[ContractYearDto(contract=ContractId(0), year=2024)],
+        contracts=[ContractYearDto(contract=0, year=2024)],
     )
     store["publisher_step"] = stored_data.to_post_data()
     store.save()
@@ -109,7 +108,7 @@ def test__publisher_step_data_in_store__when_posting_invalid_data__returns_conte
     invalid_year = 1800
     expected = PublisherStepDto(
         publisher=publisher.pk,
-        contracts=[ContractYearDto(contract=contract_id, year=invalid_year)],
+        contracts=[ContractYearDto(contract=contract_id.pk, year=invalid_year)],
     )
 
     request = RequestFactory().post("/", expected.page_input())
@@ -118,4 +117,4 @@ def test__publisher_step_data_in_store__when_posting_invalid_data__returns_conte
 
     assert context["selected_publisher"] == publisher
     assert context["publishers"] == [publisher]
-    assert [int(d["contract"]) for d in context["contract_formset"].data] == [contract.id]
+    assert [int(d["contract"]) for d in context["contract_formset"].data] == [contract.id.pk]

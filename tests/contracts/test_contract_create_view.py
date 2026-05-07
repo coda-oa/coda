@@ -36,7 +36,7 @@ def test__update_contract_view__url_in_context_maps_to_update_contract_view(clie
     contract = make_contract(publishers, journals)
     contract.id = repository.create(contract)
 
-    expected_url = reverse("contracts:update", kwargs={"pk": contract.id})
+    expected_url = reverse("contracts:update", kwargs={"pk": contract.id.pk})
     response = client.get(expected_url)
     assert response.context["url"] == expected_url
 
@@ -79,7 +79,7 @@ def test__given_saved_contract__update_contract_view__updates_contract(client: C
         | to_htmx_formset_data(entity_form_data(expected.journals), prefix="journals")
     )
 
-    client.post(reverse("contracts:update", kwargs={"pk": contract_id}), data)
+    client.post(reverse("contracts:update", kwargs={"pk": contract_id.pk}), data)
 
     actual = repository.get_by_id(contract_id)
     assert_contract_eq(actual, expected)
@@ -92,7 +92,7 @@ def test__given_saved_contract__goto_update_contract_view__shows_contract(client
     contract = make_contract(make_publishers(), make_journals(make_publishers()))
     contract_id = repository.create(contract)
 
-    response = client.get(reverse("contracts:update", kwargs={"pk": contract_id}))
+    response = client.get(reverse("contracts:update", kwargs={"pk": contract_id.pk}))
 
     contract_form: ContractForm = response.context["contract_form"]
     contract_form.full_clean()
@@ -105,7 +105,7 @@ def test__given_saved_contract__goto_update_contract_view__shows_contract(client
 
     journal_formset: EntityFormset = response.context["journal_formset"]
     journal_formset.full_clean()
-    assert journal_formset.entity_ids() == list(contract.journals)
+    assert journal_formset.entity_ids() == [j.pk for j in contract.journals]
 
 
 def contract_form_data(contract: Contract) -> dict[str, str]:

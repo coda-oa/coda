@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Literal,
-    NewType,
     Self,
     TypeGuard,
     TypeVar,
@@ -17,6 +16,7 @@ from coda.domain.contract import PublisherId
 from coda.domain.errors import DomainError
 from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import UnknownConcept, VocabularyConcept
+from coda.entityid import EntityId
 
 from .links import Link
 
@@ -24,11 +24,11 @@ if TYPE_CHECKING:
     from coda.domain.contract import ContractYear
 
 
-JournalId = NewType("JournalId", int)
+# JournalId = NewType("JournalId", int)
+class JournalId(EntityId): ...
 
 
-class PublicationId(int):
-    __slots__ = ()
+class PublicationId(EntityId): ...
 
 
 class UnpublishedState(enum.Enum):
@@ -150,7 +150,7 @@ PublicationKind = TypeVar("PublicationKind", bound="BasePublication")
 
 @dataclass(kw_only=True)
 class BasePublication(ABC):
-    id: PublicationId | None
+    id: PublicationId
     title: NonEmptyStr
     relevant_authors: Authors = Authors()
     other_authors: AuthorNames = field(default_factory=AuthorNames)
@@ -197,7 +197,7 @@ class Publication(BasePublication):
         links: set[Link] | None = None,
     ) -> Self:
         return cls(
-            id=None,
+            id=PublicationId(),
             title=title,
             journal=journal,
             relevant_authors=Authors(relevant_authors),
@@ -234,7 +234,7 @@ class Monograph(BasePublication):
         links: set[Link] | None = None,
     ) -> Self:
         return cls(
-            id=None,
+            id=PublicationId(),
             title=title,
             publisher=publisher,
             relevant_authors=Authors(relevant_authors),

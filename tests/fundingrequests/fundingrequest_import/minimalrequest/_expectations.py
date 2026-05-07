@@ -48,7 +48,6 @@ def expected_article_request() -> FundingRequest[Publication]:
 
 def expected_review(id: FundingRequestId | None = None) -> Review:
     return Review(
-        fundingrequest=id,
         result=ReviewResult.Open,
         decided_funding=Money("0.00", Currency.EUR),
     )
@@ -66,7 +65,7 @@ def expected_monograph_request() -> FundingRequest[Monograph]:
     request_date = datetime.date(2025, 3, 19)
     request_id = PublicFundingRequestId.create(date=request_date)
     return FundingRequest(
-        id=None,
+        id=FundingRequestId(),
         publication=monograph,
         estimated_cost=Payment(
             amount=Money("0.00", currency=Currency.EUR),

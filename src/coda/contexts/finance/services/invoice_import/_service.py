@@ -18,17 +18,15 @@ from typing import BinaryIO, TextIO
 
 from coda.apps.invoices import repository
 from coda.contexts.finance.dto.import_dtos import InvoiceImportDto
-from coda.domain.finance.invoice import Invoice, InvoiceId
+from coda.domain.finance.invoice import Invoice
+from coda.uow import UnitOfWork
 
-from ._entity_creation import (
-    build_contract_lookup,
-    build_creditor_lookup,
-    build_funding_assignments_lookup,
-    build_funding_source_lookup,
-    build_publication_lookup,
-)
+from ._contract_import_repository import ContractImportRepository
+from ._creditor_import_repository import CreditorImportRepository
+from ._funding_source_import_repository import FundingSourceImportRepository
 from ._parsing import create_invoices_from_dtos
 from ._payment_updates import update_publication_payment_statuses
+from ._publication_import_repository import PublicationImportRepository
 from ._validation import (
     build_missing_institution_errors,
     build_missing_publication_errors,
@@ -36,7 +34,7 @@ from ._validation import (
     find_invoices_with_missing_publications,
     validate_invoices,
 )
-from .types import ImportLookups, InvoiceImportReport, InvoiceProcessingError
+from .types import InvoiceImportReport, InvoiceProcessingError
 
 
 def import_invoices(json_stream: TextIO | BinaryIO) -> InvoiceImportReport:
@@ -97,11 +95,41 @@ def _process_invoices(
             + build_missing_institution_errors(invoice_dtos, invoices_with_missing_institutions)
         )
 
-    lookups = _build_entity_lookups(valid_invoice_dtos)
-    invoices, invoice_processing_errors = create_invoices_from_dtos(valid_invoice_dtos, lookups)
+    publication_repo = PublicationImportRepository()
+    publication_repo.prefetch(valid_invoice_dtos)
 
-    invoice_ids = repository.create_many(invoices)
-    _assign_invoice_ids(invoices, invoice_ids)
+    contract_repo = ContractImportRepository()
+    contract_repo.prefetch(valid_invoice_dtos)
+
+    creditor_repo = CreditorImportRepository()
+    creditor_repo.prefetch({dto.creditor for dto in valid_invoice_dtos if dto.creditor})
+
+    funding_source_repo = FundingSourceImportRepository()
+    funding_source_repo.prefetch_funding_sources(
+        {p.funding_source for dto in valid_invoice_dtos for p in dto.positions if p.funding_source}
+    )
+    funding_source_repo.prefetch_institutions(
+        {
+            fa.name
+            for dto in valid_invoice_dtos
+            for p in dto.positions
+            for fa in p.funding_assignments
+            if fa.type == "institution"
+        }
+    )
+
+    with UnitOfWork(creditor_repo, funding_source_repo, repository) as uow:
+        invoices, invoice_processing_errors = create_invoices_from_dtos(
+            valid_invoice_dtos,
+            publication_repo,
+            contract_repo,
+            creditor_repo,
+            funding_source_repo,
+            uow,
+        )
+        for invoice in invoices:
+            uow.register(invoice)
+
     update_publication_payment_statuses(invoices)
 
     all_errors = (
@@ -111,19 +139,3 @@ def _process_invoices(
     )
 
     return invoices, all_errors
-
-
-def _assign_invoice_ids(invoices: list[Invoice], invoice_ids: list[InvoiceId]) -> None:
-    for invoice, invoice_id in zip(invoices, invoice_ids):
-        invoice.id = invoice_id
-
-
-def _build_entity_lookups(invoice_dtos: list[InvoiceImportDto]) -> ImportLookups:
-    """Build all necessary entity lookups for invoice processing."""
-    return ImportLookups(
-        creditor_lookup=build_creditor_lookup(invoice_dtos),
-        funding_sources_lookup=build_funding_source_lookup(invoice_dtos),
-        request_id_lookup=build_publication_lookup(invoice_dtos),
-        contract_lookup=build_contract_lookup(invoice_dtos),
-        funding_assignments_lookup=build_funding_assignments_lookup(invoice_dtos),
-    )

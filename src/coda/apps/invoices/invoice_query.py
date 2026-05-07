@@ -11,6 +11,7 @@ from django.db.models.functions import Coalesce, ExtractYear
 from coda.apps.invoices.mappers._list import InvoiceListMapper
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
+from coda.domain.contract import ContractId
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId, PaymentStatus
 from coda.domain.invoice_list_item import InvoiceListItem
@@ -128,15 +129,15 @@ def missing_currency_conversion_criterion(criterion: MissingCurrencyConversionCr
 
 @dataclass(frozen=True)
 class ContractCriterion(InvoiceSearchCriterion):
-    contract_id: str | int
+    contract_id: ContractId
     positions_only: bool = False
 
 
 @to_query.register
 def contract_criterion(criterion: ContractCriterion) -> Q:
-    query = Q(positions__contract_id=criterion.contract_id)
+    query = Q(positions__contract_id=criterion.contract_id.pk)
     if not criterion.positions_only:
-        query |= Q(positions__publication__attached_contracts__contract_id=criterion.contract_id)
+        query |= Q(positions__publication__attached_contracts__contract_id=criterion.contract_id.pk)
     return query
 
 

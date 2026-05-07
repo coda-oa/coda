@@ -25,7 +25,7 @@ from coda.contexts.fundingrequest.services.allowed_vocabularies import (
 )
 from coda.contexts.fundingrequest.services.checks import run_checks
 from coda.domain import errors
-from coda.domain.author import Author, AuthorNames
+from coda.domain.author import Author, AuthorNames, InstitutionId
 from coda.domain.contract import GetContractById, PublisherId
 from coda.domain.fundingrequest import FundingRequest, FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
@@ -54,21 +54,17 @@ def create_fundingrequest(
         publication.publication_type,
         publication.subject_area,
     )
-    # For single creation, fetch existing IDs to ensure uniqueness
     existing_ids = set(repository.get_all_request_ids())
-
-    fr = FundingRequest.new(
-        publication,
-        creation_dto.payment.to_payment(),
-        request_id=_find_unused_request_id(
-            request_id_generator, existing_ids, creation_dto.request_date
+    fr = try_into_funding_request(
+        _find_unused_request_id(
+            request_id_generator,
+            existing_ids,
+            creation_dto.request_date,
         ),
-        external_funding=[f.to_external_funding() for f in creation_dto.funding],
-        extra_contact=creation_dto.extra_information.extra_contact.to_contact(),
-        request_remarks=creation_dto.extra_information.request_remarks,
+        creation_dto,
     )
 
-    fr_id = repository.create(cast(AnyFundingRequest, fr))
+    fr_id = repository.create(fr)
     run_checks(fr_id, checkfactory=checkfactory)
 
     return fr_id
@@ -101,7 +97,6 @@ def _create_review_from_dto(review_dto: CreateReviewDto | None) -> Review | None
         return None
 
     return Review(
-        fundingrequest=None,
         decided_funding=Money(
             str(review_dto.decided_funding_amount),
             Currency.from_code(review_dto.decided_funding_currency),
@@ -134,7 +129,7 @@ def try_into_funding_request(
         return cast(
             AnyFundingRequest,
             FundingRequest(
-                id=None,
+                id=FundingRequestId(),
                 request_id=request_id,
                 publication=creation_dto.publication.to_publication(
                     get_contract_by_id=get_contract_by_id
@@ -354,7 +349,6 @@ def update_review(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) 
         review = _keep_result(fundingrequest_id, review)
 
     review_ = Review(
-        fundingrequest_id,
         Money(
             Decimal(review.decided_funding_amount),
             Currency.from_code(review.decided_funding_currency),
@@ -362,7 +356,7 @@ def update_review(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) 
         remarks=review.reviewer_remarks,
         result=ReviewResult.of(review.result),
     )
-    repository.save_review(review_)
+    repository.save_review(fundingrequest_id, review_)
 
 
 def _keep_result(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) -> UpdateReviewDto:
@@ -390,7 +384,7 @@ def get_institutions_allowed_as_affiliation(
     author_affiliations = {
         affiliation
         for affiliation in author_affiliations
-        if not any(affiliation == inst.pk for inst in allowed_institutions)
+        if not any(affiliation == InstitutionId(inst.pk) for inst in allowed_institutions)
     }
     author_institutions = list(institution_repository.get_many_by_id(author_affiliations))
     return itertools.chain(author_institutions, allowed_institutions)

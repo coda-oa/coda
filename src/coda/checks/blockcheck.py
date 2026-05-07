@@ -20,7 +20,7 @@ class BlockCheck:
     def __call__(self, fundingrequest: FundingRequest[TPublication]) -> CheckResult:
         blocklist = BlockList.objects.get()
         if isinstance(fundingrequest.publication, Publication):
-            journal = Journal.objects.get(pk=fundingrequest.publication.journal)
+            journal = Journal.objects.get(pk=fundingrequest.publication.journal.pk)
             publisher = journal.publisher
 
             blocked_journal = blocklist.get_blocked_journal(journal)

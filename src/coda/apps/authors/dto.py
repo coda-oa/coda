@@ -8,7 +8,7 @@ class AuthorDto(CodaBaseDto):
     name: str
     email: str
     orcid: str | None
-    affiliation: OptionalFromStr[InstitutionId] = None
+    affiliation: OptionalFromStr[int] = None
     role: str
 
     @classmethod
@@ -17,7 +17,7 @@ class AuthorDto(CodaBaseDto):
             name=author.name,
             email=author.email,
             orcid=author.orcid,
-            affiliation=author.affiliation,
+            affiliation=author.affiliation.pk if author.affiliation else None,
             role=author.role.name,
         )
 
@@ -33,7 +33,7 @@ class AuthorDto(CodaBaseDto):
             name=NonEmptyStr(self.name),
             email=self.email,
             orcid=Orcid(self.orcid) if self.orcid else None,
-            affiliation=self.affiliation,
+            affiliation=InstitutionId(self.affiliation) if self.affiliation else None,
             role=Role[self.role],
         )
         # Set ID if provided (used in testing scenarios)

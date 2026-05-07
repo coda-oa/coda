@@ -123,7 +123,7 @@ class DOIImportService:
         publication: PreviewArticle | PreviewMonograph
         match override:
             case OverrideImportAsArticle(journal_id=journal_id):
-                journal = journal_services.get_by_pk(int(journal_id))
+                journal = journal_services.get_by_pk(journal_id)
                 overridden_metadata = metadata.model_copy(
                     update={
                         "journal": ExternalJournal(

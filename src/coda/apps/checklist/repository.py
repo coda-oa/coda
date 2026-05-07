@@ -28,4 +28,4 @@ def get(
 
 
 def _get_by_fundingrequest_id(fundingrequest_id: FundingRequestId) -> QuerySet[CheckRunModel]:
-    return CheckRunModel.objects.filter(fundingrequest=fundingrequest_id)
+    return CheckRunModel.objects.filter(fundingrequest=fundingrequest_id.pk)

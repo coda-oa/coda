@@ -85,7 +85,7 @@ class ExternalFundingDto(CodaBaseDto):
         project_name (str): The name of the project.
     """
 
-    organization: FundingOrganizationId
+    organization: int
     project_id: Annotated[str, AfterValidator(NonEmptyStr)]
     project_name: str
 
@@ -93,7 +93,7 @@ class ExternalFundingDto(CodaBaseDto):
     def from_external_funding(cls, external_funding: ExternalFunding) -> "ExternalFundingDto":
         """Creates an instance of ExternalFundingDto from an ExternalFunding object."""
         return cls(
-            organization=external_funding.organization,
+            organization=external_funding.organization.pk,
             project_id=external_funding.project_id,
             project_name=external_funding.project_name,
         )
@@ -101,7 +101,7 @@ class ExternalFundingDto(CodaBaseDto):
     def to_external_funding(self) -> ExternalFunding:
         """Converts the ExternalFundingDto instance to an ExternalFunding object."""
         return ExternalFunding(
-            organization=self.organization,
+            organization=FundingOrganizationId(self.organization),
             project_id=NonEmptyStr(self.project_id),
             project_name=self.project_name,
         )

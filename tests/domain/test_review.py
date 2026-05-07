@@ -1,9 +1,9 @@
-from coda.domain.fundingrequest import FundingRequestId, Review, ReviewResult
+from coda.domain.fundingrequest import Review, ReviewResult
 from coda.domain.money import Currency, Money
 
 
 def make_sut() -> Review:
-    return Review(FundingRequestId(1))
+    return Review()
 
 
 def test__open_fundingrequest__add_approved_review__changes_status_to_approved() -> None:

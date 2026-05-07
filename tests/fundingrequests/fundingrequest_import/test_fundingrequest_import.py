@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import date
 from io import StringIO
 from pathlib import Path
-from typing import cast
 
 import pytest
 
@@ -25,11 +24,12 @@ from coda.contexts.fundingrequest.dto.import_dtos import (
 from coda.contexts.fundingrequest.services import labels as label_services
 from coda.contexts.fundingrequest.services.checks import get_checkrun
 from coda.contexts.fundingrequest.services.import_service import import_fundingrequests
+from coda.domain.author import InstitutionId
 from coda.domain.color import Color
 from coda.domain.contract import Contract, PublisherId
 from coda.domain.date import DateRange
-from coda.domain.fundingrequest import FundingRequestId, Review
-from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
+from coda.domain.fundingrequest import Review
+from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest, FundingOrganizationId
 from coda.domain.publication.publication import OpenAccessType, Publication
 from coda.domain.string import NonEmptyStr
 from tests import modelfactory
@@ -99,15 +99,16 @@ def test__import_fundingrequest__saves_fundingrequest_and_creates_missing_entiti
     write_json(request_variant.importdata)
 
     with JSON_PATH.open() as json_file:
-        import_fundingrequests(json_file)
+        report = import_fundingrequests(json_file)
 
+    print(repr(report))
     fundingrequest = fundingrequest_repository.first()
 
     assert fundingrequest is not None
-    id = cast(FundingRequestId, fundingrequest.id)
+    id = fundingrequest.id
     review = fundingrequest_repository.get_review(id)
 
-    request_model = FundingRequestModel.objects.get(id=id)
+    request_model = FundingRequestModel.objects.get(id=id.pk)
     expected_label_names = set(request_variant.importdata.requests[0].labels)
     actual_label_names = set(request_model.labels.values_list("name", flat=True))
 
@@ -165,7 +166,7 @@ def test__import_fundingrequest__does_not_run_checks(request_variant: RequestVar
     fundingrequest = fundingrequest_repository.first()
     assert fundingrequest is not None
 
-    id = cast(FundingRequestId, fundingrequest.id)
+    id = fundingrequest.id
     checkrun = get_checkrun(id)
     assert checkrun is None
 
@@ -329,15 +330,14 @@ def test__given_existing_related_entities_with_multiple_duplicate_names__import_
     assert journal.publisher.id == publisher.pk
 
     funding, *_ = request.external_funding
-    assert funding.organization == funding_org.pk
+    assert funding.organization == FundingOrganizationId(funding_org.pk)
 
     author, *_ = request.publication.relevant_authors
-    assert author.affiliation == institution.pk
+    assert author.affiliation == InstitutionId(institution.pk)
 
-    request_id = cast(FundingRequestId, request.id)
-    request_model = FundingRequestModel.objects.get(id=request_id)
+    request_model = FundingRequestModel.objects.get(id=request.id.pk)
     attached_label, *_ = request_model.labels.all()
-    assert attached_label.id == label.pk
+    assert attached_label.pk == label.pk
 
 
 def assert_no_journal_created_on_import() -> None:
