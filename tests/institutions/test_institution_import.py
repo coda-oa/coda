@@ -379,3 +379,88 @@ def test__institution_with_matching_internal_id_and_updated_identifiers__import_
 
     assert inst.links.filter(type__name="Ringgold", value="123456").exists()
     assert not inst.links.filter(type__name="Ringgold", value="111111").exists()
+
+
+@pytest.mark.django_db
+def test__parent_institution_archived_but_child_not_archived__import__produces_error() -> None:
+    """Given: CSV tries to archive parent but not child
+    When: Import is attempted
+    Then: Parent is not archived and error is reported"""
+    csv_data = StringIO(
+        "internal_id;name;parent;archived;ROR;ISNI;Ringgold\n"
+        "inst_parent1;Parent Institution;;true;;;\n"
+        "inst_child1;Child Institution;inst_parent1;false;;;"
+    )
+    result = services.import_from_file(csv_data)
+
+    parent = Institution.all_objects.get(internal_id="inst_parent1")
+    child = Institution.all_objects.get(internal_id="inst_child1")
+
+    # Parent should NOT be archived because child is not archived
+    assert parent.archived_at is None
+    assert child.archived_at is None
+
+    # Error should be reported
+    assert len(result.errors) == 1
+    assert "Parent Institution" in result.errors[0].institution_name
+    assert "unarchived descendant" in result.errors[0].message.lower()
+
+
+@pytest.mark.django_db
+def test__parent_and_child_both_archived__import__succeeds() -> None:
+    """Given: CSV archives both parent and child
+    When: Import is attempted
+    Then: Both are archived successfully"""
+    csv_data = StringIO(
+        "internal_id;name;parent;archived;ROR;ISNI;Ringgold\n"
+        "inst_parent2;Parent Institution;;true;;;\n"
+        "inst_child2;Child Institution;inst_parent2;true;;;"
+    )
+    result = services.import_from_file(csv_data)
+
+    parent = Institution.all_objects.get(internal_id="inst_parent2")
+    child = Institution.all_objects.get(internal_id="inst_child2")
+
+    # Both should be archived
+    assert parent.archived_at is not None
+    assert child.archived_at is not None
+
+    # Both should be marked as virtual
+    assert parent.virtual is True
+    assert child.virtual is True
+
+    # No errors
+    assert len(result.errors) == 0
+
+
+@pytest.mark.django_db
+def test__active_child_on_third_level__cannot_archive_root__import__produces_error() -> None:
+    """Given: CSV tries to archive root and child but has active grandchild at third level
+    When: Import is attempted
+    Then: Neither root nor child are archived and errors are reported"""
+    csv_data = StringIO(
+        "internal_id;name;parent;archived;ROR;ISNI;Ringgold\n"
+        "inst_root;Root Institution;;true;;;\n"
+        "inst_child1;Child 1;inst_root;true;;;\n"
+        "inst_grandchild1;Grandchild 1;inst_child1;false;;;"
+    )
+    result = services.import_from_file(csv_data)
+
+    root = Institution.all_objects.get(internal_id="inst_root")
+    child1 = Institution.all_objects.get(internal_id="inst_child1")
+    grandchild1 = Institution.all_objects.get(internal_id="inst_grandchild1")
+
+    # Root should NOT be archived because grandchild is not archived
+    assert root.archived_at is None
+    # Child1 should also NOT be archived because its child (grandchild) is not archived
+    assert child1.archived_at is None
+    assert grandchild1.archived_at is None
+
+    # Errors should be reported for both root and child1
+    assert len(result.errors) == 2
+    error_messages = [error.institution_name for error in result.errors]
+    assert "Root Institution" in error_messages
+    assert "Child 1" in error_messages
+    # All errors should mention unarchived descendants
+    for error in result.errors:
+        assert "unarchived descendant" in error.message.lower()
