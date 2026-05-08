@@ -568,7 +568,7 @@ def import_from_file(request: HttpRequest) -> HttpResponse:
         messages.warning(
             request,
             f"{result.fully_imported} institutions imported successfully{matching_info}, "
-            f"{result.partially_imported} with incomplete data (invalid identifiers skipped)",
+            f"{result.partially_imported} with incomplete data (see errors below)",
         )
 
     if result.errors:

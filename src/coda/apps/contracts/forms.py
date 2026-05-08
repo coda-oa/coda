@@ -30,6 +30,19 @@ class ContractForm(forms.Form):
             }
         )
 
+    def full_clean(self) -> None:
+        super().full_clean()
+        if not hasattr(self, "cleaned_data"):
+            return
+
+        if "start_date" not in self.cleaned_data or "end_date" not in self.cleaned_data:
+            return
+
+        try:
+            self.get_period()
+        except ValueError as e:
+            self.add_error("start_date", str(e))
+
     def get_name(self) -> NonEmptyStr:
         return NonEmptyStr(self.cleaned_data["name"])
 

@@ -1,8 +1,10 @@
 import datetime
-from typing import NamedTuple, Self
+from dataclasses import dataclass
+from typing import Self
 
 
-class DateRange(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class DateRange:
     start: datetime.date
     end: datetime.date
 
@@ -12,10 +14,12 @@ class DateRange(NamedTuple):
     ) -> Self:
         start_date = start or datetime.date.min
         end_date = end or datetime.date.max
-        if start_date > end_date:
-            raise ValueError(f"Start date {start_date} must be before end date {end_date}")
 
         return cls(start_date, end_date)
+
+    def __post_init__(self) -> None:
+        if self.start > self.end:
+            raise ValueError(f"Start date {self.start} must be before end date {self.end}")
 
     @classmethod
     def year(cls, year: int) -> Self:

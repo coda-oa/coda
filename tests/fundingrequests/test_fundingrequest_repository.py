@@ -8,6 +8,7 @@ from coda.contexts.fundingrequest.services.labels import label_attach, label_cre
 from coda.apps.journals.models import Journal
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.color import Color
+from coda.domain.date import DateRange
 from coda.domain.fundingrequest import (
     FundingOrganizationId,
     FundingRequest,
@@ -197,7 +198,7 @@ def test__searching_with_start_and_end_date__returns_matching_funding_requests()
     end_date = date(2021, 5, 1)
 
     results = fundingrequest_query.search(
-        fundingrequest_query.DateRangeCriteria(start_date, end_date)
+        fundingrequest_query.DateRangeCriteria(DateRange.create(start=start_date, end=end_date))
     )
 
     assert list(results) == [matching_request]
@@ -215,7 +216,9 @@ def test__searching_with_no_start_date__returns_matching_funding_requests() -> N
 
     end_date = date(2021, 5, 1)
 
-    results = fundingrequest_query.search(fundingrequest_query.DateRangeCriteria(end=end_date))
+    results = fundingrequest_query.search(
+        fundingrequest_query.DateRangeCriteria(DateRange.create(end=end_date))
+    )
 
     assert list(results) == [matching_request]
 
@@ -232,7 +235,9 @@ def test__searching_with_no_end_date__returns_matching_funding_requests() -> Non
 
     start_date = date(2021, 1, 1)
 
-    results = fundingrequest_query.search(fundingrequest_query.DateRangeCriteria(start=start_date))
+    results = fundingrequest_query.search(
+        fundingrequest_query.DateRangeCriteria(DateRange.create(start=start_date))
+    )
 
     assert list(results) == [matching_request]
 

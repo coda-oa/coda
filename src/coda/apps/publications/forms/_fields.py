@@ -69,11 +69,12 @@ class ConceptChoiceField(forms.ChoiceField):
         self.choices = [EMPTY_CHOICE] + [
             (encode_concept(concept), concept.name) for concept in self._concepts
         ]
+        self.initial = EMPTY_CHOICE
 
-    def clean(self, value: Any) -> VocabularyConcept | None:
+    def clean(self, value: Any) -> VocabularyConcept:
         """Convert form value to VocabularyConcept."""
-        if not value:
-            return None
+        if not value and self.required:
+            raise forms.ValidationError("Please select a valid entry")
 
         try:
             form_concept = decode_concept(value)
@@ -87,13 +88,13 @@ class ConceptChoiceField(forms.ChoiceField):
             return UnknownConcept
 
         if not self._concepts:
-            return None
+            raise forms.ValidationError("No concepts provided")
 
         for concept in self._concepts:
             if concept.concept_id == form_concept.concept:
                 return concept
 
-        return None
+        raise forms.ValidationError(f"Invalid concept {form_concept.concept}")
 
     def set_vocabulary(self, concepts: Collection[VocabularyConcept] | None) -> None:
         """Update the concepts and refresh choices."""
