@@ -1,16 +1,18 @@
 <h1 class="my-2">Journal & Contracts</h1>
 <article>
     <h2 class="mb-2">Find Journal</h2>
-    <fieldset role="group">
+    <fieldset role="group"
+              hx-post="{% url 'fundingrequests:wizard_find_journal' %}"
+              hx-target="#journal-search-results"
+              hx-swap="outerHTML"
+              hx-trigger="keydown[key=='Enter'] from:#journal_title, click from:#journal_search_button">
         <input type="search"
                name="journal_title"
                id="journal_title"
                {% if journal_error and request.method == "POST" and not selected_journal %}aria-invalid="true"{% endif %}
                value="{{ journal_title }}">
         <button type="button"
-                hx-post="{% url 'fundingrequests:wizard_find_journal' %}"
-                hx-target="#journal-search-results"
-                hx-swap="outerHTML"
+                id="journal_search_button"
                 class="inline-search-pill pill-right">Search</button>
     </fieldset>
     {% if journal_error and request.method == "POST" and not selected_journal %}
