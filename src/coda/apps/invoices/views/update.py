@@ -10,17 +10,20 @@ from coda import formdata
 from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.invoices import repository
 from coda.apps.invoices.forms import InvoiceForm
-from coda.apps.invoices.views.create import save_invoice
+from coda.apps.invoices.views.create import build_position_errors, try_parse_invoice
 from coda.apps.invoices.views.position_context import (
     DefaultContext as _DefaultContext,
+)
+from coda.apps.invoices.views.position_context import (
     funding_sources_context,
 )
-from coda.apps.invoices.views.position_views import ErrorDict, safe_invoice_total
+from coda.apps.invoices.views.position_views import safe_invoice_total
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.dto.edit_position_dtos import PositionList
-from coda.contexts.finance.services import invoice_parser
+from coda.contexts.finance.services import invoice_parser, invoice_service
 from coda.domain.finance.invoice import Invoice, InvoiceId
 from coda.domain.money._currency import Currency
+from coda.apps.invoices.models import Creditor
 
 invoice_breadcrumb_title = generate_dynamic_title(
     model_name="Edit Invoice",
@@ -43,17 +46,22 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
 
     update_conversions(invoice, request.POST)
 
-    invoice_id, errors = save_invoice(
+    position_list = formdata.map_to_model(PositionList, request.POST)
+    parsed_invoice, errors = try_parse_invoice(
         request,
-        invoice_id=invoice.id,
+        position_list,
         conversions=invoice.conversions(),
     )
 
-    if invoice_id:
-        return redirect("invoices:detail", pk=invoice_id)
+    if parsed_invoice:
+        parsed_invoice.id = invoice.id
+        invoice_service.save(parsed_invoice)
+        return redirect("invoices:detail", pk=invoice.id)
 
-    position_list = formdata.map_to_model(PositionList, request.POST)
-    return render_edit_view(request, invoice, position_list, errors=errors)
+    if errors:
+        position_list = build_position_errors(errors, position_list)
+
+    return render_edit_view(request, invoice, position_list)
 
 
 @require_GET
@@ -103,10 +111,8 @@ def render_edit_view(
     request: HttpRequest,
     invoice: Invoice,
     position_list: PositionList,
-    errors: ErrorDict | None = None,
 ) -> HttpResponse:
     home_currency = GlobalPreferences.get_home_currency()
-    errors = errors or ErrorDict(errors={})
     conversion_currency = None
     exchange_rate = Decimal(0)
     if invoice.conversions():
@@ -117,9 +123,8 @@ def render_edit_view(
         request,
         "invoices/create.html",
         _DefaultContext
-        | funding_sources_context()
+        | funding_sources_context(position_list.positions)
         | asdict(safe_invoice_total(position_list.positions, invoice.currency()))
-        | errors
         | {
             "mode_name": "Edit",
             "form": _restore_form(request, invoice),
@@ -131,6 +136,7 @@ def render_edit_view(
             "exchange_rate": exchange_rate,
             "selected_currency": invoice.currency().code,
             "position_list": position_list,
+            "creditors": Creditor.objects.all().order_by("name"),
         },
     )
 

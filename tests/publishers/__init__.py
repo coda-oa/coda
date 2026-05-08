@@ -1,0 +1,1 @@
+# Publishers tests module

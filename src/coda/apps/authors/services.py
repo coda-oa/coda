@@ -2,39 +2,27 @@ from typing import cast
 
 from django.core.exceptions import ValidationError
 
-from coda.apps.authors.models import Author as AuthorModel, deserialize_role
+from coda.apps.authors.mappers import AuthorDomainMapper
+from coda.apps.authors.models import Author as AuthorModel
 from coda.apps.authors.models import PersonId, serialize_role
 from coda.apps.institutions import repository as institution_repository
 from coda.apps.institutions.models import Institution
 from coda.domain.author import Author, AuthorId, InstitutionId
 from coda.domain.orcid import Orcid
 from coda.domain.publication import PublicationId
-from coda.domain.string import NonEmptyStr
 
 
 def first() -> Author | None:
-    model = AuthorModel.objects.first()
+    model = AuthorDomainMapper.prefetch(AuthorModel.objects.all()).first()
     if model is None:
         return None
 
-    return as_domain_object(model)
+    return AuthorDomainMapper.map(model)
 
 
 def get_by_id(author_id: AuthorId) -> Author:
     model = AuthorModel.objects.get(pk=author_id)
-    return as_domain_object(model)
-
-
-def as_domain_object(model: AuthorModel) -> Author:
-    person_id = cast(PersonId, model.identifier)
-    return Author.restore(
-        id=AuthorId(model.pk),
-        name=NonEmptyStr(model.name),
-        email=model.email or "",
-        orcid=Orcid(person_id.orcid) if person_id.orcid else None,
-        affiliation=InstitutionId(model.affiliation.pk) if model.affiliation else None,
-        role=deserialize_role(model.roles or ""),
-    )
+    return AuthorDomainMapper.map(model)
 
 
 def author_create(author: Author, publication: PublicationId | None = None) -> AuthorId:

@@ -1,0 +1,35 @@
+{# Form for changing to article type - requires journal selection #}
+{# Parameters: session_key, journals, selected_journal, error #}
+{# Note: form submission requires JavaScript (HTMX). Non-JS fallback is not supported. #}
+<form method="post"
+      action="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
+      hx-post="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
+      hx-target="#type-change-form"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="publication_type" value="article">
+    <input type="hidden"
+           name="row_template"
+           value="fundingrequests/partials/doi_journal_row.html">
+    <h4 class="mt-1">Select Journal</h4>
+    <p class="text-muted">Search for the journal where this article was published.</p>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <fieldset role="group">
+        <input type="search"
+               name="journal_title"
+               id="journal_title"
+               placeholder="Search journal by title...">
+        <button type="button"
+                hx-post="{% url 'fundingrequests:wizard_find_journal' %}"
+                hx-target="#journal-search-results"
+                hx-swap="outerHTML"
+                class="inline-search-pill pill-right">Search</button>
+    </fieldset>
+    {% include "fundingrequests/partials/journal_search_results.html" %}
+    <div class="grid">
+        <button type="submit" class="mt-1">Apply Change to Article</button>
+        <button type="button"
+                hx-post="{% url 'fundingrequests:doi_preview_reset_type' session_key=session_key %}"
+                class="secondary mt-1">Use auto-detected result instead</button>
+    </div>
+</form>

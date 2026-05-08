@@ -73,6 +73,7 @@ search-select:not(:defined) {
 }
 
 .messages {
+  max-width: var(--messages-max-width, 100%);
   padding: var(--coda-spacing) !important;
   margin-block: var(--coda-spacing) !important;
   background-color: var(--_background-color);
@@ -167,4 +168,34 @@ span.icon-tooltip[data-tooltip] {
 
 .tree-node.depth-10 {
   --depth: 11;
+}
+
+/* institution modal */
+
+#successor-form #new-name-field {
+    display: none;
+}
+#successor-form #existing-selector-field {
+    display: none;
+}
+
+#successor-form:has(#radio-no-successor:checked) #new-name-field {
+    display: none;
+}
+#successor-form:has(#radio-no-successor:checked) #existing-selector-field {
+    display: none;
+}
+
+#successor-form:has(#radio-create-new:checked) #new-name-field {
+    display: block;
+}
+#successor-form:has(#radio-create-new:checked) #existing-selector-field {
+    display: none;
+}
+
+#successor-form:has(#radio-select-existing:checked) #new-name-field {
+    display: none;
+}
+#successor-form:has(#radio-select-existing:checked) #existing-selector-field {
+    display: block;
 }

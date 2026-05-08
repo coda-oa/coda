@@ -86,12 +86,12 @@ def test__full_publication_with_invoice_data__generate_report__creates_report_pu
 
 @pytest.mark.django_db
 def test__publication_with_invoice_data__generate_report__creates_report_invoice_snapshot() -> None:
-    publication = modelfactory.publication(title="Invoice Test Publication")
-    publication.online_publication_date = date(2024, 5, 15)
-    publication.save()
+    fr = modelfactory.fundingrequest(title="Invoice Test Publication")
+    fr.publication.online_publication_date = date(2024, 5, 15)
+    fr.publication.save()
 
     invoice, _ = create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 1),
         invoice_number="INV-2024-001",
         creditor_name="Invoice Creditor",
@@ -113,9 +113,9 @@ def test__publication_with_invoice_data__generate_report__creates_report_invoice
 def test__invoice_with_positions__generate_report__creates_report_invoice_position_snapshots() -> (
     None
 ):
-    publication = modelfactory.publication(title="Invoice Position Test Publication")
-    publication.online_publication_date = date(2024, 4, 20)
-    publication.save()
+    fr = modelfactory.fundingrequest(title="Invoice Position Test Publication")
+    fr.publication.online_publication_date = date(2024, 4, 20)
+    fr.publication.save()
 
     creditor = create_creditor(name="Position Creditor")
     invoice = create_invoice(
@@ -124,13 +124,13 @@ def test__invoice_with_positions__generate_report__creates_report_invoice_positi
 
     create_position(
         invoice=invoice,
-        publication=publication,
+        publication=fr.publication,
         description="APC part 1",
         cost_amount=Decimal("1000.00"),
     )
     create_position(
         invoice=invoice,
-        publication=publication,
+        publication=fr.publication,
         description="APC part 2",
         cost_amount=Decimal("500.00"),
     )
@@ -160,9 +160,9 @@ def test__invoice_with_positions__generate_report__creates_report_invoice_positi
 def test__publication_with_multiple_invoices__generate_report__creates_multiple_report_invoice_snapshots() -> (
     None
 ):
-    publication = modelfactory.publication(title="Multiple Invoices Publication")
-    publication.online_publication_date = date(2024, 3, 10)
-    publication.save()
+    fr = modelfactory.fundingrequest(title="Multiple Invoices Publication")
+    fr.publication.online_publication_date = date(2024, 3, 10)
+    fr.publication.save()
 
     creditor1 = create_creditor(name="Creditor One")
     invoice1 = create_invoice(
@@ -170,7 +170,7 @@ def test__publication_with_multiple_invoices__generate_report__creates_multiple_
     )
     create_position(
         invoice=invoice1,
-        publication=publication,
+        publication=fr.publication,
         description="APC part 1",
         cost_amount=Decimal("800.00"),
     )
@@ -181,7 +181,7 @@ def test__publication_with_multiple_invoices__generate_report__creates_multiple_
     )
     create_position(
         invoice=invoice2,
-        publication=publication,
+        publication=fr.publication,
         description="APC part 2",
         cost_amount=Decimal("700.00"),
     )
@@ -201,9 +201,10 @@ def test__publication_with_multiple_invoices__generate_report__creates_multiple_
 def test__publication_with_invoice_outside_period__generate_report__publication_not_included() -> (
     None
 ):
-    publication = modelfactory.publication(title="Outside Period Publication")
+    fr = modelfactory.fundingrequest(title="Outside Period Publication")
+
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2023, 11, 30),
         invoice_number="INV-2023-999",
         creditor_name="Outside Period Creditor",
@@ -217,30 +218,30 @@ def test__publication_with_invoice_outside_period__generate_report__publication_
     )
 
     assert not OpenCostReportPublication.objects.filter(
-        report=report, publication=publication
+        report=report, publication=fr.publication
     ).exists()
 
 
 @pytest.mark.django_db
 def test__multiple_publications_with_invoices__generate_report__all_included() -> None:
-    publication1 = modelfactory.publication(title="Publication One")
-    publication1.online_publication_date = date(2024, 2, 5)
-    publication1.save()
+    fr1 = modelfactory.fundingrequest(title="Publication One")
+    fr1.publication.online_publication_date = date(2024, 2, 5)
+    fr1.publication.save()
 
     create_publication_with_invoice(
-        publication1,
+        fr1.publication,
         invoice_date=date(2024, 3, 1),
         invoice_number="INV-2024-201",
         creditor_name="Creditor One",
         cost_amount=Decimal("900.00"),
     )
 
-    publication2 = modelfactory.publication(title="Publication Two")
-    publication2.online_publication_date = date(2024, 3, 15)
-    publication2.save()
+    fr2 = modelfactory.fundingrequest(title="Publication Two")
+    fr2.publication.online_publication_date = date(2024, 3, 15)
+    fr2.publication.save()
 
     create_publication_with_invoice(
-        publication2,
+        fr2.publication,
         invoice_date=date(2024, 4, 10),
         invoice_number="INV-2024-202",
         creditor_name="Creditor Two",
@@ -250,10 +251,10 @@ def test__multiple_publications_with_invoices__generate_report__all_included() -
     report = create_opencost_report(title="Test Report with Multiple Publications 2024")
 
     assert OpenCostReportPublication.objects.filter(
-        report=report, publication=publication1
+        report=report, publication=fr1.publication
     ).exists()
     assert OpenCostReportPublication.objects.filter(
-        report=report, publication=publication2
+        report=report, publication=fr2.publication
     ).exists()
 
 
@@ -261,17 +262,18 @@ def test__multiple_publications_with_invoices__generate_report__all_included() -
 def test__publication_with_secondary_identifiers__generate_report__link_snapshots_created_and_immutable() -> (
     None
 ):
-    publication = modelfactory.publication(title="Publication with Links")
+    fr = modelfactory.fundingrequest(title="Publication with Links")
+    # Factory creates DOI and ISBN - we add Handle and URN
     handle_type, _ = LinkType.objects.get_or_create(name="Handle")
     handle_link = Link.objects.create(
-        publication=publication, type=handle_type, value="hdl:1234/original"
+        publication=fr.publication, type=handle_type, value="hdl:1234/original"
     )
     urn_type, _ = LinkType.objects.get_or_create(name="URN")
     urn_link = Link.objects.create(
-        publication=publication, type=urn_type, value="urn:nbn:de:original"
+        publication=fr.publication, type=urn_type, value="urn:nbn:de:original"
     )
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 15),
         invoice_number="INV-2024-001",
     )
@@ -282,7 +284,7 @@ def test__publication_with_secondary_identifiers__generate_report__link_snapshot
     assert report_publication is not None
 
     link_snapshots = report_publication.links.all()
-    assert link_snapshots.count() == 2
+    assert link_snapshots.count() == 3  # ISBN (factory) + Handle + URN (DOI stored separately)
 
     handle_snapshot = link_snapshots.filter(link_type="handle").first()
     assert handle_snapshot is not None
@@ -297,7 +299,7 @@ def test__publication_with_secondary_identifiers__generate_report__link_snapshot
     urn_link.delete()
 
     link_snapshots_after = report_publication.links.all()
-    assert link_snapshots_after.count() == 2
+    assert link_snapshots_after.count() == 3  # Snapshots are immutable
 
     handle_snapshot_after = link_snapshots_after.filter(link_type="handle").first()
     assert handle_snapshot_after is not None
@@ -312,10 +314,10 @@ def test__publication_with_secondary_identifiers__generate_report__link_snapshot
 def test__publication_with_invoices_inside_and_outside_period__generate_report__only_period_invoices_snapshotted() -> (
     None
 ):
-    publication = modelfactory.publication(title="Publication with Multiple Period Invoices")
+    fr = modelfactory.fundingrequest(title="Publication with Multiple Period Invoices")
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 4, 15),
         invoice_number="INV-Q2-001",
         creditor_name="Creditor A",
@@ -326,13 +328,13 @@ def test__publication_with_invoices_inside_and_outside_period__generate_report__
     invoice_2 = create_invoice(
         creditor=creditor_b, invoice_date=date(2024, 5, 20), number="INV-Q2-002"
     )
-    create_position(invoice_2, publication, cost_amount=Decimal("1500.00"))
+    create_position(invoice_2, fr.publication, cost_amount=Decimal("1500.00"))
 
     creditor_c = create_creditor(name="Creditor C")
     invoice_3 = create_invoice(
         creditor=creditor_c, invoice_date=date(2024, 7, 10), number="INV-Q3-001"
     )
-    create_position(invoice_3, publication, cost_amount=Decimal("2000.00"))
+    create_position(invoice_3, fr.publication, cost_amount=Decimal("2000.00"))
 
     report = create_opencost_report(
         title="Q2 2024 Report",
@@ -342,7 +344,7 @@ def test__publication_with_invoices_inside_and_outside_period__generate_report__
 
     report_publication = report.publications.first()
     assert report_publication is not None
-    assert report_publication.publication == publication
+    assert report_publication.publication == fr.publication
 
     invoice_snapshots = report_publication.invoices.all()
     assert invoice_snapshots.count() == 2
@@ -363,16 +365,17 @@ def test__publication_with_institution_identifiers__generate_report__identifier_
         isni="https://isni.org/isni/0000000121032683",
     )
 
-    publication = modelfactory.publication(title="Test Publication")
+    fr = modelfactory.fundingrequest(title="Test Publication")
+    fr.publication.relevant_authors.all().delete()
     create_corresponding_author(
-        publication=publication,
+        publication=fr.publication,
         name="John Doe",
         email="john@example.com",
         affiliation=author_institution,
     )
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 15),
         invoice_number="INV-2024-001",
     )
@@ -406,16 +409,17 @@ def test__publication_with_corresponding_author_no_institution_identifiers__gene
     prefs.home_institution = home_institution
     prefs.save()
 
-    publication = modelfactory.publication(title="Test Publication")
+    fr = modelfactory.fundingrequest(title="Test Publication")
+    fr.publication.relevant_authors.all().delete()
     create_corresponding_author(
-        publication=publication,
+        publication=fr.publication,
         name="John Doe",
         email="john@example.com",
         affiliation=author_institution,
     )
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 15),
         invoice_number="INV-2024-001",
     )
@@ -448,16 +452,17 @@ def test__publication_with_author_with_different_institution_identifiers__genera
         institution=author_institution, type=other_type, value="https://otherid.com/id/555555"
     )
 
-    publication = modelfactory.publication(title="Test Publication")
+    fr = modelfactory.fundingrequest(title="Test Publication")
+    fr.publication.relevant_authors.all().delete()
     create_corresponding_author(
-        publication=publication,
+        publication=fr.publication,
         name="Jane Smith",
         email="jane.smith@example.com",
         affiliation=author_institution,
     )
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 15),
         invoice_number="INV-2024-002",
     )
@@ -499,16 +504,17 @@ def test__publication_with_author_from_child_institution_without_identifiers__ge
 
     department = Institution.objects.create(name="Department of Physics", parent=faculty)
 
-    publication = modelfactory.publication(title="Test Publication from Department")
+    fr = modelfactory.fundingrequest(title="Test Publication from Department")
+    fr.publication.relevant_authors.all().delete()
     create_corresponding_author(
-        publication=publication,
+        publication=fr.publication,
         name="Dr. Smith",
         email="smith@physics.example.com",
         affiliation=department,
     )
 
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 15),
         invoice_number="INV-2024-HIERARCHY-001",
     )
@@ -679,9 +685,9 @@ def test__publication_linked_to_contract__generate_report__publication_and_contr
         cost_type="publish",
     )
 
-    publication = modelfactory.publication(title="Publication Linked to Contract")
+    fr = modelfactory.fundingrequest(title="Publication Linked to Contract")
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 1),
         invoice_number="INV-PUB-001",
         creditor_name="Publication Creditor",
@@ -691,13 +697,15 @@ def test__publication_linked_to_contract__generate_report__publication_and_contr
 
     AttachedContract.objects.create(
         contract=contract,
-        publication=publication,
+        publication=fr.publication,
         contract_year=2024,
     )
 
     report = create_opencost_report(title="Test Report with Publication and Contract 2024")
 
-    assert OpenCostReportPublication.objects.filter(report=report, publication=publication).exists()
+    assert OpenCostReportPublication.objects.filter(
+        report=report, publication=fr.publication
+    ).exists()
     assert OpenCostReportContract.objects.filter(report=report, contract=contract).exists()
 
     report_publication = report.publications.first()
@@ -727,9 +735,9 @@ def test__publication_linked_to_contract__generate_report__publication_has_link_
         cost_type="read",
     )
 
-    publication = modelfactory.publication(title="Publication Linked to Contract with ESAC ID")
+    fr = modelfactory.fundingrequest(title="Publication Linked to Contract with ESAC ID")
     create_publication_with_invoice(
-        publication,
+        fr.publication,
         invoice_date=date(2024, 6, 1),
         invoice_number="INV-PUB-002",
         creditor_name="Publication Creditor",
@@ -739,13 +747,15 @@ def test__publication_linked_to_contract__generate_report__publication_has_link_
 
     AttachedContract.objects.create(
         contract=contract,
-        publication=publication,
+        publication=fr.publication,
         contract_year=2024,
     )
 
     report = create_opencost_report(title="Test Report with Publication and Contract ESAC ID 2024")
 
-    assert OpenCostReportPublication.objects.filter(report=report, publication=publication).exists()
+    assert OpenCostReportPublication.objects.filter(
+        report=report, publication=fr.publication
+    ).exists()
     assert OpenCostReportContract.objects.filter(report=report, contract=contract).exists()
 
     report_publication = report.publications.first()
@@ -789,22 +799,24 @@ def test__publication_linked_to_contract_with_no_own_invoice_positions__generate
         cost_type="read",
     )
 
-    publication = modelfactory.publication(
+    fr = modelfactory.fundingrequest(
         title="Publication Fully Covered by Contract - No Individual Invoice Positions"
     )
     AttachedContract.objects.create(
         contract=contract,
-        publication=publication,
+        publication=fr.publication,
         contract_year=2024,
     )
 
     report = create_opencost_report(title="Test Report with Publication Covered by Contract 2024")
 
-    assert OpenCostReportPublication.objects.filter(report=report, publication=publication).exists()
+    assert OpenCostReportPublication.objects.filter(
+        report=report, publication=fr.publication
+    ).exists()
 
     assert OpenCostReportContract.objects.filter(report=report, contract=contract).exists()
 
-    report_publication = report.publications.filter(publication=publication).first()
+    report_publication = report.publications.filter(publication=fr.publication).first()
     assert report_publication is not None
     assert report_publication.linked_contracts.filter(contract=contract).exists()
 

@@ -1,14 +1,13 @@
 import datetime
 import enum
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
-    NamedTuple,
+    Literal,
     NewType,
     Self,
-    TypeAlias,
     TypeGuard,
     TypeVar,
 )
@@ -82,7 +81,24 @@ class InvalidPublicationState(DomainError):
     pass
 
 
-class Unpublished(NamedTuple):
+@dataclass(slots=True, frozen=True)
+class PublicationState(ABC):
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+    @staticmethod
+    def parse(
+        state: str, online: datetime.date | None = None, print: datetime.date | None = None
+    ) -> "PublicationState":
+        if state.lower() == Published.name().lower():
+            return Published(online=online, print=print)
+
+        return Unpublished.of(state)
+
+
+@dataclass(slots=True, frozen=True)
+class Unpublished(PublicationState):
     state: UnpublishedState = UnpublishedState.Unknown
 
     @classmethod
@@ -98,7 +114,7 @@ class Unpublished(NamedTuple):
 
 
 @dataclass(slots=True, frozen=True)
-class Published:
+class Published(PublicationState):
     online: datetime.date | None = None
     print: datetime.date | None = None
 
@@ -109,9 +125,6 @@ class Published:
     @staticmethod
     def name() -> str:
         return "Published"
-
-
-PublicationState: TypeAlias = Unpublished | Published
 
 
 class TooManySubmittingAuthors(DomainError):
@@ -155,10 +168,19 @@ class BasePublication(ABC):
     def is_kind(self, kind: type[PublicationKind]) -> TypeGuard[PublicationKind]:
         return isinstance(self, kind)
 
+    @property
+    @abstractmethod
+    def kind(self) -> Literal["article", "monograph"]:
+        """Return the publication kind as a discriminator string."""
+
 
 @dataclass(kw_only=True)
 class Publication(BasePublication):
     journal: JournalId
+
+    @property
+    def kind(self) -> Literal["article"]:
+        return "article"
 
     @classmethod
     def new(
@@ -192,6 +214,10 @@ class Publication(BasePublication):
 @dataclass(kw_only=True)
 class Monograph(BasePublication):
     publisher: PublisherId
+
+    @property
+    def kind(self) -> Literal["monograph"]:
+        return "monograph"
 
     @classmethod
     def new(

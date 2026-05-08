@@ -1,0 +1,36 @@
+{# Form for changing to monograph type - requires publisher selection #}
+{# Parameters: session_key, suggested_publisher, publishers, selected_publisher, error #}
+{# Note: form submission requires JavaScript (HTMX). Non-JS fallback is not supported. #}
+{# Note: publisher results are loaded via wizard_find_publisher HTMX endpoint (outerHTML swap), #}
+{#       not from template context, so the submit button is always visible unlike the article form. #}
+<form method="post"
+      action="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
+      hx-post="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
+      hx-target="#type-change-form"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="publication_type" value="monograph">
+    <h4 class="mt-1">Select Publisher</h4>
+    <p class="text-muted">Search for the publisher of this monograph.</p>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <fieldset role="group">
+        <input type="search"
+               name="publisher_name"
+               id="publisher_name"
+               placeholder="Search publisher by name..."
+               value="{{ suggested_publisher }}">
+        <button type="button"
+                hx-post="{% url 'fundingrequests:wizard_find_publisher' %}"
+                hx-include="[name='publisher_name']"
+                hx-target="#publisher-search-results"
+                hx-swap="outerHTML"
+                class="inline-search-pill pill-right">Search</button>
+    </fieldset>
+    {% include "fundingrequests/partials/publisher_search_results.html" %}
+    <div class="grid">
+        <button type="submit" class="mt-1">Apply Change to Monograph</button>
+        <button type="button"
+                hx-post="{% url 'fundingrequests:doi_preview_reset_type' session_key=session_key %}"
+                class="secondary mt-1">Use auto-detected result instead</button>
+    </div>
+</form>

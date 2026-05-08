@@ -4,6 +4,7 @@ from django import forms
 from coda.apps import widgets
 
 from coda.apps.institutions.models import Institution, InstitutionLinkType
+from coda.apps.institutions.services import generate_internal_id
 from coda.domain.institution.links import (
     InvalidIsni,
     InvalidRinggold,
@@ -15,9 +16,21 @@ from coda.domain.institution.links import (
 class InstitutionForm(forms.ModelForm[Institution]):
     class Meta:
         model = Institution
-        fields = ["name", "parent"]
+        fields = ["name", "parent", "internal_id"]
 
         widgets = {"parent": widgets.SearchSelectWidget()}
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["internal_id"].help_text = ""
+
+    def save(self, commit: bool = True) -> Institution:
+        instance = super().save(commit=False)
+        if not instance.internal_id:
+            instance.internal_id = generate_internal_id()
+        if commit:
+            instance.save()
+        return instance
 
 
 def _link_type_choices() -> list[tuple[str, str]]:

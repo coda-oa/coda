@@ -1,8 +1,11 @@
 <article class="flex justify-between align-center">
     <div>
-        <p class="my-0">{{ entity.name }}</p>
+        <p class="mt-1">
+            <a href="{% url 'institutions:detail' pk=entity.id %}">{{ entity.name }}</a>
+            {% if entity.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+        </p>
         {% if entity.parent %}
-            <p class="my-0">
+            <p>
                 <small><i>Part of {{ entity.parent.name }}</i></small>
             </p>
         {% endif %}
@@ -18,7 +21,21 @@
                    hx-swap="none"
                    {% if not entity.virtual %}checked{% endif %}>
         </label>
-        <a href="{% url 'institutions:edit' pk=entity.id %}"
-           class="button secondary">Edit</a>
+        <a href="{% url 'institutions:edit' pk=entity.id %}" class="button">Edit</a>
+        {% if entity.archived_at %}
+            <button class="outline success"
+                    hx-get="{% url 'institutions:request_restore' pk=entity.id %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Restore</button>
+        {% else %}
+            <button class="secondary"
+                    hx-get="{% url 'institutions:request_set_successor' pk=entity.id %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Archive</button>
+            <button class="danger"
+                    hx-get="{% url 'institutions:request_delete' pk=entity.id %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Delete</button>
+        {% endif %}
     </div>
 </article>

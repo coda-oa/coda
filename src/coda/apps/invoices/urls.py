@@ -1,6 +1,10 @@
 from django.urls import path
 
-from coda.apps.invoices.views.create import create_invoice
+from coda.apps.invoices.views.create import (
+    create_invoice,
+    creditor_create_modal,
+    creditor_create_modal_submit,
+)
 from coda.apps.invoices.views.creditor import (
     CreditorCreateView,
     CreditorDetailView,
@@ -95,5 +99,11 @@ urlpatterns = [
         "free-position-cost-type-options/",
         free_position_cost_type_options,
         name="free_position_cost_type_options",
+    ),
+    path("creditor-create-modal/", creditor_create_modal, name="creditor_create_modal"),
+    path(
+        "creditor-create-modal/submit/",
+        creditor_create_modal_submit,
+        name="creditor_create_modal_submit",
     ),
 ]

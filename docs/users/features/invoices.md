@@ -21,6 +21,7 @@ The header contains metadata about the invoice:
 - **Invoice Number**: The unique identifier from the creditor (e.g., "INV-2024-12345")
 - **Invoice Date**: When the invoice was issued
 - **Creditor**: The organization that sent the invoice (selected from your [Creditors](creditors.md) list)
+  - **New Creditor**: If the creditor doesn't exist yet, click the **New** button to open a modal where you can create it without losing your invoice form data
 - **Currency**: The currency used for all positions on this invoice
 - **Payment Status**: Unpaid, Paid or Rejected
 - **External Invoice ID** *(optional)*: Reference ID from external systems

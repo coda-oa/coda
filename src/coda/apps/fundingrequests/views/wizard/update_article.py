@@ -5,7 +5,18 @@ from django.http import HttpRequest
 from django.urls import reverse
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from coda.apps.fundingrequests import repository as fundingrequest_repository
+from coda.apps.fundingrequests.strategies import (
+    DatabasePersistenceStrategy,
+    FundingRequestPersistenceStrategy,
+)
+from coda.apps.fundingrequests.views.wizard.steps.extrainformation_step import (
+    ExtraInformationStep,
+)
+from coda.apps.fundingrequests.views.wizard.steps.funding_step import FundingStep
+from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalContractStep
+from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
+from coda.apps.publications.dto import ContractYearDto
+from coda.apps.wizard import SessionStore, Wizard
 from coda.contexts.fundingrequest.dto.commands import (
     ExternalFundingDto,
     ExtraContactDto,
@@ -13,13 +24,6 @@ from coda.contexts.fundingrequest.dto.commands import (
     PaymentDto,
     UpdatePublicationMetadataCommand,
 )
-from coda.contexts.fundingrequest.services import fundingrequests
-from coda.apps.fundingrequests.views.wizard.steps.extrainformation_step import ExtraInformationStep
-from coda.apps.fundingrequests.views.wizard.steps.funding_step import FundingStep
-from coda.apps.fundingrequests.views.wizard.steps.journal_step import JournalContractStep
-from coda.apps.fundingrequests.views.wizard.steps.publication_step import PublicationStep
-from coda.apps.publications.dto import ContractYearDto, PublicationDto
-from coda.apps.wizard import SessionStore, Wizard
 from coda.domain.publication import JournalId
 
 
@@ -29,6 +33,10 @@ class UpdateExtraInformationView(LoginRequiredMixin, Wizard):
     store_factory = SessionStore
     steps = [ExtraInformationStep()]
 
+    def get_strategy(self) -> FundingRequestPersistenceStrategy:
+        """Get persistence strategy for this wizard (database by default)."""
+        return DatabasePersistenceStrategy(self.kwargs["pk"])
+
     def get_cancel_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
@@ -36,21 +44,29 @@ class UpdateExtraInformationView(LoginRequiredMixin, Wizard):
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
     def complete(self, /, **kwargs: Any) -> None:
+        strategy = self.get_strategy()
         store = self.get_store()
+
         contact = ExtraContactDto(**store.get("contact", {}))
         extra_info = ExtraInformationDto(
-            request_remarks=store.get("request_remarks"), extra_contact=contact
+            request_remarks=store.get("request_remarks", ""), extra_contact=contact
         )
 
-        fundingrequests.update_extra_information(self.kwargs["pk"], extra_info)
+        strategy.save_extra_information(extra_info)
 
     def prepare(self, request: HttpRequest) -> None:
+        strategy = self.get_strategy()
         store = self.get_store()
-        fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
-        store["request_remarks"] = fr.request_remarks
-        if fr.extra_contact:
-            store["contact"] = {"name": fr.extra_contact.name, "email": fr.extra_contact.email}
-            store.save()
+
+        extra_info = strategy.load_extra_information()
+
+        store["request_remarks"] = extra_info.request_remarks
+        if extra_info.extra_contact.name or extra_info.extra_contact.email:
+            store["contact"] = {
+                "name": extra_info.extra_contact.name,
+                "email": extra_info.extra_contact.email,
+            }
+        store.save()
 
 
 @breadcrumb("Update Publication Details", parent_url_name="fundingrequests:detail")
@@ -60,6 +76,10 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
     steps = [PublicationStep.for_article(), JournalContractStep()]
     allow_early_complete = True
 
+    def get_strategy(self) -> FundingRequestPersistenceStrategy:
+        """Get persistence strategy for this wizard (database by default)."""
+        return DatabasePersistenceStrategy(self.kwargs["pk"])
+
     def get_cancel_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
@@ -67,25 +87,25 @@ class UpdatePublicationView(LoginRequiredMixin, Wizard):
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
     def complete(self, /, **kwargs: Any) -> None:
+        strategy = self.get_strategy()
         store = self.get_store()
-        pk = kwargs["pk"]
 
-        # Always update metadata from PublicationStep
         metadata = UpdatePublicationMetadataCommand(**store["publication_step"])
-        fundingrequests.update_publication_metadata(pk, metadata)
+        strategy.save_publication_metadata(metadata)
 
-        # Update journal + contracts only if JournalContractStep was completed
         if self.index() > 0:
             journal = JournalId(store["journal"])
             contract_dtos = [ContractYearDto(**c) for c in store["contracts"]]
-            fundingrequests.update_publication_journal_and_contracts(pk, journal, contract_dtos)
+            strategy.save_journal_and_contracts(journal, contract_dtos)
 
     def prepare(self, request: HttpRequest) -> None:
+        strategy = self.get_strategy()
         store = self.get_store()
-        fr = fundingrequest_repository.get_article_request(self.kwargs["pk"])
-        dto = PublicationDto.from_publication(fr.publication)
+
+        dto = strategy.load_publication()
+
         store["publication_step"] = dto.to_post_data(exclude={"journal", "contracts"})
-        store["journal"] = fr.publication.journal
+        store["journal"] = dto.journal.id  # type: ignore
         store["contracts"] = [c.to_post_data() for c in dto.contracts]
         store.save()
 
@@ -96,6 +116,10 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
     store_name = "update_funding_wizard"
     store_factory = SessionStore
 
+    def get_strategy(self) -> FundingRequestPersistenceStrategy:
+        """Get persistence strategy for this wizard (database by default)."""
+        return DatabasePersistenceStrategy(self.kwargs["pk"])
+
     def get_cancel_url(self) -> str:
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
@@ -103,21 +127,20 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
         return reverse("fundingrequests:detail", kwargs={"pk": self.kwargs["pk"]})
 
     def complete(self, /, **kwargs: Any) -> None:
+        strategy = self.get_strategy()
         store = self.get_store()
+
         cost = PaymentDto(**store["cost"])
         funding = []
         if store.get("funding") is not None:
             funding = [ExternalFundingDto(**f) for f in store["funding"]]
-        fundingrequests.update_funding(self.kwargs["pk"], cost, funding)
+
+        strategy.save_funding(cost, funding)
 
     def prepare(self, request: HttpRequest) -> None:
+        strategy = self.get_strategy()
         store = self.get_store()
-        fr = fundingrequest_repository.get_by_id(self.kwargs["pk"])
-        payment_dto = PaymentDto.from_payment(fr.estimated_cost)
-        store["cost"] = payment_dto.to_post_data()
-
-        store["funding"] = [
-            ExternalFundingDto.from_external_funding(external_funding).to_post_data()
-            for external_funding in fr.external_funding
-        ]
+        cost, funding = strategy.load_funding()
+        store["cost"] = cost.to_post_data()
+        store["funding"] = [f.to_post_data() for f in funding]
         store.save()

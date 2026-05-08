@@ -6,10 +6,7 @@ from django.urls import reverse
 
 from coda import formdata
 from coda.apps.invoices import funding_source_repository, repository
-from coda.contexts.finance.dto.edit_position_dtos import (
-    FundingAssignmentDto,
-    PositionList,
-)
+from coda.contexts.finance.dto.edit_position_dtos import FundingAssignmentDto, PositionList
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
 from coda.contexts.finance.services import invoice_parser, invoice_service
 from coda.domain.author import InstitutionId
@@ -79,7 +76,7 @@ def test__invalid_split_amount__create_invoice__shows_error(client: Client) -> N
         | formdata.map_to_dict(PositionList(positions=[position_dto])),
     )
 
-    assert "positions-1-error" in response.context["errors"]
+    assert response.context["position_list"].positions[0].error
 
 
 @pytest.mark.django_db
@@ -108,7 +105,7 @@ def test__invalid_split_amount__update_invoice__shows_error(client: Client) -> N
         | formdata.map_to_dict(PositionList(positions=[position_dto])),
     )
 
-    assert "positions-1-error" in response.context["errors"]
+    assert response.context["position_list"].positions[0].error
 
 
 @pytest.mark.django_db

@@ -8,6 +8,14 @@
             </tbody>
         </table>
     </div>
-    <h2>External Research Funding</h2>
-    {{ funding_formset.as_inline }}
+    <div class="flex justify-between align-center mb-2">
+        <h2>External Research Funding</h2>
+        <button class="secondary"
+                hx-get="{% url 'fundingrequests:funders_create_modal' %}"
+                hx-target="#entity-creation-modal-wrapper"
+                hx-swap="innerHTML"
+                hx-include="#wizard-form">Create New Funding Organization</button>
+    </div>
+    <div id="entity-creation-modal-wrapper"></div>
+    <div id="funding-formset">{{ funding_formset.as_inline }}</div>
 {% endblock wizard_step %}

@@ -1,4 +1,3 @@
-{# Main response - replaces targeted position #}
 <section id="position-{{ counter }}">
     {% if position.type == "publication" %}
         {% include "invoices/position_publication.html" %}
@@ -8,7 +7,3 @@
         {% include "invoices/position_free.html" %}
     {% endif %}
 </section>
-{# Out-of-band swap - updates summary independently #}
-<div id="positions-summary" hx-swap-oob="true">
-    {% include "invoices/position_summary.html" with net=net tax=tax total=total %}
-</div>

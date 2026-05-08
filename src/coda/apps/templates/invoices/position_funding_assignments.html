@@ -59,9 +59,7 @@
         <input type="hidden"
                name="positions-{{ counter }}-#-funding_assignments"
                value="1">
-        <div id="id-positions-{{ counter }}-funding_assignemnts-list">
-            {# Display errors if any #}
-            {% include "invoices/partials/funding_assignment_errors.html" %}
+        <div id="id-positions-{{ counter }}-funding_assignments-list">
             {% with split=position.funding_assignments.0 %}
                 {% include "invoices/partials/funding_assignment_row.html" with assignment_index=1 show_remove_button=False %}
             {% endwith %}
@@ -71,10 +69,7 @@
         <input type="hidden"
                name="positions-{{ counter }}-#-funding_assignments"
                value="{{ position.funding_assignments|length }}">
-        <div id="id-positions-{{ counter }}-funding_assignemnts-list">
-            {# Display errors if any #}
-            {% include "invoices/partials/funding_assignment_errors.html" %}
-            {# Loop through each funding assignment #}
+        <div id="id-positions-{{ counter }}-funding_assignments-list">
             {% for split in position.funding_assignments %}
                 {% include "invoices/partials/funding_assignment_row.html" with assignment_index=forloop.counter show_remove_button=True %}
             {% endfor %}
@@ -96,7 +91,7 @@
                    value="{{ position.unassigned_costs }}"
                    readonly
                    hx-post="{% url "invoices:position_refresh_funding_assignment" %}"
-                   hx-trigger="change from:(#id-positions-{{ counter }}-funding_assignemnts-list input.cost-amount), change from:(#id-positions-{{ counter }}-cost-amount)"
+                   hx-trigger="change from:(#id-positions-{{ counter }}-funding_assignments-list input.cost-amount), change from:(#id-positions-{{ counter }}-cost-amount)"
                    hx-target="#position-{{ counter }}"
                    hx-swap="outerHTML"
                    hx-include="#position-{{ counter }}, [name='currency']"

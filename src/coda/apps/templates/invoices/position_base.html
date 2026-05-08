@@ -17,6 +17,7 @@
                         hx-swap="outerHTML">Remove</button>
             </div>
         </summary>
+        {% if position.error %}<p class="messages error">{{ position.error }}</p>{% endif %}
         {% block position_type_specifics %}
         {% endblock position_type_specifics %}
         {% include "invoices/position_generic_partial.html" %}

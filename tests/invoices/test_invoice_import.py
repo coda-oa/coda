@@ -9,7 +9,7 @@ import pytest
 
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.fundingrequests import repository as fundingrequest_repository
-from coda.apps.invoices import funding_source_repository, repository
+from coda.apps.invoices import funding_source_repository, invoice_query, repository
 from coda.apps.invoices.models import Creditor, FundingSource
 from coda.apps.publications.services import publications
 from coda.contexts.finance.dto.import_dtos import (
@@ -268,7 +268,7 @@ def test__invoice_with_non_existing_publication_position__import_invoices__does_
 
     assert "INV-001" in actual.invoices_with_errors()
     assert actual.valid_invoices == 0
-    assert len(repository.search(generic_search="INV-001")) == 0
+    assert len(invoice_query.search(invoice_query.GenericSearchCriterion("INV-001"))) == 0
 
 
 @pytest.mark.django_db

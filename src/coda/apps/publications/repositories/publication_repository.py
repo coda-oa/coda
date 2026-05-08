@@ -4,19 +4,19 @@ from typing import TypedDict, cast
 from django.db import models, transaction
 
 from coda.apps.authors import services as author_services
-from coda.apps.contracts import mapper as contract_mapper
+from coda.apps.contracts.mappers import ContractDomainMapper
 from coda.apps.contracts.models import Contract
 from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.publications.mappers import PublicationDomainMapper
 from coda.apps.publications.models import AttachedContract, LinkType, PublicationAttachedConcept
 from coda.apps.publications.models import Link as LinkModel
 from coda.apps.publications.models import Publication as PublicationModel
-from coda.apps.publications.repositories import vocabulary_repository
-from coda.domain.author import Author, AuthorId, AuthorNames
-from coda.domain.contract import ContractId, ContractYear, PublisherId
+from coda.domain.author import Author, AuthorNames
+from coda.domain.contract import ContractId, ContractYear
+from coda.domain.fundingrequest.fundingrequest import FundingRequestId
 from coda.domain.publication import (
     Authors,
     BasePublication,
-    JournalId,
     License,
     Link,
     Monograph,
@@ -25,12 +25,13 @@ from coda.domain.publication import (
     PublicationId,
     PublicationState,
     Published,
-    Unpublished,
-    UnpublishedState,
-    links,
 )
+from coda.domain.publication.links import Doi
 from coda.domain.string import NonEmptyStr
-from coda.domain.vocabulary import ConceptId, UnknownConcept, VocabularyConcept, VocabularyId
+from coda.domain.vocabulary import (
+    VocabularyConcept,
+    VocabularyId,
+)
 
 
 @transaction.atomic
@@ -183,42 +184,58 @@ def _save_model_concept(
 
 
 def get_by_id(publication_id: PublicationId) -> BasePublication:
-    model = (
-        PublicationModel.objects.select_related(
-            "article_journal",
-            "monograph_publisher",
-            "publication_type",
-            "subject_area",
-        )
-        .prefetch_related(
-            "relevant_authors__affiliation",
-            "relevant_authors__identifier",
-            "attached_contracts__contract__publishers",
-            "attached_contracts__contract__journals",
-            "links__type",
-        )
-        .get(pk=publication_id)
+    return PublicationDomainMapper.map(
+        PublicationDomainMapper.prefetch(PublicationModel.objects.all()).get(pk=publication_id)
     )
-    return as_domain_object(model)
+
+
+def get_by_fundingrequest_id(fundingrequest_id: FundingRequestId) -> BasePublication:
+    return PublicationDomainMapper.map(
+        PublicationDomainMapper.prefetch(PublicationModel.objects.all()).get(
+            fundingrequest=fundingrequest_id
+        )
+    )
 
 
 def all() -> Sequence[BasePublication]:
-    return DomainQuerySet(PublicationModel.objects.all(), as_domain_object)
+    return DomainQuerySet(PublicationModel.objects.all(), PublicationDomainMapper.map)
 
 
 def first() -> BasePublication | None:
-    p = PublicationModel.objects.first()
+    p = PublicationDomainMapper.prefetch(PublicationModel.objects.all()).first()
     if not p:
         return None
 
-    return as_domain_object(p)
+    return PublicationDomainMapper.map(p)
+
+
+def find_by_doi(doi: Doi) -> BasePublication | None:
+    """Find publication by DOI.
+
+    Args:
+        doi: DOI to search for
+
+    Returns:
+        Publication if found, None otherwise
+    """
+    model = (
+        PublicationDomainMapper.prefetch(PublicationModel.objects.all())
+        .filter(links__type__name="DOI", links__value=doi.value())
+        .distinct()
+        .first()
+    )
+
+    if not model:
+        return None
+
+    return PublicationDomainMapper.map(model)
 
 
 def find_publications_by_vocabulary(vocabulary_id: VocabularyId) -> list[BasePublication]:
     query = models.Q(publication_type__vocabulary_id=vocabulary_id) | models.Q(
         subject_area__vocabulary_id=vocabulary_id
     )
-    return [as_domain_object(p) for p in PublicationModel.objects.filter(query)]
+    return [PublicationDomainMapper.map(p) for p in PublicationModel.objects.filter(query)]
 
 
 def get_contracts_for_publication(publication_id: PublicationId) -> Sequence[ContractYear]:
@@ -245,7 +262,7 @@ def get_contracts_for_publications(
     for ac in attached_contracts:
         pub_id = PublicationId(ac.publication_id)
 
-        contract = contract_mapper.as_domain_object(ac.contract)
+        contract = ContractDomainMapper.map(ac.contract)
         contract_year = ContractYear(ac.contract_year, contract)
         result.setdefault(pub_id, []).append(contract_year)
 
@@ -253,86 +270,26 @@ def get_contracts_for_publications(
 
 
 def _map_to_contract_year(c: AttachedContract) -> ContractYear:
-    contract = contract_mapper.as_domain_object(c.contract)
+    contract = ContractDomainMapper.map(c.contract)
     return ContractYear(c.contract_year, contract)
-
-
-def as_domain_object(model: PublicationModel) -> BasePublication:
-    common_args = _common_args(model)
-    if model.article_journal_id:
-        return Publication(
-            **common_args,
-            journal=JournalId(model.article_journal_id),
-        )
-    elif model.monograph_publisher_id:
-        return Monograph(
-            **common_args,
-            publisher=PublisherId(model.monograph_publisher_id),
-        )
-    else:
-        raise ValueError("Unknown publication type")
-
-
-def _common_args(model: PublicationModel) -> "_CommonPublicationArgs":
-    return _CommonPublicationArgs(
-        id=PublicationId(model.pk),
-        title=NonEmptyStr(model.title),
-        license=License[model.license],
-        open_access_type=OpenAccessType[model.open_access_type],
-        publication_type=_deserialize_concept(model.publication_type),
-        subject_area=_deserialize_concept(model.subject_area),
-        relevant_authors=Authors(
-            author_services.as_domain_object(a) for a in model.relevant_authors.all()
-        ),
-        other_authors=AuthorNames.from_str(model.author_list or ""),
-        publication_state=_deserialize_publication_state(model),
-        contracts=tuple(
-            ContractYear(c.contract_year, contract_mapper.as_domain_object(c.contract))
-            for c in model.attached_contracts.order_by("id")
-        ),
-        links=_deserialize_links(model.links.all()),
-    )
 
 
 def _initial_article(publication: Publication) -> PublicationModel:
     if publication.id:
-        p = PublicationModel.objects.get(pk=publication.id)
+        p = PublicationDomainMapper.prefetch(PublicationModel.objects.all()).get(pk=publication.id)
         p.article_journal_id = publication.journal
     else:
         p = PublicationModel.objects.create(article_journal_id=publication.journal)
-
     return p
 
 
 def _initial_monograph(publication: Monograph) -> PublicationModel:
     if publication.id:
-        p = PublicationModel.objects.get(pk=publication.id)
+        p = PublicationDomainMapper.prefetch(PublicationModel.objects.all()).get(pk=publication.id)
         p.monograph_publisher_id = publication.publisher
     else:
         p = PublicationModel.objects.create(monograph_publisher_id=publication.publisher)
-
     return p
-
-
-def _deserialize_publication_state(model: PublicationModel) -> PublicationState:
-    state: PublicationState
-    if getattr(model, "publication_state") == Published.name():
-        state = Published(online=model.online_publication_date, print=model.print_publication_date)
-    else:
-        state = Unpublished(state=UnpublishedState[model.publication_state])
-    return state
-
-
-def _deserialize_concept(model_concept: PublicationAttachedConcept) -> VocabularyConcept:
-    if model_concept.entity_id == UnknownConcept.id:
-        return UnknownConcept
-
-    v = vocabulary_repository.get_by_id(cast(VocabularyId, model_concept.vocabulary_id))
-    return v.get_concept_by_id(ConceptId(str(model_concept.entity_id)))
-
-
-def _deserialize_links(links_: Iterable[LinkModel]) -> set[Link]:
-    return {links.create_link(link_type=link.type.name, link_value=link.value) for link in links_}
 
 
 def _attach_links(id: PublicationId, links: Iterable[Link]) -> None:
@@ -402,9 +359,11 @@ def _attach_links_bulk(
 
 
 def _attach_authors(id: PublicationId, relevant_authors: Iterable[Author]) -> None:
-    for author in relevant_authors:
-        author_id = author_services.author_create(author, id)
-        author.id = AuthorId(author_id)
+    author_services.create_many(list(relevant_authors), id)
+    # for author in relevant_authors:
+    #     author_id = author_services.author_create(author, id)
+    #     author.id = AuthorId(author_id)
+    #
 
 
 def _create_authors_bulk(

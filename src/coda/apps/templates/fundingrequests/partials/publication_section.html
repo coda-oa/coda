@@ -1,0 +1,131 @@
+{% load static %}
+<article>
+    <header class="flex justify-between align-center">
+        <h2 class="fundingrequest__detail-title">Publication Details</h2>
+        {% if edit_publication_url %}<a href="{{ edit_publication_url }}" role="button">Edit</a>{% endif %}
+    </header>
+    {% if publication.relevant_authors %}
+        <h3 class="mt-1">Relevant Authors</h3>
+        <table class="fundingrequest-authors-table">
+            <thead>
+                <tr>
+                    <td>Author</td>
+                    <td>E-Mail</td>
+                    <td>Orcid</td>
+                    <td>Affiliation</td>
+                    <td>Role</td>
+                </tr>
+            </thead>
+            <tbody>
+                {% for author in publication.relevant_authors %}
+                    <tr>
+                        <td>{{ author.name }}</td>
+                        <td>
+                            <a href="mailto:{{ author.email }}">{{ author.email }}</a>
+                        </td>
+                        <td>
+                            {% if author.orcid %}{{ author.orcid }}{% endif %}
+                        </td>
+                        <td>{{ author.affiliation }}</td>
+                        <td>{{ author.role.value }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+    {% if publication.other_authors %}
+        <h3>Other Authors</h3>
+        <p>{{ publication.other_authors|join:", " }}</p>
+    {% endif %}
+    <h3>Publication Metadata</h3>
+    <table class="fundingrequest-table">
+        <tbody>
+            <tr>
+                <th>Title</th>
+                <td>{{ publication.title }}</td>
+            </tr>
+            <tr>
+                <th>Publication State</th>
+                <td>{{ publication.publication_state }}</td>
+            </tr>
+            {% if publication.online_publication_date %}
+                <tr>
+                    <th>Online publication date</th>
+                    <td>{{ publication.online_publication_date }}</td>
+                </tr>
+            {% endif %}
+            {% if publication.print_publication_date %}
+                <tr>
+                    <th>Print publication date</th>
+                    <td>{{ publication.print_publication_date }}</td>
+                </tr>
+            {% endif %}
+            <tr>
+                <th>{{ publication.publishing_entity_type }}</th>
+                <td>{{ publication.publishing_entity_name }}</td>
+            </tr>
+            {% if publication.publishing_entity_identifier %}
+                <tr>
+                    <th>{{ publication.publishing_entity_identifier_name }}</th>
+                    <td>{{ publication.publishing_entity_identifier }}</td>
+                </tr>
+            {% endif %}
+            <tr>
+                <th>License</th>
+                <td>{{ publication.license }}</td>
+            </tr>
+            <tr>
+                <th>Publication Type</th>
+                <td>{{ publication.publication_type }}</td>
+            </tr>
+            <tr>
+                <th>Subject Area</th>
+                <td>{{ publication.subject_area }}</td>
+            </tr>
+            <tr>
+                <th>Open Access Type</th>
+                <td>{{ publication.oa_type }}</td>
+            </tr>
+            {% if publication.contracts %}
+                <tr>
+                    <th>Contracts</th>
+                    <td>
+                        {% for contract_year in publication.contracts %}
+                            <p>
+                                <a href="{% url "contracts:detail" pk=contract_year.contract_id %}">{{ contract_year.name }} ({{ contract_year.year }})</a>
+                                {% if not contract_year.is_in_contract_period %}
+                                    <span data-tooltip="This contract year is outside the contract period">
+                                        <img src="{% static "assets/exclamation.svg" %}"
+                                             alt="This contract year is outside the contract period"
+                                             height="auto"
+                                             width="auto"
+                                             class="mb-0_5">
+                                    </span>
+                                {% endif %}
+                            </p>
+                        {% endfor %}
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+    {% if publication.references %}
+        <h3 class="mt-1">References</h3>
+        <table class="fundingrequest-table">
+            <tbody>
+                {% for link in publication.references %}
+                    <tr>
+                        <th>{{ link.type }}</th>
+                        <td>
+                            {% if link.url %}
+                                <a href="{{ link.url }}" target="_blank">{{ link }}</a>
+                            {% else %}
+                                {{ link }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</article>

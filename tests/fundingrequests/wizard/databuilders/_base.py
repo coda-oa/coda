@@ -7,7 +7,7 @@ from unittest.mock import create_autospec
 
 from faker import Faker
 
-from coda.apps.contracts import mapper as contract_mapper
+from coda.apps.contracts.mappers._domain import ContractDomainMapper
 from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
     ExternalFundingDto,
@@ -52,9 +52,7 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
         self._faker = Faker()
         self.affiliation = modelfactory.institution()
         self.funder = modelfactory.funding_organization()
-        self.contracts = [
-            contract_mapper.as_domain_object(modelfactory.contract()) for _ in range(1, 3)
-        ]
+        self.contracts = [ContractDomainMapper.map(modelfactory.contract()) for _ in range(1, 3)]
         self.contract_years = [domainfactory.contract_year(c) for c in self.contracts]
 
         self.extra_contact: FundingRequestContact = FilledContact(
@@ -107,13 +105,11 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
         GlobalPreferences.set_monograph_publication_type_vocabulary(self.publication_types)
 
     @abc.abstractmethod
-    def publication_dto(self) -> TPublicationDto:
-        ...
+    def publication_dto(self) -> TPublicationDto: ...
 
     @property
     @abc.abstractmethod
-    def publication(self) -> TPublication:
-        ...
+    def publication(self) -> TPublication: ...
 
     def build(self) -> FundingRequest[TPublication]:
         return FundingRequest.new(
@@ -130,8 +126,7 @@ class FundingRequestDataBuilder(Generic[TPublication, TPublicationDto], abc.ABC)
         return self.build()
 
     @abc.abstractmethod
-    def with_new_publication(self, id: PublicationId | None = None) -> Self:
-        ...
+    def with_new_publication(self, id: PublicationId | None = None) -> Self: ...
 
     def with_payment(self, payment: Payment) -> Self:
         self.estimated_cost = payment

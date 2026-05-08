@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from coda.apps.fundingrequests import models as fundingrequest_models
-from coda.apps.publications.repositories import publication_repository
+from coda.apps.publications.mappers import PublicationDomainMapper
 from coda.domain.fundingrequest import (
     AnyFundingRequest,
     ExternalFunding,
@@ -33,7 +33,7 @@ def as_domain_object(model: fundingrequest_models.FundingRequest) -> AnyFundingR
     fr = FundingRequest(
         id=fr_id,
         request_id=PublicFundingRequestId.from_str(model.request_id),
-        publication=publication_repository.get_by_id(PublicationId(model.publication.id)),
+        publication=PublicationDomainMapper.map(model.publication),
         extra_contact=(
             FilledContact(NonEmptyStr(model.extra_contact.name), model.extra_contact.email)
             if model.extra_contact
@@ -177,9 +177,9 @@ def _create_review_model(review: Review) -> fundingrequest_models.FundingRequest
     return fundingrequest_models.FundingRequestReview(
         review_result=review.result.value if review.result else "unknown",
         decided_funding_amount=review.decided_funding.amount if review.decided_funding else 0,
-        decided_funding_currency=review.decided_funding.currency.code
-        if review.decided_funding
-        else "EUR",
+        decided_funding_currency=(
+            review.decided_funding.currency.code if review.decided_funding else "EUR"
+        ),
         remarks=review.remarks,
     )
 

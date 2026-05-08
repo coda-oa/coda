@@ -1,4 +1,3 @@
-import datetime
 import enum
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -6,6 +5,7 @@ from typing import Protocol
 from django.db.models import F, Q, QuerySet
 from django.db.models.functions import ExtractYear
 
+from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
@@ -129,6 +129,17 @@ class OpenAccessTypeCriteria:
 
 
 @dataclass
+class PublicationStateCriteria:
+    publication_states: list[str] = field(default_factory=list)
+
+    def _to_query(self) -> Q:
+        if not self.publication_states:
+            return Q()
+
+        return Q(publication__publication_state__in=self.publication_states)
+
+
+@dataclass
 class GenericSearchCriteria:
     search_term: str = ""
 
@@ -146,29 +157,18 @@ class GenericSearchCriteria:
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class DateRangeCriteria:
-    start: datetime.date | str | None = None
-    end: datetime.date | str | None = None
+    date_range: DateRange
 
     def _to_query(self) -> Q:
-        start: datetime.date | None
-        end: datetime.date | None
-        if isinstance(self.start, str) and self.start:
-            start = datetime.date.fromisoformat(self.start)
-        else:
-            start = self.start or None
-
-        if isinstance(self.end, str) and self.end:
-            end = datetime.date.fromisoformat(self.end)
-        else:
-            end = self.end or None
-
-        date_range = DateRange.create(start=start, end=end)
-        if date_range.is_unbounded():
+        if self.date_range.is_unbounded():
             return Q()
 
-        return Q(request_date__gte=date_range.start, request_date__lte=date_range.end)
+        return Q(
+            request_date__gte=self.date_range.start,
+            request_date__lte=self.date_range.end,
+        )
 
 
 class PublicationEntityType(enum.Enum):
@@ -261,18 +261,5 @@ def search(
     *criteria: FundingRequestSearchCriteria,
     sort_order: SortOrder = SortOrder.default(),
 ) -> QuerySet[FundingRequest]:
-    return (
-        FundingRequest.objects.filter(_to_query(*criteria))
-        .distinct()
-        .select_related(
-            "review",
-            "publication__article_journal",
-            "publication__monograph_publisher",
-        )
-        .prefetch_related(
-            "labels",
-            "publication__relevant_authors",
-            "publication__attached_contracts__contract",
-        )
-        .order_by(sort_order)
-    )
+    qs = FundingRequest.objects.filter(_to_query(*criteria)).distinct().order_by(sort_order)
+    return FundingRequestListMapper.prefetch(qs)

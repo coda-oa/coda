@@ -1,16 +1,14 @@
 from collections.abc import Collection, Sequence
 from typing import Any, cast
 
-from django.db.models import Prefetch, QuerySet, Model
-
 from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.publications.mappers import VocabularyDomainMapper
 from coda.apps.publications.models import Concept as ConceptModel
 from coda.apps.publications.models import Vocabulary as VocabularyModel
 from coda.apps.publications.repositories import publication_repository
 from coda.domain.errors import DomainError
 from coda.domain.publication import BasePublication
 from coda.domain.vocabulary import (
-    ConceptId,
     LimitedVocabulary,
     Vocabulary,
     VocabularyConcept,
@@ -40,74 +38,10 @@ class VocabularyInUseError(DomainError):
         self.limited_vocabularies = limited_vocabularies or []
 
 
-# Maximum depth for nested limited vocabularies (e.g., Base -> L1 -> L2 -> ... -> Ln)
-# Increase this if you need to support deeper nesting
-MAX_VOCABULARY_NESTING_DEPTH = 10
-
-
-def _build_recursive_base_vocab_prefetch(
-    depth: int,
-) -> Prefetch[str, QuerySet[Model, Model], str] | None:
-    """Recursively build prefetch for nested base vocabularies.
-
-    Args:
-        depth: How many levels deep to prefetch (0 = no prefetch)
-
-    Returns:
-        Prefetch object for base_vocabulary, or None if depth is 0
-    """
-    if depth <= 0:
-        return None
-
-    concepts_prefetch = Prefetch(
-        "concepts",
-        queryset=ConceptModel.objects.select_related("parent"),
-    )
-
-    # Recursively build the next level
-    nested_prefetch = _build_recursive_base_vocab_prefetch(depth - 1)
-
-    # Build prefetch list for this level
-    prefetch_list: list[Prefetch[str, QuerySet[Model, Model], str]] = [concepts_prefetch]
-    if nested_prefetch:
-        prefetch_list.append(nested_prefetch)
-
-    return Prefetch(
-        "base_vocabulary",
-        queryset=VocabularyModel.objects.prefetch_related(*prefetch_list),
-    )
-
-
-def _get_prefetch_for_vocabularies() -> (
-    tuple[Prefetch[str, QuerySet[Model, Model], str], Prefetch[str, QuerySet[Model, Model], str]]
-):
-    """Get prefetch objects for vocabularies with nested limited vocabulary support.
-
-    This handles chains of limited vocabularies (e.g., Base -> Limited1 -> Limited2)
-    by recursively prefetching base vocabularies and their concepts up to MAX_VOCABULARY_NESTING_DEPTH.
-    """
-    concepts_prefetch = Prefetch(
-        "concepts",
-        queryset=ConceptModel.objects.select_related("parent"),
-    )
-
-    # Build recursive prefetch for the entire chain
-    base_vocab_prefetch = _build_recursive_base_vocab_prefetch(MAX_VOCABULARY_NESTING_DEPTH)
-
-    # If for some reason we get None (shouldn't happen with depth > 0), provide a default
-    if not base_vocab_prefetch:
-        base_vocab_prefetch = Prefetch(
-            "base_vocabulary",
-            queryset=VocabularyModel.objects.prefetch_related(concepts_prefetch),
-        )
-
-    return concepts_prefetch, base_vocab_prefetch
-
-
 def create(name: str, version: str) -> Vocabulary:
     return cast(
         Vocabulary,
-        as_domain_object(VocabularyModel.objects.create(name=name, version=version)),
+        VocabularyDomainMapper.map(VocabularyModel.objects.create(name=name, version=version)),
     )
 
 
@@ -115,7 +49,7 @@ def create_limited(base_vocabulary_id: VocabularyId, name: str) -> LimitedVocabu
     base_vocabulary = get_by_id(base_vocabulary_id)
     return cast(
         LimitedVocabulary,
-        as_domain_object(
+        VocabularyDomainMapper.map(
             VocabularyModel.objects.create(
                 name=name,
                 version=base_vocabulary.version,
@@ -128,15 +62,11 @@ def create_limited(base_vocabulary_id: VocabularyId, name: str) -> LimitedVocabu
 
 def get_by_id(id: VocabularyId) -> VocabularyProtocol:
     try:
-        concepts_prefetch, base_vocab_prefetch = _get_prefetch_for_vocabularies()
-        v = VocabularyModel.objects.prefetch_related(
-            concepts_prefetch,
-            base_vocab_prefetch,
-        ).get(pk=id)
+        v = VocabularyDomainMapper.prefetch(VocabularyModel.objects.all()).get(pk=id)
     except VocabularyModel.DoesNotExist:
         raise VocabularyNotFoundError(Vocabulary, query_name="id", query_value=id)
 
-    vocabulary = as_domain_object(v)
+    vocabulary = VocabularyDomainMapper.map(v)
 
     return vocabulary
 
@@ -149,61 +79,53 @@ def get_limited_by_id(id: VocabularyId) -> LimitedVocabulary:
     return v
 
 
-def first_by_name(name: str) -> VocabularyProtocol:
+def get_by_name(name: str) -> VocabularyProtocol:
+    """Return the single vocabulary matching *name*.
+
+    Raises:
+        VocabularyNotFoundError: if no vocabulary with that name exists.
+        django.core.exceptions.MultipleObjectsReturned: if more than one
+            vocabulary shares the name (there is no DB unique constraint on
+            name — adding one is tracked as a follow-up task).
+    """
     try:
-        concepts_prefetch, base_vocab_prefetch = _get_prefetch_for_vocabularies()
-        v = VocabularyModel.objects.prefetch_related(
-            concepts_prefetch,
-            base_vocab_prefetch,
-        ).get(name=name)
+        v = VocabularyDomainMapper.prefetch(VocabularyModel.objects.all()).get(name=name)
     except VocabularyModel.DoesNotExist:
         raise VocabularyNotFoundError(Vocabulary, query_name="name", query_value=name)
 
-    return as_domain_object(v)
+    return VocabularyDomainMapper.map(v)
 
 
 def newest_base_vocabulary_by_name(name: str) -> Vocabulary:
-    concepts_prefetch, _ = _get_prefetch_for_vocabularies()
-    vocabularies_by_name = VocabularyModel.objects.filter(name=name, is_limited=False)
-    vocabularies_by_name = vocabularies_by_name.prefetch_related(concepts_prefetch).order_by(
-        "-version"
-    )
+    vocabularies_by_name = VocabularyDomainMapper.prefetch(
+        VocabularyModel.objects.filter(name=name, is_limited=False)
+    ).order_by("-version")
 
     v = vocabularies_by_name.first()
     if not v:
         raise VocabularyNotFoundError(Vocabulary, query_name="name", query_value=name)
 
-    return cast(Vocabulary, as_domain_object(v))
+    return cast(Vocabulary, VocabularyDomainMapper.map(v))
 
 
 def find_limited_by_base_vocabulary(base_vocabulary_id: VocabularyId) -> list[LimitedVocabulary]:
-    concepts_prefetch, base_vocab_prefetch = _get_prefetch_for_vocabularies()
     return [
-        cast(LimitedVocabulary, as_domain_object(v))
-        for v in VocabularyModel.objects.prefetch_related(
-            concepts_prefetch,
-            base_vocab_prefetch,
-        ).filter(base_vocabulary_id=base_vocabulary_id)
+        cast(LimitedVocabulary, VocabularyDomainMapper.map(v))
+        for v in VocabularyDomainMapper.prefetch(
+            VocabularyModel.objects.filter(base_vocabulary_id=base_vocabulary_id)
+        )
     ]
 
 
 def all() -> Sequence[VocabularyProtocol]:
-    concepts_prefetch, base_vocab_prefetch = _get_prefetch_for_vocabularies()
-    queryset = VocabularyModel.objects.prefetch_related(
-        concepts_prefetch,
-        base_vocab_prefetch,
-    )
-    return DomainQuerySet(queryset, as_domain_object)
+    queryset = VocabularyDomainMapper.prefetch(VocabularyModel.objects.all())
+    return DomainQuerySet(queryset, VocabularyDomainMapper.map)
 
 
 def all_limited() -> list[LimitedVocabulary]:
-    concepts_prefetch, base_vocab_prefetch = _get_prefetch_for_vocabularies()
     return [
-        cast(LimitedVocabulary, as_domain_object(v))
-        for v in VocabularyModel.objects.prefetch_related(
-            concepts_prefetch,
-            base_vocab_prefetch,
-        ).filter(is_limited=True)
+        cast(LimitedVocabulary, VocabularyDomainMapper.map(v))
+        for v in VocabularyDomainMapper.prefetch(VocabularyModel.objects.filter(is_limited=True))
     ]
 
 
@@ -362,40 +284,3 @@ def delete(vocabulary: VocabularyProtocol) -> None:
         )
 
     VocabularyModel.objects.get(pk=id).delete()
-
-
-def as_domain_object(v: VocabularyModel) -> VocabularyProtocol:
-    vocabulary: VocabularyProtocol
-
-    if v.is_limited:
-        base_vocabulary_model = cast(VocabularyModel, v.base_vocabulary)
-
-        base_vocabulary_domain = as_domain_object(base_vocabulary_model)
-
-        vocabulary = LimitedVocabulary(
-            id=VocabularyId(v.pk),
-            base_vocabulary=base_vocabulary_domain,
-            name=v.name,
-            version=base_vocabulary_model.version,
-        )
-        for c in v.concepts.all():
-            vocabulary.disallow(c.concept_id)
-    else:
-        vocabulary = Vocabulary(
-            id=VocabularyId(v.pk),
-            name=v.name,
-            version=v.version,
-            concepts=[
-                VocabularyConcept(
-                    id=ConceptId(str(c.entity_id)),
-                    concept_id=c.concept_id,
-                    vocabulary=VocabularyId(v.pk),
-                    name=c.name,
-                    description=c.hint,
-                    parent=ConceptId(str(c.parent.entity_id)) if c.parent else None,
-                )
-                for c in v.concepts.all()
-            ],
-        )
-
-    return vocabulary

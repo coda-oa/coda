@@ -12,8 +12,13 @@ from typing import Annotated
 from pydantic import AfterValidator, Field
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.dto import CodaBaseDto
-from coda.apps.publications.dto import LinkDto, PublicationBaseDto, PublicationMetaDto
+from coda.apps.dto import CodaBaseDto, OptionalFromStr
+from coda.apps.publications.dto import (
+    LinkDto,
+    MonographDto,
+    PublicationDto,
+    PublicationMetaDto,
+)
 from coda.domain.fundingrequest import (
     ExternalFunding,
     FilledContact,
@@ -41,7 +46,15 @@ class PaymentDto(CodaBaseDto):
     amount: float
     currency: str
     method: str
-    external_costsplitting: bool | None = None
+    external_costsplitting: OptionalFromStr[bool] = None
+
+    @classmethod
+    def empty(cls) -> "PaymentDto":
+        return PaymentDto(
+            amount=0,
+            currency=Currency.EUR.code,
+            method=PaymentMethod.Unknown.value,
+        )
 
     @classmethod
     def from_payment(cls, payment: Payment) -> "PaymentDto":
@@ -136,7 +149,7 @@ CreateReviewDto = UpdateReviewDto
 
 
 class CreateFundingRequestDto(CodaBaseDto):
-    publication: PublicationBaseDto
+    publication: Annotated[PublicationDto | MonographDto, Field(discriminator="publication_kind")]
     payment: PaymentDto
     extra_information: ExtraInformationDto
     funding: Iterable[ExternalFundingDto] = ()

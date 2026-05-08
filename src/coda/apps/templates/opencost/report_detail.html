@@ -93,7 +93,7 @@
                                 {% for pub in publications %}
                                     <tr>
                                         <td>
-                                            <a href="{% url 'fundingrequests:detail' pub.publication.id %}">{{ pub.title|truncatewords:10 }}</a>
+                                            <a href="{% url 'fundingrequests:detail' pub.publication.fundingrequest.id %}">{{ pub.title|truncatewords:10 }}</a>
                                         </td>
                                         <td>{{ pub.doi|default:"—" }}</td>
                                         <td>{{ pub.publication_type|default:"—" }}</td>

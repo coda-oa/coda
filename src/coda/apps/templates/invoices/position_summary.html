@@ -1,28 +1,28 @@
-<div class="my-2" id="positions-summary">
-    <h3 class="mb-1_5">Summary</h3>
-    <div class="common-position-grid">
-        <div class="form-row">
-            <label for="total-net" class="form-row-item-sm">Total net</label>
-            <input id="total-net" type="number" readonly value="{{ net }}">
+<div class="my-2"
+     id="positions-summary"
+     hx-post="{% url 'invoices:get_total' %}"
+     hx-target="#positions-summary"
+     hx-trigger="change from:(#positions__list input.cost-amount), change from:(#positions__list select.cost-type), change from:(#positions__list input.tax-rate)"
+     hx-swap="outerHTML">
+    {% if position_list.positions %}
+        <h3 class="mb-1_5">Summary</h3>
+        <div class="common-position-grid">
+            <div class="form-row">
+                <label for="total-net" class="form-row-item-sm">Total net</label>
+                <input id="total-net" type="number" readonly value="{{ net }}">
+            </div>
         </div>
-    </div>
-    <div class="common-position-grid">
-        <div class="form-row">
-            <label for="tax-rate" class="form-row-item-sm">Total tax</label>
-            <input id="tax-rate" type="number" readonly value="{{ tax }}">
+        <div class="common-position-grid">
+            <div class="form-row">
+                <label for="tax-rate" class="form-row-item-sm">Total tax</label>
+                <input id="tax-rate" type="number" readonly value="{{ tax }}">
+            </div>
         </div>
-    </div>
-    <div class="common-position-grid">
-        <div class="form-row">
-            <label for="total" class="form-row-item-sm">Gross costs</label>
-            <input id="total"
-                   type="number"
-                   hx-post="{% url 'invoices:get_total' %}"
-                   hx-target="#positions-summary"
-                   hx-trigger="change from:(#positions__list :is(input.cost-amount, select.cost-type))"
-                   hx-swap="outerHTML"
-                   readonly
-                   value="{{ total }}">
+        <div class="common-position-grid">
+            <div class="form-row">
+                <label for="total" class="form-row-item-sm">Gross costs</label>
+                <input id="total" type="number" readonly value="{{ total }}">
+            </div>
         </div>
-    </div>
+    {% endif %}
 </div>

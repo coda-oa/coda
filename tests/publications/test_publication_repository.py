@@ -6,7 +6,7 @@ import pytest
 
 from coda.apps.authors.services import author_create
 from coda.apps.contracts import repository as contract_repository
-from coda.apps.contracts import mapper as contract_mapper
+from coda.apps.contracts.mappers._domain import ContractDomainMapper
 from coda.apps.publications.repositories import publication_repository, vocabulary_repository
 from coda.domain.contract import ContractYear, PublisherId
 from coda.domain.date import DateRange
@@ -32,8 +32,7 @@ class PublicationFactory(Protocol):
         subject_area: VocabularyConcept = UnknownConcept,
         publication_type: VocabularyConcept = UnknownConcept,
         publication_id: PublicationId | None = None,
-    ) -> BasePublication:
-        ...
+    ) -> BasePublication: ...
 
 
 def create_publication(
@@ -42,7 +41,7 @@ def create_publication(
     publication_id: PublicationId | None = None,
 ) -> Publication:
     journal = JournalId(modelfactory.journal().id)
-    contracts = [contract_mapper.as_domain_object(modelfactory.contract()) for _ in range(4)]
+    contracts = [ContractDomainMapper.map(modelfactory.contract()) for _ in range(4)]
     contract_years = [domainfactory.contract_year(contract) for contract in contracts]
     publication = domainfactory.publication(
         journal=journal,
@@ -215,6 +214,33 @@ def test__can_save_publication_with_author_that_has_existing_orcid() -> None:
 
 
 @pytest.mark.django_db
+def test__publication_saved_with_concept__concept_later_disallowed_in_limited_vocabulary__get_by_id__restores_publication() -> (
+    None
+):
+    """Regression test: a concept that was allowed when the publication was created
+    but has since been disallowed in a LimitedVocabulary must still be restorable
+    from the database without raising ConceptNotAllowedError."""
+
+    base = vocabulary_with_concepts("grandfathered-concept")
+    assert base.id is not None
+
+    limited = vocabulary_repository.create_limited(base.id, "Restricted")
+    concept = limited.get_concept("grandfathered-concept")
+    publication = create_publication(
+        subject_area=concept,
+        publication_type=concept,
+    )
+    pub_id = publication_repository.create(publication)
+
+    limited.disallow("grandfathered-concept")
+    vocabulary_repository.save(limited)
+
+    restored = publication_repository.get_by_id(pub_id)
+    assert restored.subject_area.concept_id == "grandfathered-concept"
+    assert restored.publication_type.concept_id == "grandfathered-concept"
+
+
+@pytest.mark.django_db
 def test__save_publication_with_limited_vocabulary__get_by_id__returns_publication_with_limited_vocabulary() -> (
     None
 ):
@@ -338,3 +364,35 @@ def assert_publication_eq(actual: BasePublication, expected: BasePublication) ->
             raise AssertionError(
                 f"Mismatched publication types: {type(actual)} and {type(expected)}"
             )
+
+
+@pytest.mark.django_db
+def test__find_by_doi__publication_with_doi_exists__returns_publication() -> None:
+    """Test that find_by_doi returns publication when DOI exists in database."""
+    # Arrange
+    doi = Doi("10.1234/test-article")
+    journal = JournalId(modelfactory.journal().pk)
+    publication = domainfactory.publication(journal)
+    publication.links = {doi}
+    publication_id = publication_repository.create(publication)
+
+    # Act
+    result = publication_repository.find_by_doi(doi)
+
+    # Assert
+    assert result is not None
+    assert result.id == publication_id
+    assert doi in result.links
+
+
+@pytest.mark.django_db
+def test__find_by_doi__doi_not_in_database__returns_none() -> None:
+    """Test that find_by_doi returns None when DOI doesn't exist in database."""
+    # Arrange
+    doi = Doi("10.1234/nonexistent")
+
+    # Act
+    result = publication_repository.find_by_doi(doi)
+
+    # Assert
+    assert result is None

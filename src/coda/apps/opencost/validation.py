@@ -76,7 +76,9 @@ def validate_report(
                     entity_type="publication",
                     entity_id=pub.publication.id,
                     entity_name=pub.title,
-                    fix_url=reverse("fundingrequests:detail", kwargs={"pk": pub.publication.id}),
+                    fix_url=reverse(
+                        "fundingrequests:detail", kwargs={"pk": pub.publication.fundingrequest.id}
+                    ),
                 )
             )
 

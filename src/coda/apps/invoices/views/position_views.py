@@ -2,7 +2,6 @@
 
 from dataclasses import asdict
 from decimal import Decimal
-from typing import TypedDict
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
@@ -16,12 +15,6 @@ from coda.contexts.finance.dto.edit_position_dtos import PositionDto, PositionLi
 from coda.contexts.finance.services.invoice_parser._parser import InvoiceTotal
 from coda.domain.finance.invoice_positions import InvalidSplitAmount
 from coda.domain.money import Currency
-
-
-class ErrorDict(TypedDict):
-    """Type for error dictionaries."""
-
-    errors: dict[str, str]
 
 
 @login_required
@@ -79,10 +72,13 @@ def invoice_total(request: HttpRequest) -> HttpResponse:
 
     Calculates total from all positions and renders the position_summary.html template.
     """
+    position_list = formdata.map_to_model(PositionList, request.POST)
+    currency = Currency.from_code(request.POST.get("currency", "EUR"))
+    total = safe_invoice_total(position_list.positions, currency)
     return render(
         request,
         "invoices/position_summary.html",
-        asdict(_invoice_total_from_request(request)),
+        {"position_list": position_list} | asdict(total),
     )
 
 
@@ -100,68 +96,31 @@ def safe_invoice_total(positions: list[PositionDto], currency: Currency) -> Invo
         return InvoiceTotal(Decimal(0), Decimal(0), Decimal(0))
 
 
-def _invoice_total_from_request(request: HttpRequest) -> InvoiceTotal:
-    """Calculate invoice total from request POST data.
-
-    Returns InvoiceTotal with calculated amounts, or zero amounts if
-    InvalidSplitAmount is raised.
-    """
-    position_list = formdata.map_to_model(PositionList, request.POST)
-    currency = Currency.from_code(request.POST.get("currency", "EUR"))
-    return safe_invoice_total(position_list.positions, currency)
-
-
 def render_single_position(
-    request: HttpRequest,
-    position_dto: PositionDto,
-    counter: int,
-    errors: dict[str, str] | None = None,
+    request: HttpRequest, position_dto: PositionDto, counter: int
 ) -> HttpResponse:
-    """Render a single position with OOB summary update.
+    """Render a single position.
+
+    The summary is updated independently via its own hx-trigger on cost-amount/cost-type changes.
 
     Args:
         request: HTTP request (needed for context building)
         position_dto: Position DTO to render
         counter: Position counter (1-indexed)
-        errors: Optional error dictionary
-
-    Returns:
-        HttpResponse with:
-        - Main content: <section id="position-{counter}">...</section>
-        - OOB swap: <div id="positions-summary" hx-swap-oob="true">...</div>
-
-    Note:
-        This function still needs to parse ALL positions from request.POST
-        to calculate accurate totals for the summary. The performance gain
-        comes from only RENDERING one position, not parsing.
     """
-    # Parse all positions to calculate accurate summary
-    # (This is still more efficient than before because we only RENDER one position)
-    position_list = formdata.map_to_model(PositionList, request.POST)
-    position_list.positions[counter - 1] = position_dto
-
-    currency = Currency.from_code(request.POST.get("currency", "EUR"))
-    invoice_total = safe_invoice_total(position_list.positions, currency)
-
-    error_dict = {"errors": errors if errors else {}}
-
     context = (
         {
             "position": position_dto,
             "counter": counter,
         }
         | DefaultContext
-        | funding_sources_context()
-        | error_dict
-        | asdict(invoice_total)
+        | funding_sources_context([position_dto])
     )
 
     return render(request, "invoices/position_single_with_summary.html", context)
 
 
-def render_positions(
-    request: HttpRequest, position_list: PositionList, errors: dict[str, str] | None = None
-) -> HttpResponse:
+def render_positions(request: HttpRequest, position_list: PositionList) -> HttpResponse:
     """Render the position list template.
 
     Combines position_list with default context, funding sources context,
@@ -171,7 +130,6 @@ def render_positions(
     This ensures that modifications to position_list (like add/remove operations) are
     reflected in the summary.
     """
-    error_dict = {"errors": errors if errors else {}}
     currency = Currency.from_code(request.POST.get("currency", "EUR"))
     invoice_total = safe_invoice_total(position_list.positions, currency)
 
@@ -180,7 +138,6 @@ def render_positions(
         "invoices/invoice_positions.html",
         {"position_list": position_list}
         | DefaultContext
-        | error_dict
-        | funding_sources_context()
+        | funding_sources_context(position_list.positions)
         | asdict(invoice_total),
     )

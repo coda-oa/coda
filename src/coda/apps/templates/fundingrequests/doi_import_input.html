@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1 class="my-2">Import Funding Request from DOI</h1>
+    <article>
+        <p>
+            Enter a DOI to automatically import publication metadata
+            and create a funding request. You'll be able to review and edit the imported data before saving.
+        </p>
+        <form action="{% url "fundingrequests:doi_import_input" %}" method="post">
+            {% csrf_token %}
+            <label for="doi">
+                DOI
+                <input type="text"
+                       id="doi"
+                       name="doi"
+                       placeholder="10.1234/example.doi"
+                       required
+                       autofocus>
+                <small>Example: 10.1038/s41586-020-2649-2</small>
+            </label>
+            <div class="grid align-center">
+                <a href="{% url "fundingrequests:list" %}"
+                   class="secondary"
+                   role="button">Cancel</a>
+                <button class="m-0" type="submit">Import & Preview</button>
+            </div>
+        </form>
+    </article>
+    {% if error %}
+        <article class="error">
+            <h2>Import Error</h2>
+            <p>{{ error }}</p>
+        </article>
+    {% endif %}
+    {% if demo_dois %}
+        <article>
+            <p>
+                <strong>Demo mode:</strong> This instance does not make real calls to Crossref.
+                Only the following DOIs are available:
+            </p>
+            <ul>
+                {% for doi in demo_dois %}<li>{{ doi }}</li>{% endfor %}
+            </ul>
+        </article>
+    {% endif %}
+{% endblock content %}

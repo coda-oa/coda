@@ -1,0 +1,8 @@
+<div class="flex justify-between align-center my-2">
+    <p>Can't find the publisher?</p>
+    <button type="button"
+            class="secondary"
+            hx-get="{% url 'publishing:publishers:create_modal' %}?context=journal_modal"
+            hx-target="#nested-entity-creation-modal-wrapper"
+            hx-swap="innerHTML">New Publisher</button>
+</div>

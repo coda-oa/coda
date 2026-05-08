@@ -1,3 +1,4 @@
 .center-img {
     margin: auto;
+    padding: var(--pico-block-spacing-vertical) var(--pico-block-spacing-horizontal)
 }

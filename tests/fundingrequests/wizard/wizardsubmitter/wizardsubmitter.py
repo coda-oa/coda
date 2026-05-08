@@ -84,9 +84,12 @@ class WizardSubmitter:
         if not self.steps:
             raise ValueError("No steps provided")
 
-        response: HttpResponse
+        response: HttpResponse | None = None
         for step in self.step_iterator(self.steps):
             response = self.submit_step(step)
+
+        if response is None:
+            raise NoStepsExecuted()
 
         return response
 
@@ -95,6 +98,10 @@ class WizardSubmitter:
 
     def submit_step(self, data: dict[str, Any]) -> HttpResponse:
         return cast(HttpResponse, self.client.post(self.url, data))
+
+
+class NoStepsExecuted(RuntimeError):
+    pass
 
 
 def article_wizardsubmitter(

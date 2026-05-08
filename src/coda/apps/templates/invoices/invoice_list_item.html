@@ -5,17 +5,21 @@
             <a href="{{ entity.url }}">Invoice: {{ entity.number }}</a>
             {% if entity.total.currency.code != home_currency.code and not entity.conversions or entity.has_invalid_contract_years %}
                 <a data-tooltip="This invoice has warnings!">
-                    <img src="{% static "assets/exclamation.svg" %}" alt="This invoice has warnings!" height="auto" width="auto" class="mb-0_5">
+                    <img src="{% static "assets/exclamation.svg" %}"
+                         alt="This invoice has warnings!"
+                         height="auto"
+                         width="auto"
+                         class="mb-0_5">
                 </a>
             {% endif %}
         </h2>
         <div>
             <div>
-                {% if entity.status == "Unpaid" %}
+                {% if entity.status.name == "Unpaid" %}
                     <span class="pill status-label open">Open</span>
-                {% elif entity.status == "Paid" %}
+                {% elif entity.status.name == "Paid" %}
                     <span class="pill status-label approved">Paid</span>
-                {% elif entity.status == "Rejected" %}
+                {% elif entity.status.name == "Rejected" %}
                     <span class="pill status-label rejected">Rejected</span>
                 {% endif %}
             </div>

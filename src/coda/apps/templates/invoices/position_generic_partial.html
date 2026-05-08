@@ -36,7 +36,7 @@
                 hx-target="#tax-rate-wrapper-{{ counter }}"
                 hx-swap="innerHTML"
                 hx-trigger="change"
-                hx-include="[name='positions-{{ counter }}-item-cost_type']"
+                hx-include="[name='positions-{{ counter }}-item-cost_type'], [name='positions-{{ counter }}-tax_rate']"
                 hx-vals='{"counter": "{{ counter }}"}'>
             {% if position.type == "contract" %}
                 {% for type in contract_cost_types %}

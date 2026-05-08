@@ -14,7 +14,7 @@ def create(title: NonEmptyStr, eissn: Issn, publisher_id: PublisherId) -> Journa
 
 
 def get_by_pk(pk: int) -> Journal:
-    return Journal.objects.get(pk=pk)
+    return Journal.objects.select_related("publisher").get(pk=pk)
 
 
 def all() -> Sequence[Journal]:

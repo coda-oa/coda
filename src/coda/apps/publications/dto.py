@@ -1,7 +1,7 @@
 import abc
 import datetime
 import uuid
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, Literal, cast
 
 from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
 from pydantic.json_schema import JsonSchemaValue
@@ -142,6 +142,7 @@ class ContractYearDto(CodaBaseDto):
 
 
 class PublicationBaseDto(abc.ABC, CodaBaseDto):
+    publication_kind: str  # Discriminator field for Pydantic polymorphic deserialization
     meta: PublicationMetaDto
     contracts: list[ContractYearDto]
     links: list[LinkDto]
@@ -151,11 +152,11 @@ class PublicationBaseDto(abc.ABC, CodaBaseDto):
     @abc.abstractmethod
     def to_publication(
         self, id: PublicationId | None = None, get_contract_by_id: GetContractById | None = None
-    ) -> BasePublication:
-        ...
+    ) -> BasePublication: ...
 
 
 class PublicationDto(PublicationBaseDto):
+    publication_kind: Literal["journal_article"] = "journal_article"
     journal: JournalDto
 
     @classmethod
@@ -219,6 +220,7 @@ class PublicationDto(PublicationBaseDto):
 
 
 class MonographDto(PublicationBaseDto):
+    publication_kind: Literal["monograph"] = "monograph"
     publisher: PublisherId
 
     @classmethod

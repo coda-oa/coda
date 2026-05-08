@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Literal, Protocol
 
-from typing_extensions import TypeIs
+from typing import TypeIs
 
 from coda.contexts.finance.dto.edit_position_dtos import (
     FundingAssignmentDto,
@@ -28,13 +28,11 @@ from . import _contract, _free, _publication
 
 
 class PositionParser(Protocol):
-    def to_itemdto(self, position: Position) -> ItemDto:
-        ...
+    def to_itemdto(self, position: Position) -> ItemDto: ...
 
     def parse_item_from(
         self, position: PositionDto, *, parse_safe: bool = False
-    ) -> PositionItemType:
-        ...
+    ) -> PositionItemType: ...
 
 
 def parse_invoice(invoice_head: InvoiceHeadDto, positions: list[PositionDto]) -> Invoice:
@@ -76,12 +74,15 @@ def invoice_total(positions: list[PositionDto], currency: Currency) -> InvoiceTo
 def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool = False) -> Position:
     parser = _dto_parser_registry[position.type]
 
-    _position = invoice_positions.create(
-        item=parser.parse_item_from(position, parse_safe=parse_safe),
-        cost=Money(position.cost_amount, currency),
-        tax_rate=TaxRate.from_percentage(position.tax_rate),
-        external_position_id=position.external_position_id,
-    )
+    try:
+        _position = invoice_positions.create(
+            item=parser.parse_item_from(position, parse_safe=parse_safe),
+            cost=Money(position.cost_amount, currency),
+            tax_rate=TaxRate.from_percentage(position.tax_rate),
+            external_position_id=position.external_position_id,
+        )
+    except errors.DomainError as e:
+        raise PositionParseError(e, position)
 
     for f in position.funding_assignments:
         if f.funding_source is None and f.amount == 0:
@@ -156,7 +157,7 @@ _position_converters: dict[type[ItemType], PositionParser] = {
 }
 
 
-class PositionParseError(Exception):
+class PositionParseError(ValueError):
     def __init__(self, inner: Exception, position: PositionDto, *args: Any) -> None:
         super().__init__(*args)
         self.position = position
@@ -165,8 +166,11 @@ class PositionParseError(Exception):
     def message(self) -> str:
         return str(self.inner)
 
+    def __str__(self) -> str:
+        return self.message()
 
-class InvoiceParseError(RuntimeError):
+
+class InvoiceParseError(ValueError):
     def __init__(self, position_errors: list[PositionParseError]) -> None:
         super().__init__()
         self.position_errors = position_errors

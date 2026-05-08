@@ -1,7 +1,7 @@
-import datetime
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest
@@ -15,9 +15,11 @@ from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
 from coda.apps.views import EntityListView
+from coda.domain.date import DateRange
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
+from coda.domain.publication.publication import UnpublishedState
 
 _advanced_search_fields = [
     "labels",
@@ -44,6 +46,11 @@ _payment_status_choices = [
     ("unpaid", "Unpaid"),
     ("invoice_received", "Invoice Received"),
     ("covered_by_contract", "Covered by Contract"),
+]
+
+_publication_state_choices = [
+    ("Published", "Published"),
+    *((s.name, s.value) for s in UnpublishedState),
 ]
 
 _default_choices = {"publication_type": "all"}
@@ -90,6 +97,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             "publication_types": publication_types,
             "selected_publication_types": selected_publication_types,
             "payment_methods": payment_methods,
+            "publication_states": _publication_state_choices,
         }
 
 
@@ -97,8 +105,8 @@ fundingrequest_list = FundingRequestListView.as_view()
 
 
 def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
-    start_date = map_or_none(datetime.date.fromisoformat, request.GET.get("start_date"))
-    end_date = map_or_none(datetime.date.fromisoformat, request.GET.get("end_date"))
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
     review_results = [ReviewResult(rr) for rr in request.GET.getlist("processing_status")]
     open_access_types = [OpenAccessType(oat) for oat in request.GET.getlist("open_access_type")]
     requested_payment_statuses = [
@@ -106,15 +114,15 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     ]
     payment_methods = [PaymentMethod(pm) for pm in request.GET.getlist("payment_methods")]
     show_invalid_contract_years = request.GET.get("invalid_contract_years") == "on"
+    publication_states = request.GET.getlist("publication_states")
 
-    return fq.search(
+    criteria: list[fq.FundingRequestSearchCriteria] = [
         fq.GenericSearchCriteria(request.GET.get("search_term", "")),
         fq.ReviewResultCriteria(review_results),
         fq.EntityTypeCriteria(
             fq.PublicationEntityType.try_parse(request.GET.get("publication_type"))
         ),
         fq.OpenAccessTypeCriteria(open_access_types),
-        fq.DateRangeCriteria(start_date, end_date),
         fq.PaymentStatusCriteria(requested_payment_statuses),
         fq.LabelsSearchCriteria(
             [int(_id) for _id in request.GET.getlist("labels")],
@@ -125,9 +133,23 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
             map_or_none(int, request.GET.get("contract_year")),
         ),
         fq.PaymentMethodCriteria(payment_methods),
+        fq.PublicationStateCriteria(publication_states),
         fq.InvalidContractYearCriteria(show_invalid_contract_years),
-        sort_order=fq.SortOrder.try_parse(request.GET.get("sort_by")),
-    )
+    ]
+
+    try:
+        date_range_criterion = fq.DateRangeCriteria(
+            DateRange.try_fromisoformat(
+                start=start_date,
+                end=end_date,
+            )
+        )
+        criteria.append(date_range_criterion)
+    except ValueError as e:
+        messages.warning(request, str(e))
+        return fq.search()
+
+    return fq.search(*criteria)
 
 
 def map_or_none[T](map_fn: Callable[[str], T], value: str | None) -> T | None:

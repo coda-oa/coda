@@ -4,7 +4,7 @@
         <p>Step {{ stepper.current }} of {{ stepper.total }}</p>
         <progress value="{{ stepper.current }}" max="{{ stepper.total }}"></progress>
     </div>
-    <form method="post">
+    <form method="post" id="wizard-form">
         {% csrf_token %}
         {% block wizard_step %}
         {% endblock wizard_step %}

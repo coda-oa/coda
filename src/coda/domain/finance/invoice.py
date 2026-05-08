@@ -116,6 +116,9 @@ class Invoice:
 
         self.status = PaymentStatus.Paid
 
+    def reject(self) -> None:
+        self.status = PaymentStatus.Rejected
+
     def reset_payment(self) -> None:
         self.status = PaymentStatus.Unpaid
 

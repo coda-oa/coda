@@ -18,7 +18,7 @@ Each blocked entry shows the blocked journal/publisher and provides quick access
 The blocklist is a centralized institutional policy tool that helps you:
 
 - **Flag predatory journals**: Identify journals with questionable publishing practices
-- **Mark mirror journals**: Note journals that are clones of legitimate publications
+- **Mark mirror journals**: Identify open access mirror versions of existing subscription journals that may require special handling under institutional policies
 - **Block entire publishers**: Prevent all journals from specific publishers
 - **Enforce institutional policies**: Ensure compliance with your open access guidelines
 - **Trigger warnings**: Alert reviewers during funding request evaluation
@@ -37,7 +37,7 @@ Journals can be blocked with specific reasons that help categorize the concerns:
 2. Click the **Block** button
 3. Select a reason from the dropdown:
    - **Predatory**: Journals with predatory publishing practices
-   - **Mirror**: Clone or hijacked versions of legitimate journals
+   - **Mirror**: Open access mirror versions of existing subscription journals with the same scope and editorial structure
 4. Click **Block** to confirm
 
 The journal is immediately added to your blocklist and flagged throughout CODA.
@@ -170,11 +170,16 @@ Use for journals exhibiting predatory publishing practices:
 
 ### Mirror
 
-Use for journals that are clones or hijacked versions:
-- Fake websites mimicking legitimate journals
-- Using similar ISSNs or titles to established journals
-- No legitimate publisher or editorial board
-- Attempting to deceive authors and readers
+According to the definition used by the [Directory of Open Access Journals (DOAJ)](https://doaj.org/apply/guide/), a mirror journal is a fully open access version of an existing subscription journal that:
+
+- Has the same **aims and scope** as the original journal
+- Uses the **same peer review processes and editorial policies**
+- Shares at least **50% of the editorial board members** with the subscription journal
+- Has a **similar title but a different ISSN**
+
+Mirror journals are typically created by publishers as part of a hybrid or transitional open access strategy. They are not inherently predatory or fraudulent.
+
+In this system, the Mirror block reason is used to flag journals that duplicate the content and scope of an existing title in a parallel open-access version, which may require special handling depending on institutional policies.
 
 These categories help your team understand *why* a journal is blocked, informing decisions about exceptions or policy changes.
 

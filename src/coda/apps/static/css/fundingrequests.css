@@ -1,3 +1,7 @@
+.container:has(.fundingrequest__detail-grid) {
+    --messages-max-width: calc(100% - 35ch - var(--coda-gap));
+}
+
 .fundingrequest__detail-grid {
     display: grid;
     grid-template-columns: auto 35ch;

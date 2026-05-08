@@ -7,21 +7,22 @@ from django.shortcuts import redirect, render
 
 from coda import formdata
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from coda.apps.invoices.forms import InvoiceForm
+from coda.apps.invoices.forms import InvoiceForm, CreditorForm
+from coda.apps.invoices.models import Creditor
 from coda.apps.invoices.views.position_context import DefaultContext, funding_sources_context
-from coda.apps.invoices.views.position_views import ErrorDict
+from coda.apps.invoices.views.position_parsers import PositionDtoWithErrors
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.dto.edit_position_dtos import PositionList
 from coda.contexts.finance.services import invoice_parser, invoice_service
-from coda.domain.finance.invoice import InvoiceId, UnassignedCosts
+from coda.domain.finance.invoice import Invoice, UnassignedCosts
 from coda.domain.money import Currency
+from django.views.decorators.http import require_GET, require_POST
 
 
 @login_required
 @breadcrumb("Create Invoice", parent_url_name="invoices:list", preserve_filters=True)
 def create_invoice(request: HttpRequest) -> HttpResponse:
     home_currency = GlobalPreferences.get_home_currency()
-    errors = ErrorDict(errors={})
 
     conversion = {}
     currency_code = request.POST.get(f"conversion_currency_{home_currency.code}", "").strip()
@@ -32,10 +33,15 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
         exchange_rate = Decimal(exchange_rate_str)
         conversion = {home_currency: exchange_rate}
 
+    position_list = formdata.map_to_model(PositionList, request.POST)
     if request.POST.get("action") == "create":
-        new_id, errors = save_invoice(request, conversions=conversion)
-        if new_id:
+        invoice, errors = try_parse_invoice(request, position_list, conversions=conversion)
+        if invoice:
+            new_id = invoice_service.save(invoice)
             return redirect("invoices:detail", pk=new_id)
+
+        if errors:
+            position_list = build_position_errors(errors, position_list)
 
     return render(
         request,
@@ -44,41 +50,93 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
             "mode_name": "Create",
             "form": InvoiceForm(request.POST if request.POST else None),
             "home_currency_ceate": home_currency.code,
-            "position_list": formdata.map_to_model(PositionList, request.POST),
+            "position_list": position_list,
+            "creditors": Creditor.objects.all().order_by("name"),
         }
         | DefaultContext
-        | funding_sources_context()
-        | errors,
+        | funding_sources_context(),
     )
 
 
-def save_invoice(
+def try_parse_invoice(
     request: HttpRequest,
+    position_list: PositionList,
     *,
-    invoice_id: InvoiceId | None = None,
     conversions: dict[Currency, Decimal],
-) -> tuple[InvoiceId | None, ErrorDict]:
+) -> tuple[Invoice | None, invoice_parser.InvoiceParseError | None]:
     form = InvoiceForm(request.POST)
     if not form.is_valid():
-        return None, ErrorDict(errors={})
-
-    position_list = formdata.map_to_model(PositionList, request.POST)
+        return None, None
 
     try:
         invoice = invoice_parser.parse_invoice(form.invoice_head(), position_list.positions)
-        invoice.id = invoice_id
         for currency, rate in conversions.items():
             invoice.add_conversion(rate, currency)
 
-        return invoice_service.save(invoice), ErrorDict(errors={})
+        return invoice, None
     except UnassignedCosts:
         messages.error(request, "Invoice has unassigned costs")
-        return None, ErrorDict(errors={})
+        return None, None
     except invoice_parser.InvoiceParseError as e:
-        return None, ErrorDict(
-            errors={
-                f"positions-{i}-error": err.message()
-                for i, p in enumerate(position_list.positions, start=1)
-                if (err := e.error_for(p)) is not None
-            }
+        return None, e
+
+
+def build_position_errors(
+    errors: invoice_parser.InvoiceParseError, position_list: PositionList
+) -> PositionList:
+    error_positions = PositionList(positions=[])
+
+    for dto in position_list.positions:
+        err = errors.error_for(dto)
+        if err:
+            error_positions.positions.append(PositionDtoWithErrors.from_dto(dto, err.message()))
+        else:
+            error_positions.positions.append(dto)
+
+    return error_positions
+
+
+@login_required
+@require_GET
+def creditor_create_modal(request: HttpRequest) -> HttpResponse:
+    form = CreditorForm()
+    return render(
+        request,
+        "partials/entity_creation_modal.html",
+        {
+            "entity_name": "Creditor",
+            "form": form,
+            "entity_create_url": "invoices:creditor_create_modal_submit",
+        },
+    )
+
+
+@login_required
+@require_POST
+def creditor_create_modal_submit(request: HttpRequest) -> HttpResponse:
+    form = CreditorForm(request.POST)
+
+    if form.is_valid():
+        creditor = form.save()
+
+        creditors = Creditor.objects.all().order_by("name")
+
+        return render(
+            request,
+            "invoices/partials/creditor_create_success.html",
+            {
+                "creditors": creditors,
+                "selected_creditor_id": creditor.id,
+                "required": True,
+            },
+        )
+    else:
+        return render(
+            request,
+            "partials/entity_creation_modal.html",
+            {
+                "entity_name": "Creditor",
+                "form": form,
+                "entity_create_url": "invoices:creditor_create_modal_submit",
+            },
         )

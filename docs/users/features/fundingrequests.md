@@ -17,6 +17,7 @@ The overview provides powerful filtering options to find specific requests:
 - Filter by publication type (Article, Monograph)
 - Filter by payment method (Direct, Reimbursement, Unknown) and payment status (Paid, Unpaid, Invoice received and Coverd by contract)
 - Filter by open access type
+- Filter by publication state (Published, Unknown, Submitted, Accepted, Rejected)
 - Filter by labels (include or exclude specific labels)
 - Filter by date range
 - Search by journal, publisher, or contract
@@ -31,7 +32,7 @@ Selecting a funding request from the overview leads to a comprehensive detail pa
 
 The left side displays complete information about the request:
 
-- **Publication metadata**: Title, authors, DOI, license, publication type, subject area
+- **Publication metadata**: Title, authors, DOI, license, publication type, subject area, publication state and date(s)
 - **Journal information**: Journal name, publisher, E-ISSN, with links to detailed pages
 - **Contract coverage**: Whether the publication is covered by an existing [contract](contracts.md)
 - **Cost details**: Estimated publication costs and currency
@@ -68,6 +69,7 @@ Search and select a journal from CODA's database of over 26,000 entries:
 
 - Type the journal name to search
 - Select from the result list
+- **New Journal/Publisher**: If the journal or publisher doesn't exist yet, click the **New Journal** or **New Publisher** button to open a modal where you can create it without losing your form data
 
 For monograph requests, you'll select a publisher instead of a journal.
 
@@ -146,10 +148,11 @@ In this step you can collect financial information:
 Add information about third-party funding sources supporting this publication:
 
 - **Funding Organization**: Select from [pre-configured funders](funders.md) (e.g. DFG, BMBF, etc.)
+  - **New Funder**: If the funding organization doesn't exist yet, click the **Create New Funding Organization** button to open a modal where you can create it without losing your funding request data
 - **Project ID**: Grant or project identifier
 - **Project Name**: Full project name
 
-You can add multiple funding sources if the publication is supported by several grants.
+You can add multiple funding sources if the publication is supported by several grants. When you create a new funding organization via the modal, it becomes immediately available in all funding organization dropdowns in your form, allowing you to select it for any funding row.
 
 ```{admonition} Note
 As the final costs of a publication are not always known when a funding request comes in, CODA allows you to provide an estimate. This is useful during review to determine whether costs exceed funding limits and whether negotiation with publishers may be necessary.

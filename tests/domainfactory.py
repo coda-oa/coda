@@ -247,9 +247,7 @@ def publication_links() -> set[Link]:
 
 
 def random_publication_status() -> PublicationState:
-    return cast(
-        PublicationState, random.choice([Unpublished(), Published(_random_date(), _random_date())])
-    )
+    return random.choice([Unpublished(), Published(_random_date(), _random_date())])
 
 
 def _random_date() -> date:
