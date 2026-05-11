@@ -112,7 +112,6 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
             case _:
                 fs = None
 
-        print(repr(fs))
         if fs is not None or not _is_all_amount(f.amount):
             _position.assign_funding(fs, amount, position.cost_basis_mode)
 

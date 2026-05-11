@@ -47,22 +47,17 @@ class AuthorForm(CodaFormBase):
     )
 
     def is_valid(self) -> bool:
-        print("AuthorForm validation")
         valid = super().is_valid()
         if not valid:
             return False
-        print("passed base validation")
 
         try:
             self.to_dto().to_author()
-        except pydantic.ValidationError as e:
-            print(e)
+        except pydantic.ValidationError:
             return False
         except NoEmailForCorrespondingAuthor as e:
-            print(e)
             self.add_error("email", str(e))
             return False
-        print("passed domain validation")
 
         return True
 

@@ -38,7 +38,6 @@ def test__create_invoice_with_positions_with_split_costs__saves_to_db(client: Cl
 
     _invoice_head = invoice_head(expected)
     position_dto = PositionList(positions=[invoice_parser.position_to_dto(position)])
-    print(repr(position_dto.positions))
 
     _ = client.post(
         reverse("invoices:create"),

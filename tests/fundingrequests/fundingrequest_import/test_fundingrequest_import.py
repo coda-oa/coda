@@ -99,9 +99,8 @@ def test__import_fundingrequest__saves_fundingrequest_and_creates_missing_entiti
     write_json(request_variant.importdata)
 
     with JSON_PATH.open() as json_file:
-        report = import_fundingrequests(json_file)
+        _ = import_fundingrequests(json_file)
 
-    print(repr(report))
     fundingrequest = fundingrequest_repository.first()
 
     assert fundingrequest is not None
