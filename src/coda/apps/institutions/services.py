@@ -231,7 +231,7 @@ def _apply_parent_relationship(
 
     parent = internal_id_lookup.get(parent_id)
     if parent:
-        institution.parent = parent
+        institution.set_parent(parent)
 
 
 def _collect_identifier_operations(
@@ -708,13 +708,13 @@ def restore_without_children(
     institution.archived_at = None
     institution.virtual = False
     if new_parent is not None:
-        institution.parent = new_parent
+        institution.set_parent(new_parent)
     institution.save()
 
 
 def restore_with_children(institution: Institution, new_parent: Institution | None = None) -> None:
     if new_parent is not None:
-        institution.parent = new_parent
+        institution.set_parent(new_parent)
         institution.save()
     _restore_institution_tree(institution)
 
