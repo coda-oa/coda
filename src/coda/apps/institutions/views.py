@@ -114,7 +114,11 @@ class CreateInstitutionView(
         return context
 
     def form_valid(self, form: InstitutionForm) -> HttpResponse:
-        self.object = form.save()
+        try:
+            self.object = form.save()
+        except ValueError as e:
+            form.add_error("parent", str(e))
+            return self.form_invalid(form)
 
         if not self.validate_and_save_links(self.object):
             return self.form_invalid(form)
@@ -159,7 +163,11 @@ class UpdateInstitutionView(
         return []
 
     def form_valid(self, form: InstitutionForm) -> HttpResponse:
-        self.object = form.save()
+        try:
+            self.object = form.save()
+        except ValueError as e:
+            form.add_error("parent", str(e))
+            return self.form_invalid(form)
 
         # Delete existing links and recreate
         InstitutionLink.objects.filter(institution=self.object).delete()

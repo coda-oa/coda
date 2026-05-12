@@ -118,7 +118,7 @@ def _process_properties_and_relationships(
         row = df.row(i, named=True)
 
         _apply_affiliation(institution, row)
-        _apply_parent_relationship(institution, row, internal_id_lookup)
+        _apply_parent_relationship(institution, row, internal_id_lookup, result)
 
         had_errors = _collect_identifier_operations(
             result, link_types, institution, row, links_to_delete, links_to_create
@@ -218,7 +218,10 @@ def _add_child_to_map(
 
 
 def _apply_parent_relationship(
-    institution: Institution, row: dict[str, Any], internal_id_lookup: dict[str, Institution]
+    institution: Institution,
+    row: dict[str, Any],
+    internal_id_lookup: dict[str, Institution],
+    result: ImportResult,
 ) -> None:
     """Set institution's parent based on parent internal_id in CSV."""
     parent_value = row.get("parent")
@@ -231,6 +234,14 @@ def _apply_parent_relationship(
 
     parent = internal_id_lookup.get(parent_id)
     if parent:
+        if parent.is_descendant_of(institution):
+            result.errors.append(
+                ImportError(
+                    institution_name=institution.name,
+                    message="Cannot set parent: it would create a cycle in the institution hierarchy.",
+                )
+            )
+            return
         institution.set_parent(parent)
 
 

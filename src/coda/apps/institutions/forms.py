@@ -24,6 +24,24 @@ class InstitutionForm(forms.ModelForm[Institution]):
         super().__init__(*args, **kwargs)
         self.fields["internal_id"].help_text = ""
 
+    def clean(self) -> dict[str, Any] | None:
+        cleaned_data = super().clean()
+        if cleaned_data is None:
+            return cleaned_data
+
+        instance = self.instance
+        parent: Institution | None = cleaned_data.get("parent")
+        if parent is None or instance.pk is None:
+            return cleaned_data
+
+        if parent.is_descendant_of(instance):
+            self.add_error(
+                "parent",
+                "This parent would create a cycle in the institution hierarchy. "
+                "An institution cannot be its own ancestor.",
+            )
+        return cleaned_data
+
     def save(self, commit: bool = True) -> Institution:
         instance = super().save(commit=False)
         if not instance.internal_id:

@@ -13,11 +13,6 @@ def _compute_path(node_id: UUID, parent: "Institution | None") -> str:
     return parent.path + str(node_id) + "/"
 
 
-def _check_cycle(inst: "Institution", parent: "Institution") -> None:
-    if inst.path and parent.path.startswith(inst.path):
-        raise ValueError("Setting this parent would create a cycle in the institution hierarchy.")
-
-
 def _resolve_parent(
     inst: "Institution",
     by_pk: dict[int, "Institution"],
@@ -40,8 +35,11 @@ def _compute_instance_path(
     if parent and parent.pk in by_pk:
         _compute_instance_path(parent, by_pk, computed)
     if parent:
-        _check_cycle(inst, parent)
-    inst.path = _compute_path(inst.node_id, parent)
+        if parent.is_descendant_of(inst):
+            raise ValueError(
+                "Setting this parent would create a cycle in the institution hierarchy."
+            )
+        inst.path = _compute_path(inst.node_id, parent)
     computed.add(inst.node_id)
 
 
@@ -153,14 +151,22 @@ class Institution(models.Model):
             self.node_id = uuid4()
         parent = cast(Institution, self.parent) if self.parent_id is not None else None
         if parent is not None:
-            _check_cycle(self, parent)
-        self.path = _compute_path(self.node_id, parent)
+            if parent.is_descendant_of(self):
+                raise ValueError(
+                    "Setting this parent would create a cycle in the institution hierarchy."
+                )
+            self.path = _compute_path(self.node_id, parent)
+        else:
+            self.path = _compute_path(self.node_id, None)
         super().save(
             force_insert=force_insert,
             force_update=force_update,
             using=using,
             update_fields=update_fields,
         )
+
+    def is_descendant_of(self, other: "Institution") -> bool:
+        return bool(other.path) and self.path.startswith(other.path)
 
     def set_parent(self, parent: "Institution | None") -> None:
         self.parent = parent
