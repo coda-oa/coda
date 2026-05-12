@@ -4,9 +4,8 @@
         <a href="{% url "fundingrequests:funders_update" pk=entity.pk %}"
            role="button"
            class="secondary">Edit</a>
-        <button class="danger"
-                hx-delete="{% url "fundingrequests:funders_delete" pk=entity.pk %}"
-                hx-target="closest article"
-                hx-swap="delete">Delete</button>
+        {% comment %}
+        <button class="danger" hx-delete="{% url "fundingrequests:funders_delete" pk=entity.pk %}" hx-target="closest article" hx-swap="delete">Delete</button>
+        {% endcomment %}
     </div>
 </article>
