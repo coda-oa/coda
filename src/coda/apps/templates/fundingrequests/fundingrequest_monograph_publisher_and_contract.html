@@ -3,16 +3,18 @@
     <h1 class="my-2">Publisher</h1>
     <article>
         <h2 class="mb-2">Find Publisher</h2>
-        <fieldset role="group">
+        <fieldset role="group"
+                  hx-post="{% url 'fundingrequests:wizard_find_publisher' %}"
+                  hx-target="#publisher-search-results"
+                  hx-swap="outerHTML"
+                  hx-trigger="keydown[key=='Enter'] from:#publisher_name, click from:#publisher_search_button">
             <input type="search"
                    name="publisher_name"
                    id="publisher_name"
                    {% if publisher_error and request.method == "POST" and not selected_publisher %}aria-invalid="true"{% endif %}
                    value="{{ selected_publisher }}">
             <button type="button"
-                    hx-post="{% url 'fundingrequests:wizard_find_publisher' %}"
-                    hx-target="#publisher-search-results"
-                    hx-swap="outerHTML"
+                    id="publisher_search_button"
                     class="inline-search-pill pill-right">Search</button>
         </fieldset>
         {% if publisher_error and request.method == "POST" and not selected_publisher %}

@@ -1,6 +1,11 @@
 <div id="contract-search">
     <h3>Search Contracts</h3>
-    <div class="form-row pill">
+    <div class="form-row pill"
+         hx-post="{% url 'invoices:contract_search' %}"
+         hx-include="#contract_query"
+         hx-target="#contract-search"
+         hx-swap="outerHTML"
+         hx-trigger="keydown[key=='Enter'] from:#contract_query, click from:#contract_query_search_button">
         <input type="search"
                id="contract_query"
                name="contract_query"
@@ -9,11 +14,8 @@
         <button type="button"
                 name="action"
                 value="search"
-                class="form-row-item-sm"
-                hx-include="#contract_query"
-                hx-post="{% url 'invoices:contract_search' %}"
-                hx-target="#contract-search"
-                hx-swap="outerHTML">Search</button>
+                id="contract_query_search_button"
+                class="form-row-item-sm">Search</button>
     </div>
     {% if contracts %}
         <table>

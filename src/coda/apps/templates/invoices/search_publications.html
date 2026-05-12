@@ -1,6 +1,11 @@
 <div id="publication-search">
     <h3>Search Publications</h3>
-    <div class="form-row pill">
+    <div class="form-row pill"
+         hx-post="{% url 'invoices:pub_search' %}"
+         hx-include="#publication_query"
+         hx-target="#publication-search"
+         hx-swap="outerHTML"
+         hx-trigger="keydown[key=='Enter'] from:#publication_query, click from:#publication_query_search_button">
         <input type="search"
                id="publication_query"
                name="q"
@@ -9,11 +14,8 @@
         <button type="button"
                 name="action"
                 value="search"
-                class="form-row-item-sm"
-                hx-include="#publication_query"
-                hx-post="{% url 'invoices:pub_search' %}"
-                hx-target="#publication-search"
-                hx-swap="outerHTML">Search</button>
+                id="publication_query_search_button"
+                class="form-row-item-sm">Search</button>
     </div>
     {% if publications %}
         <table>
