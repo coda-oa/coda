@@ -238,8 +238,7 @@ def test__parent_institution_with_internal_id_in_csv__import_child_institution_w
     parent = Institution.objects.create(name="Parent Institution", internal_id="inst_parent1")
 
     csv_data = StringIO(
-        "internal_id;name;parent;ROR;ISNI;Ringgold\n"
-        "inst_child1;Child Institution;inst_parent1;;;"
+        "internal_id;name;parent;ROR;ISNI;Ringgold\ninst_child1;Child Institution;inst_parent1;;;"
     )
     services.import_from_file(csv_data)
 
@@ -329,8 +328,7 @@ def test__institution_with_matching_internal_id_and_changed_ror__import__updates
     inst.links.create(type_id=1, value="https://ror.org/02mhbdp94")  # Old ROR
 
     csv_data = StringIO(
-        "internal_id;name;ROR;ISNI;Ringgold\n"
-        "inst_typo1;Test University;https://ror.org/010nsgg66;;"
+        "internal_id;name;ROR;ISNI;Ringgold\ninst_typo1;Test University;https://ror.org/010nsgg66;;"
     )
     services.import_from_file(csv_data)
 
@@ -431,6 +429,50 @@ def test__parent_and_child_both_archived__import__succeeds() -> None:
 
     # No errors
     assert len(result.errors) == 0
+
+
+@pytest.mark.django_db
+def test__csv_with_cyclic_parent_relationship__import__produces_error() -> None:
+    """Given: An existing institution is given a parent that is one of its own descendants
+    When: Import is attempted
+    Then: An error is reported for the institution with the cyclic parent"""
+    parent = Institution.objects.create(name="Parent Institution", internal_id="inst_cycle_parent")
+    _ = Institution.objects.create(
+        name="Child Institution", internal_id="inst_cycle_child", parent=parent
+    )
+
+    # Try to make the parent a child of its own child (cycle)
+    csv_data = StringIO(
+        "internal_id;name;parent;ROR;ISNI;Ringgold\n"
+        "inst_cycle_parent;Parent Institution;inst_cycle_child;;;"
+    )
+    result = services.import_from_file(csv_data)
+
+    assert len(result.errors) == 1
+    assert "Parent Institution" in result.errors[0].institution_name
+    assert "cycle" in result.errors[0].message.lower()
+
+
+@pytest.mark.django_db
+def test__csv_with_cyclic_parent_relationship__import__institution_is_imported_without_parent() -> (
+    None
+):
+    """Given: An existing institution is given a parent that is one of its own descendants
+    When: Import is attempted
+    Then: The institution is still imported but its parent is left unchanged"""
+    parent = Institution.objects.create(name="Parent Institution", internal_id="inst_cycle2_parent")
+    child = Institution.objects.create(
+        name="Child Institution", internal_id="inst_cycle2_child", parent=parent
+    )
+
+    csv_data = StringIO(
+        "internal_id;name;parent;ROR;ISNI;Ringgold\n"
+        "inst_cycle2_parent;Parent Institution;inst_cycle2_child;;;"
+    )
+    services.import_from_file(csv_data)
+
+    parent.refresh_from_db()
+    assert parent.parent != child
 
 
 @pytest.mark.django_db

@@ -35,6 +35,7 @@ def first_by_name(name: str) -> Institution | None:
 
 
 def search(name: str | None = None, include_archived: bool = False) -> QuerySet[Institution]:
+    qs: QuerySet[Institution]
     if include_archived:
         qs = Institution.all_objects.all()
     else:
@@ -74,7 +75,7 @@ def _sort_hierarchically(queryset: QuerySet[Institution]) -> QuerySet[Institutio
     institutions.sort(key=_get_hierarchical_sort_path)
 
     if institutions:
-        id_order = {inst.id: idx for idx, inst in enumerate(institutions)}
+        id_order = {inst.pk: idx for idx, inst in enumerate(institutions)}
         preserved_order = Case(
             *[When(pk=pk, then=pos) for pk, pos in id_order.items()],
             output_field=IntegerField(),
