@@ -1,5 +1,5 @@
-<article>
-    <h2 class="m-0 text-center">
-        <a href="{% url "invoices:creditor_detail" pk=entity.pk %}">{{ entity.name }}</a>
-    </h2>
+<article class="flex justify-between align-center">
+    <p class="m-0 text-center">{{ entity.name }}</p>
+    <a class="button outline contrast"
+       href="{% url "invoices:creditor_detail" pk=entity.pk %}">View</a>
 </article>

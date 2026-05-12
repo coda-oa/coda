@@ -1,0 +1,129 @@
+import django.db
+import django.test.utils
+import pytest
+
+from coda.apps.institutions.models import Institution
+
+
+@pytest.mark.django_db
+def test__set_parent__self_reference__raises() -> None:
+    institution = Institution.objects.create(name="University A")
+
+    with pytest.raises(ValueError, match="cycle"):
+        institution.set_parent(institution)
+        institution.save()
+
+
+@pytest.mark.django_db
+def test__set_parent__direct_cycle__raises() -> None:
+    parent = Institution.objects.create(name="Parent University")
+    child = Institution.objects.create(name="Child University", parent=parent)
+
+    with pytest.raises(ValueError, match="cycle"):
+        parent.set_parent(child)
+        parent.save()
+
+
+@pytest.mark.django_db
+def test__set_parent__indirect_cycle__raises() -> None:
+    grandparent = Institution.objects.create(name="Grandparent University")
+    parent = Institution.objects.create(name="Parent University", parent=grandparent)
+    child = Institution.objects.create(name="Child University", parent=parent)
+
+    with pytest.raises(ValueError, match="cycle"):
+        grandparent.set_parent(child)
+        grandparent.save()
+
+
+@pytest.mark.django_db
+def test__set_parent__valid_parent__sets_parent() -> None:
+    parent = Institution.objects.create(name="Parent University")
+    child = Institution.objects.create(name="Child University")
+
+    child.set_parent(parent)
+
+    assert child.parent == parent
+
+
+@pytest.mark.django_db
+def test__set_parent__none__clears_parent() -> None:
+    parent = Institution.objects.create(name="Parent University")
+    child = Institution.objects.create(name="Child University", parent=parent)
+
+    child.set_parent(None)
+
+    assert child.parent is None
+
+
+@pytest.mark.django_db
+def test__set_parent__descendant_as_parent__raises() -> None:
+    root = Institution.objects.create(name="Root University")
+    middle = Institution.objects.create(name="Middle University", parent=root)
+    leaf = Institution.objects.create(name="Leaf University", parent=middle)
+
+    with pytest.raises(ValueError, match="cycle"):
+        root.set_parent(leaf)
+        root.save()
+
+
+@pytest.mark.django_db
+def test__create_with_cycle_parent__raises() -> None:
+    root = Institution.objects.create(name="Root University")
+    middle = Institution.objects.create(name="Middle University", parent=root)
+    leaf = Institution.objects.create(name="Leaf University", parent=middle)
+
+    with pytest.raises(ValueError, match="cycle"):
+        root.parent = leaf
+        root.save()
+
+
+@pytest.mark.django_db
+def test__bulk_create__computes_paths() -> None:
+    parent = Institution.objects.create(name="Parent University")
+    child = Institution(name="Child University", parent=parent)
+
+    Institution.all_objects.bulk_create([child])
+
+    child.refresh_from_db()
+    assert child.path.startswith(parent.path)
+
+
+@pytest.mark.django_db
+def test__bulk_update__cycle__raises() -> None:
+    root = Institution.objects.create(name="Root University")
+    middle = Institution.objects.create(name="Middle University", parent=root)
+    leaf = Institution.objects.create(name="Leaf University", parent=middle)
+
+    root.parent = leaf  # would create a cycle
+
+    with pytest.raises(ValueError, match="cycle"):
+        Institution.all_objects.bulk_update([root], fields=["parent"])
+
+
+@pytest.mark.django_db
+def test__save__no_extra_queries_for_cycle_check() -> None:
+    parent = Institution.objects.create(name="Parent University")
+    child = Institution(name="Child University", parent=parent)
+
+    # parent is already on the instance — save should need no extra queries
+    # beyond the INSERT itself
+    with django.test.utils.CaptureQueriesContext(django.db.connection) as ctx:
+        child.save()
+
+    query_types = [q["sql"].split()[0].upper() for q in ctx.captured_queries]
+    assert query_types == ["INSERT"], f"Expected only INSERT, got: {query_types}"
+
+
+@pytest.mark.django_db
+def test__bulk_update__no_extra_queries_for_cycle_check() -> None:
+    root = Institution.objects.create(name="Root University")
+    child = Institution.objects.create(name="Child University", parent=root)
+    new_parent = Institution.objects.create(name="New Parent University")
+
+    child.parent = new_parent  # valid reparent
+
+    with django.test.utils.CaptureQueriesContext(django.db.connection) as ctx:
+        Institution.all_objects.bulk_update([child], fields=["parent"])
+
+    query_types = [q["sql"].split()[0].upper() for q in ctx.captured_queries]
+    assert query_types == ["UPDATE"], f"Expected only UPDATE, got: {query_types}"
