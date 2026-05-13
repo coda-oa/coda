@@ -394,3 +394,67 @@ def test__generate_internal_id__id_generated__uses_url_safe_characters() -> None
     remaining = id_part.replace("-", "").replace("_", "")
 
     assert remaining.isalnum(), f"ID part '{id_part}' contains non-URL-safe characters"
+
+
+@pytest.mark.django_db
+def test__archive__with_descendant_as_replacement__raises() -> None:
+    """Archiving a parent with its descendant as replacement must raise."""
+    parent = Institution.objects.create(name="Parent")
+    child = Institution.objects.create(name="Child", parent=parent)
+
+    with pytest.raises(ValueError, match="cycle"):
+        archive(parent, replacement=child)
+
+
+@pytest.mark.django_db
+def test__archive__with_self_as_replacement__raises() -> None:
+    """Archiving an institution with itself as replacement must raise."""
+    institution = Institution.objects.create(name="Institution")
+
+    with pytest.raises(ValueError, match="cycle"):
+        archive(institution, replacement=institution)
+
+
+@pytest.mark.django_db
+def test__archive__with_sibling_as_replacement__succeeds() -> None:
+    """Archiving with a non-descendant (sibling) as replacement succeeds."""
+    root = Institution.objects.create(name="Root")
+    parent = Institution.objects.create(name="Parent", parent=root)
+    sibling = Institution.objects.create(name="Sibling", parent=root)
+    child = Institution.objects.create(name="Child", parent=parent)
+
+    archive(parent, replacement=sibling)
+
+    parent.refresh_from_db()
+    child.refresh_from_db()
+    sibling.refresh_from_db()
+
+    assert parent.archived_at is not None
+    assert child.parent == sibling
+    assert sibling.parent == root
+
+
+@pytest.mark.django_db
+def test__walk__on_cyclic_hierarchy__raises() -> None:
+    """Walk must detect and raise on DB-level cycle (bypassed via QuerySet.update)."""
+    a = Institution.objects.create(name="A")
+    b = Institution.objects.create(name="B", parent=a)
+
+    # Create cycle by bypassing save(): a → b → a
+    Institution.objects.filter(pk=a.pk).update(parent=b)
+
+    with pytest.raises(ValueError, match="Cycle detected"):
+        list(a.walk())
+
+
+@pytest.mark.django_db
+def test__archive_tree__on_cyclic_hierarchy__raises() -> None:
+    """Archive must detect and raise on DB-level cycle in the tree."""
+    a = Institution.objects.create(name="A")
+    b = Institution.objects.create(name="B", parent=a)
+
+    # Create cycle by bypassing save(): a → b → a
+    Institution.objects.filter(pk=a.pk).update(parent=b)
+
+    with pytest.raises(ValueError, match="Cycle detected"):
+        archive(a)

@@ -132,3 +132,55 @@ def test__bulk_update__cycle_check_makes_selects_for_parents_not_in_batch() -> N
     query_types = [q["sql"].split()[0].upper() for q in ctx.captured_queries]
     # 1 SELECT for cycle check (new_parent not in batch, must query DB) + 1 UPDATE
     assert query_types == ["SELECT", "UPDATE"], f"Expected SELECT + UPDATE, got: {query_types}"
+
+
+@pytest.mark.django_db
+def test__is_descendant_of__exceeds_depth_limit__raises() -> None:
+    """A chain of 102 institutions (101 levels deep) exceeds the depth limit."""
+    chain = [Institution.objects.create(name="Level 0")]
+    for i in range(1, 102):
+        chain.append(Institution.objects.create(name=f"Level {i}", parent=chain[-1]))
+
+    with pytest.raises(ValueError, match="exceeds maximum depth"):
+        chain[-1].is_descendant_of(chain[0])
+
+
+@pytest.mark.django_db
+def test__is_descendant_of__exactly_100_levels__succeeds() -> None:
+    """A chain of 101 institutions (100 levels deep) is within the depth limit."""
+    chain = [Institution.objects.create(name="Level 0")]
+    for i in range(1, 101):
+        chain.append(Institution.objects.create(name=f"Level {i}", parent=chain[-1]))
+
+    assert chain[-1].is_descendant_of(chain[0]) is True
+
+
+@pytest.mark.django_db
+def test__bulk_update__intra_batch_cycle__raises() -> None:
+    """Intra-batch cycle: A→B→C→A within the same bulk_update call."""
+    a = Institution.objects.create(name="A")
+    b = Institution.objects.create(name="B", parent=a)
+    c = Institution.objects.create(name="C", parent=b)
+
+    # Make all three form a cycle: a→b, b→c, c→a
+    a.parent = b
+    b.parent = c
+    c.parent = a
+
+    with pytest.raises(ValueError, match="cycle"):
+        Institution.all_objects.bulk_update([a, b, c], fields=["parent"])
+
+
+@pytest.mark.django_db
+def test__bulk_update__cycle_with_parent_not_in_batch__raises() -> None:
+    """Cycle completed by a parent existing in DB but not in the batch."""
+    root = Institution.objects.create(name="Root")
+    middle = Institution.objects.create(name="Middle", parent=root)
+
+    # leaf is not in the batch; setting root→middle→leaf→root requires DB lookup
+    leaf = Institution.objects.create(name="Leaf", parent=middle)
+
+    root.parent = leaf
+
+    with pytest.raises(ValueError, match="cycle"):
+        Institution.all_objects.bulk_update([root], fields=["parent"])
