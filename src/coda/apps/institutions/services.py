@@ -696,6 +696,8 @@ def archive(institution: Institution, replacement: Institution | None = None) ->
         raise ValueError("Institution is already archived")
 
     if replacement is not None:
+        if replacement.is_descendant_of(institution):
+            raise ValueError("Cannot archive: replacement would create a cycle")
         institution.children.update(parent=replacement)
         _update_home_institution_if_needed(institution, replacement)
 
@@ -704,13 +706,22 @@ def archive(institution: Institution, replacement: Institution | None = None) ->
 
 
 def _archive_institution_tree(institution: Institution, timestamp: datetime) -> None:
-    for child in institution.children.all():
-        _archive_institution_tree(child, timestamp)
-
-    if institution.archived_at is None:
-        institution.archived_at = timestamp
-        institution.virtual = True
-        institution.save()
+    visited: set[int] = set()
+    stack: list[tuple[Institution, bool]] = [(institution, False)]
+    while stack:
+        current, processed = stack.pop()
+        if processed:
+            if current.archived_at is None:
+                current.archived_at = timestamp
+                current.virtual = True
+                current.save()
+            continue
+        if current.pk in visited:
+            raise ValueError("Cycle detected during archive — hierarchy is corrupted")
+        visited.add(current.pk)
+        stack.append((current, True))
+        for child in current.children.all():
+            stack.append((child, False))
 
 
 def restore_without_children(

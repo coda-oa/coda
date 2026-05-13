@@ -172,9 +172,16 @@ class Institution(models.Model):
         self.parent = parent
 
     def walk(self) -> Generator["Institution"]:
-        yield self
-        for child in self.children.all():
-            yield from child.walk()
+        visited: set[int] = set()
+        stack: list["Institution"] = [self]
+        while stack:
+            current = stack.pop()
+            if current.pk in visited:
+                raise ValueError("Cycle detected during walk — hierarchy is corrupted")
+            visited.add(current.pk)
+            yield current
+            for child in current.children.all():
+                stack.append(child)
 
     def archive(self) -> None:
         self.archived_at = timezone.now()
