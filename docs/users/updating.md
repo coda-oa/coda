@@ -15,7 +15,48 @@ Always create a backup before updating CODA to ensure you can restore your data 
 
 ## Update Process
 
-### 1. Create a Backup
+You can update CODA either using the automated update script or by running each step manually.
+
+### Option 1: Automated Update (Recommended)
+
+The easiest way to update CODA is using the automated update script:
+
+```{code-block} bash
+./commands/update-coda.sh --production --backup
+```
+
+Or for local environment:
+
+```{code-block} bash
+./commands/update-coda.sh --local --backup
+```
+
+The script automatically performs all necessary steps: creating a backup (if `--backup` is specified), stopping CODA, pulling the latest changes, and restarting with the updated code. CODA must be already running to use this automated approach. 
+
+#### Update Script Options
+
+- `--production` or `--local`: Specify the environment
+- `--backup`: Create a backup before updating (recommended)
+- `--branch BRANCH`: Pull from a specific branch (default: `stable`)
+
+Examples:
+
+```{code-block} bash
+# Production update with backup from stable branch
+./commands/update-coda.sh --production --backup
+
+# Local update from develop branch
+./commands/update-coda.sh --local --branch develop
+
+# Production update without backup
+./commands/update-coda.sh --production
+```
+
+### Option 2: Manual Update
+
+If you prefer to run each step manually, follow these steps:
+
+#### 1. Create a Backup
 
 Before updating, create a backup of your database:
 
@@ -31,7 +72,7 @@ Or for local environment:
 
 For more information about backups, see the [Backups section](installation.md#backups) in the Installation guide.
 
-### 2. Stop CODA
+#### 2. Stop CODA
 
 Stop the running CODA instance:
 
@@ -45,7 +86,7 @@ Or for local environment:
 ./commands/stop-coda.sh --local
 ```
 
-### 3. Pull Latest Changes
+#### 3. Pull Latest Changes
 
 Update your local repository with the latest changes from the Git repository:
 
@@ -58,7 +99,7 @@ git pull origin stable
 The `stable` branch is the default and recommended option. You can pull it as shown above. If you need access to more recent changes, you can alternatively pull from the `develop` branch using `git pull origin develop`.
 ```
 
-### 4. Restart CODA
+#### 4. Restart CODA
 
 Start CODA with the updated code by running the start command:
 
@@ -74,7 +115,7 @@ Or for local environment:
 
 The startup script automatically rebuilds the containers and applies any necessary database migrations.
 
-### 5. Verify the Update
+#### 5. Verify the Update
 
 After CODA restarts, verify that:
 
