@@ -234,7 +234,7 @@ def _apply_parent_relationship(
 
     parent = internal_id_lookup.get(parent_id)
     if parent:
-        if parent.is_descendant_of(institution):
+        if parent.pk == institution.pk or parent.is_descendant_of(institution):
             result.errors.append(
                 ImportError(
                     institution_name=institution.name,
@@ -696,7 +696,7 @@ def archive(institution: Institution, replacement: Institution | None = None) ->
         raise ValueError("Institution is already archived")
 
     if replacement is not None:
-        if replacement.is_descendant_of(institution):
+        if replacement.pk == institution.pk or replacement.is_descendant_of(institution):
             raise ValueError("Cannot archive: replacement would create a cycle")
         institution.children.update(parent=replacement)
         _update_home_institution_if_needed(institution, replacement)

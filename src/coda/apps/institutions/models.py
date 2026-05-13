@@ -1,65 +1,45 @@
 from collections.abc import Collection, Generator, Iterable
 from typing import cast
-from uuid import uuid4, UUID
 
+from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models.base import ModelBase
 from django.utils import timezone
 
 
-def _compute_path(node_id: UUID, parent: "Institution | None") -> str:
-    if parent is None:
-        return f"/{node_id}/"
-    return parent.path + str(node_id) + "/"
+def _check_batch_cycles(instances: list["Institution"]) -> None:
+    """Check for cycles in a batch of instances being created/updated.
 
-
-def _resolve_parent(
-    inst: "Institution",
-    by_pk: dict[int, "Institution"],
-) -> "Institution | None":
-    if inst.parent_id is None:
-        return None
-    if inst.parent_id in by_pk:
-        return by_pk[inst.parent_id]
-    return cast("Institution", inst.parent)
-
-
-def _compute_instance_path(
-    inst: "Institution",
-    by_pk: dict[int, "Institution"],
-    computed: set[UUID],
-) -> None:
-    if inst.node_id in computed:
-        return
-    parent = _resolve_parent(inst, by_pk)
-    if parent and parent.pk in by_pk:
-        _compute_instance_path(parent, by_pk, computed)
-    if parent:
-        if parent.is_descendant_of(inst):
-            raise ValueError(
-                "Setting this parent would create a cycle in the institution hierarchy."
-            )
-        inst.path = _compute_path(inst.node_id, parent)
-    computed.add(inst.node_id)
-
-
-def _prepare_instances(objs: Iterable["Institution"]) -> None:
-    """Assign node_id and compute path for each instance in topological order.
-
-    Instances are processed so that a parent's path is always computed before
-    its children, even when both appear in the same batch.
+    Walks parent chains efficiently: checks batch parents first (in-memory),
+    then falls back to DB queries for parents outside the batch.
     """
-    instances = list(objs)
+    batch_parents: dict[int, int | None] = {
+        cast(int, inst.pk): inst.parent_id
+        for inst in instances
+        if inst.pk is not None and inst.parent_id is not None
+    }
 
     for inst in instances:
-        if not inst.node_id:
-            inst.node_id = uuid4()
+        if inst.parent_id is None:
+            continue
 
-    by_pk: dict[int, "Institution"] = {inst.pk: inst for inst in instances if inst.pk}
+        depth = 0
+        current_id: int | None = inst.parent_id
 
-    computed: set[UUID] = set()
-    for inst in instances:
-        _compute_instance_path(inst, by_pk, computed)
+        while current_id is not None:
+            depth += 1
+            if depth > 100:
+                raise ValueError("Institution hierarchy exceeds maximum depth of 100")
+
+            if current_id == inst.pk:
+                raise ValueError(
+                    "Setting this parent would create a cycle in the institution hierarchy."
+                )
+
+            if current_id in batch_parents:
+                current_id = batch_parents[current_id] 
+            else:
+                parent = Institution.objects.only("parent_id").get(pk=current_id)
+                current_id = parent.parent_id
 
 
 class InstitutionQuerySet(models.QuerySet["Institution"]):
@@ -74,19 +54,13 @@ class InstitutionQuerySet(models.QuerySet["Institution"]):
         objs: Iterable["Institution"],
         batch_size: int | None = None,
         ignore_conflicts: bool = False,
-        update_conflicts: bool = False,
-        update_fields: Collection[str] | None = None,
-        unique_fields: Collection[str] | None = None,
     ) -> list["Institution"]:
         instances = list(objs)
-        _prepare_instances(instances)
+        _check_batch_cycles(instances)
         return super().bulk_create(
             instances,
             batch_size=batch_size,
             ignore_conflicts=ignore_conflicts,
-            update_conflicts=update_conflicts,
-            update_fields=update_fields,
-            unique_fields=unique_fields,
         )
 
     def bulk_update(
@@ -96,12 +70,8 @@ class InstitutionQuerySet(models.QuerySet["Institution"]):
         batch_size: int | None = None,
     ) -> int:
         instances = list(objs)
-        _prepare_instances(instances)
-        # Ensure path is always updated alongside parent
-        fields_with_path = list(fields)
-        if "parent" in fields_with_path and "path" not in fields_with_path:
-            fields_with_path.append("path")
-        return super().bulk_update(instances, fields_with_path, batch_size=batch_size)
+        _check_batch_cycles(instances)
+        return super().bulk_update(instances, fields, batch_size=batch_size)
 
 
 class InstitutionManager(models.Manager["Institution"]):
@@ -126,8 +96,6 @@ class Institution(models.Model):
         help_text="Stable identifier for import/export matching",
     )
     virtual = models.BooleanField(default=False)
-    node_id = models.UUIDField(default=uuid4, unique=True, editable=False)
-    path = models.CharField(max_length=500, db_index=True, default="")
     parent = models.ForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
     )
@@ -139,25 +107,32 @@ class Institution(models.Model):
     objects = InstitutionManager()
     all_objects = AllInstitutionManager()
 
+    def _would_create_cycle(self) -> bool:
+        if self.parent_id is None or self.pk is None:
+            return False
+        if self.parent_id == self.pk:
+            return True
+        return self.parent.is_descendant_of(self)
+
+    def clean(self) -> None:
+        super().clean()
+        if self._would_create_cycle():
+            raise ValidationError(
+                "Setting this parent would create a circular reference in the institution hierarchy."
+            )
+
     def save(
         self,
         *,
-        force_insert: bool | tuple[ModelBase, ...] = False,
+        force_insert: bool = False,
         force_update: bool = False,
         using: str | None = None,
         update_fields: Iterable[str] | None = None,
     ) -> None:
-        if not self.node_id:
-            self.node_id = uuid4()
-        parent = cast(Institution, self.parent) if self.parent_id is not None else None
-        if parent is not None:
-            if parent.is_descendant_of(self):
-                raise ValueError(
-                    "Setting this parent would create a cycle in the institution hierarchy."
-                )
-            self.path = _compute_path(self.node_id, parent)
-        else:
-            self.path = _compute_path(self.node_id, None)
+        if self._would_create_cycle():
+            raise ValueError(
+                "Setting this parent would create a cycle in the institution hierarchy."
+            )
         super().save(
             force_insert=force_insert,
             force_update=force_update,
@@ -166,7 +141,22 @@ class Institution(models.Model):
         )
 
     def is_descendant_of(self, other: "Institution") -> bool:
-        return bool(other.path) and self.path.startswith(other.path)
+        if self.pk is None or other.pk is None or self.pk == other.pk:
+            return False
+
+        depth = 0
+        current_id: int | None = self.pk
+        while current_id is not None:
+            depth += 1
+            if depth > 100:
+                raise ValueError("Institution hierarchy exceeds maximum depth of 100")
+
+            inst = Institution.objects.only("parent_id").get(pk=current_id)
+            if inst.parent_id == other.pk:
+                return True
+            current_id = inst.parent_id
+
+        return False
 
     def set_parent(self, parent: "Institution | None") -> None:
         self.parent = parent

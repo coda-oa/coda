@@ -78,14 +78,14 @@ def test__create_with_cycle_parent__raises() -> None:
 
 
 @pytest.mark.django_db
-def test__bulk_create__computes_paths() -> None:
+def test__bulk_create__valid_parent__succeeds() -> None:
     parent = Institution.objects.create(name="Parent University")
     child = Institution(name="Child University", parent=parent)
 
     Institution.all_objects.bulk_create([child])
 
     child.refresh_from_db()
-    assert child.path.startswith(parent.path)
+    assert child.parent == parent
 
 
 @pytest.mark.django_db
@@ -101,21 +101,25 @@ def test__bulk_update__cycle__raises() -> None:
 
 
 @pytest.mark.django_db
-def test__save__no_extra_queries_for_cycle_check() -> None:
-    parent = Institution.objects.create(name="Parent University")
-    child = Institution(name="Child University", parent=parent)
+def test__save__cycle_check_makes_one_select_per_depth_level() -> None:
+    root = Institution.objects.create(name="Root University")
+    middle = Institution.objects.create(name="Middle University", parent=root)
+    child = Institution.objects.create(name="Child University", parent=middle)
+    independent = Institution.objects.create(name="Independent University")
 
-    # parent is already on the instance — save should need no extra queries
-    # beyond the INSERT itself
+    # Reparenting child under independent is valid (no cycle)
+    # is_descendant_of walks independent's chain: 1 SELECT (independent has no parent)
     with django.test.utils.CaptureQueriesContext(django.db.connection) as ctx:
+        child.set_parent(independent)
         child.save()
 
     query_types = [q["sql"].split()[0].upper() for q in ctx.captured_queries]
-    assert query_types == ["INSERT"], f"Expected only INSERT, got: {query_types}"
+    # 1 SELECT for is_descendant_of + 1 UPDATE for the save
+    assert query_types == ["SELECT", "UPDATE"], f"Expected SELECT + UPDATE, got: {query_types}"
 
 
 @pytest.mark.django_db
-def test__bulk_update__no_extra_queries_for_cycle_check() -> None:
+def test__bulk_update__cycle_check_makes_selects_for_parents_not_in_batch() -> None:
     root = Institution.objects.create(name="Root University")
     child = Institution.objects.create(name="Child University", parent=root)
     new_parent = Institution.objects.create(name="New Parent University")
@@ -126,4 +130,5 @@ def test__bulk_update__no_extra_queries_for_cycle_check() -> None:
         Institution.all_objects.bulk_update([child], fields=["parent"])
 
     query_types = [q["sql"].split()[0].upper() for q in ctx.captured_queries]
-    assert query_types == ["UPDATE"], f"Expected only UPDATE, got: {query_types}"
+    # 1 SELECT for cycle check (new_parent not in batch, must query DB) + 1 UPDATE
+    assert query_types == ["SELECT", "UPDATE"], f"Expected SELECT + UPDATE, got: {query_types}"
