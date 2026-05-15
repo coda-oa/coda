@@ -506,3 +506,31 @@ def test__active_child_on_third_level__cannot_archive_root__import__produces_err
     # All errors should mention unarchived descendants
     for error in result.errors:
         assert "unarchived descendant" in error.message.lower()
+
+
+@pytest.mark.django_db
+def test__mutual_cycle_between_unrelated_existing_institutions__import__produces_structured_error() -> (
+    None
+):
+    """Given: Two existing institutions with no parent relationship
+    When: CSV sets A's parent to B in row 1, then B's parent to A in row 2
+    Then: A structured error is returned rather than an exception
+
+    Because is_descendant_of reads parent_id from the in-memory instance,
+    A's parent assignment from row 1 (A.parent_id = B.pk) is visible when
+    row 2 checks A.is_descendant_of(B), allowing the cycle to be caught at
+    _apply_parent_relationship and reported as a structured error.
+    """
+    Institution.objects.create(name="Institution A", internal_id="inst_mut_a")
+    Institution.objects.create(name="Institution B", internal_id="inst_mut_b")
+
+    csv_data = StringIO(
+        "internal_id;name;parent;ROR;ISNI;Ringgold\n"
+        "inst_mut_a;Institution A;inst_mut_b;;;\n"
+        "inst_mut_b;Institution B;inst_mut_a;;;"
+    )
+
+    result = services.import_from_file(csv_data)
+
+    assert len(result.errors) == 1
+    assert "cycle" in result.errors[0].message.lower()

@@ -1,65 +1,71 @@
 from collections.abc import Collection, Generator, Iterable
-from typing import cast
-from uuid import uuid4, UUID
+from typing import Final, cast
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.base import ModelBase
 from django.utils import timezone
 
-
-def _compute_path(node_id: UUID, parent: "Institution | None") -> str:
-    if parent is None:
-        return f"/{node_id}/"
-    return parent.path + str(node_id) + "/"
+INSTITUTION_HIERARCHY_LIMIT: Final[int] = 100
 
 
-def _resolve_parent(
-    inst: "Institution",
-    by_pk: dict[int, "Institution"],
-) -> "Institution | None":
-    if inst.parent_id is None:
-        return None
-    if inst.parent_id in by_pk:
-        return by_pk[inst.parent_id]
-    return cast("Institution", inst.parent)
+class HierarchyDepthExceeded(ValueError):
+    def __init__(self) -> None:
+        super().__init__(
+            f"Institution hierarchy exceeds maximum depth of {INSTITUTION_HIERARCHY_LIMIT}"
+        )
 
 
-def _compute_instance_path(
-    inst: "Institution",
-    by_pk: dict[int, "Institution"],
-    computed: set[UUID],
-) -> None:
-    if inst.node_id in computed:
-        return
-    parent = _resolve_parent(inst, by_pk)
-    if parent and parent.pk in by_pk:
-        _compute_instance_path(parent, by_pk, computed)
-    if parent:
-        if parent.is_descendant_of(inst):
-            raise ValueError(
-                "Setting this parent would create a cycle in the institution hierarchy."
-            )
-        inst.path = _compute_path(inst.node_id, parent)
-    computed.add(inst.node_id)
+class HierarchyContainsCycle(ValueError):
+    MESSAGE = "Setting this parent would create a cycle in the institution hierarchy."
+
+    def __init__(self) -> None:
+        super().__init__(self.MESSAGE)
 
 
-def _prepare_instances(objs: Iterable["Institution"]) -> None:
-    """Assign node_id and compute path for each instance in topological order.
+def _walk_ancestor_ids(
+    start_id: int,
+    parent_lookup: dict[int, int | None] | None = None,
+) -> Generator[int]:
+    """Yield each ancestor pk walking up the parent chain from start_id.
 
-    Instances are processed so that a parent's path is always computed before
-    its children, even when both appear in the same batch.
+    Uses parent_lookup for in-memory resolution where available,
+    falling back to DB queries for ids not in the lookup.
+    Raises HierarchyDepthExceeded if the chain exceeds the limit.
     """
-    instances = list(objs)
+    depth = 0
+    current_id: int | None = start_id
+    while current_id is not None:
+        depth += 1
+        if depth > INSTITUTION_HIERARCHY_LIMIT:
+            raise HierarchyDepthExceeded()
+        yield current_id
+        if parent_lookup is not None and current_id in parent_lookup:
+            current_id = parent_lookup[current_id]
+        else:
+            inst = Institution.objects.only("parent_id").get(pk=current_id)
+            current_id = inst.parent_id
+
+
+def _check_batch_cycles(instances: list["Institution"]) -> None:
+    """Check for cycles in a batch of instances being created/updated.
+
+    Walks parent chains efficiently: checks batch parents first (in-memory),
+    then falls back to DB queries for parents outside the batch.
+    """
+    parent_lookup: dict[int, int | None] = {
+        inst.pk: inst.parent_id
+        for inst in instances
+        if inst.pk is not None and inst.parent_id is not None
+    }
 
     for inst in instances:
-        if not inst.node_id:
-            inst.node_id = uuid4()
+        if inst.parent_id is None:
+            continue
 
-    by_pk: dict[int, "Institution"] = {inst.pk: inst for inst in instances if inst.pk}
-
-    computed: set[UUID] = set()
-    for inst in instances:
-        _compute_instance_path(inst, by_pk, computed)
+        for ancestor_id in _walk_ancestor_ids(inst.parent_id, parent_lookup):
+            if ancestor_id == inst.pk:
+                raise HierarchyContainsCycle()
 
 
 class InstitutionQuerySet(models.QuerySet["Institution"]):
@@ -79,7 +85,7 @@ class InstitutionQuerySet(models.QuerySet["Institution"]):
         unique_fields: Collection[str] | None = None,
     ) -> list["Institution"]:
         instances = list(objs)
-        _prepare_instances(instances)
+        _check_batch_cycles(instances)
         return super().bulk_create(
             instances,
             batch_size=batch_size,
@@ -96,12 +102,8 @@ class InstitutionQuerySet(models.QuerySet["Institution"]):
         batch_size: int | None = None,
     ) -> int:
         instances = list(objs)
-        _prepare_instances(instances)
-        # Ensure path is always updated alongside parent
-        fields_with_path = list(fields)
-        if "parent" in fields_with_path and "path" not in fields_with_path:
-            fields_with_path.append("path")
-        return super().bulk_update(instances, fields_with_path, batch_size=batch_size)
+        _check_batch_cycles(instances)
+        return super().bulk_update(instances, fields, batch_size=batch_size)
 
 
 class InstitutionManager(models.Manager["Institution"]):
@@ -126,8 +128,6 @@ class Institution(models.Model):
         help_text="Stable identifier for import/export matching",
     )
     virtual = models.BooleanField(default=False)
-    node_id = models.UUIDField(default=uuid4, unique=True, editable=False)
-    path = models.CharField(max_length=500, db_index=True, default="")
     parent = models.ForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
     )
@@ -139,6 +139,11 @@ class Institution(models.Model):
     objects = InstitutionManager()
     all_objects = AllInstitutionManager()
 
+    def clean(self) -> None:
+        super().clean()
+        if self._contains_cycle():
+            raise ValidationError(HierarchyContainsCycle.MESSAGE)
+
     def save(
         self,
         *,
@@ -147,17 +152,8 @@ class Institution(models.Model):
         using: str | None = None,
         update_fields: Iterable[str] | None = None,
     ) -> None:
-        if not self.node_id:
-            self.node_id = uuid4()
-        parent = cast(Institution, self.parent) if self.parent_id is not None else None
-        if parent is not None:
-            if parent.is_descendant_of(self):
-                raise ValueError(
-                    "Setting this parent would create a cycle in the institution hierarchy."
-                )
-            self.path = _compute_path(self.node_id, parent)
-        else:
-            self.path = _compute_path(self.node_id, None)
+        if self._contains_cycle():
+            raise HierarchyContainsCycle()
         super().save(
             force_insert=force_insert,
             force_update=force_update,
@@ -165,16 +161,38 @@ class Institution(models.Model):
             update_fields=update_fields,
         )
 
+    def _contains_cycle(self) -> bool:
+        if self.parent_id is None or self.pk is None:
+            return False
+        if self.parent_id == self.pk:
+            return True
+
+        parent = cast(Institution, self.parent)
+        return parent.is_descendant_of(self)
+
     def is_descendant_of(self, other: "Institution") -> bool:
-        return bool(other.path) and self.path.startswith(other.path)
+        if self.pk is None or other.pk is None or self.pk == other.pk:
+            return False
+
+        if self.parent_id is None:
+            return False
+
+        return other.pk in _walk_ancestor_ids(self.parent_id)
 
     def set_parent(self, parent: "Institution | None") -> None:
         self.parent = parent
 
     def walk(self) -> Generator["Institution"]:
-        yield self
-        for child in self.children.all():
-            yield from child.walk()
+        visited: set[int] = set()
+        stack: list["Institution"] = [self]
+        while stack:
+            current = stack.pop()
+            if current.pk in visited:
+                raise ValueError("Cycle detected during walk — hierarchy is corrupted")
+            visited.add(current.pk)
+            yield current
+            for child in current.children.all():
+                stack.append(child)
 
     def archive(self) -> None:
         self.archived_at = timezone.now()
