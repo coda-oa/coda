@@ -1,9 +1,50 @@
 from collections.abc import Collection, Generator, Iterable
-from typing import cast
+from typing import Final, cast
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.base import ModelBase
 from django.utils import timezone
+
+INSTITUTION_HIERARCHY_LIMIT: Final[int] = 100
+
+
+class HierarchyDepthExceeded(ValueError):
+    def __init__(self) -> None:
+        super().__init__(
+            f"Institution hierarchy exceeds maximum depth of {INSTITUTION_HIERARCHY_LIMIT}"
+        )
+
+
+class HierarchyContainsCycle(ValueError):
+    MESSAGE = "Setting this parent would create a cycle in the institution hierarchy."
+
+    def __init__(self) -> None:
+        super().__init__(self.MESSAGE)
+
+
+def _walk_ancestor_ids(
+    start_id: int,
+    parent_lookup: dict[int, int | None] | None = None,
+) -> Generator[int]:
+    """Yield each ancestor pk walking up the parent chain from start_id.
+
+    Uses parent_lookup for in-memory resolution where available,
+    falling back to DB queries for ids not in the lookup.
+    Raises HierarchyDepthExceeded if the chain exceeds the limit.
+    """
+    depth = 0
+    current_id: int | None = start_id
+    while current_id is not None:
+        depth += 1
+        if depth > INSTITUTION_HIERARCHY_LIMIT:
+            raise HierarchyDepthExceeded()
+        yield current_id
+        if parent_lookup is not None and current_id in parent_lookup:
+            current_id = parent_lookup[current_id]
+        else:
+            inst = Institution.objects.only("parent_id").get(pk=current_id)
+            current_id = inst.parent_id
 
 
 def _check_batch_cycles(instances: list["Institution"]) -> None:
@@ -12,8 +53,8 @@ def _check_batch_cycles(instances: list["Institution"]) -> None:
     Walks parent chains efficiently: checks batch parents first (in-memory),
     then falls back to DB queries for parents outside the batch.
     """
-    batch_parents: dict[int, int | None] = {
-        cast(int, inst.pk): inst.parent_id
+    parent_lookup: dict[int, int | None] = {
+        inst.pk: inst.parent_id
         for inst in instances
         if inst.pk is not None and inst.parent_id is not None
     }
@@ -22,24 +63,9 @@ def _check_batch_cycles(instances: list["Institution"]) -> None:
         if inst.parent_id is None:
             continue
 
-        depth = 0
-        current_id: int | None = inst.parent_id
-
-        while current_id is not None:
-            depth += 1
-            if depth > 100:
-                raise ValueError("Institution hierarchy exceeds maximum depth of 100")
-
-            if current_id == inst.pk:
-                raise ValueError(
-                    "Setting this parent would create a cycle in the institution hierarchy."
-                )
-
-            if current_id in batch_parents:
-                current_id = batch_parents[current_id] 
-            else:
-                parent = Institution.objects.only("parent_id").get(pk=current_id)
-                current_id = parent.parent_id
+        for ancestor_id in _walk_ancestor_ids(inst.parent_id, parent_lookup):
+            if ancestor_id == inst.pk:
+                raise HierarchyContainsCycle()
 
 
 class InstitutionQuerySet(models.QuerySet["Institution"]):
@@ -54,6 +80,9 @@ class InstitutionQuerySet(models.QuerySet["Institution"]):
         objs: Iterable["Institution"],
         batch_size: int | None = None,
         ignore_conflicts: bool = False,
+        update_conflicts: bool = False,
+        update_fields: Collection[str] | None = None,
+        unique_fields: Collection[str] | None = None,
     ) -> list["Institution"]:
         instances = list(objs)
         _check_batch_cycles(instances)
@@ -61,6 +90,9 @@ class InstitutionQuerySet(models.QuerySet["Institution"]):
             instances,
             batch_size=batch_size,
             ignore_conflicts=ignore_conflicts,
+            update_conflicts=update_conflicts,
+            update_fields=update_fields,
+            unique_fields=unique_fields,
         )
 
     def bulk_update(
@@ -107,32 +139,21 @@ class Institution(models.Model):
     objects = InstitutionManager()
     all_objects = AllInstitutionManager()
 
-    def _would_create_cycle(self) -> bool:
-        if self.parent_id is None or self.pk is None:
-            return False
-        if self.parent_id == self.pk:
-            return True
-        return self.parent.is_descendant_of(self)
-
     def clean(self) -> None:
         super().clean()
-        if self._would_create_cycle():
-            raise ValidationError(
-                "Setting this parent would create a circular reference in the institution hierarchy."
-            )
+        if self._contains_cycle():
+            raise ValidationError(HierarchyContainsCycle.MESSAGE)
 
     def save(
         self,
         *,
-        force_insert: bool = False,
+        force_insert: bool | tuple[ModelBase, ...] = False,
         force_update: bool = False,
         using: str | None = None,
         update_fields: Iterable[str] | None = None,
     ) -> None:
-        if self._would_create_cycle():
-            raise ValueError(
-                "Setting this parent would create a cycle in the institution hierarchy."
-            )
+        if self._contains_cycle():
+            raise HierarchyContainsCycle()
         super().save(
             force_insert=force_insert,
             force_update=force_update,
@@ -140,23 +161,23 @@ class Institution(models.Model):
             update_fields=update_fields,
         )
 
+    def _contains_cycle(self) -> bool:
+        if self.parent_id is None or self.pk is None:
+            return False
+        if self.parent_id == self.pk:
+            return True
+
+        parent = cast(Institution, self.parent)
+        return parent.is_descendant_of(self)
+
     def is_descendant_of(self, other: "Institution") -> bool:
         if self.pk is None or other.pk is None or self.pk == other.pk:
             return False
 
-        depth = 0
-        current_id: int | None = self.pk
-        while current_id is not None:
-            depth += 1
-            if depth > 100:
-                raise ValueError("Institution hierarchy exceeds maximum depth of 100")
+        if self.parent_id is None:
+            return False
 
-            inst = Institution.objects.only("parent_id").get(pk=current_id)
-            if inst.parent_id == other.pk:
-                return True
-            current_id = inst.parent_id
-
-        return False
+        return other.pk in _walk_ancestor_ids(self.parent_id)
 
     def set_parent(self, parent: "Institution | None") -> None:
         self.parent = parent

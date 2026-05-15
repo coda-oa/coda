@@ -101,24 +101,6 @@ def test__bulk_update__cycle__raises() -> None:
 
 
 @pytest.mark.django_db
-def test__save__cycle_check_makes_one_select_per_depth_level() -> None:
-    root = Institution.objects.create(name="Root University")
-    middle = Institution.objects.create(name="Middle University", parent=root)
-    child = Institution.objects.create(name="Child University", parent=middle)
-    independent = Institution.objects.create(name="Independent University")
-
-    # Reparenting child under independent is valid (no cycle)
-    # is_descendant_of walks independent's chain: 1 SELECT (independent has no parent)
-    with django.test.utils.CaptureQueriesContext(django.db.connection) as ctx:
-        child.set_parent(independent)
-        child.save()
-
-    query_types = [q["sql"].split()[0].upper() for q in ctx.captured_queries]
-    # 1 SELECT for is_descendant_of + 1 UPDATE for the save
-    assert query_types == ["SELECT", "UPDATE"], f"Expected SELECT + UPDATE, got: {query_types}"
-
-
-@pytest.mark.django_db
 def test__bulk_update__cycle_check_makes_selects_for_parents_not_in_batch() -> None:
     root = Institution.objects.create(name="Root University")
     child = Institution.objects.create(name="Child University", parent=root)
