@@ -2,6 +2,20 @@
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 
+# Shared state between step functions
+STASH_REF=""
+CODA_STOPPED=false
+CODA_RESTARTED=false
+
+# Cleanup: restart CODA if it was stopped but not restarted
+cleanup() {
+  if [[ "$CODA_STOPPED" == true && "$CODA_RESTARTED" == false ]]; then
+    echo "Warning: CODA was stopped but the update failed. Restarting..." >&2
+    ${script_dir}/start-coda.sh --${CODA_ENV} || true
+  fi
+}
+trap cleanup EXIT
+
 # Custom usage for update script
 show_update_usage() {
   echo "Usage: $0 [OPTIONS]"
@@ -68,7 +82,7 @@ parse_update_args() {
 parse_update_args "$@"
 
 # Source common.sh for environment setup
-source ${script_dir}/common.sh "$@"
+source "${script_dir}/common.sh" "$@"
 
 has_uncommitted_changes() {
   if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
@@ -128,6 +142,7 @@ step_stop_coda() {
     echo "Error: Failed to stop CODA. Aborting update." >&2
     return 1
   fi
+  CODA_STOPPED=true
   echo ""
   return 0
 }
@@ -137,6 +152,7 @@ step_fetch_and_switch() {
   if has_uncommitted_changes; then
     echo "Stashing uncommitted changes..."
     git stash push --include-untracked
+    STASH_REF="stash@{0}"
   fi
   git fetch origin "$BRANCH"
   if ! git checkout "$BRANCH" 2>/dev/null; then
@@ -153,13 +169,14 @@ step_pull_and_restore() {
   if [[ $? -ne 0 ]]; then
     echo "Error: Git pull failed. Restoring original branch..." >&2
     git checkout - 2>/dev/null || true
-    git stash pop 2>/dev/null || true
-    ${script_dir}/start-coda.sh --${CODA_ENV}
+    if [[ -n "${STASH_REF:-}" ]]; then
+      git stash pop "$STASH_REF" 2>/dev/null || true
+    fi
     return 1
   fi
 
-  # Restore stashed changes if they exist
-  if git stash list 2>/dev/null | grep -q . && ! git stash pop 2>&1; then
+  # Restore stashed changes if we created one in this run
+  if [[ -n "${STASH_REF:-}" ]] && ! git stash pop "$STASH_REF" 2>&1; then
     echo "Warning: Stash restore had conflicts." >&2
     echo "Your local changes may need manual conflict resolution." >&2
   fi
@@ -174,6 +191,7 @@ step_start_coda() {
     echo "Error: Failed to start CODA." >&2
     return 1
   fi
+  CODA_RESTARTED=true
   echo ""
   return 0
 }
