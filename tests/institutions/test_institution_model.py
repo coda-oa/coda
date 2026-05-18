@@ -154,6 +154,27 @@ def test__bulk_update__intra_batch_cycle__raises() -> None:
 
 
 @pytest.mark.django_db
+def test__is_descendant_of__unsaved_intermediate_parent__returns_stale_result() -> None:
+    """
+    is_descendant_of queries the DB for intermediate ancestors, so it misses
+    in-memory parent changes that haven't been saved yet.
+
+    DB state:  A (no parent), B (no parent), C.parent=B
+    In memory: b.parent = a  (not saved)
+
+    c.is_descendant_of(a) should be True (C→B→A), but returns False because
+    _walk_ancestor_ids fetches B from the DB where B.parent is still None.
+    """
+    a = Institution.objects.create(name="A")
+    b = Institution.objects.create(name="B")
+    c = Institution.objects.create(name="C", parent=b)
+
+    b.parent = a  # dirty — not saved
+
+    assert c.is_descendant_of(a) is True  # fix works: follows b.parent=a in memory
+
+
+@pytest.mark.django_db
 def test__bulk_update__cycle_with_parent_not_in_batch__raises() -> None:
     """Cycle completed by a parent existing in DB but not in the batch."""
     root = Institution.objects.create(name="Root")
