@@ -13,6 +13,8 @@ cleanup() {
     echo "Warning: CODA was stopped but the update failed. Restarting..." >&2
     ${script_dir}/start-coda.sh --${CODA_ENV} || true
   fi
+
+  return 0
 }
 trap cleanup EXIT
 
