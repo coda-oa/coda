@@ -34,11 +34,12 @@ parse_update_args() {
     local arg="$1"
     case "$arg" in
     --branch)
-      if [[ -z "$2" || "$2" == --* ]]; then
+      local branch_value="$2"
+      if [[ -z "$branch_value" || "$branch_value" == --* ]]; then
         echo "Error: --branch requires a value" >&2
         exit 1
       fi
-      BRANCH="$2"
+      BRANCH="$branch_value"
       shift 2
       ;;
     --backup)
@@ -101,6 +102,80 @@ preflight_checks() {
     echo "These will be stashed before switching branches."
     echo ""
   fi
+  return 0
+}
+
+step_create_backup() {
+  if [[ "$CREATE_BACKUP" == true ]]; then
+    echo "Step 1/5: Creating backup..."
+    ${script_dir}/backups.sh --${CODA_ENV} create
+    if [[ $? -ne 0 ]]; then
+      echo "Error: Backup failed. Aborting update." >&2
+      return 1
+    fi
+    echo ""
+  else
+    echo "Step 1/5: Skipping backup (use --backup to create one)"
+    echo ""
+  fi
+  return 0
+}
+
+step_stop_coda() {
+  echo "Step 2/5: Stopping CODA..."
+  ${script_dir}/stop-coda.sh --${CODA_ENV}
+  if [[ $? -ne 0 ]]; then
+    echo "Error: Failed to stop CODA. Aborting update." >&2
+    return 1
+  fi
+  echo ""
+  return 0
+}
+
+step_fetch_and_switch() {
+  echo "Step 3/5: Fetching and switching to branch '$BRANCH'..."
+  if has_uncommitted_changes; then
+    echo "Stashing uncommitted changes..."
+    git stash push --include-untracked
+  fi
+  git fetch origin "$BRANCH"
+  if ! git checkout "$BRANCH" 2>/dev/null; then
+    echo "Branch '$BRANCH' not found locally, creating it from remote..."
+    git checkout -b "$BRANCH" "origin/$BRANCH"
+  fi
+  echo ""
+  return 0
+}
+
+step_pull_and_restore() {
+  echo "Step 4/5: Pulling latest changes and restoring stashed changes..."
+  git pull origin "$BRANCH"
+  if [[ $? -ne 0 ]]; then
+    echo "Error: Git pull failed. Restoring original branch..." >&2
+    git checkout - 2>/dev/null || true
+    git stash pop 2>/dev/null || true
+    ${script_dir}/start-coda.sh --${CODA_ENV}
+    return 1
+  fi
+
+  # Restore stashed changes if they exist
+  if git stash list 2>/dev/null | grep -q . && ! git stash pop 2>&1; then
+    echo "Warning: Stash restore had conflicts." >&2
+    echo "Your local changes may need manual conflict resolution." >&2
+  fi
+  echo ""
+  return 0
+}
+
+step_start_coda() {
+  echo "Step 5/5: Starting CODA (this will rebuild containers and run migrations)..."
+  ${script_dir}/start-coda.sh --${CODA_ENV}
+  if [[ $? -ne 0 ]]; then
+    echo "Error: Failed to start CODA." >&2
+    return 1
+  fi
+  echo ""
+  return 0
 }
 
 update_coda() {
@@ -120,70 +195,11 @@ update_coda() {
   echo "Backup: $([[ "$CREATE_BACKUP" == true ]] && echo "Yes" || echo "No")"
   echo ""
 
-  # Step 1: Create backup if requested
-  if [[ "$CREATE_BACKUP" == true ]]; then
-    echo "Step 1/5: Creating backup..."
-    ${script_dir}/backups.sh --${CODA_ENV} create
-    if [[ $? -ne 0 ]]; then
-      echo "Error: Backup failed. Aborting update." >&2
-      exit 1
-    fi
-    echo ""
-  else
-    echo "Step 1/5: Skipping backup (use --backup to create one)"
-    echo ""
-  fi
-
-  # Step 2: Stop CODA
-  echo "Step 2/5: Stopping CODA..."
-  ${script_dir}/stop-coda.sh --${CODA_ENV}
-  if [[ $? -ne 0 ]]; then
-    echo "Error: Failed to stop CODA. Aborting update." >&2
-    exit 1
-  fi
-  echo ""
-
-  # Step 3: Fetch and switch to the target branch
-  echo "Step 3/5: Fetching and switching to branch '$BRANCH'..."
-  if has_uncommitted_changes; then
-    echo "Stashing uncommitted changes..."
-    git stash push --include-untracked
-  fi
-  git fetch origin "$BRANCH"
-  if ! git checkout "$BRANCH" 2>/dev/null; then
-    echo "Branch '$BRANCH' not found locally, creating it from remote..."
-    git checkout -b "$BRANCH" "origin/$BRANCH"
-  fi
-  echo ""
-
-  # Step 4: Pull latest changes and restore stashed changes
-  echo "Step 4/5: Pulling latest changes and restoring stashed changes..."
-  git pull origin "$BRANCH"
-  if [[ $? -ne 0 ]]; then
-    echo "Error: Git pull failed. Restoring original branch..." >&2
-    git checkout - 2>/dev/null || true
-    git stash pop 2>/dev/null || true
-    ${script_dir}/start-coda.sh --${CODA_ENV}
-    exit 1
-  fi
-
-  # Restore stashed changes if they exist
-  if git stash list 2>/dev/null | grep -q .; then
-    if ! git stash pop 2>&1; then
-      echo "Warning: Stash restore had conflicts." >&2
-      echo "Your local changes may need manual conflict resolution." >&2
-    fi
-  fi
-  echo ""
-
-  # Step 5: Start CODA
-  echo "Step 5/5: Starting CODA (this will rebuild containers and run migrations)..."
-  ${script_dir}/start-coda.sh --${CODA_ENV}
-  if [[ $? -ne 0 ]]; then
-    echo "Error: Failed to start CODA." >&2
-    exit 1
-  fi
-  echo ""
+  step_create_backup || exit 1
+  step_stop_coda || exit 1
+  step_fetch_and_switch || exit 1
+  step_pull_and_restore || exit 1
+  step_start_coda || exit 1
 
   echo "Update completed successfully!"
   echo ""
