@@ -154,24 +154,23 @@ def test__bulk_update__intra_batch_cycle__raises() -> None:
 
 
 @pytest.mark.django_db
-def test__is_descendant_of__unsaved_intermediate_parent__returns_stale_result() -> None:
+def test__is_descendant_of__unsaved_intermediate_parent__follows_in_memory_parent() -> None:
     """
-    is_descendant_of queries the DB for intermediate ancestors, so it misses
-    in-memory parent changes that haven't been saved yet.
+    _walk_ancestor_ids checks cached in-memory FK before falling back to DB,
+    so unsaved parent changes are respected during ancestor traversal.
 
     DB state:  A (no parent), B (no parent), C.parent=B
     In memory: b.parent = a  (not saved)
 
-    c.is_descendant_of(a) should be True (C→B→A), but returns False because
-    _walk_ancestor_ids fetches B from the DB where B.parent is still None.
+    c.is_descendant_of(a) returns True because the walk follows b.parent=a in memory.
     """
     a = Institution.objects.create(name="A")
     b = Institution.objects.create(name="B")
     c = Institution.objects.create(name="C", parent=b)
 
-    b.parent = a  # dirty — not saved
+    b.parent = a
 
-    assert c.is_descendant_of(a) is True  # fix works: follows b.parent=a in memory
+    assert c.is_descendant_of(a) is True
 
 
 @pytest.mark.django_db
