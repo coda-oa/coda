@@ -253,7 +253,9 @@ class Institution(models.Model):
         timestamp = timestamp or timezone.now()
         nodes = list(self.walk())
         for node in nodes:
-            node.archived_at = timestamp
+            if node.archived_at is None:
+                node.archived_at = timestamp
+
             node.virtual = True
         Institution.all_objects.bulk_update(nodes, fields=["archived_at", "virtual"])
 

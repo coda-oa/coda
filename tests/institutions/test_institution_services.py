@@ -1,3 +1,4 @@
+import datetime
 import pytest
 
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
@@ -180,13 +181,17 @@ def test__institution__archive__makes_virtual() -> None:
 
 
 @pytest.mark.django_db
-def test__institution__archive__makes_institution_virtual() -> None:
-    institution = Institution.objects.create(name="Old University", virtual=False)
+def test__archiving_institution_with_archived_children__children_keeps_archive_timestamp() -> None:
+    institution = Institution.objects.create(name="Test University")
+
+    child_archive_time = timezone.make_aware(datetime.datetime(2025, 1, 1))
+    child = Institution.objects.create(name="Child", parent=institution)
+    child.archive(child_archive_time)
 
     archive(institution)
 
-    institution.refresh_from_db()
-    assert institution.virtual is True
+    child.refresh_from_db()
+    assert child.archived_at == child_archive_time
 
 
 @pytest.mark.django_db
