@@ -1,22 +1,18 @@
+import secrets
+from dataclasses import dataclass, field
 from io import BytesIO, StringIO
 from typing import Any
-from datetime import datetime
-from django.db.models import QuerySet
-from django.db import transaction
-from django.utils import timezone
-import secrets
 
 import polars as pl
-
-from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
-from coda.domain.institution.links import create_link
-from coda.apps.invoices.models import FundingSource
-from coda.apps.preferences.models import GlobalPreferences
-
-from dataclasses import dataclass, field
+from django.db import transaction
+from django.db.models import QuerySet
+from django.utils import timezone
 
 from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.invoices.models import Invoice
+from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
+from coda.apps.invoices.models import FundingSource, Invoice
+from coda.apps.preferences.models import GlobalPreferences
+from coda.domain.institution.links import create_link
 
 # Constants
 BULK_OPERATION_BATCH_SIZE = 100
@@ -692,63 +688,26 @@ def archive(institution: Institution, replacement: Institution | None = None) ->
     if _is_home_institution(institution) and replacement is None:
         raise ValueError("Cannot archive home institution without replacement")
 
-    if institution.archived_at is not None:
+    if institution.is_archived():
         raise ValueError("Institution is already archived")
 
     if replacement is not None:
-        if replacement.pk == institution.pk or replacement.is_descendant_of(institution):
-            raise ValueError("Cannot archive: replacement would create a cycle")
-        institution.children.update(parent=replacement)
+        institution.archive_with_replacement(replacement, timezone.now())
         _update_home_institution_if_needed(institution, replacement)
+        return
 
     timestamp = timezone.now()
-    _archive_institution_tree(institution, timestamp)
-
-
-def _archive_institution_tree(institution: Institution, timestamp: datetime) -> None:
-    visited: set[int] = set()
-    stack: list[tuple[Institution, bool]] = [(institution, False)]
-    while stack:
-        current, processed = stack.pop()
-        if processed:
-            if current.archived_at is None:
-                current.archived_at = timestamp
-                current.virtual = True
-                current.save()
-            continue
-        if current.pk in visited:
-            raise ValueError("Cycle detected during archive — hierarchy is corrupted")
-        visited.add(current.pk)
-        stack.append((current, True))
-        for child in current.children.all():
-            stack.append((child, False))
+    institution.archive(timestamp)
 
 
 def restore_without_children(
     institution: Institution, new_parent: Institution | None = None
 ) -> None:
-    institution.archived_at = None
-    institution.virtual = False
-    if new_parent is not None:
-        institution.set_parent(new_parent)
-    institution.save()
+    institution.restore_without_children(new_parent)
 
 
 def restore_with_children(institution: Institution, new_parent: Institution | None = None) -> None:
-    if new_parent is not None:
-        institution.set_parent(new_parent)
-        institution.save()
-    _restore_institution_tree(institution)
-
-
-def _restore_institution_tree(institution: Institution) -> None:
-    if institution.archived_at is not None:
-        institution.archived_at = None
-        institution.virtual = False
-        institution.save()
-
-    for child in Institution.all_objects.filter(parent=institution):
-        _restore_institution_tree(child)
+    institution.restore_with_children(new_parent)
 
 
 def _is_home_institution(institution: Institution) -> bool:
