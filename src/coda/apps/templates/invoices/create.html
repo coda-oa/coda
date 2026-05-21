@@ -40,10 +40,10 @@
                                 <td>{{ field.label_tag }}</td>
                                 <td>
                                     {% if field.name == "creditor" %}
-                                        {% if field.errors %}<p>{{ field.errors }}</p>{% endif %}
+                                        {% if field.errors %}{{ field.errors }}{% endif %}
                                         <div class="flex align-start">
                                             <div id="creditor-select-wrapper" class="w-100 mb-1">
-                                                {% include "invoices/partials/creditor_select.html" with creditors=creditors selected_creditor_id=form.creditor.value required=field.field.required %}
+                                                {% include "invoices/partials/creditor_select.html" with creditors=creditors selected_creditor_id=form.creditor.value required=field.field.required has_errors=field.errors %}
                                             </div>
                                             <button class="secondary"
                                                     hx-get="{% url "invoices:creditor_create_modal" %}"
