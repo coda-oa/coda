@@ -1,7 +1,8 @@
 <search-select name="creditor" id="id_creditor"
 {% if required %}required{% endif %}
+{% if form.errors.creditor %}aria-invalid="true"{% endif %}
 >
-<li value="">---------</li>
+<li value="" {% if not selected_creditor_id %}selected{% endif %}>---------</li>
 {% for creditor in creditors %}
     <li value="{{ creditor.id }}"
         {% if selected_creditor_id == creditor.id %}selected{% endif %}>{{ creditor.name }}</li>

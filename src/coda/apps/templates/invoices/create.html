@@ -39,8 +39,9 @@
                             <tr>
                                 <td>{{ field.label_tag }}</td>
                                 <td>
-                                    <div class="flex align-start">
-                                        {% if field.name == "creditor" %}
+                                    {% if field.name == "creditor" %}
+                                        {% if field.errors %}<p>{{ field.errors }}</p>{% endif %}
+                                        <div class="flex align-start">
                                             <div id="creditor-select-wrapper" class="w-100 mb-1">
                                                 {% include "invoices/partials/creditor_select.html" with creditors=creditors selected_creditor_id=form.creditor.value required=field.field.required %}
                                             </div>
@@ -49,10 +50,10 @@
                                                     hx-target="#entity-creation-modal-wrapper"
                                                     hx-trigger="click"
                                                     hx-swap="innerHTML">New</button>
-                                        {% else %}
-                                            {{ field }}
-                                        {% endif %}
-                                    </div>
+                                        </div>
+                                    {% else %}
+                                        {{ field }}
+                                    {% endif %}
                                 </td>
                             </tr>
                         {% endif %}
