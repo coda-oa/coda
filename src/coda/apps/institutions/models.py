@@ -49,9 +49,9 @@ def _walk_ancestor_ids(
 
     Raises HierarchyDepthExceeded if the chain exceeds the limit.
     """
-    depth = 0
-    current_id: int | None = start.pk
-    current_obj: Institution | None = start
+    depth = 1
+    current_id: int | None = start.parent_id
+    current_obj: Institution | None = start.parent
     parent_lookup = parent_lookup or {}
 
     while current_id is not None:
