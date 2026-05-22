@@ -1,85 +1,133 @@
-from collections.abc import Collection, Generator, Iterable
-from typing import cast
-from uuid import uuid4, UUID
+from __future__ import annotations
 
+import datetime
+from collections.abc import Collection, Generator, Iterable
+from typing import TYPE_CHECKING, Final, TypeIs, cast
+
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.base import ModelBase
 from django.utils import timezone
 
-
-def _compute_path(node_id: UUID, parent: "Institution | None") -> str:
-    if parent is None:
-        return f"/{node_id}/"
-    return parent.path + str(node_id) + "/"
+INSTITUTION_HIERARCHY_LIMIT: Final[int] = 100
 
 
-def _resolve_parent(
-    inst: "Institution",
-    by_pk: dict[int, "Institution"],
-) -> "Institution | None":
-    if inst.parent_id is None:
-        return None
-    if inst.parent_id in by_pk:
-        return by_pk[inst.parent_id]
-    return cast("Institution", inst.parent)
+class HierarchyDepthExceeded(ValueError):
+    def __init__(self) -> None:
+        super().__init__(
+            f"Institution hierarchy exceeds maximum depth of {INSTITUTION_HIERARCHY_LIMIT}"
+        )
 
 
-def _compute_instance_path(
-    inst: "Institution",
-    by_pk: dict[int, "Institution"],
-    computed: set[UUID],
-) -> None:
-    if inst.node_id in computed:
-        return
-    parent = _resolve_parent(inst, by_pk)
-    if parent and parent.pk in by_pk:
-        _compute_instance_path(parent, by_pk, computed)
-    if parent:
-        if parent.is_descendant_of(inst):
-            raise ValueError(
-                "Setting this parent would create a cycle in the institution hierarchy."
-            )
-        inst.path = _compute_path(inst.node_id, parent)
-    computed.add(inst.node_id)
+class HierarchyContainsCycle(ValueError):
+    CORRUPTED_HIERARCHY_MESSAGE = "Cycle detected during walk — hierarchy is corrupted"
+    SETTING_INVALID_PARENT_MESSAGE = (
+        "Setting this parent would create a cycle in the institution hierarchy."
+    )
+
+    @classmethod
+    def invalid_parent(cls) -> HierarchyContainsCycle:
+        return cls(cls.SETTING_INVALID_PARENT_MESSAGE)
+
+    @classmethod
+    def corrupted_hierarchy(cls) -> HierarchyContainsCycle:
+        return cls(cls.CORRUPTED_HIERARCHY_MESSAGE)
 
 
-def _prepare_instances(objs: Iterable["Institution"]) -> None:
-    """Assign node_id and compute path for each instance in topological order.
+def _walk_ancestor_ids(
+    start: Institution,
+    parent_lookup: dict[int, int | None] | None = None,
+) -> Generator[int]:
+    """Yield each ancestor pk walking up the parent chain from start.
 
-    Instances are processed so that a parent's path is always computed before
-    its children, even when both appear in the same batch.
+    Begins at start's parent (start itself is not yielded or counted).
+    Resolution order for each hop:
+    1. In-memory parent object if the FK is cached on the current instance
+       (avoids DB queries for dirty/unsaved objects)
+    2. Explicit parent_lookup dict (used by bulk operations for batch overrides)
+    3. DB fetch as fallback
+
+    Raises HierarchyDepthExceeded if the chain exceeds the limit.
     """
-    instances = list(objs)
+    depth = 1
+    if start.parent_id is None:
+        return
+
+    parent_lookup = parent_lookup or {}
+    current_id, current_obj = _get_parent(start.pk, start, parent_lookup)
+
+    while current_id is not None:
+        yield current_id
+
+        depth += 1
+        if depth > INSTITUTION_HIERARCHY_LIMIT:
+            raise HierarchyDepthExceeded()
+
+        current_id, current_obj = _get_parent(current_id, current_obj, parent_lookup)
+
+
+def _get_parent(
+    current_id: int, current_obj: Institution | None, parent_lookup: dict[int, int | None]
+) -> tuple[int | None, Institution | None]:
+    if _parent_loaded_in_memory(current_obj):
+        next_obj = current_obj._state.fields_cache["parent"]
+        next_id = next_obj.pk if next_obj is not None else None
+    elif current_id in parent_lookup:
+        next_id = parent_lookup[current_id]
+        next_obj = None
+    else:
+        next_obj = Institution.all_objects.only("parent_id").get(pk=current_id)
+        next_id = next_obj.parent_id
+
+    return next_id, next_obj
+
+
+def _parent_loaded_in_memory(current_obj: Institution | None) -> TypeIs[Institution]:
+    return current_obj is not None and "parent" in current_obj._state.fields_cache
+
+
+def _check_batch_cycles(instances: list[Institution]) -> None:
+    """Check for cycles in a batch of instances being created/updated.
+
+    Walks parent chains efficiently: checks batch parents first (in-memory),
+    then falls back to DB queries for parents outside the batch.
+    """
+    parent_lookup: dict[int, int | None] = {
+        inst.pk: inst.parent_id
+        for inst in instances
+        if inst.pk is not None and inst.parent_id is not None
+    }
 
     for inst in instances:
-        if not inst.node_id:
-            inst.node_id = uuid4()
+        if inst.parent_id is None:
+            continue
 
-    by_pk: dict[int, "Institution"] = {inst.pk: inst for inst in instances if inst.pk}
+        visited = set()
+        for ancestor_id in _walk_ancestor_ids(inst, parent_lookup):
+            if ancestor_id in visited:
+                raise HierarchyContainsCycle.invalid_parent()
 
-    computed: set[UUID] = set()
-    for inst in instances:
-        _compute_instance_path(inst, by_pk, computed)
+            visited.add(ancestor_id)
 
 
 class InstitutionQuerySet(models.QuerySet["Institution"]):
-    def archived_only(self) -> "InstitutionQuerySet":
+    def archived_only(self) -> InstitutionQuerySet:
         return self.filter(archived_at__isnull=False)
 
-    def all_with_archived(self) -> "InstitutionQuerySet":
+    def all_with_archived(self) -> InstitutionQuerySet:
         return self
 
     def bulk_create(
         self,
-        objs: Iterable["Institution"],
+        objs: Iterable[Institution],
         batch_size: int | None = None,
         ignore_conflicts: bool = False,
         update_conflicts: bool = False,
         update_fields: Collection[str] | None = None,
         unique_fields: Collection[str] | None = None,
-    ) -> list["Institution"]:
+    ) -> list[Institution]:
         instances = list(objs)
-        _prepare_instances(instances)
+        _check_batch_cycles(instances)
         return super().bulk_create(
             instances,
             batch_size=batch_size,
@@ -91,17 +139,13 @@ class InstitutionQuerySet(models.QuerySet["Institution"]):
 
     def bulk_update(
         self,
-        objs: Iterable["Institution"],
+        objs: Iterable[Institution],
         fields: Iterable[str],
         batch_size: int | None = None,
     ) -> int:
         instances = list(objs)
-        _prepare_instances(instances)
-        # Ensure path is always updated alongside parent
-        fields_with_path = list(fields)
-        if "parent" in fields_with_path and "path" not in fields_with_path:
-            fields_with_path.append("path")
-        return super().bulk_update(instances, fields_with_path, batch_size=batch_size)
+        _check_batch_cycles(instances)
+        return super().bulk_update(instances, fields, batch_size=batch_size)
 
 
 class InstitutionManager(models.Manager["Institution"]):
@@ -112,11 +156,21 @@ class InstitutionManager(models.Manager["Institution"]):
         return InstitutionQuerySet(self.model, using=self._db).archived_only()
 
 
-AllInstitutionManager = models.Manager.from_queryset(InstitutionQuerySet)
+AllInstitutionManager: type[models.Manager[Institution]] = models.Manager.from_queryset(
+    InstitutionQuerySet
+)
 
 
 class Institution(models.Model):
+    objects = InstitutionManager()
+    all_objects = AllInstitutionManager()
+
+    if TYPE_CHECKING:
+        parent_id: int | None
+        children: models.QuerySet[Institution]
+
     name = models.CharField(max_length=255)
+    virtual = models.BooleanField(default=False)
     internal_id = models.CharField(
         max_length=50,
         unique=True,
@@ -125,19 +179,24 @@ class Institution(models.Model):
         default=None,
         help_text="Stable identifier for import/export matching",
     )
-    virtual = models.BooleanField(default=False)
-    node_id = models.UUIDField(default=uuid4, unique=True, editable=False)
-    path = models.CharField(max_length=500, db_index=True, default="")
     parent = models.ForeignKey(
-        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="children",
     )
-
     archived_at = models.DateTimeField(
-        null=True, blank=True, db_index=True, help_text="When this institution was archived"
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="When this institution was archived",
     )
 
-    objects = InstitutionManager()
-    all_objects = AllInstitutionManager()
+    def clean(self) -> None:
+        super().clean()
+        if self._contains_cycle():
+            raise ValidationError(HierarchyContainsCycle.SETTING_INVALID_PARENT_MESSAGE)
 
     def save(
         self,
@@ -147,17 +206,8 @@ class Institution(models.Model):
         using: str | None = None,
         update_fields: Iterable[str] | None = None,
     ) -> None:
-        if not self.node_id:
-            self.node_id = uuid4()
-        parent = cast(Institution, self.parent) if self.parent_id is not None else None
-        if parent is not None:
-            if parent.is_descendant_of(self):
-                raise ValueError(
-                    "Setting this parent would create a cycle in the institution hierarchy."
-                )
-            self.path = _compute_path(self.node_id, parent)
-        else:
-            self.path = _compute_path(self.node_id, None)
+        if self._contains_cycle():
+            raise HierarchyContainsCycle.invalid_parent()
         super().save(
             force_insert=force_insert,
             force_update=force_update,
@@ -165,20 +215,88 @@ class Institution(models.Model):
             update_fields=update_fields,
         )
 
-    def is_descendant_of(self, other: "Institution") -> bool:
-        return bool(other.path) and self.path.startswith(other.path)
+    def _contains_cycle(self) -> bool:
+        if self.parent_id is None or self.pk is None:
+            return False
+        if self.parent_id == self.pk:
+            return True
 
-    def set_parent(self, parent: "Institution | None") -> None:
+        parent = cast(Institution, self.parent)
+        return parent.is_descendant_of(self)
+
+    def is_descendant_of(self, other: Institution) -> bool:
+        if self.pk is None or other.pk is None or self.pk == other.pk:
+            return False
+
+        if self.parent_id is None:
+            return False
+
+        return other.pk in _walk_ancestor_ids(self)
+
+    def set_parent(self, parent: Institution | None) -> None:
         self.parent = parent
 
-    def walk(self) -> Generator["Institution"]:
-        yield self
-        for child in self.children.all():
-            yield from child.walk()
+    def walk(self) -> Generator[Institution]:
+        """Yield this institution and all descendants (depth-first).
 
-    def archive(self) -> None:
-        self.archived_at = timezone.now()
+        Children are discovered via DB queries (Institution.all_objects), so this
+        includes archived nodes but only sees persisted children. Unsaved in-memory
+        children whose parent_id points to a node in the tree will be silently
+        skipped — there is no general way to discover them from the parent side
+        without a DB query or the caller providing them explicitly.
+        """
+        visited: set[int] = set()
+        stack: list[Institution] = [self]
+        while stack:
+            current = stack.pop()
+            if current.pk in visited:
+                raise HierarchyContainsCycle.corrupted_hierarchy()
+            visited.add(current.pk)
+            yield current
+            for child in Institution.all_objects.filter(parent=current):
+                stack.append(child)
+
+    def is_archived(self) -> bool:
+        return self.archived_at is not None
+
+    def archive(self, timestamp: datetime.datetime | None = None) -> None:
+        timestamp = timestamp or timezone.now()
+        nodes = list(self.walk())
+        for node in nodes:
+            if node.archived_at is None:
+                node.archived_at = timestamp
+
+            node.virtual = True
+        Institution.all_objects.bulk_update(nodes, fields=["archived_at", "virtual"])
+
+    def archive_with_replacement(
+        self, replacement: Institution, timestamp: datetime.datetime | None = None
+    ) -> None:
+        if replacement.pk == self.pk or replacement.is_descendant_of(self):
+            raise HierarchyContainsCycle.invalid_parent()
+
+        self.children.update(parent=replacement)
+        self.archive(timestamp)
+
+    def restore_without_children(self, new_parent: Institution | None = None) -> None:
+        self.archived_at = None
+        self.virtual = False
+        if new_parent is not None:
+            self.set_parent(new_parent)
         self.save()
+
+    def restore_with_children(self, new_parent: Institution | None = None) -> None:
+        if new_parent is not None:
+            self.set_parent(new_parent)
+
+        nodes = list(self.walk())
+        for node in nodes:
+            if node.archived_at is None:
+                continue
+            node.archived_at = None
+            node.virtual = False
+
+        Institution.all_objects.bulk_update(nodes, fields=["archived_at", "virtual", "parent"])
 
     def __repr__(self) -> str:
         return f"Institution(id={self.pk}, name={self.name})"

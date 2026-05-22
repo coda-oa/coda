@@ -34,7 +34,7 @@ class InstitutionForm(forms.ModelForm[Institution]):
         if parent is None or instance.pk is None:
             return cleaned_data
 
-        if parent.is_descendant_of(instance):
+        if parent.pk == instance.pk or parent.is_descendant_of(instance):
             self.add_error(
                 "parent",
                 "This parent would create a cycle in the institution hierarchy. "
