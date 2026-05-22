@@ -50,9 +50,11 @@ def _walk_ancestor_ids(
     Raises HierarchyDepthExceeded if the chain exceeds the limit.
     """
     depth = 1
-    current_id: int | None = start.parent_id
-    current_obj: Institution | None = start.parent
+    if start.parent_id is None:
+        return
+
     parent_lookup = parent_lookup or {}
+    current_id, current_obj = _get_parent(start.pk, start, parent_lookup)
 
     while current_id is not None:
         yield current_id
@@ -61,15 +63,23 @@ def _walk_ancestor_ids(
         if depth > INSTITUTION_HIERARCHY_LIMIT:
             raise HierarchyDepthExceeded()
 
-        if _parent_loaded_in_memory(current_obj):
-            current_obj = current_obj._state.fields_cache["parent"]
-            current_id = current_obj.pk if current_obj is not None else None
-        elif current_id in parent_lookup:
-            current_id = parent_lookup[current_id]
-            current_obj = None
-        else:
-            current_obj = Institution.all_objects.only("parent_id").get(pk=current_id)
-            current_id = current_obj.parent_id
+        current_id, current_obj = _get_parent(current_id, current_obj, parent_lookup)
+
+
+def _get_parent(
+    current_id: int, current_obj: Institution | None, parent_lookup: dict[int, int | None]
+) -> tuple[int | None, Institution | None]:
+    if _parent_loaded_in_memory(current_obj):
+        next_obj = current_obj._state.fields_cache["parent"]
+        next_id = next_obj.pk if next_obj is not None else None
+    elif current_id in parent_lookup:
+        next_id = parent_lookup[current_id]
+        next_obj = None
+    else:
+        next_obj = Institution.all_objects.only("parent_id").get(pk=current_id)
+        next_id = next_obj.parent_id
+
+    return next_id, next_obj
 
 
 def _parent_loaded_in_memory(current_obj: Institution | None) -> TypeIs[Institution]:
