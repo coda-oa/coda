@@ -1,3 +1,4 @@
+from coda.apps.exports.services.fundingrequest_csv.dtos import FundingRequestExportDto
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.models import Invoice, Position, FundingAssignment
 from coda.contexts.fundingrequest.dto.import_dtos import (
@@ -320,4 +321,20 @@ def _map_funding_assignment_to_dto(assignment: FundingAssignment) -> FundingAssi
         type=funding_source.type if funding_source else "budget",
         name=funding_source.name if funding_source else "",
         amount=assignment.amount,
+    )
+
+
+def map_funding_request_to_export_dto(funding_request: FundingRequest) -> FundingRequestExportDto:
+
+    funding_request_dto = map_funding_request_to_dto(funding_request)
+
+    invoices_qs = Invoice.objects.filter(
+        positions__publication=funding_request.publication
+    ).distinct()
+
+    invoice_dtos = [map_invoice_to_dto(invoice) for invoice in invoices_qs]
+
+    return FundingRequestExportDto(
+        funding_request=funding_request_dto,
+        invoices=invoice_dtos,
     )
