@@ -1,4 +1,5 @@
 from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.invoices.models import Invoice, Position, FundingAssignment
 from coda.contexts.fundingrequest.dto.import_dtos import (
     AuthorImportDto,
     ContractImportDto,
@@ -13,9 +14,20 @@ from coda.contexts.fundingrequest.dto.import_dtos import (
     DecidedFundingImportDto,
     SeperateContactImportDto,
 )
+from coda.contexts.finance.dto.import_dtos import (
+    InvoiceImportDto,
+    PublicationPositionImportDto,
+    ContractPositionImportDto,
+    FreePositionImportDto,
+    FundingAssignmentImportDto,
+    ConversionImportDto,
+)
 from coda.domain.author import Role
 from coda.domain.orcid import Orcid
 from coda.domain.publication import License, OpenAccessType
+from coda.domain.finance.costtypes import PublicationCostType, ContractCostType
+from coda.domain.finance.invoice import PaymentStatus
+from coda.domain.fundingrequest.review import ReviewResult
 
 
 def map_funding_request_to_dto(funding_request: FundingRequest) -> FundingRequestImportDto:
@@ -163,7 +175,6 @@ def _map_external_funding_to_dto(funding_request: FundingRequest) -> list[Resear
 def _map_review_to_dto(funding_request: FundingRequest) -> ReviewImportDto:
     review_model = getattr(funding_request, "review", None)
     if review_model:
-        from coda.domain.fundingrequest.review import ReviewResult
 
         decided_funding = DecidedFundingImportDto(
             amount=(
@@ -207,3 +218,106 @@ def _map_seperate_contact_to_dto(funding_request: FundingRequest) -> SeperateCon
 
 def _map_labels_to_dto(funding_request: FundingRequest) -> list[str]:
     return [label.name for label in funding_request.labels.all()]
+
+
+def map_invoice_to_dto(invoice: Invoice) -> InvoiceImportDto:
+    currency = "EUR"
+    if invoice.positions.exists():
+        first_position = invoice.positions.first()
+        if first_position:
+            currency = first_position.cost_currency
+
+    conversion = None
+    if invoice.currency_conversions.exists():
+        conv = invoice.currency_conversions.first()
+        if conv:
+            conversion = ConversionImportDto(
+                target_currency=conv.target_currency, exchange_rate=conv.exchange_rate
+            )
+
+    positions = [_map_position_to_dto(pos) for pos in invoice.positions.all()]
+
+    return InvoiceImportDto(
+        number=invoice.number,
+        date=invoice.date,
+        creditor=invoice.creditor.name,
+        currency=currency,
+        status=PaymentStatus[invoice.status.capitalize()],
+        external_id=invoice.external_invoice_id or "",
+        comment=invoice.comment or "",
+        conversion=conversion,
+        positions=positions,
+    )
+
+
+def _map_position_to_dto(
+    position: Position,
+) -> PublicationPositionImportDto | ContractPositionImportDto | FreePositionImportDto:
+    """Map Django Position model to appropriate position DTO based on type.
+
+    Position type is determined by what's set:
+    - publication → PublicationPositionImportDto
+    - contract → ContractPositionImportDto
+    - neither → FreePositionImportDto
+    """
+    # Map funding assignments (common to all types)
+    funding_assignments = [
+        _map_funding_assignment_to_dto(fa) for fa in position.funding_assignments.all()
+    ]
+
+    # Get funding source from first assignment if exists
+    funding_source = ""
+    if funding_assignments:
+        funding_source = funding_assignments[0].name
+
+    # Common fields
+    common_kwargs = {
+        "amount": position.cost_amount,
+        "tax_rate": position.tax_rate * 100,  # Convert from fraction to percentage
+        "funding_source": funding_source,
+        "external_id": position.external_position_id or "",
+        "funding_assignments": funding_assignments,
+    }
+
+    # Determine position type and create appropriate DTO
+    if position.publication is not None:
+        funding_request = FundingRequest.objects.filter(publication=position.publication).first()
+
+        request_id = str(funding_request.request_id) if funding_request else None
+        legacy_request_id = funding_request.legacy_request_id if funding_request else ""
+
+        return PublicationPositionImportDto(
+            type="publication",
+            request_id=request_id,
+            legacy_request_id=legacy_request_id,
+            cost_type=PublicationCostType(position.cost_type),
+            **common_kwargs,
+        )
+
+    elif position.contract is not None:
+        # Contract position
+        return ContractPositionImportDto(
+            type="contract",
+            contract_name=position.contract.name,
+            contract_year=position.contract_year or 0,
+            cost_type=ContractCostType(position.cost_type),
+            **common_kwargs,
+        )
+
+    else:
+        return FreePositionImportDto(
+            type="free",
+            description=position.description or "",
+            cost_type=PublicationCostType(position.cost_type),
+            **common_kwargs,
+        )
+
+
+def _map_funding_assignment_to_dto(assignment: FundingAssignment) -> FundingAssignmentImportDto:
+    funding_source = assignment.funding_source
+
+    return FundingAssignmentImportDto(
+        type=funding_source.type if funding_source else "budget",
+        name=funding_source.name if funding_source else "",
+        amount=assignment.amount,
+    )
