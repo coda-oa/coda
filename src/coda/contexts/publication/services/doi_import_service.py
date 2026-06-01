@@ -29,6 +29,7 @@ from coda.domain.author import Role
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.issn import Issn
+from coda.domain.orcid import Orcid
 from coda.domain.publication import JournalId
 from coda.domain.publication.links import Doi
 from coda.domain.string import NonEmptyStr
@@ -291,11 +292,15 @@ class DOIImportService:
             if normalized_name is None:
                 continue
 
+            orcid = None
+            if external_author.orcid:
+                orcid = Orcid(external_author.orcid)
+
             authors.append(
                 AuthorDto(
                     name=normalized_name,
                     email="",
-                    orcid=None,
+                    orcid=orcid,
                     affiliation=None,
                     role=Role.CO_AUTHOR.name,
                 )

@@ -11,6 +11,11 @@ import pytest
 from tests import domainfactory
 from tests.contexts.publication import metadatafactory
 from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
+from tests.contexts.publication.fixtures.test_metadata import (
+    nature_article_metadata,
+    springer_book_metadata,
+)
+from tests.contexts.publication.metadatafactory import article_metadata, book_metadata
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 from coda.apps.fundingrequests import repository as fundingrequest_repository
@@ -79,7 +84,6 @@ def make_article_metadata(
 
     All keyword arguments are forwarded to metadatafactory.article_metadata().
     """
-    from tests.contexts.publication.metadatafactory import article_metadata  # noqa: PLC0415
 
     metadata = article_metadata(**kwargs)  # type: ignore[arg-type]
     return _make_client(doi, metadata), Doi(doi)
@@ -94,7 +98,6 @@ def make_book_metadata(
 
     All keyword arguments are forwarded to metadatafactory.book_metadata().
     """
-    from tests.contexts.publication.metadatafactory import book_metadata  # noqa: PLC0415
 
     metadata = book_metadata(**kwargs)  # type: ignore[arg-type]
     return _make_client(doi, metadata), Doi(doi)
@@ -148,10 +151,6 @@ def create_springer_book_publisher() -> int:
 @pytest.fixture
 def fake_doi_client() -> DOIMetadataClient:
     """Provides a fake DOI client configured with test data."""
-    from tests.contexts.publication.fixtures.test_metadata import (
-        nature_article_metadata,
-        springer_book_metadata,
-    )
 
     client = FakeDOIMetadataClient()
     # Configure with test data

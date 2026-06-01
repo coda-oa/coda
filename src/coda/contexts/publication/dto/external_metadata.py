@@ -1,14 +1,17 @@
 """External metadata DTOs - anti-corruption layer for Crossref/DataCite data."""
 
+from __future__ import annotations
+
 import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ExternalAuthor(BaseModel):
     """Author information from external metadata sources."""
 
     name: str
+    orcid: str | None = None
     affiliation: str | None = None
     ror_id: str | None = None
 
@@ -45,3 +48,10 @@ class ExternalPublicationMetadata(BaseModel):
     license: str | None = None
     online_publication_date: datetime.date | None = None
     print_publication_date: datetime.date | None = None
+    funders: list[ExternalFundingOrganisationMetadata] = Field(default_factory=list)
+
+
+class ExternalFundingOrganisationMetadata(BaseModel):
+    name: str
+    aliases: list[str] = Field(default_factory=list)
+    identifiers: list[str] = Field(default_factory=list)

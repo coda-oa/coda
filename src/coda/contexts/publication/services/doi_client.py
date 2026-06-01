@@ -163,6 +163,7 @@ class CrossrefDoiClient:
             name=name,
             affiliation=affiliation_name,
             ror_id=ror_id,
+            orcid=author.get("ORCID"),
         )
 
     def _extract_author_name(self, author: dict[str, Any]) -> str:
