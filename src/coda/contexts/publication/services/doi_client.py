@@ -11,6 +11,7 @@ import httpx
 
 from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
+    ExternalFundingOrganisationMetadata,
     ExternalJournal,
     ExternalPublicationMetadata,
 )
@@ -138,6 +139,10 @@ class CrossrefDoiClient:
         online_date = self._parse_date(message.get("published-online"))
         print_date = self._parse_date(message.get("published-print"))
 
+        funders_data = message.get("funder", [])
+        funders = [self._parse_funder(f) for f in funders_data]
+        funders = [f for f in funders if f is not None]
+
         return ExternalPublicationMetadata(
             title=title,
             authors=authors,
@@ -148,6 +153,7 @@ class CrossrefDoiClient:
             license=license_info,
             online_publication_date=online_date,
             print_publication_date=print_date,
+            funders=funders,
         )
 
     def _parse_authors(self, author_data: list[dict[str, Any]]) -> list[ExternalAuthor]:
@@ -291,3 +297,20 @@ class CrossrefDoiClient:
             return datetime.date(year, month, day)
         except ValueError:
             return datetime.date(year, 1, 1)
+
+    def _parse_funder(
+        self, funder_data: dict[str, Any] | None
+    ) -> ExternalFundingOrganisationMetadata | None:
+        print(funder_data)
+        if funder_data is None:
+            return None
+
+        if "name" not in funder_data and "DOI" not in funder_data:
+            return None
+
+        doi = funder_data.get("DOI")
+        identifiers = [doi] if doi else []
+
+        return ExternalFundingOrganisationMetadata(
+            name=funder_data["name"], identifiers=identifiers
+        )
