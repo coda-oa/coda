@@ -58,6 +58,28 @@ def test__single_funding_request_with_one_invoice__export_to_csv__returns_csv_wi
 
 
 @pytest.mark.django_db
+def test__funding_request_without_invoices__export_to_csv__returns_one_row_with_empty_cost_fields() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="Publication Only")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    period_start = date(2026, 1, 1)
+    period_end = date(2026, 12, 31)
+    requests_exports = export_fundingrequests_to_csv(period_start, period_end)
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+    assert df.height == 1
+
+    assert df["publication_title"][0] == "Publication Only"
+    assert df["invoice_number"][0] == ""
+    assert df["invoice_date"][0] == ""
+    assert df["position_amount"][0] == ""
+    assert df["funded_amount"][0] == ""
+
+
+@pytest.mark.django_db
 def test__no_funding_requests_in_period__export_to_csv__returns_csv_with_only_header() -> None:
     funding_request_not_in_period = modelfactory.fundingrequest(title="Test Publication for Export")
     funding_request_not_in_period.request_date = date(2025, 5, 1)

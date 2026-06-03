@@ -26,8 +26,23 @@
                 </div>
             </div>
             <hr>
-            <h2>Funding Request Filters (optional)</h2>
-            <h2>Invoice Filters (optional)</h2>
+            <details>
+                <summary class="flex align-center justify-between">
+                    <h2>Funding Request Filters (optional)</h2>
+                </summary>
+                {% include "fundingrequests/forms/status_dropdown.html" %}
+                {% include "fundingrequests/forms/payment_method.html" %}
+                {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
+                {% include "fundingrequests/forms/publication_state.html" %}
+                {% include "fundingrequests/forms/payment_status.html" %}
+                {% include "fundingrequests/forms/label_dropdown.html" %}
+            </details>
+            <details>
+                <summary class="flex align-center justify-between">
+                    <h2>Invoice Filters (optional)</h2>
+                </summary>
+                Hier kommen die Invoice Filter rein
+            </details>
         </article>
         <div class="grid wizard-nav">
             <a href="{% url 'exports:fundingrequests_csv_list' %}"

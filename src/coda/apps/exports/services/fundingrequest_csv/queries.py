@@ -25,6 +25,7 @@ def get_funding_requests_for_export(
     period_end: date,
     review_results: list[ReviewResult] | None = None,
     labels: list[LabelId] | None = None,
+    exclude_labels: list[LabelId] | None = None,
     payment_methods: list[PaymentMethod] | None = None,
     open_access_types: list[OpenAccessType] | None = None,
     publication_states: list[str] | None = None,
@@ -43,8 +44,13 @@ def get_funding_requests_for_export(
 
     if review_results:
         criteria.append(fundingrequest_query.ReviewResultCriteria(review_results=review_results))
-    if labels:
-        criteria.append(fundingrequest_query.LabelsSearchCriteria(include_labels=labels))
+    if labels or exclude_labels:
+        criteria.append(
+            fundingrequest_query.LabelsSearchCriteria(
+                include_labels=labels or [],
+                exclude_labels=exclude_labels or [],
+            )
+        )
     if payment_methods:
         criteria.append(fundingrequest_query.PaymentMethodCriteria(payment_methods=payment_methods))
     if open_access_types:
