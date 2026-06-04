@@ -15,9 +15,9 @@ Key differences from creation DTOs:
 """
 
 import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import AfterValidator, Field
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.dto import CodaBaseDto
@@ -31,6 +31,7 @@ from coda.apps.publications.dto import (
 )
 from coda.domain.contract import PublisherId
 from coda.domain.publication.publication import JournalId
+from coda.domain.string import NonEmptyStr
 
 
 class PreviewPublicationMeta(CodaBaseDto):
@@ -54,17 +55,26 @@ class PreviewJournal(CodaBaseDto):
     eissn: str | None = None
 
 
-class PreviewArticle(CodaBaseDto):
+class PreviewExternalFunding(CodaBaseDto):
+    name: Annotated[str, AfterValidator(NonEmptyStr)]
+    identifiers: list[str] = Field(default_factory=list)
+
+
+class PreviewPublication(CodaBaseDto):
+    meta: PreviewPublicationMeta
+    doi: str
+    authors: list[AuthorDto]
+    publisher_name: str | None = None
+    funders: list[PreviewExternalFunding] = Field(default_factory=list)
+
+
+class PreviewArticle(PreviewPublication):
     """Article preview - uses journal metadata without requiring database ID.
 
     DOI imports always have exactly one DOI, stored as a string.
     """
 
-    meta: PreviewPublicationMeta
     journal: PreviewJournal | None  # None when Crossref omits journal metadata
-    doi: str  # Single DOI string (not a list - DOI imports always have one)
-    authors: list[AuthorDto]
-    publisher_name: str | None = None  # For display purposes
     publication_kind: Literal["journal_article"] = Field(default="journal_article")
 
     @property
@@ -110,18 +120,14 @@ class PreviewArticle(CodaBaseDto):
         )
 
 
-class PreviewMonograph(CodaBaseDto):
+class PreviewMonograph(PreviewPublication):
     """Monograph preview - uses publisher name without requiring database ID.
 
     DOI imports always have exactly one DOI, stored as a string.
     ISBNs are stored separately (also a link type in the domain).
     """
 
-    meta: PreviewPublicationMeta
-    publisher_name: str | None  # None when Crossref omits publisher metadata
-    doi: str
     isbn: str | None
-    authors: list[AuthorDto]
     publication_kind: Literal["monograph"] = Field(default="monograph")
 
     @property

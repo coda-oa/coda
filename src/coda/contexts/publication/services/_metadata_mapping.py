@@ -19,6 +19,7 @@ from coda.apps.publications.dto import (
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.dto.preview import (
     PreviewArticle,
+    PreviewExternalFunding,
     PreviewJournal,
     PreviewMonograph,
     PreviewPublicationMeta,
@@ -169,6 +170,9 @@ def build_preview_article(
         doi=str(doi),
         authors=authors_dto,
         publisher_name=metadata.publisher,
+        funders=[
+            PreviewExternalFunding(name=f.name, identifiers=f.identifiers) for f in metadata.funders
+        ],
     )
 
 
@@ -195,4 +199,7 @@ def build_preview_monograph(
         doi=str(doi),
         isbn=metadata.isbn,
         authors=authors_dto,
+        funders=[
+            PreviewExternalFunding(name=f.name, identifiers=f.identifiers) for f in metadata.funders
+        ],
     )

@@ -55,7 +55,7 @@ class FundingRequestDomainMapper:
             external_funding=[
                 ExternalFunding(
                     organization=FundingOrganizationId(ef.organization_id),
-                    project_id=NonEmptyStr(ef.project_id),
+                    project_id=ef.project_id,
                     project_name=ef.project_name,
                 )
                 for ef in model.external_funding.all()

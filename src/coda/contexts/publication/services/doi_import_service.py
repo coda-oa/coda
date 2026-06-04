@@ -1,14 +1,17 @@
 """DOI Import Service - Creates FundingRequests from DOI metadata."""
 
+import itertools
 from dataclasses import dataclass
 
 from coda.apps.authors.dto import AuthorDto
+from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.journals import services as journal_services
 from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.publications.repositories import publication_repository
 from coda.apps.publishers import services as publisher_services
 from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
+    ExternalFundingDto,
     ExtraInformationDto,
     PaymentDto,
 )
@@ -20,6 +23,7 @@ from coda.contexts.publication.dto.external_metadata import (
 )
 from coda.contexts.publication.dto.preview import (
     PreviewArticle,
+    PreviewExternalFunding,
     PreviewFundingRequest,
     PreviewMonograph,
 )
@@ -28,6 +32,7 @@ from coda.contexts.publication.services.errors import DOIAlreadyImported, Invali
 from coda.domain.author import Role
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequestId
+from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.issn import Issn
 from coda.domain.orcid import Orcid
 from coda.domain.publication import JournalId
@@ -230,6 +235,28 @@ class DOIImportService:
         publisher_id = self._match_or_create_publisher(publication.publisher_name)
         return publication.to_monograph_dto(publisher_id=publisher_id)
 
+    def _resolve_external_funding(
+        self, funders: list[PreviewExternalFunding]
+    ) -> list[ExternalFundingDto]:
+        names = {f.name for f in funders}
+        existing = FundingOrganization.objects.filter(name__in=names).only("pk", "name").all()
+        existing_names = {e.name for e in existing}
+        funders_to_create: set[str] = names.difference(existing_names)
+        created_funders = FundingOrganization.objects.bulk_create(
+            FundingOrganization(name=f) for f in funders_to_create
+        )
+        all_funders = itertools.chain(existing, created_funders)
+        names_to_pks = {f.name: f.pk for f in all_funders}
+
+        return [
+            ExternalFundingDto(
+                organization=FundingOrganizationId(names_to_pks[f.name]),
+                project_id="",
+                project_name="",
+            )
+            for f in funders
+        ]
+
     def _convert_preview_to_creation_dto(
         self,
         preview: PreviewFundingRequest,
@@ -276,7 +303,7 @@ class DOIImportService:
             publication=publication_dto,
             payment=PaymentDto.empty(),
             extra_information=ExtraInformationDto(),
-            funding=[],
+            funding=self._resolve_external_funding(preview.publication.funders),
         )
 
     def _build_authors_dto(self, external_authors: list[ExternalAuthor]) -> list[AuthorDto]:
