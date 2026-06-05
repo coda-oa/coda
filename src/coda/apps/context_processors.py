@@ -5,6 +5,13 @@ from django.http import HttpRequest
 from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView
 from coda.contexts.fundingrequest.services.doi_import.doi_client import InMemoryDOIMetadataClient
 
+from coda.apps.version import get_version
+
+
+def version_context(request: HttpRequest) -> dict[str, str]:
+    """Inject CODA version string into all templates."""
+    return {"coda_version": get_version()}
+
 
 def demo_context(request: HttpRequest) -> dict[str, Any]:
     """Inject demo DOI list into template context when CODA_DEMO_MODE is active.

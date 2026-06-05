@@ -67,8 +67,7 @@
 
     min-height: 100vh;
     grid-template-columns: [nav logo theme-switch] var(--_nav-container-expanded-width);
-    grid-template-rows: [logo] min-content [nav] max-content [theme-switch] auto;
-    align-items: end;
+    grid-template-rows: [logo] min-content [nav] 1fr [version] min-content [theme-switch] auto;
 
     position: sticky;
     top: 0;
@@ -93,6 +92,13 @@
         padding-inline-start: 0;
         margin-inline-start: calc(var(--coda-spacing));
         margin-block: calc(var(--coda-spacing) / 2);
+    }
+
+    .nav__version {
+        text-align: center;
+        font-size: 0.7rem;
+        font-family: monospace;
+        color: var(--pico-muted-color);
     }
 
     & a {
