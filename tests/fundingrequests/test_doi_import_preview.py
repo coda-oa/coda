@@ -45,8 +45,11 @@ from coda.domain.publication.links import Doi
 from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import UnknownConcept
 from tests import modelfactory
+from tests.contexts.publication.fixtures import (
+    article_metadata,
+    book_metadata,
+)
 from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
-from tests.contexts.publication import metadatafactory
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 
@@ -176,7 +179,7 @@ def configure_fake_client_from_expected(
     license_str = None if publication.license == License.Unknown else publication.license.value
 
     # Configure fake client
-    fake_client.data[str(doi)] = metadatafactory.article_metadata(
+    fake_client.data[str(doi)] = article_metadata(
         title=str(publication.title),
         authors=external_authors,
         journal=ExternalJournal(title=journal_title, eissn=journal_eissn),
@@ -520,7 +523,7 @@ def test_submit_type_change_to_article_stores_journal_id_in_session(
     # Start with a monograph DOI
     doi_str = "10.1234/book.test"
     doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = metadatafactory.book_metadata(
+    fake_doi_client.data[str(doi)] = book_metadata(
         title="Test Book",
         publisher=test_journal.publisher.name,
         isbn="978-3-16-148410-0",
@@ -599,7 +602,7 @@ def test_submit_type_change_article_without_journal_shows_inline_error(
     """Submitting article form without selecting a journal returns partial with error."""
     doi_str = "10.1234/book.no-journal"
     doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = metadatafactory.book_metadata(
+    fake_doi_client.data[str(doi)] = book_metadata(
         title="Test Book",
         publisher="Test Publisher",
         isbn="978-3-16-148410-0",
@@ -660,7 +663,7 @@ def test_override_article_to_monograph_and_save(
     doi = Doi(doi_str)
 
     publisher = modelfactory.publisher(name="Springer")
-    fake_doi_client.data[str(doi)] = metadatafactory.article_metadata(
+    fake_doi_client.data[str(doi)] = article_metadata(
         title="Test Article",
         journal=ExternalJournal(title="Nature", eissn="1476-4687"),
         publisher="Springer",
@@ -690,7 +693,7 @@ def test_override_monograph_to_article_and_save(
     doi_str = "10.1234/book.override"
     doi = Doi(doi_str)
 
-    fake_doi_client.data[str(doi)] = metadatafactory.book_metadata(
+    fake_doi_client.data[str(doi)] = book_metadata(
         title="Test Book",
         publisher=test_journal.publisher.name,
         isbn="978-3-16-148410-0",
@@ -762,7 +765,7 @@ def test__save_preview__article_with_print_issn_only__redirects_back_with_error(
     """
     doi_str = "10.1234/print-issn-only"
     doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = metadatafactory.article_metadata(
+    fake_doi_client.data[str(doi)] = article_metadata(
         title="Print-ISSN-Only Article",
         journal=ExternalJournal(title="Print-Only Journal", issn="1234-5678", eissn=None),
         online_publication_date=None,
@@ -797,7 +800,7 @@ def test__preview_page__article_with_print_issn_only__does_not_display_print_iss
     """
     doi_str = "10.1234/print-issn-only.preview"
     doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = metadatafactory.article_metadata(
+    fake_doi_client.data[str(doi)] = article_metadata(
         title="Print-ISSN-Only Article",
         journal=ExternalJournal(title="Print-Only Journal", issn="1234-5678", eissn=None),
     )

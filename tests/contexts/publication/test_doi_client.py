@@ -5,8 +5,8 @@ Unit tests use FakeDOIMetadataClient, integration tests use CrossrefDataCiteClie
 """
 
 import pytest
+from tests.contexts.publication.fixtures import nature_article_metadata
 from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
-from tests.contexts.publication.fixtures.test_metadata import nature_article_metadata
 
 from coda.contexts.publication.services.doi_client import (
     CrossrefDoiClient,

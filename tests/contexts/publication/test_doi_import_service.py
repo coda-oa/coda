@@ -9,13 +9,15 @@ from collections.abc import Callable
 
 import pytest
 from tests import domainfactory
-from tests.contexts.publication import metadatafactory
-from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
-from tests.contexts.publication.fixtures.test_metadata import (
+from tests.contexts.publication.fixtures import (
+    NATURE_EISSN,
+    NATURE_JOURNAL_TITLE,
+    article_metadata,
+    book_metadata,
     nature_article_metadata,
     springer_book_metadata,
 )
-from tests.contexts.publication.metadatafactory import article_metadata, book_metadata
+from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 from coda.apps.fundingrequests import repository as fundingrequest_repository
@@ -58,8 +60,6 @@ from coda.domain.string import NonEmptyStr
 
 # Test data constants
 NATURE_DOI = "10.1038/nature12373"
-NATURE_EISSN = metadatafactory.NATURE_EISSN
-NATURE_JOURNAL_TITLE = metadatafactory.NATURE_JOURNAL_TITLE
 SPRINGER_NATURE_PUBLISHER = "Springer Nature"
 SPRINGER_NATURE_REAL_PUBLISHER = "Springer Science and Business Media LLC"
 
@@ -82,7 +82,7 @@ def make_article_metadata(
 ) -> tuple[FakeDOIMetadataClient, Doi]:
     """Build article metadata and return a configured (client, Doi) pair.
 
-    All keyword arguments are forwarded to metadatafactory.article_metadata().
+    All keyword arguments are forwarded to fixtures.article_metadata().
     """
 
     metadata = article_metadata(**kwargs)  # type: ignore[arg-type]
@@ -96,7 +96,7 @@ def make_book_metadata(
 ) -> tuple[FakeDOIMetadataClient, Doi]:
     """Build book metadata and return a configured (client, Doi) pair.
 
-    All keyword arguments are forwarded to metadatafactory.book_metadata().
+    All keyword arguments are forwarded to fixtures.book_metadata().
     """
 
     metadata = book_metadata(**kwargs)  # type: ignore[arg-type]

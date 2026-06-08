@@ -6,7 +6,10 @@ PreviewFundingRequest whose .warnings list is non-empty so the caller can
 present a fix form to the user.
 """
 
-from tests.contexts.publication import metadatafactory
+from tests.contexts.publication.fixtures import (
+    article_metadata,
+    book_metadata,
+)
 from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 
 from coda.contexts.publication.dto.external_metadata import ExternalJournal
@@ -24,7 +27,7 @@ def test__fetch_doi_preview__article_without_journal__returns_preview_with_warni
     """
     doi = Doi("10.1234/test")
     fake_client = FakeDOIMetadataClient()
-    fake_client.data[str(doi)] = metadatafactory.article_metadata(journal=None, publisher=None)
+    fake_client.data[str(doi)] = article_metadata(journal=None, publisher=None)
 
     sut = DOIImportService(doi_client=fake_client)
     result = sut.fetch_doi_preview(doi)
@@ -42,7 +45,7 @@ def test__fetch_doi_preview__article_with_print_issn_only__returns_preview_with_
     """
     doi = Doi("10.1234/test")
     fake_client = FakeDOIMetadataClient()
-    fake_client.data[str(doi)] = metadatafactory.article_metadata(
+    fake_client.data[str(doi)] = article_metadata(
         journal=ExternalJournal(title="Print-Only Journal", issn="1234-5678", eissn=None),
     )
 
@@ -62,7 +65,7 @@ def test__fetch_doi_preview__monograph_without_publisher__returns_preview_with_w
     """
     doi = Doi("10.1234/test-book")
     fake_client = FakeDOIMetadataClient()
-    fake_client.data[str(doi)] = metadatafactory.book_metadata(publisher=None)
+    fake_client.data[str(doi)] = book_metadata(publisher=None)
 
     sut = DOIImportService(doi_client=fake_client)
     result = sut.fetch_doi_preview(doi)
