@@ -1,5 +1,3 @@
-"""URL configuration for exports app."""
-
 from django.urls import path
 
 from coda.apps.exports.views.fundingrequest_csv_views import (
@@ -9,12 +7,12 @@ from coda.apps.exports.views.fundingrequest_csv_views import (
     fundingrequest_download_csv,
     fundingrequests_csv_delete,
 )
+from coda.apps.exports.views.export_home import export_home
 
 app_name = "exports"
 
 urlpatterns = [
-    # Export menu/selector (future)
-    # path('', views.export_menu, name='menu'),
+    path("", view=export_home, name="export_home"),
     path(
         "fundingrequests-csv/",
         view=fundingrequest_csv_export_list_view,
@@ -40,6 +38,4 @@ urlpatterns = [
         view=fundingrequests_csv_delete,
         name="fundingrequests_csv_delete",
     ),
-    # OpenCost XML export (could be moved here from opencost app in future)
-    # path('opencost/', ..., name='opencost'),
 ]

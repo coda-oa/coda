@@ -31,11 +31,11 @@ from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
-@breadcrumb("Export")
+@breadcrumb("openCost Reports", parent_url_name="exports:export_home")
 class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostReport]):
     model = OpenCostReport
     paginate_by = 20
-    entity_name = "Export"
+    entity_name = "openCost Reports"
     entity_list_item_template = "opencost/report_list_item.html"
     use_generic_entity_filter = True
     entity_filter_template = "entity_generic_filter.html"

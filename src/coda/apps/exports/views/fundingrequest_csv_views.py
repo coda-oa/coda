@@ -44,7 +44,7 @@ _payment_status_choices = [
 ]
 
 
-@breadcrumb("CSV Exports")
+@breadcrumb("Funding Request CSV Export", parent_url_name="exports:export_home")
 class FundingRequestCSVExportListView(
     LoginRequiredMixin, SimpleSearchEntityListView[FundingRequestCSVExport]
 ):
@@ -67,7 +67,7 @@ fundingrequest_csv_export_list_view = FundingRequestCSVExportListView.as_view()
 @login_required
 @require_GET
 @breadcrumb(
-    "Export Details",
+    "CSV Export Details",
     parent_url_name="exports:fundingrequests_csv_list",
 )
 def fundingrequest_csv_detail_page(
@@ -95,7 +95,7 @@ def fundingrequest_csv_detail_page(
 
 @login_required
 @breadcrumb(
-    "Generate New Report",
+    "Generate New CSV Export",
     parent_url_name="exports:fundingrequests_csv_list",
 )
 def fundingrequest_csv_export_create_view(
