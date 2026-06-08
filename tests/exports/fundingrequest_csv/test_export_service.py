@@ -10,6 +10,7 @@ from coda.apps.exports.services.fundingrequest_csv.export_service import (
     export_fundingrequests_to_csv,
 )
 from coda.apps.invoices.models import FundingAssignment, Position
+from coda.apps.publications.models import AttachedContract
 from tests import modelfactory
 from coda.domain.fundingrequest.review import ReviewResult, Review
 from coda.domain.money import Money, Currency
@@ -291,6 +292,58 @@ def test__funding_request_with_invoice_filters__export_to_csv__returns_filtered_
 
 
 @pytest.mark.django_db
+def test__funding_request_with_invoice_date_range__export_to_csv__excludes_out_of_range_invoices() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="Invoice Date Range Publication")
+    funding_request.request_date = date(2025, 1, 10)
+    funding_request.save()
+
+    january_invoice = modelfactory.invoice()
+    january_invoice.number = "INV-JAN"
+    january_invoice.date = date(2025, 1, 15)
+    january_invoice.save()
+
+    Position.objects.create(
+        invoice=january_invoice,
+        publication=funding_request.publication,
+        description="January invoice",
+        cost_amount=Decimal("100.00"),
+        cost_currency="EUR",
+        cost_type="gold-oa",
+        tax_rate=Decimal("0.19"),
+    )
+
+    march_invoice = modelfactory.invoice()
+    march_invoice.number = "INV-MAR"
+    march_invoice.date = date(2025, 3, 10)
+    march_invoice.save()
+
+    Position.objects.create(
+        invoice=march_invoice,
+        publication=funding_request.publication,
+        description="March invoice",
+        cost_amount=Decimal("120.00"),
+        cost_currency="EUR",
+        cost_type="gold-oa",
+        tax_rate=Decimal("0.19"),
+    )
+
+    requests_exports = export_fundingrequests_to_csv(
+        date(2024, 12, 8),
+        date(2025, 2, 5),
+        invoice_date_start=date(2025, 1, 1),
+        invoice_date_end=date(2025, 1, 31),
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert df.height == 1
+    assert df["invoice_number"][0] == "INV-JAN"
+    assert df["invoice_date"][0] == "2025-01-15"
+
+
+@pytest.mark.django_db
 def test__funding_request_with_combined_filters__export_to_csv__returns_correctly_filtered_results() -> (
     None
 ):
@@ -366,3 +419,69 @@ def test__funding_request_with_combined_filters__export_to_csv__returns_correctl
     assert df["review_result"][0] == "approved"
     assert df["invoice_status"][0] == "paid"
     assert df["creditor"][0] == "Test Creditor"
+
+
+@pytest.mark.django_db
+def test__funding_request_with_attached_contract_without_invoice__export_to_csv__includes_contract_fields() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="Contract Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    contract = modelfactory.contract()
+    AttachedContract.objects.create(
+        publication=funding_request.publication,
+        contract=contract,
+        contract_year=2026,
+    )
+
+    requests_exports = export_fundingrequests_to_csv(
+        date(2026, 1, 1),
+        date(2026, 12, 31),
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert df.height == 1
+    assert df["publication_title"][0] == "Contract Publication"
+    assert df["contract_name"][0] == contract.name
+    assert str(df["contract_year"][0]) == "2026"
+
+
+@pytest.mark.django_db
+def test__funding_request_with_contract_filter__export_to_csv__returns_only_matching_contract() -> (
+    None
+):
+    matching_contract = modelfactory.contract()
+    other_contract = modelfactory.contract()
+
+    funding_request_match = modelfactory.fundingrequest(title="Matching Contract Publication")
+    funding_request_match.request_date = date(2026, 5, 1)
+    funding_request_match.save()
+    AttachedContract.objects.create(
+        publication=funding_request_match.publication,
+        contract=matching_contract,
+        contract_year=2026,
+    )
+
+    funding_request_other = modelfactory.fundingrequest(title="Other Contract Publication")
+    funding_request_other.request_date = date(2026, 5, 1)
+    funding_request_other.save()
+    AttachedContract.objects.create(
+        publication=funding_request_other.publication,
+        contract=other_contract,
+        contract_year=2026,
+    )
+
+    requests_exports = export_fundingrequests_to_csv(
+        date(2026, 1, 1),
+        date(2026, 12, 31),
+        contract=matching_contract.id,
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert df.height == 1
+    assert df["publication_title"][0] == "Matching Contract Publication"
+    assert df["contract_name"][0] == matching_contract.name

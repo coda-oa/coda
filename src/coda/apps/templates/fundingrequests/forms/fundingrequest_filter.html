@@ -25,27 +25,7 @@
                 </div>
             </div>
             {% include "fundingrequests/forms/publication_type.html" %}
-            <div class="grid">
-                <div class="form-row">
-                    <label for="contract_name" class="form-row-item-sm">Contract</label>
-                    <search-select id="contract_name" name="contract_name" class="w-100">
-                    <li {% if not request.GET.contract_name %}selected{% endif %} value>-------</li>
-                    {% for contract in contract_list %}
-                        <li value="{{ contract.id }}"
-                            {% if contract.id|stringformat:"s" == request.GET.contract_name %}selected{% endif %}>
-                            {{ contract.name }}
-                        </li>
-                    {% endfor %}
-                    </search-select>
-                </div>
-                <div class="form-row">
-                    <label for="contract_year" class="form-row-item-sm">Contract Year</label>
-                    <input type="text"
-                           id="contract_year"
-                           name="contract_year"
-                           value="{{ request.GET.contract_year }}">
-                </div>
-            </div>
+            {% include "fundingrequests/forms/contract_dropdown.html" %}
             {% include "fundingrequests/forms/status_dropdown.html" %}
             {% include "fundingrequests/forms/payment_method.html" %}
             {% include "fundingrequests/forms/open_access_type_dropdown.html" %}

@@ -3,7 +3,7 @@ from datetime import date
 from django.db.models import QuerySet
 
 from coda.apps.fundingrequests import fundingrequest_query
-from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchCriteria
+from coda.apps.fundingrequests.fundingrequest_query import ContractId, FundingRequestSearchCriteria
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.exports.services.fundingrequest_csv.criteria import (
     InvoiceDateRangeCriteria,
@@ -24,6 +24,7 @@ def get_funding_requests_for_export(
     period_start: date,
     period_end: date,
     review_results: list[ReviewResult] | None = None,
+    payment_statuses: list[fundingrequest_query.PaymentStatus] | None = None,
     labels: list[LabelId] | None = None,
     exclude_labels: list[LabelId] | None = None,
     payment_methods: list[PaymentMethod] | None = None,
@@ -36,6 +37,7 @@ def get_funding_requests_for_export(
     invoice_status: str | None = None,
     invoice_creditor: str = "",
     funding_source: FundingSourceId | None = None,
+    contract: ContractId | None = None,
 ) -> QuerySet[FundingRequest]:
 
     criteria: list[FundingRequestSearchCriteria] = []
@@ -44,6 +46,10 @@ def get_funding_requests_for_export(
 
     if review_results:
         criteria.append(fundingrequest_query.ReviewResultCriteria(review_results=review_results))
+    if payment_statuses:
+        criteria.append(
+            fundingrequest_query.PaymentStatusCriteria(payment_statuses=payment_statuses)
+        )
     if labels or exclude_labels:
         criteria.append(
             fundingrequest_query.LabelsSearchCriteria(
@@ -74,6 +80,8 @@ def get_funding_requests_for_export(
         criteria.append(InvoiceCreditorCriteria(creditor_name=invoice_creditor))
     if funding_source:
         criteria.append(InvoiceFundingSourceCriteria(funding_source=funding_source))
+    if contract:
+        criteria.append(fundingrequest_query.ContractSearchCriteria(contract=contract))
 
     qs = fundingrequest_query.search(*criteria)
 

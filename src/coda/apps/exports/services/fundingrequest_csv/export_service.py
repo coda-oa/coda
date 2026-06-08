@@ -73,7 +73,17 @@ def export_fundingrequests_to_csv(
         **filter_params,
     )
     # 2. Map to export DTOs (using mappers.py)
-    export_dtos = [map_funding_request_to_export_dto(fr) for fr in funding_requests]
+    invoice_filter_params = {
+        "invoice_date_start": filter_params.get("invoice_date_start"),
+        "invoice_date_end": filter_params.get("invoice_date_end"),
+        "invoice_status": filter_params.get("invoice_status"),
+        "invoice_creditor": filter_params.get("invoice_creditor", ""),
+        "funding_source": filter_params.get("funding_source"),
+    }
+
+    export_dtos = [
+        map_funding_request_to_export_dto(fr, **invoice_filter_params) for fr in funding_requests
+    ]
 
     # 3. Flatten to CSV rows (using flatteners.py)
     all_rows = []

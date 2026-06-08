@@ -7,28 +7,8 @@
         <summary class="button outline muted">
             <span class="m-0">Advanced search</span>
         </summary>
-        <div class="form-row">
-            <label for="payment_status" class="form-row-item-sm">Payment status</label>
-            <select id="payment_status" name="payment_status">
-                <option {% if not request.GET.payment_status %}selected{% endif %} value>-------</option>
-                {% for ps in payment_statuses %}
-                    <option value="{{ ps }}"
-                            {% if ps == request.GET.payment_status %}selected{% endif %}>{{ ps }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="form-row">
-            <label for="funding_source" class="form-row-item-sm">Funding Source</label>
-            <select id="funding_source" name="funding_source">
-                <option {% if not request.GET.funding_source %}selected{% endif %} value>-------</option>
-                {% for fs in funding_sources %}
-                    <option value="{{ fs.id }}"
-                            {% if fs.id|stringformat:"s" == request.GET.funding_source %}selected{% endif %}>
-                        {{ fs.name }}
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
+        {% include "invoices/partials/payment_status_filter.html" %}
+        {% include "invoices/partials/funding_source_filter.html" %}
         <div class="grid">
             <div class="form-row">
                 <label for="contract_name" class="form-row-item-sm">Contract</label>
@@ -50,22 +30,7 @@
                        value="{{ request.GET.contract_year }}">
             </div>
         </div>
-        <div class="grid">
-            <div class="form-row">
-                <label for="date_start" class="form-row-item-sm">Date start</label>
-                <input type="date"
-                       id="date_start"
-                       name="date_start"
-                       value="{{ request.GET.date_start }}">
-            </div>
-            <div class="form-row">
-                <label for="date_end" class="form-row-item-sm">Date end</label>
-                <input type="date"
-                       id="date_end"
-                       name="date_end"
-                       value="{{ request.GET.date_end }}">
-            </div>
-        </div>
+        {% include "invoices/partials/date_range_filter.html" %}
     </details>
     <div class="grid mt_05">
         <div>

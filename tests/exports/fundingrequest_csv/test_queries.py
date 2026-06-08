@@ -7,11 +7,13 @@ from decimal import Decimal
 from tests import modelfactory
 from coda.apps.invoices.models import Position
 from coda.apps.exports.services.fundingrequest_csv.queries import get_funding_requests_for_export
+from coda.apps.publications.models import PublicationPayment
 
 from coda.domain.fundingrequest.review import ReviewResult, Review
 from coda.domain.money import Money, Currency
 from coda.domain.fundingrequest import FundingRequestId
 from coda.apps.fundingrequests import repository
+from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.invoices.models import FundingAssignment
 from coda.domain.finance.invoice import FundingSourceId
 
@@ -109,6 +111,32 @@ def test__funding_requests_with_different_review_results__query_with_review_filt
     )
 
     assert list(results) == [fr_approved]
+
+
+@pytest.mark.django_db
+def test__funding_requests_with_different_payment_statuses__query_with_payment_status_filter__returns_only_matching() -> (
+    None
+):
+    fr_paid = modelfactory.fundingrequest(title="Paid FR")
+    fr_paid.request_date = date(2026, 3, 10)
+    fr_paid.save()
+    PublicationPayment.objects.create(publication=fr_paid.publication, status="paid")
+
+    fr_invoice_received = modelfactory.fundingrequest(title="Invoice Received FR")
+    fr_invoice_received.request_date = date(2026, 3, 12)
+    fr_invoice_received.save()
+    PublicationPayment.objects.create(
+        publication=fr_invoice_received.publication,
+        status="invoice_received",
+    )
+
+    results = get_funding_requests_for_export(
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        payment_statuses=[fundingrequest_query.PaymentStatus.Paid],
+    )
+
+    assert list(results) == [fr_paid]
 
 
 @pytest.mark.django_db

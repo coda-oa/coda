@@ -27,21 +27,16 @@
             </div>
             <hr>
             <details>
-                <summary class="flex align-center justify-between">
-                    <h2>Funding Request Filters (optional)</h2>
-                </summary>
+                <summary class="flex align-center justify-between button outline contrast">Optional Filters</summary>
+                {% include "fundingrequests/forms/publication_type.html" %}
+                {% include "fundingrequests/forms/contract_dropdown.html" %}
                 {% include "fundingrequests/forms/status_dropdown.html" %}
                 {% include "fundingrequests/forms/payment_method.html" %}
                 {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
                 {% include "fundingrequests/forms/publication_state.html" %}
                 {% include "fundingrequests/forms/payment_status.html" %}
                 {% include "fundingrequests/forms/label_dropdown.html" %}
-            </details>
-            <details>
-                <summary class="flex align-center justify-between">
-                    <h2>Invoice Filters (optional)</h2>
-                </summary>
-                Hier kommen die Invoice Filter rein
+                {% include "invoices/partials/funding_source_filter.html" %}
             </details>
         </article>
         <div class="grid wizard-nav">

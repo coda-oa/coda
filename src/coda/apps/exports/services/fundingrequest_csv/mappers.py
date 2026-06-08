@@ -1,4 +1,6 @@
 from coda.apps.exports.services.fundingrequest_csv.dtos import FundingRequestExportDto
+from datetime import date
+
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.models import Invoice, Position, FundingAssignment
 from coda.contexts.fundingrequest.dto.import_dtos import (
@@ -27,8 +29,9 @@ from coda.domain.author import Role
 from coda.domain.orcid import Orcid
 from coda.domain.publication import License, OpenAccessType
 from coda.domain.finance.costtypes import PublicationCostType, ContractCostType
-from coda.domain.finance.invoice import PaymentStatus
+from coda.domain.finance.invoice import PaymentStatus, FundingSourceId
 from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.fundingrequest import PaymentMethod
 
 
 def map_funding_request_to_dto(funding_request: FundingRequest) -> FundingRequestImportDto:
@@ -196,7 +199,6 @@ def _map_review_to_dto(funding_request: FundingRequest) -> ReviewImportDto:
 
 
 def _map_estimated_cost_to_dto(funding_request: FundingRequest) -> CostEstimateImportDto:
-    from coda.domain.fundingrequest import PaymentMethod
 
     # PaymentMethod values are stored in lowercase in DB, but enum names are capitalized
     payment_method_str = (
@@ -324,13 +326,34 @@ def _map_funding_assignment_to_dto(assignment: FundingAssignment) -> FundingAssi
     )
 
 
-def map_funding_request_to_export_dto(funding_request: FundingRequest) -> FundingRequestExportDto:
+def map_funding_request_to_export_dto(
+    funding_request: FundingRequest,
+    invoice_date_start: date | None = None,
+    invoice_date_end: date | None = None,
+    invoice_status: str | None = None,
+    invoice_creditor: str = "",
+    funding_source: FundingSourceId | None = None,
+) -> FundingRequestExportDto:
 
     funding_request_dto = map_funding_request_to_dto(funding_request)
 
-    invoices_qs = Invoice.objects.filter(
-        positions__publication=funding_request.publication
-    ).distinct()
+    invoices_qs = Invoice.objects.filter(positions__publication=funding_request.publication)
+
+    if invoice_date_start and invoice_date_end:
+        invoices_qs = invoices_qs.filter(
+            date__gte=invoice_date_start,
+            date__lte=invoice_date_end,
+        )
+    if invoice_status:
+        invoices_qs = invoices_qs.filter(status=invoice_status)
+    if invoice_creditor:
+        invoices_qs = invoices_qs.filter(creditor__name__icontains=invoice_creditor)
+    if funding_source:
+        invoices_qs = invoices_qs.filter(
+            positions__funding_assignments__funding_source=funding_source,
+        )
+
+    invoices_qs = invoices_qs.distinct()
 
     invoice_dtos = [map_invoice_to_dto(invoice) for invoice in invoices_qs]
 

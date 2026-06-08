@@ -115,6 +115,8 @@ def _create_base_row(
         "project_id": (research_funding.project_id if research_funding else ""),
         "project_name": (research_funding.project_name if research_funding else ""),
         "funding_organization": (research_funding.funder if research_funding else ""),
+        "contract_name": _format_contract_names(funding_request),
+        "contract_year": _format_contract_years(funding_request),
     }
 
 
@@ -156,8 +158,6 @@ def _create_row(
                 "position_type": "",
                 "request_id": "",
                 "legacy_position_request_id": "",
-                "contract_name": "",
-                "contract_year": "",
                 "position_description": "",
             }
         )
@@ -179,8 +179,6 @@ def _get_position_specific_fields(
             "position_type": "publication",
             "request_id": position.request_id or "",
             "legacy_position_request_id": position.legacy_request_id or "",
-            "contract_name": "",
-            "contract_year": "",
             "position_description": "",
         }
     elif isinstance(position, ContractPositionImportDto):
@@ -197,8 +195,6 @@ def _get_position_specific_fields(
             "position_type": "free",
             "request_id": "",
             "legacy_position_request_id": "",
-            "contract_name": "",
-            "contract_year": "",
             "position_description": position.description,
         }
 
@@ -208,3 +204,17 @@ def _extract_identifier(links: list[LinkImportDto], identifier_type: str) -> str
         if link.type.lower() == identifier_type.lower():
             return str(link.value)
     return ""
+
+
+def _format_contract_names(funding_request: FundingRequestImportDto) -> str:
+    if not funding_request.publication.contracts:
+        return ""
+
+    return "; ".join(contract.name for contract in funding_request.publication.contracts)
+
+
+def _format_contract_years(funding_request: FundingRequestImportDto) -> str:
+    if not funding_request.publication.contracts:
+        return ""
+
+    return "; ".join(str(contract.year) for contract in funding_request.publication.contracts)

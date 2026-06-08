@@ -137,3 +137,49 @@ def test_fundingrequest_csv_export_delete_view__is_called__deletes_export_and_re
     assert response.status_code == 200
     with pytest.raises(FundingRequestCSVExport.DoesNotExist):
         FundingRequestCSVExport.objects.get(id=export.id)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_fundingrequest_csv_export_create_view__publication_type_filter__is_stored(
+    client: Client,
+) -> None:
+
+    title = "Funding Request Export With Publication Type"
+
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "title": title,
+            "publication_type": "article",
+        },
+    )
+
+    assert response.status_code == 302
+    export = FundingRequestCSVExport.objects.get(name=title)
+    assert export.filters["publication_type"] == "article"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_fundingrequest_csv_export_create_view__contract_filter__is_stored(
+    client: Client,
+) -> None:
+    contract = modelfactory.contract()
+    title = "Funding Request Export With Contract"
+
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "title": title,
+            "contract_name": str(contract.id),
+        },
+    )
+
+    assert response.status_code == 302
+    export = FundingRequestCSVExport.objects.get(name=title)
+    assert export.filters["contract_name"] == str(contract.id)
