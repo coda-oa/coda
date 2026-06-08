@@ -5,7 +5,8 @@ from django.contrib import messages
 
 from django.urls import reverse
 import polars as pl
-from django.http import HttpRequest, HttpResponse
+from django.core.files.base import ContentFile
+from django.http import FileResponse, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.text import slugify
 from dataclasses import asdict, dataclass
@@ -48,7 +49,6 @@ class FundingRequestCSVExportListView(
     LoginRequiredMixin, SimpleSearchEntityListView[FundingRequestCSVExport]
 ):
     model = FundingRequestCSVExport
-    # template_name = "export/fundingrequest_csv_list.html"
     context_object_name = "exports"
     paginate_by = 10
     ordering = ["-created_at"]
@@ -80,9 +80,7 @@ def fundingrequest_csv_detail_page(
         pk=pk,
     )
 
-    csv_content = _generate_csv_for_export(export)
-
-    preview_df = _create_preview_dataframe(csv_content)
+    preview_df = _create_preview_dataframe(export.csv_file.open("rb").read().decode("utf-8"))
 
     return render(
         request,
@@ -126,6 +124,13 @@ def fundingrequest_csv_export_create_view(
         record_count=row_count,
     )
 
+    filename = f"{slugify(title) or 'export'}-{export.id}.csv"
+
+    export.csv_file.save(
+        filename,
+        ContentFile(csv_content.encode("utf-8")),
+    )
+
     return redirect(
         "exports:fundingrequests_csv_detail",
         pk=export.pk,
@@ -150,25 +155,13 @@ def fundingrequests_csv_delete(request: HttpRequest, pk: int) -> HttpResponse:
 def fundingrequest_download_csv(
     request: HttpRequest,
     pk: int,
-) -> HttpResponse:
+) -> FileResponse:
 
     export = get_object_or_404(
         FundingRequestCSVExport,
         pk=pk,
     )
-
-    csv_content = _generate_csv_for_export(export)
-
-    filename = f"{slugify(export.name) or 'fundingrequest-export'}.csv"
-
-    response = HttpResponse(
-        csv_content,
-        content_type="text/csv; charset=utf-8",
-    )
-
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-    return response
+    return FileResponse(export.csv_file.open("rb"))
 
 
 # helpers
@@ -269,15 +262,6 @@ def _parse_filter_dict(
         funding_source=funding_source,
         entity_type=entity_type,
         contract=contract,
-    )
-
-
-def _generate_csv_for_export(
-    export: FundingRequestCSVExport,
-) -> str:
-
-    return _generate_csv_from_filters(
-        export.filters,
     )
 
 
