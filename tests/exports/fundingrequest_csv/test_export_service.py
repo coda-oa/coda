@@ -56,6 +56,7 @@ def test__single_funding_request_with_one_invoice__export_to_csv__returns_csv_wi
     assert df["publication_title"][0] == "Test Publication for Export"
     assert df["invoice_number"][0] == "INV-001"
     assert df["invoice_date"][0] == "2026-05-01"
+    assert df["request_id"][0] == str(funding_request.request_id)
 
 
 @pytest.mark.django_db

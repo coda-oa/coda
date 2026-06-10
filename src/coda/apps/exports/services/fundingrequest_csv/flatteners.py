@@ -117,6 +117,7 @@ def _create_base_row(
         "funding_organization": (research_funding.funder if research_funding else ""),
         "contract_name": _format_contract_names(funding_request),
         "contract_year": _format_contract_years(funding_request),
+        "request_id": (funding_request.request_id if funding_request.request_id else ""),
     }
 
 
@@ -156,7 +157,6 @@ def _create_row(
         row.update(
             {
                 "position_type": "",
-                "request_id": "",
                 "legacy_position_request_id": "",
                 "position_description": "",
             }
@@ -177,14 +177,12 @@ def _get_position_specific_fields(
     if isinstance(position, PublicationPositionImportDto):
         return {
             "position_type": "publication",
-            "request_id": position.request_id or "",
             "legacy_position_request_id": position.legacy_request_id or "",
             "position_description": "",
         }
     elif isinstance(position, ContractPositionImportDto):
         return {
             "position_type": "contract",
-            "request_id": "",
             "legacy_position_request_id": "",
             "contract_name": position.contract_name,
             "contract_year": str(position.contract_year),
@@ -193,7 +191,6 @@ def _get_position_specific_fields(
     else:  # FreePositionImportDto
         return {
             "position_type": "free",
-            "request_id": "",
             "legacy_position_request_id": "",
             "position_description": position.description,
         }

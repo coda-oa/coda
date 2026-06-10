@@ -41,6 +41,7 @@ def map_funding_request_to_dto(funding_request: FundingRequest) -> FundingReques
     estimated_cost = _map_estimated_cost_to_dto(funding_request)
     seperate_contact = _map_seperate_contact_to_dto(funding_request)
     labels = _map_labels_to_dto(funding_request)
+    request_id = str(funding_request.request_id) if funding_request.request_id else None
 
     return FundingRequestImportDto(
         request_date=funding_request.request_date,
@@ -52,6 +53,7 @@ def map_funding_request_to_dto(funding_request: FundingRequest) -> FundingReques
         request_remarks=funding_request.request_remarks or "",
         seperate_contact=seperate_contact,
         labels=labels,
+        request_id=request_id,
     )
 
 
