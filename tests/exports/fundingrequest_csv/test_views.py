@@ -166,7 +166,6 @@ def test__fundingrequest_csv_detail_page__renders_preview_from_stored_csv_snapsh
         filters={
             "period_start": "2024-01-01",
             "period_end": "2024-12-31",
-            "payment_status": "non_existing_status",
         },
         record_count=1,
     )

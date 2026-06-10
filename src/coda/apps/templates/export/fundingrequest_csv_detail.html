@@ -23,16 +23,17 @@
                     <p>
                         <strong>Number of records:</strong> {{ export.record_count }}
                     </p>
-                    <p>
+                    <div class="flex justify-between align-center">
                         <strong>Applied filters:</strong>
-                        <ul>
-                            {% for key, value in export.filters.items %}
-                                <li>
-                                    <strong>{{ key|title }}</strong>: {{ value }}
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    </p>
+                        <a class="button secondary" href="{{ redo_url }}">Reuse Filters For New Export</a>
+                    </div>
+                    <ul>
+                        {% for filter in applied_filters %}
+                            <li>
+                                <strong>{{ filter.label }}</strong>: {{ filter.value }}
+                            </li>
+                        {% endfor %}
+                    </ul>
                 </div>
             </section>
             <section>

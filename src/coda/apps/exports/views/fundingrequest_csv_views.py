@@ -34,6 +34,11 @@ from coda.domain.publication.publication import UnpublishedState
 from coda.domain.finance.invoice import FundingSourceId
 from coda.apps.contracts.models import Contract
 
+from coda.apps.exports.services.filter_display import (
+    build_applied_filters,
+)
+from urllib.parse import urlencode
+
 _publication_state_choices = [
     ("Published", "Published"),
     *((s.name, s.value) for s in UnpublishedState),
@@ -82,6 +87,10 @@ def fundingrequest_csv_detail_page(
 
     preview_df = _create_preview_dataframe(export.csv_file.open("rb").read().decode("utf-8"))
 
+    applied_filters = build_applied_filters(export.filters)
+
+    redo_url = _create_redo_url(export)
+
     return render(
         request,
         "export/fundingrequest_csv_detail.html",
@@ -89,6 +98,8 @@ def fundingrequest_csv_detail_page(
             "export": export,
             "preview_columns": preview_df.columns,
             "preview_rows": preview_df.rows(),
+            "applied_filters": applied_filters,
+            "redo_url": redo_url,
         },
     )
 
@@ -103,10 +114,13 @@ def fundingrequest_csv_export_create_view(
 ) -> HttpResponse:
 
     if request.method == "GET":
+        context = _get_export_form_context()
+        context["expand_advanced_search"] = bool(request.GET)
+
         return render(
             request,
             "export/fundingrequest_csv_form.html",
-            context=_get_export_form_context(),
+            context=context,
         )
 
     title = request.POST.get("title", "").strip() or "Unnamed CSV Export"
@@ -356,3 +370,24 @@ def _generate_csv_from_filters(
     return export_fundingrequests_to_csv(
         **asdict(parsed_filters),
     )
+
+
+def _create_redo_url(export: FundingRequestCSVExport) -> str:
+    redo_params = {}
+
+    for key, value in export.filters.items():
+        if key in {
+            "open_access_type",
+            "labels",
+            "exclude_labels",
+            "payment_status",
+        }:
+            redo_params[key] = value.split(",")
+        else:
+            redo_params[key] = value
+
+    redo_url = (
+        reverse("exports:fundingrequests_csv_create") + "?" + urlencode(redo_params, doseq=True)
+    )
+
+    return redo_url
