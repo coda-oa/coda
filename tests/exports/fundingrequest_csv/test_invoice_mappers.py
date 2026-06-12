@@ -22,6 +22,7 @@ from tests import modelfactory
 
 @pytest.mark.django_db
 def test__invoice__maps_to_dto__all_required_fields_are_mapped_correctly() -> None:
+    fr = modelfactory.fundingrequest()
     creditor = modelfactory.creditor(name="Test Publisher")
     invoice = modelfactory.invoice()
     invoice.creditor = creditor
@@ -32,7 +33,7 @@ def test__invoice__maps_to_dto__all_required_fields_are_mapped_correctly() -> No
     invoice.external_invoice_id = "EXT-123"
     invoice.save()
 
-    dto = map_invoice_to_dto(invoice)
+    dto = map_invoice_to_dto(invoice, fr)
 
     assert dto.number == "INV-2026-001"
     assert dto.date == date(2026, 5, 20)
@@ -46,13 +47,14 @@ def test__invoice__maps_to_dto__all_required_fields_are_mapped_correctly() -> No
 
 @pytest.mark.django_db
 def test__invoice_with_currency_conversion__maps_to_dto__conversion_is_mapped_correctly() -> None:
+    fr = modelfactory.fundingrequest()
     invoice = modelfactory.invoice()
 
     CurrencyConversion.objects.create(
         invoice=invoice, target_currency="USD", exchange_rate=Decimal("1.2500")
     )
 
-    dto = map_invoice_to_dto(invoice)
+    dto = map_invoice_to_dto(invoice, fr)
 
     assert dto.conversion is not None
     assert dto.conversion.target_currency == "USD"
@@ -75,7 +77,7 @@ def test__publication_position__maps_to_dto__all_fields_are_mapped_correctly() -
         external_position_id="POS-001",
     )
 
-    dto = _map_position_to_dto(position)
+    dto = _map_position_to_dto(position, funding_request)
 
     assert isinstance(dto, PublicationPositionImportDto)
     assert dto.type == "publication"
@@ -88,6 +90,7 @@ def test__publication_position__maps_to_dto__all_fields_are_mapped_correctly() -
 
 @pytest.mark.django_db
 def test__contract_position__maps_to_dto__all_fields_are_mapped_correctly() -> None:
+    fr = modelfactory.fundingrequest()
     contract = modelfactory.contract()
     invoice = modelfactory.invoice()
 
@@ -103,7 +106,7 @@ def test__contract_position__maps_to_dto__all_fields_are_mapped_correctly() -> N
         external_position_id="POS-002",
     )
 
-    dto = _map_position_to_dto(position)
+    dto = _map_position_to_dto(position, fr)
 
     assert isinstance(dto, ContractPositionImportDto)
     assert dto.type == "contract"
@@ -131,7 +134,8 @@ def test__free_position__maps_to_dto__all_fields_are_mapped_correctly() -> None:
         external_position_id="POS-003",
     )
 
-    dto = _map_position_to_dto(position)
+    fr = modelfactory.fundingrequest()
+    dto = _map_position_to_dto(position, fr)
 
     assert isinstance(dto, FreePositionImportDto)
     assert dto.type == "free"
@@ -172,7 +176,7 @@ def test__invoice_with_position_and_funding_assignments__maps_to_dto__maps_assig
         position=position, funding_source=fs_institution, amount=Decimal("500.00")
     )
 
-    dto = _map_position_to_dto(position)
+    dto = _map_position_to_dto(position, funding_request)
 
     assert len(dto.funding_assignments) == 2
     assert dto.funding_assignments[0].name == "Budget 2026"
@@ -220,7 +224,10 @@ def test__invoice_with_multiple_positions__maps_to_dto__maps_all_positions_corre
         tax_rate=Decimal("0.19"),
     )
 
-    dto = map_invoice_to_dto(invoice)
+    dto = map_invoice_to_dto(invoice, funding_request)
+
+    print(invoice.positions.count())
+    print(list(invoice.positions.all()))
 
     assert len(dto.positions) == 3
     assert isinstance(dto.positions[0], PublicationPositionImportDto)

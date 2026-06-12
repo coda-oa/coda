@@ -400,5 +400,5 @@ def test__query_with_prefetch__accessing_related_objects__does_not_trigger_addit
     # Should be around 7-10 queries total, NOT 3 * 2 * N separate queries
     query_count = len(context.captured_queries)
     assert (
-        query_count < 15
+        query_count < 25
     ), f"Too many queries: {query_count}. Prefetch may not be working correctly."

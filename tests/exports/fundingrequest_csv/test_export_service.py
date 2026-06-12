@@ -486,3 +486,44 @@ def test__funding_request_with_contract_filter__export_to_csv__returns_only_matc
     assert df.height == 1
     assert df["publication_title"][0] == "Matching Contract Publication"
     assert df["contract_name"][0] == matching_contract.name
+
+    @pytest.mark.django_db
+    def test__shared_invoice_across_multiple_publications__export_to_csv__does_not_duplicate_rows() -> (
+        None
+    ):
+        shared_invoice = modelfactory.invoice()
+        shared_invoice.number = "W-2024-01147-B"
+        shared_invoice.date = date(2025, 2, 24)
+        shared_invoice.save()
+
+        titles = [
+            "Shared Invoice Pub 1",
+            "Shared Invoice Pub 2",
+            "Shared Invoice Pub 3",
+            "Shared Invoice Pub 4",
+        ]
+
+        for idx, title in enumerate(titles, start=1):
+            fr = modelfactory.fundingrequest(title=title)
+            fr.request_date = date(2025, 2, idx)
+            fr.save()
+
+            Position.objects.create(
+                invoice=shared_invoice,
+                publication=fr.publication,
+                description=f"Position {idx}",
+                cost_amount=Decimal("100.00"),
+                cost_currency="EUR",
+                cost_type="gold-oa",
+                tax_rate=Decimal("0.19"),
+            )
+
+        requests_exports = export_fundingrequests_to_csv(
+            date(2025, 1, 1),
+            date(2025, 12, 31),
+        )
+
+        df = pl.read_csv(StringIO(requests_exports), separator=";")
+        shared_invoice_rows = df.filter(pl.col("invoice_number") == "W-2024-01147-B")
+
+        assert shared_invoice_rows.height == 4

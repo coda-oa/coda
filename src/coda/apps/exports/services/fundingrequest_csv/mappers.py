@@ -225,22 +225,28 @@ def _map_labels_to_dto(funding_request: FundingRequest) -> list[str]:
     return [label.name for label in funding_request.labels.all()]
 
 
-def map_invoice_to_dto(invoice: Invoice) -> InvoiceImportDto:
+def map_invoice_to_dto(
+    invoice: Invoice,
+    funding_request: FundingRequest | None,
+    invoice_positions: list[Position] | None = None,
+) -> InvoiceImportDto:
+    invoice_positions = invoice_positions or list(invoice.positions.all())
+
     currency = "EUR"
-    if invoice.positions.exists():
-        first_position = invoice.positions.first()
-        if first_position:
-            currency = first_position.cost_currency
+
+    if invoice_positions:
+        currency = invoice_positions[0].cost_currency
+
+    conversions = list(invoice.currency_conversions.all())
 
     conversion = None
-    if invoice.currency_conversions.exists():
-        conv = invoice.currency_conversions.first()
-        if conv:
-            conversion = ConversionImportDto(
-                target_currency=conv.target_currency, exchange_rate=conv.exchange_rate
-            )
+    if conversions:
+        conv = conversions[0]
+        conversion = ConversionImportDto(
+            target_currency=conv.target_currency, exchange_rate=conv.exchange_rate
+        )
 
-    positions = [_map_position_to_dto(pos) for pos in invoice.positions.all()]
+    position_dtos = [_map_position_to_dto(pos, funding_request) for pos in invoice_positions]
 
     return InvoiceImportDto(
         number=invoice.number,
@@ -251,12 +257,13 @@ def map_invoice_to_dto(invoice: Invoice) -> InvoiceImportDto:
         external_id=invoice.external_invoice_id or "",
         comment=invoice.comment or "",
         conversion=conversion,
-        positions=positions,
+        positions=position_dtos,
     )
 
 
 def _map_position_to_dto(
     position: Position,
+    funding_request: FundingRequest | None = None,
 ) -> PublicationPositionImportDto | ContractPositionImportDto | FreePositionImportDto:
     """Map Django Position model to appropriate position DTO based on type.
 
@@ -286,8 +293,6 @@ def _map_position_to_dto(
 
     # Determine position type and create appropriate DTO
     if position.publication is not None:
-        funding_request = FundingRequest.objects.filter(publication=position.publication).first()
-
         request_id = str(funding_request.request_id) if funding_request else None
         legacy_request_id = funding_request.legacy_request_id if funding_request else ""
 
@@ -339,27 +344,47 @@ def map_funding_request_to_export_dto(
 
     funding_request_dto = map_funding_request_to_dto(funding_request)
 
-    invoices_qs = Invoice.objects.filter(positions__publication=funding_request.publication)
+    invoices = get_invoices_for_request(funding_request)
 
     if invoice_date_start and invoice_date_end:
-        invoices_qs = invoices_qs.filter(
-            date__gte=invoice_date_start,
-            date__lte=invoice_date_end,
-        )
+        invoices = [i for i in invoices if invoice_date_start <= i.date <= invoice_date_end]
+
     if invoice_status:
-        invoices_qs = invoices_qs.filter(status=invoice_status)
+        invoices = [i for i in invoices if i.status == invoice_status]
+
     if invoice_creditor:
-        invoices_qs = invoices_qs.filter(creditor__name__icontains=invoice_creditor)
+        invoices = [i for i in invoices if invoice_creditor.lower() in i.creditor.name.lower()]
+
     if funding_source:
-        invoices_qs = invoices_qs.filter(
-            positions__funding_assignments__funding_source=funding_source,
-        )
+        invoices = [
+            i
+            for i in invoices
+            if any(
+                fa.funding_source_id == funding_source
+                for p in i.positions.all()
+                for fa in p.funding_assignments.all()
+            )
+        ]
 
-    invoices_qs = invoices_qs.distinct()
-
-    invoice_dtos = [map_invoice_to_dto(invoice) for invoice in invoices_qs]
+    invoice_dtos = []
+    for invoice in invoices:
+        # Scope positions to the current funding request publication to avoid
+        # cross-product duplication when one invoice references multiple publications.
+        scoped_positions = [
+            pos
+            for pos in invoice.positions.all()
+            if pos.publication_id == funding_request.publication_id
+        ]
+        invoice_dtos.append(map_invoice_to_dto(invoice, funding_request, scoped_positions))
 
     return FundingRequestExportDto(
         funding_request=funding_request_dto,
         invoices=invoice_dtos,
     )
+
+
+def get_invoices_for_request(funding_request: FundingRequest) -> list[Invoice]:
+    invoices = {
+        pos.invoice for pos in funding_request.publication.position_set.all() if pos.invoice
+    }
+    return list(invoices)
