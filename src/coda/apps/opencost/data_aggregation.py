@@ -6,9 +6,14 @@ from django.db.models import Prefetch, QuerySet
 from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract, ContractLink
 from coda.apps.institutions.models import Institution, InstitutionLink
-from coda.apps.invoices.models import Invoice, Position
+from coda.apps.invoices.models import FundingAssignment, Invoice, Position
+from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.publications.models import Publication
 from coda.apps.publications.models._links import Link
+from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.fundingrequest.fundingrequest import PaymentMethod
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.publication.publication import OpenAccessType
 
 if TYPE_CHECKING:
     from coda.apps.opencost.report_service import InstitutionHierarchyCache
@@ -20,6 +25,15 @@ def get_publications_for_period(
     start_date: date,
     end_date: date,
     invoices_in_period: QuerySet[Invoice] | None = None,
+    review_results: list[ReviewResult] | None = None,
+    payment_statuses: list[fundingrequest_query.PaymentStatus] | None = None,
+    labels: list[int] | None = None,
+    exclude_labels: list[int] | None = None,
+    payment_methods: list[PaymentMethod] | None = None,
+    open_access_types: list[OpenAccessType] | None = None,
+    publication_states: list[str] | None = None,
+    entity_type: fundingrequest_query.PublicationEntityType | None = None,
+    contract: int | None = None,
 ) -> QuerySet[Publication]:
     if invoices_in_period is None:
         invoices_in_period = get_invoices_for_period(start_date, end_date)
@@ -30,7 +44,12 @@ def get_publications_for_period(
         .distinct()
     )
 
-    contracts_in_period = get_contracts_for_period(start_date, end_date)
+    contracts_in_period = get_contracts_for_period(
+        start_date,
+        end_date,
+        invoices_in_period=invoices_in_period,
+        contract=contract,
+    )
 
     publication_ids_attached_to_contracts = (
         Publication.objects.filter(
@@ -45,6 +64,21 @@ def get_publications_for_period(
     all_publication_ids = set(publication_ids_with_positions) | set(
         publication_ids_attached_to_contracts
     )
+
+    # Apply funding request-side filters (mirrors CSV export semantics) when provided.
+    filtered_publication_ids = _get_filtered_fundingrequest_publication_ids(
+        review_results=review_results,
+        payment_statuses=payment_statuses,
+        labels=labels,
+        exclude_labels=exclude_labels,
+        payment_methods=payment_methods,
+        open_access_types=open_access_types,
+        publication_states=publication_states,
+        entity_type=entity_type,
+        contract=contract,
+    )
+    if filtered_publication_ids is not None:
+        all_publication_ids &= filtered_publication_ids
 
     positions_in_period = Position.objects.filter(invoice__in=invoices_in_period).select_related(
         "invoice", "invoice__creditor"
@@ -80,16 +114,31 @@ def get_publications_for_period(
     )
 
 
-def get_invoices_for_period(start_date: date, end_date: date) -> QuerySet[Invoice]:
-    return (
-        Invoice.objects.filter(
-            date__gte=start_date,
-            date__lte=end_date,
-            status="paid",
+def get_invoices_for_period(
+    start_date: date,
+    end_date: date,
+    funding_source: FundingSourceId | None = None,
+) -> QuerySet[Invoice]:
+    qs = Invoice.objects.filter(
+        date__gte=start_date,
+        date__lte=end_date,
+        status="paid",
+    )
+
+    if funding_source:
+        qs = qs.filter(
+            positions__funding_assignments__funding_source_id=funding_source,
         )
+
+    return (
+        qs.distinct()
         .select_related("creditor")
         .prefetch_related(
             "positions",
+            Prefetch(
+                "positions__funding_assignments",
+                queryset=FundingAssignment.objects.select_related("funding_source"),
+            ),
             "positions__publication",
             "positions__publication__article_journal",
             "positions__publication__article_journal__publisher",
@@ -102,18 +151,19 @@ def get_contracts_for_period(
     start_date: date,
     end_date: date,
     invoices_in_period: QuerySet[Invoice] | None = None,
+    contract: int | None = None,
 ) -> QuerySet[Contract]:
     if invoices_in_period is None:
         invoices_in_period = get_invoices_for_period(start_date, end_date)
 
-    contract_ids = (
-        Position.objects.filter(
-            invoice__in=invoices_in_period,
-            contract__isnull=False,
-        )
-        .values_list("contract_id", flat=True)
-        .distinct()
+    contract_ids_qs = Position.objects.filter(
+        invoice__in=invoices_in_period,
+        contract__isnull=False,
     )
+    if contract:
+        contract_ids_qs = contract_ids_qs.filter(contract_id=contract)
+
+    contract_ids = contract_ids_qs.values_list("contract_id", flat=True).distinct()
 
     positions_in_period = Position.objects.filter(
         invoice__in=invoices_in_period,
@@ -129,6 +179,53 @@ def get_contracts_for_period(
         Prefetch("position_set", queryset=positions_in_period),
         Prefetch("links", queryset=contract_links_with_types),
     )
+
+
+def _get_filtered_fundingrequest_publication_ids(
+    review_results: list[ReviewResult] | None = None,
+    payment_statuses: list[fundingrequest_query.PaymentStatus] | None = None,
+    labels: list[int] | None = None,
+    exclude_labels: list[int] | None = None,
+    payment_methods: list[PaymentMethod] | None = None,
+    open_access_types: list[OpenAccessType] | None = None,
+    publication_states: list[str] | None = None,
+    entity_type: fundingrequest_query.PublicationEntityType | None = None,
+    contract: int | None = None,
+) -> set[int] | None:
+    criteria: list[fundingrequest_query.FundingRequestSearchCriteria] = []
+
+    if review_results:
+        criteria.append(fundingrequest_query.ReviewResultCriteria(review_results=review_results))
+    if payment_statuses:
+        criteria.append(
+            fundingrequest_query.PaymentStatusCriteria(payment_statuses=payment_statuses)
+        )
+    if labels or exclude_labels:
+        criteria.append(
+            fundingrequest_query.LabelsSearchCriteria(
+                include_labels=labels or [],
+                exclude_labels=exclude_labels or [],
+            )
+        )
+    if payment_methods:
+        criteria.append(fundingrequest_query.PaymentMethodCriteria(payment_methods=payment_methods))
+    if open_access_types:
+        criteria.append(
+            fundingrequest_query.OpenAccessTypeCriteria(open_access_types=open_access_types)
+        )
+    if publication_states:
+        criteria.append(
+            fundingrequest_query.PublicationStateCriteria(publication_states=publication_states)
+        )
+    if entity_type:
+        criteria.append(fundingrequest_query.EntityTypeCriteria(entity_type=entity_type))
+    if contract:
+        criteria.append(fundingrequest_query.ContractSearchCriteria(contract=contract))
+
+    if not criteria:
+        return None
+
+    return set(fundingrequest_query.search(*criteria).values_list("publication_id", flat=True))
 
 
 def _collect_institution_ids_from_authors(publications: QuerySet[Publication]) -> set[int]:

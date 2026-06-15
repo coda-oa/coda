@@ -2,11 +2,15 @@ from datetime import date
 import pytest
 
 from tests import modelfactory
+from coda.apps.fundingrequests.repository import save_review
 from coda.apps.opencost.data_aggregation import (
     get_invoices_for_period,
     get_publications_for_period,
     get_contracts_for_period,
 )
+from coda.domain.fundingrequest import FundingRequestId, Review
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import Currency, Money
 from tests.opencost.helpers import (
     create_creditor,
     create_publication_with_invoice,
@@ -285,3 +289,39 @@ def test_get_contracts_for_period_works_with_invoice_parameter() -> None:
     # Should work with passed invoices
     assert contracts.count() == 1
     assert contract in contracts
+
+
+@pytest.mark.django_db
+def test__review_result_filter__querying_publications_for_period__returns_only_matching_publications() -> (
+    None
+):
+    fr_approved = modelfactory.fundingrequest()
+    fr_rejected = modelfactory.fundingrequest()
+
+    save_review(
+        Review(FundingRequestId(fr_approved.id)).update_review(
+            ReviewResult.Approved,
+            Money(Decimal("1000.00"), Currency.EUR),
+        )
+    )
+    save_review(Review(FundingRequestId(fr_rejected.id)).update_review(ReviewResult.Rejected))
+
+    create_publication_with_invoice(
+        fr_approved.publication,
+        invoice_date=date(2024, 6, 10),
+        invoice_number="INV-APPROVED",
+    )
+    create_publication_with_invoice(
+        fr_rejected.publication,
+        invoice_date=date(2024, 6, 11),
+        invoice_number="INV-REJECTED",
+    )
+
+    publications = get_publications_for_period(
+        start_date=date(2024, 6, 1),
+        end_date=date(2024, 6, 30),
+        review_results=[ReviewResult.Approved],
+    )
+
+    assert fr_approved.publication in publications
+    assert fr_rejected.publication not in publications

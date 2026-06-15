@@ -32,7 +32,11 @@ from coda.apps.opencost.models import (
 from coda.apps.opencost.validation import validate_report
 from coda.apps.publications.models import Publication
 from coda.apps.preferences.models import GlobalPreferences
-
+from coda.apps.fundingrequests import fundingrequest_query
+from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.fundingrequest.fundingrequest import PaymentMethod
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.publication.publication import OpenAccessType
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +146,22 @@ class ContractSnapshotData(NamedTuple):
 
 
 @transaction.atomic
-def generate_report(title: str, period_start: date, period_end: date) -> OpenCostReport:
+def generate_report(
+    title: str,
+    period_start: date,
+    period_end: date,
+    filters: dict[str, str] | None = None,
+    review_results: list[ReviewResult] | None = None,
+    payment_statuses: list[fundingrequest_query.PaymentStatus] | None = None,
+    labels: list[int] | None = None,
+    exclude_labels: list[int] | None = None,
+    payment_methods: list[PaymentMethod] | None = None,
+    open_access_types: list[OpenAccessType] | None = None,
+    publication_states: list[str] | None = None,
+    entity_type: fundingrequest_query.PublicationEntityType | None = None,
+    funding_source: FundingSourceId | None = None,
+    contract: int | None = None,
+) -> OpenCostReport:
     """
     Generate OpenCost report using bulk operations for maximum performance.
 
@@ -159,20 +178,41 @@ def generate_report(title: str, period_start: date, period_end: date) -> OpenCos
 
     # SETUP PHASE
     report = OpenCostReport.objects.create(
-        title=title, period_start=period_start, period_end=period_end
+        title=title,
+        period_start=period_start,
+        period_end=period_end,
+        filters=filters or {},
     )
     logger.debug(f"Created report record: {report.id}")
 
     home_institution_cache = _build_home_institution_cache()
-    invoices_in_period = get_invoices_for_period(start_date=period_start, end_date=period_end)
+    invoices_in_period = get_invoices_for_period(
+        start_date=period_start,
+        end_date=period_end,
+        funding_source=funding_source,
+    )
 
     # DATA AGGREGATION PHASE
     logger.info("Fetching publications and contracts...")
     publications = get_publications_for_period(
-        start_date=period_start, end_date=period_end, invoices_in_period=invoices_in_period
+        start_date=period_start,
+        end_date=period_end,
+        invoices_in_period=invoices_in_period,
+        review_results=review_results,
+        payment_statuses=payment_statuses,
+        labels=labels,
+        exclude_labels=exclude_labels,
+        payment_methods=payment_methods,
+        open_access_types=open_access_types,
+        publication_states=publication_states,
+        entity_type=entity_type,
+        contract=contract,
     )
     contracts = get_contracts_for_period(
-        start_date=period_start, end_date=period_end, invoices_in_period=invoices_in_period
+        start_date=period_start,
+        end_date=period_end,
+        invoices_in_period=invoices_in_period,
+        contract=contract,
     )
     logger.debug(f"Fetched {len(publications)} publications, {len(contracts)} contracts")
 
@@ -190,8 +230,10 @@ def generate_report(title: str, period_start: date, period_end: date) -> OpenCos
         pub_snapshots.append(snapshot_data)
 
     contract_snapshots: list[ContractSnapshotData] = []
-    for contract in contracts:
-        contract_snapshot_data = _collect_contract_snapshot_data(contract, home_institution_cache)
+    for contract_obj in contracts:
+        contract_snapshot_data = _collect_contract_snapshot_data(
+            contract_obj, home_institution_cache
+        )
         contract_snapshots.append(contract_snapshot_data)
 
     logger.debug(

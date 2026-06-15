@@ -1,4 +1,5 @@
 from datetime import datetime
+from dataclasses import asdict, dataclass
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch, Count
 from django.http import HttpRequest, HttpResponse
@@ -22,12 +23,25 @@ from coda.apps.opencost.models import (
     OpenCostReportPublicationContract,
 )
 from coda.apps.contracts.models import ContractLink
+from coda.apps.fundingrequests.fundingrequest_query import (
+    PaymentStatus as FundingRequestPaymentStatus,
+    PublicationEntityType,
+)
 from coda.apps.opencost.report_service import generate_report as generate_report_service
+from coda.apps.exports.services.filter_display import (
+    build_applied_filters,
+    build_filter_form_context,
+    build_filters_from_request,
+    parse_common_filter_fields,
+)
 from coda.apps.opencost.validation import validate_report
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.views import SimpleSearchEntityListView
 from coda.apps.domainqueryset import DomainQuerySet
-
+from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.fundingrequest.fundingrequest import PaymentMethod
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.publication import OpenAccessType
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
@@ -122,6 +136,7 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
     warnings = validate_report(report, contracts=contracts_list, publications=publications_list)
     errors = [w for w in warnings if w.level == "error"]
     warnings_only = [w for w in warnings if w.level == "warning"]
+    applied_filters = build_applied_filters(report.filters)
 
     context = {
         "report": report,
@@ -133,6 +148,7 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
         "errors": errors,
         "warnings_only": warnings_only,
         "has_issues": len(warnings) > 0,
+        "applied_filters": applied_filters,
     }
 
     return render(request, "opencost/report_detail.html", context)
@@ -142,7 +158,9 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
 @require_GET
 @breadcrumb("Generate New Report", parent_url_name="opencost:list")
 def generate_report_form(request: HttpRequest) -> HttpResponse:
-    return render(request, "opencost/generate_report.html")
+    context = _get_report_form_context()
+    context["expand_advanced_search"] = bool(request.GET)
+    return render(request, "opencost/generate_report.html", context)
 
 
 def _build_issue_message(report: OpenCostReport, detail_url: str) -> str:
@@ -189,10 +207,15 @@ def generate_report(request: HttpRequest) -> HttpResponse:
         period_start = datetime.strptime(period_start_str, "%Y-%m-%d").date()
         period_end = datetime.strptime(period_end_str, "%Y-%m-%d").date()
 
+        filters = _build_report_filters(request)
+        parsed_filters = _parse_report_filter_dict(filters)
+
         report = generate_report_service(
             title=title,
             period_start=period_start,
             period_end=period_end,
+            filters=filters,
+            **asdict(parsed_filters),
         )
 
         if report.has_issues():
@@ -211,6 +234,44 @@ def generate_report(request: HttpRequest) -> HttpResponse:
     except Exception as e:
         messages.error(request, f"Error generating report: {str(e)}")
         return redirect("opencost:generate")
+
+
+@dataclass
+class ParsedOpenCostFilters:
+    review_results: list[ReviewResult]
+    payment_statuses: list[FundingRequestPaymentStatus]
+    labels: list[int]
+    exclude_labels: list[int]
+    payment_methods: list[PaymentMethod]
+    open_access_types: list[OpenAccessType]
+    publication_states: list[str]
+    entity_type: PublicationEntityType | None
+    funding_source: FundingSourceId | None
+    contract: int | None
+
+
+def _parse_report_filter_dict(filters: dict[str, str]) -> ParsedOpenCostFilters:
+    common = parse_common_filter_fields(filters)
+    return ParsedOpenCostFilters(
+        review_results=common.review_results,
+        payment_statuses=common.payment_statuses,
+        labels=common.labels,
+        exclude_labels=common.exclude_labels,
+        payment_methods=common.payment_methods,
+        open_access_types=common.open_access_types,
+        publication_states=common.publication_states,
+        entity_type=common.entity_type,
+        funding_source=common.funding_source,
+        contract=common.contract,
+    )
+
+
+def _build_report_filters(request: HttpRequest) -> dict[str, str]:
+    return build_filters_from_request(request)
+
+
+def _get_report_form_context() -> dict[str, object]:
+    return build_filter_form_context()
 
 
 @login_required

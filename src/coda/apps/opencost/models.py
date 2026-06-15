@@ -10,6 +10,7 @@ class OpenCostReport(models.Model):
     title = models.CharField(max_length=255)
     period_start = models.DateField(help_text="Start of reporting period")
     period_end = models.DateField(help_text="End of reporting period")
+    filters = models.JSONField(default=dict, blank=True)
     generated_at = models.DateTimeField(
         default=timezone.now, help_text="When this report was generated"
     )

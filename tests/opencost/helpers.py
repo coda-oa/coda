@@ -92,11 +92,13 @@ def create_opencost_report(
     title: str = "Test OpenCost Report 2024",
     period_start: date = date(2024, 1, 1),
     period_end: date = date(2024, 12, 31),
+    filters: dict[str, str] | None = None,
 ) -> OpenCostReport:
     return generate_report(
         title=title,
         period_start=period_start,
         period_end=period_end,
+        filters=filters,
     )
 
 

@@ -2,12 +2,149 @@ from datetime import datetime
 
 from dataclasses import dataclass
 
+from django.http import HttpRequest
 
 from coda.apps.fundingrequests.models import Label
 from coda.apps.contracts.models import Contract
+from coda.apps.invoices.models import FundingSource
 from coda.apps.fundingrequests.fundingrequest_query import (
     PaymentStatus as FundingRequestPaymentStatus,
 )
+from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.fundingrequest.fundingrequest import PaymentMethod
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.publication import OpenAccessType
+from coda.domain.publication.publication import UnpublishedState
+from coda.apps.fundingrequests.fundingrequest_query import PublicationEntityType
+
+# ---------------------------------------------------------------------------
+# Shared choice lists used in both filter forms.
+# ---------------------------------------------------------------------------
+publication_state_choices: list[tuple[str, str]] = [
+    ("Published", "Published"),
+    *((s.name, s.value) for s in UnpublishedState),
+]
+
+payment_status_choices: list[tuple[str, str]] = [
+    (status.value, status.value.replace("_", " ").title()) for status in FundingRequestPaymentStatus
+]
+
+
+# ---------------------------------------------------------------------------
+# Shared filter keys that are common to both CSV exports and openCost reports.
+# ---------------------------------------------------------------------------
+_COMMON_OPTIONAL_FILTER_FIELDS: list[str] = [
+    "processing_status",
+    "payment_methods",
+    "open_access_type",
+    "publication_states",
+    "labels",
+    "exclude_labels",
+    "payment_status",
+    "publication_type",
+    "funding_source",
+    "contract_name",
+]
+
+
+def build_filters_from_request(
+    request: HttpRequest,
+    extra_optional_fields: list[str] | None = None,
+) -> dict[str, str]:
+    """Build the raw filter dict from a POST request.
+
+    Both CSV exports and openCost reports share the same set of base optional
+    filter fields.  Pass ``extra_optional_fields`` to include additional fields
+    (e.g. invoice date fields used only in the CSV flow).
+    """
+    filters: dict[str, str] = {
+        "period_start": request.POST["period_start"],
+        "period_end": request.POST["period_end"],
+    }
+
+    for field in _COMMON_OPTIONAL_FILTER_FIELDS + (extra_optional_fields or []):
+        values = request.POST.getlist(field)
+        if values:
+            filters[field] = ",".join(values)
+
+    return filters
+
+
+# ---------------------------------------------------------------------------
+# Shared typed-value container returned by parse_common_filter_fields.
+# ---------------------------------------------------------------------------
+@dataclass
+class CommonFilterFields:
+    review_results: list[ReviewResult]
+    payment_statuses: list[FundingRequestPaymentStatus]
+    labels: list[int]
+    exclude_labels: list[int]
+    payment_methods: list[PaymentMethod]
+    open_access_types: list[OpenAccessType]
+    publication_states: list[str]
+    entity_type: PublicationEntityType | None
+    funding_source: FundingSourceId | None
+    contract: int | None
+
+
+def parse_common_filter_fields(filters: dict[str, str]) -> CommonFilterFields:
+    """Parse the filter fields shared by CSV exports and openCost reports."""
+    review_results = [
+        ReviewResult(rr) for rr in filters.get("processing_status", "").split(",") if rr
+    ]
+    payment_statuses = [
+        FundingRequestPaymentStatus(ps) for ps in filters.get("payment_status", "").split(",") if ps
+    ]
+    labels = [int(_id) for _id in filters.get("labels", "").split(",") if _id]
+    exclude_labels = [int(_id) for _id in filters.get("exclude_labels", "").split(",") if _id]
+    payment_methods = [
+        PaymentMethod(pm) for pm in filters.get("payment_methods", "").split(",") if pm
+    ]
+    open_access_types = [
+        OpenAccessType(oat) for oat in filters.get("open_access_type", "").split(",") if oat
+    ]
+    publication_states = [ps for ps in filters.get("publication_states", "").split(",") if ps]
+
+    entity_type_raw = filters.get("publication_type") or filters.get("entity_type")
+    entity_type = PublicationEntityType(entity_type_raw) if entity_type_raw else None
+
+    funding_source_raw = filters.get("funding_source")
+    funding_source = FundingSourceId(int(funding_source_raw)) if funding_source_raw else None
+
+    contract_raw = filters.get("contract_name") or filters.get("contract")
+    contract = int(contract_raw) if contract_raw else None
+
+    return CommonFilterFields(
+        review_results=review_results,
+        payment_statuses=payment_statuses,
+        labels=labels,
+        exclude_labels=exclude_labels,
+        payment_methods=payment_methods,
+        open_access_types=open_access_types,
+        publication_states=publication_states,
+        entity_type=entity_type,
+        funding_source=funding_source,
+        contract=contract,
+    )
+
+
+def build_filter_form_context() -> dict[str, object]:
+    """Return the template context dict needed to render any filter form.
+
+    Both the CSV export form and the openCost generate form use exactly the
+    same set of filter widgets, so the context they need is identical.
+    """
+    return {
+        "processing_states": [rr.value for rr in ReviewResult],
+        "payment_methods": [(pm.value, pm.value) for pm in PaymentMethod],
+        "open_access_types": [oat.value for oat in OpenAccessType],
+        "publication_states": publication_state_choices,
+        "labels": Label.objects.all(),
+        "funding_sources": FundingSource.objects.filter(type="budget"),
+        "publication_types": [(et.value, et.value) for et in PublicationEntityType],
+        "contract_list": Contract.objects.all(),
+        "payment_status_choices": payment_status_choices,
+    }
 
 
 @dataclass
@@ -122,6 +259,16 @@ def build_applied_filters(filters: dict[str, str]) -> list[AppliedFilter]:
             AppliedFilter(
                 label="Contracts",
                 value=", ".join(contract.name for contract in contracts),
+            )
+        )
+
+    if "funding_source" in filters:
+        funding_source_ids = [int(_id) for _id in filters["funding_source"].split(",") if _id]
+        funding_sources = FundingSource.objects.filter(id__in=funding_source_ids)
+        applied_filters.append(
+            AppliedFilter(
+                label="Funding Source",
+                value=", ".join(source.name for source in funding_sources),
             )
         )
 

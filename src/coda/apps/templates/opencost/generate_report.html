@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
     <div class="flex justify-between align-center my-2">
-        <h1 class="my-2">Generate New Report</h1>
+        <h1 class="my-2">Generate New openCost Report</h1>
     </div>
     <form method="post" action="{% url 'opencost:generate_submit' %}">
         {% csrf_token %}
@@ -25,6 +25,19 @@
                     <input type="date" id="period_end" name="period_end" required>
                 </div>
             </div>
+            <hr>
+            <details {% if expand_advanced_search %}open{% endif %}>
+                <summary class="flex align-center justify-between button outline contrast">Optional Filters</summary>
+                {% include "fundingrequests/forms/publication_type.html" %}
+                {% include "fundingrequests/forms/contract_dropdown.html" %}
+                {% include "fundingrequests/forms/status_dropdown.html" %}
+                {% include "fundingrequests/forms/payment_method.html" %}
+                {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
+                {% include "fundingrequests/forms/publication_state.html" %}
+                {% comment %} {% include "fundingrequests/forms/payment_status.html" %} {% endcomment %}
+                {% include "fundingrequests/forms/label_dropdown.html" %}
+                {% include "invoices/partials/funding_source_filter.html" %}
+            </details>
         </article>
         <div class="grid wizard-nav">
             <a href="{% url 'opencost:list' %}" class="button danger text-center">Cancel</a>
