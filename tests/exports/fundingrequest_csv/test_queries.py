@@ -39,52 +39,6 @@ def test__funding_requests_with_different_request_dates__query_for_export__retur
 
 
 @pytest.mark.django_db
-def test__funding_requests_with_optional_invoice_date_filter__query_with_invoice_dates__returns_only_matching_invoice_dates() -> (
-    None
-):
-    fr = modelfactory.fundingrequest(title="FR with multiple invoices")
-    fr.request_date = date(2026, 3, 15)  # March request
-    fr.save()
-
-    invoice_feb = modelfactory.invoice()
-    invoice_feb.date = date(2026, 2, 20)
-    invoice_feb.save()
-    Position.objects.create(
-        invoice=invoice_feb,
-        publication=fr.publication,
-        description="Feb position",
-        cost_amount=Decimal("1000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-FEB",
-    )
-
-    invoice_apr = modelfactory.invoice()
-    invoice_apr.date = date(2026, 4, 15)
-    invoice_apr.save()
-    Position.objects.create(
-        invoice=invoice_apr,
-        publication=fr.publication,
-        description="Apr position",
-        cost_amount=Decimal("2000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-APR",
-    )
-
-    results = get_funding_requests_for_export(
-        period_start=date(2026, 3, 1),
-        period_end=date(2026, 3, 31),
-        invoice_date_start=date(2026, 4, 1),
-        invoice_date_end=date(2026, 4, 30),
-    )
-
-    assert list(results) == [fr]
-
-
-@pytest.mark.django_db
 def test__funding_requests_with_different_review_results__query_with_review_filter__returns_only_matching() -> (
     None
 ):
@@ -137,106 +91,6 @@ def test__funding_requests_with_different_payment_statuses__query_with_payment_s
     )
 
     assert list(results) == [fr_paid]
-
-
-@pytest.mark.django_db
-def test__funding_requests_with_different_invoice_statuses__query_with_invoice_status_filter__returns_only_matching() -> (
-    None
-):
-    fr_paid = modelfactory.fundingrequest(title="Paid Invoice FR")
-    fr_paid.request_date = date(2026, 3, 10)
-    fr_paid.save()
-    invoice_paid = modelfactory.invoice()
-    invoice_paid.date = date(2026, 3, 15)
-    invoice_paid.status = "paid"
-    invoice_paid.save()
-    Position.objects.create(
-        invoice=invoice_paid,
-        publication=fr_paid.publication,
-        description="Paid position",
-        cost_amount=Decimal("1000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-PAID",
-    )
-
-    fr_unpaid = modelfactory.fundingrequest(title="Unpaid Invoice FR")
-    fr_unpaid.request_date = date(2026, 3, 20)
-    fr_unpaid.save()
-    invoice_unpaid = modelfactory.invoice()
-    invoice_unpaid.date = date(2026, 3, 20)
-    invoice_unpaid.status = "unpaid"
-    invoice_unpaid.save()
-    Position.objects.create(
-        invoice=invoice_unpaid,
-        publication=fr_unpaid.publication,
-        description="Unpaid position",
-        cost_amount=Decimal("2000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-UNPAID",
-    )
-
-    results = get_funding_requests_for_export(
-        period_start=date(2026, 3, 1),
-        period_end=date(2026, 3, 31),
-        invoice_status="paid",
-    )
-
-    assert list(results) == [fr_paid]
-
-
-@pytest.mark.django_db
-def test__funding_requests_with_different_creditors__query_with_creditor_filter__returns_only_matching() -> (
-    None
-):
-    fr_creditor_a = modelfactory.fundingrequest(title="Creditor A FR")
-    fr_creditor_a.request_date = date(2026, 3, 10)
-    fr_creditor_a.save()
-    creditor_a = modelfactory.creditor(name="University Press")
-    invoice_a = modelfactory.invoice()
-    invoice_a.date = date(2026, 3, 15)
-    invoice_a.creditor = creditor_a
-    invoice_a.save()
-    Position.objects.create(
-        invoice=invoice_a,
-        publication=fr_creditor_a.publication,
-        description="Position A",
-        cost_amount=Decimal("1000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-A",
-    )
-
-    fr_creditor_b = modelfactory.fundingrequest(title="Creditor B FR")
-    fr_creditor_b.request_date = date(2026, 3, 20)
-    fr_creditor_b.save()
-    creditor_b = modelfactory.creditor(name="Science Publisher")
-    invoice_b = modelfactory.invoice()
-    invoice_b.date = date(2026, 3, 20)
-    invoice_b.creditor = creditor_b
-    invoice_b.save()
-    Position.objects.create(
-        invoice=invoice_b,
-        publication=fr_creditor_b.publication,
-        description="Position B",
-        cost_amount=Decimal("2000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-B",
-    )
-
-    results = get_funding_requests_for_export(
-        period_start=date(2026, 3, 1),
-        period_end=date(2026, 3, 31),
-        invoice_creditor="University",
-    )
-
-    assert list(results) == [fr_creditor_a]
 
 
 @pytest.mark.django_db
@@ -323,8 +177,6 @@ def test__combining_funding_request_and_invoice_filters__query_with_combined_fil
         period_start=date(2026, 3, 1),
         period_end=date(2026, 3, 31),
         review_results=[ReviewResult.Approved],
-        invoice_status="paid",
-        invoice_creditor="Alpha",
         funding_source=FundingSourceId(budget1.pk),
     )
 

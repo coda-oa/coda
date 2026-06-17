@@ -6,9 +6,6 @@ from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.fundingrequests.fundingrequest_query import ContractId, FundingRequestSearchCriteria
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.exports.services.fundingrequest_csv.criteria import (
-    InvoiceDateRangeCriteria,
-    InvoicePaymentStatusCriteria,
-    InvoiceCreditorCriteria,
     InvoiceFundingSourceCriteria,
 )
 from coda.apps.invoices.models import FundingAssignment, Invoice
@@ -33,10 +30,6 @@ def get_funding_requests_for_export(
     publication_states: list[str] | None = None,
     entity_type: fundingrequest_query.PublicationEntityType | None = None,
     generic_search: str = "",
-    invoice_date_start: date | None = None,
-    invoice_date_end: date | None = None,
-    invoice_status: str | None = None,
-    invoice_creditor: str = "",
     funding_source: FundingSourceId | None = None,
     contract: ContractId | None = None,
 ) -> QuerySet[FundingRequest]:
@@ -73,12 +66,6 @@ def get_funding_requests_for_export(
     if generic_search:
         criteria.append(fundingrequest_query.GenericSearchCriteria(search_term=generic_search))
 
-    if invoice_date_start and invoice_date_end:
-        criteria.append(InvoiceDateRangeCriteria(invoice_date_start, invoice_date_end))
-    if invoice_status:
-        criteria.append(InvoicePaymentStatusCriteria(payment_status=invoice_status))
-    if invoice_creditor:
-        criteria.append(InvoiceCreditorCriteria(creditor_name=invoice_creditor))
     if funding_source:
         criteria.append(InvoiceFundingSourceCriteria(funding_source=funding_source))
     if contract:

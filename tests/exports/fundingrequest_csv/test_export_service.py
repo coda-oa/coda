@@ -11,6 +11,7 @@ from coda.apps.exports.services.fundingrequest_csv.export_service import (
 )
 from coda.apps.invoices.models import FundingAssignment, Position
 from coda.apps.publications.models import AttachedContract
+from coda.domain.finance.invoice import FundingSourceId
 from tests import modelfactory
 from coda.domain.fundingrequest.review import ReviewResult, Review
 from coda.domain.money import Money, Currency
@@ -250,7 +251,9 @@ def test__funding_request_with_review_result__export_to_csv__includes_review_res
 
 
 @pytest.mark.django_db
-def test__funding_request_with_invoice_filters__export_to_csv__returns_filtered_results() -> None:
+def test__funding_request_with_invoice_filters_funding_source__export_to_csv__returns_filtered_results() -> (
+    None
+):
     # ARRANGE
     funding_request = modelfactory.fundingrequest(title="Filtered Publication")
     funding_request.request_date = date(2026, 5, 1)
@@ -263,7 +266,7 @@ def test__funding_request_with_invoice_filters__export_to_csv__returns_filtered_
     invoice.status = "paid"
     invoice.save()
 
-    Position.objects.create(
+    position = Position.objects.create(
         invoice=invoice,
         publication=funding_request.publication,
         description="Publication charge",
@@ -274,74 +277,26 @@ def test__funding_request_with_invoice_filters__export_to_csv__returns_filtered_
         external_position_id="POS-006",
     )
 
+    FundingAssignment.objects.create(
+        position=position,
+        funding_source=modelfactory.budget(name="Budget Name"),
+        amount=Decimal("1200.00"),
+    )
+
+    fa = FundingAssignment.objects.get(position=position)
+    fs = fa.funding_source
+    assert fs is not None
+    funding_source = FundingSourceId(fs.pk)
+
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
     requests_exports = export_fundingrequests_to_csv(
-        period_start,
-        period_end,
-        invoice_status="paid",
-        invoice_creditor="Test Creditor",
+        period_start, period_end, funding_source=funding_source
     )
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
     assert df.height == 1
-
-    assert df["publication_title"][0] == "Filtered Publication"
-    assert df["invoice_number"][0] == "INV-006"
-    assert df["creditor"][0] == "Test Creditor"
-    assert df["invoice_status"][0] == "paid"
-
-
-@pytest.mark.django_db
-def test__funding_request_with_invoice_date_range__export_to_csv__excludes_out_of_range_invoices() -> (
-    None
-):
-    funding_request = modelfactory.fundingrequest(title="Invoice Date Range Publication")
-    funding_request.request_date = date(2025, 1, 10)
-    funding_request.save()
-
-    january_invoice = modelfactory.invoice()
-    january_invoice.number = "INV-JAN"
-    january_invoice.date = date(2025, 1, 15)
-    january_invoice.save()
-
-    Position.objects.create(
-        invoice=january_invoice,
-        publication=funding_request.publication,
-        description="January invoice",
-        cost_amount=Decimal("100.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-    )
-
-    march_invoice = modelfactory.invoice()
-    march_invoice.number = "INV-MAR"
-    march_invoice.date = date(2025, 3, 10)
-    march_invoice.save()
-
-    Position.objects.create(
-        invoice=march_invoice,
-        publication=funding_request.publication,
-        description="March invoice",
-        cost_amount=Decimal("120.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-    )
-
-    requests_exports = export_fundingrequests_to_csv(
-        date(2024, 12, 8),
-        date(2025, 2, 5),
-        invoice_date_start=date(2025, 1, 1),
-        invoice_date_end=date(2025, 1, 31),
-    )
-
-    df = pl.read_csv(StringIO(requests_exports), separator=";")
-
-    assert df.height == 1
-    assert df["invoice_number"][0] == "INV-JAN"
-    assert df["invoice_date"][0] == "2025-01-15"
+    assert df["funding_source_name"][0] == "Budget Name"
 
 
 @pytest.mark.django_db
@@ -365,7 +320,7 @@ def test__funding_request_with_combined_filters__export_to_csv__returns_correctl
     invoice.status = "paid"
     invoice.save()
 
-    Position.objects.create(
+    position = Position.objects.create(
         invoice=invoice,
         publication=funding_request.publication,
         description="Publication charge",
@@ -374,6 +329,11 @@ def test__funding_request_with_combined_filters__export_to_csv__returns_correctl
         cost_type="gold-oa",
         tax_rate=Decimal("0.19"),
         external_position_id="POS-006",
+    )
+    FundingAssignment.objects.create(
+        position=position,
+        funding_source=modelfactory.budget(name="Budget 1"),
+        amount=Decimal("1200.00"),
     )
 
     funding_request_rejected = modelfactory.fundingrequest(title="Filtered Publication")
@@ -393,7 +353,7 @@ def test__funding_request_with_combined_filters__export_to_csv__returns_correctl
     invoice.status = "paid"
     invoice.save()
 
-    Position.objects.create(
+    position2 = Position.objects.create(
         invoice=invoice,
         publication=funding_request_rejected.publication,
         description="Publication charge",
@@ -404,22 +364,28 @@ def test__funding_request_with_combined_filters__export_to_csv__returns_correctl
         external_position_id="POS-006",
     )
 
+    FundingAssignment.objects.create(
+        position=position2,
+        funding_source=modelfactory.budget(name="Budget 2"),
+        amount=Decimal("1200.00"),
+    )
+
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
+    fa = FundingAssignment.objects.get(position=position)
+    assert fa.funding_source is not None
     requests_exports = export_fundingrequests_to_csv(
         period_start,
         period_end,
-        invoice_status="paid",
-        invoice_creditor="Test Creditor",
         review_results=[ReviewResult.Approved],
+        funding_source=FundingSourceId(fa.funding_source.pk),
     )
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
     assert df.height == 1
     assert df["publication_title"][0] == "Filtered Publication"
     assert df["review_result"][0] == "approved"
-    assert df["invoice_status"][0] == "paid"
-    assert df["creditor"][0] == "Test Creditor"
+    assert df["funding_source_name"][0] == "Budget 1"
 
 
 @pytest.mark.django_db
@@ -487,43 +453,44 @@ def test__funding_request_with_contract_filter__export_to_csv__returns_only_matc
     assert df["publication_title"][0] == "Matching Contract Publication"
     assert df["contract_name"][0] == matching_contract.name
 
-    @pytest.mark.django_db
-    def test__shared_invoice_across_multiple_publications__export_to_csv__does_not_duplicate_rows() -> (
-        None
-    ):
-        shared_invoice = modelfactory.invoice()
-        shared_invoice.number = "W-2024-01147-B"
-        shared_invoice.date = date(2025, 2, 24)
-        shared_invoice.save()
 
-        titles = [
-            "Shared Invoice Pub 1",
-            "Shared Invoice Pub 2",
-            "Shared Invoice Pub 3",
-            "Shared Invoice Pub 4",
-        ]
+@pytest.mark.django_db
+def test__shared_invoice_across_multiple_publications__export_to_csv__does_not_duplicate_rows() -> (
+    None
+):
+    shared_invoice = modelfactory.invoice()
+    shared_invoice.number = "W-2024-01147-B"
+    shared_invoice.date = date(2025, 2, 24)
+    shared_invoice.save()
 
-        for idx, title in enumerate(titles, start=1):
-            fr = modelfactory.fundingrequest(title=title)
-            fr.request_date = date(2025, 2, idx)
-            fr.save()
+    titles = [
+        "Shared Invoice Pub 1",
+        "Shared Invoice Pub 2",
+        "Shared Invoice Pub 3",
+        "Shared Invoice Pub 4",
+    ]
 
-            Position.objects.create(
-                invoice=shared_invoice,
-                publication=fr.publication,
-                description=f"Position {idx}",
-                cost_amount=Decimal("100.00"),
-                cost_currency="EUR",
-                cost_type="gold-oa",
-                tax_rate=Decimal("0.19"),
-            )
+    for idx, title in enumerate(titles, start=1):
+        fr = modelfactory.fundingrequest(title=title)
+        fr.request_date = date(2025, 2, idx)
+        fr.save()
 
-        requests_exports = export_fundingrequests_to_csv(
-            date(2025, 1, 1),
-            date(2025, 12, 31),
+        Position.objects.create(
+            invoice=shared_invoice,
+            publication=fr.publication,
+            description=f"Position {idx}",
+            cost_amount=Decimal("100.00"),
+            cost_currency="EUR",
+            cost_type="gold-oa",
+            tax_rate=Decimal("0.19"),
         )
 
-        df = pl.read_csv(StringIO(requests_exports), separator=";")
-        shared_invoice_rows = df.filter(pl.col("invoice_number") == "W-2024-01147-B")
+    requests_exports = export_fundingrequests_to_csv(
+        date(2025, 1, 1),
+        date(2025, 12, 31),
+    )
 
-        assert shared_invoice_rows.height == 4
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+    shared_invoice_rows = df.filter(pl.col("invoice_number") == "W-2024-01147-B")
+
+    assert shared_invoice_rows.height == 4

@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Any
 from io import StringIO
 from django.contrib import messages
 
@@ -14,22 +15,14 @@ from coda.apps.exports.models import FundingRequestCSVExport
 from coda.apps.exports.services.fundingrequest_csv.export_service import (
     export_fundingrequests_to_csv,
 )
-from coda.apps.fundingrequests.fundingrequest_query import (
-    ContractId,
-    PaymentStatus as FundingRequestPaymentStatus,
-    PublicationEntityType,
-)
 from coda.apps.views import SimpleSearchEntityListView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from django.views.decorators.http import require_GET, require_POST
-from coda.domain.fundingrequest.review import ReviewResult
-from coda.domain.fundingrequest.fundingrequest import PaymentMethod
-from coda.domain.publication import OpenAccessType
-from coda.domain.finance.invoice import FundingSourceId
 
 from coda.apps.exports.services.filter_display import (
+    CommonFilterFields,
     build_applied_filters,
     build_filter_form_context,
     build_filters_from_request,
@@ -172,21 +165,16 @@ def fundingrequest_download_csv(
 
 @dataclass
 class ParsedExportFilters:
-    period_start: date
+    common: CommonFilterFields
+    period_start: date  # Funding request date range
     period_end: date
-    review_results: list[ReviewResult]
-    payment_statuses: list[FundingRequestPaymentStatus]
-    labels: list[int]
-    exclude_labels: list[int]
-    payment_methods: list[PaymentMethod]
-    open_access_types: list[OpenAccessType]
-    publication_states: list[str]
-    entity_type: PublicationEntityType | None
-    invoice_status: str | None
-    funding_source: FundingSourceId | None
-    invoice_date_start: date | None
-    invoice_date_end: date | None
-    contract: ContractId | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            **asdict(self.common),
+            "period_start": self.period_start,
+            "period_end": self.period_end,
+        }
 
 
 def _parse_filter_dict(
@@ -197,36 +185,10 @@ def _parse_filter_dict(
 
     common = parse_common_filter_fields(filters)
 
-    # Keep compatibility for older stored export filters that used invoice_status.
-    invoice_status = filters.get("invoice_status")
-
-    invoice_date_start = (
-        datetime.strptime(filters["invoice_date_start"], "%Y-%m-%d").date()
-        if filters.get("invoice_date_start")
-        else None
-    )
-    invoice_date_end = (
-        datetime.strptime(filters["invoice_date_end"], "%Y-%m-%d").date()
-        if filters.get("invoice_date_end")
-        else None
-    )
-
     return ParsedExportFilters(
+        common=common,
         period_start=period_start,
         period_end=period_end,
-        review_results=common.review_results,
-        payment_statuses=common.payment_statuses,
-        labels=common.labels,
-        exclude_labels=common.exclude_labels,
-        payment_methods=common.payment_methods,
-        open_access_types=common.open_access_types,
-        publication_states=common.publication_states,
-        entity_type=common.entity_type,
-        funding_source=common.funding_source,
-        invoice_status=invoice_status,
-        invoice_date_start=invoice_date_start,
-        invoice_date_end=invoice_date_end,
-        contract=common.contract,
     )
 
 
@@ -253,24 +215,8 @@ def _create_preview_dataframe(
     )
 
 
-def _build_export_filters(
-    request: HttpRequest,
-) -> dict[str, str]:
-    filters = build_filters_from_request(
-        request,
-        extra_optional_fields=["invoice_date_start", "invoice_date_end"],
-    )
-
-    # Reused invoice date partial posts date_start/date_end.
-    # Normalize to export query parameter names expected downstream.
-    invoice_date_start = request.POST.get("date_start")
-    invoice_date_end = request.POST.get("date_end")
-    if invoice_date_start:
-        filters["invoice_date_start"] = invoice_date_start
-    if invoice_date_end:
-        filters["invoice_date_end"] = invoice_date_end
-
-    return filters
+def _build_export_filters(request: HttpRequest) -> dict[str, str]:
+    return build_filters_from_request(request)
 
 
 def _get_export_form_context() -> dict[str, object]:
@@ -286,7 +232,7 @@ def _generate_csv_from_filters(
     )
 
     return export_fundingrequests_to_csv(
-        **asdict(parsed_filters),
+        **parsed_filters.to_dict(),
     )
 
 

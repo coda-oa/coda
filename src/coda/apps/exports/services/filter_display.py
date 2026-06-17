@@ -244,14 +244,6 @@ def build_applied_filters(filters: dict[str, str]) -> list[AppliedFilter]:
             )
         )
 
-    if "invoice_date_start" in filters and "invoice_date_end" in filters:
-        applied_filters.append(
-            AppliedFilter(
-                label="Invoice Date",
-                value=f"{filters['invoice_date_start']} to {filters['invoice_date_end']}",
-            )
-        )
-
     if "contract_name" in filters:
         contract_ids = [int(_id) for _id in filters["contract_name"].split(",") if _id]
         contracts = Contract.objects.filter(id__in=contract_ids)

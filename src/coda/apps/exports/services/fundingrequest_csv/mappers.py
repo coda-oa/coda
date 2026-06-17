@@ -1,5 +1,4 @@
 from coda.apps.exports.services.fundingrequest_csv.dtos import FundingRequestExportDto
-from datetime import date
 
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.models import Invoice, Position, FundingAssignment
@@ -335,25 +334,12 @@ def _map_funding_assignment_to_dto(assignment: FundingAssignment) -> FundingAssi
 
 def map_funding_request_to_export_dto(
     funding_request: FundingRequest,
-    invoice_date_start: date | None = None,
-    invoice_date_end: date | None = None,
-    invoice_status: str | None = None,
-    invoice_creditor: str = "",
     funding_source: FundingSourceId | None = None,
 ) -> FundingRequestExportDto:
 
     funding_request_dto = map_funding_request_to_dto(funding_request)
 
     invoices = get_invoices_for_request(funding_request)
-
-    if invoice_date_start and invoice_date_end:
-        invoices = [i for i in invoices if invoice_date_start <= i.date <= invoice_date_end]
-
-    if invoice_status:
-        invoices = [i for i in invoices if i.status == invoice_status]
-
-    if invoice_creditor:
-        invoices = [i for i in invoices if invoice_creditor.lower() in i.creditor.name.lower()]
 
     if funding_source:
         invoices = [

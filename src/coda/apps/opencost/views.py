@@ -1,5 +1,5 @@
 from datetime import datetime
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch, Count
 from django.http import HttpRequest, HttpResponse
@@ -23,12 +23,9 @@ from coda.apps.opencost.models import (
     OpenCostReportPublicationContract,
 )
 from coda.apps.contracts.models import ContractLink
-from coda.apps.fundingrequests.fundingrequest_query import (
-    PaymentStatus as FundingRequestPaymentStatus,
-    PublicationEntityType,
-)
 from coda.apps.opencost.report_service import generate_report as generate_report_service
 from coda.apps.exports.services.filter_display import (
+    CommonFilterFields,
     build_applied_filters,
     build_filter_form_context,
     build_filters_from_request,
@@ -38,10 +35,6 @@ from coda.apps.opencost.validation import validate_report
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.views import SimpleSearchEntityListView
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.domain.finance.invoice import FundingSourceId
-from coda.domain.fundingrequest.fundingrequest import PaymentMethod
-from coda.domain.fundingrequest.review import ReviewResult
-from coda.domain.publication import OpenAccessType
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
 
@@ -236,34 +229,8 @@ def generate_report(request: HttpRequest) -> HttpResponse:
         return redirect("opencost:generate")
 
 
-@dataclass
-class ParsedOpenCostFilters:
-    review_results: list[ReviewResult]
-    payment_statuses: list[FundingRequestPaymentStatus]
-    labels: list[int]
-    exclude_labels: list[int]
-    payment_methods: list[PaymentMethod]
-    open_access_types: list[OpenAccessType]
-    publication_states: list[str]
-    entity_type: PublicationEntityType | None
-    funding_source: FundingSourceId | None
-    contract: int | None
-
-
-def _parse_report_filter_dict(filters: dict[str, str]) -> ParsedOpenCostFilters:
-    common = parse_common_filter_fields(filters)
-    return ParsedOpenCostFilters(
-        review_results=common.review_results,
-        payment_statuses=common.payment_statuses,
-        labels=common.labels,
-        exclude_labels=common.exclude_labels,
-        payment_methods=common.payment_methods,
-        open_access_types=common.open_access_types,
-        publication_states=common.publication_states,
-        entity_type=common.entity_type,
-        funding_source=common.funding_source,
-        contract=common.contract,
-    )
+def _parse_report_filter_dict(filters: dict[str, str]) -> CommonFilterFields:
+    return parse_common_filter_fields(filters)
 
 
 def _build_report_filters(request: HttpRequest) -> dict[str, str]:
