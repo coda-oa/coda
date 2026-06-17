@@ -6,7 +6,6 @@ from types import NotImplementedType
 from django.http import HttpRequest
 
 from coda import formdata
-from coda.apps.fundingrequests import repository
 from coda.apps.publications.models import Publication
 from coda.contexts.finance.dto.edit_position_dtos import (
     PositionDto,
@@ -16,7 +15,6 @@ from coda.contexts.finance.dto.edit_position_dtos import (
 from coda.contexts.finance.services import invoice_parser
 from coda.contexts.finance.services.invoice_parser._parser import PositionParseError
 from coda.domain.money._currency import Currency
-from coda.domain.publication.publication import PublicationId
 
 
 def added_positions(request: HttpRequest) -> list[PositionDto]:
@@ -55,9 +53,11 @@ def maybe_request_context(publication: Publication) -> RelatedFundingRequest:
     Returns RelatedFundingRequest with request_id and url if publication has
     a funding request reference, empty RelatedFundingRequest otherwise.
     """
-    reference = repository.find_reference_by_publication(PublicationId(publication.pk))
+    reference = getattr(publication, "fundingrequest")
     if reference:
-        return RelatedFundingRequest(request_id=reference.request_id, url=reference.url)
+        return RelatedFundingRequest(
+            request_id=reference.request_id, url=reference.get_absolute_url()
+        )
 
     return RelatedFundingRequest()
 

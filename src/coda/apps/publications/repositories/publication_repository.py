@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from typing import TypedDict, cast
 
 from django.db import models, transaction
@@ -14,6 +15,7 @@ from coda.apps.publications.models import Publication as PublicationModel
 from coda.domain.author import Author, AuthorNames
 from coda.domain.contract import ContractId, ContractYear
 from coda.domain.fundingrequest.fundingrequest import FundingRequestId
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.publication import (
     Authors,
     BasePublication,
@@ -267,6 +269,34 @@ def get_contracts_for_publications(
         result.setdefault(pub_id, []).append(contract_year)
 
     return result
+
+
+@dataclass
+class FundingRequestReference:
+    request_id: str
+    url: str
+
+
+@dataclass(frozen=True)
+class PublicationReference:
+    id: PublicationId
+    title: str
+    fundingrequest_reference: FundingRequestReference | None
+
+
+def get_publication_reference(publication_id: PublicationId) -> PublicationReference | None:
+    ref = PublicationModel.objects.filter(pk=publication_id).first()
+    if not ref:
+        return None
+
+    request_ref = None
+    if related_request := getattr(ref, "fundingrequest", None):
+        request_id = PublicFundingRequestId.from_str(related_request.request_id)
+        request_ref = FundingRequestReference(
+            request_id=str(request_id), url=related_request.get_absolute_url()
+        )
+
+    return PublicationReference(PublicationId(ref.pk), ref.title, request_ref)
 
 
 def _map_to_contract_year(c: AttachedContract) -> ContractYear:
