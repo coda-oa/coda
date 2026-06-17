@@ -1,6 +1,5 @@
-from typing_extensions import TypeIs
+from typing import TypeIs
 
-from coda.apps.fundingrequests import repository
 from coda.apps.publications.repositories import publication_repository
 from coda.contexts.finance.dto.edit_position_dtos import (
     ItemDto,
@@ -29,20 +28,21 @@ def parse_item_from(position: PositionDto, *, parse_safe: bool = False) -> Posit
 
 def to_itemdto(position: Position) -> ItemDto:
     assert _is_publicationitem(position.item)
-    publication = publication_repository.get_by_id(position.item.item)
-    assert publication.id is not None
+
+    publication_reference = publication_repository.get_publication_reference(position.item.item)
+    if not publication_reference:
+        raise ValueError("Request not found")
 
     funding_request = RelatedFundingRequest()
-    reference = repository.find_reference_by_publication(publication.id)
-    if reference:
+    if request_ref := publication_reference.fundingrequest_reference:
         funding_request = RelatedFundingRequest(
-            request_id=reference.request_id,
-            url=reference.url,
+            request_id=request_ref.request_id,
+            url=request_ref.url,
         )
 
     return PublicationItemDto(
-        id=publication.id,
-        title=publication.title,
+        id=publication_reference.id,
+        title=publication_reference.title,
         cost_type=position.item.cost_type.value,
         funding_request=funding_request,
     )

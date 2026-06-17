@@ -32,11 +32,17 @@ class VocabularyDomainMapper:
         )
 
         if _depth > 0:
+            # Prefetch base_vocabulary for the current vocabulary models.
+            # Use base_vocabulary_id (the FK column) so we fetch the actual base
+            # vocabularies that limited vocabularies point to, rather than fetching
+            # the limited vocabularies themselves.
+            base_vocab_ids = qs.values_list("base_vocabulary_id", flat=True)
             qs = qs.prefetch_related(
                 Prefetch(
                     prefixed(prefix, "base_vocabulary"),
                     queryset=VocabularyDomainMapper.prefetch(
-                        VocabularyModel.objects.all(),
+                        VocabularyModel.objects.filter(pk__in=base_vocab_ids),
+                        prefix=prefix,
                         _depth=_depth - 1,
                     ),
                 ),

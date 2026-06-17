@@ -14,9 +14,9 @@ from pytest_django.asserts import assertRedirects
 from coda import formdata
 from coda.apps.contracts.mappers._domain import ContractDomainMapper
 from coda.apps.contracts.models import ContractLink, ContractLinkType
-from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.invoices import repository
 from coda.apps.publications.models import Publication
+from coda.apps.publications.repositories import publication_repository
 from coda.contexts.finance.dto.edit_position_dtos import (
     DEFAULT_TAX_RATE_PERCENTAGE,
     ContractItemDto,
@@ -411,13 +411,17 @@ def expect_new_contract_position(contract_year: ContractYear) -> PositionDto:
 
 
 def expect_new_publication_position(publication: Publication) -> PositionDto:
-    ref = fundingrequest_repository.find_reference_by_publication(PublicationId(publication.pk))
+    ref = publication_repository.get_publication_reference(PublicationId(publication.pk))
     assert ref is not None
+    assert ref.fundingrequest_reference is not None
     return PositionDto(
         item=PublicationItemDto(
             id=publication.pk,
             title=publication.title,
-            funding_request=RelatedFundingRequest(request_id=ref.request_id, url=ref.url),
+            funding_request=RelatedFundingRequest(
+                request_id=ref.fundingrequest_reference.request_id,
+                url=ref.fundingrequest_reference.url,
+            ),
             cost_type=PublicationCostType.Publication_Charge.value,
         ),
         cost_amount=Decimal("0.00"),
@@ -435,10 +439,16 @@ def expect_contract_search_result(contract: Contract) -> dict[str, Any]:
 
 def expect_publication_search_result(publication: Publication) -> dict[str, Any]:
     pub_id = PublicationId(publication.pk)
-    ref = fundingrequest_repository.find_reference_by_publication(pub_id)
+    ref = publication_repository.get_publication_reference(PublicationId(publication.pk))
     assert ref is not None
+    assert ref.fundingrequest_reference is not None
     return {
         "id": pub_id,
         "title": publication.title,
-        "funding_request": ({"request_id": ref.request_id, "url": ref.url}),
+        "funding_request": (
+            {
+                "request_id": ref.fundingrequest_reference.request_id,
+                "url": ref.fundingrequest_reference.url,
+            }
+        ),
     }

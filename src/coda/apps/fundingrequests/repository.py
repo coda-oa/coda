@@ -22,7 +22,6 @@ from coda.domain.fundingrequest import (
     TPublication,
 )
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
-from coda.domain.fundingrequest.references import FundingRequestReference
 from coda.domain.publication import Monograph, Publication, PublicationId
 
 
@@ -200,13 +199,6 @@ def get_by_request_id(request_id: PublicFundingRequestId) -> AnyFundingRequest:
         request_id=str(request_id)
     )
     return FundingRequestDomainMapper.map(model)
-
-
-def find_reference_by_publication(publication: PublicationId) -> FundingRequestReference | None:
-    model = FundingRequestModel.objects.filter(publication_id=publication).first()
-    if not model:
-        return None
-    return FundingRequestReference(request_id=model.request_id, url=model.get_absolute_url())
 
 
 def get_by_publication_id(publication_id: PublicationId) -> AnyFundingRequest:
