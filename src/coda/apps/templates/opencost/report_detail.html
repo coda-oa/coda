@@ -29,6 +29,7 @@
                     {% if applied_filters %}
                         <div class="flex justify-between align-center">
                             <strong>Applied filters:</strong>
+                            <a class="button secondary" href="{{ redo_url }}">Reuse Filters For New Report</a>
                         </div>
                         <ul>
                             {% for filter in applied_filters %}

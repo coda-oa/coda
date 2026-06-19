@@ -32,6 +32,8 @@ _advanced_search_fields = [
     "publication_type",
     "contract_name",
     "contract_year",
+    "publication_states",
+    "payment_methods",
 ]
 
 _payment_status_map = {

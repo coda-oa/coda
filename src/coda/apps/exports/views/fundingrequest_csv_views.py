@@ -98,10 +98,22 @@ def fundingrequest_csv_export_create_view(
     if request.method == "GET":
         context = _get_export_form_context()
         context["expand_advanced_search"] = bool(request.GET)
+        context.update(
+            {
+                "page_title": "Generate New CSV Export",
+                "form_action_url": reverse("exports:fundingrequests_csv_create"),
+                "parameters_title": "Export Parameters",
+                "title_label": "Title",
+                "title_placeholder": "Enter a title for the export",
+                "cancel_url": reverse("exports:fundingrequests_csv_list"),
+                "submit_button_text": "Generate CSV Export",
+                "include_payment_status": True,
+            }
+        )
 
         return render(
             request,
-            "export/fundingrequest_csv_form.html",
+            "exports/generate_export_form.html",
             context=context,
         )
 
@@ -239,13 +251,21 @@ def _generate_csv_from_filters(
 def _create_redo_url(export: FundingRequestCSVExport) -> str:
     redo_params = {}
 
+    multi_value_fields = {
+        "open_access_type",
+        "labels",
+        "exclude_labels",
+        "payment_status",
+        "processing_status",
+        "payment_methods",
+        "publication_states",
+        "publication_type",
+        "funding_source",
+        "contract_name",
+    }
+
     for key, value in export.filters.items():
-        if key in {
-            "open_access_type",
-            "labels",
-            "exclude_labels",
-            "payment_status",
-        }:
+        if key in multi_value_fields:
             redo_params[key] = value.split(",")
         else:
             redo_params[key] = value

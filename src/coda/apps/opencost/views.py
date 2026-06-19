@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.db.models import Q
 from collections.abc import Sequence
+from urllib.parse import urlencode
 
 from coda.apps.opencost.models import (
     OpenCostReport,
@@ -130,6 +131,7 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
     errors = [w for w in warnings if w.level == "error"]
     warnings_only = [w for w in warnings if w.level == "warning"]
     applied_filters = build_applied_filters(report.filters)
+    redo_url = _create_redo_url(report)
 
     context = {
         "report": report,
@@ -142,6 +144,7 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
         "warnings_only": warnings_only,
         "has_issues": len(warnings) > 0,
         "applied_filters": applied_filters,
+        "redo_url": redo_url,
     }
 
     return render(request, "opencost/report_detail.html", context)
@@ -153,7 +156,19 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
 def generate_report_form(request: HttpRequest) -> HttpResponse:
     context = _get_report_form_context()
     context["expand_advanced_search"] = bool(request.GET)
-    return render(request, "opencost/generate_report.html", context)
+    context.update(
+        {
+            "page_title": "Generate New openCost Report",
+            "form_action_url": reverse("opencost:generate_submit"),
+            "parameters_title": "Report Parameters",
+            "title_label": "Report Title",
+            "title_placeholder": "Enter a title for the report",
+            "cancel_url": reverse("opencost:list"),
+            "submit_button_text": "Generate Report",
+            "include_payment_status": False,
+        }
+    )
+    return render(request, "exports/generate_export_form.html", context)
 
 
 def _build_issue_message(report: OpenCostReport, detail_url: str) -> str:
@@ -239,6 +254,30 @@ def _build_report_filters(request: HttpRequest) -> dict[str, str]:
 
 def _get_report_form_context() -> dict[str, object]:
     return build_filter_form_context()
+
+
+def _create_redo_url(report: OpenCostReport) -> str:
+    redo_params = {}
+
+    for key, value in report.filters.items():
+        if key in {
+            "open_access_type",
+            "labels",
+            "exclude_labels",
+            "payment_status",
+            "processing_status",
+            "payment_methods",
+            "publication_states",
+            "publication_type",
+            "funding_source",
+            "contract_name",
+        }:
+            redo_params[key] = value.split(",")
+        else:
+            redo_params[key] = value
+
+    redo_url = reverse("opencost:generate") + "?" + urlencode(redo_params, doseq=True)
+    return redo_url
 
 
 @login_required

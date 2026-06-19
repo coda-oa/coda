@@ -1,3 +1,4 @@
+{% load getlist %}
 <details class="dropdown">
     <summary>Publication State</summary>
     <ul class="undecorated">
@@ -7,7 +8,7 @@
                        id="publication-state-{{ value }}"
                        name="publication_states"
                        value="{{ value }}"
-                       {% if value in request.GET.publication_states %}checked{% endif %}>
+                       {% if value in request.GET|getlist:"publication_states" %}checked{% endif %}>
                 <label for="publication-state-{{ value }}">{{ label }}</label>
             </li>
         {% endfor %}
