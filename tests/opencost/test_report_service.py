@@ -11,7 +11,7 @@ from coda.apps.opencost.models import (
     OpenCostReportPublication,
 )
 from coda.apps.preferences.models import GlobalPreferences
-from coda.apps.opencost.report_service import generate_report
+from coda.apps.opencost.report_service import ReportFilters, generate_report
 from coda.apps.publications.models._attachedentities import (
     AttachedContract,
     PublicationAttachedConcept,
@@ -50,8 +50,6 @@ def test__time_period__generate_report__creates_report_record() -> None:
 @pytest.mark.django_db
 def test__filters_provided__generate_report__persists_filters_on_report() -> None:
     filters = {
-        "period_start": "2024-01-01",
-        "period_end": "2024-12-31",
         "payment_status": "paid,unpaid",
         "contract_name": "1",
     }
@@ -60,7 +58,7 @@ def test__filters_provided__generate_report__persists_filters_on_report() -> Non
         title="Test Report Filters",
         period_start=date(2024, 1, 1),
         period_end=date(2024, 12, 31),
-        filters=filters,
+        report_filters=ReportFilters(filters=filters),
     )
 
     saved_report = OpenCostReport.objects.get(pk=report.pk)

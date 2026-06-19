@@ -1,5 +1,5 @@
 from datetime import datetime
-from dataclasses import asdict
+
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch, Count
 from django.http import HttpRequest, HttpResponse
@@ -24,7 +24,10 @@ from coda.apps.opencost.models import (
     OpenCostReportPublicationContract,
 )
 from coda.apps.contracts.models import ContractLink
-from coda.apps.opencost.report_service import generate_report as generate_report_service
+from coda.apps.opencost.report_service import (
+    generate_report as generate_report_service,
+    ReportFilters,
+)
 from coda.apps.exports.services.filter_display import (
     CommonFilterFields,
     build_applied_filters,
@@ -220,12 +223,25 @@ def generate_report(request: HttpRequest) -> HttpResponse:
         filters = _build_report_filters(request)
         parsed_filters = _parse_report_filter_dict(filters)
 
+        report_filters = ReportFilters(
+            filters=filters,
+            review_results=parsed_filters.review_results,
+            payment_statuses=parsed_filters.payment_statuses,
+            labels=parsed_filters.labels,
+            exclude_labels=parsed_filters.exclude_labels,
+            payment_methods=parsed_filters.payment_methods,
+            open_access_types=parsed_filters.open_access_types,
+            publication_states=parsed_filters.publication_states,
+            entity_type=parsed_filters.entity_type,
+            funding_source=parsed_filters.funding_source,
+            contract=parsed_filters.contract,
+        )
+
         report = generate_report_service(
             title=title,
             period_start=period_start,
             period_end=period_end,
-            filters=filters,
-            **asdict(parsed_filters),
+            report_filters=report_filters,
         )
 
         if report.has_issues():

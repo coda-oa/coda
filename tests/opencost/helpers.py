@@ -6,7 +6,7 @@ from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from coda.apps.invoices.models import Creditor, Invoice, Position
 from coda.apps.opencost.models import OpenCostReport
-from coda.apps.opencost.report_service import generate_report
+from coda.apps.opencost.report_service import ReportFilters, generate_report
 from coda.apps.opencost.transformers import report_publication_to_pydantic, to_opencost
 from coda.apps.publications.models import Publication
 from coda.domain.opencost import Data
@@ -98,7 +98,7 @@ def create_opencost_report(
         title=title,
         period_start=period_start,
         period_end=period_end,
-        filters=filters,
+        report_filters=ReportFilters(filters=filters) if filters else None,
     )
 
 

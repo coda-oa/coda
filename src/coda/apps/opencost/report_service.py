@@ -3,6 +3,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 from typing import NamedTuple
+from dataclasses import dataclass
 
 from django.db import transaction
 from django.db.models import Prefetch
@@ -145,22 +146,67 @@ class ContractSnapshotData(NamedTuple):
     invoice_data: dict[int, list[Position]]  # {invoice_id: [positions]}
 
 
+@dataclass(frozen=True)
+class ReportFilters:
+    filters: dict[str, str] | None = None
+    review_results: list[ReviewResult] | None = None
+    payment_statuses: list[fundingrequest_query.PaymentStatus] | None = None
+    labels: list[int] | None = None
+    exclude_labels: list[int] | None = None
+    payment_methods: list[PaymentMethod] | None = None
+    open_access_types: list[OpenAccessType] | None = None
+    publication_states: list[str] | None = None
+    entity_type: fundingrequest_query.PublicationEntityType | None = None
+    funding_source: FundingSourceId | None = None
+    contract: int | None = None
+
+
+# @transaction.atomic
+# import logging
+# import uuid
+# from datetime import date
+# from decimal import Decimal
+# from typing import NamedTuple
+
+# from django.db import transaction
+# from django.db.models import Prefetch
+# from coda.apps.contracts.models import Contract
+# from coda.apps.institutions.models import Institution
+# from coda.apps.invoices.models import Position
+# from coda.apps.opencost.data_aggregation import (
+#     get_publications_for_period,
+#     get_contracts_for_period,
+#     get_invoices_for_period,
+#     build_institution_hierarchy_cache,
+# )
+# from coda.apps.opencost.models import (
+#     OpenCostReport,
+#     OpenCostReportContract,
+#     OpenCostReportContractInstitutionIdentifier,
+#     OpenCostReportContractInvoice,
+#     OpenCostReportContractInvoicePosition,
+#     OpenCostReportContractSecondaryIdentifier,
+#     OpenCostReportInstitutionIdentifier,
+#     OpenCostReportInvoicePosition,
+#     OpenCostReportPublication,
+#     OpenCostReportPublicationContract,
+#     OpenCostReportInvoice,
+#     OpenCostReportPublicationLink,
+# )
+# from coda.apps.opencost.validation import validate_report
+# from coda.apps.publications.models import Publication
+# from coda.apps.preferences.models import GlobalPreferences
+# from coda.apps.exports.services.filter_display import CommonFilterFields
+
+logger = logging.getLogger(__name__)
+
+
 @transaction.atomic
 def generate_report(
     title: str,
     period_start: date,
     period_end: date,
-    filters: dict[str, str] | None = None,
-    review_results: list[ReviewResult] | None = None,
-    payment_statuses: list[fundingrequest_query.PaymentStatus] | None = None,
-    labels: list[int] | None = None,
-    exclude_labels: list[int] | None = None,
-    payment_methods: list[PaymentMethod] | None = None,
-    open_access_types: list[OpenAccessType] | None = None,
-    publication_states: list[str] | None = None,
-    entity_type: fundingrequest_query.PublicationEntityType | None = None,
-    funding_source: FundingSourceId | None = None,
-    contract: int | None = None,
+    report_filters: ReportFilters | None = None,
 ) -> OpenCostReport:
     """
     Generate OpenCost report using bulk operations for maximum performance.
@@ -176,12 +222,14 @@ def generate_report(
     """
     logger.info(f"Starting OpenCost report generation: '{title}' ({period_start} to {period_end})")
 
+    report_filters = report_filters or ReportFilters()
+
     # SETUP PHASE
     report = OpenCostReport.objects.create(
         title=title,
         period_start=period_start,
         period_end=period_end,
-        filters=filters or {},
+        filters=report_filters.filters or {},
     )
     logger.debug(f"Created report record: {report.id}")
 
@@ -189,7 +237,7 @@ def generate_report(
     invoices_in_period = get_invoices_for_period(
         start_date=period_start,
         end_date=period_end,
-        funding_source=funding_source,
+        funding_source=report_filters.funding_source,
     )
 
     # DATA AGGREGATION PHASE
@@ -198,21 +246,21 @@ def generate_report(
         start_date=period_start,
         end_date=period_end,
         invoices_in_period=invoices_in_period,
-        review_results=review_results,
-        payment_statuses=payment_statuses,
-        labels=labels,
-        exclude_labels=exclude_labels,
-        payment_methods=payment_methods,
-        open_access_types=open_access_types,
-        publication_states=publication_states,
-        entity_type=entity_type,
-        contract=contract,
+        review_results=report_filters.review_results,
+        payment_statuses=report_filters.payment_statuses,
+        labels=report_filters.labels,
+        exclude_labels=report_filters.exclude_labels,
+        payment_methods=report_filters.payment_methods,
+        open_access_types=report_filters.open_access_types,
+        publication_states=report_filters.publication_states,
+        entity_type=report_filters.entity_type,
+        contract=report_filters.contract,
     )
     contracts = get_contracts_for_period(
         start_date=period_start,
         end_date=period_end,
         invoices_in_period=invoices_in_period,
-        contract=contract,
+        contract=report_filters.contract,
     )
     logger.debug(f"Fetched {len(publications)} publications, {len(contracts)} contracts")
 
