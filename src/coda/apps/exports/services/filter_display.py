@@ -63,7 +63,7 @@ def build_filters_from_request(
     }
 
     for field in _COMMON_OPTIONAL_FILTER_FIELDS + (extra_optional_fields or []):
-        values = request.POST.getlist(field)
+        values = [v for v in request.POST.getlist(field) if v]
         if values:
             filters[field] = ",".join(values)
 
