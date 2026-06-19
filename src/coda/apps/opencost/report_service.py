@@ -161,43 +161,6 @@ class ReportFilters:
     contract: int | None = None
 
 
-# @transaction.atomic
-# import logging
-# import uuid
-# from datetime import date
-# from decimal import Decimal
-# from typing import NamedTuple
-
-# from django.db import transaction
-# from django.db.models import Prefetch
-# from coda.apps.contracts.models import Contract
-# from coda.apps.institutions.models import Institution
-# from coda.apps.invoices.models import Position
-# from coda.apps.opencost.data_aggregation import (
-#     get_publications_for_period,
-#     get_contracts_for_period,
-#     get_invoices_for_period,
-#     build_institution_hierarchy_cache,
-# )
-# from coda.apps.opencost.models import (
-#     OpenCostReport,
-#     OpenCostReportContract,
-#     OpenCostReportContractInstitutionIdentifier,
-#     OpenCostReportContractInvoice,
-#     OpenCostReportContractInvoicePosition,
-#     OpenCostReportContractSecondaryIdentifier,
-#     OpenCostReportInstitutionIdentifier,
-#     OpenCostReportInvoicePosition,
-#     OpenCostReportPublication,
-#     OpenCostReportPublicationContract,
-#     OpenCostReportInvoice,
-#     OpenCostReportPublicationLink,
-# )
-# from coda.apps.opencost.validation import validate_report
-# from coda.apps.publications.models import Publication
-# from coda.apps.preferences.models import GlobalPreferences
-# from coda.apps.exports.services.filter_display import CommonFilterFields
-
 logger = logging.getLogger(__name__)
 
 
