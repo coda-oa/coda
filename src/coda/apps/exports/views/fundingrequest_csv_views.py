@@ -30,6 +30,8 @@ from coda.apps.exports.services.filter_display import (
 )
 from urllib.parse import urlencode
 
+FUNDINGREQUESTS_CSV_CREATE_URL = "exports:fundingrequests_csv_create"
+
 
 @breadcrumb("Funding Request CSV Export", parent_url_name="exports:export_home")
 class FundingRequestCSVExportListView(
@@ -43,7 +45,7 @@ class FundingRequestCSVExportListView(
     search_fields = ["name"]
     entity_list_item_template = "export/fundingrequest_csv_list_item.html"
     search_placeholder = "Search exports..."
-    entity_create_url = "exports:fundingrequests_csv_create"
+    entity_create_url = FUNDINGREQUESTS_CSV_CREATE_URL
     use_generic_entity_filter = True
     entity_filter_template = "entity_generic_filter.html"
 
@@ -101,7 +103,7 @@ def fundingrequest_csv_export_create_view(
         context.update(
             {
                 "page_title": "Generate New CSV Export",
-                "form_action_url": reverse("exports:fundingrequests_csv_create"),
+                "form_action_url": reverse(FUNDINGREQUESTS_CSV_CREATE_URL),
                 "parameters_title": "Export Parameters",
                 "title_label": "Title",
                 "title_placeholder": "Enter a title for the export",
@@ -270,8 +272,6 @@ def _create_redo_url(export: FundingRequestCSVExport) -> str:
         else:
             redo_params[key] = value
 
-    redo_url = (
-        reverse("exports:fundingrequests_csv_create") + "?" + urlencode(redo_params, doseq=True)
-    )
+    redo_url = reverse(FUNDINGREQUESTS_CSV_CREATE_URL) + "?" + urlencode(redo_params, doseq=True)
 
     return redo_url

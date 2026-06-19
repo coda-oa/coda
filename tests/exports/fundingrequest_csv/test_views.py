@@ -194,7 +194,7 @@ def test__fundingrequest_csv_detail_page__renders_preview_from_stored_csv_snapsh
     assert row[0] == "REQ-1"
     assert row[1] == "Stored Publication"
     assert row[4] == "INV-1"
-    assert row[5] == 100.00
+    assert row[5] == pytest.approx(100.00)
 
 
 @pytest.mark.django_db

@@ -192,35 +192,7 @@ def test__query_with_prefetch__accessing_related_objects__does_not_trigger_addit
     from django.db import connection
 
     # Arrange: Create 3 funding requests with March request dates, invoices and positions
-    for i in range(3):
-        fr = modelfactory.fundingrequest(title=f"FR {i+1}")
-        fr.request_date = date(2026, 3, 5 + i)
-        fr.save()
-        creditor = modelfactory.creditor(name=f"Creditor {i+1}")
-        invoice = modelfactory.invoice()
-        invoice.date = date(2026, 3, 10 + i)
-        invoice.creditor = creditor
-        invoice.save()
-
-        # Create 2 positions per invoice
-        for j in range(2):
-            position = Position.objects.create(
-                invoice=invoice,
-                publication=fr.publication,
-                description=f"Position {i+1}-{j+1}",
-                cost_amount=Decimal("1000.00"),
-                cost_currency="EUR",
-                cost_type="gold-oa",
-                tax_rate=Decimal("0.19"),
-                external_position_id=f"POS-{i+1}-{j+1}",
-            )
-            # Create funding assignment
-            budget = modelfactory.budget(name=f"Budget {i+1}-{j+1}")
-            FundingAssignment.objects.create(
-                position=position,
-                funding_source=budget,
-                amount=Decimal("500.00"),
-            )
+    _create_three_fundingrequests_for_performance_check()
 
     # Act: Query and access all prefetched relationships
     with CaptureQueriesContext(connection) as context:
@@ -254,3 +226,35 @@ def test__query_with_prefetch__accessing_related_objects__does_not_trigger_addit
     assert (
         query_count < 25
     ), f"Too many queries: {query_count}. Prefetch may not be working correctly."
+
+
+def _create_three_fundingrequests_for_performance_check() -> None:
+    for i in range(3):
+        fr = modelfactory.fundingrequest(title=f"FR {i+1}")
+        fr.request_date = date(2026, 3, 5 + i)
+        fr.save()
+        creditor = modelfactory.creditor(name=f"Creditor {i+1}")
+        invoice = modelfactory.invoice()
+        invoice.date = date(2026, 3, 10 + i)
+        invoice.creditor = creditor
+        invoice.save()
+
+        # Create 2 positions per invoice
+        for j in range(2):
+            position = Position.objects.create(
+                invoice=invoice,
+                publication=fr.publication,
+                description=f"Position {i+1}-{j+1}",
+                cost_amount=Decimal("1000.00"),
+                cost_currency="EUR",
+                cost_type="gold-oa",
+                tax_rate=Decimal("0.19"),
+                external_position_id=f"POS-{i+1}-{j+1}",
+            )
+            # Create funding assignment
+            budget = modelfactory.budget(name=f"Budget {i+1}-{j+1}")
+            FundingAssignment.objects.create(
+                position=position,
+                funding_source=budget,
+                amount=Decimal("500.00"),
+            )

@@ -5,7 +5,6 @@ from io import StringIO
 
 import polars as pl
 
-# from coda.apps.checklist import repository
 from coda.apps.exports.services.fundingrequest_csv.export_service import (
     export_fundingrequests_to_csv,
 )

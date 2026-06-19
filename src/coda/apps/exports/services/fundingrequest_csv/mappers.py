@@ -56,28 +56,28 @@ def map_funding_request_to_dto(funding_request: FundingRequest) -> FundingReques
     )
 
 
-def _map_publication_to_dto(funding_request: FundingRequest) -> PublicationImportDto:
-    # Determine if article or monograph
+def _map_concept_to_dto(concept_field: object) -> ConceptImportDto:
+    if concept_field is None:
+        return ConceptImportDto(name="", vocabulary_name="")
+    vocabulary = getattr(concept_field, "vocabulary", None)
+    vocabulary_name = vocabulary.name if vocabulary else ""
+    return ConceptImportDto(
+        name=getattr(concept_field, "name", ""),
+        vocabulary_name=vocabulary_name,
+    )
+
+
+def _get_journal_info(funding_request: FundingRequest) -> tuple[bool, str, str, str]:
     journal = funding_request.publication.article_journal
-    is_article = journal is not None
+    if journal is not None:
+        return True, journal.eissn, journal.title, journal.publisher.name
+    publisher = funding_request.publication.monograph_publisher
+    publisher_name = publisher.name if publisher else "Imported nameless publisher"
+    return False, "", "Imported nameless journal", publisher_name
 
-    # Get journal/publisher names
-    if is_article:
-        assert journal is not None  # Type narrowing for mypy
-        eissn = journal.eissn
-        journal_name = journal.title
-        publisher_name = journal.publisher.name
-    else:
-        eissn = ""
-        journal_name = "Imported nameless journal"
-        publisher_name = (
-            funding_request.publication.monograph_publisher.name
-            if funding_request.publication.monograph_publisher
-            else "Imported nameless publisher"
-        )
 
-    # Map authors
-    authors = [
+def _map_authors_to_dto(funding_request: FundingRequest) -> list[AuthorImportDto]:
+    return [
         AuthorImportDto(
             name=author.name,
             email=author.email or "",
@@ -92,60 +92,42 @@ def _map_publication_to_dto(funding_request: FundingRequest) -> PublicationImpor
         for author in funding_request.publication.relevant_authors.all()
     ]
 
-    # Map links
-    links = [
+
+def _map_links_to_dto(funding_request: FundingRequest) -> list[LinkImportDto]:
+    return [
         LinkImportDto(type=link.type.name, value=link.value)
         for link in funding_request.publication.links.all()
     ]
 
-    # Map contracts
-    contracts = [
+
+def _map_contracts_to_dto(funding_request: FundingRequest) -> list[ContractImportDto]:
+    return [
         ContractImportDto(name=attached.contract.name, year=attached.contract_year)
         for attached in funding_request.publication.attached_contracts.all()
     ]
 
-    # Map subject area
-    subject_area = ConceptImportDto(
-        name=(
-            funding_request.publication.subject_area.name
-            if funding_request.publication.subject_area
-            else ""
-        ),
-        vocabulary_name=(
-            funding_request.publication.subject_area.vocabulary.name
-            if funding_request.publication.subject_area
-            and funding_request.publication.subject_area.vocabulary
-            else ""
-        ),
-    )
 
-    # Map publication type
-    publication_type = ConceptImportDto(
-        name=(
-            funding_request.publication.publication_type.name
-            if funding_request.publication.publication_type
-            else ""
-        ),
-        vocabulary_name=(
-            funding_request.publication.publication_type.vocabulary.name
-            if funding_request.publication.publication_type
-            and funding_request.publication.publication_type.vocabulary
-            else ""
-        ),
-    )
-
-    # Map publishing state
-    publishing_state = PublishingStateImportDto(
-        state=(
-            "published"
-            if funding_request.publication.publication_state == "Published"
-            else funding_request.publication.publication_state.lower()
-        ),
+def _map_publishing_state_to_dto(funding_request: FundingRequest) -> PublishingStateImportDto:
+    state = funding_request.publication.publication_state
+    state_str = "published" if state == "Published" else state.lower()
+    return PublishingStateImportDto(
+        state=state_str,
         online_date=funding_request.publication.online_publication_date,
         print_date=funding_request.publication.print_publication_date,
     )
 
-    publication = PublicationImportDto(
+
+def _map_publication_to_dto(funding_request: FundingRequest) -> PublicationImportDto:
+    is_article, eissn, journal_name, publisher_name = _get_journal_info(funding_request)
+
+    authors = _map_authors_to_dto(funding_request)
+    links = _map_links_to_dto(funding_request)
+    contracts = _map_contracts_to_dto(funding_request)
+    subject_area = _map_concept_to_dto(funding_request.publication.subject_area)
+    publication_type = _map_concept_to_dto(funding_request.publication.publication_type)
+    publishing_state = _map_publishing_state_to_dto(funding_request)
+
+    return PublicationImportDto(
         title=funding_request.publication.title,
         open_access_type=OpenAccessType[funding_request.publication.open_access_type],
         kind="article" if is_article else "monograph",
@@ -160,8 +142,6 @@ def _map_publication_to_dto(funding_request: FundingRequest) -> PublicationImpor
         subject_area=subject_area,
         publication_type=publication_type,
     )
-
-    return publication
 
 
 def _map_external_funding_to_dto(funding_request: FundingRequest) -> list[ResearchFundingImportDto]:

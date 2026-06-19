@@ -38,6 +38,8 @@ from coda.apps.views import SimpleSearchEntityListView
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
+OPENCOST_LIST_URL = "opencost:list"
+
 
 @breadcrumb("openCost Reports", parent_url_name="exports:export_home")
 class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostReport]):
@@ -77,7 +79,7 @@ report_list_view = ReportListView.as_view()
 
 @login_required
 @require_GET
-@breadcrumb("Report Details", parent_url_name="opencost:list")
+@breadcrumb("Report Details", parent_url_name=OPENCOST_LIST_URL)
 def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
     # Minimal prefetch - only data displayed on detail page
     # identifiers/links/secondary_identifiers are only for XML generation
@@ -152,7 +154,7 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
 
 @login_required
 @require_GET
-@breadcrumb("Generate New Report", parent_url_name="opencost:list")
+@breadcrumb("Generate New Report", parent_url_name=OPENCOST_LIST_URL)
 def generate_report_form(request: HttpRequest) -> HttpResponse:
     context = _get_report_form_context()
     context["expand_advanced_search"] = bool(request.GET)
@@ -163,7 +165,7 @@ def generate_report_form(request: HttpRequest) -> HttpResponse:
             "parameters_title": "Report Parameters",
             "title_label": "Report Title",
             "title_placeholder": "Enter a title for the report",
-            "cancel_url": reverse("opencost:list"),
+            "cancel_url": reverse(OPENCOST_LIST_URL),
             "submit_button_text": "Generate Report",
             "include_payment_status": False,
         }
@@ -234,7 +236,7 @@ def generate_report(request: HttpRequest) -> HttpResponse:
             message = _build_success_message(report)
             messages.success(request, message)
 
-        return redirect("opencost:list")
+        return redirect(OPENCOST_LIST_URL)
 
     except ValueError as e:
         messages.error(request, f"Invalid date format: {str(e)}")
@@ -352,7 +354,7 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
 
     except Exception as e:
         messages.error(request, f"Error generating XML: {str(e)}")
-        return redirect("opencost:list")
+        return redirect(OPENCOST_LIST_URL)
 
 
 @login_required
@@ -364,5 +366,5 @@ def delete_report(request: HttpRequest, report_id: int) -> HttpResponse:
     messages.success(request, f"Report '{report_title}' deleted successfully.")
 
     response = HttpResponse(status=200)
-    response["HX-Redirect"] = reverse("opencost:list")
+    response["HX-Redirect"] = reverse(OPENCOST_LIST_URL)
     return response

@@ -8,17 +8,14 @@
                 <p>Export funding requests and associated cost data as CSV.</p>
             </div>
             <a href="{% url "exports:fundingrequests_csv_list" %}"
-               role="button"
-               class="outline contrast">View</a>
+               class="button outline contrast">View</a>
         </article>
         <article class="flex justify-between align-center">
             <div>
                 <h2 class="my-1">openCost Reports</h2>
                 <p>Create and view openCost reports for publications and contracts.</p>
             </div>
-            <a href="{% url "opencost:list" %}"
-               role="button"
-               class="outline contrast">View</a>
+            <a href="{% url "opencost:list" %}" class="button outline contrast">View</a>
         </article>
     </div>
 {% endblock content %}
