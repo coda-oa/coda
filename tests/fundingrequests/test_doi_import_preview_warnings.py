@@ -21,8 +21,8 @@ from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
     ExternalPublicationMetadata,
 )
+from coda.contexts.publication.services.doi_client._inmemory import InMemoryDOIMetadataClient
 from coda.domain.publication.links import Doi
-from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 from tests.fundingrequests.test_doi_import_preview import (
     get_session_key,
     submit_for_preview,
@@ -31,12 +31,12 @@ from tests.fundingrequests.test_doi_import_preview import (
 
 
 @pytest.fixture
-def fake_doi_client() -> FakeDOIMetadataClient:
-    return FakeDOIMetadataClient()
+def fake_doi_client() -> InMemoryDOIMetadataClient:
+    return InMemoryDOIMetadataClient()
 
 
 @pytest.fixture(autouse=True)
-def inject_fake_doi_client(fake_doi_client: FakeDOIMetadataClient) -> None:
+def inject_fake_doi_client(fake_doi_client: InMemoryDOIMetadataClient) -> None:
     DOIImportInputView.doi_client = fake_doi_client
     DOIPreviewDetailView.doi_client = fake_doi_client
     DOIPreviewSaveView.doi_client = fake_doi_client
@@ -46,7 +46,7 @@ def inject_fake_doi_client(fake_doi_client: FakeDOIMetadataClient) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test_preview_page__article_without_journal__shows_warning_and_fix_form(
     client: Client,
-    fake_doi_client: FakeDOIMetadataClient,
+    fake_doi_client: InMemoryDOIMetadataClient,
 ) -> None:
     """Article missing journal → preview shows 200 with warning banner and article fix form.
 
@@ -84,7 +84,7 @@ def test_preview_page__article_without_journal__shows_warning_and_fix_form(
 @pytest.mark.usefixtures("logged_in")
 def test_preview_page__monograph_without_publisher__shows_warning_and_fix_form(
     client: Client,
-    fake_doi_client: FakeDOIMetadataClient,
+    fake_doi_client: InMemoryDOIMetadataClient,
 ) -> None:
     """Monograph missing publisher → preview shows 200 with warning banner and monograph fix form.
 
@@ -122,7 +122,7 @@ def test_preview_page__monograph_without_publisher__shows_warning_and_fix_form(
 @pytest.mark.usefixtures("logged_in")
 def test_preview_page__override_applied__no_warnings(
     client: Client,
-    fake_doi_client: FakeDOIMetadataClient,
+    fake_doi_client: InMemoryDOIMetadataClient,
     test_journal: Journal,
 ) -> None:
     """After journal override applied, warnings are gone from preview page.

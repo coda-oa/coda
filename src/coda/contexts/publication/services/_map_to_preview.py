@@ -13,9 +13,7 @@ All functions are pure (no side effects, no database queries).
 import datetime
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.publications.dto import (
-    ConceptDto,
-)
+from coda.apps.publications.dto import ConceptDto
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.dto.preview import (
     PreviewArticle,
@@ -35,7 +33,7 @@ from coda.domain.publication.publication import (
 from coda.domain.vocabulary import UnknownConcept
 
 
-def map_license(license_str: str | None) -> License:
+def _map_license(license_str: str | None) -> License:
     """Map license string to CODA License enum.
 
     Args:
@@ -61,7 +59,7 @@ def map_license(license_str: str | None) -> License:
         return License.Unknown
 
 
-def map_publication_state(
+def _map_publication_state(
     online_date: datetime.date | None,
     print_date: datetime.date | None,
 ) -> PublicationState:
@@ -85,7 +83,7 @@ def map_publication_state(
     return Unpublished()
 
 
-def extract_online_date(publication_state: PublicationState) -> datetime.date | None:
+def _extract_online_date(publication_state: PublicationState) -> datetime.date | None:
     """Extract online publication date if state is Published.
 
     Args:
@@ -97,7 +95,7 @@ def extract_online_date(publication_state: PublicationState) -> datetime.date | 
     return publication_state.online if isinstance(publication_state, Published) else None
 
 
-def extract_print_date(publication_state: PublicationState) -> datetime.date | None:
+def _extract_print_date(publication_state: PublicationState) -> datetime.date | None:
     """Extract print publication date if state is Published.
 
     Args:
@@ -121,7 +119,7 @@ def _build_meta(metadata: ExternalPublicationMetadata) -> PreviewPublicationMeta
     Returns:
         PreviewPublicationMeta with all common fields populated
     """
-    publication_state = map_publication_state(
+    publication_state = _map_publication_state(
         metadata.online_publication_date,
         metadata.print_publication_date,
     )
@@ -129,11 +127,11 @@ def _build_meta(metadata: ExternalPublicationMetadata) -> PreviewPublicationMeta
         title=metadata.title,
         publication_type=ConceptDto.from_concept(UnknownConcept),
         subject_area=ConceptDto.from_concept(UnknownConcept),
-        license=map_license(metadata.license).name,
+        license=_map_license(metadata.license).name,
         open_access_type="Unknown",
         publication_state=publication_state.name(),
-        online_publication_date=extract_online_date(publication_state),
-        print_publication_date=extract_print_date(publication_state),
+        online_publication_date=_extract_online_date(publication_state),
+        print_publication_date=_extract_print_date(publication_state),
     )
 
 
@@ -170,8 +168,13 @@ def build_preview_article(
         doi=str(doi),
         authors=authors_dto,
         publisher_name=metadata.publisher,
-        funders=[
-            PreviewExternalFunding(name=f.name, identifiers=f.identifiers) for f in metadata.funders
+        funding=[
+            PreviewExternalFunding(
+                name=f.funder.name,
+                identifiers=f.funder.identifiers,
+                project_id=f.project_id,
+            )
+            for f in metadata.funders
         ],
     )
 
@@ -199,7 +202,7 @@ def build_preview_monograph(
         doi=str(doi),
         isbn=metadata.isbn,
         authors=authors_dto,
-        funders=[
+        funding=[
             PreviewExternalFunding(name=f.name, identifiers=f.identifiers) for f in metadata.funders
         ],
     )

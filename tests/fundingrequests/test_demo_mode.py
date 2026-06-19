@@ -8,8 +8,7 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIPreviewDetailView,
     DOIPreviewSaveView,
 )
-from coda.contexts.publication.services.doi_client import CrossrefDoiClient
-from coda.contexts.publication.services.fakes import InMemoryDOIMetadataClient
+from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient, crossref
 
 
 def _reload_app() -> None:
@@ -24,7 +23,7 @@ def _reload_app() -> None:
 def restore_doi_client() -> Generator[None]:
     """Restore the original CrossrefDoiClient after each test to prevent leaking."""
     yield
-    client = CrossrefDoiClient()
+    client = crossref
     DOIImportInputView.doi_client = client
     DOIPreviewDetailView.doi_client = client
     DOIPreviewSaveView.doi_client = client
@@ -43,6 +42,6 @@ def test__demo_mode__when_coda_demo_mode_true__wires_in_memory_client() -> None:
 def test__demo_mode__when_coda_demo_mode_false__does_not_swap_client() -> None:
     with override_settings(CODA_DEMO_MODE=False):
         _reload_app()
-        assert isinstance(DOIImportInputView.doi_client, CrossrefDoiClient)
-        assert isinstance(DOIPreviewDetailView.doi_client, CrossrefDoiClient)
-        assert isinstance(DOIPreviewSaveView.doi_client, CrossrefDoiClient)
+        assert DOIImportInputView.doi_client is crossref
+        assert DOIPreviewDetailView.doi_client is crossref
+        assert DOIPreviewSaveView.doi_client is crossref

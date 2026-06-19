@@ -22,12 +22,10 @@ from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.fundingrequests.queries.preview_context_builder import build_preview_context
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
-from coda.contexts.publication.services._crossref_type_detector import detect_publication_type
-from coda.contexts.publication.services.doi_client import (
-    CrossrefDoiClient,
-    DOIFetchError,
-    DOIMetadataClient,
-    DOINotFoundError,
+from coda.contexts.publication.services.doi_client import DOIMetadataClient, crossref
+from coda.contexts.publication.services.doi_client import errors as doi_errors
+from coda.contexts.publication.services.doi_client._crossref._crossref_type_detector import (
+    detect_publication_type,
 )
 from coda.contexts.publication.services.doi_import_service import (
     DOIImportService,
@@ -60,7 +58,7 @@ class DOIImportInputView(LoginRequiredMixin, View):
     Class attribute `doi_client` can be overridden for testing via subclassing.
     """
 
-    doi_client: ClassVar[DOIMetadataClient] = CrossrefDoiClient()
+    doi_client: ClassVar[DOIMetadataClient] = crossref
 
     def get(self, request: HttpRequest) -> HttpResponse:
         """Display DOI input form."""
@@ -81,7 +79,7 @@ class DOIImportInputView(LoginRequiredMixin, View):
 
         try:
             doi = Doi(doi_str)
-            metadata = self.doi_client.fetch(doi)
+            metadata = self.doi_client.fetch_publication(doi)
             detected_type = detect_publication_type(metadata)
 
             session_key = f"doi_preview_{uuid4()}"
@@ -93,7 +91,7 @@ class DOIImportInputView(LoginRequiredMixin, View):
 
             return redirect("fundingrequests:doi_preview_detail", session_key=session_key)
 
-        except (DOINotFoundError, DOIFetchError) as e:
+        except (doi_errors.DOINotFoundError, doi_errors.DOIFetchError) as e:
             context = {"error": f"Failed to import DOI: {str(e)}"}
             return render(request, "fundingrequests/doi_import_input.html", context)
         except Exception:
@@ -108,7 +106,7 @@ class DOIPreviewDetailView(LoginRequiredMixin, View):
     they can edit using the regular funding request update wizards.
     """
 
-    doi_client: ClassVar[DOIMetadataClient] = CrossrefDoiClient()
+    doi_client: ClassVar[DOIMetadataClient] = crossref
 
     def get(self, request: HttpRequest, session_key: str) -> HttpResponse:
         """
@@ -145,7 +143,7 @@ class DOIPreviewSaveView(LoginRequiredMixin, View):
     Class attribute `doi_client` can be overridden for testing via subclassing.
     """
 
-    doi_client: ClassVar[DOIMetadataClient] = CrossrefDoiClient()
+    doi_client: ClassVar[DOIMetadataClient] = crossref
 
     def post(self, request: HttpRequest, session_key: str) -> HttpResponse:
         """
@@ -201,7 +199,6 @@ class DOIPreviewSaveView(LoginRequiredMixin, View):
 def _render_article_type_form(
     request: HttpRequest,
     session_key: str,
-    original_metadata: dict[str, Any],
     *,
     error: str = "",
 ) -> HttpResponse:
@@ -251,7 +248,7 @@ def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpRe
     original_metadata = session_data.get("original_metadata", {})
 
     if requested_type == "article":
-        return _render_article_type_form(request, session_key, original_metadata)
+        return _render_article_type_form(request, session_key)
     return _render_monograph_type_form(request, session_key, original_metadata)
 
 
@@ -284,7 +281,6 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
                 return _render_article_type_form(
                     request,
                     session_key,
-                    original_metadata,
                     error="Please select a journal before applying.",
                 )
             session_data["publication_type"] = "article"
@@ -302,8 +298,6 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
             session_data["publication_type"] = "monograph"
             session_data["publisher_id"] = int(publisher_id_str)
             session_data.pop("journal_id", None)
-        case _:
-            return HttpResponse("Invalid publication type", status=400)
 
     request.session[session_key] = session_data
     request.session.modified = True

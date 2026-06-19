@@ -58,6 +58,7 @@ class PreviewJournal(CodaBaseDto):
 class PreviewExternalFunding(CodaBaseDto):
     name: Annotated[str, AfterValidator(NonEmptyStr)]
     identifiers: list[str] = Field(default_factory=list)
+    project_id: str = ""
 
 
 class PreviewPublication(CodaBaseDto):
@@ -65,7 +66,7 @@ class PreviewPublication(CodaBaseDto):
     doi: str
     authors: list[AuthorDto]
     publisher_name: str | None = None
-    funders: list[PreviewExternalFunding] = Field(default_factory=list)
+    funding: list[PreviewExternalFunding] = Field(default_factory=list)
 
 
 class PreviewArticle(PreviewPublication):

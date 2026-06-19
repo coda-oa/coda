@@ -6,11 +6,11 @@ PreviewFundingRequest whose .warnings list is non-empty so the caller can
 present a fix form to the user.
 """
 
+from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient
 from tests.contexts.publication.fixtures import (
     article_metadata,
     book_metadata,
 )
-from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 
 from coda.contexts.publication.dto.external_metadata import ExternalJournal
 from coda.contexts.publication.dto.preview import PreviewArticle, PreviewMonograph
@@ -26,7 +26,7 @@ def test__fetch_doi_preview__article_without_journal__returns_preview_with_warni
     warning so the user can supply the missing journal via the fix form.
     """
     doi = Doi("10.1234/test")
-    fake_client = FakeDOIMetadataClient()
+    fake_client = InMemoryDOIMetadataClient()
     fake_client.data[str(doi)] = article_metadata(journal=None, publisher=None)
 
     sut = DOIImportService(doi_client=fake_client)
@@ -44,7 +44,7 @@ def test__fetch_doi_preview__article_with_print_issn_only__returns_preview_with_
     DTO with a non-empty warnings list so the user can supply the E-ISSN via the fix form.
     """
     doi = Doi("10.1234/test")
-    fake_client = FakeDOIMetadataClient()
+    fake_client = InMemoryDOIMetadataClient()
     fake_client.data[str(doi)] = article_metadata(
         journal=ExternalJournal(title="Print-Only Journal", issn="1234-5678", eissn=None),
     )
@@ -64,7 +64,7 @@ def test__fetch_doi_preview__monograph_without_publisher__returns_preview_with_w
     so the user can supply the missing publisher via the fix form.
     """
     doi = Doi("10.1234/test-book")
-    fake_client = FakeDOIMetadataClient()
+    fake_client = InMemoryDOIMetadataClient()
     fake_client.data[str(doi)] = book_metadata(publisher=None)
 
     sut = DOIImportService(doi_client=fake_client)

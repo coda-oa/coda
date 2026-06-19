@@ -29,6 +29,7 @@ from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
     ExternalJournal,
 )
+from coda.contexts.publication.services.doi_client._inmemory import InMemoryDOIMetadataClient
 from coda.domain.author import Author, AuthorNames, Role
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequest, NoContact, Payment, PaymentMethod
@@ -49,7 +50,6 @@ from tests.contexts.publication.fixtures import (
     article_metadata,
     book_metadata,
 )
-from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 
@@ -143,7 +143,7 @@ def build_expected_fundingrequest(
 
 
 def configure_fake_client_from_expected(
-    fake_client: FakeDOIMetadataClient,
+    fake_client: InMemoryDOIMetadataClient,
     doi: Doi,
     expected_fr: FundingRequest[Publication],
     journal_title: str,
@@ -190,13 +190,13 @@ def configure_fake_client_from_expected(
 
 
 @pytest.fixture
-def fake_doi_client() -> FakeDOIMetadataClient:
+def fake_doi_client() -> InMemoryDOIMetadataClient:
     """Fake DOI client that will be configured per-test with expected data."""
-    return FakeDOIMetadataClient()
+    return InMemoryDOIMetadataClient()
 
 
 @pytest.fixture(autouse=True)
-def inject_fake_doi_client(fake_doi_client: FakeDOIMetadataClient) -> None:
+def inject_fake_doi_client(fake_doi_client: InMemoryDOIMetadataClient) -> None:
     """Inject fake DOI client into views via dependency injection."""
     DOIImportInputView.doi_client = fake_doi_client
     DOIPreviewDetailView.doi_client = fake_doi_client
@@ -206,7 +206,7 @@ def inject_fake_doi_client(fake_doi_client: FakeDOIMetadataClient) -> None:
 @pytest.fixture
 def expected_fundingrequest(
     test_journal: Journal,
-    fake_doi_client: FakeDOIMetadataClient,
+    fake_doi_client: InMemoryDOIMetadataClient,
 ) -> FundingRequest[Publication]:
     """Build expected FundingRequest and configure fake client to produce it."""
     doi_str = "10.1234/preview.test"
@@ -319,7 +319,7 @@ def test_saving_preview_redirects_to_detail_page(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test_multiple_previews_can_coexist(
     client: Client,
-    fake_doi_client: FakeDOIMetadataClient,
+    fake_doi_client: InMemoryDOIMetadataClient,
     test_journal: Journal,
 ) -> None:
     """Multiple preview sessions can coexist; saving one does not affect others."""
@@ -516,7 +516,7 @@ def test_submit_type_change_to_monograph_stores_publisher_id_in_session(
 @pytest.mark.usefixtures("logged_in")
 def test_submit_type_change_to_article_stores_journal_id_in_session(
     client: Client,
-    fake_doi_client: FakeDOIMetadataClient,
+    fake_doi_client: InMemoryDOIMetadataClient,
     test_journal: Journal,
 ) -> None:
     """Submitting article form with journal should store journal_id in session."""
@@ -597,7 +597,7 @@ def test_submit_type_change_monograph_without_publisher_shows_inline_error(
 @pytest.mark.usefixtures("logged_in")
 def test_submit_type_change_article_without_journal_shows_inline_error(
     client: Client,
-    fake_doi_client: FakeDOIMetadataClient,
+    fake_doi_client: InMemoryDOIMetadataClient,
 ) -> None:
     """Submitting article form without selecting a journal returns partial with error."""
     doi_str = "10.1234/book.no-journal"
@@ -656,7 +656,7 @@ def test_reset_type_clears_override_and_restores_original_type(
 @pytest.mark.usefixtures("logged_in")
 def test_override_article_to_monograph_and_save(
     client: Client,
-    fake_doi_client: FakeDOIMetadataClient,
+    fake_doi_client: InMemoryDOIMetadataClient,
 ) -> None:
     """Full workflow: article DOI → override to monograph → save creates Monograph."""
     doi_str = "10.1234/override.test"
@@ -686,7 +686,7 @@ def test_override_article_to_monograph_and_save(
 @pytest.mark.usefixtures("logged_in")
 def test_override_monograph_to_article_and_save(
     client: Client,
-    fake_doi_client: FakeDOIMetadataClient,
+    fake_doi_client: InMemoryDOIMetadataClient,
     test_journal: Journal,
 ) -> None:
     """Full workflow: monograph DOI → override to article → save creates Publication."""
@@ -726,7 +726,7 @@ def test_doi_input_form_displays_correctly(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test_doi_input_handles_fetch_error(
     client: Client,
-    fake_doi_client: FakeDOIMetadataClient,
+    fake_doi_client: InMemoryDOIMetadataClient,
 ) -> None:
     """DOI metadata fetch failure displays error message without redirect."""
     test_doi = Doi("10.1234/broken.doi")
@@ -755,7 +755,7 @@ def test_doi_input_handles_not_found_error(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test__save_preview__article_with_print_issn_only__redirects_back_with_error(
     client: Client,
-    fake_doi_client: FakeDOIMetadataClient,
+    fake_doi_client: InMemoryDOIMetadataClient,
 ) -> None:
     """Saving a preview with a print-ISSN-only journal shows an error and redirects back.
 
@@ -789,7 +789,7 @@ def test__save_preview__article_with_print_issn_only__redirects_back_with_error(
 @pytest.mark.usefixtures("logged_in")
 def test__preview_page__article_with_print_issn_only__does_not_display_print_issn(
     client: Client,
-    fake_doi_client: FakeDOIMetadataClient,
+    fake_doi_client: InMemoryDOIMetadataClient,
 ) -> None:
     """Preview page must not display the print ISSN when a journal has no E-ISSN.
 

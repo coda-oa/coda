@@ -9,9 +9,11 @@ imported as a Monograph or Publication (article) based on:
 """
 
 import pytest
-from tests.contexts.publication.test_doi_import_service import (
+from tests.contexts.publication.fixtures import (
     NATURE_EISSN,
     NATURE_JOURNAL_TITLE,
+)
+from tests.contexts.publication.test_doi_import_service import (
     make_article_metadata,
     make_book_metadata,
 )

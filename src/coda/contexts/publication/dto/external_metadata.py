@@ -48,10 +48,15 @@ class ExternalPublicationMetadata(BaseModel):
     license: str | None = None
     online_publication_date: datetime.date | None = None
     print_publication_date: datetime.date | None = None
-    funders: list[ExternalFundingOrganisationMetadata] = Field(default_factory=list)
+    funders: list[ExternalFundingMetadata] = Field(default_factory=list)
 
 
 class ExternalFundingOrganisationMetadata(BaseModel):
     name: str
     aliases: list[str] = Field(default_factory=list)
     identifiers: list[str] = Field(default_factory=list)
+
+
+class ExternalFundingMetadata(BaseModel):
+    funder: ExternalFundingOrganisationMetadata
+    project_id: str

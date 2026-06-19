@@ -17,7 +17,6 @@ from tests.contexts.publication.fixtures import (
     nature_article_metadata,
     springer_book_metadata,
 )
-from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 from coda.apps.fundingrequests import repository as fundingrequest_repository
@@ -32,7 +31,11 @@ from coda.contexts.publication.dto.external_metadata import (
     ExternalPublicationMetadata,
 )
 from coda.contexts.publication.dto.preview import PreviewArticle, PreviewMonograph
-from coda.contexts.publication.services.doi_client import CrossrefDoiClient, DOIMetadataClient
+from coda.contexts.publication.services.doi_client import (
+    DOIMetadataClient,
+    InMemoryDOIMetadataClient,
+    crossref,
+)
 from coda.contexts.publication.services.doi_import_service import (
     DOIImportService,
     OverrideImportAsArticle,
@@ -69,8 +72,8 @@ SPRINGER_BOOK_TITLE = "Quantum Microscopy of Biological Systems"
 SPRINGER_BOOK_PUBLISHER = "Springer International Publishing"
 
 
-def _make_client(doi: str, metadata: "ExternalPublicationMetadata") -> FakeDOIMetadataClient:
-    client = FakeDOIMetadataClient()
+def _make_client(doi: str, metadata: "ExternalPublicationMetadata") -> InMemoryDOIMetadataClient:
+    client = InMemoryDOIMetadataClient()
     client.data[doi] = metadata
     return client
 
@@ -79,7 +82,7 @@ def make_article_metadata(
     *,
     doi: str = "10.1234/test",
     **kwargs: object,
-) -> tuple[FakeDOIMetadataClient, Doi]:
+) -> tuple[InMemoryDOIMetadataClient, Doi]:
     """Build article metadata and return a configured (client, Doi) pair.
 
     All keyword arguments are forwarded to fixtures.article_metadata().
@@ -93,7 +96,7 @@ def make_book_metadata(
     *,
     doi: str = "10.1234/test-book",
     **kwargs: object,
-) -> tuple[FakeDOIMetadataClient, Doi]:
+) -> tuple[InMemoryDOIMetadataClient, Doi]:
     """Build book metadata and return a configured (client, Doi) pair.
 
     All keyword arguments are forwarded to fixtures.book_metadata().
@@ -152,7 +155,7 @@ def create_springer_book_publisher() -> int:
 def fake_doi_client() -> DOIMetadataClient:
     """Provides a fake DOI client configured with test data."""
 
-    client = FakeDOIMetadataClient()
+    client = InMemoryDOIMetadataClient()
     # Configure with test data
     client.data[NATURE_DOI] = nature_article_metadata()
     client.data[SPRINGER_BOOK_DOI] = springer_book_metadata()
@@ -162,7 +165,7 @@ def fake_doi_client() -> DOIMetadataClient:
 @pytest.fixture
 def real_doi_client() -> DOIMetadataClient:
     """Provides a real Crossref client for integration tests."""
-    return CrossrefDoiClient(timeout=30.0)
+    return crossref
 
 
 def make_expected_funding_request_for_fake_nature_article(
@@ -800,7 +803,7 @@ def test__import_from_doi__duplicate_doi__raises_doi_already_imported() -> None:
     publication.links = {doi}
     publication_id = publication_repository.create(publication)
 
-    fake_client = FakeDOIMetadataClient()
+    fake_client = InMemoryDOIMetadataClient()
     sut = DOIImportService(fake_client)
 
     with pytest.raises(DOIAlreadyImported) as exc_info:

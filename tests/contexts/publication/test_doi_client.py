@@ -6,13 +6,13 @@ Unit tests use FakeDOIMetadataClient, integration tests use CrossrefDataCiteClie
 
 import pytest
 from tests.contexts.publication.fixtures import nature_article_metadata
-from tests.contexts.publication.fixtures.doi_client import FakeDOIMetadataClient
 
 from coda.contexts.publication.services.doi_client import (
-    CrossrefDoiClient,
     DOIMetadataClient,
-    DOINotFoundError,
+    InMemoryDOIMetadataClient,
+    crossref,
 )
+from coda.contexts.publication.services.doi_client.errors import DOINotFoundError
 from coda.domain.publication.links import Doi
 
 
@@ -20,7 +20,7 @@ from coda.domain.publication.links import Doi
 def fake_client() -> DOIMetadataClient:
     """Provides a fake DOI client configured with test data."""
 
-    client = FakeDOIMetadataClient()
+    client = InMemoryDOIMetadataClient()
     # Configure with test data for the DOI used in these tests
     client.data["10.1038/nature12373"] = nature_article_metadata()
     return client
@@ -29,7 +29,7 @@ def fake_client() -> DOIMetadataClient:
 @pytest.fixture
 def real_client() -> DOIMetadataClient:
     """Provides a real Crossref client for integration tests."""
-    return CrossrefDoiClient(timeout=30.0)
+    return crossref
 
 
 @pytest.mark.parametrize(
@@ -46,7 +46,7 @@ def test__fetch_metadata__valid_doi__returns_metadata_with_title_and_authors(
     client: DOIMetadataClient = request.getfixturevalue(client_fixture)
     doi = Doi("10.1038/nature12373")
 
-    metadata = client.fetch(doi)
+    metadata = client.fetch_publication(doi)
 
     assert metadata.title
     assert len(metadata.title) > 0
@@ -69,7 +69,7 @@ def test__fetch_metadata__nonexistent_doi__raises_doi_not_found_error(
     doi = Doi("10.9999/nonexistent.doi.12345")
 
     with pytest.raises(DOINotFoundError):
-        client.fetch(doi)
+        client.fetch_publication(doi)
 
 
 @pytest.mark.parametrize(
@@ -86,22 +86,11 @@ def test__fetch_metadata__article_doi__returns_metadata_with_journal_info(
     client: DOIMetadataClient = request.getfixturevalue(client_fixture)
     doi = Doi("10.1038/nature12373")
 
-    metadata = client.fetch(doi)
+    metadata = client.fetch_publication(doi)
 
     assert metadata.journal is not None
     assert metadata.journal.title
     assert metadata.journal.issn or metadata.journal.eissn
-
-
-def test__fake_client__can_be_configured_with_test_data() -> None:
-    """Fake client allows setting up test scenarios with known data."""
-    client = FakeDOIMetadataClient()
-
-    # This behavior allows us to control test data in unit tests
-    # The fake client's data dict can be manipulated directly
-    # (as demonstrated in edge case tests)
-    assert client is not None
-    assert client.data is not None
 
 
 @pytest.mark.parametrize(
@@ -123,7 +112,7 @@ def test__fetch_metadata__preserves_raw_publication_type_from_source(
     client: DOIMetadataClient = request.getfixturevalue(client_fixture)
     doi = Doi("10.1038/nature12373")
 
-    metadata = client.fetch(doi)
+    metadata = client.fetch_publication(doi)
 
     # Should preserve raw Crossref type string (not mapped to enum)
     assert metadata.publication_type == "journal-article"

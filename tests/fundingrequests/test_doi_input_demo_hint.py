@@ -5,15 +5,14 @@ from django.test import Client, override_settings
 from django.urls import reverse
 
 from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView
-from coda.contexts.publication.services.doi_client import CrossrefDoiClient
-from coda.contexts.publication.services.fakes import InMemoryDOIMetadataClient
+from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient, crossref
 from coda.domain.publication.links import Doi
 
 
 @pytest.fixture(autouse=True)
 def restore_doi_client() -> Generator[None]:
     yield
-    DOIImportInputView.doi_client = CrossrefDoiClient()
+    DOIImportInputView.doi_client = crossref
 
 
 @pytest.fixture

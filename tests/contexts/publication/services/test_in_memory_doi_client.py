@@ -1,5 +1,5 @@
-import json
 import datetime
+import json
 from pathlib import Path
 
 import pytest
@@ -9,10 +9,9 @@ from coda.contexts.publication.dto.external_metadata import (
     ExternalJournal,
     ExternalPublicationMetadata,
 )
-from coda.contexts.publication.services.doi_client import DOIFetchError, DOINotFoundError
-from coda.contexts.publication.services.fakes import InMemoryDOIMetadataClient
+from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient
+from coda.contexts.publication.services.doi_client.errors import DOIFetchError, DOINotFoundError
 from coda.domain.publication.links import Doi
-
 
 ARTICLE_DOI = Doi("10.1038/s41586-020-2649-2")
 BOOK_DOI = Doi("10.1007/978-3-319-18938-3")
@@ -50,13 +49,13 @@ def client() -> InMemoryDOIMetadataClient:
 
 
 def test__fetch__known_doi__returns_metadata(client: InMemoryDOIMetadataClient) -> None:
-    result = client.fetch(ARTICLE_DOI)
+    result = client.fetch_publication(ARTICLE_DOI)
     assert result == ARTICLE_METADATA
 
 
 def test__fetch__unknown_doi__raises_doi_not_found_error(client: InMemoryDOIMetadataClient) -> None:
     with pytest.raises(DOINotFoundError) as exc_info:
-        client.fetch(Doi("10.9999/unknown"))
+        client.fetch_publication(Doi("10.9999/unknown"))
     assert "not available in the demo dataset" in str(exc_info.value)
 
 
@@ -65,7 +64,7 @@ def test__fetch__configured_error__raises_doi_fetch_error(
 ) -> None:
     client.configure_error(ARTICLE_DOI, "rate_limit")
     with pytest.raises(DOIFetchError) as exc_info:
-        client.fetch(ARTICLE_DOI)
+        client.fetch_publication(ARTICLE_DOI)
     assert "Rate limit exceeded" in str(exc_info.value)
 
 
@@ -79,8 +78,8 @@ def test__from_json__valid_fixture__loads_and_validates_all_entries(tmp_path: Pa
 
     loaded_client = InMemoryDOIMetadataClient.from_json(fixture_file)
 
-    assert loaded_client.fetch(ARTICLE_DOI) == ARTICLE_METADATA
-    assert loaded_client.fetch(BOOK_DOI) == BOOK_METADATA
+    assert loaded_client.fetch_publication(ARTICLE_DOI) == ARTICLE_METADATA
+    assert loaded_client.fetch_publication(BOOK_DOI) == BOOK_METADATA
 
 
 def test__from_json__invalid_metadata__raises_validation_error(tmp_path: Path) -> None:

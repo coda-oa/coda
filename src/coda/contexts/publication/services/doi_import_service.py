@@ -1,5 +1,7 @@
 """DOI Import Service - Creates FundingRequests from DOI metadata."""
 
+from __future__ import annotations
+
 import itertools
 from dataclasses import dataclass
 
@@ -28,6 +30,9 @@ from coda.contexts.publication.dto.preview import (
     PreviewMonograph,
 )
 from coda.contexts.publication.services.doi_client import DOIMetadataClient
+from coda.contexts.publication.services.doi_client._crossref._crossref_type_detector import (
+    detect_publication_type,
+)
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
 from coda.domain.author import Role
 from coda.domain.contract import PublisherId
@@ -39,8 +44,7 @@ from coda.domain.publication import JournalId
 from coda.domain.publication.links import Doi
 from coda.domain.string import NonEmptyStr
 
-from ._crossref_type_detector import detect_publication_type
-from ._metadata_mapping import build_preview_article, build_preview_monograph
+from ._map_to_preview import build_preview_article, build_preview_monograph
 
 
 @dataclass(frozen=True)
@@ -79,7 +83,7 @@ class DOIImportService:
     def _fetch_metadata(self, doi: Doi) -> ExternalPublicationMetadata:
         """Fetch metadata from cache or external API."""
         if doi not in self.metadata_cache:
-            self.metadata_cache[doi] = self.doi_client.fetch(doi)
+            self.metadata_cache[doi] = self.doi_client.fetch_publication(doi)
         return self.metadata_cache[doi]
 
     def fetch_doi_preview(self, doi: Doi) -> PreviewFundingRequest:
@@ -110,8 +114,6 @@ class DOIImportService:
                 publication_preview = build_preview_article(doi, metadata, authors_dto)
             case "monograph":
                 publication_preview = build_preview_monograph(doi, metadata, authors_dto)
-            case _:
-                raise ValueError(f"Unknown publication type: {detected_type!r}")
 
         return PreviewFundingRequest(publication=publication_preview)
 
@@ -144,8 +146,6 @@ class DOIImportService:
                 publisher = publisher_services.get_by_pk(int(publisher_id))
                 overridden_metadata = metadata.model_copy(update={"publisher": publisher.name})
                 publication = build_preview_monograph(doi, overridden_metadata, authors_dto)
-            case _:
-                raise ValueError(f"Unknown override type: {override!r}")
 
         return PreviewFundingRequest(publication=publication)
 
@@ -235,10 +235,33 @@ class DOIImportService:
         publisher_id = self._match_or_create_publisher(publication.publisher_name)
         return publication.to_monograph_dto(publisher_id=publisher_id)
 
+    def _resolve_funders(self, funding: list[PreviewExternalFunding]) -> list[_ResolvedFunding]:
+        resolved_funding = []
+        for f in funding:
+            doi = None
+            for id_ in f.identifiers:
+                try:
+                    doi = Doi(id_)
+                    break
+                except ValueError:
+                    continue
+
+            if doi:
+                resolved_funder = self.doi_client.fetch_funder(doi)
+                resolved_funding.append(
+                    _ResolvedFunding(f.name, resolved_funder.name, doi.value(), f.project_id)
+                )
+            else:
+                resolved_funding.append(_ResolvedFunding(f.name, "", "", f.project_id))
+
+        return resolved_funding
+
     def _resolve_external_funding(
-        self, funders: list[PreviewExternalFunding]
+        self, funding: list[PreviewExternalFunding]
     ) -> list[ExternalFundingDto]:
-        names = {f.name for f in funders}
+        resolved_funding = self._resolve_funders(funding)
+
+        names = {f.name for f in resolved_funding}
         existing = FundingOrganization.objects.filter(name__in=names).only("pk", "name").all()
         existing_names = {e.name for e in existing}
         funders_to_create: set[str] = names.difference(existing_names)
@@ -251,10 +274,10 @@ class DOIImportService:
         return [
             ExternalFundingDto(
                 organization=FundingOrganizationId(names_to_pks[f.name]),
-                project_id="",
+                project_id=f.project_id,
                 project_name="",
             )
-            for f in funders
+            for f in resolved_funding
         ]
 
     def _convert_preview_to_creation_dto(
@@ -296,14 +319,12 @@ class DOIImportService:
                         publication_dto = self._resolve_article_dto(article)
                     case PreviewMonograph() as monograph:
                         publication_dto = self._resolve_monograph_dto(monograph)
-                    case _:
-                        raise ValueError("Invalid Preview type")
 
         return CreateFundingRequestDto(
             publication=publication_dto,
             payment=PaymentDto.empty(),
             extra_information=ExtraInformationDto(),
-            funding=self._resolve_external_funding(preview.publication.funders),
+            funding=self._resolve_external_funding(preview.publication.funding),
         )
 
     def _build_authors_dto(self, external_authors: list[ExternalAuthor]) -> list[AuthorDto]:
@@ -343,7 +364,9 @@ class DOIImportService:
         Returns the trimmed name if valid, "Unknown" if name is empty but other data exists,
         or None if author has no usable data.
         """
-        trimmed_name = name.strip()
+        small_space = "\u2009"
+        trimmed_name = name.strip().replace(small_space, " ")
+
         has_other_data = affiliation is not None or ror_id is not None
 
         if trimmed_name:
@@ -360,3 +383,18 @@ class DOIImportService:
             return PublisherId(publisher.pk)
 
         return publisher_services.create(name=publisher_name)
+
+
+@dataclass(frozen=True, slots=True)
+class _ResolvedFunding:
+    referenced_funder_name: str
+    updated_funder_name: str
+    funder_doi: str
+    project_id: str
+
+    @property
+    def name(self) -> str:
+        if self.updated_funder_name:
+            return self.updated_funder_name
+
+        return self.referenced_funder_name
