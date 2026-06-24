@@ -5,17 +5,16 @@ Tests are parametrized to run with both fake and real Crossref clients.
 """
 
 import datetime
-from collections.abc import Callable
 
 import pytest
 from tests import domainfactory
 from tests.contexts.publication.fixtures import (
     NATURE_EISSN,
     NATURE_JOURNAL_TITLE,
+    NatureArticleScenario,
+    SpringerBookScenario,
     article_metadata,
     book_metadata,
-    nature_article_metadata,
-    springer_book_metadata,
 )
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
@@ -32,7 +31,6 @@ from coda.contexts.publication.dto.external_metadata import (
 )
 from coda.contexts.publication.dto.preview import PreviewArticle, PreviewMonograph
 from coda.contexts.publication.services.doi_client import (
-    DOIMetadataClient,
     InMemoryDOIMetadataClient,
     crossref,
 )
@@ -42,23 +40,17 @@ from coda.contexts.publication.services.doi_import_service import (
     OverrideImportAsMonograph,
 )
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
-from coda.domain.author import Author, Role
-from coda.domain.contract import PublisherId
-from coda.domain.fundingrequest import FundingRequest, FundingRequestId, Payment, PaymentMethod
-from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
+from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.issn import Issn
-from coda.domain.money import Currency, Money
 from coda.domain.publication import (
-    Authors,
     JournalId,
     License,
-    Monograph,
     Publication,
     Published,
     Unpublished,
     UnpublishedState,
 )
-from coda.domain.publication.links import Doi, Isbn
+from coda.domain.publication.links import Doi
 from coda.domain.string import NonEmptyStr
 
 # Test data constants
@@ -126,200 +118,33 @@ def get_publication_from_funding_request(
     return publication
 
 
-def create_springer_nature_journal() -> int:
-    """Create Springer Nature publisher and Nature journal in database using services.
-
-    Returns:
-        The integer ID of the created Nature journal
-    """
-    publisher_id = publisher_services.create(SPRINGER_NATURE_PUBLISHER)
-    journal_id = journal_services.create(
-        title=NonEmptyStr(NATURE_JOURNAL_TITLE),
-        eissn=Issn(NATURE_EISSN),
-        publisher_id=publisher_id,
-    )
-    return int(journal_id)
+@pytest.fixture(
+    params=[
+        "fake",
+        pytest.param("real", marks=[pytest.mark.integration]),
+    ]
+)
+def nature_scenario(request: pytest.FixtureRequest) -> NatureArticleScenario:
+    if request.param == "fake":
+        return NatureArticleScenario.with_in_memory_client()
+    return NatureArticleScenario(crossref)
 
 
-def create_springer_book_publisher() -> int:
-    """Create Springer International Publishing publisher in database.
-
-    Returns:
-        The integer ID of the created publisher
-    """
-    publisher_id = publisher_services.create(SPRINGER_BOOK_PUBLISHER)
-    return int(publisher_id)
-
-
-@pytest.fixture
-def fake_doi_client() -> DOIMetadataClient:
-    """Provides a fake DOI client configured with test data."""
-
-    client = InMemoryDOIMetadataClient()
-    # Configure with test data
-    client.data[NATURE_DOI] = nature_article_metadata()
-    client.data[SPRINGER_BOOK_DOI] = springer_book_metadata()
-    return client
-
-
-@pytest.fixture
-def real_doi_client() -> DOIMetadataClient:
-    """Provides a real Crossref client for integration tests."""
-    return crossref
-
-
-def make_expected_funding_request_for_fake_nature_article(
-    journal_id: int,
-) -> FundingRequest[Publication]:
-    """Factory for expected FundingRequest with fake DOI metadata."""
-    doi = Doi(NATURE_DOI)
-
-    expected_authors = Authors(
-        [
-            Author.new(name=NonEmptyStr("John Doe"), role=Role.CO_AUTHOR),
-            Author.new(name=NonEmptyStr("Jane Smith"), role=Role.CO_AUTHOR),
-        ]
-    )
-
-    expected_publication = Publication.new(
-        title=NonEmptyStr("Example Nature Article"),
-        journal=JournalId(journal_id),
-        relevant_authors=expected_authors,
-        license=License.CC_BY,
-        publication_state=Published(online=datetime.date(2024, 1, 15)),
-        links={doi},
-    )
-
-    return FundingRequest.new(
-        publication=expected_publication,
-        estimated_cost=Payment(
-            amount=Money(0, Currency.EUR),
-            method=PaymentMethod.Unknown,
-        ),
-    )
-
-
-def make_expected_funding_request_for_real_nature_article(
-    journal_id: int,
-) -> FundingRequest[Publication]:
-    """Factory for expected FundingRequest with real Crossref metadata."""
-    doi = Doi(NATURE_DOI)
-
-    # Real Crossref data for this DOI (abbreviated author names)
-    expected_authors = Authors(
-        [
-            Author.new(name=NonEmptyStr("G. Kucsko"), role=Role.CO_AUTHOR),
-            Author.new(name=NonEmptyStr("P. C. Maurer"), role=Role.CO_AUTHOR),
-            Author.new(name=NonEmptyStr("N. Y. Yao"), role=Role.CO_AUTHOR),
-            Author.new(name=NonEmptyStr("M. Kubo"), role=Role.CO_AUTHOR),
-            Author.new(name=NonEmptyStr("H. J. Noh"), role=Role.CO_AUTHOR),
-            Author.new(name=NonEmptyStr("P. K. Lo"), role=Role.CO_AUTHOR),
-            Author.new(name=NonEmptyStr("H. Park"), role=Role.CO_AUTHOR),
-            Author.new(name=NonEmptyStr("M. D. Lukin"), role=Role.CO_AUTHOR),
-        ]
-    )
-
-    expected_publication = Publication.new(
-        title=NonEmptyStr("Nanometre-scale thermometry in a living cell"),
-        journal=JournalId(journal_id),
-        relevant_authors=expected_authors,
-        # NOTE: Real Crossref returns non-standard license URL
-        license=License.Unknown,
-        publication_state=Published(
-            online=datetime.date(2013, 7, 31),
-            print=datetime.date(2013, 8, 1),
-        ),
-        links={doi},
-    )
-
-    return FundingRequest.new(
-        publication=expected_publication,
-        estimated_cost=Payment(
-            amount=Money(0, Currency.EUR),
-            method=PaymentMethod.Unknown,
-        ),
-    )
-
-
-def make_expected_funding_request_for_fake_springer_book(
-    publisher_id: int,
-) -> FundingRequest[Monograph]:
-    """Factory for expected FundingRequest for a book with fake DOI metadata."""
-    doi = Doi(SPRINGER_BOOK_DOI)
-    isbn = Isbn(SPRINGER_BOOK_ISBN)
-
-    expected_authors = Authors(
-        [
-            Author.new(name=NonEmptyStr("Michael Taylor"), role=Role.CO_AUTHOR),
-        ]
-    )
-
-    expected_monograph = Monograph.new(
-        title=NonEmptyStr(SPRINGER_BOOK_TITLE),
-        publisher=PublisherId(publisher_id),
-        relevant_authors=expected_authors,
-        license=License.Unknown,
-        publication_state=Published(print=datetime.date(2015, 1, 1)),
-        links={doi, isbn},
-    )
-
-    return FundingRequest.new(
-        publication=expected_monograph,
-        estimated_cost=Payment(
-            amount=Money(0, Currency.EUR),
-            method=PaymentMethod.Unknown,
-        ),
-    )
-
-
-def make_expected_funding_request_for_real_springer_book(
-    publisher_id: int,
-) -> FundingRequest[Monograph]:
-    """Factory for expected FundingRequest for a book with real Crossref metadata."""
-    doi = Doi(SPRINGER_BOOK_DOI)
-    isbn = Isbn(SPRINGER_BOOK_ISBN)
-
-    expected_authors = Authors(
-        [
-            Author.new(name=NonEmptyStr("Michael Taylor"), role=Role.CO_AUTHOR),
-        ]
-    )
-
-    expected_monograph = Monograph.new(
-        title=NonEmptyStr(SPRINGER_BOOK_TITLE),
-        publisher=PublisherId(publisher_id),
-        relevant_authors=expected_authors,
-        # Real Crossref data has TDM license, which we map to Unknown
-        license=License.Unknown,
-        publication_state=Published(print=datetime.date(2015, 1, 1)),
-        links={doi, isbn},
-    )
-
-    return FundingRequest.new(
-        publication=expected_monograph,
-        estimated_cost=Payment(
-            amount=Money(0, Currency.EUR),
-            method=PaymentMethod.Unknown,
-        ),
-    )
+@pytest.fixture(
+    params=[
+        "fake",
+        pytest.param("real", marks=[pytest.mark.integration]),
+    ]
+)
+def springer_scenario(request: pytest.FixtureRequest) -> SpringerBookScenario:
+    if request.param == "fake":
+        return SpringerBookScenario.with_in_memory_client()
+    return SpringerBookScenario(crossref)
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize(
-    ("client_fixture", "get_expected_request"),
-    [
-        ("fake_doi_client", make_expected_funding_request_for_fake_nature_article),
-        pytest.param(
-            "real_doi_client",
-            make_expected_funding_request_for_real_nature_article,
-            marks=pytest.mark.integration,
-        ),
-    ],
-)
 def test__import_from_doi__valid_journal_article_doi__returns_funding_request_with_populated_publication(
-    client_fixture: str,
-    get_expected_request: Callable[[int], AnyFundingRequest],
-    request: pytest.FixtureRequest,
+    nature_scenario: NatureArticleScenario,
 ) -> None:
     """Given a valid DOI for a journal article, creates and returns FundingRequestId.
 
@@ -335,34 +160,19 @@ def test__import_from_doi__valid_journal_article_doi__returns_funding_request_wi
     - No external funding
     - No extra contact
     """
-    journal_id = create_springer_nature_journal()
-    doi = Doi(NATURE_DOI)
-    doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
-    sut = DOIImportService(doi_client=doi_client)
+    nature_scenario.setup_db()
+    sut = DOIImportService(doi_client=nature_scenario.client)
 
-    funding_request_id = sut.import_from_doi(doi)
+    funding_request_id = sut.import_from_doi(nature_scenario.doi)
 
     actual = fundingrequest_repository.get_by_id(funding_request_id)
-    expected = get_expected_request(journal_id)
+    expected = nature_scenario.get_expected_fundingrequest()
     assert_fundingrequest_eq(actual, expected)
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize(
-    ("client_fixture", "get_expected_request"),
-    [
-        ("fake_doi_client", make_expected_funding_request_for_fake_springer_book),
-        pytest.param(
-            "real_doi_client",
-            make_expected_funding_request_for_real_springer_book,
-            marks=pytest.mark.integration,
-        ),
-    ],
-)
 def test__import_from_doi__valid_book_doi__returns_funding_request_with_populated_monograph(
-    client_fixture: str,
-    get_expected_request: Callable[[int], AnyFundingRequest],
-    request: pytest.FixtureRequest,
+    springer_scenario: SpringerBookScenario,
 ) -> None:
     """Given a valid DOI for a book, creates and returns FundingRequestId with Monograph.
 
@@ -378,29 +188,19 @@ def test__import_from_doi__valid_book_doi__returns_funding_request_with_populate
     - No external funding
     - No extra contact
     """
-    publisher_id = create_springer_book_publisher()
-    doi = Doi(SPRINGER_BOOK_DOI)
-    doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
-    sut = DOIImportService(doi_client=doi_client)
+    springer_scenario.setup_db()
+    sut = DOIImportService(doi_client=springer_scenario.client)
 
-    funding_request_id = sut.import_from_doi(doi)
+    funding_request_id = sut.import_from_doi(springer_scenario.doi)
 
     actual = fundingrequest_repository.get_by_id(funding_request_id)
-    expected = get_expected_request(publisher_id)
+    expected = springer_scenario.get_expected_fundingrequest()
     assert_fundingrequest_eq(actual, expected)
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize(
-    "client_fixture",
-    [
-        "fake_doi_client",
-        pytest.param("real_doi_client", marks=pytest.mark.integration),
-    ],
-)
 def test__import_from_doi__journal_not_in_database__auto_creates_journal(
-    client_fixture: str,
-    request: pytest.FixtureRequest,
+    nature_scenario: NatureArticleScenario,
 ) -> None:
     """Given a DOI with E-ISSN not in database, automatically creates the journal.
 
@@ -409,12 +209,9 @@ def test__import_from_doi__journal_not_in_database__auto_creates_journal(
     - E-ISSN from DOI metadata
     - Publisher matched by name (or created if not found)
     """
-    doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
-    sut = DOIImportService(doi_client=doi_client)
+    sut = DOIImportService(doi_client=nature_scenario.client)
 
-    doi = Doi(NATURE_DOI)
-
-    sut.import_from_doi(doi)
+    sut.import_from_doi(nature_scenario.doi)
 
     created_journal = journal_services.find_by_eissn(Issn(NATURE_EISSN))
     assert created_journal is not None
@@ -426,16 +223,8 @@ def test__import_from_doi__journal_not_in_database__auto_creates_journal(
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize(
-    "client_fixture",
-    [
-        "fake_doi_client",
-        pytest.param("real_doi_client", marks=pytest.mark.integration),
-    ],
-)
 def test__import_from_doi__journal_exists_in_database__does_not_create_publisher(
-    client_fixture: str,
-    request: pytest.FixtureRequest,
+    nature_scenario: NatureArticleScenario,
 ) -> None:
     """Given a DOI with E-ISSN that exists in database, does NOT create/match publisher.
 
@@ -450,11 +239,9 @@ def test__import_from_doi__journal_exists_in_database__does_not_create_publisher
         eissn=Issn(NATURE_EISSN),
         publisher_id=publisher_id,
     )
-    doi_client: DOIMetadataClient = request.getfixturevalue(client_fixture)
-    sut = DOIImportService(doi_client=doi_client)
-    doi = Doi(NATURE_DOI)
+    sut = DOIImportService(doi_client=nature_scenario.client)
 
-    funding_request_id = sut.import_from_doi(doi)
+    funding_request_id = sut.import_from_doi(nature_scenario.doi)
 
     assert Journal.objects.count() == 1
     assert Publisher.objects.count() == 1
@@ -528,7 +315,7 @@ def test__import_from_doi__invalid_license_string__returns_unknown_license() -> 
     This verifies that we gracefully handle license strings that don't map to CODA's
     License enum by returning License.Unknown instead of raising an exception.
     """
-    create_springer_nature_journal()
+    NatureArticleScenario.with_in_memory_client()
 
     fake_client, doi = make_article_metadata(
         license="INVALID-LICENSE-XYZ",
@@ -551,7 +338,7 @@ def test__import_from_doi__author_with_whitespace_name_and_affiliation__creates_
     This ensures we don't lose author information when name is missing but we have
     affiliation or ROR ID data.
     """
-    create_springer_nature_journal()
+    NatureArticleScenario.with_in_memory_client()
 
     fake_client, doi = make_article_metadata(
         authors=[
@@ -575,7 +362,7 @@ def test__import_from_doi__author_with_whitespace_name_and_affiliation__creates_
 @pytest.mark.django_db
 def test__import_from_doi__author_with_empty_name_and_ror_id__creates_unknown_author() -> None:
     """Given author with empty name but valid ROR ID, creates 'Unknown' author."""
-    create_springer_nature_journal()
+    NatureArticleScenario.with_in_memory_client()
 
     empty_name = ""
     mit_ror_id = "https://ror.org/042nb2s44"
@@ -602,7 +389,7 @@ def test__import_from_doi__author_with_empty_name_and_ror_id__creates_unknown_au
 @pytest.mark.django_db
 def test__import_from_doi__author_with_empty_name_and_no_data__skips_author() -> None:
     """Given author with empty name and no other data, skips creating the author entirely."""
-    create_springer_nature_journal()
+    NatureArticleScenario.with_in_memory_client()
 
     fake_client, doi = make_article_metadata(
         authors=[
@@ -631,7 +418,7 @@ def test__import_from_doi__mixed_authors__creates_valid_and_unknown_skips_empty(
     - Empty name + other data → create as "Unknown"
     - Empty name + no data → skip entirely
     """
-    create_springer_nature_journal()
+    NatureArticleScenario.with_in_memory_client()
 
     author_with_valid_name = ExternalAuthor(name="John Doe", affiliation="MIT", ror_id=None)
     author_with_whitespace_name_but_affiliation = ExternalAuthor(
@@ -702,7 +489,7 @@ def test__import_from_doi__no_publication_date__sets_unpublished_state() -> None
     - Publication state should be Unpublished (not Published)
     - This allows importing articles that are accepted but not yet published
     """
-    create_springer_nature_journal()
+    NatureArticleScenario.with_in_memory_client()
 
     fake_client, doi = make_article_metadata(
         doi="10.1234/no-date",
@@ -723,7 +510,7 @@ def test__import_from_doi__no_publication_date__sets_unpublished_state() -> None
 @pytest.mark.django_db
 def test__import_from_doi__only_online_date__sets_published_with_online_date() -> None:
     """Given metadata with only online publication date, sets Published with online date."""
-    create_springer_nature_journal()
+    NatureArticleScenario.with_in_memory_client()
 
     online_date = datetime.date(2024, 6, 15)
 
@@ -748,7 +535,7 @@ def test__import_from_doi__only_online_date__sets_published_with_online_date() -
 @pytest.mark.django_db
 def test__import_from_doi__only_print_date__sets_published_with_print_date() -> None:
     """Given metadata with only print publication date, sets Published with print date."""
-    create_springer_nature_journal()
+    NatureArticleScenario.with_in_memory_client()
 
     print_date = datetime.date(2024, 7, 1)
 
@@ -772,7 +559,7 @@ def test__import_from_doi__only_print_date__sets_published_with_print_date() -> 
 @pytest.mark.django_db
 def test__import_from_doi__both_dates__sets_published_with_both_dates() -> None:
     """Given metadata with both online and print dates, sets Published with both dates."""
-    create_springer_nature_journal()
+    NatureArticleScenario.with_in_memory_client()
     online_date = datetime.date(2024, 5, 1)
     print_date = datetime.date(2024, 6, 1)
 
@@ -796,10 +583,11 @@ def test__import_from_doi__both_dates__sets_published_with_both_dates() -> None:
 @pytest.mark.django_db
 def test__import_from_doi__duplicate_doi__raises_doi_already_imported() -> None:
     """Test that importing a DOI that already exists raises DOIAlreadyImported."""
-    journal_id = create_springer_nature_journal()
+    scenario = NatureArticleScenario.with_in_memory_client()
+    scenario.setup_db()
     doi = Doi("10.1038/nature12373")
 
-    publication = domainfactory.publication(JournalId(journal_id))
+    publication = domainfactory.publication(JournalId(scenario.journal_id))
     publication.links = {doi}
     publication_id = publication_repository.create(publication)
 
@@ -816,7 +604,7 @@ def test__import_from_doi__duplicate_doi__raises_doi_already_imported() -> None:
 @pytest.mark.django_db
 def test__prepare_funding_request_dto__returns_dto_without_persisting() -> None:
     """Test that prepare_funding_request_dto returns DTO without creating database records."""
-    create_springer_nature_journal()
+    NatureArticleScenario.with_in_memory_client().setup_db()
 
     fake_client, doi = make_article_metadata(
         doi="10.1234/prepare-dto-test",

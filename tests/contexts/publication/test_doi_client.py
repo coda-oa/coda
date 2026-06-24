@@ -4,9 +4,14 @@ These tests verify the DOI client protocol contract using both fake and real imp
 Unit tests use FakeDOIMetadataClient, integration tests use CrossrefDataCiteClient.
 """
 
+import datetime
 import pytest
-from tests.contexts.publication.fixtures import nature_article_metadata
 
+from coda.contexts.publication.dto.external_metadata import (
+    ExternalAuthor,
+    ExternalJournal,
+    ExternalPublicationMetadata,
+)
 from coda.contexts.publication.services.doi_client import (
     DOIMetadataClient,
     InMemoryDOIMetadataClient,
@@ -21,8 +26,30 @@ def fake_client() -> DOIMetadataClient:
     """Provides a fake DOI client configured with test data."""
 
     client = InMemoryDOIMetadataClient()
-    # Configure with test data for the DOI used in these tests
-    client.data["10.1038/nature12373"] = nature_article_metadata()
+    client.data["10.1038/nature12373"] = ExternalPublicationMetadata(
+        title="Example Nature Article",
+        authors=[
+            ExternalAuthor(
+                name="John Doe",
+                affiliation="University of Example",
+                ror_id="https://ror.org/01an7q238",
+            ),
+            ExternalAuthor(
+                name="Jane Smith",
+                affiliation="Research Institute",
+                ror_id=None,
+            ),
+        ],
+        publication_type="journal-article",
+        journal=ExternalJournal(
+            title="Nature",
+            issn="0028-0836",
+            eissn="1476-4687",
+        ),
+        publisher="Springer Science and Business Media LLC",
+        license="CC-BY",
+        online_publication_date=datetime.date(2024, 1, 15),
+    )
     return client
 
 

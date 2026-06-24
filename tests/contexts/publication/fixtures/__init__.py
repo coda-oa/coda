@@ -3,10 +3,10 @@
 Re-exports metadata builders, sample fixtures, and funder data for clean imports:
 
     from tests.contexts.publication.fixtures import (
+        NatureArticleScenario,
+        SpringerBookScenario,
         article_metadata,
         book_metadata,
-        nature_article_metadata,
-        springer_book_metadata,
         NATURE_EISSN,
         NATURE_JOURNAL_TITLE,
         # Funder fixture data
@@ -42,8 +42,8 @@ from tests.contexts.publication.fixtures.metadata import (
     book_metadata,
 )
 from tests.contexts.publication.fixtures.sample_metadata import (
-    nature_article_metadata,
-    springer_book_metadata,
+    NatureArticleScenario,
+    SpringerBookScenario,
 )
 
 __all__ = [
@@ -53,8 +53,8 @@ __all__ = [
     "article_metadata",
     "book_metadata",
     # Samples
-    "nature_article_metadata",
-    "springer_book_metadata",
+    "NatureArticleScenario",
+    "SpringerBookScenario",
     # Funder fixture data
     "AUTHORS",
     "DOI_WITH_FUNDERS",
