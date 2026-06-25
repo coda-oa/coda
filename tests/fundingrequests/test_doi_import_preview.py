@@ -8,6 +8,7 @@ User journey:
 5. User redirected to funding request detail page
 """
 
+from collections.abc import Generator
 import datetime
 from typing import Any, Literal, cast
 
@@ -25,31 +26,14 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIPreviewSaveView,
 )
 from coda.apps.journals.models import Journal
-from coda.contexts.publication.dto.external_metadata import (
-    ExternalAuthor,
-    ExternalJournal,
-)
+from coda.contexts.publication.dto.external_metadata import ExternalJournal
+from coda.contexts.publication.services.doi_client import crossref
 from coda.contexts.publication.services.doi_client._inmemory import InMemoryDOIMetadataClient
-from coda.domain.author import Author, AuthorNames, Role
 from coda.domain.contract import PublisherId
-from coda.domain.fundingrequest import FundingRequest, NoContact, Payment, PaymentMethod
-from coda.domain.money import Currency, Money
-from coda.domain.publication import (
-    JournalId,
-    License,
-    Monograph,
-    OpenAccessType,
-    Publication,
-    Published,
-)
-from coda.domain.publication.links import Doi
-from coda.domain.string import NonEmptyStr
-from coda.domain.vocabulary import UnknownConcept
+from coda.domain.fundingrequest import FundingRequest
+from coda.domain.publication import Monograph, Publication
 from tests import modelfactory
-from tests.contexts.publication.fixtures import (
-    article_metadata,
-    book_metadata,
-)
+from tests.contexts.publication.fixtures import ArticleScenario, FakeScenario
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 
@@ -76,119 +60,6 @@ def save_doi_import(client: Client, session_key: str) -> HttpResponse:
     )
 
 
-def build_expected_fundingrequest(
-    doi: Doi,
-    journal_id: JournalId,
-    title: str = "Test DOI Preview Article",
-    authors: list[Author] | None = None,
-    license: License = License.Unknown,
-    publication_date: datetime.date | None = None,
-) -> FundingRequest[Publication]:
-    """Build expected FundingRequest domain object.
-
-    This defines WHAT we expect the system to create. The fake DOI client
-    will be configured separately to return metadata that produces this result.
-
-    Args:
-        doi: DOI for the publication
-        journal_id: Journal ID to use
-        title: Publication title
-        authors: List of authors (defaults to single test author)
-        license: Publication license
-        publication_date: Online publication date
-
-    Returns:
-        Expected FundingRequest domain object
-    """
-    if authors is None:
-        authors = [
-            Author.new(
-                name=NonEmptyStr("Test Author"),
-                email="",
-                orcid=None,
-                affiliation=None,
-                role=Role.CO_AUTHOR,
-            )
-        ]
-
-    publication_state = Published(online=publication_date, print=None)
-
-    publication = Publication.new(
-        title=NonEmptyStr(title),
-        journal=journal_id,
-        relevant_authors=authors,
-        other_authors=AuthorNames(),
-        license=license,
-        subject_area=UnknownConcept,
-        publication_type=UnknownConcept,
-        open_access_type=OpenAccessType.Unknown,
-        publication_state=publication_state,
-        links={doi},
-    )
-    publication.contracts = ()
-
-    payment = Payment(
-        amount=Money("0.00", Currency.EUR),
-        method=PaymentMethod.Unknown,
-        external_costsplitting=None,
-    )
-
-    return FundingRequest.new(
-        publication=publication,
-        estimated_cost=payment,
-        external_funding=[],
-        extra_contact=NoContact,
-        request_remarks="",
-    )
-
-
-def configure_fake_client_from_expected(
-    fake_client: InMemoryDOIMetadataClient,
-    doi: Doi,
-    expected_fr: FundingRequest[Publication],
-    journal_title: str,
-    journal_eissn: str,
-    publisher_name: str,
-) -> None:
-    """Configure fake DOI client to return metadata matching expected FundingRequest.
-
-    This reverses the mapping: given what we expect, configure the client
-    to return metadata that will produce that result when imported.
-
-    Args:
-        fake_client: Fake client to configure
-        doi: DOI string
-        expected_fr: Expected FundingRequest with publication
-        journal_title: Journal title for metadata
-        journal_eissn: Journal E-ISSN for metadata
-        publisher_name: Publisher name for metadata
-    """
-    publication = expected_fr.publication
-
-    # Extract authors from publication
-    external_authors = [
-        ExternalAuthor(name=str(author.name)) for author in publication.relevant_authors
-    ]
-
-    # Extract publication date
-    online_date = None
-    if isinstance(publication.publication_state, Published):
-        online_date = publication.publication_state.online
-
-    # Extract license
-    license_str = None if publication.license == License.Unknown else publication.license.value
-
-    # Configure fake client
-    fake_client.data[str(doi)] = article_metadata(
-        title=str(publication.title),
-        authors=external_authors,
-        journal=ExternalJournal(title=journal_title, eissn=journal_eissn),
-        publisher=publisher_name,
-        license=license_str,
-        online_publication_date=online_date,
-    )
-
-
 @pytest.fixture
 def fake_doi_client() -> InMemoryDOIMetadataClient:
     """Fake DOI client that will be configured per-test with expected data."""
@@ -196,41 +67,27 @@ def fake_doi_client() -> InMemoryDOIMetadataClient:
 
 
 @pytest.fixture(autouse=True)
-def inject_fake_doi_client(fake_doi_client: InMemoryDOIMetadataClient) -> None:
+def inject_fake_doi_client(fake_doi_client: InMemoryDOIMetadataClient) -> Generator[None]:
     """Inject fake DOI client into views via dependency injection."""
     DOIImportInputView.doi_client = fake_doi_client
     DOIPreviewDetailView.doi_client = fake_doi_client
     DOIPreviewSaveView.doi_client = fake_doi_client
 
+    yield
+
+    DOIImportInputView.doi_client = crossref
+    DOIPreviewDetailView.doi_client = crossref
+    DOIPreviewSaveView.doi_client = crossref
+
 
 @pytest.fixture
 def expected_fundingrequest(
-    test_journal: Journal,
     fake_doi_client: InMemoryDOIMetadataClient,
 ) -> FundingRequest[Publication]:
     """Build expected FundingRequest and configure fake client to produce it."""
-    doi_str = "10.1234/preview.test"
-    doi = Doi(doi_str)
-
-    # Build expected FundingRequest (what we WANT)
-    expected = build_expected_fundingrequest(
-        doi=doi,
-        journal_id=JournalId(test_journal.pk),
-        title="Test DOI Preview Article",
-        publication_date=datetime.date(2024, 1, 1),
-    )
-
-    # Configure fake client to return metadata that produces this result
-    configure_fake_client_from_expected(
-        fake_client=fake_doi_client,
-        doi=doi,
-        expected_fr=expected,
-        journal_title=test_journal.title,
-        journal_eissn=test_journal.eissn,
-        publisher_name=test_journal.publisher.name,
-    )
-
-    return expected
+    scenario = ArticleScenario(fake_doi_client)
+    scenario.setup_db()
+    return scenario.get_expected_fundingrequest()
 
 
 @pytest.mark.django_db
@@ -323,43 +180,21 @@ def test_multiple_previews_can_coexist(
     test_journal: Journal,
 ) -> None:
     """Multiple preview sessions can coexist; saving one does not affect others."""
-    doi1 = Doi("10.1234/preview.test")
-    expected1 = build_expected_fundingrequest(
-        doi=doi1,
-        journal_id=JournalId(test_journal.pk),
+    FakeScenario("10.1234/preview.test", fake_doi_client).with_article_metadata(
         title="Test DOI Preview Article",
-        publication_date=datetime.date(2024, 1, 1),
-    )
-    configure_fake_client_from_expected(
-        fake_client=fake_doi_client,
-        doi=doi1,
-        expected_fr=expected1,
-        journal_title=test_journal.title,
-        journal_eissn=test_journal.eissn,
-        publisher_name=test_journal.publisher.name,
+        online_publication_date=datetime.date(2024, 1, 1),
     )
 
-    doi2 = Doi("10.5678/another.article")
-    expected2 = build_expected_fundingrequest(
-        doi=doi2,
-        journal_id=JournalId(test_journal.pk),
+    FakeScenario("10.5678/another.article", fake_doi_client).with_article_metadata(
         title="Another Test Article",
-        publication_date=datetime.date(2024, 2, 1),
-    )
-    configure_fake_client_from_expected(
-        fake_client=fake_doi_client,
-        doi=doi2,
-        expected_fr=expected2,
-        journal_title=test_journal.title,
-        journal_eissn=test_journal.eissn,
-        publisher_name=test_journal.publisher.name,
+        online_publication_date=datetime.date(2024, 2, 1),
     )
 
-    response1 = submit_for_preview(client, str(doi1))
+    response1 = submit_for_preview(client, "10.1234/preview.test")
     preview_url1 = response1["Location"]
     session_key1 = get_session_key(response1)
 
-    response2 = submit_for_preview(client, str(doi2))
+    response2 = submit_for_preview(client, "10.5678/another.article")
     preview_url2 = response2["Location"]
 
     preview1 = client.get(preview_url1)
@@ -520,10 +355,8 @@ def test_submit_type_change_to_article_stores_journal_id_in_session(
     test_journal: Journal,
 ) -> None:
     """Submitting article form with journal should store journal_id in session."""
-    # Start with a monograph DOI
     doi_str = "10.1234/book.test"
-    doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = book_metadata(
+    FakeScenario(doi_str, fake_doi_client).with_book_metadata(
         title="Test Book",
         publisher=test_journal.publisher.name,
         isbn="978-3-16-148410-0",
@@ -601,10 +434,8 @@ def test_submit_type_change_article_without_journal_shows_inline_error(
 ) -> None:
     """Submitting article form without selecting a journal returns partial with error."""
     doi_str = "10.1234/book.no-journal"
-    doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = book_metadata(
+    FakeScenario(doi_str, fake_doi_client).with_book_metadata(
         title="Test Book",
-        publisher="Test Publisher",
         isbn="978-3-16-148410-0",
     )
 
@@ -660,12 +491,10 @@ def test_override_article_to_monograph_and_save(
 ) -> None:
     """Full workflow: article DOI → override to monograph → save creates Monograph."""
     doi_str = "10.1234/override.test"
-    doi = Doi(doi_str)
 
     publisher = modelfactory.publisher(name="Springer")
-    fake_doi_client.data[str(doi)] = article_metadata(
+    FakeScenario(doi_str, fake_doi_client).with_article_metadata(
         title="Test Article",
-        journal=ExternalJournal(title="Nature", eissn="1476-4687"),
         publisher="Springer",
         online_publication_date=datetime.date(2024, 1, 1),
     )
@@ -691,9 +520,8 @@ def test_override_monograph_to_article_and_save(
 ) -> None:
     """Full workflow: monograph DOI → override to article → save creates Publication."""
     doi_str = "10.1234/book.override"
-    doi = Doi(doi_str)
 
-    fake_doi_client.data[str(doi)] = book_metadata(
+    FakeScenario(doi_str, fake_doi_client).with_book_metadata(
         title="Test Book",
         publisher=test_journal.publisher.name,
         isbn="978-3-16-148410-0",
@@ -729,10 +557,9 @@ def test_doi_input_handles_fetch_error(
     fake_doi_client: InMemoryDOIMetadataClient,
 ) -> None:
     """DOI metadata fetch failure displays error message without redirect."""
-    test_doi = Doi("10.1234/broken.doi")
-    fake_doi_client.configure_error(test_doi, "network")
+    FakeScenario("10.1234/broken.doi", fake_doi_client).with_error()
 
-    response = submit_for_preview(client, test_doi.value())
+    response = submit_for_preview(client, "10.1234/broken.doi")
 
     assert response.status_code == 200
     assert b"Import Error" in response.content or b"error" in response.content.lower()
@@ -764,8 +591,7 @@ def test__save_preview__article_with_print_issn_only__redirects_back_with_error(
     messages error — redirecting back to the preview page — instead of raising a 500.
     """
     doi_str = "10.1234/print-issn-only"
-    doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = article_metadata(
+    FakeScenario(doi_str, fake_doi_client).with_article_metadata(
         title="Print-ISSN-Only Article",
         journal=ExternalJournal(title="Print-Only Journal", issn="1234-5678", eissn=None),
         online_publication_date=None,
@@ -799,8 +625,7 @@ def test__preview_page__article_with_print_issn_only__does_not_display_print_iss
     would be misleading since it cannot be used to identify the journal in coda.
     """
     doi_str = "10.1234/print-issn-only.preview"
-    doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = article_metadata(
+    FakeScenario(doi_str, fake_doi_client).with_article_metadata(
         title="Print-ISSN-Only Article",
         journal=ExternalJournal(title="Print-Only Journal", issn="1234-5678", eissn=None),
     )

@@ -6,6 +6,7 @@ common test cases.
 """
 
 import datetime
+from typing import Any
 
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers import services as publisher_services
@@ -18,9 +19,15 @@ from coda.contexts.publication.services.doi_client import (
     DOIMetadataClient,
     InMemoryDOIMetadataClient,
 )
-from coda.domain.author import Author, Role
+from coda.domain.author import Author, AuthorNames, Role
 from coda.domain.contract import PublisherId
-from coda.domain.fundingrequest import FundingRequest, Payment, PaymentMethod
+from coda.domain.fundingrequest import (
+    AnyFundingRequest,
+    FundingRequest,
+    NoContact,
+    Payment,
+    PaymentMethod,
+)
 from coda.domain.issn import Issn
 from coda.domain.money import Currency, Money
 from coda.domain.publication import (
@@ -28,11 +35,14 @@ from coda.domain.publication import (
     JournalId,
     License,
     Monograph,
+    OpenAccessType,
     Publication,
     Published,
 )
 from coda.domain.publication.links import Doi, Isbn
 from coda.domain.string import NonEmptyStr
+from coda.domain.vocabulary import UnknownConcept
+from tests.contexts.publication.fixtures.metadata import article_metadata, book_metadata
 
 NATURE_ARTICLE_DOI = "10.1038/nature12373"
 NATURE_JOURNAL_TITLE = "Nature"
@@ -252,4 +262,282 @@ class SpringerBookScenario:
                 amount=Money(0, Currency.EUR),
                 method=PaymentMethod.Unknown,
             ),
+        )
+
+
+PREVIEW_ARTICLE_DOI = "10.1234/preview.test"
+PREVIEW_ARTICLE_TITLE = "Test DOI Preview Article"
+PREVIEW_JOURNAL_TITLE = "Nature"
+PREVIEW_JOURNAL_EISSN = "1476-4687"
+PREVIEW_PUBLISHER_NAME = "Test Publisher"
+
+
+class FakeScenario:
+    """Builder-style scenario for configuring DOI import edge cases.
+
+    Unlike concrete scenarios, FakeScenario is built per-test with continuous
+    builder methods. It configures an InMemoryDOIMetadataClient immediately
+    (not deferred to setup_db()).
+
+    Usage:
+        scenario = FakeScenario("10.1234/print-issn", fake_doi_client)
+            .with_article_metadata(journal=ExternalJournal(issn="...", eissn=None))
+    """
+
+    def __init__(self, doi_str: str, client: InMemoryDOIMetadataClient | None = None) -> None:
+        self._client = client or InMemoryDOIMetadataClient()
+        self._doi_str = doi_str
+        self._expected_fr: AnyFundingRequest | None = None
+        self._has_error = False
+
+    @property
+    def doi(self) -> Doi:
+        return Doi(self._doi_str)
+
+    @property
+    def client(self) -> DOIMetadataClient:
+        return self._client
+
+    def with_article_metadata(self, **kwargs: Any) -> "FakeScenario":
+        self._client.data[self._doi_str] = article_metadata(**kwargs)
+        return self
+
+    def with_book_metadata(self, **kwargs: Any) -> "FakeScenario":
+        self._client.data[self._doi_str] = book_metadata(**kwargs)
+        return self
+
+    def with_error(self) -> "FakeScenario":
+        self._client.configure_error(Doi(self._doi_str), "network")
+        self._has_error = True
+        return self
+
+    def with_expected_fundingrequest(self, fr: AnyFundingRequest) -> "FakeScenario":
+        self._expected_fr = fr
+        return self
+
+    def setup_db(self) -> None:
+        pass
+
+    def get_expected_fundingrequest(self) -> AnyFundingRequest:
+        if self._expected_fr is not None:
+            return self._expected_fr
+        msg = (
+            "Scenario configured with error, it has no expected result"
+            if self._has_error
+            else "No expected funding request configured"
+        )
+        raise RuntimeError(msg)
+
+
+class ArticleScenario:
+    """Scenario for importing a journal article via DOI. Auto-derives expected FundingRequest."""
+
+    def __init__(self, client: InMemoryDOIMetadataClient, doi: str = PREVIEW_ARTICLE_DOI) -> None:
+        self._client = client
+        self._doi_str = doi
+        self._journal_id: int | None = None
+        self._title = PREVIEW_ARTICLE_TITLE
+        self._publisher_name = PREVIEW_PUBLISHER_NAME
+        self._journal_title = PREVIEW_JOURNAL_TITLE
+        self._eissn: str | None = PREVIEW_JOURNAL_EISSN
+        self._issn: str | None = None
+        self._online_publication_date: datetime.date | None = datetime.date(2024, 1, 1)
+        self._has_error = False
+
+    @property
+    def doi(self) -> Doi:
+        return Doi(self._doi_str)
+
+    @property
+    def client(self) -> DOIMetadataClient:
+        return self._client
+
+    def with_title(self, title: str) -> "ArticleScenario":
+        self._title = title
+        return self
+
+    def with_journal(
+        self,
+        title: str = PREVIEW_JOURNAL_TITLE,
+        eissn: str | None = PREVIEW_JOURNAL_EISSN,
+        publisher: str = PREVIEW_PUBLISHER_NAME,
+        issn: str | None = None,
+    ) -> "ArticleScenario":
+        self._journal_title = title
+        self._eissn = eissn
+        self._publisher_name = publisher
+        self._issn = issn
+        return self
+
+    def with_online_date(self, date: datetime.date) -> "ArticleScenario":
+        self._online_publication_date = date
+        return self
+
+    def without_online_date(self) -> "ArticleScenario":
+        self._online_publication_date = None
+        return self
+
+    def with_error(self) -> "ArticleScenario":
+        self._has_error = True
+        return self
+
+    def setup_db(self) -> None:
+        if self._has_error:
+            self._client.configure_error(Doi(self._doi_str), "network")
+            return
+        publisher_id = publisher_services.create(self._publisher_name)
+        if self._eissn is not None:
+            self._journal_id = int(
+                journal_services.create(
+                    title=NonEmptyStr(self._journal_title),
+                    eissn=Issn(self._eissn),
+                    publisher_id=publisher_id,
+                )
+            )
+        journal = None
+        if self._eissn is not None:
+            journal = ExternalJournal(
+                title=self._journal_title,
+                issn=self._issn,
+                eissn=self._eissn,
+            )
+        self._client.data[self._doi_str] = article_metadata(
+            title=self._title,
+            publisher=self._publisher_name,
+            journal=journal,
+            online_publication_date=self._online_publication_date,
+        )
+
+    def get_expected_fundingrequest(self) -> FundingRequest[Publication]:
+        if self._has_error:
+            raise RuntimeError("Scenario configured with error, it has no expected result")
+        if self._journal_id is None:
+            raise RuntimeError("setup_db() must be called before get_expected_fundingrequest()")
+
+        expected_author = Author.new(
+            name=NonEmptyStr("Test Author"),
+            email="",
+            orcid=None,
+            affiliation=None,
+            role=Role.CO_AUTHOR,
+        )
+        expected_publication = Publication.new(
+            title=NonEmptyStr(self._title),
+            journal=JournalId(self._journal_id),
+            relevant_authors=[expected_author],
+            other_authors=AuthorNames(),
+            license=License.Unknown,
+            subject_area=UnknownConcept,
+            publication_type=UnknownConcept,
+            open_access_type=OpenAccessType.Unknown,
+            publication_state=Published(
+                online=self._online_publication_date,
+                print=None,
+            ),
+            links={self.doi},
+        )
+        expected_publication.contracts = ()
+
+        return FundingRequest.new(
+            publication=expected_publication,
+            estimated_cost=Payment(
+                amount=Money("0.00", Currency.EUR),
+                method=PaymentMethod.Unknown,
+                external_costsplitting=None,
+            ),
+            external_funding=[],
+            extra_contact=NoContact,
+            request_remarks="",
+        )
+
+
+class BookScenario:
+    """Scenario for importing a book (monograph) via DOI. Auto-derives expected FundingRequest."""
+
+    def __init__(self, client: InMemoryDOIMetadataClient, doi: str = "10.1234/book.test") -> None:
+        self._client = client
+        self._doi_str = doi
+        self._publisher_id: int | None = None
+        self._title = "Test Book"
+        self._publisher_name = "Springer International Publishing"
+        self._isbn = "978-3-16-148410-0"
+        self._print_publication_date: datetime.date | None = datetime.date(2015, 1, 1)
+        self._has_error = False
+
+    @property
+    def doi(self) -> Doi:
+        return Doi(self._doi_str)
+
+    @property
+    def client(self) -> DOIMetadataClient:
+        return self._client
+
+    def with_title(self, title: str) -> "BookScenario":
+        self._title = title
+        return self
+
+    def with_publisher(self, name: str) -> "BookScenario":
+        self._publisher_name = name
+        return self
+
+    def with_isbn(self, isbn: str) -> "BookScenario":
+        self._isbn = isbn
+        return self
+
+    def with_error(self) -> "BookScenario":
+        self._has_error = True
+        return self
+
+    def setup_db(self) -> None:
+        if self._has_error:
+            self._client.configure_error(Doi(self._doi_str), "network")
+            return
+        self._publisher_id = int(publisher_services.create(self._publisher_name))
+        self._client.data[self._doi_str] = book_metadata(
+            title=self._title,
+            publisher=self._publisher_name,
+            isbn=self._isbn,
+            print_publication_date=self._print_publication_date,
+        )
+
+    def get_expected_fundingrequest(self) -> FundingRequest[Monograph]:
+        if self._has_error:
+            raise RuntimeError("Scenario configured with error, it has no expected result")
+        if self._publisher_id is None:
+            raise RuntimeError("setup_db() must be called before get_expected_fundingrequest()")
+
+        expected_author = Author.new(
+            name=NonEmptyStr("Test Author"),
+            email="",
+            orcid=None,
+            affiliation=None,
+            role=Role.CO_AUTHOR,
+        )
+        expected_monograph = Monograph.new(
+            title=NonEmptyStr(self._title),
+            publisher=PublisherId(self._publisher_id),
+            relevant_authors=[expected_author],
+            other_authors=AuthorNames(),
+            license=License.Unknown,
+            subject_area=UnknownConcept,
+            publication_type=UnknownConcept,
+            open_access_type=OpenAccessType.Unknown,
+            publication_state=Published(
+                online=None,
+                print=self._print_publication_date,
+            ),
+            links={self.doi, Isbn(self._isbn)},
+        )
+        expected_monograph.contracts = ()
+
+        return FundingRequest.new(
+            publication=expected_monograph,
+            estimated_cost=Payment(
+                amount=Money("0.00", Currency.EUR),
+                method=PaymentMethod.Unknown,
+                external_costsplitting=None,
+            ),
+            external_funding=[],
+            extra_contact=NoContact,
+            request_remarks="",
         )
