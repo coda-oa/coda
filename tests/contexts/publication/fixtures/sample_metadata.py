@@ -6,7 +6,6 @@ common test cases.
 """
 
 import datetime
-from typing import Any
 
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers import services as publisher_services
@@ -22,7 +21,6 @@ from coda.contexts.publication.services.doi_client import (
 from coda.domain.author import Author, AuthorNames, Role
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import (
-    AnyFundingRequest,
     FundingRequest,
     NoContact,
     Payment,
@@ -280,15 +278,22 @@ class FakeScenario:
     (not deferred to setup_db()).
 
     Usage:
-        scenario = FakeScenario("10.1234/print-issn", fake_doi_client)
-            .with_article_metadata(journal=ExternalJournal(issn="...", eissn=None))
+        scenario = FakeScenario("10.1234/print-issn", fake_doi_client) \\
+            .with_title("Print-ISSN-Only Article") \\
+            .with_journal(title="Print-Only Journal", eissn=None, issn="1234-5678")
     """
 
     def __init__(self, doi_str: str, client: InMemoryDOIMetadataClient | None = None) -> None:
         self._client = client or InMemoryDOIMetadataClient()
         self._doi_str = doi_str
-        self._expected_fr: AnyFundingRequest | None = None
         self._has_error = False
+        self._title: str = "Test Article"
+        self._publisher: str | None = "Test Publisher"
+        self._journal_title: str = "Nature"
+        self._eissn: str | None = "1476-4687"
+        self._issn: str | None = None
+        self._online_date: datetime.date | None = datetime.date(2024, 1, 1)
+        self._isbn: str | None = None
 
     @property
     def doi(self) -> Doi:
@@ -298,35 +303,76 @@ class FakeScenario:
     def client(self) -> DOIMetadataClient:
         return self._client
 
-    def with_article_metadata(self, **kwargs: Any) -> "FakeScenario":
-        self._client.data[self._doi_str] = article_metadata(**kwargs)
+    def _apply(self) -> None:
+        if self._has_error:
+            self._client.configure_error(Doi(self._doi_str), "network")
+        elif self._isbn is not None:
+            self._client.data[self._doi_str] = book_metadata(
+                title=self._title,
+                publisher=self._publisher,
+                isbn=self._isbn,
+            )
+        else:
+            journal: ExternalJournal | None = None
+            if self._eissn is not None or self._issn is not None:
+                journal = ExternalJournal(
+                    title=self._journal_title,
+                    issn=self._issn,
+                    eissn=self._eissn,
+                )
+            self._client.data[self._doi_str] = article_metadata(
+                title=self._title,
+                publisher=self._publisher,
+                journal=journal,
+                online_publication_date=self._online_date,
+            )
+
+    def with_title(self, title: str) -> "FakeScenario":
+        self._title = title
+        self._apply()
         return self
 
-    def with_book_metadata(self, **kwargs: Any) -> "FakeScenario":
-        self._client.data[self._doi_str] = book_metadata(**kwargs)
+    def with_journal(
+        self,
+        title: str = "Nature",
+        eissn: str | None = "1476-4687",
+        publisher: str = "Test Publisher",
+        issn: str | None = None,
+    ) -> "FakeScenario":
+        self._journal_title = title
+        self._eissn = eissn
+        self._publisher = publisher
+        self._issn = issn
+        self._apply()
+        return self
+
+    def with_online_date(self, date: datetime.date) -> "FakeScenario":
+        self._online_date = date
+        self._apply()
+        return self
+
+    def without_online_date(self) -> "FakeScenario":
+        self._online_date = None
+        self._apply()
+        return self
+
+    def with_publisher(self, name: str) -> "FakeScenario":
+        self._publisher = name
+        self._apply()
+        return self
+
+    def with_isbn(self, isbn: str) -> "FakeScenario":
+        self._isbn = isbn
+        self._apply()
         return self
 
     def with_error(self) -> "FakeScenario":
-        self._client.configure_error(Doi(self._doi_str), "network")
         self._has_error = True
-        return self
-
-    def with_expected_fundingrequest(self, fr: AnyFundingRequest) -> "FakeScenario":
-        self._expected_fr = fr
+        self._apply()
         return self
 
     def setup_db(self) -> None:
         pass
-
-    def get_expected_fundingrequest(self) -> AnyFundingRequest:
-        if self._expected_fr is not None:
-            return self._expected_fr
-        msg = (
-            "Scenario configured with error, it has no expected result"
-            if self._has_error
-            else "No expected funding request configured"
-        )
-        raise RuntimeError(msg)
 
 
 class ArticleScenario:
@@ -381,9 +427,30 @@ class ArticleScenario:
         self._has_error = True
         return self
 
-    def setup_db(self) -> None:
+    def _build_metadata(self) -> ExternalPublicationMetadata:
+        journal: ExternalJournal | None = None
+        if self._eissn is not None or self._issn is not None:
+            journal = ExternalJournal(
+                title=self._journal_title,
+                issn=self._issn,
+                eissn=self._eissn,
+            )
+        return article_metadata(
+            title=self._title,
+            publisher=self._publisher_name,
+            journal=journal,
+            online_publication_date=self._online_publication_date,
+        )
+
+    def setup_client(self) -> None:
         if self._has_error:
             self._client.configure_error(Doi(self._doi_str), "network")
+        else:
+            self._client.data[self._doi_str] = self._build_metadata()
+
+    def setup_db(self) -> None:
+        if self._has_error:
+            self.setup_client()
             return
         publisher_id = publisher_services.create(self._publisher_name)
         if self._eissn is not None:
@@ -394,19 +461,7 @@ class ArticleScenario:
                     publisher_id=publisher_id,
                 )
             )
-        journal = None
-        if self._eissn is not None:
-            journal = ExternalJournal(
-                title=self._journal_title,
-                issn=self._issn,
-                eissn=self._eissn,
-            )
-        self._client.data[self._doi_str] = article_metadata(
-            title=self._title,
-            publisher=self._publisher_name,
-            journal=journal,
-            online_publication_date=self._online_publication_date,
-        )
+        self.setup_client()
 
     def get_expected_fundingrequest(self) -> FundingRequest[Publication]:
         if self._has_error:
@@ -488,17 +543,26 @@ class BookScenario:
         self._has_error = True
         return self
 
-    def setup_db(self) -> None:
-        if self._has_error:
-            self._client.configure_error(Doi(self._doi_str), "network")
-            return
-        self._publisher_id = int(publisher_services.create(self._publisher_name))
-        self._client.data[self._doi_str] = book_metadata(
+    def _build_metadata(self) -> ExternalPublicationMetadata:
+        return book_metadata(
             title=self._title,
             publisher=self._publisher_name,
             isbn=self._isbn,
             print_publication_date=self._print_publication_date,
         )
+
+    def setup_client(self) -> None:
+        if self._has_error:
+            self._client.configure_error(Doi(self._doi_str), "network")
+        else:
+            self._client.data[self._doi_str] = self._build_metadata()
+
+    def setup_db(self) -> None:
+        if self._has_error:
+            self.setup_client()
+            return
+        self._publisher_id = int(publisher_services.create(self._publisher_name))
+        self.setup_client()
 
     def get_expected_fundingrequest(self) -> FundingRequest[Monograph]:
         if self._has_error:
