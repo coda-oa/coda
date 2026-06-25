@@ -1,0 +1,22 @@
+<article>
+    <header class="flex justify-between align-center">
+        <h2 class="my-0">Publication Funding</h2>
+        <button type="button" class="my-0 secondary">Override Funding</button>
+    </header>
+    <table>
+        <thead>
+            <tr>
+                <th>Funder</th>
+                <th>Project ID</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in funding %}
+                <tr>
+                    <td>{{ f.name }}</td>
+                    <td>{{ f.project_id }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</article>

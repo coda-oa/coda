@@ -35,6 +35,7 @@
                 </div>
             {% endif %}
             {% include "fundingrequests/partials/publication_section.html" %}
+            {% include "fundingrequests/partials/doi_import_publication_funding.html" %}
             <form class="wizard-nav"
                   method="post"
                   action="{% url "fundingrequests:doi_preview_save" session_key=session_key %}">

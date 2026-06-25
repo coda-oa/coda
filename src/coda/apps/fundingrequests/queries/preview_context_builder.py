@@ -49,6 +49,7 @@ def build_preview_context(preview_fr: PreviewFundingRequest, session_key: str) -
     return {
         "session_key": session_key,
         "publication": publication_detail,
+        "funding": preview_fr.publication.funding,
         "is_preview": True,
         "current_publication_type": current_type,
         "warnings": preview_fr.warnings,
