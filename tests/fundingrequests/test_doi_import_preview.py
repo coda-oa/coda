@@ -33,6 +33,9 @@ from coda.domain.publication import Monograph, Publication
 from tests import modelfactory
 from tests.contexts.publication.fixtures import ArticleScenario, BookScenario
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
+from coda.apps.journals import services as journal_services
+from coda.domain.issn import Issn
+from coda.domain.string import NonEmptyStr
 
 
 def get_session_key(response: HttpResponse) -> str:
@@ -351,10 +354,6 @@ def test_submit_type_change_to_article_stores_journal_id_in_session(
     """Submitting article form with journal should store journal_id in session."""
     doi_str = "10.1234/book.test"
 
-    from coda.apps.journals import services as journal_services
-    from coda.domain.issn import Issn
-    from coda.domain.string import NonEmptyStr
-
     journal_pk = int(
         journal_services.create(
             title=NonEmptyStr("Nature"),
@@ -520,10 +519,6 @@ def test_override_monograph_to_article_and_save(
 ) -> None:
     """Full workflow: monograph DOI → override to article → save creates Publication."""
     doi_str = "10.1234/book.override"
-
-    from coda.apps.journals import services as journal_services
-    from coda.domain.issn import Issn
-    from coda.domain.string import NonEmptyStr
 
     journal_pk = int(
         journal_services.create(
