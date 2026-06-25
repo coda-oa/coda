@@ -9,18 +9,17 @@ imported as a Monograph or Publication (article) based on:
 """
 
 import pytest
-from tests.contexts.publication.fixtures import (
-    NATURE_EISSN,
-    NATURE_JOURNAL_TITLE,
-)
-from tests.contexts.publication.test_doi_import_service import (
-    make_article_metadata,
-    make_book_metadata,
-)
+from coda.contexts.publication.services.doi_client._inmemory import InMemoryDOIMetadataClient
+from coda.domain.publication.links import Doi
+from tests.contexts.publication.fixtures import NATURE_EISSN, NATURE_JOURNAL_TITLE
 
-from coda.contexts.publication.dto.external_metadata import ExternalJournal
+from coda.contexts.publication.dto.external_metadata import (
+    ExternalJournal,
+    ExternalPublicationMetadata,
+)
 from coda.contexts.publication.dto.preview import PreviewArticle, PreviewMonograph
 from coda.contexts.publication.services.doi_import_service import DOIImportService
+from tests.contexts.publication.fixtures.metadata import article_metadata, book_metadata
 
 
 @pytest.mark.django_db
@@ -187,3 +186,37 @@ def test__prepare_funding_request_dto__unknown_type_no_identifiers__defaults_to_
     # Assert - defaults to article with a warning (no exception raised)
     assert isinstance(result.publication, PreviewArticle)
     assert result.warnings, "Expected non-empty warnings for article defaulted without journal"
+
+
+def _make_client(doi: str, metadata: ExternalPublicationMetadata) -> InMemoryDOIMetadataClient:
+    client = InMemoryDOIMetadataClient()
+    client.data[doi] = metadata
+    return client
+
+
+def make_article_metadata(
+    *,
+    doi: str = "10.1234/test",
+    **kwargs: object,
+) -> tuple[InMemoryDOIMetadataClient, Doi]:
+    """Build article metadata and return a configured (client, Doi) pair.
+
+    All keyword arguments are forwarded to fixtures.article_metadata().
+    """
+
+    metadata = article_metadata(**kwargs)  # type: ignore[arg-type]
+    return _make_client(doi, metadata), Doi(doi)
+
+
+def make_book_metadata(
+    *,
+    doi: str = "10.1234/test-book",
+    **kwargs: object,
+) -> tuple[InMemoryDOIMetadataClient, Doi]:
+    """Build book metadata and return a configured (client, Doi) pair.
+
+    All keyword arguments are forwarded to fixtures.book_metadata().
+    """
+
+    metadata = book_metadata(**kwargs)  # type: ignore[arg-type]
+    return _make_client(doi, metadata), Doi(doi)

@@ -82,7 +82,6 @@ def _parse_author(author: dict[str, Any]) -> ExternalAuthor:
     return ExternalAuthor(
         name=name,
         affiliation=affiliation_name,
-        ror_id=ror_id,
         orcid=author.get("ORCID"),
     )
 

@@ -32,8 +32,6 @@ from tests.contexts.publication.fixtures.sample_funded_article import (
     LICENSE,
     PUBLICATION_STATE,
     TITLE,
-    configure_funded_article_client,
-    funded_article_metadata,
     FundedArticleScenario,
 )
 from tests.contexts.publication.fixtures.metadata import (
@@ -71,7 +69,4 @@ __all__ = [
     "PUBLICATION_STATE",
     "TITLE",
     "FundedArticleScenario",
-    # Funded article builders
-    "configure_funded_article_client",
-    "funded_article_metadata",
 ]

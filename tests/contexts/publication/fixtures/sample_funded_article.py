@@ -127,72 +127,6 @@ FUNDER_DOIS: dict[str, str] = {
 }
 
 
-def funded_article_metadata() -> ExternalPublicationMetadata:
-    """Build ExternalPublicationMetadata for the funded article fixture.
-
-    Returns metadata suitable for populating InMemoryDOIMetadataClient.
-    """
-    external_authors = [
-        ExternalAuthor(
-            name=a.name,
-            orcid=str(a.orcid) if a.orcid else None,
-            affiliation=None,
-            ror_id=None,
-        )
-        for a in AUTHORS
-    ]
-
-    funders = []
-    for funder_info in FUNDING:
-        funder_doi = FUNDER_DOIS.get(funder_info["name"], "")
-        identifiers = [funder_doi] if funder_doi else []
-        funders.append(
-            ExternalFundingMetadata(
-                funder=ExternalFundingOrganisationMetadata(
-                    name=funder_info["name"],
-                    identifiers=identifiers,
-                ),
-                project_id=funder_info.get("project_id", ""),
-            )
-        )
-
-    return ExternalPublicationMetadata(
-        title=TITLE,
-        authors=external_authors,
-        publication_type="journal-article",
-        journal=ExternalJournal(
-            title=JOURNAL_TITLE,
-            eissn=JOURNAL_EISSN,
-        ),
-        publisher=JOURNAL_PUBLISHER,
-        license="CC-BY",
-        online_publication_date=date(2021, 9, 20),
-        funders=funders,
-    )
-
-
-def configure_funded_article_client(
-    client: InMemoryDOIMetadataClient,
-) -> None:
-    """Populate an InMemoryDOIMetadataClient with the funded article data.
-
-    Sets up both the article metadata and funder resolution so that
-    DOIImportService can resolve funders without hitting Crossref.
-    """
-    client.data[DOI_WITH_FUNDERS] = funded_article_metadata()
-
-    # Configure funder resolution for funders that have DOIs
-    for funder_name, funder_doi in FUNDER_DOIS.items():
-        if funder_doi:
-            client.configure_funder(
-                Doi(funder_doi),
-                ExternalFundingOrganisationMetadata(
-                    name=funder_name,
-                    identifiers=[funder_doi],
-                ),
-            )
-
-
 class FundedArticleScenario:
     """Scenario for importing a Crossref article with funders via DOI."""
 
@@ -238,7 +172,52 @@ class FundedArticleScenario:
             self._configure_client(self._doi_client)
 
     def _configure_client(self, client: InMemoryDOIMetadataClient) -> None:
-        configure_funded_article_client(client)
+        external_authors = [
+            ExternalAuthor(
+                name=a.name,
+                orcid=str(a.orcid) if a.orcid else None,
+                affiliation=None,
+            )
+            for a in AUTHORS
+        ]
+
+        funders = []
+        for funder_info in FUNDING:
+            funder_doi = FUNDER_DOIS.get(funder_info["name"], "")
+            identifiers = [funder_doi] if funder_doi else []
+            funders.append(
+                ExternalFundingMetadata(
+                    funder=ExternalFundingOrganisationMetadata(
+                        name=funder_info["name"],
+                        identifiers=identifiers,
+                    ),
+                    project_id=funder_info.get("project_id", ""),
+                )
+            )
+
+        client.data[DOI_WITH_FUNDERS] = ExternalPublicationMetadata(
+            title=TITLE,
+            authors=external_authors,
+            publication_type="journal-article",
+            journal=ExternalJournal(
+                title=JOURNAL_TITLE,
+                eissn=JOURNAL_EISSN,
+            ),
+            publisher=JOURNAL_PUBLISHER,
+            license="CC-BY",
+            online_publication_date=date(2021, 9, 20),
+            funders=funders,
+        )
+
+        for funder_name, funder_doi in FUNDER_DOIS.items():
+            if funder_doi:
+                client.configure_funder(
+                    Doi(funder_doi),
+                    ExternalFundingOrganisationMetadata(
+                        name=funder_name,
+                        identifiers=[funder_doi],
+                    ),
+                )
 
     def get_expected_fundingrequest(self) -> FundingRequest[Publication]:
         expected_publication = Publication.new(

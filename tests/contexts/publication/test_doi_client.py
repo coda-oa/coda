@@ -32,12 +32,12 @@ def fake_client() -> DOIMetadataClient:
             ExternalAuthor(
                 name="John Doe",
                 affiliation="University of Example",
-                ror_id="https://ror.org/01an7q238",
+                orcid="https://ror.org/01an7q238",
             ),
             ExternalAuthor(
                 name="Jane Smith",
                 affiliation="Research Institute",
-                ror_id=None,
+                orcid=None,
             ),
         ],
         publication_type="journal-article",

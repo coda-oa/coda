@@ -20,7 +20,7 @@ ARTICLE_METADATA = ExternalPublicationMetadata(
     title="Array programming with NumPy",
     authors=[
         ExternalAuthor(
-            name="Charles R. Harris", affiliation="SciPy", ror_id="https://ror.org/02e2tgs60"
+            name="Charles R. Harris", affiliation="SciPy", orcid="https://ror.org/02e2tgs60"
         )
     ],
     publication_type="journal-article",

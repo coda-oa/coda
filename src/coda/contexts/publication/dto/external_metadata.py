@@ -13,7 +13,6 @@ class ExternalAuthor(BaseModel):
     name: str
     orcid: str | None = None
     affiliation: str | None = None
-    ror_id: str | None = None
 
 
 class ExternalJournal(BaseModel):

@@ -335,7 +335,7 @@ class DOIImportService:
             normalized_name = self._normalize_author_name(
                 external_author.name,
                 external_author.affiliation,
-                external_author.ror_id,
+                external_author.orcid,
             )
             if normalized_name is None:
                 continue

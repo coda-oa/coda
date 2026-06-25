@@ -18,6 +18,7 @@ from coda.contexts.publication.services.doi_client import (
     DOIMetadataClient,
     InMemoryDOIMetadataClient,
 )
+from coda.domain import orcid
 from coda.domain.author import Author, AuthorNames, Role
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import (
@@ -45,7 +46,7 @@ from tests.contexts.publication.fixtures.metadata import article_metadata, book_
 NATURE_ARTICLE_DOI = "10.1038/nature12373"
 NATURE_JOURNAL_TITLE = "Nature"
 NATURE_EISSN = "1476-4687"
-SPRINGER_NATURE_PUBLISHER = "Springer Nature"
+SPRINGER_NATURE_PUBLISHER = "Springer Science and Business Media LLC"
 
 SPRINGER_BOOK_DOI = "10.1007/978-3-319-18938-3"
 SPRINGER_BOOK_ISBN = "9783319189376"
@@ -82,7 +83,7 @@ class NatureArticleScenario:
         scenario._configure_client(client)
         return scenario
 
-    def setup_db(self) -> None:
+    def setup_db(self) -> "NatureArticleScenario":
         publisher_id = publisher_services.create(SPRINGER_NATURE_PUBLISHER)
         self._journal_id = int(
             journal_services.create(
@@ -94,49 +95,51 @@ class NatureArticleScenario:
         if isinstance(self._doi_client, InMemoryDOIMetadataClient):
             self._configure_client(self._doi_client)
 
+        return self
+
     def _configure_client(self, client: InMemoryDOIMetadataClient) -> None:
-        client.data[str(self._doi)] = ExternalPublicationMetadata(
+        client.data[self._doi] = ExternalPublicationMetadata(
             title="Nanometre-scale thermometry in a living cell",
             authors=[
                 ExternalAuthor(
                     name="G. Kucsko",
                     affiliation=None,
-                    ror_id=None,
+                    orcid=None,
                 ),
                 ExternalAuthor(
                     name="P. C. Maurer",
                     affiliation=None,
-                    ror_id=None,
+                    orcid=None,
                 ),
                 ExternalAuthor(
                     name="N. Y. Yao",
                     affiliation=None,
-                    ror_id=None,
+                    orcid=None,
                 ),
                 ExternalAuthor(
                     name="M. Kubo",
                     affiliation=None,
-                    ror_id=None,
+                    orcid=None,
                 ),
                 ExternalAuthor(
                     name="H. J. Noh",
                     affiliation=None,
-                    ror_id=None,
+                    orcid=None,
                 ),
                 ExternalAuthor(
                     name="P. K. Lo",
                     affiliation=None,
-                    ror_id=None,
+                    orcid=None,
                 ),
                 ExternalAuthor(
                     name="H. Park",
                     affiliation=None,
-                    ror_id=None,
+                    orcid=None,
                 ),
                 ExternalAuthor(
                     name="M. D. Lukin",
                     affiliation=None,
-                    ror_id=None,
+                    orcid=None,
                 ),
             ],
             publication_type="journal-article",
@@ -145,7 +148,7 @@ class NatureArticleScenario:
                 issn="0028-0836",
                 eissn=NATURE_EISSN,
             ),
-            publisher="Springer Science and Business Media LLC",
+            publisher=SPRINGER_NATURE_PUBLISHER,
             license="https://creativecommons.org/licenses/by/4.0/",
             online_publication_date=datetime.date(2013, 7, 31),
             print_publication_date=datetime.date(2013, 8, 1),
@@ -221,13 +224,13 @@ class SpringerBookScenario:
             self._configure_client(self._doi_client)
 
     def _configure_client(self, client: InMemoryDOIMetadataClient) -> None:
-        client.data[str(self._doi)] = ExternalPublicationMetadata(
+        client.data[self._doi] = ExternalPublicationMetadata(
             title=SPRINGER_BOOK_TITLE,
             authors=[
                 ExternalAuthor(
                     name="Michael Taylor",
                     affiliation=None,
-                    ror_id=None,
+                    orcid=None,
                 ),
             ],
             publication_type="book",
@@ -265,25 +268,34 @@ class SpringerBookScenario:
 
 PREVIEW_ARTICLE_DOI = "10.1234/preview.test"
 PREVIEW_ARTICLE_TITLE = "Test DOI Preview Article"
-PREVIEW_JOURNAL_TITLE = "Nature"
-PREVIEW_JOURNAL_EISSN = "1476-4687"
+PREVIEW_JOURNAL_TITLE = "Test Journal"
+PREVIEW_JOURNAL_EISSN = "1234-1231"
 PREVIEW_PUBLISHER_NAME = "Test Publisher"
+
+type Name = str
+type Affiliation = str | None
+type Orcid = str | None
 
 
 class ArticleScenario:
     """Scenario for importing a journal article via DOI. Auto-derives expected FundingRequest."""
 
-    def __init__(self, client: InMemoryDOIMetadataClient, doi: str = PREVIEW_ARTICLE_DOI) -> None:
-        self._client = client
+    def __init__(
+        self, client: InMemoryDOIMetadataClient | None = None, doi: str = PREVIEW_ARTICLE_DOI
+    ) -> None:
+        self._client = client or InMemoryDOIMetadataClient()
         self._doi_str = doi
         self._journal_id: int | None = None
         self._title = PREVIEW_ARTICLE_TITLE
-        self._publisher_name = PREVIEW_PUBLISHER_NAME
+        self._publisher_name: str | None = PREVIEW_PUBLISHER_NAME
         self._journal_title = PREVIEW_JOURNAL_TITLE
         self._eissn: str | None = PREVIEW_JOURNAL_EISSN
         self._issn: str | None = None
-        self._online_publication_date: datetime.date | None = datetime.date(2024, 1, 1)
+        self._online_publication_date: datetime.date | None = datetime.date.min
+        self._print_publication_date: datetime.date | None = datetime.date.min
+        self._authors: list[tuple[Name, Affiliation, Orcid]] = []
         self._has_error = False
+        self._license: str | None = None
 
     @property
     def doi(self) -> Doi:
@@ -295,6 +307,10 @@ class ArticleScenario:
 
     def with_title(self, title: str) -> "ArticleScenario":
         self._title = title
+        return self
+
+    def with_authors(self, *authors: tuple[Name, Affiliation, Orcid]) -> "ArticleScenario":
+        self._authors = list(authors)
         return self
 
     def with_journal(
@@ -310,16 +326,39 @@ class ArticleScenario:
         self._issn = issn
         return self
 
+    def without_journal(self) -> "ArticleScenario":
+        self._journal_title = ""
+        self._eissn = None
+        self._publisher_name = None
+        self._issn = None
+        return self
+
     def with_publisher(self, name: str) -> "ArticleScenario":
         self._publisher_name = name
+        return self
+
+    def without_publisher(self) -> "ArticleScenario":
+        self._publisher_name = None
         return self
 
     def with_online_date(self, date: datetime.date) -> "ArticleScenario":
         self._online_publication_date = date
         return self
 
+    def with_print_date(self, date: datetime.date) -> "ArticleScenario":
+        self._print_publication_date = date
+        return self
+
     def without_online_date(self) -> "ArticleScenario":
         self._online_publication_date = None
+        return self
+
+    def without_print_date(self) -> "ArticleScenario":
+        self._print_publication_date = None
+        return self
+
+    def with_invalid_license(self) -> "ArticleScenario":
+        self._license = "INVALID-LICENSE"
         return self
 
     def with_error(self) -> "ArticleScenario":
@@ -334,23 +373,34 @@ class ArticleScenario:
                 issn=self._issn,
                 eissn=self._eissn,
             )
+
+        authors = [ExternalAuthor(name=a[0], affiliation=a[1], orcid=a[2]) for a in self._authors]
         return article_metadata(
             title=self._title,
+            authors=authors,
             publisher=self._publisher_name,
             journal=journal,
             online_publication_date=self._online_publication_date,
+            print_publication_date=self._print_publication_date,
+            license=self._license,
         )
 
-    def setup_client(self) -> None:
+    def setup_client(self) -> "ArticleScenario":
         if self._has_error:
             self._client.configure_error(Doi(self._doi_str), "network")
         else:
             self._client.data[self._doi_str] = self._build_metadata()
+        return self
 
-    def setup_db(self) -> None:
+    def setup_db(self) -> "ArticleScenario":
         if self._has_error:
             self.setup_client()
-            return
+            return self
+
+        if self._publisher_name is None:
+            self.setup_client()
+            return self
+
         publisher_id = publisher_services.create(self._publisher_name)
         if self._eissn is not None:
             self._journal_id = int(
@@ -361,6 +411,7 @@ class ArticleScenario:
                 )
             )
         self.setup_client()
+        return self
 
     def get_expected_fundingrequest(self) -> FundingRequest[Publication]:
         if self._has_error:
@@ -368,17 +419,19 @@ class ArticleScenario:
         if self._journal_id is None:
             raise RuntimeError("setup_db() must be called before get_expected_fundingrequest()")
 
-        expected_author = Author.new(
-            name=NonEmptyStr("Test Author"),
-            email="",
-            orcid=None,
-            affiliation=None,
-            role=Role.CO_AUTHOR,
-        )
+        expected_authors = [
+            Author.new(
+                name=NonEmptyStr(a[0]),
+                orcid=orcid.Orcid(a[2]) if a[2] else None,
+                affiliation=None,
+                role=Role.CO_AUTHOR,
+            )
+            for a in self._authors
+        ]
         expected_publication = Publication.new(
             title=NonEmptyStr(self._title),
             journal=JournalId(self._journal_id),
-            relevant_authors=[expected_author],
+            relevant_authors=expected_authors,
             other_authors=AuthorNames(),
             license=License.Unknown,
             subject_area=UnknownConcept,
@@ -386,7 +439,7 @@ class ArticleScenario:
             open_access_type=OpenAccessType.Unknown,
             publication_state=Published(
                 online=self._online_publication_date,
-                print=None,
+                print=self._print_publication_date,
             ),
             links={self.doi},
         )
@@ -408,12 +461,14 @@ class ArticleScenario:
 class BookScenario:
     """Scenario for importing a book (monograph) via DOI. Auto-derives expected FundingRequest."""
 
-    def __init__(self, client: InMemoryDOIMetadataClient, doi: str = "10.1234/book.test") -> None:
-        self._client = client
+    def __init__(
+        self, client: InMemoryDOIMetadataClient | None = None, doi: str = "10.1234/book.test"
+    ) -> None:
+        self._client = client or InMemoryDOIMetadataClient()
         self._doi_str = doi
         self._publisher_id: int | None = None
         self._title = "Test Book"
-        self._publisher_name = "Springer International Publishing"
+        self._publisher_name: str | None = "Test Book Publisher"
         self._isbn = "978-3-16-148410-0"
         self._print_publication_date: datetime.date | None = datetime.date(2015, 1, 1)
         self._has_error = False
@@ -434,6 +489,10 @@ class BookScenario:
         self._publisher_name = name
         return self
 
+    def without_publisher(self) -> "BookScenario":
+        self._publisher_name = None
+        return self
+
     def with_isbn(self, isbn: str) -> "BookScenario":
         self._isbn = isbn
         return self
@@ -450,18 +509,25 @@ class BookScenario:
             print_publication_date=self._print_publication_date,
         )
 
-    def setup_client(self) -> None:
+    def setup_client(self) -> "BookScenario":
         if self._has_error:
             self._client.configure_error(Doi(self._doi_str), "network")
         else:
             self._client.data[self._doi_str] = self._build_metadata()
+        return self
 
-    def setup_db(self) -> None:
+    def setup_db(self) -> "BookScenario":
         if self._has_error:
             self.setup_client()
-            return
+            return self
+
+        if self._publisher_name is None:
+            self.setup_client()
+            return self
+
         self._publisher_id = int(publisher_services.create(self._publisher_name))
         self.setup_client()
+        return self
 
     def get_expected_fundingrequest(self) -> FundingRequest[Monograph]:
         if self._has_error:
