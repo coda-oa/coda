@@ -25,15 +25,13 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIPreviewDetailView,
     DOIPreviewSaveView,
 )
-from coda.apps.journals.models import Journal
-from coda.contexts.publication.dto.external_metadata import ExternalJournal
 from coda.contexts.publication.services.doi_client import crossref
 from coda.contexts.publication.services.doi_client._inmemory import InMemoryDOIMetadataClient
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequest
 from coda.domain.publication import Monograph, Publication
 from tests import modelfactory
-from tests.contexts.publication.fixtures import ArticleScenario, FakeScenario
+from tests.contexts.publication.fixtures import ArticleScenario, BookScenario
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 
@@ -177,18 +175,15 @@ def test_saving_preview_redirects_to_detail_page(client: Client) -> None:
 def test_multiple_previews_can_coexist(
     client: Client,
     fake_doi_client: InMemoryDOIMetadataClient,
-    test_journal: Journal,
 ) -> None:
     """Multiple preview sessions can coexist; saving one does not affect others."""
-    FakeScenario("10.1234/preview.test", fake_doi_client).with_article_metadata(
-        title="Test DOI Preview Article",
-        online_publication_date=datetime.date(2024, 1, 1),
-    )
+    ArticleScenario(fake_doi_client, "10.1234/preview.test").with_title(
+        "Test DOI Preview Article"
+    ).with_online_date(datetime.date(2024, 1, 1)).setup_db()
 
-    FakeScenario("10.5678/another.article", fake_doi_client).with_article_metadata(
-        title="Another Test Article",
-        online_publication_date=datetime.date(2024, 2, 1),
-    )
+    ArticleScenario(fake_doi_client, "10.5678/another.article").with_title(
+        "Another Test Article"
+    ).with_online_date(datetime.date(2024, 2, 1)).setup_client()
 
     response1 = submit_for_preview(client, "10.1234/preview.test")
     preview_url1 = response1["Location"]
@@ -352,27 +347,36 @@ def test_submit_type_change_to_monograph_stores_publisher_id_in_session(
 def test_submit_type_change_to_article_stores_journal_id_in_session(
     client: Client,
     fake_doi_client: InMemoryDOIMetadataClient,
-    test_journal: Journal,
 ) -> None:
     """Submitting article form with journal should store journal_id in session."""
     doi_str = "10.1234/book.test"
-    FakeScenario(doi_str, fake_doi_client).with_book_metadata(
-        title="Test Book",
-        publisher=test_journal.publisher.name,
-        isbn="978-3-16-148410-0",
+
+    from coda.apps.journals import services as journal_services
+    from coda.domain.issn import Issn
+    from coda.domain.string import NonEmptyStr
+
+    journal_pk = int(
+        journal_services.create(
+            title=NonEmptyStr("Nature"),
+            eissn=Issn("1476-4687"),
+            publisher_id=PublisherId(modelfactory.publisher(name="Test Publisher").pk),
+        )
     )
+    BookScenario(fake_doi_client, doi_str).with_title("Test Book").with_publisher(
+        "Test Publisher"
+    ).with_isbn("978-3-16-148410-0").setup_client()
 
     response = submit_for_preview(client, doi_str)
     session_key = get_session_key(response)
 
-    change_response = submit_type_change(client, session_key, "article", journal=test_journal.pk)
+    change_response = submit_type_change(client, session_key, "article", journal=journal_pk)
 
     assert change_response.status_code == 200
     assert f"/doi-preview/{session_key}/" in change_response["HX-Redirect"]
 
     session_data = client.session[session_key]
     assert session_data["publication_type"] == "article"
-    assert session_data["journal_id"] == test_journal.pk
+    assert session_data["journal_id"] == journal_pk
 
 
 @pytest.mark.django_db
@@ -434,10 +438,9 @@ def test_submit_type_change_article_without_journal_shows_inline_error(
 ) -> None:
     """Submitting article form without selecting a journal returns partial with error."""
     doi_str = "10.1234/book.no-journal"
-    FakeScenario(doi_str, fake_doi_client).with_book_metadata(
-        title="Test Book",
-        isbn="978-3-16-148410-0",
-    )
+    BookScenario(fake_doi_client, doi_str).with_title("Test Book").with_isbn(
+        "978-3-16-148410-0"
+    ).setup_client()
 
     response = submit_for_preview(client, doi_str)
     session_key = get_session_key(response)
@@ -493,11 +496,9 @@ def test_override_article_to_monograph_and_save(
     doi_str = "10.1234/override.test"
 
     publisher = modelfactory.publisher(name="Springer")
-    FakeScenario(doi_str, fake_doi_client).with_article_metadata(
-        title="Test Article",
-        publisher="Springer",
-        online_publication_date=datetime.date(2024, 1, 1),
-    )
+    ArticleScenario(fake_doi_client, doi_str).with_title("Test Article").with_publisher(
+        "Springer"
+    ).with_online_date(datetime.date(2024, 1, 1)).setup_client()
 
     response = submit_for_preview(client, doi_str)
     session_key = get_session_key(response)
@@ -516,21 +517,29 @@ def test_override_article_to_monograph_and_save(
 def test_override_monograph_to_article_and_save(
     client: Client,
     fake_doi_client: InMemoryDOIMetadataClient,
-    test_journal: Journal,
 ) -> None:
     """Full workflow: monograph DOI → override to article → save creates Publication."""
     doi_str = "10.1234/book.override"
 
-    FakeScenario(doi_str, fake_doi_client).with_book_metadata(
-        title="Test Book",
-        publisher=test_journal.publisher.name,
-        isbn="978-3-16-148410-0",
+    from coda.apps.journals import services as journal_services
+    from coda.domain.issn import Issn
+    from coda.domain.string import NonEmptyStr
+
+    journal_pk = int(
+        journal_services.create(
+            title=NonEmptyStr("Nature"),
+            eissn=Issn("1476-4687"),
+            publisher_id=PublisherId(modelfactory.publisher(name="Test Publisher").pk),
+        )
     )
+    BookScenario(fake_doi_client, doi_str).with_title("Test Book").with_publisher(
+        "Test Publisher"
+    ).with_isbn("978-3-16-148410-0").setup_client()
 
     response = submit_for_preview(client, doi_str)
     session_key = get_session_key(response)
 
-    submit_type_change(client, session_key, "article", journal=test_journal.pk)
+    submit_type_change(client, session_key, "article", journal=journal_pk)
     save_doi_import(client, session_key)
 
     fr = repository.first()
@@ -557,7 +566,7 @@ def test_doi_input_handles_fetch_error(
     fake_doi_client: InMemoryDOIMetadataClient,
 ) -> None:
     """DOI metadata fetch failure displays error message without redirect."""
-    FakeScenario("10.1234/broken.doi", fake_doi_client).with_error()
+    ArticleScenario(fake_doi_client, "10.1234/broken.doi").with_error().setup_client()
 
     response = submit_for_preview(client, "10.1234/broken.doi")
 
@@ -591,11 +600,9 @@ def test__save_preview__article_with_print_issn_only__redirects_back_with_error(
     messages error — redirecting back to the preview page — instead of raising a 500.
     """
     doi_str = "10.1234/print-issn-only"
-    FakeScenario(doi_str, fake_doi_client).with_article_metadata(
-        title="Print-ISSN-Only Article",
-        journal=ExternalJournal(title="Print-Only Journal", issn="1234-5678", eissn=None),
-        online_publication_date=None,
-    )
+    ArticleScenario(fake_doi_client, doi_str).with_title("Print-ISSN-Only Article").with_journal(
+        title="Print-Only Journal", eissn=None, issn="1234-5678"
+    ).without_online_date().setup_client()
 
     response = submit_for_preview(client, doi_str)
     session_key = get_session_key(response)
@@ -625,10 +632,9 @@ def test__preview_page__article_with_print_issn_only__does_not_display_print_iss
     would be misleading since it cannot be used to identify the journal in coda.
     """
     doi_str = "10.1234/print-issn-only.preview"
-    FakeScenario(doi_str, fake_doi_client).with_article_metadata(
-        title="Print-ISSN-Only Article",
-        journal=ExternalJournal(title="Print-Only Journal", issn="1234-5678", eissn=None),
-    )
+    ArticleScenario(fake_doi_client, doi_str).with_title("Print-ISSN-Only Article").with_journal(
+        title="Print-Only Journal", eissn=None, issn="1234-5678"
+    ).setup_client()
 
     response = submit_for_preview(client, doi_str)
     preview_url = response["Location"]

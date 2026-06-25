@@ -270,111 +270,6 @@ PREVIEW_JOURNAL_EISSN = "1476-4687"
 PREVIEW_PUBLISHER_NAME = "Test Publisher"
 
 
-class FakeScenario:
-    """Builder-style scenario for configuring DOI import edge cases.
-
-    Unlike concrete scenarios, FakeScenario is built per-test with continuous
-    builder methods. It configures an InMemoryDOIMetadataClient immediately
-    (not deferred to setup_db()).
-
-    Usage:
-        scenario = FakeScenario("10.1234/print-issn", fake_doi_client) \\
-            .with_title("Print-ISSN-Only Article") \\
-            .with_journal(title="Print-Only Journal", eissn=None, issn="1234-5678")
-    """
-
-    def __init__(self, doi_str: str, client: InMemoryDOIMetadataClient | None = None) -> None:
-        self._client = client or InMemoryDOIMetadataClient()
-        self._doi_str = doi_str
-        self._has_error = False
-        self._title: str = "Test Article"
-        self._publisher: str | None = "Test Publisher"
-        self._journal_title: str = "Nature"
-        self._eissn: str | None = "1476-4687"
-        self._issn: str | None = None
-        self._online_date: datetime.date | None = datetime.date(2024, 1, 1)
-        self._isbn: str | None = None
-
-    @property
-    def doi(self) -> Doi:
-        return Doi(self._doi_str)
-
-    @property
-    def client(self) -> DOIMetadataClient:
-        return self._client
-
-    def _apply(self) -> None:
-        if self._has_error:
-            self._client.configure_error(Doi(self._doi_str), "network")
-        elif self._isbn is not None:
-            self._client.data[self._doi_str] = book_metadata(
-                title=self._title,
-                publisher=self._publisher,
-                isbn=self._isbn,
-            )
-        else:
-            journal: ExternalJournal | None = None
-            if self._eissn is not None or self._issn is not None:
-                journal = ExternalJournal(
-                    title=self._journal_title,
-                    issn=self._issn,
-                    eissn=self._eissn,
-                )
-            self._client.data[self._doi_str] = article_metadata(
-                title=self._title,
-                publisher=self._publisher,
-                journal=journal,
-                online_publication_date=self._online_date,
-            )
-
-    def with_title(self, title: str) -> "FakeScenario":
-        self._title = title
-        self._apply()
-        return self
-
-    def with_journal(
-        self,
-        title: str = "Nature",
-        eissn: str | None = "1476-4687",
-        publisher: str = "Test Publisher",
-        issn: str | None = None,
-    ) -> "FakeScenario":
-        self._journal_title = title
-        self._eissn = eissn
-        self._publisher = publisher
-        self._issn = issn
-        self._apply()
-        return self
-
-    def with_online_date(self, date: datetime.date) -> "FakeScenario":
-        self._online_date = date
-        self._apply()
-        return self
-
-    def without_online_date(self) -> "FakeScenario":
-        self._online_date = None
-        self._apply()
-        return self
-
-    def with_publisher(self, name: str) -> "FakeScenario":
-        self._publisher = name
-        self._apply()
-        return self
-
-    def with_isbn(self, isbn: str) -> "FakeScenario":
-        self._isbn = isbn
-        self._apply()
-        return self
-
-    def with_error(self) -> "FakeScenario":
-        self._has_error = True
-        self._apply()
-        return self
-
-    def setup_db(self) -> None:
-        pass
-
-
 class ArticleScenario:
     """Scenario for importing a journal article via DOI. Auto-derives expected FundingRequest."""
 
@@ -413,6 +308,10 @@ class ArticleScenario:
         self._eissn = eissn
         self._publisher_name = publisher
         self._issn = issn
+        return self
+
+    def with_publisher(self, name: str) -> "ArticleScenario":
+        self._publisher_name = name
         return self
 
     def with_online_date(self, date: datetime.date) -> "ArticleScenario":

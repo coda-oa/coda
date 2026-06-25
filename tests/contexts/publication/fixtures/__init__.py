@@ -44,7 +44,6 @@ from tests.contexts.publication.fixtures.metadata import (
 from tests.contexts.publication.fixtures.sample_metadata import (
     ArticleScenario,
     BookScenario,
-    FakeScenario,
     NatureArticleScenario,
     SpringerBookScenario,
 )
@@ -58,7 +57,6 @@ __all__ = [
     # Samples
     "ArticleScenario",
     "BookScenario",
-    "FakeScenario",
     "NatureArticleScenario",
     "SpringerBookScenario",
     # Funder fixture data
