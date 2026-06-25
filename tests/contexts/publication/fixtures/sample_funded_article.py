@@ -8,6 +8,8 @@ verify that funders are imported correctly into FundingRequests.
 
 from datetime import date
 
+from coda.apps.journals import services as journal_services
+from coda.apps.publishers import services as publisher_services
 from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
     ExternalFundingMetadata,
@@ -15,12 +17,25 @@ from coda.contexts.publication.dto.external_metadata import (
     ExternalJournal,
     ExternalPublicationMetadata,
 )
-from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient
+from coda.contexts.publication.services.doi_client import (
+    DOIMetadataClient,
+    InMemoryDOIMetadataClient,
+)
 from coda.domain.author import Author
+from coda.domain.fundingrequest import (
+    ExternalFunding,
+    FundingOrganizationId,
+    FundingRequest,
+    Payment,
+    PaymentMethod,
+)
+from coda.domain.issn import Issn
+from coda.domain.money import Currency, Money
 from coda.domain.orcid import Orcid
 from coda.domain.publication.links import Doi
-from coda.domain.publication.publication import License, Published
+from coda.domain.publication.publication import Authors, JournalId, License, Publication, Published
 from coda.domain.string import NonEmptyStr
+from tests import modelfactory
 
 # -- Article identity --
 
@@ -176,3 +191,74 @@ def configure_funded_article_client(
                     identifiers=[funder_doi],
                 ),
             )
+
+
+class FundedArticleScenario:
+    """Scenario for importing a Crossref article with funders via DOI."""
+
+    def __init__(self, doi_client: DOIMetadataClient) -> None:
+        self._doi_client = doi_client
+        self._journal_id: int | None = None
+        self._funding_org_ids: dict[str, FundingOrganizationId] = {}
+
+    @property
+    def doi(self) -> Doi:
+        return Doi(DOI_WITH_FUNDERS)
+
+    @property
+    def client(self) -> DOIMetadataClient:
+        return self._doi_client
+
+    @property
+    def journal_id(self) -> int:
+        if self._journal_id is None:
+            raise RuntimeError("setup_db() must be called before accessing journal_id")
+        return self._journal_id
+
+    @staticmethod
+    def with_in_memory_client() -> "FundedArticleScenario":
+        client = InMemoryDOIMetadataClient()
+        scenario = FundedArticleScenario(client)
+        scenario._configure_client(client)
+        return scenario
+
+    def setup_db(self) -> None:
+        publisher_id = publisher_services.create(JOURNAL_PUBLISHER)
+        self._journal_id = int(
+            journal_services.create(
+                title=NonEmptyStr(JOURNAL_TITLE),
+                eissn=Issn(JOURNAL_EISSN),
+                publisher_id=publisher_id,
+            )
+        )
+        for funder_info in FUNDING:
+            org = modelfactory.funding_organization(funder_info["name"])
+            self._funding_org_ids[funder_info["name"]] = FundingOrganizationId(org.pk)
+        if isinstance(self._doi_client, InMemoryDOIMetadataClient):
+            self._configure_client(self._doi_client)
+
+    def _configure_client(self, client: InMemoryDOIMetadataClient) -> None:
+        configure_funded_article_client(client)
+
+    def get_expected_fundingrequest(self) -> FundingRequest[Publication]:
+        expected_publication = Publication.new(
+            title=NonEmptyStr(TITLE),
+            journal=JournalId(self.journal_id),
+            relevant_authors=Authors(AUTHORS),
+            links={self.doi},
+            license=LICENSE,
+            publication_state=PUBLICATION_STATE,
+        )
+
+        return FundingRequest.new(
+            publication=expected_publication,
+            estimated_cost=Payment(Money(0, Currency.EUR), PaymentMethod.Unknown),
+            external_funding=[
+                ExternalFunding(
+                    self._funding_org_ids[funder["name"]],
+                    project_id=funder.get("project_id", ""),
+                    project_name="",
+                )
+                for funder in FUNDING
+            ],
+        )
