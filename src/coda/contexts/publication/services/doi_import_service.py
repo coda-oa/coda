@@ -6,6 +6,7 @@ import itertools
 from dataclasses import dataclass
 
 from coda.apps.authors.dto import AuthorDto
+from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.journals import services as journal_services
 from coda.apps.publications.dto import MonographDto, PublicationDto
@@ -20,7 +21,6 @@ from coda.contexts.fundingrequest.dto.commands import (
 from coda.contexts.fundingrequest.services import fundingrequests
 from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
-    ExternalJournal,
     ExternalPublicationMetadata,
 )
 from coda.contexts.publication.dto.preview import (
@@ -55,6 +55,17 @@ class OverrideImportAsArticle:
 @dataclass(frozen=True)
 class OverrideImportAsMonograph:
     publisher_id: PublisherId
+
+
+@dataclass(frozen=True)
+class OverrideFunding:
+    funder_id: FundingOrganizationId
+    project_id: str
+
+
+@dataclass(frozen=True)
+class OverrideImportFunding:
+    funding: list[OverrideFunding]
 
 
 OverrideImportPublicationType = OverrideImportAsArticle | OverrideImportAsMonograph
@@ -118,7 +129,10 @@ class DOIImportService:
         return PreviewFundingRequest(publication=publication_preview)
 
     def build_preview_with_type_override(
-        self, doi: Doi, override: OverrideImportPublicationType
+        self,
+        doi: Doi,
+        override: OverrideImportPublicationType | None = None,
+        funding_override: OverrideImportFunding | None = None,
     ) -> PreviewFundingRequest:
         """Build a preview with an explicit publication type override.
 
@@ -128,24 +142,29 @@ class DOIImportService:
         metadata = self._fetch_metadata(doi)
         authors_dto = self._build_authors_dto(metadata.authors)
 
+        if funding_override:
+            metadata = metadata.override_funding(
+                (repository.get_funding_organization(funding.funder_id).name, funding.project_id)
+                for funding in funding_override.funding
+            )
+
         publication: PreviewArticle | PreviewMonograph
         match override:
             case OverrideImportAsArticle(journal_id=journal_id):
                 journal = journal_services.get_by_pk(int(journal_id))
-                overridden_metadata = metadata.model_copy(
-                    update={
-                        "journal": ExternalJournal(
-                            title=journal.title,
-                            issn=None,
-                            eissn=journal.eissn,
-                        )
-                    }
-                )
+                overridden_metadata = metadata.override_journal(journal)
                 publication = build_preview_article(doi, overridden_metadata, authors_dto)
             case OverrideImportAsMonograph(publisher_id=publisher_id):
                 publisher = publisher_services.get_by_pk(int(publisher_id))
-                overridden_metadata = metadata.model_copy(update={"publisher": publisher.name})
+                overridden_metadata = metadata.override_publisher(publisher)
                 publication = build_preview_monograph(doi, overridden_metadata, authors_dto)
+            case None:
+                detected_type = detect_publication_type(metadata)
+                match detected_type:
+                    case "article":
+                        publication = build_preview_article(doi, metadata, authors_dto)
+                    case "monograph":
+                        publication = build_preview_monograph(doi, metadata, authors_dto)
 
         return PreviewFundingRequest(publication=publication)
 

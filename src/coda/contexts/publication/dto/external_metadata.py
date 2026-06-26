@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 import datetime
 
 from pydantic import BaseModel, Field
+
+from coda.apps.journals.models import Journal
+from coda.apps.publishers.models import Publisher
 
 
 class ExternalAuthor(BaseModel):
@@ -21,6 +25,10 @@ class ExternalJournal(BaseModel):
     title: str
     issn: str | None = None
     eissn: str | None = None
+
+
+type FunderName = str
+type ProjectId = str
 
 
 class ExternalPublicationMetadata(BaseModel):
@@ -48,6 +56,32 @@ class ExternalPublicationMetadata(BaseModel):
     online_publication_date: datetime.date | None = None
     print_publication_date: datetime.date | None = None
     funders: list[ExternalFundingMetadata] = Field(default_factory=list)
+
+    def override_journal(self, journal: Journal) -> ExternalPublicationMetadata:
+        return self.model_copy(
+            update={
+                "journal": ExternalJournal(
+                    title=journal.title,
+                    issn=None,
+                    eissn=journal.eissn,
+                )
+            }
+        )
+
+    def override_publisher(self, publisher: Publisher) -> ExternalPublicationMetadata:
+        return self.model_copy(update={"publisher": publisher.name})
+
+    def override_funding(
+        self, names_and_projects: Iterable[tuple[FunderName, ProjectId]]
+    ) -> ExternalPublicationMetadata:
+        funding = [
+            ExternalFundingMetadata(
+                funder=ExternalFundingOrganisationMetadata(name=name),
+                project_id=project_id,
+            )
+            for name, project_id in names_and_projects
+        ]
+        return self.model_copy(update={"funders": funding})
 
 
 class ExternalFundingOrganisationMetadata(BaseModel):
