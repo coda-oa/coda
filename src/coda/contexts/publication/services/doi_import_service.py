@@ -5,7 +5,6 @@ from __future__ import annotations
 import itertools
 from dataclasses import dataclass
 
-from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.journals import services as journal_services
@@ -20,7 +19,6 @@ from coda.contexts.fundingrequest.dto.commands import (
 )
 from coda.contexts.fundingrequest.services import fundingrequests
 from coda.contexts.publication.dto.external_metadata import (
-    ExternalAuthor,
     ExternalPublicationMetadata,
 )
 from coda.contexts.publication.dto.preview import (
@@ -34,27 +32,15 @@ from coda.contexts.publication.services.doi_client._crossref._crossref_type_dete
     detect_publication_type,
 )
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
-from coda.domain.author import Role
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.issn import Issn
-from coda.domain.orcid import Orcid
 from coda.domain.publication import JournalId
 from coda.domain.publication.links import Doi
 from coda.domain.string import NonEmptyStr
 
 from ._map_to_preview import build_preview_article, build_preview_monograph
-
-
-@dataclass(frozen=True)
-class OverrideImportAsArticle:
-    journal_id: JournalId
-
-
-@dataclass(frozen=True)
-class OverrideImportAsMonograph:
-    publisher_id: PublisherId
 
 
 @dataclass(frozen=True)
@@ -64,11 +50,78 @@ class OverrideFunding:
 
 
 @dataclass(frozen=True)
-class OverrideImportFunding:
-    funding: list[OverrideFunding]
+class OverrideImport:
+    _journal_id: JournalId | None = None
+    _publisher_id: PublisherId | None = None
+    _funding: list[OverrideFunding] | None = None
+    _removed_funding: frozenset[tuple[str, str]] = frozenset()
 
+    @classmethod
+    def empty(cls) -> OverrideImport:
+        return OverrideImport()
 
-OverrideImportPublicationType = OverrideImportAsArticle | OverrideImportAsMonograph
+    @classmethod
+    def as_article(cls, journal_id: JournalId) -> OverrideImport:
+        return cls(journal_id)
+
+    @classmethod
+    def as_monograph(cls, publisher_id: PublisherId) -> OverrideImport:
+        return cls(None, publisher_id)
+
+    def remove_funding(self, funder: str, project_id: str = "") -> OverrideImport:
+        return OverrideImport(
+            self._journal_id,
+            self._publisher_id,
+            self._funding,
+            frozenset((*self._removed_funding, *{(funder, project_id)})),
+        )
+
+    def add_funding(self, funding: list[OverrideFunding]) -> OverrideImport:
+        return OverrideImport(self._journal_id, self._publisher_id, funding)
+
+    def is_article(self) -> bool:
+        return self._journal_id is not None
+
+    def is_monograph(self) -> bool:
+        return self._publisher_id is not None
+
+    @property
+    def journal_id(self) -> JournalId:
+        if self._journal_id is None:
+            raise ValueError("OverrideImport does not override to article")
+        return self._journal_id
+
+    @property
+    def publisher_id(self) -> PublisherId:
+        if self._publisher_id is None:
+            raise ValueError("OverrideImport does not override to monograph")
+        return self._publisher_id
+
+    def apply(self, metadata: ExternalPublicationMetadata) -> ExternalPublicationMetadata:
+        metadata = metadata.model_copy(deep=True)
+        metadata_funders_lookup = {
+            (funding.funder.name, funding.project_id): funding for funding in metadata.funders
+        }
+        for removed_funding in self._removed_funding:
+            if removed_funding not in metadata_funders_lookup:
+                continue
+
+            metadata.funders.remove(metadata_funders_lookup[removed_funding])
+
+        if self._funding is not None:
+            metadata = metadata.override_funding(
+                (repository.get_funding_organization(funding.funder_id).name, funding.project_id)
+                for funding in self._funding
+            )
+
+        if self._journal_id:
+            journal = journal_services.get_by_pk(self._journal_id)
+            return metadata.override_journal(journal)
+        elif self._publisher_id:
+            publisher = publisher_services.get_by_pk(self._publisher_id)
+            return metadata.override_publisher(publisher)
+
+        return metadata
 
 
 class DOIImportService:
@@ -97,6 +150,19 @@ class DOIImportService:
             self.metadata_cache[doi] = self.doi_client.fetch_publication(doi)
         return self.metadata_cache[doi]
 
+    def _fetch_preview_from_metadata(
+        self, doi: Doi, metadata: ExternalPublicationMetadata
+    ) -> PreviewArticle | PreviewMonograph:
+        detected_type = detect_publication_type(metadata)
+        publication_preview: PreviewArticle | PreviewMonograph
+        match detected_type:
+            case "article":
+                publication_preview = build_preview_article(doi, metadata)
+            case "monograph":
+                publication_preview = build_preview_monograph(doi, metadata)
+
+        return publication_preview
+
     def fetch_doi_preview(self, doi: Doi) -> PreviewFundingRequest:
         """Build a preview FundingRequest DTO without creating database entities.
 
@@ -115,61 +181,33 @@ class DOIImportService:
             DOIFetchError: If fetch fails (when fetching)
             InvalidMetadataError: If metadata is invalid
         """
-        metadata = self._fetch_metadata(doi)
-        detected_type = detect_publication_type(metadata)
-        authors_dto = self._build_authors_dto(metadata.authors)
-
-        publication_preview: PreviewArticle | PreviewMonograph
-        match detected_type:
-            case "article":
-                publication_preview = build_preview_article(doi, metadata, authors_dto)
-            case "monograph":
-                publication_preview = build_preview_monograph(doi, metadata, authors_dto)
-
+        publication_preview = self._fetch_preview_from_metadata(doi, self._fetch_metadata(doi))
         return PreviewFundingRequest(publication=publication_preview)
 
-    def build_preview_with_type_override(
+    def preview_with_override(
         self,
         doi: Doi,
-        override: OverrideImportPublicationType | None = None,
-        funding_override: OverrideImportFunding | None = None,
+        override: OverrideImport = OverrideImport.empty(),
     ) -> PreviewFundingRequest:
         """Build a preview with an explicit publication type override.
 
         Fetches metadata from cache (no Crossref re-fetch), resolves the selected
         journal or publisher by DB ID, and builds the appropriate preview DTO.
         """
-        metadata = self._fetch_metadata(doi)
-        authors_dto = self._build_authors_dto(metadata.authors)
-
-        if funding_override:
-            metadata = metadata.override_funding(
-                (repository.get_funding_organization(funding.funder_id).name, funding.project_id)
-                for funding in funding_override.funding
-            )
-
         publication: PreviewArticle | PreviewMonograph
-        match override:
-            case OverrideImportAsArticle(journal_id=journal_id):
-                journal = journal_services.get_by_pk(int(journal_id))
-                overridden_metadata = metadata.override_journal(journal)
-                publication = build_preview_article(doi, overridden_metadata, authors_dto)
-            case OverrideImportAsMonograph(publisher_id=publisher_id):
-                publisher = publisher_services.get_by_pk(int(publisher_id))
-                overridden_metadata = metadata.override_publisher(publisher)
-                publication = build_preview_monograph(doi, overridden_metadata, authors_dto)
-            case None:
-                detected_type = detect_publication_type(metadata)
-                match detected_type:
-                    case "article":
-                        publication = build_preview_article(doi, metadata, authors_dto)
-                    case "monograph":
-                        publication = build_preview_monograph(doi, metadata, authors_dto)
+        metadata = override.apply(self._fetch_metadata(doi))
+        if override.is_article():
+            publication = build_preview_article(doi, metadata)
+            return PreviewFundingRequest(publication=publication)
+        elif override.is_monograph():
+            publication = build_preview_monograph(doi, metadata)
+            return PreviewFundingRequest(publication=publication)
 
+        publication = self._fetch_preview_from_metadata(doi, metadata)
         return PreviewFundingRequest(publication=publication)
 
     def import_from_doi(
-        self, doi: Doi, override: OverrideImportPublicationType | None = None
+        self, doi: Doi, override: OverrideImport = OverrideImport.empty()
     ) -> FundingRequestId:
         """Fetch metadata from DOI and create a FundingRequest in the database.
 
@@ -183,13 +221,7 @@ class DOIImportService:
             InvalidMetadataError: If metadata is invalid
         """
         self._ensure_doi_not_already_imported(doi)
-
-        match override:
-            case OverrideImportAsArticle() | OverrideImportAsMonograph():
-                preview_dto = self.build_preview_with_type_override(doi, override)
-            case None:
-                preview_dto = self.fetch_doi_preview(doi)
-
+        preview_dto = self.preview_with_override(doi, override)
         creation_dto = self._convert_preview_to_creation_dto(preview_dto, override)
         return fundingrequests.create_fundingrequest(creation_dto)
 
@@ -300,9 +332,7 @@ class DOIImportService:
         ]
 
     def _convert_preview_to_creation_dto(
-        self,
-        preview: PreviewFundingRequest,
-        override: OverrideImportPublicationType | None = None,
+        self, preview: PreviewFundingRequest, override: OverrideImport
     ) -> CreateFundingRequestDto:
         """Convert preview DTO to creation DTO by resolving/creating database entities.
 
@@ -311,7 +341,7 @@ class DOIImportService:
 
         Args:
             preview: PreviewFundingRequest with publication metadata
-            override: Optional override specifying entity IDs to use directly
+            override: Override specifying entity IDs to use directly
 
         Returns:
             CreateFundingRequestDto with resolved database IDs
@@ -321,23 +351,20 @@ class DOIImportService:
         """
         publication_dto: PublicationDto | MonographDto
 
-        match override:
-            case OverrideImportAsArticle(journal_id=journal_id):
-                if not isinstance(preview.publication, PreviewArticle):
-                    raise ValueError("Override type mismatch: expected PreviewArticle")
-                publication_dto = preview.publication.to_publication_dto(journal_id=journal_id)
-
-            case OverrideImportAsMonograph(publisher_id=publisher_id):
-                if not isinstance(preview.publication, PreviewMonograph):
-                    raise ValueError("Override type mismatch: expected PreviewMonograph")
-                publication_dto = preview.publication.to_monograph_dto(publisher_id=publisher_id)
-
-            case None:
-                match preview.publication:
-                    case PreviewArticle() as article:
-                        publication_dto = self._resolve_article_dto(article)
-                    case PreviewMonograph() as monograph:
-                        publication_dto = self._resolve_monograph_dto(monograph)
+        if override.is_article():
+            if not isinstance(preview.publication, PreviewArticle):
+                raise ValueError("Override type mismatch: expected PreviewArticle")
+            publication_dto = preview.publication.to_publication_dto(override.journal_id)
+        elif override.is_monograph():
+            if not isinstance(preview.publication, PreviewMonograph):
+                raise ValueError("Override type mismatch: expected PreviewMonograph")
+            publication_dto = preview.publication.to_monograph_dto(override.publisher_id)
+        else:
+            match preview.publication:
+                case PreviewArticle() as article:
+                    publication_dto = self._resolve_article_dto(article)
+                case PreviewMonograph() as monograph:
+                    publication_dto = self._resolve_monograph_dto(monograph)
 
         return CreateFundingRequestDto(
             publication=publication_dto,
@@ -345,55 +372,6 @@ class DOIImportService:
             extra_information=ExtraInformationDto(),
             funding=self._resolve_external_funding(preview.publication.funding),
         )
-
-    def _build_authors_dto(self, external_authors: list[ExternalAuthor]) -> list[AuthorDto]:
-        """Convert external author metadata to AuthorDto objects."""
-        authors = []
-
-        for external_author in external_authors:
-            normalized_name = self._normalize_author_name(
-                external_author.name,
-                external_author.affiliation,
-                external_author.orcid,
-            )
-            if normalized_name is None:
-                continue
-
-            orcid = None
-            if external_author.orcid:
-                orcid = Orcid(external_author.orcid)
-
-            authors.append(
-                AuthorDto(
-                    name=normalized_name,
-                    email="",
-                    orcid=orcid,
-                    affiliation=None,
-                    role=Role.CO_AUTHOR.name,
-                )
-            )
-
-        return authors
-
-    def _normalize_author_name(
-        self, name: str, affiliation: str | None, ror_id: str | None
-    ) -> str | None:
-        """Normalize author name, returning None if author should be skipped.
-
-        Returns the trimmed name if valid, "Unknown" if name is empty but other data exists,
-        or None if author has no usable data.
-        """
-        small_space = "\u2009"
-        trimmed_name = name.strip().replace(small_space, " ")
-
-        has_other_data = affiliation is not None or ror_id is not None
-
-        if trimmed_name:
-            return trimmed_name
-        elif has_other_data:
-            return "Unknown"
-        else:
-            return None
 
     def _match_or_create_publisher(self, publisher_name: str) -> PublisherId:
         """Match publisher by name or create a new one."""

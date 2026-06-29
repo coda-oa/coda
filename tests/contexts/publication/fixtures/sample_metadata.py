@@ -5,12 +5,17 @@ client configuration, and expected FundingRequest outcomes for
 common test cases.
 """
 
+from abc import ABC, abstractmethod
+from collections.abc import Iterable
 import datetime
+from typing import Self
 
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers import services as publisher_services
 from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
+    ExternalFundingMetadata,
+    ExternalFundingOrganisationMetadata,
     ExternalJournal,
     ExternalPublicationMetadata,
 )
@@ -27,6 +32,7 @@ from coda.domain.fundingrequest import (
     Payment,
     PaymentMethod,
 )
+from coda.domain.fundingrequest.fundingrequest import ExternalFunding, FundingOrganizationId
 from coda.domain.issn import Issn
 from coda.domain.money import Currency, Money
 from coda.domain.publication import (
@@ -41,6 +47,7 @@ from coda.domain.publication import (
 from coda.domain.publication.links import Doi, Isbn
 from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import UnknownConcept
+from tests import modelfactory
 from tests.contexts.publication.fixtures.metadata import article_metadata, book_metadata
 
 NATURE_ARTICLE_DOI = "10.1038/nature12373"
@@ -276,26 +283,23 @@ type Name = str
 type Affiliation = str | None
 type Orcid = str | None
 
+type FunderName = str
+type ProjectId = str
 
-class ArticleScenario:
-    """Scenario for importing a journal article via DOI. Auto-derives expected FundingRequest."""
 
-    def __init__(
-        self, client: InMemoryDOIMetadataClient | None = None, doi: str = PREVIEW_ARTICLE_DOI
-    ) -> None:
+class _BaseScenario(ABC):
+    def __init__(self, doi: str, client: InMemoryDOIMetadataClient | None = None) -> None:
         self._client = client or InMemoryDOIMetadataClient()
         self._doi_str = doi
-        self._journal_id: int | None = None
-        self._title = PREVIEW_ARTICLE_TITLE
-        self._publisher_name: str | None = PREVIEW_PUBLISHER_NAME
-        self._journal_title = PREVIEW_JOURNAL_TITLE
-        self._eissn: str | None = PREVIEW_JOURNAL_EISSN
-        self._issn: str | None = None
+        self._title = ""
+        self._publisher_name: str | None = None
         self._online_publication_date: datetime.date | None = datetime.date.min
         self._print_publication_date: datetime.date | None = datetime.date.min
         self._authors: list[tuple[Name, Affiliation, Orcid]] = []
         self._has_error = False
         self._license: str | None = None
+        self._funding: list[tuple[FunderName, ProjectId | None, Doi | None]] = []
+        self._funder_lookup: dict[FunderName, FundingOrganizationId] = {}
 
     @property
     def doi(self) -> Doi:
@@ -305,13 +309,76 @@ class ArticleScenario:
     def client(self) -> DOIMetadataClient:
         return self._client
 
-    def with_title(self, title: str) -> "ArticleScenario":
+    def setup_client(self) -> Self:
+        if self._has_error:
+            self._client.configure_error(Doi(self._doi_str), "network")
+        else:
+            self._client.data[self._doi_str] = self._build_metadata()
+        return self
+
+    @abstractmethod
+    def _build_metadata(self) -> ExternalPublicationMetadata: ...
+
+    def with_title(self, title: str) -> Self:
         self._title = title
         return self
 
-    def with_authors(self, *authors: tuple[Name, Affiliation, Orcid]) -> "ArticleScenario":
+    def with_authors(self, *authors: tuple[Name, Affiliation, Orcid]) -> Self:
         self._authors = list(authors)
         return self
+
+    def with_publisher(self, name: str) -> Self:
+        self._publisher_name = name
+        return self
+
+    def without_publisher(self) -> Self:
+        self._publisher_name = None
+        return self
+
+    def with_online_date(self, date: datetime.date) -> Self:
+        self._online_publication_date = date
+        return self
+
+    def with_print_date(self, date: datetime.date) -> Self:
+        self._print_publication_date = date
+        return self
+
+    def without_online_date(self) -> Self:
+        self._online_publication_date = None
+        return self
+
+    def without_print_date(self) -> Self:
+        self._print_publication_date = None
+        return self
+
+    def with_invalid_license(self) -> Self:
+        self._license = "INVALID-LICENSE"
+        return self
+
+    def with_funding(
+        self, funding: Iterable[tuple[FunderName, ProjectId | None, Doi | None]]
+    ) -> Self:
+        self._funding = list(funding)
+        return self
+
+    def with_error(self) -> Self:
+        self._has_error = True
+        return self
+
+
+class ArticleScenario(_BaseScenario):
+    """Scenario for importing a journal article via DOI. Auto-derives expected FundingRequest."""
+
+    def __init__(
+        self, client: InMemoryDOIMetadataClient | None = None, doi: str = PREVIEW_ARTICLE_DOI
+    ) -> None:
+        super().__init__(doi, client)
+        self._journal_id: int | None = None
+        self._title = PREVIEW_ARTICLE_TITLE
+        self._publisher_name: str | None = PREVIEW_PUBLISHER_NAME
+        self._journal_title = PREVIEW_JOURNAL_TITLE
+        self._eissn: str | None = PREVIEW_JOURNAL_EISSN
+        self._issn: str | None = None
 
     def with_journal(
         self,
@@ -333,38 +400,6 @@ class ArticleScenario:
         self._issn = None
         return self
 
-    def with_publisher(self, name: str) -> "ArticleScenario":
-        self._publisher_name = name
-        return self
-
-    def without_publisher(self) -> "ArticleScenario":
-        self._publisher_name = None
-        return self
-
-    def with_online_date(self, date: datetime.date) -> "ArticleScenario":
-        self._online_publication_date = date
-        return self
-
-    def with_print_date(self, date: datetime.date) -> "ArticleScenario":
-        self._print_publication_date = date
-        return self
-
-    def without_online_date(self) -> "ArticleScenario":
-        self._online_publication_date = None
-        return self
-
-    def without_print_date(self) -> "ArticleScenario":
-        self._print_publication_date = None
-        return self
-
-    def with_invalid_license(self) -> "ArticleScenario":
-        self._license = "INVALID-LICENSE"
-        return self
-
-    def with_error(self) -> "ArticleScenario":
-        self._has_error = True
-        return self
-
     def _build_metadata(self) -> ExternalPublicationMetadata:
         journal: ExternalJournal | None = None
         if self._eissn is not None or self._issn is not None:
@@ -383,14 +418,13 @@ class ArticleScenario:
             online_publication_date=self._online_publication_date,
             print_publication_date=self._print_publication_date,
             license=self._license,
+            funding=[
+                ExternalFundingMetadata(
+                    funder=ExternalFundingOrganisationMetadata(name=f[0]), project_id=f[1] or ""
+                )
+                for f in self._funding
+            ],
         )
-
-    def setup_client(self) -> "ArticleScenario":
-        if self._has_error:
-            self._client.configure_error(Doi(self._doi_str), "network")
-        else:
-            self._client.data[self._doi_str] = self._build_metadata()
-        return self
 
     def setup_db(self) -> "ArticleScenario":
         if self._has_error:
@@ -410,6 +444,12 @@ class ArticleScenario:
                     publisher_id=publisher_id,
                 )
             )
+
+        self._funder_lookup = {
+            funding[0]: FundingOrganizationId(modelfactory.funding_organization(funding[0]).pk)
+            for funding in self._funding
+        }
+
         self.setup_client()
         return self
 
@@ -452,25 +492,25 @@ class ArticleScenario:
                 method=PaymentMethod.Unknown,
                 external_costsplitting=None,
             ),
-            external_funding=[],
+            external_funding=[
+                ExternalFunding(self._funder_lookup[f[0]], f[1] or "", "") for f in self._funding
+            ],
             extra_contact=NoContact,
             request_remarks="",
         )
 
 
-class BookScenario:
+class BookScenario(_BaseScenario):
     """Scenario for importing a book (monograph) via DOI. Auto-derives expected FundingRequest."""
 
     def __init__(
         self, client: InMemoryDOIMetadataClient | None = None, doi: str = "10.1234/book.test"
     ) -> None:
-        self._client = client or InMemoryDOIMetadataClient()
-        self._doi_str = doi
+        super().__init__(doi, client)
         self._publisher_id: int | None = None
         self._title = "Test Book"
         self._publisher_name: str | None = "Test Book Publisher"
         self._isbn = "978-3-16-148410-0"
-        self._print_publication_date: datetime.date | None = datetime.date(2015, 1, 1)
         self._has_error = False
 
     @property
@@ -481,24 +521,8 @@ class BookScenario:
     def client(self) -> DOIMetadataClient:
         return self._client
 
-    def with_title(self, title: str) -> "BookScenario":
-        self._title = title
-        return self
-
-    def with_publisher(self, name: str) -> "BookScenario":
-        self._publisher_name = name
-        return self
-
-    def without_publisher(self) -> "BookScenario":
-        self._publisher_name = None
-        return self
-
     def with_isbn(self, isbn: str) -> "BookScenario":
         self._isbn = isbn
-        return self
-
-    def with_error(self) -> "BookScenario":
-        self._has_error = True
         return self
 
     def _build_metadata(self) -> ExternalPublicationMetadata:
@@ -507,14 +531,13 @@ class BookScenario:
             publisher=self._publisher_name,
             isbn=self._isbn,
             print_publication_date=self._print_publication_date,
+            funding=[
+                ExternalFundingMetadata(
+                    funder=ExternalFundingOrganisationMetadata(name=f[0]), project_id=f[1] or ""
+                )
+                for f in self._funding
+            ],
         )
-
-    def setup_client(self) -> "BookScenario":
-        if self._has_error:
-            self._client.configure_error(Doi(self._doi_str), "network")
-        else:
-            self._client.data[self._doi_str] = self._build_metadata()
-        return self
 
     def setup_db(self) -> "BookScenario":
         if self._has_error:

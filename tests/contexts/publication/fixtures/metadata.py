@@ -10,6 +10,7 @@ from typing import Literal
 
 from coda.contexts.publication.dto.external_metadata import (
     ExternalAuthor,
+    ExternalFundingMetadata,
     ExternalJournal,
     ExternalPublicationMetadata,
 )
@@ -29,6 +30,7 @@ def article_metadata(
     online_publication_date: datetime.date | None = datetime.date(2024, 1, 1),
     print_publication_date: datetime.date | None = None,
     publication_type: str = "journal-article",
+    funding: list[ExternalFundingMetadata] | None = None,
 ) -> ExternalPublicationMetadata:
     """Build article metadata with sensible defaults.
 
@@ -60,6 +62,7 @@ def article_metadata(
         license=license,
         online_publication_date=online_publication_date,
         print_publication_date=print_publication_date,
+        funders=funding or [],
     )
 
 
@@ -74,6 +77,7 @@ def book_metadata(
     online_publication_date: datetime.date | None = None,
     print_publication_date: datetime.date | None = None,
     license: str | None = None,
+    funding: list[ExternalFundingMetadata] | None = None,
 ) -> ExternalPublicationMetadata:
     """Build book/monograph metadata with sensible defaults.
 
@@ -104,4 +108,5 @@ def book_metadata(
         online_publication_date=online_publication_date,
         print_publication_date=print_publication_date,
         license=license,
+        funders=funding or [],
     )

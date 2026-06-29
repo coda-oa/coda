@@ -14,7 +14,10 @@ import datetime
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.publications.dto import ConceptDto
-from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
+from coda.contexts.publication.dto.external_metadata import (
+    ExternalAuthor,
+    ExternalPublicationMetadata,
+)
 from coda.contexts.publication.dto.preview import (
     PreviewArticle,
     PreviewExternalFunding,
@@ -22,6 +25,8 @@ from coda.contexts.publication.dto.preview import (
     PreviewMonograph,
     PreviewPublicationMeta,
 )
+from coda.domain.author import Role
+from coda.domain.orcid import Orcid
 from coda.domain.publication import License
 from coda.domain.publication.links import Doi
 from coda.domain.publication.publication import (
@@ -138,7 +143,6 @@ def _build_meta(metadata: ExternalPublicationMetadata) -> PreviewPublicationMeta
 def build_preview_article(
     doi: Doi,
     metadata: ExternalPublicationMetadata,
-    authors_dto: list[AuthorDto],
 ) -> PreviewArticle:
     """Build PreviewArticle from DOI metadata - no database entities created.
 
@@ -166,7 +170,7 @@ def build_preview_article(
         meta=_build_meta(metadata),
         journal=journal,
         doi=str(doi),
-        authors=authors_dto,
+        authors=_build_authors_dto(metadata.authors),
         publisher_name=metadata.publisher,
         funding=[
             PreviewExternalFunding(
@@ -182,7 +186,6 @@ def build_preview_article(
 def build_preview_monograph(
     doi: Doi,
     metadata: ExternalPublicationMetadata,
-    authors_dto: list[AuthorDto],
 ) -> PreviewMonograph:
     """Build PreviewMonograph from DOI metadata - no database entities created.
 
@@ -201,8 +204,60 @@ def build_preview_monograph(
         publisher_name=metadata.publisher,
         doi=str(doi),
         isbn=metadata.isbn,
-        authors=authors_dto,
+        authors=_build_authors_dto(metadata.authors),
         funding=[
-            PreviewExternalFunding(name=f.name, identifiers=f.identifiers) for f in metadata.funders
+            PreviewExternalFunding(
+                name=f.funder.name, identifiers=f.funder.identifiers, project_id=f.project_id
+            )
+            for f in metadata.funders
         ],
     )
+
+
+def _build_authors_dto(external_authors: list[ExternalAuthor]) -> list[AuthorDto]:
+    """Convert external author metadata to AuthorDto objects."""
+    authors = []
+
+    for external_author in external_authors:
+        normalized_name = _normalize_author_name(
+            external_author.name,
+            external_author.affiliation,
+            external_author.orcid,
+        )
+        if normalized_name is None:
+            continue
+
+        orcid = None
+        if external_author.orcid:
+            orcid = Orcid(external_author.orcid)
+
+        authors.append(
+            AuthorDto(
+                name=normalized_name,
+                email="",
+                orcid=orcid,
+                affiliation=None,
+                role=Role.CO_AUTHOR.name,
+            )
+        )
+
+    return authors
+
+
+def _normalize_author_name(name: str, affiliation: str | None, ror_id: str | None) -> str | None:
+    """Normalize author name, returning None if author should be skipped.
+
+    Returns the trimmed name if valid, "Unknown" if name is empty but other data exists,
+    or None if author has no usable data.
+    """
+    small_space = "\u2009"
+    trimmed_name = name.strip().replace(small_space, " ")
+
+    has_other_data = affiliation is not None or ror_id is not None
+
+    if trimmed_name:
+        return trimmed_name
+    elif has_other_data:
+        return "Unknown"
+    else:
+        return None

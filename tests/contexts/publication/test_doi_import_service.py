@@ -30,11 +30,7 @@ from coda.apps.publishers import services as publisher_services
 from coda.apps.publishers.models import Publisher
 from coda.contexts.publication.dto.preview import PreviewArticle, PreviewMonograph
 from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient, crossref
-from coda.contexts.publication.services.doi_import_service import (
-    DOIImportService,
-    OverrideImportAsArticle,
-    OverrideImportAsMonograph,
-)
+from coda.contexts.publication.services.doi_import_service import DOIImportService, OverrideImport
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.issn import Issn
@@ -534,9 +530,7 @@ def test__build_preview_with_type_override__to_article__uses_resolved_journal() 
     )
 
     service = DOIImportService(doi_client=scenario.client)
-    result = service.build_preview_with_type_override(
-        scenario.doi, OverrideImportAsArticle(journal_id=journal_id)
-    )
+    result = service.preview_with_override(scenario.doi, OverrideImport.as_article(journal_id))
 
     assert isinstance(result.publication, PreviewArticle)
     assert result.publication.journal is not None
@@ -551,9 +545,7 @@ def test__build_preview_with_type_override__to_monograph__uses_resolved_publishe
     publisher_id = publisher_services.create(name="Springer Nature")
 
     service = DOIImportService(doi_client=scenario.client)
-    result = service.build_preview_with_type_override(
-        scenario.doi, OverrideImportAsMonograph(publisher_id=publisher_id)
-    )
+    result = service.preview_with_override(scenario.doi, OverrideImport.as_monograph(publisher_id))
 
     assert isinstance(result.publication, PreviewMonograph)
     assert result.publication.publisher_name == "Springer Nature"

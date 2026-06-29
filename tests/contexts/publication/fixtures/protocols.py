@@ -1,4 +1,4 @@
-from typing import Protocol, TypeVar
+from typing import Protocol, Self, TypeVar
 from coda.domain.fundingrequest.fundingrequest import AnyFundingRequest
 from coda.contexts.publication.services.doi_client._doi_client import DOIMetadataClient
 from coda.domain.publication.links import Doi
@@ -19,7 +19,7 @@ class ImportScenario(Protocol):
         """The DOI client associated with this scenario."""
         ...
 
-    def setup_db(self) -> None:
+    def setup_db(self) -> Self:
         """Create DB prerequisites (publishers, journals, funders)."""
         ...
 

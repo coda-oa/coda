@@ -9,6 +9,7 @@ User journey:
 """
 
 from collections.abc import Generator
+from dataclasses import dataclass
 import datetime
 from typing import Any, Literal, cast
 
@@ -59,6 +60,28 @@ def save_doi_import(client: Client, session_key: str) -> HttpResponse:
             reverse("fundingrequests:doi_preview_save", kwargs={"session_key": session_key})
         ),
     )
+
+
+@dataclass
+class PreviewPageModel:
+    client: Client
+
+    def submit_for_preview(self, doi_str: str) -> HttpResponse:
+        return cast(
+            HttpResponse,
+            self.client.post(
+                reverse("fundingrequests:doi_import_input"),
+                data={"doi": doi_str},
+            ),
+        )
+
+    def save_doi_import(self, session_key: str) -> HttpResponse:
+        return cast(
+            HttpResponse,
+            self.client.post(
+                reverse("fundingrequests:doi_preview_save", kwargs={"session_key": session_key})
+            ),
+        )
 
 
 @pytest.fixture

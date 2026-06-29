@@ -27,12 +27,7 @@ from coda.contexts.publication.services.doi_client import errors as doi_errors
 from coda.contexts.publication.services.doi_client._crossref._crossref_type_detector import (
     detect_publication_type,
 )
-from coda.contexts.publication.services.doi_import_service import (
-    DOIImportService,
-    OverrideImportAsArticle,
-    OverrideImportAsMonograph,
-    OverrideImportPublicationType,
-)
+from coda.contexts.publication.services.doi_import_service import DOIImportService, OverrideImport
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
 from coda.domain.contract import PublisherId
 from coda.domain.publication import JournalId
@@ -41,15 +36,15 @@ from coda.domain.publication.links import Doi
 
 def _build_override_from_session(
     session_data: dict[str, Any],
-) -> OverrideImportPublicationType | None:
+) -> OverrideImport:
     """Reconstruct override object from session data using match statement."""
     match session_data.get("publication_type"):
         case "article" if journal_id := session_data.get("journal_id"):
-            return OverrideImportAsArticle(journal_id=JournalId(journal_id))
+            return OverrideImport.as_article(JournalId(journal_id))
         case "monograph" if publisher_id := session_data.get("publisher_id"):
-            return OverrideImportAsMonograph(publisher_id=PublisherId(publisher_id))
-        case _:
-            return None
+            return OverrideImport.as_monograph(PublisherId(publisher_id))
+
+    return OverrideImport.empty()
 
 
 class DOIImportInputView(LoginRequiredMixin, View):
@@ -129,7 +124,7 @@ class DOIPreviewDetailView(LoginRequiredMixin, View):
         override = _build_override_from_session(session_data)
 
         if override:
-            preview_dto = doi_service.build_preview_with_type_override(doi, override)
+            preview_dto = doi_service.preview_with_override(doi, override)
         else:
             preview_dto = doi_service.fetch_doi_preview(doi)
 
