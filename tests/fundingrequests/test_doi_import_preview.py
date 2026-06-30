@@ -8,9 +8,8 @@ User journey:
 5. User redirected to funding request detail page
 """
 
-from collections.abc import Generator
-from dataclasses import dataclass
 import datetime
+from collections.abc import Generator
 from typing import Any, Literal, cast
 
 import pytest
@@ -26,17 +25,17 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIPreviewDetailView,
     DOIPreviewSaveView,
 )
+from coda.apps.journals import services as journal_services
 from coda.contexts.publication.services.doi_client import crossref
 from coda.contexts.publication.services.doi_client._inmemory import InMemoryDOIMetadataClient
 from coda.domain.contract import PublisherId
-from coda.domain.fundingrequest import FundingRequest
+from coda.domain.fundingrequest.fundingrequest import FundingRequestId
+from coda.domain.issn import Issn
 from coda.domain.publication import Monograph, Publication
+from coda.domain.string import NonEmptyStr
 from tests import modelfactory
 from tests.contexts.publication.fixtures import ArticleScenario, BookScenario
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
-from coda.apps.journals import services as journal_services
-from coda.domain.issn import Issn
-from coda.domain.string import NonEmptyStr
 
 
 def get_session_key(response: HttpResponse) -> str:
@@ -62,28 +61,6 @@ def save_doi_import(client: Client, session_key: str) -> HttpResponse:
     )
 
 
-@dataclass
-class PreviewPageModel:
-    client: Client
-
-    def submit_for_preview(self, doi_str: str) -> HttpResponse:
-        return cast(
-            HttpResponse,
-            self.client.post(
-                reverse("fundingrequests:doi_import_input"),
-                data={"doi": doi_str},
-            ),
-        )
-
-    def save_doi_import(self, session_key: str) -> HttpResponse:
-        return cast(
-            HttpResponse,
-            self.client.post(
-                reverse("fundingrequests:doi_preview_save", kwargs={"session_key": session_key})
-            ),
-        )
-
-
 @pytest.fixture
 def fake_doi_client() -> InMemoryDOIMetadataClient:
     """Fake DOI client that will be configured per-test with expected data."""
@@ -105,21 +82,15 @@ def inject_fake_doi_client(fake_doi_client: InMemoryDOIMetadataClient) -> Genera
 
 
 @pytest.fixture
-def expected_fundingrequest(
-    fake_doi_client: InMemoryDOIMetadataClient,
-) -> FundingRequest[Publication]:
-    """Build expected FundingRequest and configure fake client to produce it."""
-    scenario = ArticleScenario(fake_doi_client)
-    scenario.setup_db()
-    return scenario.get_expected_fundingrequest()
+def scenario(fake_doi_client: InMemoryDOIMetadataClient) -> ArticleScenario:
+    return ArticleScenario(fake_doi_client).setup_db()
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_doi_input_redirects_to_preview_page(client: Client) -> None:
+@pytest.mark.usefixtures("logged_in")
+def test_doi_input_redirects_to_preview_page(client: Client, scenario: ArticleScenario) -> None:
     """User submits DOI on input form and system redirects to preview page."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
 
     assert response.status_code == 302
     preview_url = response["Location"]
@@ -127,25 +98,24 @@ def test_doi_input_redirects_to_preview_page(client: Client) -> None:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_preview_page_shows_doi_metadata(client: Client) -> None:
+@pytest.mark.usefixtures("logged_in")
+def test_preview_page_shows_doi_metadata(client: Client, scenario: ArticleScenario) -> None:
     """Preview page displays DOI metadata after submission."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
     preview_url = response["Location"]
 
     preview_response = client.get(preview_url)
 
+    publication_title = scenario.get_expected_fundingrequest().publication.title.encode()
     assert preview_response.status_code == 200
-    assert b"Test DOI Preview Article" in preview_response.content
+    assert publication_title in preview_response.content
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_preview_does_not_persist_until_saved(client: Client) -> None:
+@pytest.mark.usefixtures("logged_in")
+def test_preview_does_not_persist_until_saved(client: Client, scenario: ArticleScenario) -> None:
     """Preview remains session-only until user clicks save."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
     preview_url = response["Location"]
     client.get(preview_url)
 
@@ -155,39 +125,34 @@ def test_preview_does_not_persist_until_saved(client: Client) -> None:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test_saving_preview_creates_correct_fundingrequest(
-    client: Client,
-    expected_fundingrequest: FundingRequest[Publication],
+    client: Client, scenario: ArticleScenario
 ) -> None:
     """Saving preview creates FundingRequest in database with correct metadata."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
 
     save_doi_import(client, get_session_key(response))
 
     actual = repository.first()
-    assert_fundingrequest_eq(actual, expected_fundingrequest)
+    assert_fundingrequest_eq(actual, scenario.get_expected_fundingrequest())
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test__doi_imported__save_doi_again__fails(client: Client) -> None:
-    doi_str = "10.1234/preview.test"
-
-    response = submit_for_preview(client, doi_str)
+@pytest.mark.usefixtures("logged_in")
+def test__doi_imported__save_doi_again__fails(client: Client, scenario: ArticleScenario) -> None:
+    response = submit_for_preview(client, scenario.doi.value())
     save_doi_import(client, get_session_key(response))
 
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
     save_doi_import(client, get_session_key(response))
 
     assert len(repository.all()) == 1
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_saving_preview_redirects_to_detail_page(client: Client) -> None:
+@pytest.mark.usefixtures("logged_in")
+def test_saving_preview_redirects_to_detail_page(client: Client, scenario: ArticleScenario) -> None:
     """Saving preview redirects to FundingRequest detail page."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
 
     save_response = save_doi_import(client, get_session_key(response))
 
@@ -203,13 +168,19 @@ def test_multiple_previews_can_coexist(
     fake_doi_client: InMemoryDOIMetadataClient,
 ) -> None:
     """Multiple preview sessions can coexist; saving one does not affect others."""
-    ArticleScenario(fake_doi_client, "10.1234/preview.test").with_title(
-        "Test DOI Preview Article"
-    ).with_online_date(datetime.date(2024, 1, 1)).setup_db()
+    _ = (
+        ArticleScenario(fake_doi_client, "10.1234/preview.test")
+        .with_title("Test DOI Preview Article")
+        .with_online_date(datetime.date(2024, 1, 1))
+        .setup_db()
+    )
 
-    ArticleScenario(fake_doi_client, "10.5678/another.article").with_title(
-        "Another Test Article"
-    ).with_online_date(datetime.date(2024, 2, 1)).setup_client()
+    _ = (
+        ArticleScenario(fake_doi_client, "10.5678/another.article")
+        .with_title("Another Test Article")
+        .with_online_date(datetime.date(2024, 2, 1))
+        .setup_client()
+    )
 
     response1 = submit_for_preview(client, "10.1234/preview.test")
     preview_url1 = response1["Location"]
@@ -232,11 +203,10 @@ def test_multiple_previews_can_coexist(
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_saving_preview_cleans_up_session(client: Client) -> None:
+@pytest.mark.usefixtures("logged_in")
+def test_saving_preview_cleans_up_session(client: Client, scenario: ArticleScenario) -> None:
     """Saving preview removes session data and makes preview inaccessible."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
     preview_url = response["Location"]
     session_key = get_session_key(response)
 
@@ -248,10 +218,11 @@ def test_saving_preview_cleans_up_session(client: Client) -> None:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_doi_input_stores_original_metadata_and_publication_type(client: Client) -> None:
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+@pytest.mark.usefixtures("logged_in")
+def test_doi_input_stores_original_metadata_and_publication_type(
+    client: Client, scenario: ArticleScenario
+) -> None:
+    response = submit_for_preview(client, scenario.doi.value())
     session_key = get_session_key(response)
     session_data = client.session[session_key]
 
@@ -299,11 +270,10 @@ def submit_type_change(
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_load_article_form_shows_journal_search(client: Client) -> None:
+@pytest.mark.usefixtures("logged_in")
+def test_load_article_form_shows_journal_search(client: Client, scenario: ArticleScenario) -> None:
     """HTMX endpoint should return article form partial with journal search."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
     session_key = get_session_key(response)
 
     form_response = load_type_form(client, session_key, "article")
@@ -315,11 +285,12 @@ def test_load_article_form_shows_journal_search(client: Client) -> None:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_load_article_form_search_button_uses_find_journal_endpoint(client: Client) -> None:
+@pytest.mark.usefixtures("logged_in")
+def test_load_article_form_search_button_uses_find_journal_endpoint(
+    client: Client, scenario: ArticleScenario
+) -> None:
     """Article type-change form search button should use wizard_find_journal endpoint."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
     session_key = get_session_key(response)
 
     form_response = load_type_form(client, session_key, "article")
@@ -330,11 +301,12 @@ def test_load_article_form_search_button_uses_find_journal_endpoint(client: Clie
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_load_monograph_form_shows_prefilled_publisher(client: Client) -> None:
+@pytest.mark.usefixtures("logged_in")
+def test_load_monograph_form_shows_prefilled_publisher(
+    client: Client, scenario: ArticleScenario
+) -> None:
     """HTMX endpoint for monograph form should pre-fill publisher from original metadata."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
     session_key = get_session_key(response)
 
     form_response = load_type_form(client, session_key, "monograph")
@@ -342,71 +314,16 @@ def test_load_monograph_form_shows_prefilled_publisher(client: Client) -> None:
     assert form_response.status_code == 200
     content = form_response.content.decode()
     assert "publisher_name" in content
-    # Should pre-fill publisher from original_metadata["publisher"]
     assert "Test Publisher" in content
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_submit_type_change_to_monograph_stores_publisher_id_in_session(
-    client: Client,
-) -> None:
-    """Submitting monograph form with publisher should store publisher_id in session."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
-    session_key = get_session_key(response)
-
-    publisher = modelfactory.publisher(name="Test Publisher")
-
-    change_response = submit_type_change(client, session_key, "monograph", publisher=publisher.pk)
-
-    assert change_response.status_code == 200
-    assert f"/doi-preview/{session_key}/" in change_response["HX-Redirect"]
-
-    session_data = client.session[session_key]
-    assert session_data["publication_type"] == "monograph"
-    assert session_data["publisher_id"] == publisher.pk
-
-
-@pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test_submit_type_change_to_article_stores_journal_id_in_session(
-    client: Client,
-    fake_doi_client: InMemoryDOIMetadataClient,
+def test_preview_page_shows_type_selector_with_htmx(
+    client: Client, scenario: ArticleScenario
 ) -> None:
-    """Submitting article form with journal should store journal_id in session."""
-    doi_str = "10.1234/book.test"
-
-    journal_pk = int(
-        journal_services.create(
-            title=NonEmptyStr("Nature"),
-            eissn=Issn("1476-4687"),
-            publisher_id=PublisherId(modelfactory.publisher(name="Test Publisher").pk),
-        )
-    )
-    BookScenario(fake_doi_client, doi_str).with_title("Test Book").with_publisher(
-        "Test Publisher"
-    ).with_isbn("978-3-16-148410-0").setup_client()
-
-    response = submit_for_preview(client, doi_str)
-    session_key = get_session_key(response)
-
-    change_response = submit_type_change(client, session_key, "article", journal=journal_pk)
-
-    assert change_response.status_code == 200
-    assert f"/doi-preview/{session_key}/" in change_response["HX-Redirect"]
-
-    session_data = client.session[session_key]
-    assert session_data["publication_type"] == "article"
-    assert session_data["journal_id"] == journal_pk
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
-def test_preview_page_shows_type_selector_with_htmx(client: Client) -> None:
     """Preview page should show publication type selector with HTMX attributes."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
     preview_url = response["Location"]
     preview_response = client.get(preview_url)
     content = preview_response.content.decode()
@@ -432,13 +349,12 @@ def reset_type(client: Client, session_key: str) -> HttpResponse:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
+@pytest.mark.usefixtures("logged_in")
 def test_submit_type_change_monograph_without_publisher_shows_inline_error(
-    client: Client,
+    client: Client, scenario: ArticleScenario
 ) -> None:
     """Submitting monograph form without selecting a publisher returns partial with error."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
     session_key = get_session_key(response)
 
     change_response = submit_type_change(client, session_key, "monograph")
@@ -478,34 +394,25 @@ def test_submit_type_change_article_without_journal_shows_inline_error(
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "expected_fundingrequest")
+@pytest.mark.usefixtures("logged_in")
 def test_reset_type_clears_override_and_restores_original_type(
-    client: Client,
+    client: Client, scenario: ArticleScenario
 ) -> None:
     """Reset endpoint clears override and restores the auto-detected publication type."""
-    doi_str = "10.1234/preview.test"
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
     session_key = get_session_key(response)
-
-    # Apply monograph override
     publisher = modelfactory.publisher(name="Test Publisher")
     submit_type_change(client, session_key, "monograph", publisher=publisher.pk)
 
-    # Verify override is stored
-    session_data = client.session[session_key]
-    assert session_data["publication_type"] == "monograph"
-    assert "publisher_id" in session_data
-
     # Reset to original
-    reset_response = reset_type(client, session_key)
+    _ = reset_type(client, session_key)
 
-    assert reset_response.status_code == 200
-    assert f"/doi-preview/{session_key}/" in reset_response["HX-Redirect"]
+    saved = save_doi_import(client, session_key)
+    location = saved["Location"]
+    request_id = int(location.removesuffix("/").split("/")[-1])
 
-    session_data = client.session[session_key]
-    assert session_data["publication_type"] == "article"  # original auto-detected type
-    assert "publisher_id" not in session_data
-    assert "journal_id" not in session_data
+    actual = repository.get_by_id(FundingRequestId(request_id))
+    assert_fundingrequest_eq(actual, scenario.get_expected_fundingrequest())
 
 
 @pytest.mark.django_db
@@ -515,14 +422,17 @@ def test_override_article_to_monograph_and_save(
     fake_doi_client: InMemoryDOIMetadataClient,
 ) -> None:
     """Full workflow: article DOI → override to monograph → save creates Monograph."""
-    doi_str = "10.1234/override.test"
 
     publisher = modelfactory.publisher(name="Springer")
-    ArticleScenario(fake_doi_client, doi_str).with_title("Test Article").with_publisher(
-        "Springer"
-    ).with_online_date(datetime.date(2024, 1, 1)).setup_client()
+    scenario = (
+        ArticleScenario(fake_doi_client)
+        .with_title("Test Article")
+        .with_publisher("Springer")
+        .with_online_date(datetime.date(2024, 1, 1))
+        .setup_client()
+    )
 
-    response = submit_for_preview(client, doi_str)
+    response = submit_for_preview(client, scenario.doi.value())
     session_key = get_session_key(response)
 
     submit_type_change(client, session_key, "monograph", publisher=publisher.pk)

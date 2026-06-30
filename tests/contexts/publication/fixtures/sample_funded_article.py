@@ -7,6 +7,7 @@ verify that funders are imported correctly into FundingRequests.
 """
 
 from datetime import date
+from typing import Self
 
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers import services as publisher_services
@@ -156,7 +157,7 @@ class FundedArticleScenario:
         scenario._configure_client(client)
         return scenario
 
-    def setup_db(self) -> None:
+    def setup_db(self) -> Self:
         publisher_id = publisher_services.create(JOURNAL_PUBLISHER)
         self._journal_id = int(
             journal_services.create(
@@ -170,6 +171,8 @@ class FundedArticleScenario:
             self._funding_org_ids[funder_info["name"]] = FundingOrganizationId(org.pk)
         if isinstance(self._doi_client, InMemoryDOIMetadataClient):
             self._configure_client(self._doi_client)
+
+        return self
 
     def _configure_client(self, client: InMemoryDOIMetadataClient) -> None:
         external_authors = [

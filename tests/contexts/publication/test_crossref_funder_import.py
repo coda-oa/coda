@@ -24,6 +24,19 @@ def scenario(request: pytest.FixtureRequest) -> FundedArticleScenario:
     return scenario
 
 
+# FIXME: test fails for the "real" Crossref client because `override_funding()` in
+# `external_metadata.py` strips funder identifiers (DOIs) when called from
+# `OverrideImport.apply()` in `doi_import_service.py`. Even with an empty
+# override, `apply()` calls ``metadata.override_funding()` with only
+# `(name, project_id)` tuples, losing the funder DOIs. This means
+# `_resolve_funders()` can't call `fetch_funder()` to resolve canonical names,
+# so the real API's "Bundesministerium für Bildung und Forschung" never gets
+# resolved to "Bundesministerium für Forschung, Technologie und Raumfahrt",
+# creating a new funder instead of matching the existing one.
+# Fix: preserve identifiers in `override_funding()` and pass them through
+# `apply()`.
+
+
 @pytest.mark.django_db
 def test__doi_with_funders__imports_funders_into_fundingrequest(
     scenario: FundedArticleScenario,

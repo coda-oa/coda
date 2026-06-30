@@ -68,6 +68,25 @@ class OverrideImport:
     def as_monograph(cls, publisher_id: PublisherId) -> OverrideImport:
         return cls(None, publisher_id)
 
+    def drop_publication_type(self) -> OverrideImport:
+        return OverrideImport(_funding=self._funding, _removed_funding=self._removed_funding)
+
+    def into_article(self, journal_id: JournalId) -> OverrideImport:
+        return OverrideImport(
+            _journal_id=journal_id,
+            _publisher_id=None,
+            _funding=self._funding,
+            _removed_funding=self._removed_funding,
+        )
+
+    def into_monograph(self, publisher_id: PublisherId) -> OverrideImport:
+        return OverrideImport(
+            _journal_id=None,
+            _publisher_id=publisher_id,
+            _funding=self._funding,
+            _removed_funding=self._removed_funding,
+        )
+
     def remove_funding(self, funder: str, project_id: str = "") -> OverrideImport:
         return OverrideImport(
             self._journal_id,
@@ -79,10 +98,10 @@ class OverrideImport:
     def add_funding(self, funding: list[OverrideFunding]) -> OverrideImport:
         return OverrideImport(self._journal_id, self._publisher_id, funding)
 
-    def is_article(self) -> bool:
+    def overrides_to_article(self) -> bool:
         return self._journal_id is not None
 
-    def is_monograph(self) -> bool:
+    def overrides_to_monograph(self) -> bool:
         return self._publisher_id is not None
 
     @property
@@ -98,21 +117,18 @@ class OverrideImport:
         return self._publisher_id
 
     def apply(self, metadata: ExternalPublicationMetadata) -> ExternalPublicationMetadata:
-        metadata = metadata.model_copy(deep=True)
-        metadata_funders_lookup = {
-            (funding.funder.name, funding.project_id): funding for funding in metadata.funders
-        }
-        for removed_funding in self._removed_funding:
-            if removed_funding not in metadata_funders_lookup:
-                continue
+        keep_funding = [
+            (funding.funder.name, funding.project_id)
+            for funding in metadata.funders
+            if (funding.funder.name, funding.project_id) not in self._removed_funding
+        ]
 
-            metadata.funders.remove(metadata_funders_lookup[removed_funding])
+        added_funding = [
+            (repository.get_funding_organization(funding.funder_id).name, funding.project_id)
+            for funding in self._funding or []
+        ]
 
-        if self._funding is not None:
-            metadata = metadata.override_funding(
-                (repository.get_funding_organization(funding.funder_id).name, funding.project_id)
-                for funding in self._funding
-            )
+        metadata = metadata.override_funding(keep_funding + added_funding)
 
         if self._journal_id:
             journal = journal_services.get_by_pk(self._journal_id)
@@ -196,10 +212,10 @@ class DOIImportService:
         """
         publication: PreviewArticle | PreviewMonograph
         metadata = override.apply(self._fetch_metadata(doi))
-        if override.is_article():
+        if override.overrides_to_article():
             publication = build_preview_article(doi, metadata)
             return PreviewFundingRequest(publication=publication)
-        elif override.is_monograph():
+        elif override.overrides_to_monograph():
             publication = build_preview_monograph(doi, metadata)
             return PreviewFundingRequest(publication=publication)
 
@@ -351,11 +367,11 @@ class DOIImportService:
         """
         publication_dto: PublicationDto | MonographDto
 
-        if override.is_article():
+        if override.overrides_to_article():
             if not isinstance(preview.publication, PreviewArticle):
                 raise ValueError("Override type mismatch: expected PreviewArticle")
             publication_dto = preview.publication.to_publication_dto(override.journal_id)
-        elif override.is_monograph():
+        elif override.overrides_to_monograph():
             if not isinstance(preview.publication, PreviewMonograph):
                 raise ValueError("Override type mismatch: expected PreviewMonograph")
             publication_dto = preview.publication.to_monograph_dto(override.publisher_id)

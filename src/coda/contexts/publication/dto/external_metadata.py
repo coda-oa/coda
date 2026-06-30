@@ -81,7 +81,6 @@ class ExternalPublicationMetadata(BaseModel):
             )
             for name, project_id in names_and_projects
         ]
-        funding = list(self.funders) + funding
         return self.model_copy(update={"funders": funding})
 
 

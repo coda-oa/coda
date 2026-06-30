@@ -7,6 +7,15 @@ from coda.apps.fundingrequests.forms import (
 )
 from coda.apps.fundingrequests.views import review
 from coda.apps.fundingrequests.views.detailview import fundingrequest_detail
+from coda.apps.fundingrequests.views.doi_preview import (
+    DOIImportInputView,
+    DOIPreviewDetailView,
+    DOIPreviewSaveView,
+    doi_preview_apply_type_change,
+    doi_preview_delete_funding,
+    doi_preview_load_type_form,
+    doi_preview_reset_type,
+)
 from coda.apps.fundingrequests.views.funders import (
     fundingorganization_create_modal,
     fundingorganization_create_modal_submit,
@@ -34,8 +43,8 @@ from coda.apps.fundingrequests.views.wizard.steps.journal_step import (
 )
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import add_linkrow, parse_authors
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
-    find_publisher,
     clear_publisher_error,
+    find_publisher,
 )
 from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdateExtraInformationView,
@@ -43,14 +52,6 @@ from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdatePublicationView,
 )
 from coda.apps.fundingrequests.views.wizard.update_monograph import MonographUpdateMetaView
-from coda.apps.fundingrequests.views.doi_preview import (
-    DOIImportInputView,
-    DOIPreviewDetailView,
-    DOIPreviewSaveView,
-    doi_preview_load_type_form,
-    doi_preview_apply_type_change,
-    doi_preview_reset_type,
-)
 
 app_name = "fundingrequests"
 
@@ -64,6 +65,11 @@ urlpatterns = [
     path("doi-import/", DOIImportInputView.as_view(), name="doi_import_input"),
     path(
         "doi-preview/<str:session_key>/", DOIPreviewDetailView.as_view(), name="doi_preview_detail"
+    ),
+    path(
+        "doi-preview/<str:session_key>/delete-funding",
+        doi_preview_delete_funding,
+        name="doi_preview_delete_funding",
     ),
     path(
         "doi-preview/<str:session_key>/save/", DOIPreviewSaveView.as_view(), name="doi_preview_save"

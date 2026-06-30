@@ -50,7 +50,7 @@ def test__previewing_article_with_funding__remove_funding__saves_without_funding
 
     service = DOIImportService(scenario.client)
     result = service.preview_with_override(
-        scenario.doi, OverrideImport().delete_funding("BMBF", "my-project")
+        scenario.doi, OverrideImport().remove_funding("BMBF", "my-project")
     )
 
     assert result.publication.funding == []

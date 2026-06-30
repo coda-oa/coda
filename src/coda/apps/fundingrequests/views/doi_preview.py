@@ -12,14 +12,17 @@ from uuid import uuid4
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseNotFound
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.views import View
 from django.views.decorators.http import require_GET, require_POST
+from pydantic import TypeAdapter
 
+from coda import formdata
+from coda.apps.dto import CodaBaseDto
 from coda.apps.fundingrequests.queries.preview_context_builder import build_preview_context
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.services.doi_client import DOIMetadataClient, crossref
@@ -34,17 +37,22 @@ from coda.domain.publication import JournalId
 from coda.domain.publication.links import Doi
 
 
-def _build_override_from_session(
-    session_data: dict[str, Any],
-) -> OverrideImport:
+def _load_override(session_data: dict[str, Any]) -> OverrideImport:
     """Reconstruct override object from session data using match statement."""
-    match session_data.get("publication_type"):
-        case "article" if journal_id := session_data.get("journal_id"):
-            return OverrideImport.as_article(JournalId(journal_id))
-        case "monograph" if publisher_id := session_data.get("publisher_id"):
-            return OverrideImport.as_monograph(PublisherId(publisher_id))
+    override = OverrideImportTypeAdapter.validate_python(session_data["override"])
+    # match session_data.get("publication_type"):
+    #     case "article" if journal_id := session_data.get("journal_id"):
+    #         override = OverrideImport.as_article(JournalId(journal_id))
+    #     case "monograph" if publisher_id := session_data.get("publisher_id"):
+    #         override = OverrideImport.as_monograph(PublisherId(publisher_id))
+    #     case _:
+    #         override = OverrideImport.empty()
 
-    return OverrideImport.empty()
+    return override
+
+
+def _dump_override(session_data: dict[str, Any], override: OverrideImport) -> None:
+    session_data["override"] = OverrideImportTypeAdapter.dump_python(override, mode="json")
 
 
 class DOIImportInputView(LoginRequiredMixin, View):
@@ -83,6 +91,7 @@ class DOIImportInputView(LoginRequiredMixin, View):
                 "original_metadata": metadata.model_dump(mode="json"),
                 "publication_type": detected_type,
             }
+            _dump_override(request.session[session_key], OverrideImport.empty())
 
             return redirect("fundingrequests:doi_preview_detail", session_key=session_key)
 
@@ -121,7 +130,7 @@ class DOIPreviewDetailView(LoginRequiredMixin, View):
         doi = Doi(session_data["doi"])
         metadata = ExternalPublicationMetadata.model_validate(session_data["original_metadata"])
         doi_service = DOIImportService(doi_client=self.doi_client, metadata_cache={doi: metadata})
-        override = _build_override_from_session(session_data)
+        override = _load_override(session_data)
 
         if override:
             preview_dto = doi_service.preview_with_override(doi, override)
@@ -165,7 +174,7 @@ class DOIPreviewSaveView(LoginRequiredMixin, View):
         doi = Doi(session_data["doi"])
         metadata = ExternalPublicationMetadata.model_validate(session_data["original_metadata"])
         doi_service = DOIImportService(doi_client=self.doi_client, metadata_cache={doi: metadata})
-        override = _build_override_from_session(session_data)
+        override = _load_override(session_data)
 
         try:
             fr_id = doi_service.import_from_doi(doi, override)
@@ -269,6 +278,7 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
 
     original_metadata = session_data.get("original_metadata", {})
 
+    override = _load_override(session_data)
     match requested_type:
         case "article":
             journal_id_str = request.POST.get("journal")
@@ -278,9 +288,9 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
                     session_key,
                     error="Please select a journal before applying.",
                 )
-            session_data["publication_type"] = "article"
-            session_data["journal_id"] = int(journal_id_str)
-            session_data.pop("publisher_id", None)
+
+            override = override.into_article(JournalId(int(journal_id_str)))
+            _dump_override(session_data, override)
         case "monograph":
             publisher_id_str = request.POST.get("publisher")
             if not publisher_id_str:
@@ -290,9 +300,8 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
                     original_metadata,
                     error="Please select a publisher before applying.",
                 )
-            session_data["publication_type"] = "monograph"
-            session_data["publisher_id"] = int(publisher_id_str)
-            session_data.pop("journal_id", None)
+            override = override.into_monograph(PublisherId(int(publisher_id_str)))
+            _dump_override(session_data, override)
 
     request.session[session_key] = session_data
     request.session.modified = True
@@ -315,12 +324,9 @@ def doi_preview_reset_type(request: HttpRequest, session_key: str) -> HttpRespon
     if not session_data:
         return HttpResponse("Preview session not found", status=404)
 
-    metadata = ExternalPublicationMetadata.model_validate(session_data["original_metadata"])
-    original_type = detect_publication_type(metadata)
-
-    session_data["publication_type"] = original_type
-    session_data.pop("journal_id", None)
-    session_data.pop("publisher_id", None)
+    override = _load_override(session_data)
+    override = override.drop_publication_type()
+    _dump_override(session_data, override)
 
     request.session[session_key] = session_data
     request.session.modified = True
@@ -329,3 +335,27 @@ def doi_preview_reset_type(request: HttpRequest, session_key: str) -> HttpRespon
         "fundingrequests:doi_preview_detail", kwargs={"session_key": session_key}
     )
     return response
+
+
+class DeleteFunding(CodaBaseDto):
+    funder: str
+    project_id: str
+
+
+OverrideImportTypeAdapter = TypeAdapter(OverrideImport)
+
+
+@login_required
+@require_POST
+def doi_preview_delete_funding(request: HttpRequest, session_key: str) -> HttpResponse:
+    session = request.session.get(session_key)
+    if not session:
+        return HttpResponseNotFound("Session not found")
+
+    delete = formdata.map_to_model(DeleteFunding, request.POST)
+    override = _load_override(session)
+    override = override.remove_funding(delete.funder, delete.project_id)
+    _dump_override(session, override)
+    request.session.modified = True
+
+    return HttpResponse()
