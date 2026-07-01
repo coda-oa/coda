@@ -6,6 +6,7 @@ from typing import Any, Generic, Self, TypeVar
 
 import pydantic
 from django import forms
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.template.loader import render_to_string
 from django.utils.datastructures import MultiValueDict
@@ -264,7 +265,7 @@ class HtmxDynamicFormset(Generic[FormType]):
         return self.render()
 
 
-class ManagementView(View, Generic[FormType]):
+class ManagementView(LoginRequiredMixin, View, Generic[FormType]):
     name: str
     form_class: type[FormType]
     add_button: bool = True
