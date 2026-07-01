@@ -7,7 +7,7 @@ from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from coda.apps.exports.models import FundingRequestCSVExport
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services.invoice_import import save
 from coda.domain.finance.invoice import CreditorId
 from coda.domain.publication.publication import PublicationId
 from tests import domainfactory, modelfactory
@@ -96,7 +96,7 @@ def test_fundingrequest_csv_export_create_view__is_opened__creates_export_and_re
     position = domainfactory.publication_position(PublicationId(fundingrequest.publication.id))
     creditor = modelfactory.creditor()
     invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position])
-    invoice_service.save(invoice)
+    save(invoice)
 
     period_start = "2024-01-01"
     period_end = "2024-12-31"
@@ -389,7 +389,7 @@ def test__fundingrequest_csv_regen__called_with_existing_export__regenerates_csv
     position = domainfactory.publication_position(PublicationId(fundingrequest.publication.id))
     creditor = modelfactory.creditor()
     invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position])
-    invoice_service.save(invoice)
+    save(invoice)
 
     export = FundingRequestCSVExport.objects.create(
         name="Regen Export",

@@ -101,7 +101,7 @@ def test__invoice_detail__query_count_within_budget(client: Client) -> None:
     count = _query_count(client, url)
 
     # The remaining ~2-3 queries/position slope is a pre-existing N+1 in the
-    # currency-conversion view-model path: invoice_parser._contract.to_itemdto
+    # currency-conversion view-model path: invoice_import._contract.to_itemdto
     # re-fetches each position's contract via contract_repository.get_by_id
     # even though it is already loaded (stack-verified). The domain mapping
     # itself is query-free (guarded by the repository test above).

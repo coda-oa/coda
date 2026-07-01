@@ -7,7 +7,7 @@ import pytest
 from coda.apps.contracts import repository
 from coda.apps.invoices import funding_source_repository
 from coda.contexts.finance.dto.edit_position_dtos import FundingAssignmentDto
-from coda.contexts.finance.services import invoice_parser
+from coda.contexts.finance.services.invoice_import import position_to_dto, to_position
 from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
@@ -58,8 +58,8 @@ def test__converting_position_to_dto_and_back__return_same_position(
 ) -> None:
     before = create_position()
 
-    dto = invoice_parser.position_to_dto(before)
-    after = invoice_parser.to_position(dto, before.cost.currency)
+    dto = position_to_dto(before)
+    after = to_position(dto, before.cost.currency)
 
     assert before == after
     assert before.net() == after.net()
@@ -74,7 +74,7 @@ def test__vat_position__converted_to_dto__has_only_tax_amount(
 ) -> None:
     position = create_position()
 
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
 
     assert dto.cost_amount == position.tax().amount
     assert dto.tax_rate == Decimal(0)
@@ -94,9 +94,9 @@ def test__position_with_funding_assignments__convert_to_dto_and_back__keeps_assi
     position.assign_funding(funding_source, position.net().amount / 2)
     position.assign_remaining(funding_source_2)
 
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
 
-    actual = invoice_parser.to_position(dto, currency=position.cost.currency)
+    actual = to_position(dto, currency=position.cost.currency)
 
     assert position == actual
 
@@ -113,7 +113,7 @@ def test__position_with_funding_assignments__convert_to_dto__dto_contains_unassi
     less = position.net().amount - 1
     position.assign_funding(funding_source, less)
 
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
 
     assert dto.unassigned_costs == Decimal(1)
 
@@ -124,11 +124,11 @@ def test__position_dto_with_empty_funding_assignment__does_not_assign_to_domain_
     create_position: Callable[[], Position],
 ) -> None:
     position = create_position()
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
 
     dto.funding_assignments.append(FundingAssignmentDto())
 
-    assert invoice_parser.to_position(dto, position.cost.currency) == position
+    assert to_position(dto, position.cost.currency) == position
 
 
 @pytest.mark.django_db
@@ -143,7 +143,7 @@ def test__position_with_funding_assignment__convert_to_dto__contains_budget_type
     position = create_position()
     position.assign_remaining(funding_source)
 
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
 
     funding_assignment = dto.funding_assignments[0]
     assert funding_assignment.funding_source_type == "institution"
@@ -158,13 +158,13 @@ def test__position_dto_with_funding_assignment_in_gross__convert_to_position__po
     budget.id = funding_source_repository.create(budget)
 
     position = create_position()
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
 
     total = position.total().amount
     dto.cost_basis_mode = CostBasis.gross
     dto.funding_assignments.append(FundingAssignmentDto(funding_source=budget.id, amount=total))
 
-    actual = invoice_parser.to_position(dto, position.cost.currency)
+    actual = to_position(dto, position.cost.currency)
 
     assert actual.funding_assignments(CostBasis.gross) == [
         FundingAssignment(budget, position.total())
@@ -185,7 +185,7 @@ def test__position_with_funding_assignments__convert_to_dto_as_gross__returns_dt
     position.assign_funding(budget_1, position.net().amount / 3)
     position.assign_funding(budget_1, position.net().amount / 3)
 
-    dto = invoice_parser.position_to_dto(position, CostBasis.gross)
+    dto = position_to_dto(position, CostBasis.gross)
 
     assert dto.cost_basis_mode == CostBasis.gross
     assert dto.funding_assignments == [
@@ -208,7 +208,7 @@ def test__position_with_unassigned_costs__convert_to_dto_as_gross__returns_dto_u
     position = create_position()
     position.assign_funding(budget, position.total().amount / 2, CostBasis.gross)
 
-    dto = invoice_parser.position_to_dto(position, CostBasis.gross)
+    dto = position_to_dto(position, CostBasis.gross)
 
     assert dto.unassigned_costs == position.unassigned_costs(CostBasis.gross).amount
 
@@ -221,10 +221,10 @@ def test__position_dto_with_unspecified_funding_source_in_assignment__converts_t
     position = create_position()
     position.assign_remaining(None)
 
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
     assert dto.funding_assignments[0].funding_source is None
 
-    position = invoice_parser.to_position(dto, position.cost.currency)
+    position = to_position(dto, position.cost.currency)
     assert position.funding_assignments()[0].funding_source is None
 
 
@@ -259,7 +259,7 @@ def test__position_dto_with_amount_all_and_selected_funding_source__assigns_full
     funding_source = create_funding_source()
 
     position = create_position()
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
 
     dto.funding_assignments.append(
         FundingAssignmentDto(
@@ -269,7 +269,7 @@ def test__position_dto_with_amount_all_and_selected_funding_source__assigns_full
         )
     )
 
-    parsed_position = invoice_parser.to_position(dto, position.cost.currency)
+    parsed_position = to_position(dto, position.cost.currency)
 
     assert len(parsed_position.funding_assignments()) == 1
     assignment = parsed_position.funding_assignments()[0]
@@ -285,8 +285,8 @@ def test__position_dto_with_amount_all_and_no_funding_source__does_not_create_a_
     create_position: Callable[[], Position],
 ) -> None:
     position = create_position()
-    dto = invoice_parser.position_to_dto(position)
+    dto = position_to_dto(position)
     dto.funding_assignments.append(FundingAssignmentDto(funding_source=None, amount="all"))
 
-    actual = invoice_parser.to_position(dto, position.cost.currency)
+    actual = to_position(dto, position.cost.currency)
     assert actual.funding_assignments() == []
