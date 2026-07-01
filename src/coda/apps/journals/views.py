@@ -1,10 +1,10 @@
-from typing import Any, cast
+from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils.safestring import mark_safe
@@ -83,17 +83,6 @@ class JournalUpdateView(LoginRequiredMixin, UpdateView[Journal, JournalForm]):
 
 
 journal_update_view = JournalUpdateView.as_view()
-
-
-@login_required
-def block_journal(request: HttpRequest, pk: int) -> HttpResponse:
-    reason = request.POST.get("reason", "PREDATORY")
-    journal = get_object_or_404(Journal, pk=pk)
-
-    blocklist = BlockList.objects.get()
-    blocklist.block_journal(journal, reason)
-
-    return cast(HttpResponse, journal_detail_view(request, eissn=journal.eissn))
 
 
 @login_required
