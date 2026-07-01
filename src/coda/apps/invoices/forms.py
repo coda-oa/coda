@@ -15,7 +15,7 @@ class InvoiceForm(forms.Form):
     creditor = forms.ModelChoiceField[Creditor](queryset=Creditor.objects.all(), label="Creditor*")
     currency = currency_field()
     status = forms.ChoiceField(
-        choices=[(s.value, s.value) for s in PaymentStatus],
+        choices=PaymentStatus.choices(),
         initial=PaymentStatus.Unpaid.value,
     )
     external_invoice_id = forms.CharField(

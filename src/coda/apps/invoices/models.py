@@ -4,6 +4,7 @@ from django.urls import reverse
 from coda.apps.contracts.models import Contract
 from coda.apps.institutions.models import Institution
 from coda.apps.publications.models import Publication
+from coda.domain.finance.invoice import PaymentStatus
 
 
 class FundingSource(models.Model):
@@ -30,9 +31,19 @@ class Invoice(models.Model):
     creditor = models.ForeignKey(Creditor, on_delete=models.CASCADE)
     date = models.DateField()
     number = models.CharField(max_length=255)
-    status = models.CharField(max_length=255, default="unpaid")
+    status = models.CharField(
+        max_length=255, default=PaymentStatus.Unpaid.value, choices=PaymentStatus.choices()
+    )
     comment = models.TextField(blank=True)
     external_invoice_id = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(status__in=[s.value for s in PaymentStatus]),
+                name="invoice_status_valid",
+            ),
+        ]
 
     def get_absolute_url(self) -> str:
         return reverse("invoices:detail", kwargs={"pk": self.pk})
