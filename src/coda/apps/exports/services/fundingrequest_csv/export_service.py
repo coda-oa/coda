@@ -1,12 +1,11 @@
-from datetime import date
 from io import StringIO
-from typing import Any
 
 import polars as pl
 
 from coda.apps.exports.services.fundingrequest_csv import queries
 from coda.apps.exports.services.fundingrequest_csv.flatteners import flatten_detailed
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_funding_request_to_export_dto
+from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
 
 CSV_COLUMNS = [
     "legacy_request_id",
@@ -61,27 +60,21 @@ CSV_COLUMNS = [
 
 
 def export_fundingrequests_to_csv(
-    period_start: date,
-    period_end: date,
-    **filter_params: Any,
+    params: FundingRequestSearchParams,
 ) -> str:
+    # 1. Get funding requests using the shared params
+    funding_requests = queries.get_funding_requests_for_export(params)
 
-    # 1. Get funding requests for the specified period (using queries.py)
-    funding_requests = queries.get_funding_requests_for_export(
-        period_start=period_start,
-        period_end=period_end,
-        **filter_params,
-    )
-    # 2. Map to export DTOs (using mappers.py)
+    # 2. Map to export DTOs
     export_dtos = [
         map_funding_request_to_export_dto(
             fr,
-            funding_source=filter_params.get("funding_source"),
+            funding_source=params.funding_source,
         )
         for fr in funding_requests
     ]
 
-    # 3. Flatten to CSV rows (using flatteners.py)
+    # 3. Flatten to CSV rows
     all_rows = []
     for dto in export_dtos:
         rows = flatten_detailed(dto)

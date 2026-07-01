@@ -9,13 +9,15 @@ from coda.apps.contracts.models import Contract
 from coda.apps.invoices.models import FundingSource
 from coda.apps.fundingrequests.fundingrequest_query import (
     PaymentStatus as FundingRequestPaymentStatus,
+    FundingRequestSearchParams,
+    PublicationEntityType,
 )
+from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
 from coda.domain.publication.publication import UnpublishedState
-from coda.apps.fundingrequests.fundingrequest_query import PublicationEntityType
 
 # ---------------------------------------------------------------------------
 # Shared choice lists used in both filter forms.
@@ -70,25 +72,8 @@ def build_filters_from_request(
     return filters
 
 
-# ---------------------------------------------------------------------------
-# Shared typed-value container returned by parse_common_filter_fields.
-# ---------------------------------------------------------------------------
-@dataclass
-class CommonFilterFields:
-    review_results: list[ReviewResult]
-    payment_statuses: list[FundingRequestPaymentStatus]
-    labels: list[int]
-    exclude_labels: list[int]
-    payment_methods: list[PaymentMethod]
-    open_access_types: list[OpenAccessType]
-    publication_states: list[str]
-    entity_type: PublicationEntityType | None
-    funding_source: FundingSourceId | None
-    contract: int | None
-
-
-def parse_common_filter_fields(filters: dict[str, str]) -> CommonFilterFields:
-    """Parse the filter fields shared by CSV exports and openCost reports."""
+def parse_common_filter_fields(filters: dict[str, str]) -> FundingRequestSearchParams:
+    """Parse filter fields into a FundingRequestSearchParams object."""
     review_results = [
         ReviewResult(rr) for rr in filters.get("processing_status", "").split(",") if rr
     ]
@@ -106,15 +91,32 @@ def parse_common_filter_fields(filters: dict[str, str]) -> CommonFilterFields:
     publication_states = [ps for ps in filters.get("publication_states", "").split(",") if ps]
 
     entity_type_raw = filters.get("publication_type") or filters.get("entity_type")
-    entity_type = PublicationEntityType(entity_type_raw) if entity_type_raw else None
+    entity_type = (
+        PublicationEntityType(entity_type_raw) if entity_type_raw else PublicationEntityType.All
+    )
 
     funding_source_raw = filters.get("funding_source")
     funding_source = FundingSourceId(int(funding_source_raw)) if funding_source_raw else None
 
     contract_raw = filters.get("contract_name") or filters.get("contract")
-    contract = int(contract_raw) if contract_raw else None
+    contract_id = int(contract_raw) if contract_raw else None
 
-    return CommonFilterFields(
+    # Parse date range
+    start_str = filters.get("period_start")
+    end_str = filters.get("period_end")
+    date_range = None
+    if start_str and end_str:
+        try:
+            start = datetime.strptime(start_str, "%Y-%m-%d").date()
+            end = datetime.strptime(end_str, "%Y-%m-%d").date()
+            date_range = DateRange(start, end)
+        except ValueError:
+            pass
+
+    search_term = filters.get("search_term", "")
+
+    return FundingRequestSearchParams(
+        date_range=date_range,
         review_results=review_results,
         payment_statuses=payment_statuses,
         labels=labels,
@@ -123,8 +125,9 @@ def parse_common_filter_fields(filters: dict[str, str]) -> CommonFilterFields:
         open_access_types=open_access_types,
         publication_states=publication_states,
         entity_type=entity_type,
+        search_term=search_term,
+        contract_id=contract_id,
         funding_source=funding_source,
-        contract=contract,
     )
 
 

@@ -3,12 +3,14 @@ from decimal import Decimal
 
 import pytest
 
+from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.report_service import generate_report
 from coda.apps.opencost.validation import validate_report
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models._links import LinkType, Link
 
+from coda.domain.date import DateRange
 from tests import modelfactory
 from tests.opencost.helpers import (
     create_contract_with_identifiers,
@@ -60,8 +62,9 @@ def test_validate_report_contract_missing_esac_id() -> None:
 
     report = generate_report(
         title="Test Report",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
+        params=FundingRequestSearchParams(
+            date_range=DateRange(date(2024, 1, 1), date(2024, 12, 31)),
+        ),
     )
 
     warnings = validate_report(report)
@@ -87,8 +90,9 @@ def test_validate_report_publication_missing_doi() -> None:
 
     report = generate_report(
         title="Test Report",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
+        params=FundingRequestSearchParams(
+            date_range=DateRange(date(2024, 1, 1), date(2024, 12, 31)),
+        ),
     )
 
     warnings = validate_report(report)
@@ -108,10 +112,12 @@ def test_validation_caching_consistency() -> None:
     contract.end_date = date(2024, 12, 31)
     contract.save()
 
+    params = FundingRequestSearchParams(
+        date_range=DateRange(date(2024, 1, 1), date(2024, 12, 31)),
+    )
     report = generate_report(
         title="Caching Test Report",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
+        params=params,
     )
 
     # Call validation methods multiple times
@@ -157,8 +163,9 @@ def test_has_issues_returns_false_for_clean_report() -> None:
 
     report = generate_report(
         title="Clean Report",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
+        params=FundingRequestSearchParams(
+            date_range=DateRange(date(2024, 1, 1), date(2024, 12, 31)),
+        ),
     )
 
     assert report.has_issues() is False
@@ -204,8 +211,9 @@ def test_get_issue_counts_separates_errors_and_warnings() -> None:
 
     report = generate_report(
         title="Mixed Issues Report",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
+        params=FundingRequestSearchParams(
+            date_range=DateRange(date(2024, 1, 1), date(2024, 12, 31)),
+        ),
     )
 
     counts = report.get_issue_counts()

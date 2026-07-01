@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch, Count
 from django.http import HttpRequest, HttpResponse
@@ -26,10 +24,9 @@ from coda.apps.opencost.models import (
 from coda.apps.contracts.models import ContractLink
 from coda.apps.opencost.report_service import (
     generate_report as generate_report_service,
-    ReportFilters,
 )
 from coda.apps.exports.services.filter_display import (
-    CommonFilterFields,
+    # CommonFilterFields,
     build_applied_filters,
     build_filter_form_context,
     build_filters_from_request,
@@ -217,31 +214,13 @@ def generate_report(request: HttpRequest) -> HttpResponse:
             messages.error(request, "Both start and end dates are required.")
             return redirect("opencost:generate")
 
-        period_start = datetime.strptime(period_start_str, "%Y-%m-%d").date()
-        period_end = datetime.strptime(period_end_str, "%Y-%m-%d").date()
-
-        filters = _build_report_filters(request)
-        parsed_filters = _parse_report_filter_dict(filters)
-
-        report_filters = ReportFilters(
-            filters=filters,
-            review_results=parsed_filters.review_results,
-            payment_statuses=parsed_filters.payment_statuses,
-            labels=parsed_filters.labels,
-            exclude_labels=parsed_filters.exclude_labels,
-            payment_methods=parsed_filters.payment_methods,
-            open_access_types=parsed_filters.open_access_types,
-            publication_states=parsed_filters.publication_states,
-            entity_type=parsed_filters.entity_type,
-            funding_source=parsed_filters.funding_source,
-            contract=parsed_filters.contract,
-        )
+        # Build params from request using shared filter parsing
+        filters = build_filters_from_request(request)
+        params = parse_common_filter_fields(filters)
 
         report = generate_report_service(
             title=title,
-            period_start=period_start,
-            period_end=period_end,
-            report_filters=report_filters,
+            params=params,
         )
 
         if report.has_issues():
@@ -260,14 +239,6 @@ def generate_report(request: HttpRequest) -> HttpResponse:
     except Exception as e:
         messages.error(request, f"Error generating report: {str(e)}")
         return redirect("opencost:generate")
-
-
-def _parse_report_filter_dict(filters: dict[str, str]) -> CommonFilterFields:
-    return parse_common_filter_fields(filters)
-
-
-def _build_report_filters(request: HttpRequest) -> dict[str, str]:
-    return build_filters_from_request(request)
 
 
 def _get_report_form_context() -> dict[str, object]:

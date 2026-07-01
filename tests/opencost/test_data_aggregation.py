@@ -19,6 +19,8 @@ from tests.opencost.helpers import (
 )
 from decimal import Decimal
 
+from tests.exports.fundingrequest_csv.helpers import _make_params
+
 
 @pytest.mark.django_db
 def test__publications_of_different_dates__querying_specific_time_range__only_returns_publications_in_range() -> (
@@ -59,8 +61,10 @@ def test__publications_of_different_dates__querying_specific_time_range__only_re
     )
 
     query_results = get_publications_for_period(
-        start_date=date(2023, 2, 1),
-        end_date=date(2023, 2, 28),
+        _make_params(
+            date(2023, 2, 1),
+            date(2023, 2, 28),
+        )
     )
 
     assert publication_in_period_1 in query_results
@@ -82,8 +86,10 @@ def test__publication_with_invoice__querying_data__invoice_data_is_available() -
     )
 
     results = get_publications_for_period(
-        start_date=date(2024, 6, 1),
-        end_date=date(2024, 6, 30),
+        _make_params(
+            date(2024, 6, 1),
+            date(2024, 6, 30),
+        )
     )
 
     assert publication in results
@@ -185,8 +191,10 @@ def test_get_publications_for_period_works_without_invoice_parameter() -> None:
 
     # Call without invoice parameter (backward compatibility)
     publications = get_publications_for_period(
-        start_date=date(2024, 1, 1),
-        end_date=date(2024, 12, 31),
+        _make_params(
+            date(2024, 1, 1),
+            date(2024, 12, 31),
+        )
     )
 
     # Should still work
@@ -217,8 +225,7 @@ def test_get_publications_for_period_works_with_invoice_parameter() -> None:
 
     # Call with invoice parameter
     publications = get_publications_for_period(
-        start_date=date(2024, 1, 1),
-        end_date=date(2024, 12, 31),
+        _make_params(date(2024, 1, 1), date(2024, 12, 31)),
         invoices_in_period=invoices,
     )
 
@@ -318,9 +325,11 @@ def test__review_result_filter__querying_publications_for_period__returns_only_m
     )
 
     publications = get_publications_for_period(
-        start_date=date(2024, 6, 1),
-        end_date=date(2024, 6, 30),
-        review_results=[ReviewResult.Approved],
+        _make_params(
+            date(2024, 6, 1),
+            date(2024, 6, 30),
+            review_results=[ReviewResult.Approved],
+        )
     )
 
     assert fr_approved.publication in publications

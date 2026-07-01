@@ -1,6 +1,7 @@
 import logging
 from datetime import date
 from typing import TYPE_CHECKING
+import copy
 
 from django.db.models import Prefetch, QuerySet
 from coda.apps.authors.models import Author
@@ -11,9 +12,6 @@ from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.publications.models import Publication
 from coda.apps.publications.models._links import Link
 from coda.domain.finance.invoice import FundingSourceId
-from coda.domain.fundingrequest.fundingrequest import PaymentMethod
-from coda.domain.fundingrequest.review import ReviewResult
-from coda.domain.publication.publication import OpenAccessType
 
 if TYPE_CHECKING:
     from coda.apps.opencost.report_service import InstitutionHierarchyCache
@@ -22,19 +20,14 @@ logger = logging.getLogger(__name__)
 
 
 def get_publications_for_period(
-    start_date: date,
-    end_date: date,
+    params: fundingrequest_query.FundingRequestSearchParams,
     invoices_in_period: QuerySet[Invoice] | None = None,
-    review_results: list[ReviewResult] | None = None,
-    payment_statuses: list[fundingrequest_query.PaymentStatus] | None = None,
-    labels: list[int] | None = None,
-    exclude_labels: list[int] | None = None,
-    payment_methods: list[PaymentMethod] | None = None,
-    open_access_types: list[OpenAccessType] | None = None,
-    publication_states: list[str] | None = None,
-    entity_type: fundingrequest_query.PublicationEntityType | None = None,
-    contract: int | None = None,
 ) -> QuerySet[Publication]:
+    # Extract date range – must be provided
+    assert params.date_range is not None, "date_range is required for get_publications_for_period"
+    start_date = params.date_range.start
+    end_date = params.date_range.end
+
     if invoices_in_period is None:
         invoices_in_period = get_invoices_for_period(start_date, end_date)
 
@@ -48,7 +41,7 @@ def get_publications_for_period(
         start_date,
         end_date,
         invoices_in_period=invoices_in_period,
-        contract=contract,
+        contract=params.contract_id,
     )
 
     publication_ids_attached_to_contracts = (
@@ -65,18 +58,8 @@ def get_publications_for_period(
         publication_ids_attached_to_contracts
     )
 
-    # Apply funding request-side filters (mirrors CSV export semantics) when provided.
-    filtered_publication_ids = _get_filtered_fundingrequest_publication_ids(
-        review_results=review_results,
-        payment_statuses=payment_statuses,
-        labels=labels,
-        exclude_labels=exclude_labels,
-        payment_methods=payment_methods,
-        open_access_types=open_access_types,
-        publication_states=publication_states,
-        entity_type=entity_type,
-        contract=contract,
-    )
+    # Apply funding request-side filters using the shared params
+    filtered_publication_ids = _get_filtered_fundingrequest_publication_ids(params)
     if filtered_publication_ids is not None:
         all_publication_ids &= filtered_publication_ids
 
@@ -84,13 +67,8 @@ def get_publications_for_period(
         "invoice", "invoice__creditor"
     )
 
-    # Prefetch publication links with their types
     links_with_types = Link.objects.select_related("type")
-
-    # Prefetch institution links with their types
     institution_links_with_types = InstitutionLink.objects.select_related("type")
-
-    # Prefetch authors with their affiliations and affiliation links
     authors_with_affiliation = Author.objects.select_related("affiliation").prefetch_related(
         Prefetch("affiliation__links", queryset=institution_links_with_types)
     )
@@ -182,29 +160,12 @@ def get_contracts_for_period(
 
 
 def _get_filtered_fundingrequest_publication_ids(
-    review_results: list[ReviewResult] | None = None,
-    payment_statuses: list[fundingrequest_query.PaymentStatus] | None = None,
-    labels: list[int] | None = None,
-    exclude_labels: list[int] | None = None,
-    payment_methods: list[PaymentMethod] | None = None,
-    open_access_types: list[OpenAccessType] | None = None,
-    publication_states: list[str] | None = None,
-    entity_type: fundingrequest_query.PublicationEntityType | None = None,
-    contract: int | None = None,
+    params: fundingrequest_query.FundingRequestSearchParams,
 ) -> set[int] | None:
-    params = fundingrequest_query.FundingRequestSearchParams(
-        review_results=review_results,
-        payment_statuses=payment_statuses,
-        labels=labels,
-        exclude_labels=exclude_labels,
-        payment_methods=payment_methods,
-        open_access_types=open_access_types,
-        publication_states=publication_states,
-        entity_type=entity_type or fundingrequest_query.PublicationEntityType.All,
-        contract_id=contract,
-    )
-
-    criteria = fundingrequest_query.build_criteria(params)
+    # Exclude date_range – openCost filters by invoice/contract dates, not request_date
+    params_no_date = copy.copy(params)
+    params_no_date.date_range = None
+    criteria = fundingrequest_query.build_criteria(params_no_date)
 
     if not criteria:
         return None

@@ -226,9 +226,6 @@ def test__invoice_with_multiple_positions__maps_to_dto__maps_all_positions_corre
 
     dto = map_invoice_to_dto(invoice, funding_request)
 
-    print(invoice.positions.count())
-    print(list(invoice.positions.all()))
-
     assert len(dto.positions) == 3
     assert isinstance(dto.positions[0], PublicationPositionImportDto)
     assert isinstance(dto.positions[1], ContractPositionImportDto)

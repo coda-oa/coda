@@ -18,6 +18,9 @@ from coda.domain.fundingrequest import FundingRequestId
 from coda.apps.fundingrequests.repository import save_review
 
 
+from tests.exports.fundingrequest_csv.helpers import _make_params
+
+
 @pytest.mark.django_db
 def test__single_funding_request_with_one_invoice__export_to_csv__returns_csv_with_one_row() -> (
     None
@@ -44,7 +47,7 @@ def test__single_funding_request_with_one_invoice__export_to_csv__returns_csv_wi
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
-    requests_exports = export_fundingrequests_to_csv(period_start, period_end)
+    requests_exports = export_fundingrequests_to_csv(_make_params(period_start, period_end))
 
     assert isinstance(requests_exports, str)
     assert requests_exports
@@ -69,7 +72,7 @@ def test__funding_request_without_invoices__export_to_csv__returns_one_row_with_
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
-    requests_exports = export_fundingrequests_to_csv(period_start, period_end)
+    requests_exports = export_fundingrequests_to_csv(_make_params(period_start, period_end))
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
     assert df.height == 1
@@ -89,7 +92,7 @@ def test__no_funding_requests_in_period__export_to_csv__returns_csv_with_only_he
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
-    requests_exports = export_fundingrequests_to_csv(period_start, period_end)
+    requests_exports = export_fundingrequests_to_csv(_make_params(period_start, period_end))
 
     assert isinstance(requests_exports, str)
     assert requests_exports
@@ -138,7 +141,7 @@ def test__funding_request_with_invoice_position_with_multiple_funding_assignment
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
-    requests_exports = export_fundingrequests_to_csv(period_start, period_end)
+    requests_exports = export_fundingrequests_to_csv(_make_params(period_start, period_end))
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
     assert df.height == 2
@@ -195,7 +198,7 @@ def test__funding_request_with_multiple_invoices__export_to_csv__creates_multipl
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
-    requests_exports = export_fundingrequests_to_csv(period_start, period_end)
+    requests_exports = export_fundingrequests_to_csv(_make_params(period_start, period_end))
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
     assert df.height == 2
@@ -240,7 +243,7 @@ def test__funding_request_with_review_result__export_to_csv__includes_review_res
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
-    requests_exports = export_fundingrequests_to_csv(period_start, period_end)
+    requests_exports = export_fundingrequests_to_csv(_make_params(period_start, period_end))
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
     assert df.height == 1
@@ -290,7 +293,7 @@ def test__funding_request_with_invoice_filters_funding_source__export_to_csv__re
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
     requests_exports = export_fundingrequests_to_csv(
-        period_start, period_end, funding_source=funding_source
+        _make_params(period_start, period_end, funding_source=funding_source)
     )
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
@@ -374,10 +377,12 @@ def test__funding_request_with_combined_filters__export_to_csv__returns_correctl
     fa = FundingAssignment.objects.get(position=position)
     assert fa.funding_source is not None
     requests_exports = export_fundingrequests_to_csv(
-        period_start,
-        period_end,
-        review_results=[ReviewResult.Approved],
-        funding_source=FundingSourceId(fa.funding_source.pk),
+        _make_params(
+            period_start,
+            period_end,
+            review_results=[ReviewResult.Approved],
+            funding_source=FundingSourceId(fa.funding_source.pk),
+        )
     )
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
@@ -403,8 +408,10 @@ def test__funding_request_with_attached_contract_without_invoice__export_to_csv_
     )
 
     requests_exports = export_fundingrequests_to_csv(
-        date(2026, 1, 1),
-        date(2026, 12, 31),
+        _make_params(
+            date(2026, 1, 1),
+            date(2026, 12, 31),
+        )
     )
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
@@ -441,9 +448,11 @@ def test__funding_request_with_contract_filter__export_to_csv__returns_only_matc
     )
 
     requests_exports = export_fundingrequests_to_csv(
-        date(2026, 1, 1),
-        date(2026, 12, 31),
-        contract=matching_contract.id,
+        _make_params(
+            date(2026, 1, 1),
+            date(2026, 12, 31),
+            contract_id=matching_contract.id,
+        )
     )
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
@@ -485,8 +494,10 @@ def test__shared_invoice_across_multiple_publications__export_to_csv__does_not_d
         )
 
     requests_exports = export_fundingrequests_to_csv(
-        date(2025, 1, 1),
-        date(2025, 12, 31),
+        _make_params(
+            date(2025, 1, 1),
+            date(2025, 12, 31),
+        )
     )
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")

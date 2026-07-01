@@ -1,5 +1,3 @@
-from datetime import date, datetime
-from typing import Any
 from io import StringIO
 from django.contrib import messages
 
@@ -9,12 +7,12 @@ from django.core.files.base import ContentFile
 from django.http import FileResponse, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.text import slugify
-from dataclasses import asdict, dataclass
 
 from coda.apps.exports.models import FundingRequestCSVExport
 from coda.apps.exports.services.fundingrequest_csv.export_service import (
     export_fundingrequests_to_csv,
 )
+from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
 from coda.apps.views import SimpleSearchEntityListView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -22,7 +20,6 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.exports.services.filter_display import (
-    CommonFilterFields,
     build_applied_filters,
     build_filter_form_context,
     build_filters_from_request,
@@ -177,33 +174,9 @@ def fundingrequest_download_csv(
 # helpers
 
 
-@dataclass
-class ParsedExportFilters:
-    common: CommonFilterFields
-    period_start: date  # Funding request date range
-    period_end: date
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            **asdict(self.common),
-            "period_start": self.period_start,
-            "period_end": self.period_end,
-        }
-
-
-def _parse_filter_dict(
-    filters: dict[str, str],
-) -> ParsedExportFilters:
-    period_start = datetime.strptime(filters["period_start"], "%Y-%m-%d").date()
-    period_end = datetime.strptime(filters["period_end"], "%Y-%m-%d").date()
-
-    common = parse_common_filter_fields(filters)
-
-    return ParsedExportFilters(
-        common=common,
-        period_start=period_start,
-        period_end=period_end,
-    )
+def _parse_filter_dict(filters: dict[str, str]) -> FundingRequestSearchParams:
+    """Parse filter dict into a FundingRequestSearchParams object."""
+    return parse_common_filter_fields(filters)
 
 
 def _create_preview_dataframe(
@@ -237,17 +210,9 @@ def _get_export_form_context() -> dict[str, object]:
     return build_filter_form_context()
 
 
-def _generate_csv_from_filters(
-    filters: dict[str, str],
-) -> str:
-
-    parsed_filters = _parse_filter_dict(
-        filters,
-    )
-
-    return export_fundingrequests_to_csv(
-        **parsed_filters.to_dict(),
-    )
+def _generate_csv_from_filters(filters: dict[str, str]) -> str:
+    params = _parse_filter_dict(filters)
+    return export_fundingrequests_to_csv(params)
 
 
 def _create_redo_url(export: FundingRequestCSVExport) -> str:

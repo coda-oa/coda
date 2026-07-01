@@ -3,9 +3,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 from typing import NamedTuple
-from dataclasses import dataclass
 
-from django.db import transaction
 from django.db.models import Prefetch
 from coda.apps.contracts.models import Contract
 from coda.apps.institutions.models import Institution
@@ -34,10 +32,6 @@ from coda.apps.opencost.validation import validate_report
 from coda.apps.publications.models import Publication
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.fundingrequests import fundingrequest_query
-from coda.domain.finance.invoice import FundingSourceId
-from coda.domain.fundingrequest.fundingrequest import PaymentMethod
-from coda.domain.fundingrequest.review import ReviewResult
-from coda.domain.publication.publication import OpenAccessType
 
 logger = logging.getLogger(__name__)
 
@@ -146,30 +140,12 @@ class ContractSnapshotData(NamedTuple):
     invoice_data: dict[int, list[Position]]  # {invoice_id: [positions]}
 
 
-@dataclass(frozen=True)
-class ReportFilters:
-    filters: dict[str, str] | None = None
-    review_results: list[ReviewResult] | None = None
-    payment_statuses: list[fundingrequest_query.PaymentStatus] | None = None
-    labels: list[int] | None = None
-    exclude_labels: list[int] | None = None
-    payment_methods: list[PaymentMethod] | None = None
-    open_access_types: list[OpenAccessType] | None = None
-    publication_states: list[str] | None = None
-    entity_type: fundingrequest_query.PublicationEntityType | None = None
-    funding_source: FundingSourceId | None = None
-    contract: int | None = None
-
-
 logger = logging.getLogger(__name__)
 
 
-@transaction.atomic
 def generate_report(
     title: str,
-    period_start: date,
-    period_end: date,
-    report_filters: ReportFilters | None = None,
+    params: fundingrequest_query.FundingRequestSearchParams,
 ) -> OpenCostReport:
     """
     Generate OpenCost report using bulk operations for maximum performance.
@@ -183,47 +159,39 @@ def generate_report(
 
     Performance: ~50-80 queries regardless of dataset size
     """
-    logger.info(f"Starting OpenCost report generation: '{title}' ({period_start} to {period_end})")
+    assert params.date_range is not None, "date_range is required for generate_report"
+    start_date = params.date_range.start
+    end_date = params.date_range.end
 
-    report_filters = report_filters or ReportFilters()
+    logger.info(f"Starting OpenCost report generation: '{title}' ({start_date} to {end_date})")
 
     # SETUP PHASE
     report = OpenCostReport.objects.create(
         title=title,
-        period_start=period_start,
-        period_end=period_end,
-        filters=report_filters.filters or {},
+        period_start=start_date,
+        period_end=end_date,
+        filters=_params_to_filters_dict(params),
     )
     logger.debug(f"Created report record: {report.id}")
 
     home_institution_cache = _build_home_institution_cache()
     invoices_in_period = get_invoices_for_period(
-        start_date=period_start,
-        end_date=period_end,
-        funding_source=report_filters.funding_source,
+        start_date=start_date,
+        end_date=end_date,
+        funding_source=params.funding_source,
     )
 
     # DATA AGGREGATION PHASE
     logger.info("Fetching publications and contracts...")
     publications = get_publications_for_period(
-        start_date=period_start,
-        end_date=period_end,
+        params=params,
         invoices_in_period=invoices_in_period,
-        review_results=report_filters.review_results,
-        payment_statuses=report_filters.payment_statuses,
-        labels=report_filters.labels,
-        exclude_labels=report_filters.exclude_labels,
-        payment_methods=report_filters.payment_methods,
-        open_access_types=report_filters.open_access_types,
-        publication_states=report_filters.publication_states,
-        entity_type=report_filters.entity_type,
-        contract=report_filters.contract,
     )
     contracts = get_contracts_for_period(
-        start_date=period_start,
-        end_date=period_end,
+        start_date=start_date,
+        end_date=end_date,
         invoices_in_period=invoices_in_period,
-        contract=report_filters.contract,
+        contract=params.contract_id,
     )
     logger.debug(f"Fetched {len(publications)} publications, {len(contracts)} contracts")
 
@@ -1065,3 +1033,36 @@ def _get_contract_secondary_identifiers(contract: Contract) -> list[tuple[str, s
             identifier_type = link.type.name.lower()
             identifiers.append((identifier_type, link.value))
     return identifiers
+
+
+def _params_to_filters_dict(
+    params: fundingrequest_query.FundingRequestSearchParams,
+) -> dict[str, str]:
+    """Convert FundingRequestSearchParams to a dict for storage in the report."""
+    filters: dict[str, str] = {}
+    if params.date_range:
+        filters["period_start"] = params.date_range.start.isoformat()
+        filters["period_end"] = params.date_range.end.isoformat()
+    if params.review_results:
+        filters["processing_status"] = ",".join(rr.value for rr in params.review_results)
+    if params.payment_statuses:
+        filters["payment_status"] = ",".join(ps.value for ps in params.payment_statuses)
+    if params.labels:
+        filters["labels"] = ",".join(str(label) for label in params.labels)
+    if params.exclude_labels:
+        filters["exclude_labels"] = ",".join(str(label) for label in params.exclude_labels)
+    if params.payment_methods:
+        filters["payment_methods"] = ",".join(pm.value for pm in params.payment_methods)
+    if params.open_access_types:
+        filters["open_access_type"] = ",".join(oat.name for oat in params.open_access_types)
+    if params.publication_states:
+        filters["publication_states"] = ",".join(params.publication_states)
+    if params.entity_type != fundingrequest_query.PublicationEntityType.All:
+        filters["publication_type"] = params.entity_type.value
+    if params.search_term:
+        filters["search_term"] = params.search_term
+    if params.contract_id is not None:
+        filters["contract_name"] = str(params.contract_id)
+    if params.funding_source is not None:
+        filters["funding_source"] = str(params.funding_source)
+    return filters

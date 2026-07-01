@@ -17,6 +17,8 @@ from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.invoices.models import FundingAssignment
 from coda.domain.finance.invoice import FundingSourceId
 
+from tests.exports.fundingrequest_csv.helpers import _make_params
+
 
 @pytest.mark.django_db
 def test__funding_requests_with_different_request_dates__query_for_export__returns_only_matching_funding_requests() -> (
@@ -30,10 +32,7 @@ def test__funding_requests_with_different_request_dates__query_for_export__retur
     fr_june.request_date = date(2026, 6, 15)
     fr_june.save()
 
-    results = get_funding_requests_for_export(
-        period_start=date(2026, 1, 1),
-        period_end=date(2026, 3, 31),
-    )
+    results = get_funding_requests_for_export(_make_params(date(2026, 3, 1), date(2026, 3, 31)))
 
     assert list(results) == [fr_march]
 
@@ -59,9 +58,11 @@ def test__funding_requests_with_different_review_results__query_with_review_filt
     )
 
     results = get_funding_requests_for_export(
-        period_start=date(2026, 3, 1),
-        period_end=date(2026, 3, 31),
-        review_results=[ReviewResult.Approved],
+        _make_params(
+            date(2026, 3, 1),
+            date(2026, 3, 31),
+            review_results=[ReviewResult.Approved],
+        )
     )
 
     assert list(results) == [fr_approved]
@@ -85,9 +86,11 @@ def test__funding_requests_with_different_payment_statuses__query_with_payment_s
     )
 
     results = get_funding_requests_for_export(
-        period_start=date(2026, 3, 1),
-        period_end=date(2026, 3, 31),
-        payment_statuses=[fundingrequest_query.PaymentStatus.Paid],
+        _make_params(
+            date(2026, 3, 1),
+            date(2026, 3, 31),
+            payment_statuses=[fundingrequest_query.PaymentStatus.Paid],
+        )
     )
 
     assert list(results) == [fr_paid]
@@ -174,10 +177,12 @@ def test__combining_funding_request_and_invoice_filters__query_with_combined_fil
 
     # Act: Query with combined FR + Invoice filters
     results = get_funding_requests_for_export(
-        period_start=date(2026, 3, 1),
-        period_end=date(2026, 3, 31),
-        review_results=[ReviewResult.Approved],
-        funding_source=FundingSourceId(budget1.pk),
+        _make_params(
+            date(2026, 3, 1),
+            date(2026, 3, 31),
+            review_results=[ReviewResult.Approved],
+            funding_source=FundingSourceId(budget1.pk),
+        )
     )
 
     assert list(results) == [fr1]
@@ -197,8 +202,10 @@ def test__query_with_prefetch__accessing_related_objects__does_not_trigger_addit
     # Act: Query and access all prefetched relationships
     with CaptureQueriesContext(connection) as context:
         results = get_funding_requests_for_export(
-            period_start=date(2026, 3, 1),
-            period_end=date(2026, 3, 31),
+            _make_params(
+                date(2026, 3, 1),
+                date(2026, 3, 31),
+            )
         )
 
         # Access all prefetched relationships - should NOT trigger additional queries
