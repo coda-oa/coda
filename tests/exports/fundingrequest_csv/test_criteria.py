@@ -5,7 +5,7 @@ from decimal import Decimal
 from tests import modelfactory
 from coda.apps.invoices.models import FundingAssignment, Position
 
-from coda.apps.exports.services.fundingrequest_csv.criteria import (
+from coda.apps.fundingrequests.fundingrequest_query import (
     InvoiceFundingSourceCriteria,
 )
 from coda.apps.fundingrequests import fundingrequest_query

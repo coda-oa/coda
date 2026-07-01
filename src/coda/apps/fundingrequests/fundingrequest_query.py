@@ -8,6 +8,7 @@ from django.db.models.functions import ExtractYear
 from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.domain.date import DateRange
+from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication.publication import OpenAccessType
@@ -263,3 +264,67 @@ def search(
 ) -> QuerySet[FundingRequest]:
     qs = FundingRequest.objects.filter(_to_query(*criteria)).distinct().order_by(sort_order)
     return FundingRequestListMapper.prefetch(qs)
+
+
+@dataclass
+class InvoiceFundingSourceCriteria:
+    funding_source: FundingSourceId
+
+    def _to_query(self) -> Q:
+        return Q(publication__position__funding_assignments__funding_source=self.funding_source)
+
+
+@dataclass
+class FundingRequestSearchParams:
+    date_range: DateRange | None = None
+    review_results: list[ReviewResult] | None = None
+    payment_statuses: list[PaymentStatus] | None = None
+    labels: list[LabelId] | None = None
+    exclude_labels: list[LabelId] | None = None
+    payment_methods: list[PaymentMethod] | None = None
+    open_access_types: list[OpenAccessType] | None = None
+    publication_states: list[str] | None = None
+    entity_type: PublicationEntityType = PublicationEntityType.All
+    search_term: str = ""
+    contract_id: ContractId | None = None
+    contract_year: int | None = None
+    show_invalid_contract_years: bool = False
+    funding_source: FundingSourceId | None = None
+
+
+def build_criteria(params: FundingRequestSearchParams) -> list[FundingRequestSearchCriteria]:
+    criteria: list[FundingRequestSearchCriteria] = []
+
+    if params.date_range is not None:
+        criteria.append(DateRangeCriteria(params.date_range))
+    if params.review_results:
+        criteria.append(ReviewResultCriteria(review_results=params.review_results))
+    if params.payment_statuses:
+        criteria.append(PaymentStatusCriteria(payment_statuses=params.payment_statuses))
+    if params.labels or params.exclude_labels:
+        criteria.append(
+            LabelsSearchCriteria(
+                include_labels=params.labels or [],
+                exclude_labels=params.exclude_labels or [],
+            )
+        )
+    if params.payment_methods:
+        criteria.append(PaymentMethodCriteria(payment_methods=params.payment_methods))
+    if params.open_access_types:
+        criteria.append(OpenAccessTypeCriteria(open_access_types=params.open_access_types))
+    if params.publication_states:
+        criteria.append(PublicationStateCriteria(publication_states=params.publication_states))
+    if params.entity_type != PublicationEntityType.All:
+        criteria.append(EntityTypeCriteria(entity_type=params.entity_type))
+    if params.search_term:
+        criteria.append(GenericSearchCriteria(search_term=params.search_term))
+    if params.contract_id is not None or params.contract_year is not None:
+        criteria.append(
+            ContractSearchCriteria(contract=params.contract_id, contract_year=params.contract_year)
+        )
+    if params.show_invalid_contract_years:
+        criteria.append(InvalidContractYearCriteria(show_only_invalid=True))
+    if params.funding_source is not None:
+        criteria.append(InvoiceFundingSourceCriteria(funding_source=params.funding_source))
+
+    return criteria

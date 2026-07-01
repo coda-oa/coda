@@ -192,35 +192,19 @@ def _get_filtered_fundingrequest_publication_ids(
     entity_type: fundingrequest_query.PublicationEntityType | None = None,
     contract: int | None = None,
 ) -> set[int] | None:
-    criteria: list[fundingrequest_query.FundingRequestSearchCriteria] = []
+    params = fundingrequest_query.FundingRequestSearchParams(
+        review_results=review_results,
+        payment_statuses=payment_statuses,
+        labels=labels,
+        exclude_labels=exclude_labels,
+        payment_methods=payment_methods,
+        open_access_types=open_access_types,
+        publication_states=publication_states,
+        entity_type=entity_type or fundingrequest_query.PublicationEntityType.All,
+        contract_id=contract,
+    )
 
-    if review_results:
-        criteria.append(fundingrequest_query.ReviewResultCriteria(review_results=review_results))
-    if payment_statuses:
-        criteria.append(
-            fundingrequest_query.PaymentStatusCriteria(payment_statuses=payment_statuses)
-        )
-    if labels or exclude_labels:
-        criteria.append(
-            fundingrequest_query.LabelsSearchCriteria(
-                include_labels=labels or [],
-                exclude_labels=exclude_labels or [],
-            )
-        )
-    if payment_methods:
-        criteria.append(fundingrequest_query.PaymentMethodCriteria(payment_methods=payment_methods))
-    if open_access_types:
-        criteria.append(
-            fundingrequest_query.OpenAccessTypeCriteria(open_access_types=open_access_types)
-        )
-    if publication_states:
-        criteria.append(
-            fundingrequest_query.PublicationStateCriteria(publication_states=publication_states)
-        )
-    if entity_type:
-        criteria.append(fundingrequest_query.EntityTypeCriteria(entity_type=entity_type))
-    if contract:
-        criteria.append(fundingrequest_query.ContractSearchCriteria(contract=contract))
+    criteria = fundingrequest_query.build_criteria(params)
 
     if not criteria:
         return None

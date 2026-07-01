@@ -3,11 +3,8 @@ from datetime import date
 from django.db.models import Prefetch, QuerySet
 
 from coda.apps.fundingrequests import fundingrequest_query
-from coda.apps.fundingrequests.fundingrequest_query import ContractId, FundingRequestSearchCriteria
+from coda.apps.fundingrequests.fundingrequest_query import ContractId
 from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.exports.services.fundingrequest_csv.criteria import (
-    InvoiceFundingSourceCriteria,
-)
 from coda.apps.invoices.models import FundingAssignment, Invoice
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId
@@ -34,42 +31,22 @@ def get_funding_requests_for_export(
     contract: ContractId | None = None,
 ) -> QuerySet[FundingRequest]:
 
-    criteria: list[FundingRequestSearchCriteria] = []
+    params = fundingrequest_query.FundingRequestSearchParams(
+        date_range=DateRange(period_start, period_end),
+        review_results=review_results,
+        payment_statuses=payment_statuses,
+        labels=labels,
+        exclude_labels=exclude_labels,
+        payment_methods=payment_methods,
+        open_access_types=open_access_types,
+        publication_states=publication_states,
+        entity_type=entity_type or fundingrequest_query.PublicationEntityType.All,
+        search_term=generic_search,
+        funding_source=funding_source,
+        contract_id=contract,
+    )
 
-    criteria.append(fundingrequest_query.DateRangeCriteria(DateRange(period_start, period_end)))
-
-    if review_results:
-        criteria.append(fundingrequest_query.ReviewResultCriteria(review_results=review_results))
-    if payment_statuses:
-        criteria.append(
-            fundingrequest_query.PaymentStatusCriteria(payment_statuses=payment_statuses)
-        )
-    if labels or exclude_labels:
-        criteria.append(
-            fundingrequest_query.LabelsSearchCriteria(
-                include_labels=labels or [],
-                exclude_labels=exclude_labels or [],
-            )
-        )
-    if payment_methods:
-        criteria.append(fundingrequest_query.PaymentMethodCriteria(payment_methods=payment_methods))
-    if open_access_types:
-        criteria.append(
-            fundingrequest_query.OpenAccessTypeCriteria(open_access_types=open_access_types)
-        )
-    if publication_states:
-        criteria.append(
-            fundingrequest_query.PublicationStateCriteria(publication_states=publication_states)
-        )
-    if entity_type:
-        criteria.append(fundingrequest_query.EntityTypeCriteria(entity_type=entity_type))
-    if generic_search:
-        criteria.append(fundingrequest_query.GenericSearchCriteria(search_term=generic_search))
-
-    if funding_source:
-        criteria.append(InvoiceFundingSourceCriteria(funding_source=funding_source))
-    if contract:
-        criteria.append(fundingrequest_query.ContractSearchCriteria(contract=contract))
+    criteria = fundingrequest_query.build_criteria(params)
 
     qs = fundingrequest_query.search(*criteria)
 

@@ -118,39 +118,32 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     show_invalid_contract_years = request.GET.get("invalid_contract_years") == "on"
     publication_states = request.GET.getlist("publication_states")
 
-    criteria: list[fq.FundingRequestSearchCriteria] = [
-        fq.GenericSearchCriteria(request.GET.get("search_term", "")),
-        fq.ReviewResultCriteria(review_results),
-        fq.EntityTypeCriteria(
-            fq.PublicationEntityType.try_parse(request.GET.get("publication_type"))
-        ),
-        fq.OpenAccessTypeCriteria(open_access_types),
-        fq.PaymentStatusCriteria(requested_payment_statuses),
-        fq.LabelsSearchCriteria(
-            [int(_id) for _id in request.GET.getlist("labels")],
-            [int(_id) for _id in request.GET.getlist("exclude_labels")],
-        ),
-        fq.ContractSearchCriteria(
-            map_or_none(int, request.GET.get("contract_name")),
-            map_or_none(int, request.GET.get("contract_year")),
-        ),
-        fq.PaymentMethodCriteria(payment_methods),
-        fq.PublicationStateCriteria(publication_states),
-        fq.InvalidContractYearCriteria(show_invalid_contract_years),
-    ]
-
     try:
-        date_range_criterion = fq.DateRangeCriteria(
-            DateRange.try_fromisoformat(
-                start=start_date,
-                end=end_date,
-            )
+        date_range = DateRange.try_fromisoformat(
+            start=start_date,
+            end=end_date,
         )
-        criteria.append(date_range_criterion)
     except ValueError as e:
         messages.warning(request, str(e))
         return fq.search()
 
+    params = fq.FundingRequestSearchParams(
+        date_range=date_range,
+        review_results=review_results,
+        payment_statuses=requested_payment_statuses,
+        labels=[int(_id) for _id in request.GET.getlist("labels")],
+        exclude_labels=[int(_id) for _id in request.GET.getlist("exclude_labels")],
+        payment_methods=payment_methods,
+        open_access_types=open_access_types,
+        publication_states=publication_states,
+        entity_type=fq.PublicationEntityType.try_parse(request.GET.get("publication_type")),
+        search_term=request.GET.get("search_term", ""),
+        contract_id=map_or_none(int, request.GET.get("contract_name")),
+        contract_year=map_or_none(int, request.GET.get("contract_year")),
+        show_invalid_contract_years=show_invalid_contract_years,
+    )
+
+    criteria = fq.build_criteria(params)
     return fq.search(*criteria)
 
 
