@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 from django.views.generic import CreateView, UpdateView
 
 from coda.apps.fundingrequests.forms import LabelForm
@@ -55,6 +55,7 @@ label_list_view = LabelListView.as_view()
 
 
 @login_required
+@require_http_methods(["DELETE", "POST"])
 def label_delete_view(request: HttpRequest, pk: int) -> HttpResponse:
     label = get_object_or_404(Label, pk=pk)
     label.delete()
