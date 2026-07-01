@@ -21,7 +21,7 @@ from coda.apps.invoices.views.position_context import funding_sources_context
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 from coda.contexts.finance.dto.edit_position_dtos import DEFAULT_TAX_RATE_PERCENTAGE
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services.invoice_import import save
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import (
     FundingSourceId,
@@ -190,7 +190,7 @@ def pay_invoice(request: HttpRequest, pk: int) -> HttpResponse:
         _try_pay(invoice, request)
     elif request.POST.get("action") == "reset_payment":
         invoice.reset_payment()
-    invoice_service.save(invoice)
+    save(invoice)
     return redirect("invoices:detail", pk=invoice.id)
 
 

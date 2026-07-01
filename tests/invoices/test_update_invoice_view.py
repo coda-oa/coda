@@ -19,7 +19,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     PositionList,
 )
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
-from coda.contexts.finance.services import invoice_parser
+from coda.contexts.finance.services.invoice_import import position_to_dto
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.invoice import (
@@ -92,7 +92,7 @@ def test__given_invoice__goto_update_view__has_invoice_positions_in_context___po
     response = goto_update_view(client, invoice.id)
 
     expected = PositionList(
-        positions=[invoice_parser.position_to_dto(p) for p in invoice.positions]
+        positions=[position_to_dto(p) for p in invoice.positions]
     )
     assert response.context["position_list"] == expected
 
@@ -129,8 +129,8 @@ def test__given_invoice__saving_updated_invoice__updates_invoice(
 
     position_list = PositionList(
         positions=[
-            invoice_parser.position_to_dto(first_position),
-            invoice_parser.position_to_dto(second_position),
+            position_to_dto(first_position),
+            position_to_dto(second_position),
         ]
     )
 
@@ -304,7 +304,7 @@ def test__invoice_with_unassigned_costs__save_as_paid__shows_error(client: Clien
     position = domainfactory.free_position(invoice.currency())
     position.assign_funding(None, position.cost.amount / 2)
 
-    position_dto = invoice_parser.position_to_dto(position)
+    position_dto = position_to_dto(position)
     position_list = PositionList(positions=[position_dto])
 
     response = save_invoice_view(
