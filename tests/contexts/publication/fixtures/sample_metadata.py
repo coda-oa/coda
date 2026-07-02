@@ -5,10 +5,13 @@ client configuration, and expected FundingRequest outcomes for
 common test cases.
 """
 
+import datetime
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-import datetime
 from typing import Self
+
+from tests import modelfactory
+from tests.contexts.publication.fixtures.metadata import article_metadata, book_metadata
 
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers import services as publisher_services
@@ -47,8 +50,6 @@ from coda.domain.publication import (
 from coda.domain.publication.links import Doi, Isbn
 from coda.domain.string import NonEmptyStr
 from coda.domain.vocabulary import UnknownConcept
-from tests import modelfactory
-from tests.contexts.publication.fixtures.metadata import article_metadata, book_metadata
 
 NATURE_ARTICLE_DOI = "10.1038/nature12373"
 NATURE_JOURNAL_TITLE = "Nature"

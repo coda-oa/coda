@@ -11,9 +11,11 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIImportInputView,
     DOIPreviewDetailView,
     DOIPreviewSaveView,
+    doi_preview_add_funding,
     doi_preview_apply_type_change,
     doi_preview_delete_funding,
     doi_preview_load_type_form,
+    doi_preview_reset_funding,
     doi_preview_reset_type,
 )
 from coda.apps.fundingrequests.views.funders import (
@@ -70,6 +72,16 @@ urlpatterns = [
         "doi-preview/<str:session_key>/delete-funding",
         doi_preview_delete_funding,
         name="doi_preview_delete_funding",
+    ),
+    path(
+        "doi-preview/<str:session_key>/add-funding",
+        doi_preview_add_funding,
+        name="doi_preview_add_funding",
+    ),
+    path(
+        "doi-preview/<str:session_key>/reset-funding",
+        doi_preview_reset_funding,
+        name="doi_preview_reset_funding",
     ),
     path(
         "doi-preview/<str:session_key>/save/", DOIPreviewSaveView.as_view(), name="doi_preview_save"

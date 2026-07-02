@@ -8,6 +8,7 @@ from functools import singledispatch
 from typing import Any
 
 from coda.apps.authors.dto import AuthorDto
+from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.institutions import repository as institution_repository
 from coda.contexts.publication.dto.preview import (
     PreviewArticle,
@@ -50,6 +51,7 @@ def build_preview_context(preview_fr: PreviewFundingRequest, session_key: str) -
         "session_key": session_key,
         "publication": publication_detail,
         "funding": preview_fr.publication.funding,
+        "funding_organizations": FundingOrganization.objects.all(),
         "is_preview": True,
         "current_publication_type": current_type,
         "warnings": preview_fr.warnings,

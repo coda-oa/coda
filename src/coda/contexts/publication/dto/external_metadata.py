@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 import datetime
 
 from pydantic import BaseModel, Field
@@ -27,10 +26,6 @@ class ExternalJournal(BaseModel):
     eissn: str | None = None
 
 
-type FunderName = str
-type ProjectId = str
-
-
 class ExternalPublicationMetadata(BaseModel):
     """Publication metadata from external sources (Crossref, DataCite).
 
@@ -48,7 +43,7 @@ class ExternalPublicationMetadata(BaseModel):
 
     title: str
     authors: list[ExternalAuthor]
-    publication_type: str  # Raw string from Crossref/DataCite
+    publication_type: str
     journal: ExternalJournal | None = None
     publisher: str | None = None
     isbn: str | None = None
@@ -72,15 +67,8 @@ class ExternalPublicationMetadata(BaseModel):
         return self.model_copy(update={"publisher": publisher.name})
 
     def override_funding(
-        self, names_and_projects: Iterable[tuple[FunderName, ProjectId]]
+        self, funding: list[ExternalFundingMetadata]
     ) -> ExternalPublicationMetadata:
-        funding = [
-            ExternalFundingMetadata(
-                funder=ExternalFundingOrganisationMetadata(name=name),
-                project_id=project_id,
-            )
-            for name, project_id in names_and_projects
-        ]
         return self.model_copy(update={"funders": funding})
 
 

@@ -11,6 +11,7 @@ from coda.contexts.publication.services.doi_import_service import (
     OverrideImport,
 )
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
+from coda.domain.publication import JournalId
 
 
 @pytest.mark.django_db
@@ -93,4 +94,54 @@ def test__previewing_publication_with_funding__add_funding__saves_keeps_original
         PreviewExternalFunding(name="BMBF", project_id="my-project"),
         PreviewExternalFunding(name=funder.name, project_id=project_id),
     ]
+    assert result.publication.funding == expected
+
+
+def test__override_import__reset_funding__clears_added_and_removed_funding() -> None:
+    """reset_funding clears both added funding and removed-funding markers."""
+    override = (
+        OverrideImport.empty()
+        .add_funding([OverrideFunding(FundingOrganizationId(1), "added-project")])
+        .remove_funding("Existing Funder", "removed-project")
+    )
+
+    result = override.reset_funding()
+
+    assert result._funding is None
+    assert result._removed_funding == frozenset()
+
+
+def test__override_import__reset_funding__preserves_publication_type_override() -> None:
+    """reset_funding keeps the journal/publisher override intact."""
+    override = OverrideImport.as_article(JournalId(42)).add_funding(
+        [OverrideFunding(FundingOrganizationId(1), "added-project")]
+    )
+
+    result = override.reset_funding()
+
+    assert result._journal_id == JournalId(42)
+    assert result._publisher_id is None
+    assert result._funding is None
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("scenario", (ArticleScenario(), BookScenario()))
+def test__reset_funding__restores_original_funding_in_preview(
+    scenario: ImportScenario,
+) -> None:
+    """After add+remove+reset, preview contains only the original detected funding."""
+    funder = modelfactory.funding_organization()
+    scenario = scenario.with_funding([("BMBF", "original-project", None)]).setup_client()
+
+    service = DOIImportService(scenario.client)
+    override = (
+        OverrideImport.empty()
+        .remove_funding("BMBF", "original-project")
+        .add_funding([OverrideFunding(FundingOrganizationId(funder.pk), "added-project")])
+        .reset_funding()
+    )
+
+    result = service.preview_with_override(scenario.doi, override)
+
+    expected = [PreviewExternalFunding(name="BMBF", project_id="original-project")]
     assert result.publication.funding == expected

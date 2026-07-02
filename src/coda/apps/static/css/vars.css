@@ -33,6 +33,8 @@
   --coda-muted-border-color: var(--pico-muted-border-color);
   --coda-border-radius: var(--pico-border-radius);
   --coda-border-width: var(--pico-border-width);
+  --coda-form-element-active-border-color: var(--pico-form-element-active-border-color);
+  --coda-form-element-focus-color: var(--pico-form-element-focus-color);
 
   --coda-pill-border-radius: 50px;
   --coda-pill-padding-vertical: 0.35rem;
@@ -49,6 +51,7 @@
   --coda-spacing: var(--pico-spacing);
   --coda-gap: var(--coda-spacing);
 
+  --coda-text-contrast-color: black;
 }
 
 @media screen and (prefers-color-scheme: dark) {
@@ -61,6 +64,8 @@
 
     --coda-primary: hsl(218, 85%, 65%);
     --coda-primary-hover: hsl(218, 85%, 80%);
+
+    --coda-text-contrast-color: white;
   }
 }
 
@@ -72,6 +77,8 @@
 
   --coda-primary: hsl(218, 85%, 65%);
   --coda-primary-hover: hsl(218, 85%, 80%);
+
+  --coda-text-contrast-color: white;
 }
 
 

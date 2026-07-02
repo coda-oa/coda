@@ -9,6 +9,8 @@ verify that funders are imported correctly into FundingRequests.
 from datetime import date
 from typing import Self
 
+from tests import modelfactory
+
 from coda.apps.journals import services as journal_services
 from coda.apps.publishers import services as publisher_services
 from coda.contexts.publication.dto.external_metadata import (
@@ -36,7 +38,6 @@ from coda.domain.orcid import Orcid
 from coda.domain.publication.links import Doi
 from coda.domain.publication.publication import Authors, JournalId, License, Publication, Published
 from coda.domain.string import NonEmptyStr
-from tests import modelfactory
 
 # -- Article identity --
 

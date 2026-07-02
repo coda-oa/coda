@@ -19,6 +19,8 @@ from coda.contexts.fundingrequest.dto.commands import (
 )
 from coda.contexts.fundingrequest.services import fundingrequests
 from coda.contexts.publication.dto.external_metadata import (
+    ExternalFundingMetadata,
+    ExternalFundingOrganisationMetadata,
     ExternalPublicationMetadata,
 )
 from coda.contexts.publication.dto.preview import (
@@ -96,7 +98,15 @@ class OverrideImport:
         )
 
     def add_funding(self, funding: list[OverrideFunding]) -> OverrideImport:
-        return OverrideImport(self._journal_id, self._publisher_id, funding)
+        return OverrideImport(
+            self._journal_id,
+            self._publisher_id,
+            (self._funding or []) + funding,
+            self._removed_funding,
+        )
+
+    def reset_funding(self) -> OverrideImport:
+        return OverrideImport(self._journal_id, self._publisher_id, None, frozenset())
 
     def overrides_to_article(self) -> bool:
         return self._journal_id is not None
@@ -118,14 +128,19 @@ class OverrideImport:
 
     def apply(self, metadata: ExternalPublicationMetadata) -> ExternalPublicationMetadata:
         keep_funding = [
-            (funding.funder.name, funding.project_id)
+            funding
             for funding in metadata.funders
             if (funding.funder.name, funding.project_id) not in self._removed_funding
         ]
 
+        name_lookup = self._funding_organizations_to_names()
         added_funding = [
-            (repository.get_funding_organization(funding.funder_id).name, funding.project_id)
+            ExternalFundingMetadata(
+                funder=ExternalFundingOrganisationMetadata(name=name_lookup[funding.funder_id]),
+                project_id=funding.project_id,
+            )
             for funding in self._funding or []
+            if (name_lookup[funding.funder_id], funding.project_id) not in self._removed_funding
         ]
 
         metadata = metadata.override_funding(keep_funding + added_funding)
@@ -138,6 +153,12 @@ class OverrideImport:
             return metadata.override_publisher(publisher)
 
         return metadata
+
+    def _funding_organizations_to_names(self) -> dict[FundingOrganizationId, str]:
+        organizations = repository.get_funding_organizations_by_ids(
+            [funding.funder_id for funding in self._funding or []]
+        )
+        return {FundingOrganizationId(org.pk): org.name for org in organizations}
 
 
 class DOIImportService:

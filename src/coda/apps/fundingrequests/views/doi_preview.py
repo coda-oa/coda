@@ -23,6 +23,7 @@ from pydantic import TypeAdapter
 
 from coda import formdata
 from coda.apps.dto import CodaBaseDto
+from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.fundingrequests.queries.preview_context_builder import build_preview_context
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.services.doi_client import DOIMetadataClient, crossref
@@ -30,9 +31,14 @@ from coda.contexts.publication.services.doi_client import errors as doi_errors
 from coda.contexts.publication.services.doi_client._crossref._crossref_type_detector import (
     detect_publication_type,
 )
-from coda.contexts.publication.services.doi_import_service import DOIImportService, OverrideImport
+from coda.contexts.publication.services.doi_import_service import (
+    DOIImportService,
+    OverrideFunding,
+    OverrideImport,
+)
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
 from coda.domain.contract import PublisherId
+from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.publication import JournalId
 from coda.domain.publication.links import Doi
 
@@ -342,7 +348,43 @@ class DeleteFunding(CodaBaseDto):
     project_id: str
 
 
+class AddFunding(CodaBaseDto):
+    funder_id: int
+    project_id: str
+
+
 OverrideImportTypeAdapter = TypeAdapter(OverrideImport)
+
+
+def _render_funding_partial(request: HttpRequest, session_key: str) -> HttpResponse:
+    """Build and render the funding partial from session data.
+
+    Rebuilds the preview DTO from session (same logic as DOIPreviewDetailView)
+    so the returned HTML reflects the current override state.
+    """
+    session_data = request.session.get(session_key)
+    if not session_data:
+        return HttpResponseNotFound("Preview session not found")
+
+    doi = Doi(session_data["doi"])
+    metadata = ExternalPublicationMetadata.model_validate(session_data["original_metadata"])
+    doi_service = DOIImportService(
+        doi_client=DOIPreviewDetailView.doi_client, metadata_cache={doi: metadata}
+    )
+    override = _load_override(session_data)
+
+    if override:
+        preview_dto = doi_service.preview_with_override(doi, override)
+    else:
+        preview_dto = doi_service.fetch_doi_preview(doi)
+
+    funding_orgs = FundingOrganization.objects.all()
+    context = {
+        "funding": preview_dto.publication.funding,
+        "session_key": session_key,
+        "funding_organizations": funding_orgs,
+    }
+    return render(request, "fundingrequests/partials/doi_import_publication_funding.html", context)
 
 
 @login_required
@@ -358,4 +400,37 @@ def doi_preview_delete_funding(request: HttpRequest, session_key: str) -> HttpRe
     _dump_override(session, override)
     request.session.modified = True
 
-    return HttpResponse()
+    return _render_funding_partial(request, session_key)
+
+
+@login_required
+@require_POST
+def doi_preview_add_funding(request: HttpRequest, session_key: str) -> HttpResponse:
+    session = request.session.get(session_key)
+    if not session:
+        return HttpResponseNotFound("Session not found")
+
+    add = formdata.map_to_model(AddFunding, request.POST)
+    override = _load_override(session)
+    override = override.add_funding(
+        [OverrideFunding(FundingOrganizationId(add.funder_id), add.project_id)]
+    )
+    _dump_override(session, override)
+    request.session.modified = True
+
+    return _render_funding_partial(request, session_key)
+
+
+@login_required
+@require_POST
+def doi_preview_reset_funding(request: HttpRequest, session_key: str) -> HttpResponse:
+    session_data = request.session.get(session_key)
+    if not session_data:
+        return HttpResponseNotFound("Session not found")
+
+    override = _load_override(session_data)
+    override = override.reset_funding()
+    _dump_override(session_data, override)
+    request.session.modified = True
+
+    return _render_funding_partial(request, session_key)

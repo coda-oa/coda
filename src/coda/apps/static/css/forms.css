@@ -103,3 +103,37 @@ search-select[aria-invalid="true"]::part(search-box) {
 search-select {
   margin-bottom: var(--coda-form-element-spacing-vertical);
 }
+
+/* Search wrapper — input-like container with embedded button */
+.search-wrapper {
+    display: inline-flex;
+    align-items: center;
+    width: 100%;
+    border: var(--coda-border-width) solid var(--coda-border-color);
+    border-radius: var(--coda-pill-border-radius);
+    background: var(--coda-form-element-background-color);
+    transition: border-color var(--pico-transition),
+                box-shadow var(--pico-transition);
+    padding-inline: calc(var(--coda-form-element-spacing-horizontal) * 0.5);
+    padding-block: calc(var(--coda-form-element-spacing-vertical) * 0.25);
+}
+
+.search-wrapper:focus-within {
+    border-color: var(--coda-form-element-active-border-color);
+    box-shadow: 0 0 0 0.0625rem var(--coda-form-element-focus-color);
+}
+
+.search-wrapper input[type="search"] {
+    border: none;
+    box-shadow: none;
+    margin-bottom: 0;
+}
+
+.search-wrapper button {
+    margin: 0;
+    flex-shrink: 0;
+    width: auto;
+    border-radius: var(--coda-pill-border-radius);
+    /* padding-inline: calc(var(--coda-form-element-spacing-horizontal) * 1.75); */
+    padding-block: calc(var(--coda-form-element-spacing-vertical) * 0.75);
+}
