@@ -15,14 +15,20 @@ from coda.apps.exports.services.fundingrequest_csv.mappers import (
     map_invoice_to_dto,
     _map_position_to_dto,
 )
-from coda.apps.invoices.models import Position, FundingAssignment, FundingSource, CurrencyConversion
+from coda.apps.invoices.models import Position
 
 from tests import modelfactory
+from tests.exports.fundingrequest_csv.helpers import (
+    create_funding_request_without_invoices,
+    create_invoice_with_funding_assignments,
+    create_invoice_with_currency_conversion,
+    create_invoice_with_mixed_positions,
+)
 
 
 @pytest.mark.django_db
 def test__invoice__maps_to_dto__all_required_fields_are_mapped_correctly() -> None:
-    fr = modelfactory.fundingrequest()
+    fr = create_funding_request_without_invoices(title="Test")
     creditor = modelfactory.creditor(name="Test Publisher")
     invoice = modelfactory.invoice()
     invoice.creditor = creditor
@@ -47,11 +53,13 @@ def test__invoice__maps_to_dto__all_required_fields_are_mapped_correctly() -> No
 
 @pytest.mark.django_db
 def test__invoice_with_currency_conversion__maps_to_dto__conversion_is_mapped_correctly() -> None:
-    fr = modelfactory.fundingrequest()
-    invoice = modelfactory.invoice()
-
-    CurrencyConversion.objects.create(
-        invoice=invoice, target_currency="USD", exchange_rate=Decimal("1.2500")
+    fr = create_funding_request_without_invoices(title="Test")
+    invoice = create_invoice_with_currency_conversion(
+        fr,
+        invoice_number="INV-001",
+        invoice_date=date(2026, 5, 20),
+        target_currency="USD",
+        exchange_rate=Decimal("1.2500"),
     )
 
     dto = map_invoice_to_dto(invoice, fr)
@@ -63,36 +71,38 @@ def test__invoice_with_currency_conversion__maps_to_dto__conversion_is_mapped_co
 
 @pytest.mark.django_db
 def test__publication_position__maps_to_dto__all_fields_are_mapped_correctly() -> None:
-    funding_request = modelfactory.fundingrequest(title="Test Publication")
+    fr = create_funding_request_without_invoices(title="Test Publication")
     invoice = modelfactory.invoice()
+    invoice.save()
 
     position = Position.objects.create(
         invoice=invoice,
-        publication=funding_request.publication,
+        publication=fr.publication,
         description="Publication charge",
         cost_amount=Decimal("1500.00"),
         cost_currency="EUR",
         cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),  # 19% as fraction
+        tax_rate=Decimal("0.19"),
         external_position_id="POS-001",
     )
 
-    dto = _map_position_to_dto(position, funding_request)
+    dto = _map_position_to_dto(position, fr)
 
     assert isinstance(dto, PublicationPositionImportDto)
     assert dto.type == "publication"
     assert dto.amount == Decimal("1500.00")
-    assert dto.tax_rate == Decimal("19.00")  # Converted to percentage
+    assert dto.tax_rate == Decimal("19.00")
     assert dto.cost_type == PublicationCostType.Gold_OA
     assert dto.external_id == "POS-001"
-    assert dto.request_id == str(funding_request.request_id)
+    assert dto.request_id == str(fr.request_id)
 
 
 @pytest.mark.django_db
 def test__contract_position__maps_to_dto__all_fields_are_mapped_correctly() -> None:
-    fr = modelfactory.fundingrequest()
+    fr = create_funding_request_without_invoices(title="Test")
     contract = modelfactory.contract()
     invoice = modelfactory.invoice()
+    invoice.save()
 
     position = Position.objects.create(
         invoice=invoice,
@@ -120,7 +130,9 @@ def test__contract_position__maps_to_dto__all_fields_are_mapped_correctly() -> N
 
 @pytest.mark.django_db
 def test__free_position__maps_to_dto__all_fields_are_mapped_correctly() -> None:
+    fr = create_funding_request_without_invoices(title="Test")
     invoice = modelfactory.invoice()
+    invoice.save()
 
     position = Position.objects.create(
         invoice=invoice,
@@ -134,7 +146,6 @@ def test__free_position__maps_to_dto__all_fields_are_mapped_correctly() -> None:
         external_position_id="POS-003",
     )
 
-    fr = modelfactory.fundingrequest()
     dto = _map_position_to_dto(position, fr)
 
     assert isinstance(dto, FreePositionImportDto)
@@ -150,81 +161,39 @@ def test__free_position__maps_to_dto__all_fields_are_mapped_correctly() -> None:
 def test__invoice_with_position_and_funding_assignments__maps_to_dto__maps_assignments_correctly() -> (
     None
 ):
-    funding_request = modelfactory.fundingrequest()
-    invoice = modelfactory.invoice()
-    institution = modelfactory.institution()
-
-    position = Position.objects.create(
-        invoice=invoice,
-        publication=funding_request.publication,
-        description="Split publication charge",
+    fr = create_funding_request_without_invoices(title="Test")
+    invoice = create_invoice_with_funding_assignments(
+        fr,
+        invoice_number="INV-006",
+        invoice_date=date(2026, 5, 20),
         cost_amount=Decimal("1500.00"),
-        cost_currency="EUR",
         cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
+        budget_name="Budget 2026",
+        budget_amount=Decimal("1000.00"),
+        institution_name="Test Institution",
+        institution_amount=Decimal("500.00"),
     )
 
-    fs_budget = FundingSource.objects.create(type="budget", name="Budget 2026")
-    fs_institution = FundingSource.objects.create(
-        type="institution", name=institution.name, institution=institution
-    )
-
-    FundingAssignment.objects.create(
-        position=position, funding_source=fs_budget, amount=Decimal("1000.00")
-    )
-    FundingAssignment.objects.create(
-        position=position, funding_source=fs_institution, amount=Decimal("500.00")
-    )
-
-    dto = _map_position_to_dto(position, funding_request)
+    position = invoice.positions.first()
+    assert position is not None
+    dto = _map_position_to_dto(position, fr)
 
     assert len(dto.funding_assignments) == 2
     assert dto.funding_assignments[0].name == "Budget 2026"
     assert dto.funding_assignments[0].type == "budget"
     assert dto.funding_assignments[0].amount == Decimal("1000.00")
-    assert dto.funding_assignments[1].name == institution.name
+    assert dto.funding_assignments[1].name == "Test Institution"
     assert dto.funding_assignments[1].type == "institution"
     assert dto.funding_assignments[1].amount == Decimal("500.00")
 
 
 @pytest.mark.django_db
 def test__invoice_with_multiple_positions__maps_to_dto__maps_all_positions_correctly() -> None:
-    funding_request = modelfactory.fundingrequest()
+    fr = create_funding_request_without_invoices(title="Test")
     contract = modelfactory.contract()
-    invoice = modelfactory.invoice()
+    invoice = create_invoice_with_mixed_positions(fr, contract)
 
-    # Create different position types
-    Position.objects.create(
-        invoice=invoice,
-        publication=funding_request.publication,
-        description="Pub charge",
-        cost_amount=Decimal("1000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-    )
-    Position.objects.create(
-        invoice=invoice,
-        contract=contract,
-        contract_year=2026,
-        description="Contract fee",
-        cost_amount=Decimal("2000.00"),
-        cost_currency="EUR",
-        cost_type="read",
-        tax_rate=Decimal("0.19"),
-    )
-    Position.objects.create(
-        invoice=invoice,
-        publication=None,
-        contract=None,
-        description="Misc",
-        cost_amount=Decimal("300.00"),
-        cost_currency="EUR",
-        cost_type="other",
-        tax_rate=Decimal("0.19"),
-    )
-
-    dto = map_invoice_to_dto(invoice, funding_request)
+    dto = map_invoice_to_dto(invoice, fr)
 
     assert len(dto.positions) == 3
     assert isinstance(dto.positions[0], PublicationPositionImportDto)
