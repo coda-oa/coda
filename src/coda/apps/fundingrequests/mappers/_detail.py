@@ -127,7 +127,8 @@ def _resolve_decided_amount(model: FundingRequestModel) -> object:
             review_model.decided_funding_amount,
             Currency.from_code(review_model.decided_funding_currency or "EUR"),
         )
-    return Money(model.estimated_cost, Currency.from_code(model.estimated_cost_currency))
+    # not reviewed yet, no decided amount
+    return Money(0, Currency.from_code(model.estimated_cost_currency or "EUR"))
 
 
 def _parse_request_date(request_id: str) -> datetime.date:
