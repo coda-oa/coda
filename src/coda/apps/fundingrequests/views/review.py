@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
@@ -40,7 +42,7 @@ def process_review(fid: FundingRequestId, request: HttpRequest) -> None:
     action = request.POST["action"]
     review_result = action if action != "return" else ""
     dto = UpdateReviewDto(
-        decided_funding_amount=float(request.POST["decided_funding_amount"]),
+        decided_funding_amount=Decimal(request.POST["decided_funding_amount"]),
         decided_funding_currency=request.POST["decided_funding_currency"],
         reviewer_remarks=request.POST["reviewer_remarks"],
         result=review_result,

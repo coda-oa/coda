@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Annotated, Any, TypeVar
 
 from pydantic import BaseModel, BeforeValidator
@@ -22,7 +23,7 @@ def to_post_data(
 ) -> dict[str, Any]:
     return {
         _build_key(k, prefix, underscores_to_dash): _to_json(v)
-        for k, v in model.model_dump(mode="json", exclude=exclude).items()
+        for k, v in model.model_dump(mode="python", exclude=exclude).items()
     }
 
 
@@ -40,6 +41,9 @@ def _build_key(key: str, prefix: str = "", underscores_to_dash: bool = False) ->
 def _to_json(value: Any) -> Any:
     if isinstance(value, BaseModel):
         return to_post_data(value)
+
+    if isinstance(value, Decimal):
+        return str(value)
 
     if isinstance(value, dict):
         value = {k: v if v is not None else "" for k, v in value.items()}
