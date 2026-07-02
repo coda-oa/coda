@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from decimal import Decimal
 
 from coda.apps.exports.services.fundingrequest_csv.dtos import FundingRequestExportDto
@@ -13,6 +14,9 @@ from coda.contexts.fundingrequest.dto.import_dtos import (
     AuthorImportDto,
     LinkImportDto,
     ResearchFundingImportDto,
+    PublishingStateImportDto,
+    ReviewImportDto,
+    CostEstimateImportDto,
 )
 
 
@@ -59,11 +63,11 @@ def _create_base_row(
     cost = funding_request.estimated_cost
     review = funding_request.review
 
-    publishing_state, online_date, print_date = _get_publishing_state_dates(pub.publishing_state)
-    review_result, review_remarks, decided_amount, decided_currency = _get_review_info(review)
-    estimated_amount, estimated_currency, payment_method = _get_cost_info(cost)
-    project_id, project_name, funder = _get_research_funding(funding_request.research_funding)
-    doi, isbn, handle = _get_identifiers(pub.links)
+    pub_state = _get_publishing_state_dates(pub.publishing_state)
+    review_info = _get_review_info(review)
+    cost_info = _get_cost_info(cost)
+    funding_info = _get_research_funding(funding_request.research_funding)
+    identifiers = _get_identifiers(pub.links)
 
     return {
         "legacy_request_id": funding_request.legacy_request_id or "",
@@ -76,25 +80,25 @@ def _create_base_row(
         "license": pub.license.value,
         "open_access_type": pub.open_access_type.value,
         "authors": _format_authors(pub.authors),
-        "doi": doi,
-        "isbn": isbn,
-        "handle": handle,
-        "publishing_state": publishing_state,
-        "online_date": online_date,
-        "print_date": print_date,
+        "doi": identifiers.doi,
+        "isbn": identifiers.isbn,
+        "handle": identifiers.handle,
+        "publishing_state": pub_state.state,
+        "online_date": pub_state.online_date,
+        "print_date": pub_state.print_date,
         "subject_area": pub.subject_area.name or "",
         "publication_type": pub.publication_type.name or "",
-        "estimated_amount": estimated_amount,
-        "estimated_currency": estimated_currency,
-        "payment_method": payment_method,
-        "review_result": review_result,
-        "review_remarks": review_remarks,
-        "decided_funding_amount": decided_amount,
-        "decided_funding_currency": decided_currency,
+        "estimated_amount": cost_info.amount,
+        "estimated_currency": cost_info.currency,
+        "payment_method": cost_info.payment_method,
+        "review_result": review_info.result,
+        "review_remarks": review_info.remarks,
+        "decided_funding_amount": review_info.decided_amount,
+        "decided_funding_currency": review_info.decided_currency,
         "labels": "; ".join(funding_request.labels),
-        "project_id": project_id,
-        "project_name": project_name,
-        "funding_organization": funder,
+        "project_id": funding_info.project_id,
+        "project_name": funding_info.project_name,
+        "funding_organization": funding_info.funder,
         "contract_name": _format_contract_names(funding_request),
         "contract_year": _format_contract_years(funding_request),
         "request_id": funding_request.request_id or "",
@@ -197,52 +201,90 @@ def _format_contract_years(funding_request: FundingRequestImportDto) -> str:
     return "; ".join(str(contract.year) for contract in funding_request.publication.contracts)
 
 
-def _get_publishing_state_dates(publishing_state: object) -> tuple[str, str, str]:
-    """Return (state, online_date, print_date) from a publishing state DTO."""
+@dataclass(frozen=True)
+class PublishingStateInfo:
+    state: str
+    online_date: str
+    print_date: str
+
+
+def _get_publishing_state_dates(publishing_state: PublishingStateImportDto) -> PublishingStateInfo:
+    """Return PublishingStateInfo from a publishing state DTO."""
     state = getattr(publishing_state, "state", None) or ""
     online = getattr(publishing_state, "online_date", None)
     online_str = online.isoformat() if online else ""
     print_d = getattr(publishing_state, "print_date", None)
     print_str = print_d.isoformat() if print_d else ""
-    return state, online_str, print_str
+    return PublishingStateInfo(state=state, online_date=online_str, print_date=print_str)
 
 
-def _get_review_info(review: object) -> tuple[str, str, str, str]:
-    """Return (result, remarks, decided_amount, decided_currency)."""
+@dataclass(frozen=True)
+class ReviewInfo:
+    result: str
+    remarks: str
+    decided_amount: str
+    decided_currency: str
+
+
+def _get_review_info(review: ReviewImportDto) -> ReviewInfo:
+    """Return ReviewInfo from a review DTO."""
     result = getattr(review, "result", None)
     result_str = result.value if result else ""
     remarks = getattr(review, "remarks", None) or ""
     funding = getattr(review, "funding", None)
     amount = str(funding.amount) if funding else ""
     currency = funding.currency if funding else ""
-    return result_str, remarks, amount, currency
+    return ReviewInfo(
+        result=result_str, remarks=remarks, decided_amount=amount, decided_currency=currency
+    )
 
 
-def _get_cost_info(estimated_cost: object) -> tuple[str, str, str]:
-    """Return (amount_str, currency, payment_method)."""
+@dataclass(frozen=True)
+class CostInfo:
+    amount: str
+    currency: str
+    payment_method: str
+
+
+def _get_cost_info(estimated_cost: CostEstimateImportDto) -> CostInfo:
+    """Return CostInfo from an estimated cost DTO."""
     amount_str = str(getattr(estimated_cost, "amount", ""))
     currency = getattr(estimated_cost, "currency", "") or ""
     payment = getattr(estimated_cost, "payment_method", None)
     payment_str = payment.value if payment else ""
-    return amount_str, currency, payment_str
+    return CostInfo(amount=amount_str, currency=currency, payment_method=payment_str)
 
 
-def _get_research_funding(research_funding: list[ResearchFundingImportDto]) -> tuple[str, str, str]:
-    """Return (project_id, project_name, funder) from first research funding entry."""
+@dataclass(frozen=True)
+class ResearchFundingInfo:
+    project_id: str
+    project_name: str
+    funder: str
+
+
+def _get_research_funding(research_funding: list[ResearchFundingImportDto]) -> ResearchFundingInfo:
+    """Return ResearchFundingInfo from first research funding entry."""
     if not research_funding:
-        return "", "", ""
+        return ResearchFundingInfo(project_id="", project_name="", funder="")
     rf = research_funding[0]
-    return (
-        getattr(rf, "project_id", "") or "",
-        getattr(rf, "project_name", "") or "",
-        getattr(rf, "funder", "") or "",
+    return ResearchFundingInfo(
+        project_id=getattr(rf, "project_id", "") or "",
+        project_name=getattr(rf, "project_name", "") or "",
+        funder=getattr(rf, "funder", "") or "",
     )
 
 
-def _get_identifiers(links: list[LinkImportDto]) -> tuple[str, str, str]:
-    """Return (doi, isbn, handle) from links."""
-    return (
-        _extract_identifier(links, "doi"),
-        _extract_identifier(links, "isbn"),
-        _extract_identifier(links, "handle"),
+@dataclass(frozen=True)
+class IdentifierInfo:
+    doi: str
+    isbn: str
+    handle: str
+
+
+def _get_identifiers(links: list[LinkImportDto]) -> IdentifierInfo:
+    """Return IdentifierInfo from links."""
+    return IdentifierInfo(
+        doi=_extract_identifier(links, "doi"),
+        isbn=_extract_identifier(links, "isbn"),
+        handle=_extract_identifier(links, "handle"),
     )
