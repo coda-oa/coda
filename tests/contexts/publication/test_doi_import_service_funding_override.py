@@ -91,7 +91,7 @@ def test__previewing_publication_with_funding__add_funding__saves_keeps_original
     )
 
     expected = [
-        PreviewExternalFunding(name="BMBF", project_id="my-project"),
+        PreviewExternalFunding(name="BMBF", identifiers=["10.0000/0000"], project_id="my-project"),
         PreviewExternalFunding(name=funder.name, project_id=project_id),
     ]
     assert result.publication.funding == expected

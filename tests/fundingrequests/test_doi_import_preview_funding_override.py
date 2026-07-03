@@ -5,6 +5,11 @@ from django.test import Client
 from django.urls import reverse
 
 from coda import formdata
+from coda.apps.fundingrequests.models import (
+    FundingOrganization,
+    FundingOrganizationLink,
+    FundingOrganizationLinkType,
+)
 from coda.apps.fundingrequests.views.doi_preview import (
     AddFunding,
     DeleteFunding,
@@ -16,7 +21,11 @@ from coda.contexts.publication.services.doi_client import crossref
 from coda.domain.contract import PublisherId
 from tests import modelfactory
 from tests.contexts.publication.fixtures.sample_metadata import ArticleScenario
-from tests.fundingrequests.test_doi_import_preview import get_session_key, submit_for_preview
+from tests.fundingrequests.test_doi_import_preview import (
+    get_session_key,
+    save_doi_import,
+    submit_for_preview,
+)
 
 
 @pytest.fixture
@@ -225,3 +234,95 @@ def override_to_monograph(client: Client, key: str, publisher: PublisherId) -> N
         reverse("fundingrequests:doi_preview_apply_type_change", kwargs={"session_key": key}),
         data={"publication_type": "monograph", "publisher": publisher},
     )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__existing_funder__shows_existing_badge(client: Client, scenario: ArticleScenario) -> None:
+    """Funder that already exists in the DB should show an 'Existing' badge."""
+    modelfactory.funding_organization(name="BMBF")
+    scenario = scenario.with_funding([("BMBF", "project-1", None)]).setup_client()
+    response = submit_for_preview(client, scenario.doi.value())
+    preview = client.get(response["Location"])
+
+    content = preview.content.decode()
+    assert "BMBF" in content
+    assert "Existing" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__new_funder__shows_new_badge(client: Client, scenario: ArticleScenario) -> None:
+    """Funder that does NOT exist in the DB should show a 'New' badge."""
+    scenario = scenario.with_funding([("NewFunder", "project-2", None)]).setup_client()
+    response = submit_for_preview(client, scenario.doi.value())
+    preview = client.get(response["Location"])
+
+    content = preview.content.decode()
+    assert "NewFunder" in content
+    assert "New" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__mixed_funders__shows_correct_badges(client: Client, scenario: ArticleScenario) -> None:
+    """Mixed existing and new funders should show the correct badge for each."""
+    modelfactory.funding_organization(name="DFG")
+    scenario = scenario.with_funding(
+        [("BMBF", "proj-a", None), ("DFG", "proj-b", None)]
+    ).setup_client()
+    response = submit_for_preview(client, scenario.doi.value())
+    preview = client.get(response["Location"])
+
+    content = preview.content.decode()
+    # BMBF is new → "New" badge
+    assert "New" in content
+    # DFG exists → "Existing" badge
+    assert "Existing" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__doi_import__matches_funder_by_doi_not_name(
+    client: Client, scenario: ArticleScenario
+) -> None:
+    """Funder matched by DOI even if name differs."""
+    existing_org = FundingOrganization.objects.create(name="Some Org")
+    FundingOrganizationLink.objects.create(
+        type=FundingOrganizationLinkType.objects.get(name="DOI"),
+        value="10.13039/501100002347",
+        funding_organization=existing_org,
+    )
+
+    scenario = (
+        scenario.with_funding([("BMBF", "project-1", None)])
+        .with_funder_doi("BMBF", "10.13039/501100002347")
+        .setup_client()
+    )
+    response = submit_for_preview(client, scenario.doi.value())
+    preview = client.get(response["Location"])
+    content = preview.content.decode()
+
+    assert "Existing" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__doi_import__creates_doi_link_on_name_matched_funder(
+    client: Client, scenario: ArticleScenario
+) -> None:
+    """Name-matched funder gets a DOI link for future matches."""
+    scenario = (
+        scenario.with_funding([("BMBF", "project-1", None)])
+        .with_funder_doi("BMBF", "10.13039/501100002347")
+        .setup_client()
+        .setup_db()
+    )
+    response = submit_for_preview(client, scenario.doi.value())
+    key = get_session_key(response)
+    save_doi_import(client, key)
+
+    org = FundingOrganization.objects.get(name="BMBF")
+    link = org.links.get()
+    assert link.type.name == "DOI"
+    assert link.value == "10.13039/501100002347"

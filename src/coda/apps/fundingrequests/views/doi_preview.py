@@ -24,7 +24,10 @@ from pydantic import TypeAdapter
 from coda import formdata
 from coda.apps.dto import CodaBaseDto
 from coda.apps.fundingrequests.models import FundingOrganization
-from coda.apps.fundingrequests.queries.preview_context_builder import build_preview_context
+from coda.apps.fundingrequests.queries.preview_context_builder import (
+    build_preview_context,
+    tag_existing_funders,
+)
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.services.doi_client import DOIMetadataClient, crossref
 from coda.contexts.publication.services.doi_client import errors as doi_errors
@@ -379,8 +382,9 @@ def _render_funding_partial(request: HttpRequest, session_key: str) -> HttpRespo
         preview_dto = doi_service.fetch_doi_preview(doi)
 
     funding_orgs = FundingOrganization.objects.all()
+    funding = tag_existing_funders(preview_dto.publication.funding)
     context = {
-        "funding": preview_dto.publication.funding,
+        "funding": funding,
         "session_key": session_key,
         "funding_organizations": funding_orgs,
     }

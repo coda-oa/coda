@@ -19,7 +19,18 @@
         <tbody>
             {% for f in funding %}
                 <tr>
-                    <td>{{ f.name }}</td>
+                    <td>
+                        {{ f.name }}
+                        {% if f.is_new %}
+                            <span class="label pill"
+                                  style="--label-bg-color: var(--coda-primary-background);
+                                         --label-border-color: var(--coda-primary-background)">New</span>
+                        {% else %}
+                            <span class="label pill"
+                                  style="--label-bg-color: var(--coda-validation-valid-color);
+                                         --label-border-color: var(--coda-validation-valid-color)">Existing</span>
+                        {% endif %}
+                    </td>
                     <td>{{ f.project_id }}</td>
                     <td class="text-end px-0">
                         <form hx-post="{% url 'fundingrequests:doi_preview_delete_funding' session_key=session_key %}"
@@ -39,6 +50,18 @@
             {% endfor %}
         </tbody>
     </table>
+    <div class="my-2">
+        <small class="text-muted">
+            <span class="label pill"
+                  style="--label-bg-color: var(--coda-validation-valid-color);
+                         --label-border-color: var(--coda-validation-valid-color)">Existing</span>
+            — already in database
+            <span class="label pill"
+                  style="--label-bg-color: var(--coda-primary-background);
+                         --label-border-color: var(--coda-primary-background)">New</span>
+            — will be created
+        </small>
+    </div>
     <article class="mt-2 mb-0">
         <h3>Add funding</h3>
         <form hx-post="{% url 'fundingrequests:doi_preview_add_funding' session_key=session_key %}"

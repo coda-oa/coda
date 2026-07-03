@@ -24,6 +24,21 @@ class FundingOrganization(models.Model):
         return self.name
 
 
+class FundingOrganizationLinkType(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class FundingOrganizationLink(models.Model):
+    type = models.ForeignKey(FundingOrganizationLinkType, on_delete=models.CASCADE)
+    value = models.TextField()
+    funding_organization = models.ForeignKey(
+        FundingOrganization, on_delete=models.CASCADE, related_name="links"
+    )
+
+
 class ExternalFunding(models.Model):
     funding_request = models.ForeignKey(
         "FundingRequest",

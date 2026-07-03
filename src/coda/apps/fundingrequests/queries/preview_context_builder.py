@@ -8,10 +8,11 @@ from functools import singledispatch
 from typing import Any
 
 from coda.apps.authors.dto import AuthorDto
-from coda.apps.fundingrequests.models import FundingOrganization
+from coda.apps.fundingrequests.models import FundingOrganization, FundingOrganizationLink
 from coda.apps.institutions import repository as institution_repository
 from coda.contexts.publication.dto.preview import (
     PreviewArticle,
+    PreviewExternalFunding,
     PreviewFundingRequest,
     PreviewMonograph,
 )
@@ -20,6 +21,25 @@ from coda.domain.orcid import Orcid
 from coda.domain.publication.links import Doi, Isbn, Link
 
 from .models import AuthorDetail, PublicationDetail, PublishingEntityInfo, UnpaidDetail
+
+
+def tag_existing_funders(
+    funding: list[PreviewExternalFunding],
+) -> list[PreviewExternalFunding]:
+    existing_dois = set(
+        FundingOrganizationLink.objects.filter(type__name="DOI").values_list("value", flat=True)
+    )
+    existing_names = set(FundingOrganization.objects.values_list("name", flat=True))
+    return [
+        f.model_copy(
+            update={
+                "is_new": not (
+                    f.name in existing_names or any(id_ in existing_dois for id_ in f.identifiers)
+                )
+            }
+        )
+        for f in funding
+    ]
 
 
 def build_preview_context(preview_fr: PreviewFundingRequest, session_key: str) -> dict[str, Any]:
@@ -47,10 +67,12 @@ def build_preview_context(preview_fr: PreviewFundingRequest, session_key: str) -
         "article" if preview_fr.publication.publication_kind == "journal_article" else "monograph"
     )
 
+    funding = tag_existing_funders(preview_fr.publication.funding)
+
     return {
         "session_key": session_key,
         "publication": publication_detail,
-        "funding": preview_fr.publication.funding,
+        "funding": funding,
         "funding_organizations": FundingOrganization.objects.all(),
         "is_preview": True,
         "current_publication_type": current_type,

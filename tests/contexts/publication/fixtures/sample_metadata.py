@@ -362,6 +362,19 @@ class _BaseScenario(ABC):
         self._funding = list(funding)
         return self
 
+    def with_funder_doi(self, funder_name: str, doi: str) -> Self:
+        doi_obj = Doi(doi)
+        for i, (name, project_id, _) in enumerate(self._funding):
+            if name == funder_name:
+                self._funding[i] = (name, project_id, doi_obj)
+                self._client.configure_funder(
+                    doi_obj,
+                    ExternalFundingOrganisationMetadata(name=funder_name, identifiers=[doi]),
+                )
+                return self
+        msg = f"Funder '{funder_name}' not found in funding list"
+        raise ValueError(msg)
+
     def with_error(self) -> Self:
         self._has_error = True
         return self
@@ -421,7 +434,10 @@ class ArticleScenario(_BaseScenario):
             license=self._license,
             funding=[
                 ExternalFundingMetadata(
-                    funder=ExternalFundingOrganisationMetadata(name=f[0]), project_id=f[1] or ""
+                    funder=ExternalFundingOrganisationMetadata(
+                        name=f[0], identifiers=[str(f[2])] if f[2] else []
+                    ),
+                    project_id=f[1] or "",
                 )
                 for f in self._funding
             ],
@@ -534,7 +550,10 @@ class BookScenario(_BaseScenario):
             print_publication_date=self._print_publication_date,
             funding=[
                 ExternalFundingMetadata(
-                    funder=ExternalFundingOrganisationMetadata(name=f[0]), project_id=f[1] or ""
+                    funder=ExternalFundingOrganisationMetadata(
+                        name=f[0], identifiers=[str(f[2])] if f[2] else []
+                    ),
+                    project_id=f[1] or "",
                 )
                 for f in self._funding
             ],

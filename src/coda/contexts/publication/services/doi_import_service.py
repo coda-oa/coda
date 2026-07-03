@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import itertools
 from dataclasses import dataclass
 
 from coda.apps.fundingrequests import repository
-from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.journals import services as journal_services
 from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.apps.publications.repositories import publication_repository
@@ -18,6 +16,10 @@ from coda.contexts.fundingrequest.dto.commands import (
     PaymentDto,
 )
 from coda.contexts.fundingrequest.services import fundingrequests
+from coda.contexts.fundingrequest.services.funder_resolver import (
+    FunderMatch,
+    resolve_funders,
+)
 from coda.contexts.publication.dto.external_metadata import (
     ExternalFundingMetadata,
     ExternalFundingOrganisationMetadata,
@@ -323,8 +325,8 @@ class DOIImportService:
         publisher_id = self._match_or_create_publisher(publication.publisher_name)
         return publication.to_monograph_dto(publisher_id=publisher_id)
 
-    def _resolve_funders(self, funding: list[PreviewExternalFunding]) -> list[_ResolvedFunding]:
-        resolved_funding = []
+    def _enrich_funders(self, funding: list[PreviewExternalFunding]) -> list[FunderMatch]:
+        matches = []
         for f in funding:
             doi = None
             for id_ in f.identifiers:
@@ -336,36 +338,24 @@ class DOIImportService:
 
             if doi:
                 resolved_funder = self.doi_client.fetch_funder(doi)
-                resolved_funding.append(
-                    _ResolvedFunding(f.name, resolved_funder.name, doi.value(), f.project_id)
-                )
+                matches.append(FunderMatch(name=resolved_funder.name, funder_doi=doi.value()))
             else:
-                resolved_funding.append(_ResolvedFunding(f.name, "", "", f.project_id))
+                matches.append(FunderMatch(name=f.name, funder_doi=""))
 
-        return resolved_funding
+        return matches
 
     def _resolve_external_funding(
         self, funding: list[PreviewExternalFunding]
     ) -> list[ExternalFundingDto]:
-        resolved_funding = self._resolve_funders(funding)
-
-        names = {f.name for f in resolved_funding}
-        existing = FundingOrganization.objects.filter(name__in=names).only("pk", "name").all()
-        existing_names = {e.name for e in existing}
-        funders_to_create: set[str] = names.difference(existing_names)
-        created_funders = FundingOrganization.objects.bulk_create(
-            FundingOrganization(name=f) for f in funders_to_create
-        )
-        all_funders = itertools.chain(existing, created_funders)
-        names_to_pks = {f.name: f.pk for f in all_funders}
-
+        matches = self._enrich_funders(funding)
+        resolved = resolve_funders(matches)
         return [
             ExternalFundingDto(
-                organization=FundingOrganizationId(names_to_pks[f.name]),
+                organization=r.organization_id,
                 project_id=f.project_id,
                 project_name="",
             )
-            for f in resolved_funding
+            for f, r in zip(funding, resolved)
         ]
 
     def _convert_preview_to_creation_dto(
@@ -417,18 +407,3 @@ class DOIImportService:
             return PublisherId(publisher.pk)
 
         return publisher_services.create(name=publisher_name)
-
-
-@dataclass(frozen=True, slots=True)
-class _ResolvedFunding:
-    referenced_funder_name: str
-    updated_funder_name: str
-    funder_doi: str
-    project_id: str
-
-    @property
-    def name(self) -> str:
-        if self.updated_funder_name:
-            return self.updated_funder_name
-
-        return self.referenced_funder_name

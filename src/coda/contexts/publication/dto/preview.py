@@ -59,6 +59,7 @@ class PreviewExternalFunding(CodaBaseDto):
     name: Annotated[str, AfterValidator(NonEmptyStr)]
     identifiers: list[str] = Field(default_factory=list)
     project_id: str = ""
+    is_new: bool = True
 
 
 class PreviewPublication(CodaBaseDto):

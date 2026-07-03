@@ -19,6 +19,7 @@ from coda.apps.fundingrequests.views.doi_preview import (
     doi_preview_reset_type,
 )
 from coda.apps.fundingrequests.views.funders import (
+    add_funder_linkrow,
     fundingorganization_create_modal,
     fundingorganization_create_modal_submit,
     fundingorganizations_create,
@@ -137,6 +138,11 @@ urlpatterns = [
     ),
     path("funders/update/<int:pk>/", fundingorganizations_update, name="funders_update"),
     path("funders/delete/<int:pk>/", fundingorganizations_delete, name="funders_delete"),
+    path(
+        "funders/partial/add-linkrow/",
+        add_funder_linkrow,
+        name="funders_partial_add_linkrow",
+    ),
     path("partial/add-linkrow/", add_linkrow, name="partial_add_linkrow"),
     path("partial/parse-authors/", parse_authors, name="parse_authors"),
     path(
