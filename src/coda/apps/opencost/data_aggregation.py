@@ -1,7 +1,6 @@
 import logging
 from datetime import date
 from typing import TYPE_CHECKING
-import copy
 
 from django.db.models import Prefetch, QuerySet
 from coda.apps.authors.models import Author
@@ -12,6 +11,9 @@ from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.publications.models import Publication
 from coda.apps.publications.models._links import Link
 from coda.domain.finance.invoice import FundingSourceId
+from coda.apps.invoices import invoice_query
+from coda.domain.finance.invoice import PaymentStatus
+from coda.domain.date import DateRange
 
 if TYPE_CHECKING:
     from coda.apps.opencost.report_service import InstitutionHierarchyCache
@@ -97,31 +99,25 @@ def get_invoices_for_period(
     end_date: date,
     funding_source: FundingSourceId | None = None,
 ) -> QuerySet[Invoice]:
-    qs = Invoice.objects.filter(
-        date__gte=start_date,
-        date__lte=end_date,
-        status="paid",
-    )
-
+    criteria = [
+        invoice_query.DateRangeCriterion(DateRange(start_date, end_date)),
+        invoice_query.PaymentStatusCriterion(PaymentStatus.Paid),
+    ]
     if funding_source:
-        qs = qs.filter(
-            positions__funding_assignments__funding_source_id=funding_source,
-        )
+        criteria.append(invoice_query.FundingSourceCriterion(funding_source))
 
-    return (
-        qs.distinct()
-        .select_related("creditor")
-        .prefetch_related(
-            "positions",
-            Prefetch(
-                "positions__funding_assignments",
-                queryset=FundingAssignment.objects.select_related("funding_source"),
-            ),
-            "positions__publication",
-            "positions__publication__article_journal",
-            "positions__publication__article_journal__publisher",
-            "positions__publication__monograph_publisher",
-        )
+    qs = invoice_query.build_invoice_query(*criteria)
+
+    return qs.select_related("creditor").prefetch_related(
+        "positions",
+        Prefetch(
+            "positions__funding_assignments",
+            queryset=FundingAssignment.objects.select_related("funding_source"),
+        ),
+        "positions__publication",
+        "positions__publication__article_journal",
+        "positions__publication__article_journal__publisher",
+        "positions__publication__monograph_publisher",
     )
 
 
@@ -163,8 +159,7 @@ def _get_filtered_fundingrequest_publication_ids(
     params: fundingrequest_query.FundingRequestSearchParams,
 ) -> set[int] | None:
     # Exclude date_range – openCost filters by invoice/contract dates, not request_date
-    params_no_date = copy.copy(params)
-    params_no_date.date_range = None
+    params_no_date = params.without_date_range()
     criteria = fundingrequest_query.build_criteria(params_no_date)
 
     if not criteria:

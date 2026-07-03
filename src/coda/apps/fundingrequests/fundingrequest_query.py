@@ -291,6 +291,22 @@ class FundingRequestSearchParams:
     show_invalid_contract_years: bool = False
     funding_source: FundingSourceId | None = None
 
+    def without_date_range(self) -> "FundingRequestSearchParams":
+        return FundingRequestSearchParams(
+            date_range=None,
+            review_results=self.review_results,
+            payment_statuses=self.payment_statuses,
+            labels=self.labels,
+            exclude_labels=self.exclude_labels,
+            payment_methods=self.payment_methods,
+            open_access_types=self.open_access_types,
+            publication_states=self.publication_states,
+            entity_type=self.entity_type,
+            search_term=self.search_term,
+            contract_id=self.contract_id,
+            funding_source=self.funding_source,
+        )
+
 
 def build_criteria(params: FundingRequestSearchParams) -> list[FundingRequestSearchCriteria]:
     criteria: list[FundingRequestSearchCriteria] = []

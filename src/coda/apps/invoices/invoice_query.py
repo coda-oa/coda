@@ -273,3 +273,10 @@ def _ordered_date_asc(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel
 
 def _ordered_date_desc(invoices: QuerySet[InvoiceModel]) -> QuerySet[InvoiceModel]:
     return invoices.order_by("-date")
+
+
+def build_invoice_query(*criteria: InvoiceSearchCriterion) -> QuerySet[InvoiceModel]:
+    query = Q()
+    for c in criteria:
+        query &= to_query(c)
+    return InvoiceModel.objects.filter(query).distinct()
