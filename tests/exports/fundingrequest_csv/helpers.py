@@ -156,13 +156,11 @@ def create_invoice_with_funding_assignments(
 
 
 def create_invoice_with_currency_conversion(
-    funding_request: FundingRequest,
     invoice_number: str = "INV-001",
     invoice_date: date = date(2026, 5, 1),
     target_currency: str = "USD",
     exchange_rate: Decimal = Decimal("1.2500"),
 ) -> "Invoice":
-    """Create an invoice with a currency conversion."""
     invoice = modelfactory.invoice()
     invoice.number = invoice_number
     invoice.date = invoice_date

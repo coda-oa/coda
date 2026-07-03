@@ -304,6 +304,8 @@ class FundingRequestSearchParams:
             entity_type=self.entity_type,
             search_term=self.search_term,
             contract_id=self.contract_id,
+            contract_year=self.contract_year,
+            show_invalid_contract_years=self.show_invalid_contract_years,
             funding_source=self.funding_source,
         )
 
@@ -311,12 +313,53 @@ class FundingRequestSearchParams:
 def build_criteria(params: FundingRequestSearchParams) -> list[FundingRequestSearchCriteria]:
     criteria: list[FundingRequestSearchCriteria] = []
 
-    if params.date_range is not None:
-        criteria.append(DateRangeCriteria(params.date_range))
-    if params.review_results:
-        criteria.append(ReviewResultCriteria(review_results=params.review_results))
-    if params.payment_statuses:
-        criteria.append(PaymentStatusCriteria(payment_statuses=params.payment_statuses))
+    _date_range_criterion(params, criteria)
+    _review_results_criterion(params, criteria)
+    _payment_statuses_criterion(params, criteria)
+    _labels_criterion(params, criteria)
+    _payment_methods_criterion(params, criteria)
+    _open_access_types_criterion(params, criteria)
+    _publication_states_criterion(params, criteria)
+    _entity_type_criterion(params, criteria)
+    _search_term_criterion(params, criteria)
+    _contract_criterion(params, criteria)
+    _invalid_contract_year_criterion(params, criteria)
+    _funding_source_criterion(params, criteria)
+
+    return criteria
+
+
+def _funding_source_criterion(
+    params: FundingRequestSearchParams, criteria: list[FundingRequestSearchCriteria]
+) -> None:
+    if params.funding_source is not None:
+        criteria.append(InvoiceFundingSourceCriteria(funding_source=params.funding_source))
+
+
+def _invalid_contract_year_criterion(
+    params: FundingRequestSearchParams, criteria: list[FundingRequestSearchCriteria]
+) -> None:
+    if params.show_invalid_contract_years:
+        criteria.append(InvalidContractYearCriteria(show_only_invalid=True))
+
+
+def _open_access_types_criterion(
+    params: FundingRequestSearchParams, criteria: list[FundingRequestSearchCriteria]
+) -> None:
+    if params.open_access_types:
+        criteria.append(OpenAccessTypeCriteria(open_access_types=params.open_access_types))
+
+
+def _payment_methods_criterion(
+    params: FundingRequestSearchParams, criteria: list[FundingRequestSearchCriteria]
+) -> None:
+    if params.payment_methods:
+        criteria.append(PaymentMethodCriteria(payment_methods=params.payment_methods))
+
+
+def _labels_criterion(
+    params: FundingRequestSearchParams, criteria: list[FundingRequestSearchCriteria]
+) -> None:
     if params.labels or params.exclude_labels:
         criteria.append(
             LabelsSearchCriteria(
@@ -324,23 +367,54 @@ def build_criteria(params: FundingRequestSearchParams) -> list[FundingRequestSea
                 exclude_labels=params.exclude_labels or [],
             )
         )
-    if params.payment_methods:
-        criteria.append(PaymentMethodCriteria(payment_methods=params.payment_methods))
-    if params.open_access_types:
-        criteria.append(OpenAccessTypeCriteria(open_access_types=params.open_access_types))
+
+
+def _payment_statuses_criterion(
+    params: FundingRequestSearchParams, criteria: list[FundingRequestSearchCriteria]
+) -> None:
+    if params.payment_statuses:
+        criteria.append(PaymentStatusCriteria(payment_statuses=params.payment_statuses))
+
+
+def _review_results_criterion(
+    params: FundingRequestSearchParams, criteria: list[FundingRequestSearchCriteria]
+) -> None:
+    if params.review_results:
+        criteria.append(ReviewResultCriteria(review_results=params.review_results))
+
+
+def _date_range_criterion(
+    params: FundingRequestSearchParams, criteria: list[FundingRequestSearchCriteria]
+) -> None:
+    if params.date_range is not None:
+        criteria.append(DateRangeCriteria(params.date_range))
+
+
+def _publication_states_criterion(
+    params: FundingRequestSearchParams, criteria: list[FundingRequestSearchCriteria]
+) -> None:
     if params.publication_states:
         criteria.append(PublicationStateCriteria(publication_states=params.publication_states))
+
+
+def _entity_type_criterion(
+    params: FundingRequestSearchParams, criteria: list[FundingRequestSearchCriteria]
+) -> None:
     if params.entity_type != PublicationEntityType.All:
         criteria.append(EntityTypeCriteria(entity_type=params.entity_type))
+
+
+def _search_term_criterion(
+    params: FundingRequestSearchParams, criteria: list[FundingRequestSearchCriteria]
+) -> None:
     if params.search_term:
         criteria.append(GenericSearchCriteria(search_term=params.search_term))
+
+
+def _contract_criterion(
+    params: FundingRequestSearchParams, criteria: list[FundingRequestSearchCriteria]
+) -> None:
     if params.contract_id is not None or params.contract_year is not None:
         criteria.append(
             ContractSearchCriteria(contract=params.contract_id, contract_year=params.contract_year)
         )
-    if params.show_invalid_contract_years:
-        criteria.append(InvalidContractYearCriteria(show_only_invalid=True))
-    if params.funding_source is not None:
-        criteria.append(InvoiceFundingSourceCriteria(funding_source=params.funding_source))
-
-    return criteria

@@ -94,7 +94,6 @@ def create_opencost_report(
     title: str = "Test OpenCost Report 2024",
     period_start: date = date(2024, 1, 1),
     period_end: date = date(2024, 12, 31),
-    filters: dict[str, str] | None = None,
 ) -> OpenCostReport:
     params = FundingRequestSearchParams(
         date_range=DateRange(period_start, period_end),

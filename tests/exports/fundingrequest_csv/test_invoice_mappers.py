@@ -55,7 +55,6 @@ def test__invoice__maps_to_dto__all_required_fields_are_mapped_correctly() -> No
 def test__invoice_with_currency_conversion__maps_to_dto__conversion_is_mapped_correctly() -> None:
     fr = create_funding_request_without_invoices(title="Test")
     invoice = create_invoice_with_currency_conversion(
-        fr,
         invoice_number="INV-001",
         invoice_date=date(2026, 5, 20),
         target_currency="USD",
