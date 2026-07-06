@@ -24,7 +24,10 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIPreviewSaveView,
 )
 from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient, crossref
-from tests.contexts.publication.fixtures.sample_metadata import ArticleScenario, BookScenario
+from tests.contexts.publication.fixtures.sample_metadata import (
+    ArticleScenario,
+    BookScenario,
+)
 
 
 @pytest.fixture
@@ -203,6 +206,69 @@ class TestMassDOIPreviewView:
         content = response.content.decode()
         assert "10.1234/mass.preview.a" in content
         assert "View details" in content
+
+    @pytest.mark.django_db
+    @pytest.mark.usefixtures("logged_in")
+    def test__mass_doi_preview__article_without_journal__shows_warning(
+        self,
+        client: Client,
+        fake_doi_client: InMemoryDOIMetadataClient,
+    ) -> None:
+        """Article missing journal metadata → warning is displayed in mass preview table."""
+        doi_str = "10.1234/mass.no-journal"
+        ArticleScenario(client=fake_doi_client, doi=doi_str).with_title(
+            "Article Without Journal"
+        ).without_journal().without_online_date().setup_client()
+
+        response = submit_many_for_preview(client, doi_str)
+        session_key = get_session_key(response)
+        preview_response = get_mass_preview(client, session_key)
+
+        assert preview_response.status_code == 200
+        content = preview_response.content.decode()
+        assert "Journal metadata is missing" in content
+
+    @pytest.mark.django_db
+    @pytest.mark.usefixtures("logged_in")
+    def test__mass_doi_preview__monograph_without_publisher__shows_warning(
+        self,
+        client: Client,
+        fake_doi_client: InMemoryDOIMetadataClient,
+    ) -> None:
+        """Monograph missing publisher metadata → warning is displayed in mass preview table."""
+        doi_str = "10.1234/mass.no-publisher"
+        BookScenario(client=fake_doi_client, doi=doi_str).with_title(
+            "Book Without Publisher"
+        ).without_publisher().without_print_date().setup_client()
+
+        response = submit_many_for_preview(client, doi_str)
+        session_key = get_session_key(response)
+        preview_response = get_mass_preview(client, session_key)
+
+        assert preview_response.status_code == 200
+        content = preview_response.content.decode()
+        assert "Publisher metadata is missing" in content
+
+    @pytest.mark.django_db
+    @pytest.mark.usefixtures("logged_in")
+    def test__mass_doi_preview__complete_metadata__no_warnings(
+        self,
+        client: Client,
+        fake_doi_client: InMemoryDOIMetadataClient,
+    ) -> None:
+        """Complete metadata → no warning indicators in mass preview."""
+        doi_str = "10.1234/mass.complete"
+        ArticleScenario(client=fake_doi_client, doi=doi_str).with_title(
+            "Complete Article"
+        ).setup_client()
+
+        response = submit_many_for_preview(client, doi_str)
+        session_key = get_session_key(response)
+        preview_response = get_mass_preview(client, session_key)
+
+        assert preview_response.status_code == 200
+        content = preview_response.content.decode()
+        assert "Journal metadata is missing" not in content
 
     @pytest.mark.django_db
     @pytest.mark.usefixtures("logged_in")

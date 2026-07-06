@@ -114,6 +114,7 @@ class MassDOIImportInputView(LoginRequiredMixin, View):
                     "publication_type": single.publication_type,
                     "title": single.metadata.title,
                     "child_key": child_key,
+                    "warnings": single.warnings,
                 }
             )
 
@@ -162,12 +163,14 @@ class MassDOIPreviewView(LoginRequiredMixin, View):
 
         success_count = sum(1 for r in results if r["status"] == "success")
         error_count = sum(1 for r in results if r["status"] == "error")
+        warning_count = sum(1 for r in results if r.get("warnings"))
 
         context = {
             "session_key": session_key,
             "results": results,
             "success_count": success_count,
             "error_count": error_count,
+            "warning_count": warning_count,
             "skipped_invalid": session_data.get("skipped_invalid", 0),
             "skipped_duplicates": session_data.get("skipped_duplicates", 0),
         }

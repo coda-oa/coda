@@ -9,6 +9,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
+from coda.contexts.publication.services._map_to_preview import (
+    build_preview_article,
+    build_preview_monograph,
+)
 from coda.contexts.publication.services.doi_client import DOIMetadataClient
 from coda.contexts.publication.services.doi_client._crossref._crossref_type_detector import (
     detect_publication_type,
@@ -25,11 +29,18 @@ from coda.domain.publication.links import Doi
 
 @dataclass
 class SingleDOIPreview:
-    """Preview data for a single successfully fetched DOI."""
+    """Preview data for a single successfully fetched DOI.
+
+    The ``warnings`` list is populated by building a
+    ``PreviewArticle``/``PreviewMonograph`` from the raw metadata and
+    extracting its ``.warnings`` property, keeping the detection logic
+    centralized in the preview DTOs rather than duplicating it here.
+    """
 
     doi: Doi
     metadata: ExternalPublicationMetadata
     publication_type: str  # "article" | "monograph"
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -79,8 +90,21 @@ class MassDOIImportService:
             doi = Doi(doi_str)
             if isinstance(result, ExternalPublicationMetadata):
                 pub_type = detect_publication_type(result)
+                # Reuse the centralized warning detection from PreviewArticle / PreviewMonograph
+                # to avoid re-implementing journal/publisher missing checks.
+                warnings: list[str] = []
+                if pub_type == "article":
+                    warnings = build_preview_article(doi, result).warnings
+                elif pub_type == "monograph":
+                    warnings = build_preview_monograph(doi, result).warnings
+
                 preview.successes.append(
-                    SingleDOIPreview(doi=doi, metadata=result, publication_type=pub_type)
+                    SingleDOIPreview(
+                        doi=doi,
+                        metadata=result,
+                        publication_type=pub_type,
+                        warnings=warnings,
+                    )
                 )
             else:
                 preview.errors.append(SingleDOIError(doi=doi, error=str(result)))

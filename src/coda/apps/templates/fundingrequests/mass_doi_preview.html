@@ -2,7 +2,9 @@
 {% block content %}
     <h1 class="my-2">Mass DOI Preview</h1>
     <p class="text-muted">
-        {{ success_count }} DOI(s) found successfully, {{ error_count }} error(s).
+        {{ success_count }} DOI(s) found successfully, {{ error_count }} error(s)
+        {% if warning_count %}, {{ warning_count }} with warnings{% endif %}
+        .
         Click "View details" to review or override individual publications.
     </p>
     {% if skipped_invalid or skipped_duplicates %}
@@ -17,7 +19,7 @@
                 <th>DOI</th>
                 <th>Title</th>
                 <th>Type</th>
-                <th>Status</th>
+                <th>Warnings</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -30,14 +32,15 @@
                     <td>{{ result.title|default:"—" }}</td>
                     <td>{{ result.publication_type|default:"—" }}</td>
                     <td>
-                        {% if result.status == "success" %}
-                            <span class="status-success">✅ Imported</span>
-                            {% if result.has_overrides %}
-                                <span class="badge"
-                                      data-tooltip="This publication has custom overrides applied">🔧</span>
-                            {% endif %}
-                        {% elif result.error %}
+                        {% if result.error %}
                             <span class="status-error">❌ {{ result.error }}</span>
+                        {% elif result.warnings %}
+                            {% for warning in result.warnings %}
+                                <span class="status-warning">⚠️ {{ warning }}</span>
+                                {% if not forloop.last %}<br>{% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-muted">—</span>
                         {% endif %}
                     </td>
                     <td>
@@ -45,6 +48,10 @@
                             <a href="{% url "fundingrequests:doi_preview_detail" session_key=result.child_key %}?mass_session={{ session_key }}">
                                 View details
                             </a>
+                            {% if result.has_overrides %}
+                                <span class="badge"
+                                      data-tooltip="This publication has custom overrides applied">🔧</span>
+                            {% endif %}
                         {% endif %}
                     </td>
                 </tr>
