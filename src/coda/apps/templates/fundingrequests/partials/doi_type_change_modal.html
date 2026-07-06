@@ -6,7 +6,8 @@
             <h2 class="my-1">Change Publication Type</h2>
             <button aria-label="Close"
                     class="close"
-                    onclick="document.getElementById('type-change-modal').close()"></button>
+                    commandfor="type-change-modal"
+                    command="close"></button>
         </header>
         <p class="text-muted">
             Select the publication type. The search form below will let you pick the journal or publisher.
@@ -50,9 +51,15 @@
             {% endif %}
         </div>
         <footer class="grid">
+            <button type="submit"
+                    hx-post="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
+                    hx-include="#type-change-form"
+                    hx-target="#type-change-form"
+                    hx-swap="innerHTML">Apply</button>
             <button type="button"
                     class="secondary"
-                    onclick="document.getElementById('type-change-modal').close()">Cancel</button>
+                    commandfor="type-change-modal"
+                    command="close">Cancel</button>
         </footer>
     </article>
 </dialog>

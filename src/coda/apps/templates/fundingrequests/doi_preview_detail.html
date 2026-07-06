@@ -7,12 +7,6 @@
     </p>
     <div>
         <div>
-            {% if is_preview %}
-                <button type="button"
-                        class="outline"
-                        onclick="document.getElementById('type-change-modal').showModal()">Change Type</button>
-                {% include "fundingrequests/partials/doi_type_change_modal.html" %}
-            {% endif %}
             <h2 class="flex justify-between align-center">
                 <span>
                     <span data-tooltip="Funding request for a {{ current_publication_type }}"
@@ -33,12 +27,6 @@
                         Article
                     {% endif %}
                 </span>
-                {% if is_preview %}
-                    <button type="button"
-                            class="secondary small my-0"
-                            hx-post="{% url 'fundingrequests:doi_preview_reset_type' session_key=session_key %}"
-                            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>Reset</button>
-                {% endif %}
             </h2>
             {% if warnings %}
                 <div class="messages error w-100">
