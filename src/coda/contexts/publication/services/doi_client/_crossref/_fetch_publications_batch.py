@@ -7,7 +7,7 @@ for large result sets.
 
 import logging
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Protocol
 
 import httpx
 
@@ -20,9 +20,22 @@ from ._fetch_publication import CROSSREF_API_BASE, _parse_crossref_response
 logger = logging.getLogger(__name__)
 
 
+class HttpGetClient(Protocol):
+    """Something with a .get() method compatible with httpx.
+
+    The return value is loosely typed because the function only calls
+    .raise_for_status().json() on it — any object satisfying that
+    interface works (httpx.Response in production, custom fakes in tests).
+    """
+
+    def get(self, url: str, *, params: Any, timeout: int, follow_redirects: bool) -> Any: ...
+
+
 def fetch_publications_batch(
     dois: Sequence[Doi],
     timeout: int = 30,
+    *,
+    http_client: HttpGetClient | None = None,
 ) -> dict[str, ExternalPublicationMetadata | Exception]:
     """Fetch publication metadata for multiple DOIs in a single batch call.
 
@@ -40,6 +53,8 @@ def fetch_publications_batch(
     if not dois:
         return {}
 
+    client = http_client or httpx
+
     filter_value = ",".join(f"doi:{doi}" for doi in dois)
     params: dict[str, str | int] = {
         "filter": filter_value,
@@ -47,11 +62,13 @@ def fetch_publications_batch(
         "cursor": "*",
     }
 
+    # Safety cap: at most one item per requested DOI can match,
+    # so len(dois) pages is a generous upper bound.
+    max_pages = len(dois)
     all_items: list[dict[str, Any]] = []
-    max_pages = 10  # Safety limit to prevent infinite pagination
     for _ in range(max_pages):
         try:
-            response = httpx.get(
+            response = client.get(
                 CROSSREF_API_BASE,
                 params=params,
                 timeout=timeout,
