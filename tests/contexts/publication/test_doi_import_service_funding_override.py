@@ -127,7 +127,7 @@ def test__override_import__reset_funding__preserves_publication_type_override() 
 @pytest.mark.django_db
 @pytest.mark.parametrize("scenario", (ArticleScenario(), BookScenario()))
 def test__reset_funding__restores_original_funding_in_preview(
-    scenario: ImportScenario,
+    scenario: ArticleScenario | BookScenario,
 ) -> None:
     """After add+remove+reset, preview contains only the original detected funding."""
     funder = modelfactory.funding_organization()

@@ -65,7 +65,9 @@ class FundingOrganizationLinkFormMixin:
 
 @breadcrumb("Create Funding Organization", parent_url_name="fundingrequests:funders")
 class FundingOrganizationCreateView(
-    LoginRequiredMixin, FundingOrganizationLinkFormMixin, CreateView[FundingOrganization, FundingOrganizationForm]  # type: ignore[type-abstract]
+    LoginRequiredMixin,
+    FundingOrganizationLinkFormMixin,
+    CreateView[FundingOrganization, FundingOrganizationForm],
 ):
     model = FundingOrganization
     form_class = FundingOrganizationForm
@@ -102,7 +104,9 @@ fundingorganizations_create = FundingOrganizationCreateView.as_view()
 
 @breadcrumb("Update Funding Organization", parent_url_name="fundingrequests:funders")
 class FundingOrganizationUpdateView(
-    LoginRequiredMixin, FundingOrganizationLinkFormMixin, UpdateView[FundingOrganization, FundingOrganizationForm]  # type: ignore[type-abstract]
+    LoginRequiredMixin,
+    FundingOrganizationLinkFormMixin,
+    UpdateView[FundingOrganization, FundingOrganizationForm],
 ):
     model = FundingOrganization
     form_class = FundingOrganizationForm

@@ -310,6 +310,10 @@ class _BaseScenario(ABC):
     def client(self) -> DOIMetadataClient:
         return self._client
 
+    @property
+    def metadata(self) -> ExternalPublicationMetadata:
+        return self._build_metadata()
+
     def setup_client(self) -> Self:
         if self._has_error:
             self._client.configure_error(Doi(self._doi_str), "network")

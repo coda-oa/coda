@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1 class="my-2">Mass DOI Preview</h1>
+    <p class="text-muted">
+        {{ success_count }} DOI(s) found successfully, {{ error_count }} error(s).
+        Click "View details" to review or override individual publications.
+    </p>
+    {% if skipped_invalid or skipped_duplicates %}
+        <article class="warning">
+            {% if skipped_invalid %}<p>{{ skipped_invalid }} invalid DOI(s) were skipped.</p>{% endif %}
+            {% if skipped_duplicates %}<p>{{ skipped_duplicates }} duplicate DOI(s) were removed.</p>{% endif %}
+        </article>
+    {% endif %}
+    <table>
+        <thead>
+            <tr>
+                <th>DOI</th>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in results %}
+                <tr class="{{ result.row_class }}">
+                    <td>
+                        <code>{{ result.doi }}</code>
+                    </td>
+                    <td>{{ result.title|default:"—" }}</td>
+                    <td>{{ result.publication_type|default:"—" }}</td>
+                    <td>
+                        {% if result.status == "success" %}
+                            <span class="status-success">✅ Imported</span>
+                            {% if result.has_overrides %}
+                                <span class="badge"
+                                      data-tooltip="This publication has custom overrides applied">🔧</span>
+                            {% endif %}
+                        {% elif result.error %}
+                            <span class="status-error">❌ {{ result.error }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if result.status == "success" and result.child_key %}
+                            <a href="{% url "fundingrequests:doi_preview_detail" session_key=result.child_key %}?mass_session={{ session_key }}">
+                                View details
+                            </a>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if success_count > 0 %}
+        <form method="post"
+              action="{% url "fundingrequests:mass_doi_preview_save" session_key=session_key %}">
+            {% csrf_token %}
+            <div class="grid align-center">
+                <a href="{% url "fundingrequests:mass_doi_import_input" %}"
+                   class="secondary"
+                   role="button">Back</a>
+                <button class="m-0" type="submit">Import {{ success_count }} publication(s)</button>
+            </div>
+        </form>
+    {% else %}
+        <div class="grid align-center">
+            <a href="{% url "fundingrequests:mass_doi_import_input" %}"
+               role="button">Try again</a>
+        </div>
+    {% endif %}
+{% endblock content %}

@@ -35,16 +35,23 @@
             {% endif %}
             {% include "fundingrequests/partials/publication_section.html" %}
             {% include "fundingrequests/partials/doi_import_publication_funding.html" %}
-            <form class="wizard-nav"
-                  method="post"
-                  action="{% url "fundingrequests:doi_preview_save" session_key=session_key %}">
-                {% csrf_token %}
+            {% if is_mass_import %}
                 <div class="grid align-center">
-                    <a href="{% url "fundingrequests:list" %}"
-                       class="button danger text-center m-0">Cancel</a>
-                    <button class="m-0" type="submit">Save to Database</button>
+                    <a href="{{ mass_import_back_url }}"
+                       class="button secondary text-center m-0">← Back to mass import</a>
                 </div>
-            </form>
+            {% else %}
+                <form class="wizard-nav"
+                      method="post"
+                      action="{% url "fundingrequests:doi_preview_save" session_key=session_key %}">
+                    {% csrf_token %}
+                    <div class="grid align-center">
+                        <a href="{% url "fundingrequests:list" %}"
+                           class="button danger text-center m-0">Cancel</a>
+                        <button class="m-0" type="submit">Save to Database</button>
+                    </div>
+                </form>
+            {% endif %}
         </div>
     </div>
 {% endblock content %}

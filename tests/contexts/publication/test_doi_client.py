@@ -50,6 +50,13 @@ def fake_client() -> DOIMetadataClient:
         license="CC-BY",
         online_publication_date=datetime.date(2024, 1, 15),
     )
+    client.data["10.1007/978-3-319-18938-3"] = ExternalPublicationMetadata(
+        title="Quantum Microscopy of Biological Systems",
+        authors=[ExternalAuthor(name="Michael Taylor")],
+        publication_type="book",
+        publisher="Springer International Publishing",
+        isbn="9783319189376",
+    )
     return client
 
 
@@ -144,3 +151,48 @@ def test__fetch_metadata__preserves_raw_publication_type_from_source(
     # Should preserve raw Crossref type string (not mapped to enum)
     assert metadata.publication_type == "journal-article"
     assert isinstance(metadata.publication_type, str)
+
+
+@pytest.mark.parametrize(
+    "client_fixture",
+    [
+        "fake_client",
+        pytest.param("real_client", marks=pytest.mark.integration),
+    ],
+)
+def test__fetch_publications_batch__two_valid_dois__returns_both(
+    client_fixture: str, request: pytest.FixtureRequest
+) -> None:
+    """Given two valid DOIs, batch fetch returns both with metadata."""
+    client: DOIMetadataClient = request.getfixturevalue(client_fixture)
+    dois = [Doi("10.1038/nature12373"), Doi("10.1007/978-3-319-18938-3")]
+
+    results = client.fetch_publications_batch(dois)
+
+    assert len(results) == 2
+    for doi_str, result in results.items():
+        assert isinstance(
+            result, ExternalPublicationMetadata
+        ), f"Expected metadata for {doi_str}, got {type(result).__name__}: {result}"
+        assert result.title
+
+
+@pytest.mark.parametrize(
+    "client_fixture",
+    [
+        "fake_client",
+        pytest.param("real_client", marks=pytest.mark.integration),
+    ],
+)
+def test__fetch_publications_batch__mixed_found_and_not_found__returns_both(
+    client_fixture: str, request: pytest.FixtureRequest
+) -> None:
+    """Given a mix of found and not-found DOIs, returns metadata and error."""
+    client: DOIMetadataClient = request.getfixturevalue(client_fixture)
+    dois = [Doi("10.1038/nature12373"), Doi("10.9999/nonexistent.doi.xxxxx")]
+
+    results = client.fetch_publications_batch(dois)
+
+    assert len(results) == 2
+    assert isinstance(results["10.1038/nature12373"], ExternalPublicationMetadata)
+    assert isinstance(results["10.9999/nonexistent.doi.xxxxx"], Exception)

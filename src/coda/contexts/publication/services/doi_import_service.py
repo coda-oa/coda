@@ -43,6 +43,7 @@ from coda.domain.issn import Issn
 from coda.domain.publication import JournalId
 from coda.domain.publication.links import Doi
 from coda.domain.string import NonEmptyStr
+from pydantic import TypeAdapter
 
 from ._map_to_preview import build_preview_article, build_preview_monograph
 
@@ -161,6 +162,9 @@ class OverrideImport:
             [funding.funder_id for funding in self._funding or []]
         )
         return {FundingOrganizationId(org.pk): org.name for org in organizations}
+
+
+OverrideImportTypeAdapter = TypeAdapter(OverrideImport)
 
 
 class DOIImportService:

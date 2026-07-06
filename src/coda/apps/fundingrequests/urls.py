@@ -18,6 +18,12 @@ from coda.apps.fundingrequests.views.doi_preview import (
     doi_preview_reset_funding,
     doi_preview_reset_type,
 )
+from coda.apps.fundingrequests.views.mass_doi_import import (
+    MassDOIImportInputView,
+    MassDOIImportResultView,
+    MassDOIPreviewSaveView,
+    MassDOIPreviewView,
+)
 from coda.apps.fundingrequests.views.funders import (
     add_funder_linkrow,
     fundingorganization_create_modal,
@@ -66,6 +72,22 @@ urlpatterns = [
     path("list/", fundingrequest_list, name="list"),
     path("import/", import_fundingrequests, name="import"),
     path("doi-import/", DOIImportInputView.as_view(), name="doi_import_input"),
+    path("doi-import/mass/", MassDOIImportInputView.as_view(), name="mass_doi_import_input"),
+    path(
+        "doi-import/mass-preview/<str:session_key>/",
+        MassDOIPreviewView.as_view(),
+        name="mass_doi_preview",
+    ),
+    path(
+        "doi-import/mass-preview/<str:session_key>/save/",
+        MassDOIPreviewSaveView.as_view(),
+        name="mass_doi_preview_save",
+    ),
+    path(
+        "doi-import/mass-result/<str:result_key>/",
+        MassDOIImportResultView.as_view(),
+        name="mass_doi_result",
+    ),
     path(
         "doi-preview/<str:session_key>/", DOIPreviewDetailView.as_view(), name="doi_preview_detail"
     ),

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1 class="my-2">Mass Import Complete</h1>
+    <article>
+        <ul>
+            <li>
+                ✅ <strong>{{ imported_count }}</strong> publication(s) imported successfully
+            </li>
+            {% if skipped_count %}
+                <li>
+                    ⚠️ <strong>{{ skipped_count }}</strong> already existed or had errors (skipped)
+                </li>
+            {% endif %}
+            {% if failed_count %}
+                <li>
+                    ❌ <strong>{{ failed_count }}</strong> failed to import
+                </li>
+            {% endif %}
+        </ul>
+    </article>
+    {% if import_links %}
+        <h2>Imported Publications</h2>
+        <ul>
+            {% for link in import_links %}
+                <li>
+                    <a href="{{ link.url }}">{{ link.title|default:link.doi }}</a>
+                    <code>({{ link.doi }})</code>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    <div class="grid align-center">
+        <a href="{% url "fundingrequests:list" %}"
+           class="secondary"
+           role="button">Back to funding requests</a>
+        <a href="{% url "fundingrequests:mass_doi_import_input" %}"
+           role="button">Another mass import</a>
+    </div>
+{% endblock content %}

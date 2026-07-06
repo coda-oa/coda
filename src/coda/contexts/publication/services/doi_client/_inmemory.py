@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 import json
 from pathlib import Path
 from typing import Literal
@@ -72,6 +73,20 @@ class InMemoryDOIMetadataClient:
         if doi_str not in self.data:
             raise DOINotFoundError(doi, "This DOI is not available in the demo dataset")
         return self.data[doi_str]
+
+    def fetch_publications_batch(
+        self, dois: Sequence[Doi]
+    ) -> dict[str, ExternalPublicationMetadata | Exception]:
+        results: dict[str, ExternalPublicationMetadata | Exception] = {}
+        for doi in dois:
+            doi_str = str(doi)
+            if doi_str in self._errors:
+                results[doi_str] = DOIFetchError(doi, _ERROR_MESSAGES[self._errors[doi_str]])
+            elif doi_str in self.data:
+                results[doi_str] = self.data[doi_str]
+            else:
+                results[doi_str] = DOINotFoundError(doi)
+        return results
 
     def fetch_funder(self, doi: Doi) -> ExternalFundingOrganisationMetadata:
         doi_str = str(doi)

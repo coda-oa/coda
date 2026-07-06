@@ -19,10 +19,10 @@ from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.views import View
 from django.views.decorators.http import require_GET, require_POST
-from pydantic import TypeAdapter
 
 from coda import formdata
 from coda.apps.dto import CodaBaseDto
+from coda.apps.fundingrequests.views.mixins import MassImportAwareMixin
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.fundingrequests.queries.preview_context_builder import (
     build_preview_context,
@@ -38,6 +38,7 @@ from coda.contexts.publication.services.doi_import_service import (
     DOIImportService,
     OverrideFunding,
     OverrideImport,
+    OverrideImportTypeAdapter,
 )
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
 from coda.domain.contract import PublisherId
@@ -47,16 +48,7 @@ from coda.domain.publication.links import Doi
 
 
 def _load_override(session_data: dict[str, Any]) -> OverrideImport:
-    """Reconstruct override object from session data using match statement."""
     override = OverrideImportTypeAdapter.validate_python(session_data["override"])
-    # match session_data.get("publication_type"):
-    #     case "article" if journal_id := session_data.get("journal_id"):
-    #         override = OverrideImport.as_article(JournalId(journal_id))
-    #     case "monograph" if publisher_id := session_data.get("publisher_id"):
-    #         override = OverrideImport.as_monograph(PublisherId(publisher_id))
-    #     case _:
-    #         override = OverrideImport.empty()
-
     return override
 
 
@@ -112,11 +104,15 @@ class DOIImportInputView(LoginRequiredMixin, View):
             return render(request, "fundingrequests/doi_import_input.html", context)
 
 
-class DOIPreviewDetailView(LoginRequiredMixin, View):
+class DOIPreviewDetailView(LoginRequiredMixin, MassImportAwareMixin, View):
     """Display read-only preview detail page loading data from session (not database).
 
     Users can review imported data before saving. After saving to database,
     they can edit using the regular funding request update wizards.
+
+    When accessed from a mass import context (detected via
+    ``mass_import_session_key`` in child session data), the save button is
+    hidden and a "Back to mass import" link is shown instead.
     """
 
     doi_client: ClassVar[DOIMetadataClient] = crossref
@@ -147,13 +143,19 @@ class DOIPreviewDetailView(LoginRequiredMixin, View):
             preview_dto = doi_service.fetch_doi_preview(doi)
 
         context = build_preview_context(preview_dto, session_key)
+        context.update(self.get_mass_import_context(session_data))
+
         return render(request, "fundingrequests/doi_preview_detail.html", context)
 
 
-class DOIPreviewSaveView(LoginRequiredMixin, View):
+class DOIPreviewSaveView(LoginRequiredMixin, MassImportAwareMixin, View):
     """Persist preview session data to database and redirect to real detail page.
 
-    Class attribute `doi_client` can be overridden for testing via subclassing.
+    When accessed from a mass import context (detected via
+    ``mass_import_session_key`` in child session data), redirects back to
+    the mass preview instead of saving the single DOI.
+
+    Class attribute ``doi_client`` can be overridden for testing via subclassing.
     """
 
     doi_client: ClassVar[DOIMetadataClient] = crossref
@@ -179,6 +181,10 @@ class DOIPreviewSaveView(LoginRequiredMixin, View):
 
         if not session_data:
             return HttpResponse("Preview session not found or expired", status=404)
+
+        response = self.redirect_if_mass_import(session_data)
+        if response:
+            return response
 
         doi = Doi(session_data["doi"])
         metadata = ExternalPublicationMetadata.model_validate(session_data["original_metadata"])
@@ -360,9 +366,6 @@ class DeleteFunding(CodaBaseDto):
 class AddFunding(CodaBaseDto):
     funder_id: int
     project_id: str
-
-
-OverrideImportTypeAdapter = TypeAdapter(OverrideImport)
 
 
 def _render_funding_partial(request: HttpRequest, session_key: str) -> HttpResponse:

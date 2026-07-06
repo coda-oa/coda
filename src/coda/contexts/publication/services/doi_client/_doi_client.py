@@ -49,3 +49,17 @@ class DOIMetadataClient(Protocol):
             DOIFetchError: If the fetch fails due to network/API errors
         """
         ...
+
+    def fetch_publications_batch(
+        self, dois: list[Doi]
+    ) -> dict[str, ExternalPublicationMetadata | Exception]:
+        """Fetch metadata for multiple DOIs in a single batch call.
+
+        Args:
+            dois: List of DOIs to fetch metadata for
+
+        Returns:
+            Dict keyed by DOI string. Each value is either the parsed
+            ExternalPublicationMetadata or an Exception (DOINotFoundError, DOIFetchError).
+        """
+        ...
