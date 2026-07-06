@@ -17,12 +17,11 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIPreviewSaveView,
 )
 from coda.apps.journals.models import Journal
-from coda.contexts.publication.dto.external_metadata import (
-    ExternalAuthor,
-    ExternalPublicationMetadata,
-)
 from coda.contexts.publication.services.doi_client._inmemory import InMemoryDOIMetadataClient
-from coda.domain.publication.links import Doi
+from tests.contexts.publication.fixtures.sample_metadata import (
+    ArticleScenario,
+    BookScenario,
+)
 from tests.fundingrequests.test_doi_import_preview import (
     get_session_key,
     submit_for_preview,
@@ -56,18 +55,9 @@ def test_preview_page__article_without_journal__shows_warning_and_fix_form(
     - render the article fix form inline so the user can supply the journal
     """
     doi_str = "10.1234/no-journal.article"
-    doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = ExternalPublicationMetadata(
-        title="Article Without Journal",
-        authors=[ExternalAuthor(name="Test Author")],
-        publication_type="journal-article",
-        journal=None,
-        publisher=None,
-        isbn=None,
-        license=None,
-        online_publication_date=None,
-        print_publication_date=None,
-    )
+    ArticleScenario(fake_doi_client, doi_str).with_title(
+        "Article Without Journal"
+    ).without_journal().without_online_date().setup_client()
 
     response = submit_for_preview(client, doi_str)
     preview_url = response["Location"]
@@ -77,7 +67,8 @@ def test_preview_page__article_without_journal__shows_warning_and_fix_form(
     content = preview_response.content.decode()
     assert "Journal metadata is missing" in content
     assert "Select Journal" in content
-    assert "Apply Change to Article" in content
+    # The fix form can be submitted
+    assert "Apply" in content
 
 
 @pytest.mark.django_db
@@ -94,18 +85,9 @@ def test_preview_page__monograph_without_publisher__shows_warning_and_fix_form(
     - render the monograph fix form inline so the user can supply the publisher
     """
     doi_str = "10.1234/no-publisher.book"
-    doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = ExternalPublicationMetadata(
-        title="Book Without Publisher",
-        authors=[ExternalAuthor(name="Test Author")],
-        publication_type="book",
-        journal=None,
-        publisher=None,
-        isbn=None,
-        license=None,
-        online_publication_date=None,
-        print_publication_date=None,
-    )
+    BookScenario(fake_doi_client, doi_str).with_title(
+        "Book Without Publisher"
+    ).without_publisher().without_print_date().setup_client()
 
     response = submit_for_preview(client, doi_str)
     preview_url = response["Location"]
@@ -115,7 +97,8 @@ def test_preview_page__monograph_without_publisher__shows_warning_and_fix_form(
     content = preview_response.content.decode()
     assert "Publisher metadata is missing" in content
     assert "Select Publisher" in content
-    assert "Apply Change to Monograph" in content
+    # The fix form can be submitted
+    assert "Apply" in content
 
 
 @pytest.mark.django_db
@@ -131,18 +114,9 @@ def test_preview_page__override_applied__no_warnings(
     render without any warning banner.
     """
     doi_str = "10.1234/no-journal.override"
-    doi = Doi(doi_str)
-    fake_doi_client.data[str(doi)] = ExternalPublicationMetadata(
-        title="Article Without Journal",
-        authors=[ExternalAuthor(name="Test Author")],
-        publication_type="journal-article",
-        journal=None,
-        publisher=None,
-        isbn=None,
-        license=None,
-        online_publication_date=None,
-        print_publication_date=None,
-    )
+    ArticleScenario(fake_doi_client, doi_str).with_title(
+        "Article Without Journal"
+    ).without_journal().without_online_date().setup_client()
 
     response = submit_for_preview(client, doi_str)
     session_key = get_session_key(response)

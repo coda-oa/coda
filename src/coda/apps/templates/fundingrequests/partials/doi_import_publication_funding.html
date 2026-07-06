@@ -13,14 +13,16 @@
             <tr>
                 <th>Funder</th>
                 <th>Project ID</th>
+                <th>Exists in CODA</th>
                 <th></th>
             </tr>
         </thead>
         <tbody>
             {% for f in funding %}
                 <tr>
+                    <td>{{ f.name }}</td>
+                    <td>{{ f.project_id }}</td>
                     <td>
-                        {{ f.name }}
                         {% if f.is_new %}
                             <span class="label pill"
                                   style="--label-bg-color: var(--coda-primary-background);
@@ -28,10 +30,9 @@
                         {% else %}
                             <span class="label pill"
                                   style="--label-bg-color: var(--coda-validation-valid-color);
-                                         --label-border-color: var(--coda-validation-valid-color)">Existing</span>
+                                         --label-border-color: var(--coda-validation-valid-color)">Exists</span>
                         {% endif %}
                     </td>
-                    <td>{{ f.project_id }}</td>
                     <td class="text-end px-0">
                         <form hx-post="{% url 'fundingrequests:doi_preview_delete_funding' session_key=session_key %}"
                               hx-target="#doi-funding-section"
@@ -54,7 +55,7 @@
         <small class="mr-2 text-muted">
             <span class="label pill"
                   style="--label-bg-color: var(--coda-validation-valid-color);
-                         --label-border-color: var(--coda-validation-valid-color)">Existing</span>
+                         --label-border-color: var(--coda-validation-valid-color)">Exists</span>
             — already in database
         </small>
         <small>

@@ -247,7 +247,7 @@ def test__existing_funder__shows_existing_badge(client: Client, scenario: Articl
 
     content = preview.content.decode()
     assert "BMBF" in content
-    assert "Existing" in content
+    assert "Exists" in content
 
 
 @pytest.mark.django_db
@@ -278,7 +278,7 @@ def test__mixed_funders__shows_correct_badges(client: Client, scenario: ArticleS
     # BMBF is new → "New" badge
     assert "New" in content
     # DFG exists → "Existing" badge
-    assert "Existing" in content
+    assert "Exists" in content
 
 
 @pytest.mark.django_db
@@ -303,7 +303,7 @@ def test__doi_import__matches_funder_by_doi_not_name(
     preview = client.get(response["Location"])
     content = preview.content.decode()
 
-    assert "Existing" in content
+    assert "Exists" in content
 
 
 @pytest.mark.django_db

@@ -247,11 +247,11 @@ def _render_monograph_type_form(
 @login_required
 @require_GET
 def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpResponse:
-    """HTMX endpoint: Load form partial for switching publication type.
+    """HTMX endpoint: Return the tab bar + form for the requested publication type.
 
-    Uses original_metadata for smart pre-filling in both directions:
-    - article form: pre-fill journal search from original_metadata["journal"]["title"]
-    - monograph form: pre-fill publisher search from original_metadata["publisher"]
+    Renders the full swappable tab-content fragment so the active tab marker
+    and the form content are always in sync.
+    Uses original_metadata for smart pre-filling (e.g. suggested_publisher).
     """
     session_data = request.session.get(session_key)
     if not session_data:
@@ -260,9 +260,15 @@ def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpRe
     requested_type = request.GET.get("publication_type", "article")
     original_metadata = session_data.get("original_metadata", {})
 
-    if requested_type == "article":
-        return _render_article_type_form(request, session_key)
-    return _render_monograph_type_form(request, session_key, original_metadata)
+    context: dict[str, Any] = {
+        "session_key": session_key,
+        "current_publication_type": requested_type,
+        "suggested_publisher": original_metadata.get("publisher", ""),
+        "journals": [],
+        "publishers": [],
+    }
+
+    return render(request, "fundingrequests/partials/doi_type_change_tab_content.html", context)
 
 
 @login_required
