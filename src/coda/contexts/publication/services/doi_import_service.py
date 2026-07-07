@@ -3,23 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Protocol
 
-from coda.apps.fundingrequests import repository
-from coda.apps.journals import services as journal_services
-from coda.apps.publications.dto import MonographDto, PublicationDto
-from coda.apps.publications.repositories import publication_repository
-from coda.apps.publishers import services as publisher_services
-from coda.contexts.fundingrequest.dto.commands import (
-    CreateFundingRequestDto,
-    ExternalFundingDto,
-    ExtraInformationDto,
-    PaymentDto,
-)
-from coda.contexts.fundingrequest.services import fundingrequests
-from coda.contexts.fundingrequest.services.funder_resolver import (
-    FunderMatch,
-    resolve_funders,
-)
+from pydantic import TypeAdapter
+
+from coda.contexts.fundingrequest.services.funder_resolver import FunderMatch, resolve_funders
 from coda.contexts.publication.dto.external_metadata import (
     ExternalFundingMetadata,
     ExternalFundingOrganisationMetadata,
@@ -42,10 +30,61 @@ from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.issn import Issn
 from coda.domain.publication import JournalId
 from coda.domain.publication.links import Doi
+from coda.domain.publication.publication import BasePublication
 from coda.domain.string import NonEmptyStr
-from pydantic import TypeAdapter
 
 from ._map_to_preview import build_preview_article, build_preview_monograph
+
+if TYPE_CHECKING:
+    from coda.apps.journals.models import Journal
+    from coda.apps.publishers.models import Publisher
+
+
+class FunderResolver(Protocol):
+    """Resolves funder names/DOIs to funding organization IDs.
+
+    Abstracts the funder-resolution (match-by-DOI, match-by-name,
+    create-missing, persist-DOI-links) so that ``DOIRepository``
+    implementations remain persistence-agnostic.
+    """
+
+    def resolve(self, matches: list[FunderMatch]) -> dict[str, FundingOrganizationId]: ...
+
+
+class DatabaseFunderResolver:
+    """Default implementation that delegates to the real ``resolve_funders``."""
+
+    def resolve(self, matches: list[FunderMatch]) -> dict[str, FundingOrganizationId]:
+        resolved = resolve_funders(matches)
+        return {r.funder.name: r.organization_id for r in resolved}
+
+
+class DOIRepository(Protocol):
+    """Persistence protocol for DOI import operations.
+
+    Abstracts all database operations that ``DOIImportService`` requires,
+    allowing both immediate (single-DOI) and unit-of-work (mass-import)
+    implementations to share the same interface.
+    """
+
+    def find_publication_by_doi(self, doi: Doi) -> BasePublication | None: ...
+    def find_journal_by_eissn(self, issn: Issn) -> Journal | None: ...
+    def get_journal_by_id(self, journal_id: JournalId) -> Journal: ...
+    def create_journal(
+        self, title: NonEmptyStr, eissn: Issn, publisher_id: PublisherId
+    ) -> JournalId: ...
+    def find_publisher_by_name(self, name: str) -> Publisher | None: ...
+    def get_publisher_by_id(self, publisher_id: PublisherId) -> Publisher: ...
+    def create_publisher(self, name: str) -> PublisherId: ...
+    def get_funding_org_names(
+        self, ids: list[FundingOrganizationId]
+    ) -> dict[FundingOrganizationId, str]: ...
+    def create_funding_request(
+        self,
+        preview: PreviewFundingRequest,
+        override: OverrideImport,
+        funder_matches: list[FunderMatch],
+    ) -> FundingRequestId: ...
 
 
 @dataclass(frozen=True)
@@ -129,14 +168,16 @@ class OverrideImport:
             raise ValueError("OverrideImport does not override to monograph")
         return self._publisher_id
 
-    def apply(self, metadata: ExternalPublicationMetadata) -> ExternalPublicationMetadata:
+    def apply(
+        self, metadata: ExternalPublicationMetadata, repo: DOIRepository
+    ) -> ExternalPublicationMetadata:
         keep_funding = [
             funding
             for funding in metadata.funders
             if (funding.funder.name, funding.project_id) not in self._removed_funding
         ]
 
-        name_lookup = self._funding_organizations_to_names()
+        name_lookup = self._funding_organizations_to_names(repo)
         added_funding = [
             ExternalFundingMetadata(
                 funder=ExternalFundingOrganisationMetadata(name=name_lookup[funding.funder_id]),
@@ -149,22 +190,29 @@ class OverrideImport:
         metadata = metadata.override_funding(keep_funding + added_funding)
 
         if self._journal_id:
-            journal = journal_services.get_by_pk(self._journal_id)
+            journal = repo.get_journal_by_id(self._journal_id)
             return metadata.override_journal(journal)
         elif self._publisher_id:
-            publisher = publisher_services.get_by_pk(self._publisher_id)
+            publisher = repo.get_publisher_by_id(self._publisher_id)
             return metadata.override_publisher(publisher)
 
         return metadata
 
-    def _funding_organizations_to_names(self) -> dict[FundingOrganizationId, str]:
-        organizations = repository.get_funding_organizations_by_ids(
-            [funding.funder_id for funding in self._funding or []]
-        )
-        return {FundingOrganizationId(org.pk): org.name for org in organizations}
+    def _funding_organizations_to_names(
+        self, repo: DOIRepository
+    ) -> dict[FundingOrganizationId, str]:
+        return repo.get_funding_org_names([funding.funder_id for funding in self._funding or []])
 
 
 OverrideImportTypeAdapter = TypeAdapter(OverrideImport)
+
+
+def _default_repo() -> DOIRepository:
+    from coda.contexts.publication.services.doi_repository_immediate import (
+        ImmediateDOIRepository,
+    )
+
+    return ImmediateDOIRepository()
 
 
 class DOIImportService:
@@ -176,15 +224,18 @@ class DOIImportService:
     def __init__(
         self,
         doi_client: DOIMetadataClient,
+        repo: DOIRepository | None = None,
         metadata_cache: dict[Doi, ExternalPublicationMetadata] | None = None,
     ) -> None:
         """Initialize the service with a DOI client and optional metadata cache.
 
         Args:
             doi_client: Client to fetch metadata from external APIs (e.g., Crossref)
+            repo: Repository for database operations. Defaults to ``ImmediateDOIRepository``.
             metadata_cache: Optional pre-populated cache of raw metadata (avoids re-fetching)
         """
         self.doi_client = doi_client
+        self._repo = repo or _default_repo()
         self.metadata_cache: dict[Doi, ExternalPublicationMetadata] = metadata_cache or {}
 
     def _fetch_metadata(self, doi: Doi) -> ExternalPublicationMetadata:
@@ -238,7 +289,7 @@ class DOIImportService:
         journal or publisher by DB ID, and builds the appropriate preview DTO.
         """
         publication: PreviewArticle | PreviewMonograph
-        metadata = override.apply(self._fetch_metadata(doi))
+        metadata = override.apply(self._fetch_metadata(doi), self._repo)
         if override.overrides_to_article():
             publication = build_preview_article(doi, metadata)
             return PreviewFundingRequest(publication=publication)
@@ -254,6 +305,9 @@ class DOIImportService:
     ) -> FundingRequestId:
         """Fetch metadata from DOI and create a FundingRequest in the database.
 
+        Delegates DTO building and persistence to the injected ``DOIRepository``
+        so the caller controls the timing of database operations.
+
         Returns:
             The ID of the created funding request
 
@@ -264,14 +318,14 @@ class DOIImportService:
             InvalidMetadataError: If metadata is invalid
         """
         self._ensure_doi_not_already_imported(doi)
-        preview_dto = self.preview_with_override(doi, override)
-        creation_dto = self._convert_preview_to_creation_dto(preview_dto, override)
-        return fundingrequests.create_fundingrequest(creation_dto)
+        preview = self.preview_with_override(doi, override)
+        funder_matches = self._enrich_funders(preview.publication.funding)
+        return self._repo.create_funding_request(preview, override, funder_matches)
 
     def _ensure_doi_not_already_imported(self, doi: Doi) -> None:
         """Verify DOI has not been imported previously."""
 
-        existing_publication = publication_repository.find_by_doi(doi)
+        existing_publication = self._repo.find_publication_by_doi(doi)
         if not existing_publication:
             return
 
@@ -284,50 +338,6 @@ class DOIImportService:
             existing_publication.title,
             existing_publication.relevant_authors,
         )
-
-    def _match_or_create_journal(self, issn: Issn, publication: PreviewArticle) -> JournalId:
-        journal = journal_services.find_by_eissn(issn)
-        if journal:
-            return JournalId(journal.pk)
-
-        if publication.journal is None:
-            raise InvalidMetadataError("Journal article missing journal metadata")
-
-        if not publication.journal.title:
-            raise InvalidMetadataError("Journal missing title")
-
-        if publication.publisher_name is None:
-            raise InvalidMetadataError("Journal missing publisher name")
-
-        publisher_id = self._match_or_create_publisher(publication.publisher_name)
-        return journal_services.create(
-            title=NonEmptyStr(publication.journal.title), eissn=issn, publisher_id=publisher_id
-        )
-
-    def _resolve_article_dto(self, publication: PreviewArticle) -> PublicationDto:
-        """Resolve journal entity and convert article preview to creation DTO.
-
-        Raises:
-            InvalidMetadataError: If journal metadata or E-ISSN is missing
-        """
-        if publication.journal is None:
-            raise InvalidMetadataError("Journal article missing journal metadata")
-        if publication.journal.eissn is None:
-            raise InvalidMetadataError(f"Journal '{publication.journal.title}' missing E-ISSN")
-        issn = Issn(publication.journal.eissn)
-        journal_id = self._match_or_create_journal(issn, publication)
-        return publication.to_publication_dto(journal_id=journal_id)
-
-    def _resolve_monograph_dto(self, publication: PreviewMonograph) -> MonographDto:
-        """Resolve publisher entity and convert monograph preview to creation DTO.
-
-        Raises:
-            InvalidMetadataError: If publisher name is missing
-        """
-        if publication.publisher_name is None:
-            raise InvalidMetadataError("Monograph missing publisher name")
-        publisher_id = self._match_or_create_publisher(publication.publisher_name)
-        return publication.to_monograph_dto(publisher_id=publisher_id)
 
     def _enrich_funders(self, funding: list[PreviewExternalFunding]) -> list[FunderMatch]:
         matches = []
@@ -347,67 +357,3 @@ class DOIImportService:
                 matches.append(FunderMatch(name=f.name, funder_doi=""))
 
         return matches
-
-    def _resolve_external_funding(
-        self, funding: list[PreviewExternalFunding]
-    ) -> list[ExternalFundingDto]:
-        matches = self._enrich_funders(funding)
-        resolved = resolve_funders(matches)
-        return [
-            ExternalFundingDto(
-                organization=r.organization_id,
-                project_id=f.project_id,
-                project_name="",
-            )
-            for f, r in zip(funding, resolved)
-        ]
-
-    def _convert_preview_to_creation_dto(
-        self, preview: PreviewFundingRequest, override: OverrideImport
-    ) -> CreateFundingRequestDto:
-        """Convert preview DTO to creation DTO by resolving/creating database entities.
-
-        When an override is provided, entity IDs are used directly (no lookup).
-        Without override, journals and publishers are matched or created in the database.
-
-        Args:
-            preview: PreviewFundingRequest with publication metadata
-            override: Override specifying entity IDs to use directly
-
-        Returns:
-            CreateFundingRequestDto with resolved database IDs
-
-        Raises:
-            InvalidMetadataError: If required metadata is missing
-        """
-        publication_dto: PublicationDto | MonographDto
-
-        if override.overrides_to_article():
-            if not isinstance(preview.publication, PreviewArticle):
-                raise ValueError("Override type mismatch: expected PreviewArticle")
-            publication_dto = preview.publication.to_publication_dto(override.journal_id)
-        elif override.overrides_to_monograph():
-            if not isinstance(preview.publication, PreviewMonograph):
-                raise ValueError("Override type mismatch: expected PreviewMonograph")
-            publication_dto = preview.publication.to_monograph_dto(override.publisher_id)
-        else:
-            match preview.publication:
-                case PreviewArticle() as article:
-                    publication_dto = self._resolve_article_dto(article)
-                case PreviewMonograph() as monograph:
-                    publication_dto = self._resolve_monograph_dto(monograph)
-
-        return CreateFundingRequestDto(
-            publication=publication_dto,
-            payment=PaymentDto.empty(),
-            extra_information=ExtraInformationDto(),
-            funding=self._resolve_external_funding(preview.publication.funding),
-        )
-
-    def _match_or_create_publisher(self, publisher_name: str) -> PublisherId:
-        """Match publisher by name or create a new one."""
-        publisher = publisher_services.find_by_name(publisher_name)
-        if publisher:
-            return PublisherId(publisher.pk)
-
-        return publisher_services.create(name=publisher_name)

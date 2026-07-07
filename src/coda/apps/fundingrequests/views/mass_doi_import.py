@@ -17,7 +17,11 @@ from django.urls import reverse
 from django.views import View
 
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
-from coda.contexts.publication.services.doi_client import DOIMetadataClient, crossref
+from coda.contexts.publication.services.doi_client import (
+    CachingDOIMetadataClient,
+    DOIMetadataClient,
+    crossref,
+)
 from coda.contexts.publication.services.doi_import_service import (
     OverrideImport,
     OverrideImportTypeAdapter,
@@ -189,7 +193,8 @@ class MassDOIPreviewSaveView(LoginRequiredMixin, View):
             return HttpResponse("Preview session not found or expired", status=404)
 
         results = session_data.get("results", [])
-        service = MassDOIImportService(doi_client=self.doi_client)
+        caching_client = CachingDOIMetadataClient(self.doi_client)
+        service = MassDOIImportService(doi_client=caching_client)
 
         # Build inputs from child sessions
         dois_and_overrides: list[tuple[Doi, OverrideImport]] = []

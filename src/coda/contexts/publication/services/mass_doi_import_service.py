@@ -13,15 +13,19 @@ from coda.contexts.publication.services._map_to_preview import (
     build_preview_article,
     build_preview_monograph,
 )
-from coda.contexts.publication.services.doi_client import DOIMetadataClient
+from coda.contexts.publication.services.doi_client import (
+    CachingDOIMetadataClient,
+    DOIMetadataClient,
+)
 from coda.contexts.publication.services.doi_client._crossref._crossref_type_detector import (
     detect_publication_type,
 )
+from coda.contexts.publication.services.doi_client.errors import DOIFetchError, DOINotFoundError
 from coda.contexts.publication.services.doi_import_service import (
     DOIImportService,
     OverrideImport,
 )
-from coda.contexts.publication.services.doi_client.errors import DOIFetchError, DOINotFoundError
+from coda.contexts.publication.services.doi_repository_uow import UnitOfWorkDOIRepository
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.publication.links import Doi
@@ -118,8 +122,11 @@ class MassDOIImportService:
     ) -> MassImportResult:
         """Import multiple DOIs, applying per-DOI overrides.
 
-        Uses DOIImportService under the hood with a pre-populated metadata cache
-        to avoid re-fetching from Crossref.
+        Uses a single ``DOIImportService`` backed by a
+        ``UnitOfWorkDOIRepository`` so that all database writes are
+        deferred and flushed in bulk on commit.  The ``doi_client`` is
+        wrapped in a ``CachingDOIMetadataClient`` to avoid duplicate
+        HTTP requests for funder DOIs shared across publications.
 
         Args:
             dois_and_overrides: List of (doi, override) pairs
@@ -128,19 +135,39 @@ class MassDOIImportService:
         Returns:
             MassImportResult with per-DOI outcome
         """
+        caching_client = CachingDOIMetadataClient(self.doi_client)
+        uow = UnitOfWorkDOIRepository()
+
+        uow.prewarm_doi_cache([doi for doi, _ in dois_and_overrides])
+
+        service = DOIImportService(
+            doi_client=caching_client,
+            repo=uow,
+            metadata_cache=metadata_cache,
+        )
+
         result = MassImportResult()
+        seen_before_commit: list[Doi] = []
 
         for doi, override in dois_and_overrides:
-            cache = {doi: metadata_cache[doi]} if doi in metadata_cache else {}
-            service = DOIImportService(doi_client=self.doi_client, metadata_cache=cache)
             try:
-                fr_id = service.import_from_doi(doi, override)
-                result.imported.append((doi, fr_id))
+                service.import_from_doi(doi, override)
+                seen_before_commit.append(doi)
             except DOIAlreadyImported as e:
                 result.skipped.append((doi, str(e)))
             except (DOINotFoundError, DOIFetchError, InvalidMetadataError) as e:
                 result.failed.append((doi, str(e)))
             except Exception as e:
                 result.failed.append((doi, str(e)))
+
+        try:
+            fr_ids = uow.commit()
+        except Exception as e:
+            for doi in seen_before_commit:
+                result.failed.append((doi, f"Commit failed: {e}"))
+            return result
+
+        for doi, fr_id in zip(seen_before_commit, fr_ids):
+            result.imported.append((doi, fr_id))
 
         return result
