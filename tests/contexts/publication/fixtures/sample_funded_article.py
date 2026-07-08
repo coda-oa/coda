@@ -189,6 +189,9 @@ class FundedArticleScenario:
         for funder_info in FUNDING:
             funder_doi = FUNDER_DOIS.get(funder_info["name"], "")
             identifiers = [funder_doi] if funder_doi else []
+            if funder_doi and "/" in funder_doi:
+                suffix = funder_doi.rsplit("/", 1)[-1]
+                identifiers.append(suffix)
             funders.append(
                 ExternalFundingMetadata(
                     funder=ExternalFundingOrganisationMetadata(
@@ -215,11 +218,15 @@ class FundedArticleScenario:
 
         for funder_name, funder_doi in FUNDER_DOIS.items():
             if funder_doi:
+                identifiers = [funder_doi]
+                if "/" in funder_doi:
+                    suffix = funder_doi.rsplit("/", 1)[-1]
+                    identifiers.append(suffix)
                 client.configure_funder(
                     Doi(funder_doi),
                     ExternalFundingOrganisationMetadata(
                         name=funder_name,
-                        identifiers=[funder_doi],
+                        identifiers=identifiers,
                     ),
                 )
 
