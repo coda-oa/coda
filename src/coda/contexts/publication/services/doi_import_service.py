@@ -343,17 +343,24 @@ class DOIImportService:
         matches = []
         for f in funding:
             doi = None
+            crossref_id = ""
             for id_ in f.identifiers:
                 try:
                     doi = Doi(id_)
-                    break
                 except ValueError:
-                    continue
+                    if id_.isdigit():
+                        crossref_id = id_
 
             if doi:
                 resolved_funder = self.doi_client.fetch_funder(doi)
-                matches.append(FunderMatch(name=resolved_funder.name, funder_doi=doi.value()))
+                matches.append(
+                    FunderMatch(
+                        name=resolved_funder.name,
+                        funder_doi=doi.value(),
+                        crossref_id=crossref_id,
+                    )
+                )
             else:
-                matches.append(FunderMatch(name=f.name, funder_doi=""))
+                matches.append(FunderMatch(name=f.name, funder_doi="", crossref_id=crossref_id))
 
         return matches

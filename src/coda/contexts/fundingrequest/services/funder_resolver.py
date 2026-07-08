@@ -19,6 +19,7 @@ from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 class FunderMatch:
     name: str
     funder_doi: str
+    crossref_id: str = ""
 
 
 @dataclass(frozen=True)
