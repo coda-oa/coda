@@ -229,8 +229,16 @@ def _parse_funder(funder_data: dict[str, Any] | None) -> ExternalFundingMetadata
     if "name" not in funder_data and "DOI" not in funder_data:
         return None
 
-    doi = funder_data.get("DOI")
-    identifiers = [doi] if doi else []
+    doi_str = funder_data.get("DOI")
+    identifiers: list[str] = [doi_str] if doi_str else []
+
+    if doi_str:
+        try:
+            doi = Doi(doi_str)
+            if doi.prefix == "10.13039":
+                identifiers.append(doi.suffix)
+        except ValueError:
+            pass
 
     funder = ExternalFundingOrganisationMetadata(name=funder_data["name"], identifiers=identifiers)
 
