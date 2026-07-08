@@ -216,19 +216,9 @@ class FundedArticleScenario:
             funders=funders,
         )
 
-        for funder_name, funder_doi in FUNDER_DOIS.items():
-            if funder_doi:
-                identifiers = [funder_doi]
-                if "/" in funder_doi:
-                    suffix = funder_doi.rsplit("/", 1)[-1]
-                    identifiers.append(suffix)
-                client.configure_funder(
-                    Doi(funder_doi),
-                    ExternalFundingOrganisationMetadata(
-                        name=funder_name,
-                        identifiers=identifiers,
-                    ),
-                )
+        # NOTE: funder resolution via ROR no longer needs configure_funder.
+        # Funder names from Crossref metadata are used directly when ROR
+        # does not have a match.
 
     def get_expected_fundingrequest(self) -> FundingRequest[Publication]:
         expected_publication = Publication.new(

@@ -2,6 +2,9 @@
 
 Verifies that funders referenced in Crossref metadata are correctly
 resolved and imported into FundingRequests — without hitting live APIs.
+
+Funder resolution uses the ROR batch API or falls back to Crossref metadata
+names; the old doi.org content negotiation path has been removed.
 """
 
 import pytest
@@ -9,25 +12,14 @@ from tests.contexts.publication.fixtures import FundedArticleScenario
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 from coda.apps.fundingrequests import repository
-from coda.contexts.publication.services.doi_client import crossref
 from coda.contexts.publication.services.doi_import_service import DOIImportService
 
 
-@pytest.fixture(params=["fake", "real"])
-def scenario(request: pytest.FixtureRequest) -> FundedArticleScenario:
-    if request.param == "fake":
-        scenario = FundedArticleScenario.with_in_memory_client()
-    else:
-        scenario = FundedArticleScenario(crossref)
-
-    scenario.setup_db()
-    return scenario
-
-
 @pytest.mark.django_db
-def test__doi_with_funders__imports_funders_into_fundingrequest(
-    scenario: FundedArticleScenario,
-) -> None:
+def test__doi_with_funders__imports_funders_into_fundingrequest() -> None:
+    scenario = FundedArticleScenario.with_in_memory_client()
+    scenario.setup_db()
+
     sut = DOIImportService(scenario.client)
 
     fr_id = sut.import_from_doi(scenario.doi)

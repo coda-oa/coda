@@ -6,8 +6,9 @@ to resolve multiple funder identifiers in a single API call.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from coda.contexts.publication.services.doi_client._ror.exceptions import RORClientError
 
@@ -55,11 +56,11 @@ def _extract_display_name(names: list[dict[str, Any]]) -> str:
         return "Unknown"
     for entry in names:
         if "ror_display" in entry.get("types", []):
-            return entry["value"]
+            return cast(str, entry["value"])
     for entry in names:
         if "label" in entry.get("types", []):
-            return entry["value"]
-    return names[0]["value"]
+            return cast(str, entry["value"])
+    return cast(str, names[0]["value"])
 
 
 class RORClient:
@@ -70,7 +71,7 @@ class RORClient:
 
         self._http = http_client or httpx
 
-    def resolve_by_ids(self, links: list[Link]) -> dict[str, RORRecord]:
+    def resolve_by_ids(self, links: Sequence[Link]) -> dict[str, RORRecord]:
         if not links:
             return {}
 

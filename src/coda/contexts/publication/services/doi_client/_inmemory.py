@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Literal
 
 from coda.contexts.publication.dto.external_metadata import (
-    ExternalFundingOrganisationMetadata,
     ExternalPublicationMetadata,
 )
 from coda.contexts.publication.services.doi_client.errors import DOIFetchError, DOINotFoundError
@@ -27,11 +26,13 @@ class InMemoryDOIMetadataClient:
 
     Configure data directly via `.data` dict for tests.
     Use `from_json()` to load a curated fixture file for demo mode.
+
+    Funder resolution is handled separately by ``FunderResolutionService``
+    via the ROR API — see ``funder_resolution_service.py``.
     """
 
     def __init__(self) -> None:
         self.data: dict[str, ExternalPublicationMetadata] = {}
-        self._funders: dict[str, ExternalFundingOrganisationMetadata] = {}
         self._errors: dict[str, ErrorType] = {}
 
     @classmethod
@@ -50,13 +51,6 @@ class InMemoryDOIMetadataClient:
             doi: ExternalPublicationMetadata.model_validate(meta) for doi, meta in raw.items()
         }
         return client
-
-    def configure_funder(self, doi: Doi, funder: ExternalFundingOrganisationMetadata) -> None:
-        """Configure a funder DOI to return specific metadata when fetched.
-
-        Useful in tests to simulate funder resolution without hitting Crossref.
-        """
-        self._funders[str(doi)] = funder
 
     def configure_error(self, doi: Doi, error_type: ErrorType) -> None:
         """Configure a DOI to raise a specific error when fetched.
@@ -87,12 +81,3 @@ class InMemoryDOIMetadataClient:
             else:
                 results[doi_str] = DOINotFoundError(doi)
         return results
-
-    def fetch_funder(self, doi: Doi) -> ExternalFundingOrganisationMetadata:
-        doi_str = str(doi)
-        if doi_str in self._errors:
-            error_type = self._errors[doi_str]
-            raise DOIFetchError(doi, _ERROR_MESSAGES[error_type])
-        if doi_str not in self._funders:
-            raise DOINotFoundError(doi, "This funder DOI is not available in the demo dataset")
-        return self._funders[doi_str]

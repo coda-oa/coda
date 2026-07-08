@@ -8,7 +8,6 @@ from typing import Protocol
 
 
 from coda.contexts.publication.dto.external_metadata import (
-    ExternalFundingOrganisationMetadata,
     ExternalPublicationMetadata,
 )
 from coda.domain.publication.links import Doi
@@ -18,6 +17,9 @@ class DOIMetadataClient(Protocol):
     """Protocol for fetching publication metadata by DOI.
 
     This defines the contract that both fake and real implementations must follow.
+
+    Funder resolution is handled separately by ``FunderResolutionService``
+    via the ROR API — see ``funder_resolution_service.py``.
     """
 
     def fetch_publication(self, doi: Doi) -> ExternalPublicationMetadata:
@@ -31,21 +33,6 @@ class DOIMetadataClient(Protocol):
 
         Raises:
             DOINotFoundError: If the DOI is not found (404)
-            DOIFetchError: If the fetch fails due to network/API errors
-        """
-        ...
-
-    def fetch_funder(self, doi: Doi) -> ExternalFundingOrganisationMetadata:
-        """Fetch canonical funder metadata for a funder DOI.
-
-        Args:
-            doi: The funder's DOI (e.g. 10.13039/...)
-
-        Returns:
-            ExternalFundingOrganisationMetadata with canonical name
-
-        Raises:
-            DOINotFoundError: If the funder DOI is not found (404)
             DOIFetchError: If the fetch fails due to network/API errors
         """
         ...

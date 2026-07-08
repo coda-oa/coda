@@ -371,10 +371,6 @@ class _BaseScenario(ABC):
         for i, (name, project_id, _) in enumerate(self._funding):
             if name == funder_name:
                 self._funding[i] = (name, project_id, doi_obj)
-                self._client.configure_funder(
-                    doi_obj,
-                    ExternalFundingOrganisationMetadata(name=funder_name, identifiers=[doi]),
-                )
                 return self
         msg = f"Funder '{funder_name}' not found in funding list"
         raise ValueError(msg)

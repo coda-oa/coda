@@ -356,26 +356,16 @@ class DOIImportService:
                     if id_.isdigit():
                         crossref_id = id_
 
-            # Prefer ROR-resolved name when crossref_id is available
+                # Use ROR-resolved name when crossref_id is available,
+            # otherwise fall back to the name from Crossref metadata.
             ror_name = self._ror_name_map.get(crossref_id) if crossref_id else None
-            if ror_name:
-                matches.append(
-                    FunderMatch(
-                        name=ror_name,
-                        funder_doi=doi.value() if doi else "",
-                        crossref_id=crossref_id,
-                    )
+            name = ror_name or f.name
+            matches.append(
+                FunderMatch(
+                    name=name,
+                    funder_doi=doi.value() if doi else "",
+                    crossref_id=crossref_id,
                 )
-            elif doi:
-                resolved_funder = self.doi_client.fetch_funder(doi)
-                matches.append(
-                    FunderMatch(
-                        name=resolved_funder.name,
-                        funder_doi=doi.value(),
-                        crossref_id=crossref_id,
-                    )
-                )
-            else:
-                matches.append(FunderMatch(name=f.name, funder_doi="", crossref_id=crossref_id))
+            )
 
         return matches
