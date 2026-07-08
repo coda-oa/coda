@@ -196,3 +196,123 @@ def test__fetch_publications_batch__mixed_found_and_not_found__returns_both(
     assert len(results) == 2
     assert isinstance(results["10.1038/nature12373"], ExternalPublicationMetadata)
     assert isinstance(results["10.9999/nonexistent.doi.xxxxx"], Exception)
+
+
+# ---------------------------------------------------------------------------
+# CachingDOIMetadataClient: known DOIs cached, unknown DOIs also cached (negative cache)
+# ---------------------------------------------------------------------------
+
+
+def test__caching_client__known_doi__cached_after_first_call() -> None:
+    """A known DOI should be cached so the inner client is not called again."""
+    inner = InMemoryDOIMetadataClient()
+    inner.data["10.1234/test"] = ExternalPublicationMetadata(
+        title="Test",
+        authors=[ExternalAuthor(name="Test Author")],
+        publication_type="journal-article",
+    )
+    from coda.contexts.publication.services.doi_client._caching import CachingDOIMetadataClient
+
+    sut = CachingDOIMetadataClient(inner)
+    doi = Doi("10.1234/test")
+
+    result1 = sut.fetch_publication(doi)
+    assert result1.title == "Test"
+
+    # Remove from inner — second call must use cache
+    del inner.data["10.1234/test"]
+    result2 = sut.fetch_publication(doi)
+    assert result2.title == "Test"
+
+
+def test__caching_client__not_found_doi__cached_after_first_call() -> None:
+    """A DOI not found by the client should be cached so it is never re-queried."""
+    from unittest.mock import Mock
+    from coda.contexts.publication.services.doi_client._caching import CachingDOIMetadataClient
+    from coda.contexts.publication.services.doi_client.errors import DOINotFoundError
+
+    inner = Mock(spec=["fetch_publication", "fetch_publications_batch"])
+    inner.fetch_publication.side_effect = DOINotFoundError(Doi("10.9999/nope"), "not found")
+
+    sut = CachingDOIMetadataClient(inner)
+    missing_doi = Doi("10.9999/nope")
+
+    with pytest.raises(DOINotFoundError):
+        sut.fetch_publication(missing_doi)
+
+    with pytest.raises(DOINotFoundError):
+        sut.fetch_publication(missing_doi)
+
+    # Must have been called only once — the second call should use the cache
+    inner.fetch_publication.assert_called_once_with(missing_doi)
+
+
+def test__caching_client__fetch_error__not_cached() -> None:
+    """A transient fetch error should NOT be cached so it can be retried."""
+    inner = InMemoryDOIMetadataClient()
+    from coda.contexts.publication.services.doi_client.errors import DOIFetchError
+    from coda.contexts.publication.services.doi_client._caching import CachingDOIMetadataClient
+
+    error_doi = Doi("10.1234/error")
+    inner.configure_error(error_doi, "timeout")
+
+    sut = CachingDOIMetadataClient(inner)
+
+    with pytest.raises(DOIFetchError):
+        sut.fetch_publication(error_doi)
+
+    # If fetch errors weren't cached, the second call should also raise
+    with pytest.raises(DOIFetchError):
+        sut.fetch_publication(error_doi)
+
+
+def test__caching_client__batch_not_found__caches_miss_for_single_fetch() -> None:
+    """A not-found DOI in a batch should be cached so a subsequent single fetch skips the inner client."""
+    from unittest.mock import Mock
+    from coda.contexts.publication.services.doi_client._caching import CachingDOIMetadataClient
+    from coda.contexts.publication.services.doi_client.errors import DOINotFoundError
+    from coda.contexts.publication.dto.external_metadata import (
+        ExternalPublicationMetadata,
+        ExternalAuthor,
+    )
+
+    inner = Mock(spec=["fetch_publication", "fetch_publications_batch"])
+    inner.fetch_publications_batch.return_value = {
+        "10.1234/exists": ExternalPublicationMetadata(
+            title="Exists",
+            authors=[ExternalAuthor(name="Test Author")],
+            publication_type="journal-article",
+        ),
+        "10.9999/nope": DOINotFoundError(Doi("10.9999/nope")),
+    }
+
+    sut = CachingDOIMetadataClient(inner)
+
+    # Batch fetch populates cache for both found and not-found
+    sut.fetch_publications_batch([Doi("10.1234/exists"), Doi("10.9999/nope")])
+
+    # Single fetch of the not-found DOI — must use cache, NOT call inner.fetch_publication
+    with pytest.raises(DOINotFoundError):
+        sut.fetch_publication(Doi("10.9999/nope"))
+
+    inner.fetch_publication.assert_not_called()
+
+
+def test__caching_client__batch_known__caches_for_single_fetch() -> None:
+    """A known DOI fetched in batch should be cacheable for a subsequent single fetch."""
+    inner = InMemoryDOIMetadataClient()
+    inner.data["10.1234/test"] = ExternalPublicationMetadata(
+        title="Test",
+        authors=[ExternalAuthor(name="Test Author")],
+        publication_type="journal-article",
+    )
+    from coda.contexts.publication.services.doi_client._caching import CachingDOIMetadataClient
+
+    sut = CachingDOIMetadataClient(inner)
+
+    sut.fetch_publications_batch([Doi("10.1234/test")])
+
+    # Remove from inner — single fetch must use cache
+    del inner.data["10.1234/test"]
+    result = sut.fetch_publication(Doi("10.1234/test"))
+    assert result.title == "Test"

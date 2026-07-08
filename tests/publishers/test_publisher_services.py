@@ -96,6 +96,18 @@ def test__create__returns_publisher_id_type() -> None:
 
 
 @pytest.mark.django_db
+def test__find_by_name__duplicate_case_insensitive__returns_first() -> None:
+    """When multiple publishers match case-insensitively, return the first without crashing."""
+    first = PublisherFactory(name="Elsevier")
+    PublisherFactory(name="elsevier")
+
+    result = services.find_by_name("Elsevier")
+
+    assert result is not None
+    assert result.pk == first.pk
+
+
+@pytest.mark.django_db
 def test__find_by_name_contains__matches_substring() -> None:
     PublisherFactory(name="Springer Nature")
     PublisherFactory(name="Elsevier")

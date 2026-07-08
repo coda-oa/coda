@@ -91,6 +91,79 @@ def springer_scenario(request: pytest.FixtureRequest) -> SpringerBookScenario:
 
 
 @pytest.mark.django_db
+def test__import_from_doi__article_without_journal__raises_invalid_metadata_error() -> None:
+    """Article metadata missing journal info should raise InvalidMetadataError per-DOI during import.
+
+    Without this check the error surfaces only at commit time, killing all DOIs
+    in a batch instead of just the one with incomplete metadata.
+    """
+    from coda.contexts.publication.dto.external_metadata import (
+        ExternalAuthor,
+        ExternalPublicationMetadata,
+    )
+    from coda.contexts.publication.services.doi_client._inmemory import InMemoryDOIMetadataClient
+    from coda.contexts.publication.services.doi_import_service import DOIImportService
+    from coda.contexts.publication.services.doi_repository_uow import UnitOfWorkDOIRepository
+    from coda.contexts.publication.services.errors import InvalidMetadataError
+    from coda.domain.publication.links import Doi
+
+    doi = Doi("10.1234/test-no-journal")
+    metadata = ExternalPublicationMetadata(
+        title="Test Article Without Journal",
+        authors=[ExternalAuthor(name="Test Author")],
+        publication_type="journal-article",
+        journal=None,
+        publisher="Test Publisher",
+    )
+    client = InMemoryDOIMetadataClient()
+    client.data[str(doi)] = metadata
+
+    repo = UnitOfWorkDOIRepository()
+    sut = DOIImportService(doi_client=client, repo=repo)
+
+    with pytest.raises(InvalidMetadataError, match="missing journal metadata"):
+        sut.import_from_doi(doi)
+
+
+@pytest.mark.django_db
+def test__import_from_doi__article_with_journal_without_eissn__raises_invalid_metadata_error() -> (
+    None
+):
+    """Article with a journal object but no E-ISSN should raise InvalidMetadataError per-DOI.
+
+    Without this check the error surfaces only at commit time as
+    'Journal \'...\' missing E-ISSN', killing all DOIs in a batch.
+    """
+    from coda.contexts.publication.dto.external_metadata import (
+        ExternalAuthor,
+        ExternalJournal,
+        ExternalPublicationMetadata,
+    )
+    from coda.contexts.publication.services.doi_client._inmemory import InMemoryDOIMetadataClient
+    from coda.contexts.publication.services.doi_import_service import DOIImportService
+    from coda.contexts.publication.services.doi_repository_uow import UnitOfWorkDOIRepository
+    from coda.contexts.publication.services.errors import InvalidMetadataError
+    from coda.domain.publication.links import Doi
+
+    doi = Doi("10.1234/test-no-eissn")
+    metadata = ExternalPublicationMetadata(
+        title="Test Article Without E-ISSN",
+        authors=[ExternalAuthor(name="Test Author")],
+        publication_type="journal-article",
+        journal=ExternalJournal(title="Molecular Genetics and Metabolism", eissn=None),
+        publisher="Test Publisher",
+    )
+    client = InMemoryDOIMetadataClient()
+    client.data[str(doi)] = metadata
+
+    repo = UnitOfWorkDOIRepository()
+    sut = DOIImportService(doi_client=client, repo=repo)
+
+    with pytest.raises(InvalidMetadataError, match="missing E-ISSN"):
+        sut.import_from_doi(doi)
+
+
+@pytest.mark.django_db
 def test__import_from_doi__valid_journal_article_doi__returns_funding_request_with_populated_publication(
     nature_scenario: NatureArticleScenario,
 ) -> None:

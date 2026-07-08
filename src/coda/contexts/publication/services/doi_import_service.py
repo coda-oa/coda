@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import TypeAdapter
@@ -23,17 +24,24 @@ from coda.contexts.publication.services.doi_client import DOIMetadataClient
 from coda.contexts.publication.services.doi_client._crossref._crossref_type_detector import (
     detect_publication_type,
 )
+from coda.contexts.publication.services.doi_client._ror import (
+    CachingRORClient,
+    RORClient,
+    RORRecord,
+)
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.issn import Issn
 from coda.domain.publication import JournalId
-from coda.domain.publication.links import Doi
+from coda.domain.publication.links import CrossrefId, Doi
 from coda.domain.publication.publication import BasePublication
 from coda.domain.string import NonEmptyStr
 
 from ._map_to_preview import build_preview_article, build_preview_monograph
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from coda.apps.journals.models import Journal
@@ -226,22 +234,23 @@ class DOIImportService:
         doi_client: DOIMetadataClient,
         repo: DOIRepository | None = None,
         metadata_cache: dict[Doi, ExternalPublicationMetadata] | None = None,
-        ror_name_map: dict[str, str] | None = None,
+        ror_client: RORClient | CachingRORClient | None = None,
     ) -> None:
-        """Initialize the service with a DOI client and optional metadata cache.
+        """Initialize the service with a DOI client and optional ROR client.
 
         Args:
             doi_client: Client to fetch metadata from external APIs (e.g., Crossref)
             repo: Repository for database operations. Defaults to ``ImmediateDOIRepository``.
             metadata_cache: Optional pre-populated cache of raw metadata (avoids re-fetching)
-            ror_name_map: Optional mapping of crossref_id → resolved name from ROR API.
-                          When provided, funder names are resolved via ROR instead of
-                          the doi.org fallback, enabling batch resolution.
+            ror_client: Client for resolving funder names by Crossref ID via ROR API.
+                        Defaults to ``CachingRORClient(RORClient())`` so caching is
+                        transparent. Pass a pre-warmed ``CachingRORClient`` to avoid
+                        on-demand API calls during import.
         """
         self.doi_client = doi_client
         self._repo = repo or _default_repo()
         self.metadata_cache: dict[Doi, ExternalPublicationMetadata] = metadata_cache or {}
-        self._ror_name_map = ror_name_map or {}
+        self._ror_client = ror_client or CachingRORClient(RORClient())
 
     def _fetch_metadata(self, doi: Doi) -> ExternalPublicationMetadata:
         """Fetch metadata from cache or external API."""
@@ -324,6 +333,7 @@ class DOIImportService:
         """
         self._ensure_doi_not_already_imported(doi)
         preview = self.preview_with_override(doi, override)
+        self._validate_preview(preview)
         funder_matches = self._enrich_funders(preview.publication.funding)
         return self._repo.create_funding_request(preview, override, funder_matches)
 
@@ -344,7 +354,48 @@ class DOIImportService:
             existing_publication.relevant_authors,
         )
 
+    def _validate_preview(self, preview: PreviewFundingRequest) -> None:
+        """Validate the preview has the required metadata for its publication type.
+
+        Raises ``InvalidMetadataError`` immediately (per-DOI) rather than
+        letting the error surface later at commit time where it would kill
+        every DOI in a batch instead of just the one with bad metadata.
+
+        Raises:
+            InvalidMetadataError: If a journal article lacks journal metadata
+                or a monograph lacks a publisher name.
+        """
+        match preview.publication:
+            case PreviewArticle() as article:
+                if article.journal is None:
+                    raise InvalidMetadataError("Journal article missing journal metadata")
+                if article.journal.eissn is None:
+                    raise InvalidMetadataError(f"Journal '{article.journal.title}' missing E-ISSN")
+            case PreviewMonograph() as monograph:
+                if monograph.publisher_name is None:
+                    raise InvalidMetadataError("Monograph missing publisher name")
+
     def _enrich_funders(self, funding: list[PreviewExternalFunding]) -> list[FunderMatch]:
+        # Collect all crossref_ids and resolve via ROR in a single batch.
+        # CachingRORClient handles the cache transparently.
+        all_ids: set[str] = set()
+        for f in funding:
+            for id_ in f.identifiers:
+                if id_.isdigit():
+                    all_ids.add(id_)
+
+        ror_results: dict[str, RORRecord] = {}
+        if all_ids:
+            links = [CrossrefId(cid) for cid in all_ids]
+            try:
+                ror_results = self._ror_client.resolve_by_ids(links)
+            except Exception:
+                logger.warning(
+                    "ROR resolution failed for IDs %s — falling back to metadata names",
+                    all_ids,
+                    exc_info=True,
+                )
+
         matches = []
         for f in funding:
             doi = None
@@ -356,10 +407,8 @@ class DOIImportService:
                     if id_.isdigit():
                         crossref_id = id_
 
-                # Use ROR-resolved name when crossref_id is available,
-            # otherwise fall back to the name from Crossref metadata.
-            ror_name = self._ror_name_map.get(crossref_id) if crossref_id else None
-            name = ror_name or f.name
+            record = ror_results.get(crossref_id) if crossref_id else None
+            name = record.name if record else f.name
             matches.append(
                 FunderMatch(
                     name=name,

@@ -51,7 +51,7 @@ def resolve_funders(
     matched_by_crossref, remaining = _match_by_crossref(remaining, crossref_type)
     matched_by_doi.update(matched_by_crossref)
 
-    name_to_org = _build_name_lookup(remaining, matched_by_doi)
+    name_to_org = _build_name_lookup(remaining, matched_by_doi, funders)
 
     _persist_new_doi_links(doi_type, funders, matched_by_doi, name_to_org)
     _persist_new_crossref_links(crossref_type, funders, matched_by_doi, name_to_org)
@@ -93,10 +93,23 @@ def _match_or_create_by_name(
 def _build_name_lookup(
     remaining: list[FunderMatch],
     matched_by_doi: dict[str, FundingOrganization],
+    funders: list[FunderMatch],
 ) -> dict[str, FundingOrganization]:
     name_to_org = _match_or_create_by_name(remaining)
     for org in matched_by_doi.values():
         name_to_org[org.name] = org
+    for f in funders:
+        if f.funder_doi and f.funder_doi in matched_by_doi:
+            name_to_org[f.name] = matched_by_doi[f.funder_doi]
+        elif f.crossref_id and f.crossref_id in matched_by_doi:
+            name_to_org[f.name] = matched_by_doi[f.crossref_id]
+    # Catch any funder names still missing from the lookup.
+    # This can happen when doi_to_funder or crossref_to_funder collapse
+    # duplicate identifiers into a single entry (see _match_by_doi).
+    for f in funders:
+        if f.name not in name_to_org:
+            org, _ = FundingOrganization.objects.get_or_create(name=f.name)
+            name_to_org[f.name] = org
     return name_to_org
 
 

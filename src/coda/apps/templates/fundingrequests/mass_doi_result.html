@@ -18,6 +18,31 @@
             {% endif %}
         </ul>
     </article>
+    {% if failed or skipped %}
+        <details>
+            <summary>Failure details ({{ failed_count }} failed, {{ skipped_count }} skipped)</summary>
+            {% if failed %}
+                <h3>Failed</h3>
+                <ul>
+                    {% for doi, reason in failed %}
+                        <li>
+                            <code>{{ doi }}</code>: {{ reason }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+            {% if skipped %}
+                <h3>Skipped</h3>
+                <ul>
+                    {% for doi, reason in skipped %}
+                        <li>
+                            <code>{{ doi }}</code>: {{ reason }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </details>
+    {% endif %}
     {% if import_links %}
         <h2>Imported Publications</h2>
         <ul>

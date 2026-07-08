@@ -1,41 +1,39 @@
 """Funder Resolution Service - resolves funder names by Crossref ID via ROR API.
 
-This service is separate from the DOI metadata client because ROR
-identifiers (Crossref IDs) are distinct from publication DOIs and follow
-a different resolution protocol.
+This service wraps a ``RORClient`` in a ``CachingRORClient`` to provide
+transparent caching.  Callers never need to manage a pre-resolution step
+or pass around a name map.
 """
 
 from __future__ import annotations
 
-from coda.contexts.publication.services.doi_client._ror import RORClient
+from coda.contexts.publication.services.doi_client._ror import CachingRORClient, RORClient
 from coda.domain.publication.links import CrossrefId
 
 
 class FunderResolutionService:
     """Resolves funder names by Crossref ID via the ROR API.
 
-    Maintains an internal cache so repeated lookups don't re-query the API.
+    Delegates both resolution and caching to the underlying ROR client,
+    which is automatically wrapped in a ``CachingRORClient``.
     """
 
     def __init__(self, ror_client: RORClient | None = None) -> None:
-        self._ror = ror_client or RORClient()
-        self._cache: dict[str, str] = {}
+        self._ror = CachingRORClient(ror_client or RORClient())
 
     def resolve_funders(self, crossref_ids: set[str]) -> dict[str, str]:
         """Resolve funder names by Crossref ID via ROR API.
 
-        Queries the ROR API for uncached IDs and returns a
-        ``dict[str, str]`` mapping crossref_id → resolved name.
+        Args:
+            crossref_ids: Set of Crossref numeric identifier strings.
 
-        Results are cached so repeated calls don't re-query the API.
+        Returns:
+            Mapping of crossref_id → resolved funder name.
         """
-        uncached = {cid for cid in crossref_ids if cid not in self._cache}
+        if not crossref_ids:
+            return {}
 
-        if uncached:
-            links = [CrossrefId(cid) for cid in uncached]
-            ror_results = self._ror.resolve_by_ids(links)
-            for cid in uncached:
-                if cid in ror_results:
-                    self._cache[cid] = ror_results[cid].name
+        links = [CrossrefId(cid) for cid in crossref_ids]
+        ror_results = self._ror.resolve_by_ids(links)
 
-        return {cid: self._cache[cid] for cid in crossref_ids if cid in self._cache}
+        return {cid: ror_results[cid].name for cid in crossref_ids if cid in ror_results}

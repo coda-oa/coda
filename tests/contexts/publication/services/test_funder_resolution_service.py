@@ -7,7 +7,6 @@ using FakeHttpGet to simulate the ROR API.
 from typing import Any
 
 import httpx
-import pytest
 
 from coda.contexts.publication.services.funder_resolution_service import FunderResolutionService
 
@@ -46,7 +45,11 @@ SINGLE_RESPONSE: dict[str, Any] = {
             "names": [
                 {"lang": None, "types": ["acronym"], "value": "SI"},
                 {"lang": "en", "types": ["alias"], "value": "Smithsonian"},
-                {"lang": "en", "types": ["ror_display", "label"], "value": "Smithsonian Institution"},
+                {
+                    "lang": "en",
+                    "types": ["ror_display", "label"],
+                    "value": "Smithsonian Institution",
+                },
             ],
             "external_ids": [
                 {"type": "fundref", "all": ["100000014"], "preferred": None},
@@ -61,7 +64,11 @@ TWO_RESPONSE: dict[str, Any] = {
         {
             "id": "https://ror.org/01pp8nd67",
             "names": [
-                {"lang": "en", "types": ["ror_display", "label"], "value": "Smithsonian Institution"},
+                {
+                    "lang": "en",
+                    "types": ["ror_display", "label"],
+                    "value": "Smithsonian Institution",
+                },
             ],
             "external_ids": [
                 {"type": "fundref", "all": ["100000014"], "preferred": None},
@@ -70,7 +77,11 @@ TWO_RESPONSE: dict[str, Any] = {
         {
             "id": "https://ror.org/04aj4c181",
             "names": [
-                {"lang": "en", "types": ["ror_display", "label"], "value": "Bundesministerium für Bildung und Forschung"},
+                {
+                    "lang": "en",
+                    "types": ["ror_display", "label"],
+                    "value": "Bundesministerium für Bildung und Forschung",
+                },
             ],
             "external_ids": [
                 {"type": "fundref", "all": ["501100002347"], "preferred": None},

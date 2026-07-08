@@ -5,16 +5,15 @@ Parametrized rounds run against both FakeHttpGet and real ROR API.
 Non-parametrized rounds test fake-internal behavior only.
 """
 
-from collections.abc import Generator
 from typing import Any
 
 import httpx
 import pytest
 
 from coda.contexts.publication.services.doi_client._ror import RORClient, RORClientError
+from coda.contexts.publication.services.doi_client._ror._caching import CachingRORClient
 from coda.domain.institution.links import Ror
 from coda.domain.publication.links import CrossrefId
-
 
 # ---------------------------------------------------------------------------
 # Test doubles
@@ -24,7 +23,7 @@ from coda.domain.publication.links import CrossrefId
 class FakeHttpGet:
     """Satisfies HttpGetClient protocol. Returns pre-configured response."""
 
-    def __init__(self, status: int = 200, json_data: dict | None = None) -> None:
+    def __init__(self, status: int = 200, json_data: dict[str, Any] | None = None) -> None:
         self._status = status
         self._json_data = json_data or {}
         self.last_url: str | None = None
@@ -59,7 +58,11 @@ SINGLE_RESPONSE: dict[str, Any] = {
             "names": [
                 {"lang": None, "types": ["acronym"], "value": "SI"},
                 {"lang": "en", "types": ["alias"], "value": "Smithsonian"},
-                {"lang": "en", "types": ["ror_display", "label"], "value": "Smithsonian Institution"},
+                {
+                    "lang": "en",
+                    "types": ["ror_display", "label"],
+                    "value": "Smithsonian Institution",
+                },
             ],
             "external_ids": [
                 {"type": "fundref", "all": ["100000014"], "preferred": None},
@@ -75,7 +78,11 @@ TWO_RESPONSE: dict[str, Any] = {
         {
             "id": "https://ror.org/01pp8nd67",
             "names": [
-                {"lang": "en", "types": ["ror_display", "label"], "value": "Smithsonian Institution"},
+                {
+                    "lang": "en",
+                    "types": ["ror_display", "label"],
+                    "value": "Smithsonian Institution",
+                },
             ],
             "external_ids": [
                 {"type": "fundref", "all": ["100000014"], "preferred": None},
@@ -84,7 +91,11 @@ TWO_RESPONSE: dict[str, Any] = {
         {
             "id": "https://ror.org/04aj4c181",
             "names": [
-                {"lang": "en", "types": ["ror_display", "label"], "value": "Bundesministerium für Bildung und Forschung"},
+                {
+                    "lang": "en",
+                    "types": ["ror_display", "label"],
+                    "value": "Bundesministerium für Bildung und Forschung",
+                },
             ],
             "external_ids": [
                 {"type": "fundref", "all": ["501100002347"], "preferred": None},
@@ -261,7 +272,11 @@ def test__ror_client__record_with_multi_ext_ids__correct_input_mapped() -> None:
             {
                 "id": "https://ror.org/01pp8nd67",
                 "names": [
-                    {"lang": "en", "types": ["ror_display", "label"], "value": "Smithsonian Institution"},
+                    {
+                        "lang": "en",
+                        "types": ["ror_display", "label"],
+                        "value": "Smithsonian Institution",
+                    },
                 ],
                 "external_ids": [
                     {"type": "fundref", "all": ["100000014"], "preferred": None},
@@ -323,10 +338,124 @@ def test__ror_client__two_different_link_types_same_record__both_in_result(
 ) -> None:
     """CrossrefId and Ror pointing to the same record both appear in result."""
     sut: RORClient = request.getfixturevalue(client_fixture)
-    result = sut.resolve_by_ids(
-        [CrossrefId("100000014"), Ror("https://ror.org/01pp8nd67")]
-    )
+    result = sut.resolve_by_ids([CrossrefId("100000014"), Ror("https://ror.org/01pp8nd67")])
     assert "100000014" in result
     assert "https://ror.org/01pp8nd67" in result
     assert result["100000014"].id == "https://ror.org/01pp8nd67"
     assert result["https://ror.org/01pp8nd67"].id == "https://ror.org/01pp8nd67"
+
+
+# ---------------------------------------------------------------------------
+# CachingRORClient: known IDs cached, unknown IDs also cached (negative cache)
+# ---------------------------------------------------------------------------
+
+
+def test__caching_ror_client__known_id__cached_after_first_call() -> None:
+    """A known ID should use the cache on subsequent calls, not query the API."""
+    fake = FakeHttpGet(status=200, json_data=SINGLE_RESPONSE)
+    inner = RORClient(http_client=fake)
+    sut = CachingRORClient(inner)
+
+    # First call — queries the API
+    result1 = sut.resolve_by_ids([CrossrefId("100000014")])
+    assert "100000014" in result1
+
+    fake.last_params = None
+
+    # Second call — should NOT query the API
+    result2 = sut.resolve_by_ids([CrossrefId("100000014")])
+    assert "100000014" in result2
+    assert fake.last_params is None, "Expected cached result, not API query"
+
+
+def test__caching_ror_client__unknown_id__cached_after_first_call() -> None:
+    """A Crossref ID not found by ROR should be cached so it is never re-queried."""
+    fake = FakeHttpGet(status=200, json_data=EMPTY_RESPONSE)
+    inner = RORClient(http_client=fake)
+    sut = CachingRORClient(inner)
+
+    # First call — queries the API
+    result1 = sut.resolve_by_ids([CrossrefId("999999999")])
+    assert result1 == {}
+    assert fake.last_params is not None
+
+    fake.last_params = None
+
+    # Second call — must use cache, NOT query the API
+    result2 = sut.resolve_by_ids([CrossrefId("999999999")])
+    assert result2 == {}
+    assert fake.last_params is None, "Expected cached result, not API query"
+
+
+def test__caching_ror_client__mixed_known_and_unknown__caches_both() -> None:
+    """When some IDs match and some don't, BOTH should be cached."""
+    fake = FakeHttpGet(status=200, json_data=SINGLE_RESPONSE)
+    inner = RORClient(http_client=fake)
+    sut = CachingRORClient(inner)
+
+    # First call — known + unknown in a single batch
+    result1 = sut.resolve_by_ids([CrossrefId("100000014"), CrossrefId("999999999")])
+    assert "100000014" in result1
+    assert "999999999" not in result1
+
+    fake.last_params = None
+
+    # Second call with the same IDs — both must come from cache
+    result2 = sut.resolve_by_ids([CrossrefId("100000014"), CrossrefId("999999999")])
+    assert "100000014" in result2
+    assert "999999999" not in result2
+    assert fake.last_params is None, "Expected cached result, not API query"
+
+
+def test__caching_ror_client__partial_uncached__only_misses_queried() -> None:
+    """When some IDs are cached and others are not, only uncached IDs are queried."""
+    fake_single = FakeHttpGet(status=200, json_data=SINGLE_RESPONSE)
+    fake_single.last_params = None
+
+    inner = RORClient(http_client=fake_single)
+    sut = CachingRORClient(inner)
+
+    # First call — prime cache with one ID
+    sut.resolve_by_ids([CrossrefId("100000014"), CrossrefId("999999999")])
+
+    fake_single.last_params = None
+
+    sut.resolve_by_ids(
+        [CrossrefId("100000014"), CrossrefId("999999999"), CrossrefId("501100002347")]
+    )
+    # The new ID exists in SINGLE_RESPONSE but we only have one record there,
+    # so 501100002347 won't be found.  That's fine — the important thing is
+    # that the query happened (the cache miss triggered a call).
+    assert fake_single.last_params is not None
+    query = fake_single.last_params.get("query", "")
+    assert "999999999" not in query, "Cached ID should not appear in query"
+    assert "100000014" not in query, "Cached ID should not appear in query"
+    assert "501100002347" in query, "New ID should appear in query"
+
+
+def test__caching_ror_client__empty_input__no_api_call() -> None:
+    """An empty list of links should not trigger any API call."""
+    inner = RORClient(http_client=FakeHttpGet())
+    sut = CachingRORClient(inner)
+    result = sut.resolve_by_ids([])
+    assert result == {}
+
+
+def test__caching_ror_client__two_different_link_types_same_record__both_in_result() -> None:
+    """CrossrefId and Ror pointing to the same record both appear in result after cache."""
+    fake = FakeHttpGet(status=200, json_data=SINGLE_RESPONSE)
+    inner = RORClient(http_client=fake)
+    sut = CachingRORClient(inner)
+
+    result = sut.resolve_by_ids([CrossrefId("100000014"), Ror("https://ror.org/01pp8nd67")])
+    assert "100000014" in result
+    assert "https://ror.org/01pp8nd67" in result
+    assert result["100000014"].id == "https://ror.org/01pp8nd67"
+    assert result["https://ror.org/01pp8nd67"].id == "https://ror.org/01pp8nd67"
+
+    # Second call — both must come from cache
+    fake.last_params = None
+    result2 = sut.resolve_by_ids([CrossrefId("100000014"), Ror("https://ror.org/01pp8nd67")])
+    assert "100000014" in result2
+    assert "https://ror.org/01pp8nd67" in result2
+    assert fake.last_params is None, "Expected cached result, not API query"

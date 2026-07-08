@@ -6,9 +6,9 @@ and DOIImportService for per-DOI import during batch save.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 
-from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.services._map_to_preview import (
     build_preview_article,
@@ -28,9 +28,12 @@ from coda.contexts.publication.services.doi_import_service import (
 )
 from coda.contexts.publication.services.doi_repository_uow import UnitOfWorkDOIRepository
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
-from coda.contexts.publication.services.funder_resolution_service import FunderResolutionService
+from coda.contexts.publication.services.doi_client._ror import CachingRORClient, RORClient
+from coda.contexts.publication.services.doi_client._ror.exceptions import RORClientError
 from coda.domain.fundingrequest import FundingRequestId
-from coda.domain.publication.links import Doi
+from coda.domain.publication.links import CrossrefId, Doi
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -142,15 +145,26 @@ class MassDOIImportService:
 
         uow.prewarm_doi_cache([doi for doi, _ in dois_and_overrides])
 
-        # Pre-resolve funders by Crossref ID via ROR batch API
+        # Pre-warm ROR cache for all funders before import to avoid
+        # on-demand API calls during per-DOI processing.
+        ror_client = CachingRORClient(RORClient())
         crossref_ids = _collect_crossref_ids(metadata_cache)
-        ror_name_map = FunderResolutionService().resolve_funders(crossref_ids)
+        if crossref_ids:
+            try:
+                ror_client.resolve_by_ids([CrossrefId(cid) for cid in crossref_ids])
+            except RORClientError:
+                logger.warning(
+                    "ROR batch resolution failed for %d IDs — "
+                    "will resolve on demand during import",
+                    len(crossref_ids),
+                    exc_info=True,
+                )
 
         service = DOIImportService(
             doi_client=caching_client,
             repo=uow,
             metadata_cache=metadata_cache,
-            ror_name_map=ror_name_map,
+            ror_client=ror_client,
         )
 
         result = MassImportResult()
@@ -163,13 +177,16 @@ class MassDOIImportService:
             except DOIAlreadyImported as e:
                 result.skipped.append((doi, str(e)))
             except (DOINotFoundError, DOIFetchError, InvalidMetadataError) as e:
+                logger.error("DOI import failed for %s: %s", doi, e, exc_info=True)
                 result.failed.append((doi, str(e)))
             except Exception as e:
+                logger.exception("Unexpected error importing DOI %s", doi)
                 result.failed.append((doi, str(e)))
 
         try:
             fr_ids = uow.commit()
         except Exception as e:
+            logger.exception("Batch commit failed for %d DOIs", len(seen_before_commit))
             for doi in seen_before_commit:
                 result.failed.append((doi, f"Commit failed: {e}"))
             return result
@@ -177,6 +194,12 @@ class MassDOIImportService:
         for doi, fr_id in zip(seen_before_commit, fr_ids):
             result.imported.append((doi, fr_id))
 
+        logger.info(
+            "Mass import complete: %d imported, %d skipped, %d failed",
+            len(result.imported),
+            len(result.skipped),
+            len(result.failed),
+        )
         return result
 
 
