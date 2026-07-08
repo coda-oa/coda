@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
+from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.publication.services._map_to_preview import (
     build_preview_article,
     build_preview_monograph,
@@ -27,6 +28,7 @@ from coda.contexts.publication.services.doi_import_service import (
 )
 from coda.contexts.publication.services.doi_repository_uow import UnitOfWorkDOIRepository
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
+from coda.contexts.publication.services.funder_resolution_service import FunderResolutionService
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.publication.links import Doi
 
@@ -140,10 +142,15 @@ class MassDOIImportService:
 
         uow.prewarm_doi_cache([doi for doi, _ in dois_and_overrides])
 
+        # Pre-resolve funders by Crossref ID via ROR batch API
+        crossref_ids = _collect_crossref_ids(metadata_cache)
+        ror_name_map = FunderResolutionService().resolve_funders(crossref_ids)
+
         service = DOIImportService(
             doi_client=caching_client,
             repo=uow,
             metadata_cache=metadata_cache,
+            ror_name_map=ror_name_map,
         )
 
         result = MassImportResult()
@@ -171,3 +178,16 @@ class MassDOIImportService:
             result.imported.append((doi, fr_id))
 
         return result
+
+
+def _collect_crossref_ids(
+    metadata_cache: dict[Doi, ExternalPublicationMetadata],
+) -> set[str]:
+    """Extract all numeric Crossref IDs from metadata funder identifiers."""
+    ids: set[str] = set()
+    for meta in metadata_cache.values():
+        for funder in meta.funders:
+            for id_ in funder.funder.identifiers:
+                if id_.isdigit():
+                    ids.add(id_)
+    return ids

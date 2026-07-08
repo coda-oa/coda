@@ -226,6 +226,7 @@ class DOIImportService:
         doi_client: DOIMetadataClient,
         repo: DOIRepository | None = None,
         metadata_cache: dict[Doi, ExternalPublicationMetadata] | None = None,
+        ror_name_map: dict[str, str] | None = None,
     ) -> None:
         """Initialize the service with a DOI client and optional metadata cache.
 
@@ -233,10 +234,14 @@ class DOIImportService:
             doi_client: Client to fetch metadata from external APIs (e.g., Crossref)
             repo: Repository for database operations. Defaults to ``ImmediateDOIRepository``.
             metadata_cache: Optional pre-populated cache of raw metadata (avoids re-fetching)
+            ror_name_map: Optional mapping of crossref_id → resolved name from ROR API.
+                          When provided, funder names are resolved via ROR instead of
+                          the doi.org fallback, enabling batch resolution.
         """
         self.doi_client = doi_client
         self._repo = repo or _default_repo()
         self.metadata_cache: dict[Doi, ExternalPublicationMetadata] = metadata_cache or {}
+        self._ror_name_map = ror_name_map or {}
 
     def _fetch_metadata(self, doi: Doi) -> ExternalPublicationMetadata:
         """Fetch metadata from cache or external API."""
@@ -351,7 +356,17 @@ class DOIImportService:
                     if id_.isdigit():
                         crossref_id = id_
 
-            if doi:
+            # Prefer ROR-resolved name when crossref_id is available
+            ror_name = self._ror_name_map.get(crossref_id) if crossref_id else None
+            if ror_name:
+                matches.append(
+                    FunderMatch(
+                        name=ror_name,
+                        funder_doi=doi.value() if doi else "",
+                        crossref_id=crossref_id,
+                    )
+                )
+            elif doi:
                 resolved_funder = self.doi_client.fetch_funder(doi)
                 matches.append(
                     FunderMatch(
