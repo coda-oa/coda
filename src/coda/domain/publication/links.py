@@ -12,14 +12,11 @@ from pydantic_extra_types.isbn import ISBN
 
 
 class Link(Protocol):
-    def type(self) -> str:
-        ...
+    def type(self) -> str: ...
 
-    def value(self) -> str:
-        ...
+    def value(self) -> str: ...
 
-    def url(self) -> str | None:
-        ...
+    def url(self) -> str | None: ...
 
 
 class UserLink(NamedTuple):
@@ -497,7 +494,42 @@ class Arxiv:
         return hash((self._arxiv,))
 
 
-_LinkTypes = {t.type(): t for t in (Doi, Isbn, Url, Pmid, Pmc, Handle, Urn, Arxiv, Oai)}
+class InvalidCrossrefId(DomainError):
+    def __init__(self, *args: object) -> None:
+        super().__init__("Invalid Crossref ID format", *args)
+
+
+class CrossrefId:
+    __match_args__ = ("_value",)
+
+    def __init__(self, value: str) -> None:
+        self._value = NonEmptyStr(value)
+        if not self._value.isdigit():
+            raise InvalidCrossrefId("Crossref ID must contain only digits")
+
+    @staticmethod
+    def type() -> str:
+        return "Crossref"
+
+    def value(self) -> str:
+        return self._value
+
+    def url(self) -> str:
+        return f"https://doi.org/10.13039/{self._value}"
+
+    def __str__(self) -> str:
+        return self._value
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, CrossrefId):
+            return False
+        return self._value == other._value
+
+    def __hash__(self) -> int:
+        return hash((self._value,))
+
+
+_LinkTypes = {t.type(): t for t in (Doi, Isbn, Url, Pmid, Pmc, Handle, Urn, Arxiv, Oai, CrossrefId)}
 _LoweredLinkTypes = {t_name.lower(): t for t_name, t in _LinkTypes.items()}
 
 
