@@ -1,0 +1,332 @@
+"""Tests for RORClient - batch ROR API funder resolution.
+
+Test rounds follow TDD order as defined in the implementation plan.
+Parametrized rounds run against both FakeHttpGet and real ROR API.
+Non-parametrized rounds test fake-internal behavior only.
+"""
+
+from collections.abc import Generator
+from typing import Any
+
+import httpx
+import pytest
+
+from coda.contexts.publication.services.doi_client._ror import RORClient, RORClientError
+from coda.domain.institution.links import Ror
+from coda.domain.publication.links import CrossrefId
+
+
+# ---------------------------------------------------------------------------
+# Test doubles
+# ---------------------------------------------------------------------------
+
+
+class FakeHttpGet:
+    """Satisfies HttpGetClient protocol. Returns pre-configured response."""
+
+    def __init__(self, status: int = 200, json_data: dict | None = None) -> None:
+        self._status = status
+        self._json_data = json_data or {}
+        self.last_url: str | None = None
+        self.last_params: dict[str, Any] | None = None
+
+    def get(self, url: str, *, params: Any, timeout: int, follow_redirects: bool) -> Any:
+        from httpx import Request
+
+        self.last_url = url
+        self.last_params = params
+        response = httpx.Response(self._status, json=self._json_data, request=Request("GET", url))
+        if self._status >= 400:
+            from httpx import HTTPStatusError
+
+            raise HTTPStatusError(
+                f"HTTP error {self._status}",
+                request=Request("GET", url),
+                response=response,
+            )
+        return response
+
+
+# ---------------------------------------------------------------------------
+# Test data constants
+# ---------------------------------------------------------------------------
+
+SINGLE_RESPONSE: dict[str, Any] = {
+    "number_of_results": 1,
+    "items": [
+        {
+            "id": "https://ror.org/01pp8nd67",
+            "names": [
+                {"lang": None, "types": ["acronym"], "value": "SI"},
+                {"lang": "en", "types": ["alias"], "value": "Smithsonian"},
+                {"lang": "en", "types": ["ror_display", "label"], "value": "Smithsonian Institution"},
+            ],
+            "external_ids": [
+                {"type": "fundref", "all": ["100000014"], "preferred": None},
+                {"type": "grid", "all": ["grid.1214.6"], "preferred": "grid.1214.6"},
+            ],
+        }
+    ],
+}
+
+TWO_RESPONSE: dict[str, Any] = {
+    "number_of_results": 2,
+    "items": [
+        {
+            "id": "https://ror.org/01pp8nd67",
+            "names": [
+                {"lang": "en", "types": ["ror_display", "label"], "value": "Smithsonian Institution"},
+            ],
+            "external_ids": [
+                {"type": "fundref", "all": ["100000014"], "preferred": None},
+            ],
+        },
+        {
+            "id": "https://ror.org/04aj4c181",
+            "names": [
+                {"lang": "en", "types": ["ror_display", "label"], "value": "Bundesministerium für Bildung und Forschung"},
+            ],
+            "external_ids": [
+                {"type": "fundref", "all": ["501100002347"], "preferred": None},
+            ],
+        },
+    ],
+}
+
+EMPTY_RESPONSE: dict[str, Any] = {"number_of_results": 0, "items": []}
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def fake_ror_single() -> RORClient:
+    return RORClient(http_client=FakeHttpGet(status=200, json_data=SINGLE_RESPONSE))
+
+
+@pytest.fixture
+def fake_ror_two() -> RORClient:
+    return RORClient(http_client=FakeHttpGet(status=200, json_data=TWO_RESPONSE))
+
+
+@pytest.fixture
+def fake_ror_empty() -> RORClient:
+    return RORClient(http_client=FakeHttpGet(status=200, json_data=EMPTY_RESPONSE))
+
+
+@pytest.fixture(scope="module")
+def real_ror_client() -> RORClient:
+    return RORClient()
+
+
+# ---------------------------------------------------------------------------
+# Round 1: empty input -> empty dict
+# ---------------------------------------------------------------------------
+
+
+def test__ror_client__empty_input__returns_empty_dict() -> None:
+    """Given an empty list of links, resolve_by_ids returns an empty dict."""
+    sut = RORClient(http_client=FakeHttpGet())
+    result = sut.resolve_by_ids([])
+    assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# Round 2a: single ID builds query
+# ---------------------------------------------------------------------------
+
+
+def test__ror_client__single_id__builds_query() -> None:
+    """Verifies query is constructed from str(link) and sent to ROR API."""
+    fake = FakeHttpGet(status=200, json_data={"number_of_results": 0, "items": []})
+    sut = RORClient(http_client=fake)
+
+    sut.resolve_by_ids([CrossrefId("100000014")])
+
+    assert fake.last_url == RORClient.BASE_URL
+    assert fake.last_params is not None
+    assert fake.last_params["query"] == '"100000014"'
+
+
+# ---------------------------------------------------------------------------
+# Round 2b: single ID returns mapping (parametrized: fake + real API)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "client_fixture",
+    [
+        "fake_ror_single",
+        pytest.param("real_ror_client", marks=pytest.mark.integration),
+    ],
+)
+def test__ror_client__single_id__returns_mapping(
+    client_fixture: str, request: pytest.FixtureRequest
+) -> None:
+    """Given a valid Crossref ID, returns a mapping with name and ROR ID."""
+    sut: RORClient = request.getfixturevalue(client_fixture)
+    result = sut.resolve_by_ids([CrossrefId("100000014")])
+    assert "100000014" in result
+    assert result["100000014"].name == "Smithsonian Institution"
+    assert result["100000014"].id == "https://ror.org/01pp8nd67"
+
+
+# ---------------------------------------------------------------------------
+# Round 3: multiple IDs maps all
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "client_fixture",
+    [
+        "fake_ror_two",
+    ],
+)
+def test__ror_client__multiple_ids__maps_all(
+    client_fixture: str, request: pytest.FixtureRequest
+) -> None:
+    """Two valid IDs both appear in the result."""
+    sut: RORClient = request.getfixturevalue(client_fixture)
+    result = sut.resolve_by_ids([CrossrefId("100000014"), CrossrefId("501100002347")])
+    assert len(result) == 2
+    assert result["100000014"].name == "Smithsonian Institution"
+    assert result["501100002347"].name == "Bundesministerium für Bildung und Forschung"
+
+
+# ---------------------------------------------------------------------------
+# Round 4: unknown ID not in result
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "client_fixture",
+    [
+        "fake_ror_empty",
+    ],
+)
+def test__ror_client__unknown_id__not_in_result(
+    client_fixture: str, request: pytest.FixtureRequest
+) -> None:
+    """An ID that matches nothing yields an empty result dict."""
+    sut: RORClient = request.getfixturevalue(client_fixture)
+    result = sut.resolve_by_ids([CrossrefId("999999999")])
+    assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# Round 5: mixed known and unknown -> only known in result
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "client_fixture",
+    [
+        "fake_ror_single",
+    ],
+)
+def test__ror_client__mixed_known_unknown__returns_only_known(
+    client_fixture: str, request: pytest.FixtureRequest
+) -> None:
+    """When some IDs match and some don't, only matched IDs appear in result."""
+    sut: RORClient = request.getfixturevalue(client_fixture)
+    result = sut.resolve_by_ids([CrossrefId("100000014"), CrossrefId("999999999")])
+    assert "100000014" in result
+    assert "999999999" not in result
+
+
+# ---------------------------------------------------------------------------
+# Round 6: HTTP error raises RORClientError
+# ---------------------------------------------------------------------------
+
+
+def test__ror_client__http_error__raises_ror_client_error() -> None:
+    """A 500 response from the ROR API raises RORClientError."""
+    fake = FakeHttpGet(status=500, json_data={})
+    sut = RORClient(http_client=fake)
+    with pytest.raises(RORClientError, match="ROR API request failed"):
+        sut.resolve_by_ids([CrossrefId("100000014")])
+
+
+# ---------------------------------------------------------------------------
+# Round 7: record with multi external IDs -> correct input mapped
+# ---------------------------------------------------------------------------
+
+
+def test__ror_client__record_with_multi_ext_ids__correct_input_mapped() -> None:
+    """A record with fundref + ISNI + Wikidata still maps the fundref ID."""
+    response: dict[str, Any] = {
+        "number_of_results": 1,
+        "items": [
+            {
+                "id": "https://ror.org/01pp8nd67",
+                "names": [
+                    {"lang": "en", "types": ["ror_display", "label"], "value": "Smithsonian Institution"},
+                ],
+                "external_ids": [
+                    {"type": "fundref", "all": ["100000014"], "preferred": None},
+                    {"type": "isni", "all": ["0000000087163312"], "preferred": None},
+                    {"type": "wikidata", "all": ["Q131626"], "preferred": None},
+                ],
+            }
+        ],
+    }
+    fake = FakeHttpGet(status=200, json_data=response)
+    sut = RORClient(http_client=fake)
+    result = sut.resolve_by_ids([CrossrefId("100000014")])
+    assert result["100000014"].name == "Smithsonian Institution"
+
+
+# ---------------------------------------------------------------------------
+# Round 8: response missing items key -> empty result
+# ---------------------------------------------------------------------------
+
+
+def test__ror_client__response_missing_items_key__returns_empty() -> None:
+    """A response without an 'items' field returns an empty dict."""
+    fake = FakeHttpGet(status=200, json_data={"number_of_results": 0})
+    sut = RORClient(http_client=fake)
+    result = sut.resolve_by_ids([CrossrefId("100000014")])
+    assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# Round 9: network timeout raises RORClientError
+# ---------------------------------------------------------------------------
+
+
+def test__ror_client__network_timeout__raises_ror_client_error() -> None:
+    """A timeout from the HTTP client raises RORClientError."""
+
+    class TimeoutHttpGet:
+        def get(self, url: str, *, params: Any, timeout: int, follow_redirects: bool) -> Any:
+            raise httpx.TimeoutException("Connection timed out", request=None)
+
+    sut = RORClient(http_client=TimeoutHttpGet())
+    with pytest.raises(RORClientError, match="ROR API request failed"):
+        sut.resolve_by_ids([CrossrefId("100000014")])
+
+
+# ---------------------------------------------------------------------------
+# Round 10: two different link types for same record -> both in result
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "client_fixture",
+    [
+        "fake_ror_single",
+    ],
+)
+def test__ror_client__two_different_link_types_same_record__both_in_result(
+    client_fixture: str, request: pytest.FixtureRequest
+) -> None:
+    """CrossrefId and Ror pointing to the same record both appear in result."""
+    sut: RORClient = request.getfixturevalue(client_fixture)
+    result = sut.resolve_by_ids(
+        [CrossrefId("100000014"), Ror("https://ror.org/01pp8nd67")]
+    )
+    assert "100000014" in result
+    assert "https://ror.org/01pp8nd67" in result
+    assert result["100000014"].id == "https://ror.org/01pp8nd67"
+    assert result["https://ror.org/01pp8nd67"].id == "https://ror.org/01pp8nd67"
