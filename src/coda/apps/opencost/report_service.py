@@ -159,7 +159,8 @@ def generate_report(
 
     Performance: ~50-80 queries regardless of dataset size
     """
-    assert params.date_range is not None, "date_range is required for generate_report"
+    if params.date_range is None:
+        raise ValueError("date_range is required for generate_report")
     start_date = params.date_range.start
     end_date = params.date_range.end
 

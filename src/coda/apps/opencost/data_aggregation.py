@@ -26,7 +26,8 @@ def get_publications_for_period(
     invoices_in_period: QuerySet[Invoice] | None = None,
 ) -> QuerySet[Publication]:
     # Extract date range – must be provided
-    assert params.date_range is not None, "date_range is required for get_publications_for_period"
+    if params.date_range is None:
+        raise ValueError("date_range is required for get_publications_for_period")
     start_date = params.date_range.start
     end_date = params.date_range.end
 
