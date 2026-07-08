@@ -1,8 +1,10 @@
 from datetime import datetime
 
 from dataclasses import dataclass
+from urllib.parse import urlencode
 
 from django.http import HttpRequest
+from django.urls import reverse
 
 from coda.apps.fundingrequests.models import Label
 from coda.apps.contracts.models import Contract
@@ -18,6 +20,40 @@ from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
 from coda.domain.publication.publication import UnpublishedState
+
+MULTI_VALUE_FILTER_FIELDS = {
+    "open_access_type",
+    "labels",
+    "exclude_labels",
+    "payment_status",
+    "processing_status",
+    "payment_methods",
+    "publication_states",
+}
+
+
+SINGLE_VALUE_FILTER_FIELDS = {
+    "publication_type",
+    "funding_source",
+    "contract_name",
+    "period_start",
+    "period_end",
+    "search_term",
+}
+
+
+def parse_current_filters_to_context(request: HttpRequest) -> dict[str, str | list[str]]:
+    filters: dict[str, str | list[str]] = {}
+    for key in MULTI_VALUE_FILTER_FIELDS:
+        values = request.GET.getlist(key)
+        if values:
+            filters[key] = values
+    for key in SINGLE_VALUE_FILTER_FIELDS:
+        values = request.GET.getlist(key)
+        if values:
+            filters[key] = values[0]
+    return filters
+
 
 # ---------------------------------------------------------------------------
 # Shared choice lists used in both filter forms.
@@ -35,18 +71,10 @@ payment_status_choices: list[tuple[str, str]] = [
 # ---------------------------------------------------------------------------
 # Shared filter keys that are common to both CSV exports and openCost reports.
 # ---------------------------------------------------------------------------
-_COMMON_OPTIONAL_FILTER_FIELDS: list[str] = [
-    "processing_status",
-    "payment_methods",
-    "open_access_type",
-    "publication_states",
-    "labels",
-    "exclude_labels",
-    "payment_status",
-    "publication_type",
-    "funding_source",
-    "contract_name",
-]
+
+_COMMON_OPTIONAL_FILTER_FIELDS: list[str] = list(
+    MULTI_VALUE_FILTER_FIELDS | SINGLE_VALUE_FILTER_FIELDS
+)
 
 
 def build_filters_from_request(
@@ -148,6 +176,17 @@ def build_filter_form_context() -> dict[str, object]:
         "contract_list": Contract.objects.all(),
         "payment_status_choices": payment_status_choices,
     }
+
+
+def create_redo_url(filters: dict[str, str], url_name: str) -> str:
+    redo_params: dict[str, str | list[str]] = {}
+    all_multi_value = MULTI_VALUE_FILTER_FIELDS | SINGLE_VALUE_FILTER_FIELDS
+    for key, value in filters.items():
+        if key in all_multi_value:
+            redo_params[key] = value.split(",")
+        else:
+            redo_params[key] = value
+    return reverse(url_name) + "?" + urlencode(redo_params, doseq=True)
 
 
 @dataclass

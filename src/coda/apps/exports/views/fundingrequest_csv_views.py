@@ -24,8 +24,9 @@ from coda.apps.exports.services.filter_display import (
     build_filter_form_context,
     build_filters_from_request,
     parse_common_filter_fields,
+    create_redo_url,
+    parse_current_filters_to_context,
 )
-from urllib.parse import urlencode
 
 FUNDINGREQUESTS_CSV_CREATE_URL = "exports:fundingrequests_csv_create"
 
@@ -70,7 +71,7 @@ def fundingrequest_csv_detail_page(
 
     applied_filters = build_applied_filters(export.filters)
 
-    redo_url = _create_redo_url(export)
+    redo_url = create_redo_url(export.filters, "exports:fundingrequests_csv_create")
 
     return render(
         request,
@@ -97,6 +98,7 @@ def fundingrequest_csv_export_create_view(
     if request.method == "GET":
         context = _get_export_form_context()
         context["expand_advanced_search"] = bool(request.GET)
+        context["current_filters"] = parse_current_filters_to_context(request)
         context.update(
             {
                 "page_title": "Generate New CSV Export",
@@ -213,30 +215,3 @@ def _get_export_form_context() -> dict[str, object]:
 def _generate_csv_from_filters(filters: dict[str, str]) -> str:
     params = _parse_filter_dict(filters)
     return export_fundingrequests_to_csv(params)
-
-
-def _create_redo_url(export: FundingRequestCSVExport) -> str:
-    redo_params = {}
-
-    multi_value_fields = {
-        "open_access_type",
-        "labels",
-        "exclude_labels",
-        "payment_status",
-        "processing_status",
-        "payment_methods",
-        "publication_states",
-        "publication_type",
-        "funding_source",
-        "contract_name",
-    }
-
-    for key, value in export.filters.items():
-        if key in multi_value_fields:
-            redo_params[key] = value.split(",")
-        else:
-            redo_params[key] = value
-
-    redo_url = reverse(FUNDINGREQUESTS_CSV_CREATE_URL) + "?" + urlencode(redo_params, doseq=True)
-
-    return redo_url

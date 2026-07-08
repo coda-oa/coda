@@ -9,7 +9,6 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.db.models import Q
 from collections.abc import Sequence
-from urllib.parse import urlencode
 
 from coda.apps.opencost.models import (
     OpenCostReport,
@@ -31,6 +30,8 @@ from coda.apps.exports.services.filter_display import (
     build_filter_form_context,
     build_filters_from_request,
     parse_common_filter_fields,
+    create_redo_url,
+    parse_current_filters_to_context,
 )
 from coda.apps.opencost.validation import validate_report
 from coda.apps.opencost.xml_generation import generate_xml
@@ -133,7 +134,7 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
     errors = [w for w in warnings if w.level == "error"]
     warnings_only = [w for w in warnings if w.level == "warning"]
     applied_filters = build_applied_filters(report.filters)
-    redo_url = _create_redo_url(report)
+    redo_url = create_redo_url(report.filters, "opencost:generate")
 
     context = {
         "report": report,
@@ -158,6 +159,7 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
 def generate_report_form(request: HttpRequest) -> HttpResponse:
     context = _get_report_form_context()
     context["expand_advanced_search"] = bool(request.GET)
+    context["current_filters"] = parse_current_filters_to_context(request)
     context.update(
         {
             "page_title": "Generate New openCost Report",
@@ -243,30 +245,6 @@ def generate_report(request: HttpRequest) -> HttpResponse:
 
 def _get_report_form_context() -> dict[str, object]:
     return build_filter_form_context()
-
-
-def _create_redo_url(report: OpenCostReport) -> str:
-    redo_params = {}
-
-    for key, value in report.filters.items():
-        if key in {
-            "open_access_type",
-            "labels",
-            "exclude_labels",
-            "payment_status",
-            "processing_status",
-            "payment_methods",
-            "publication_states",
-            "publication_type",
-            "funding_source",
-            "contract_name",
-        }:
-            redo_params[key] = value.split(",")
-        else:
-            redo_params[key] = value
-
-    redo_url = reverse("opencost:generate") + "?" + urlencode(redo_params, doseq=True)
-    return redo_url
 
 
 @login_required
