@@ -22,6 +22,8 @@ class FundingStep(TemplateStep):
             ExternalFundingFormset, request, store_data=store.get("funding")
         )
         context["funding_request_pk"] = store.get("funding_request_pk")
+        journal_id = store.get("journal")
+        context["journal_pk"] = int(journal_id) if journal_id else None
         return context
 
     def is_valid(self, request: HttpRequest, store: Store) -> bool:
