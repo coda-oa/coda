@@ -1,11 +1,16 @@
 """Service for resolving external funding metadata to DB entities.
 
-Handles the two-phase match (DOI → name), bulk creation of missing funding
-organizations, and persistence of DOI links for future matches.
+Handles the identifier → organization match, bulk creation of missing funding
+organizations, and persistence of funder links so future imports can match
+by either identifier even when the funder name differs.
+
+Identifiers are modelled as the domain ``Link`` types (``Doi``,
+``CrossrefId``) from ``coda.domain.publication.links`` — the resolver
+never deals with raw identifier strings, and resolves the DB link type from
+each link's own ``type()``.
 """
 
 from dataclasses import dataclass
-from typing import NamedTuple
 
 from coda.apps.fundingrequests.models import (
     FundingOrganization,
@@ -13,13 +18,14 @@ from coda.apps.fundingrequests.models import (
     FundingOrganizationLinkType,
 )
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
+from coda.domain.institution.links import Ror
+from coda.domain.publication.links import CrossrefId, Doi, Link
 
 
 @dataclass(frozen=True, slots=True)
 class FunderMatch:
     name: str
-    funder_doi: str
-    crossref_id: str = ""
+    links: tuple[Link, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -28,15 +34,10 @@ class ResolvedFunder:
     organization_id: FundingOrganizationId
 
 
-class _MatchByDOIResult(NamedTuple):
-    matched: dict[str, FundingOrganization]
-    remaining: list[FunderMatch]
-
-
 def resolve_funders(
     funders: list[FunderMatch],
 ) -> list[ResolvedFunder]:
-    """Match funders by DOI (preferred), then by Crossref ID, then by name.
+    """Match funders by identifier (DOI preferred, then Crossref ID), then by name.
 
     Creates missing funding organizations and persists DOI and Crossref links
     so future imports can match by either identifier even when the funder name
@@ -44,33 +45,60 @@ def resolve_funders(
 
     Returns one ResolvedFunder per input FunderMatch, preserving order.
     """
-    doi_type = FundingOrganizationLinkType.objects.get(name="DOI")
-    crossref_type = FundingOrganizationLinkType.objects.get(name="Crossref")
+    link_types = _link_types()
+    matched = _match_existing_links(link_types, funders)
+    name_to_org = _resolve_organizations(funders, matched)
 
-    matched_by_doi, remaining = _match_by_doi(funders, doi_type)
-    matched_by_crossref, remaining = _match_by_crossref(remaining, crossref_type)
-    matched_by_doi.update(matched_by_crossref)
-
-    name_to_org = _build_name_lookup(remaining, matched_by_doi, funders)
-
-    _persist_new_doi_links(doi_type, funders, matched_by_doi, name_to_org)
-    _persist_new_crossref_links(crossref_type, funders, matched_by_doi, name_to_org)
+    _persist_new_links(link_types, funders, matched, name_to_org)
 
     return _build_resolved_funders(funders, name_to_org)
 
 
-def _match_by_doi(
+def _link_types() -> dict[str, FundingOrganizationLinkType]:
+    """Map each supported link type name to its DB row.
+
+    Uses the domain ``Link.type()`` so the string coupling to the seeded
+    ``FundingOrganizationLinkType`` rows lives only in the domain.
+    """
+    names = [Doi.type(), CrossrefId.type(), Ror.type()]
+    return {t.name: t for t in FundingOrganizationLinkType.objects.filter(name__in=names)}
+
+
+def _match_existing_links(
+    link_types: dict[str, FundingOrganizationLinkType],
     funders: list[FunderMatch],
-    doi_type: FundingOrganizationLinkType,
-) -> _MatchByDOIResult:
-    doi_to_funder = {f.funder_doi: f for f in funders if f.funder_doi}
-    links = FundingOrganizationLink.objects.filter(
-        type=doi_type, value__in=list(doi_to_funder.keys())
+) -> dict[tuple[str, str], FundingOrganization]:
+    all_links = [link for f in funders for link in f.links]
+    if not all_links:
+        return {}
+
+    existing = FundingOrganizationLink.objects.filter(
+        type__name__in=list(link_types.keys()),
+        value__in=[link.value() for link in all_links],
     ).select_related("funding_organization")
-    matched = {link.value: link.funding_organization for link in links}
-    remaining = [f for doi, f in doi_to_funder.items() if doi not in matched]
-    remaining.extend(f for f in funders if not f.funder_doi)
-    return _MatchByDOIResult(matched=matched, remaining=remaining)
+    return {(link.type.name, link.value): link.funding_organization for link in existing}
+
+
+def _resolve_organizations(
+    funders: list[FunderMatch],
+    matched: dict[tuple[str, str], FundingOrganization],
+) -> dict[str, FundingOrganization]:
+    name_to_org: dict[str, FundingOrganization] = {}
+    for f in funders:
+        for link in f.links:
+            if (link.type(), link.value()) in matched:
+                name_to_org[f.name] = matched[(link.type(), link.value())]
+                break
+
+    unmatched = [f for f in funders if f.name not in name_to_org]
+    name_to_org.update(_match_or_create_by_name(unmatched))
+
+    for f in funders:
+        if f.name not in name_to_org:
+            org, _ = FundingOrganization.objects.get_or_create(name=f.name)
+            name_to_org[f.name] = org
+
+    return name_to_org
 
 
 def _match_or_create_by_name(
@@ -90,77 +118,31 @@ def _match_or_create_by_name(
     return result
 
 
-def _build_name_lookup(
-    remaining: list[FunderMatch],
-    matched_by_doi: dict[str, FundingOrganization],
+def _persist_new_links(
+    link_types: dict[str, FundingOrganizationLinkType],
     funders: list[FunderMatch],
-) -> dict[str, FundingOrganization]:
-    name_to_org = _match_or_create_by_name(remaining)
-    for org in matched_by_doi.values():
-        name_to_org[org.name] = org
-    for f in funders:
-        if f.funder_doi and f.funder_doi in matched_by_doi:
-            name_to_org[f.name] = matched_by_doi[f.funder_doi]
-        elif f.crossref_id and f.crossref_id in matched_by_doi:
-            name_to_org[f.name] = matched_by_doi[f.crossref_id]
-    # Catch any funder names still missing from the lookup.
-    # This can happen when doi_to_funder or crossref_to_funder collapse
-    # duplicate identifiers into a single entry (see _match_by_doi).
-    for f in funders:
-        if f.name not in name_to_org:
-            org, _ = FundingOrganization.objects.get_or_create(name=f.name)
-            name_to_org[f.name] = org
-    return name_to_org
-
-
-def _persist_new_doi_links(
-    doi_type: FundingOrganizationLinkType,
-    funders: list[FunderMatch],
-    matched_by_doi: dict[str, FundingOrganization],
+    matched: dict[tuple[str, str], FundingOrganization],
     name_to_org: dict[str, FundingOrganization],
 ) -> None:
-    links = [
-        FundingOrganizationLink(
-            type=doi_type,
-            value=f.funder_doi,
-            funding_organization=name_to_org[f.name],
-        )
+    """Create one link per (type, value, org) not already persisted.
+
+    Dedupes within the batch (a funder appearing multiple times in
+    ``funders`` — the mass-import path aggregates every DOI's matches
+    into one call — yields a single link per type) and skips identifiers
+    already in ``matched``. ``ignore_conflicts`` guards against races on
+    re-import.
+    """
+    candidates = [
+        (link_types[link.type()], link.value(), name_to_org[f.name])
         for f in funders
-        if f.funder_doi and f.funder_doi not in matched_by_doi
+        for link in f.links
+        if link.type() in link_types
+        if (link.type(), link.value()) not in matched
     ]
-    FundingOrganizationLink.objects.bulk_create(links, ignore_conflicts=True)
-
-
-def _match_by_crossref(
-    funders: list[FunderMatch],
-    crossref_type: FundingOrganizationLinkType,
-) -> _MatchByDOIResult:
-    crossref_to_funder = {f.crossref_id: f for f in funders if f.crossref_id}
-    if not crossref_to_funder:
-        return _MatchByDOIResult(matched={}, remaining=funders)
-    links = FundingOrganizationLink.objects.filter(
-        type=crossref_type, value__in=list(crossref_to_funder.keys())
-    ).select_related("funding_organization")
-    matched = {link.value: link.funding_organization for link in links}
-    remaining = [f for cid, f in crossref_to_funder.items() if cid not in matched]
-    remaining.extend(f for f in funders if not f.crossref_id)
-    return _MatchByDOIResult(matched=matched, remaining=remaining)
-
-
-def _persist_new_crossref_links(
-    crossref_type: FundingOrganizationLinkType,
-    funders: list[FunderMatch],
-    matched_by_doi: dict[str, FundingOrganization],
-    name_to_org: dict[str, FundingOrganization],
-) -> None:
+    unique = list(dict.fromkeys(candidates))
     links = [
-        FundingOrganizationLink(
-            type=crossref_type,
-            value=f.crossref_id,
-            funding_organization=name_to_org[f.name],
-        )
-        for f in funders
-        if f.crossref_id and f.crossref_id not in matched_by_doi
+        FundingOrganizationLink(type=link_type, value=value, funding_organization=org)
+        for link_type, value, org in unique
     ]
     FundingOrganizationLink.objects.bulk_create(links, ignore_conflicts=True)
 

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import TypeAdapter
@@ -33,9 +33,10 @@ from coda.contexts.publication.services.errors import DOIAlreadyImported, Invali
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
+from coda.domain.institution.links import Ror
 from coda.domain.issn import Issn
 from coda.domain.publication import JournalId
-from coda.domain.publication.links import CrossrefId, Doi
+from coda.domain.publication.links import CrossrefId, Doi, Link
 from coda.domain.publication.publication import BasePublication
 from coda.domain.string import NonEmptyStr
 
@@ -376,45 +377,59 @@ class DOIImportService:
                     raise InvalidMetadataError("Monograph missing publisher name")
 
     def _enrich_funders(self, funding: list[PreviewExternalFunding]) -> list[FunderMatch]:
-        # Collect all crossref_ids and resolve via ROR in a single batch.
-        # CachingRORClient handles the cache transparently.
-        all_ids: set[str] = set()
-        for f in funding:
-            for id_ in f.identifiers:
-                if id_.isdigit():
-                    all_ids.add(id_)
+        funder_links = [_funder_links(f.identifiers) for f in funding]
 
+        crossref_ids = {
+            link.value() for links in funder_links for link in links if isinstance(link, CrossrefId)
+        }
         ror_results: dict[str, RORRecord] = {}
-        if all_ids:
-            links = [CrossrefId(cid) for cid in all_ids]
+        if crossref_ids:
             try:
-                ror_results = self._ror_client.resolve_by_ids(links)
+                ror_results = self._ror_client.resolve_by_ids(
+                    [CrossrefId(cid) for cid in crossref_ids]
+                )
             except Exception:
                 logger.warning(
                     "ROR resolution failed for IDs %s — falling back to metadata names",
-                    all_ids,
+                    crossref_ids,
                     exc_info=True,
                 )
 
         matches = []
-        for f in funding:
-            doi = None
-            crossref_id = ""
-            for id_ in f.identifiers:
-                try:
-                    doi = Doi(id_)
-                except ValueError:
-                    if id_.isdigit():
-                        crossref_id = id_
-
-            record = ror_results.get(crossref_id) if crossref_id else None
-            name = record.name if record else f.name
-            matches.append(
-                FunderMatch(
-                    name=name,
-                    funder_doi=doi.value() if doi else "",
-                    crossref_id=crossref_id,
-                )
+        for f, links in zip(funding, funder_links):
+            links = list(links)
+            crossref_id = next(
+                (link.value() for link in links if isinstance(link, CrossrefId)), None
             )
+            record = ror_results.get(crossref_id) if crossref_id else None
+            if record is not None:
+                try:
+                    links.append(Ror(record.id))
+                except Exception:
+                    logger.warning(
+                        "ROR ID %s for funder '%s' is not a valid ROR identifier — skipping ROR link",
+                        record.id,
+                        f.name,
+                        exc_info=True,
+                    )
+            name = record.name if record else f.name
+            matches.append(FunderMatch(name=name, links=tuple(links)))
 
         return matches
+
+
+def _funder_links(identifiers: list[str]) -> list[Link]:
+    """Turn raw metadata identifier strings into validated domain ``Link`` objects.
+
+    A valid DOI becomes a ``Doi``; a pure-digit Crossref ID becomes a
+    ``CrossrefId``. Invalid identifiers surface as domain errors rather than
+    being silently dropped.
+    """
+    links: list[Link] = []
+    for id_ in identifiers:
+        try:
+            links.append(Doi(id_))
+        except ValueError:
+            if id_.isdigit():
+                links.append(CrossrefId(id_))
+    return links

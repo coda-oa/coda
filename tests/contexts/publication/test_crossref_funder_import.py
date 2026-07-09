@@ -15,6 +15,8 @@ from tests.contexts.publication.fixtures import FundedArticleScenario
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 from coda.apps.fundingrequests import repository
+from coda.contexts.publication.dto.preview import PreviewExternalFunding
+from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient
 from coda.contexts.publication.services.doi_client._ror import RORClient
 from coda.contexts.publication.services.doi_import_service import DOIImportService
 
@@ -28,7 +30,7 @@ class FakeRORHttpGet:
         self._json_data = json_data or EMPTY_ROR_RESPONSE
         self._status = status
 
-    def get(self, url: str, **kwargs: Any) -> Any:
+    def get(self, url: str, **_: Any) -> Any:
         response = httpx.Response(
             self._status,
             json=self._json_data,
@@ -55,3 +57,17 @@ def test__doi_with_funders__imports_funders_into_fundingrequest() -> None:
 
     actual = repository.get_by_id(fr_id)
     assert_fundingrequest_eq(actual, scenario.get_expected_fundingrequest())
+
+
+@pytest.mark.django_db
+def test__enrich_funders__doi_only_funder_is_not_dropped() -> None:
+    """Regression: a funder whose only identifier is a DOI (no Crossref digits) must not be silently dropped from the import."""
+
+    ror_client = RORClient(http_client=FakeRORHttpGet())
+    sut = DOIImportService(InMemoryDOIMetadataClient(), ror_client=ror_client)
+
+    funding = [PreviewExternalFunding(name="Grant X", identifiers=["10.13039/abcxyz"])]
+    matches = sut._enrich_funders(funding)
+
+    assert len(matches) == 1
+    assert matches[0].name == "Grant X"

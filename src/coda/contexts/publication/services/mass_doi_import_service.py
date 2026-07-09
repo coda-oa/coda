@@ -124,6 +124,7 @@ class MassDOIImportService:
         self,
         dois_and_overrides: list[tuple[Doi, OverrideImport]],
         metadata_cache: dict[Doi, ExternalPublicationMetadata],
+        ror_client: CachingRORClient | RORClient | None = None,
     ) -> MassImportResult:
         """Import multiple DOIs, applying per-DOI overrides.
 
@@ -147,7 +148,7 @@ class MassDOIImportService:
 
         # Pre-warm ROR cache for all funders before import to avoid
         # on-demand API calls during per-DOI processing.
-        ror_client = CachingRORClient(RORClient())
+        ror_client = ror_client or CachingRORClient(RORClient())
         crossref_ids = _collect_crossref_ids(metadata_cache)
         if crossref_ids:
             try:

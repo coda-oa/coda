@@ -10,13 +10,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, cast
 
+import httpx
+
 from coda.contexts.publication.services.doi_client._ror.exceptions import RORClientError
-
-
-class Link(Protocol):
-    def type(self) -> str: ...
-    def value(self) -> str: ...
-    def url(self) -> str | None: ...
+from coda.domain.publication.links import Link
 
 
 class HttpGetClient(Protocol):
@@ -67,8 +64,6 @@ class RORClient:
     BASE_URL = "https://api.ror.org/v2/organizations"
 
     def __init__(self, http_client: HttpGetClient | None = None) -> None:
-        import httpx
-
         self._http = http_client or httpx
 
     def resolve_by_ids(self, links: Sequence[Link]) -> dict[str, RORRecord]:
@@ -77,18 +72,35 @@ class RORClient:
 
         query = " OR ".join(f'"{str(link)}"' for link in links)
 
-        try:
-            response = self._http.get(
-                self.BASE_URL,
-                params={"query": query},
-                timeout=30,
-                follow_redirects=True,
-            ).raise_for_status()
-            data: dict[str, Any] = response.json()
-        except Exception as e:
-            raise RORClientError(f"ROR API request failed: {e}") from e
+        all_items: list[dict[str, Any]] = []
+        page = 1
 
-        records = [RORRecord.from_api(item) for item in data.get("items", [])]
+        while True:
+            params: dict[str, Any] = {"query": query, "all_status": ""}
+            if page > 1:
+                params["page"] = page
+
+            try:
+                response = self._http.get(
+                    self.BASE_URL,
+                    params=params,
+                    timeout=30,
+                    follow_redirects=True,
+                ).raise_for_status()
+                data: dict[str, Any] = response.json()
+            except Exception as e:
+                raise RORClientError(f"ROR API request failed: {e}") from e
+
+            items = data.get("items", [])
+            all_items.extend(items)
+
+            total = data.get("number_of_results", 0)
+            if len(all_items) >= total:
+                break
+
+            page += 1
+
+        records = [RORRecord.from_api(item) for item in all_items]
 
         input_strings = {str(link) for link in links}
         result: dict[str, RORRecord] = {}

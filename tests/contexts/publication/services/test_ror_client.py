@@ -46,6 +46,23 @@ class FakeHttpGet:
         return response
 
 
+class PaginatedFakeHttpGet:
+    """Satisfies HttpGetClient protocol. Returns different JSON per page."""
+
+    def __init__(self, pages: dict[int, dict[str, Any]]) -> None:
+        self._pages = pages
+        self.calls: list[dict[str, Any]] = []
+
+    def get(self, url: str, *, params: Any, timeout: int, follow_redirects: bool) -> Any:
+        from httpx import Request
+
+        self.calls.append({"url": url, "params": params})
+        page = params.get("page", 1) if params else 1
+        data = self._pages.get(page, {"number_of_results": 0, "items": []})
+        response = httpx.Response(200, json=data, request=Request("GET", url))
+        return response
+
+
 # ---------------------------------------------------------------------------
 # Test data constants
 # ---------------------------------------------------------------------------
@@ -106,6 +123,54 @@ TWO_RESPONSE: dict[str, Any] = {
 
 EMPTY_RESPONSE: dict[str, Any] = {"number_of_results": 0, "items": []}
 
+
+def _funders_response(count: int, start_id: int = 1) -> dict[str, Any]:
+    """Generate a ROR API response with *count* funder records.
+
+    Each record has a unique FundRef ID (``start_id`` … ``start_id + count - 1``)
+    and a distinct ROR ID so the matching logic can verify every input maps back.
+    """
+    items: list[dict[str, Any]] = []
+    for i in range(count):
+        fundref = str(start_id + i)
+        ror_suffix = f"0{i:04x}abcde"
+        items.append(
+            {
+                "id": f"https://ror.org/{ror_suffix}",
+                "names": [
+                    {
+                        "lang": "en",
+                        "types": ["ror_display", "label"],
+                        "value": f"Funder {fundref}",
+                    },
+                ],
+                "external_ids": [
+                    {"type": "fundref", "all": [fundref], "preferred": None},
+                ],
+            }
+        )
+    return {"number_of_results": count, "items": items}
+
+
+# ---------------------------------------------------------------------------
+# Pagination fixtures (multi-page responses)
+# ---------------------------------------------------------------------------
+
+
+PAGE_1_ONLY: dict[int, dict[str, Any]] = {1: _funders_response(15)}
+
+
+TWO_PAGES: dict[int, dict[str, Any]] = {
+    1: {**_funders_response(20, start_id=1), "number_of_results": 25},
+    2: {**_funders_response(5, start_id=21), "number_of_results": 25},
+}
+
+EXACT_ONE_PAGE: dict[int, dict[str, Any]] = {1: _funders_response(20)}
+
+
+EMPTY_PAGE: dict[int, dict[str, Any]] = {1: {"number_of_results": 0, "items": []}}
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -132,8 +197,21 @@ def real_ror_client() -> RORClient:
 
 
 # ---------------------------------------------------------------------------
-# Round 1: empty input -> empty dict
+# Round1: empty input -> empty dict
 # ---------------------------------------------------------------------------
+
+
+def test__ror_clients__accept_canonical_link_protocol() -> None:
+    """Link-typed inputs flow through RORClient via the shared domain Link protocol."""
+
+    link = CrossrefId("100000014")
+    # The canonical Link protocol defines type()/value()/url(); CrossrefId satisfies it.
+    assert hasattr(link, "type") and hasattr(link, "value") and hasattr(link, "url")
+    assert isinstance(link, object)  # structural protocol, exercised below
+
+    sut = RORClient(http_client=FakeHttpGet(status=200, json_data=SINGLE_RESPONSE))
+    result = sut.resolve_by_ids([link])
+    assert "100000014" in result
 
 
 def test__ror_client__empty_input__returns_empty_dict() -> None:
@@ -459,3 +537,61 @@ def test__caching_ror_client__two_different_link_types_same_record__both_in_resu
     assert "100000014" in result2
     assert "https://ror.org/01pp8nd67" in result2
     assert fake.last_params is None, "Expected cached result, not API query"
+
+
+# ---------------------------------------------------------------------------
+# Pagination tests
+# ---------------------------------------------------------------------------
+
+
+class TestRORClientPagination:
+    """RORClient correctly iterates through multi-page ROR API responses."""
+
+    def test__ror_client__single_page__no_pagination(self) -> None:
+        """Given < 20 results, makes exactly 1 API call and returns all matches."""
+        fake = PaginatedFakeHttpGet(PAGE_1_ONLY)
+        sut = RORClient(http_client=fake)
+
+        ids = [CrossrefId(str(i)) for i in range(1, 16)]
+        result = sut.resolve_by_ids(ids)
+
+        assert len(fake.calls) == 1
+        assert len(result) == 15
+        for i in range(1, 16):
+            assert str(i) in result
+
+    def test__ror_client__multi_page__paginates(self) -> None:
+        """Given > 20 results, iterates through pages and merges all records."""
+        fake = PaginatedFakeHttpGet(TWO_PAGES)
+        sut = RORClient(http_client=fake)
+
+        ids = [CrossrefId(str(i)) for i in range(1, 26)]
+        result = sut.resolve_by_ids(ids)
+
+        assert len(fake.calls) == 2
+        assert fake.calls[0]["params"].get("page", 1) == 1
+        assert fake.calls[1]["params"].get("page") == 2
+        assert len(result) == 25
+        for i in range(1, 26):
+            assert str(i) in result
+
+    def test__ror_client__exact_page_boundary__one_page(self) -> None:
+        """Given exactly 20 results, makes exactly 1 call (no extra page)."""
+        fake = PaginatedFakeHttpGet(EXACT_ONE_PAGE)
+        sut = RORClient(http_client=fake)
+
+        ids = [CrossrefId(str(i)) for i in range(1, 21)]
+        result = sut.resolve_by_ids(ids)
+
+        assert len(fake.calls) == 1
+        assert len(result) == 20
+
+    def test__ror_client__empty_response__no_pagination(self) -> None:
+        """Given 0 results, makes exactly 1 call and returns empty dict."""
+        fake = PaginatedFakeHttpGet(EMPTY_PAGE)
+        sut = RORClient(http_client=fake)
+
+        result = sut.resolve_by_ids([CrossrefId("999999999")])
+
+        assert len(fake.calls) == 1
+        assert result == {}

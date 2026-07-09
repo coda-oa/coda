@@ -14,7 +14,7 @@ from coda.contexts.publication.services.funder_resolution_service import FunderR
 class FakeHttpGet:
     """Satisfies HttpGetClient protocol. Returns pre-configured response."""
 
-    def __init__(self, status: int = 200, json_data: dict | None = None) -> None:
+    def __init__(self, status: int = 200, json_data: dict[str, Any] | None = None) -> None:
         self._status = status
         self._json_data = json_data or {}
         self.last_url: str | None = None

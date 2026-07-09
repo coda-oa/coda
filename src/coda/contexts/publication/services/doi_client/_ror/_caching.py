@@ -7,19 +7,12 @@ API calls within a single session.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Protocol
+from typing import cast
 
-from coda.contexts.publication.services.doi_client._ror._ror_client import (
-    RORClient,
-    RORRecord,
-)
 from coda.contexts.publication.services.doi_client._ror.exceptions import RORClientError
+from coda.domain.publication.links import Link
 
-
-class Link(Protocol):
-    def type(self) -> str: ...
-    def value(self) -> str: ...
-    def url(self) -> str | None: ...
+from ._ror_client import RORClient, RORRecord
 
 
 class CachingRORClient:
@@ -55,7 +48,7 @@ class CachingRORClient:
                     self._cache[key] = None
 
         return {
-            str(link): self._cache[str(link)]
+            str(link): cast(RORRecord, self._cache[str(link)])
             for link in links
             if self._cache.get(str(link)) is not None
         }
