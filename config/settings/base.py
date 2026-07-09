@@ -26,6 +26,14 @@ if READ_DOT_ENV_FILE:
 CODA_DEMO_MODE = env.bool("CODA_DEMO_MODE", False)
 CODA_CHECKLIST_FACTORY = "coda.checks.checkfactory"
 
+# Panter PriceMonitor API base URL (APC pricing lookup).
+# Override per environment via PANTER_API_BASE; the default points at the
+# shared dev/prod instance.
+PANTER_API_BASE = env(
+    "PANTER_API_BASE",
+    default="http://iproject01.informatik.htw-dresden.de:11187/pricemonitor/coda/v1",
+)
+
 # GENERAL
 # ------------------------------------------------------------------------------
 # FORMS
