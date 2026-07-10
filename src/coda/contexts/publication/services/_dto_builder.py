@@ -8,13 +8,14 @@ journal/publisher/funder resolution logic lives in one place.
 
 from __future__ import annotations
 
+from coda.apps.publications.dto import MonographDto, PublicationDto
 from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
     ExternalFundingDto,
     ExtraInformationDto,
     PaymentDto,
 )
-from coda.contexts.fundingrequest.services.funder_resolver import FunderMatch
+from coda.contexts.fundingrequest.services.funder_resolver import ResolvedFunder
 from coda.contexts.publication.dto.preview import (
     PreviewArticle,
     PreviewFundingRequest,
@@ -22,7 +23,6 @@ from coda.contexts.publication.dto.preview import (
 )
 from coda.contexts.publication.services.doi_import_service import (
     DOIRepository,
-    FunderResolver,
     OverrideImport,
 )
 from coda.contexts.publication.services.errors import InvalidMetadataError
@@ -34,26 +34,24 @@ from coda.domain.string import NonEmptyStr
 
 def build_creation_dto(
     repo: DOIRepository,
-    funder_resolver: FunderResolver,
+    resolved: list[ResolvedFunder],
     preview: PreviewFundingRequest,
     override: OverrideImport,
-    funder_matches: list[FunderMatch],
 ) -> CreateFundingRequestDto:
     """Build a ``CreateFundingRequestDto`` from preview metadata.
 
-    Resolves journals and publishers through *repo* and funders through
-    *funder_resolver* so the caller controls when each operation happens.
+    Resolves journals and publishers through *repo*; funders are passed in
+    already resolved so the caller controls when resolution happens.
     """
     pub_dto = _resolve_publication(repo, preview, override)
 
-    resolved = funder_resolver.resolve(funder_matches)
     funding = [
         ExternalFundingDto(
-            organization=resolved[m.name],
+            organization=rf.organization_id,
             project_id=_project_id(preview, i),
             project_name="",
         )
-        for i, m in enumerate(funder_matches)
+        for i, rf in enumerate(resolved)
     ]
 
     return CreateFundingRequestDto(
@@ -73,7 +71,7 @@ def _resolve_publication(
     repo: DOIRepository,
     preview: PreviewFundingRequest,
     override: OverrideImport,
-) -> object:
+) -> PublicationDto | MonographDto:
     if override.overrides_to_article():
         if not isinstance(preview.publication, PreviewArticle):
             raise ValueError("Override type mismatch: expected PreviewArticle")

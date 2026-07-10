@@ -15,10 +15,16 @@ from tests.contexts.publication.fixtures import FundedArticleScenario
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 from coda.apps.fundingrequests import repository
-from coda.contexts.publication.dto.preview import PreviewExternalFunding
-from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient
-from coda.contexts.publication.services.doi_client._ror import RORClient
+from coda.contexts.fundingrequest.services.funder_resolver import (
+    FunderMatch,
+    resolve_funders,
+)
+from coda.contexts.publication.services.ror_client import RORClient
 from coda.contexts.publication.services.doi_import_service import DOIImportService
+from coda.contexts.publication.services.doi_repository_immediate import (
+    ImmediateDOIRepository,
+)
+from coda.domain.publication.links import Doi
 
 EMPTY_ROR_RESPONSE: dict[str, object] = {"number_of_results": 0, "items": []}
 
@@ -51,7 +57,8 @@ def test__doi_with_funders__imports_funders_into_fundingrequest() -> None:
     scenario.setup_db()
 
     ror_client = RORClient(http_client=FakeRORHttpGet())
-    sut = DOIImportService(scenario.client, ror_client=ror_client)
+    repo = ImmediateDOIRepository(ror_client=ror_client)
+    sut = DOIImportService(scenario.client, repo=repo)
 
     fr_id = sut.import_from_doi(scenario.doi)
 
@@ -60,14 +67,13 @@ def test__doi_with_funders__imports_funders_into_fundingrequest() -> None:
 
 
 @pytest.mark.django_db
-def test__enrich_funders__doi_only_funder_is_not_dropped() -> None:
+def test__resolve_funders__doi_only_funder_is_not_dropped() -> None:
     """Regression: a funder whose only identifier is a DOI (no Crossref digits) must not be silently dropped from the import."""
 
     ror_client = RORClient(http_client=FakeRORHttpGet())
-    sut = DOIImportService(InMemoryDOIMetadataClient(), ror_client=ror_client)
 
-    funding = [PreviewExternalFunding(name="Grant X", identifiers=["10.13039/abcxyz"])]
-    matches = sut._enrich_funders(funding)
+    funding = [FunderMatch(name="Grant X", links=(Doi("10.13039/abcxyz"),))]
+    matches = resolve_funders(funding, ror_client=ror_client)
 
     assert len(matches) == 1
-    assert matches[0].name == "Grant X"
+    assert matches[0].funder.name == "Grant X"

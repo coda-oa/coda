@@ -27,8 +27,9 @@ class InMemoryDOIMetadataClient:
     Configure data directly via `.data` dict for tests.
     Use `from_json()` to load a curated fixture file for demo mode.
 
-    Funder resolution is handled separately by ``FunderResolutionService``
-    via the ROR API — see ``funder_resolution_service.py``.
+    Funder resolution (ROR enrichment + DB match/persist) is handled by
+    ``resolve_funders`` in the fundingrequest context's ``funder_resolver``
+    module.
     """
 
     def __init__(self) -> None:

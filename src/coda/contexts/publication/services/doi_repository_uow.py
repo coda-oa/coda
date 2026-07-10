@@ -20,14 +20,15 @@ from coda.apps.publications.repositories import publication_repository
 from coda.apps.publishers import services as publisher_services
 from coda.checks.nullcheckfactory import NullCheckFactory
 from coda.contexts.fundingrequest.services import fundingrequests
-from coda.contexts.fundingrequest.services.funder_resolver import FunderMatch
+from coda.contexts.fundingrequest.services.funder_resolver import (
+    FunderMatch,
+    ResolvedFunder,
+    resolve_funders,
+)
 from coda.contexts.publication.dto.preview import PreviewFundingRequest
 from coda.contexts.publication.services._dto_builder import build_creation_dto
-from coda.contexts.publication.services.doi_import_service import (
-    DatabaseFunderResolver,
-    FunderResolver,
-    OverrideImport,
-)
+from coda.contexts.publication.services.ror_client import CachingRORClient, RORClient
+from coda.contexts.publication.services.doi_import_service import OverrideImport
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
@@ -49,21 +50,6 @@ class _DraftImport:
     funder_matches: list[FunderMatch] = field(default_factory=list)
 
 
-class _PreResolvedFunderResolver:
-    """FunderResolver that returns a pre-computed map for all matches.
-
-    Created by ``UnitOfWorkDOIRepository.commit()`` after resolving all
-    funders once, so each per-draft ``build_creation_dto`` call reuses
-    the batch-resolved map without additional DB lookups.
-    """
-
-    def __init__(self, funder_map: dict[str, FundingOrganizationId]) -> None:
-        self._funder_map = funder_map
-
-    def resolve(self, matches: list[FunderMatch]) -> dict[str, FundingOrganizationId]:
-        return self._funder_map
-
-
 class UnitOfWorkDOIRepository:
     """DOIRepository that defers writes and flushes in bulk on ``commit()``.
 
@@ -83,14 +69,14 @@ class UnitOfWorkDOIRepository:
         results = uow.commit()
     """
 
-    def __init__(self, funder_resolver: FunderResolver | None = None) -> None:
+    def __init__(self, ror_client: RORClient | CachingRORClient | None = None) -> None:
         self._doi_cache: dict[str, BasePublication | None] = {}
         self._journal_eissn_cache: dict[str, Journal | None] = {}
         self._journal_id_cache: dict[JournalId, Journal | None] = {}
         self._publisher_name_cache: dict[str, Publisher | None] = {}
         self._publisher_id_cache: dict[PublisherId, Publisher | None] = {}
         self._drafts: list[_DraftImport] = []
-        self._funder_resolver = funder_resolver or DatabaseFunderResolver()
+        self._ror_client = ror_client or CachingRORClient(RORClient())
 
     # ------------------------------------------------------------------
     # Batch pre-warm (call before per-DOI loop to avoid N+1 duplicate checks)
@@ -185,20 +171,21 @@ class UnitOfWorkDOIRepository:
         for draft in self._drafts:
             all_matches.extend(draft.funder_matches)
 
-        funder_map: dict[str, FundingOrganizationId] = {}
+        resolved: list[ResolvedFunder] = []
         if all_matches:
-            funder_map = self._funder_resolver.resolve(all_matches)
+            resolved = resolve_funders(all_matches, self._ror_client)
 
-        # Step 2: build DTOs for each draft (all reuse the batch-resolved funder map)
-        batch_resolver = _PreResolvedFunderResolver(funder_map)
+        # Step 2: build DTOs for each draft, distributing the batch-resolved
+        # funders back to their owning draft by match identity.
+        resolved_by_match = {m: resolved[i] for i, m in enumerate(all_matches)}
         dtos = []
         for draft in self._drafts:
+            draft_resolved = [resolved_by_match[m] for m in draft.funder_matches]
             dto = build_creation_dto(
                 self,
-                batch_resolver,
+                draft_resolved,
                 draft.preview,
                 draft.override,
-                draft.funder_matches,
             )
             dtos.append(dto)
 

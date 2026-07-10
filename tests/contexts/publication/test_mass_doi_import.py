@@ -161,3 +161,47 @@ class TestImportMulti:
         assert len(result.skipped) == 1
         assert len(result.failed) == 0
         assert result.skipped[0][0] == article.doi
+
+    @pytest.mark.django_db
+    def test__import_multi__given_two_dois_with_distinct_funders__should_assign_each_only_its_own_funders(
+        self,
+    ) -> None:
+        """Given two DOIs with distinct funders, each funding request gets only its own funder.
+
+        Regression test for the UoW scoping bug: the batch resolver must assign
+        each draft only its own funders, never funders from other drafts in the
+        batch.
+        """
+        client = InMemoryDOIMetadataClient()
+        article_a = (
+            ArticleScenario(client=client, doi="10.1234/test.scope.a")
+            .with_journal(title="Journal Alpha", eissn="1234-1231", publisher="Publisher Alpha")
+            .with_funding([("Alpha Foundation", "", None)])
+            .setup_db()
+        )
+        article_b = (
+            ArticleScenario(client=client, doi="10.1234/test.scope.b")
+            .with_journal(title="Journal Beta", eissn="1476-4687", publisher="Publisher Beta")
+            .with_funding([("Beta Trust", "", None)])
+            .setup_db()
+        )
+
+        sut = MassDOIImportService(doi_client=client)
+        result = sut.import_multi(
+            [
+                (article_a.doi, OverrideImport.empty()),
+                (article_b.doi, OverrideImport.empty()),
+            ],
+            metadata_cache={},
+        )
+
+        assert len(result.imported) == 2
+        assert len(result.skipped) == 0
+        assert len(result.failed) == 0
+
+        _, a_id = result.imported[0]
+        _, b_id = result.imported[1]
+        actual_a = fundingrequest_repository.get_by_id(a_id)
+        assert_fundingrequest_eq(actual_a, article_a.get_expected_fundingrequest())
+        actual_b = fundingrequest_repository.get_by_id(b_id)
+        assert_fundingrequest_eq(actual_b, article_b.get_expected_fundingrequest())

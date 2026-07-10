@@ -9,10 +9,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import cast
 
-from coda.contexts.publication.services.doi_client._ror.exceptions import RORClientError
+from coda.contexts.publication.services.ror_client.exceptions import RORClientError
 from coda.domain.publication.links import Link
 
-from ._ror_client import RORClient, RORRecord
+from .ror_client import RORClient, RORRecord
 
 
 class CachingRORClient:

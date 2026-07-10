@@ -247,11 +247,10 @@ def test__import_from_doi__journal_not_in_database__auto_creates_journal(
 def test__import_from_doi__journal_exists_in_database__does_not_create_publisher(
     nature_scenario: NatureArticleScenario,
 ) -> None:
-    """Given a DOI with E-ISSN that exists in database, does NOT create/match publisher.
+    """Given a DOI with E-ISSN that exists in database, does NOT create a new publisher.
 
     This verifies that when the journal already exists, we:
     - Use the existing journal (with its existing publisher)
-    - Do NOT call _match_or_create_publisher()
     - Do NOT create any new publishers
     """
     publisher_id = publisher_services.create(SPRINGER_NATURE_PUBLISHER)
@@ -528,8 +527,8 @@ def test__import_from_doi__duplicate_doi__raises_doi_already_imported() -> None:
 
 
 @pytest.mark.django_db
-def test__prepare_funding_request_dto__returns_dto_without_persisting() -> None:
-    """Test that prepare_funding_request_dto returns DTO without creating database records."""
+def test__fetch_doi_preview__returns_dto_without_persisting() -> None:
+    """Test that fetch_doi_preview returns DTO without creating database records."""
     scenario = NatureArticleScenario.with_in_memory_client()
     scenario.setup_db()
 
@@ -541,8 +540,8 @@ def test__prepare_funding_request_dto__returns_dto_without_persisting() -> None:
 
 
 @pytest.mark.django_db
-def test__prepare_funding_request_dto__article__does_not_create_journal_or_publisher() -> None:
-    """Test that prepare_funding_request_dto does NOT create journals or publishers for articles.
+def test__fetch_doi_preview__article__does_not_create_journal_or_publisher() -> None:
+    """Test that fetch_doi_preview does NOT create journals or publishers for articles.
 
     This is critical for preview workflows - we should only build the DTO without
     persisting any entities. Journal/publisher creation should happen during import_from_doi().
@@ -560,16 +559,14 @@ def test__prepare_funding_request_dto__article__does_not_create_journal_or_publi
     assert isinstance(dto.publication, PreviewArticle)
 
     # Assert - No database entities should be created
-    assert Journal.objects.count() == 0, "prepare_funding_request_dto created a journal"
-    assert Publisher.objects.count() == 0, "prepare_funding_request_dto created a publisher"
-    assert (
-        len(fundingrequest_repository.all()) == 0
-    ), "prepare_funding_request_dto created a funding request"
+    assert Journal.objects.count() == 0, "fetch_doi_preview created a journal"
+    assert Publisher.objects.count() == 0, "fetch_doi_preview created a publisher"
+    assert len(fundingrequest_repository.all()) == 0, "fetch_doi_preview created a funding request"
 
 
 @pytest.mark.django_db
-def test__prepare_funding_request_dto__monograph__does_not_create_publisher() -> None:
-    """Test that prepare_funding_request_dto does NOT create publishers for monographs.
+def test__fetch_doi_preview__monograph__does_not_create_publisher() -> None:
+    """Test that fetch_doi_preview does NOT create publishers for monographs.
 
     This is critical for preview workflows - we should only build the DTO without
     persisting any entities. Publisher creation should happen during import_from_doi().
@@ -585,10 +582,8 @@ def test__prepare_funding_request_dto__monograph__does_not_create_publisher() ->
     assert isinstance(dto.publication, PreviewMonograph)
 
     # Assert - No database entities should be created
-    assert Publisher.objects.count() == 0, "prepare_funding_request_dto created a publisher"
-    assert (
-        len(fundingrequest_repository.all()) == 0
-    ), "prepare_funding_request_dto created a funding request"
+    assert Publisher.objects.count() == 0, "fetch_doi_preview created a publisher"
+    assert len(fundingrequest_repository.all()) == 0, "fetch_doi_preview created a funding request"
 
 
 @pytest.mark.django_db

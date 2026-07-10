@@ -18,8 +18,9 @@ class DOIMetadataClient(Protocol):
 
     This defines the contract that both fake and real implementations must follow.
 
-    Funder resolution is handled separately by ``FunderResolutionService``
-    via the ROR API — see ``funder_resolution_service.py``.
+    Funder resolution (ROR enrichment + DB match/persist) is handled by
+    ``resolve_funders`` in the fundingrequest context's ``funder_resolver``
+    module.
     """
 
     def fetch_publication(self, doi: Doi) -> ExternalPublicationMetadata:

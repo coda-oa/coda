@@ -6,7 +6,7 @@ exercised through the import seams without hitting the live ROR API.
 
 from collections.abc import Sequence
 
-from coda.contexts.publication.services.doi_client._ror import RORClient, RORRecord
+from coda.contexts.publication.services.ror_client import RORClient, RORRecord
 from coda.domain.publication.links import Link
 
 HZDR_ROR = "https://ror.org/05dxps055"

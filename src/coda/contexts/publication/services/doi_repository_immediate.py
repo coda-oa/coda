@@ -14,14 +14,11 @@ from coda.apps.publications.repositories import publication_repository
 from coda.apps.publishers import services as publisher_services
 from coda.checks.nullcheckfactory import NullCheckFactory
 from coda.contexts.fundingrequest.services import fundingrequests
-from coda.contexts.fundingrequest.services.funder_resolver import FunderMatch
+from coda.contexts.fundingrequest.services.funder_resolver import FunderMatch, resolve_funders
 from coda.contexts.publication.dto.preview import PreviewFundingRequest
 from coda.contexts.publication.services._dto_builder import build_creation_dto
-from coda.contexts.publication.services.doi_import_service import (
-    DatabaseFunderResolver,
-    FunderResolver,
-    OverrideImport,
-)
+from coda.contexts.publication.services.ror_client import CachingRORClient, RORClient
+from coda.contexts.publication.services.doi_import_service import OverrideImport
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
@@ -36,9 +33,9 @@ if TYPE_CHECKING:
     from coda.apps.publishers.models import Publisher
 
 
-class BaseImmediateDOIRepository:
-    def __init__(self, funder_resolver: FunderResolver | None = None) -> None:
-        self._funder_resolver = funder_resolver or DatabaseFunderResolver()
+class ImmediateDOIRepository:
+    def __init__(self, ror_client: RORClient | CachingRORClient | None = None) -> None:
+        self._ror_client = ror_client or CachingRORClient(RORClient())
 
     def find_publication_by_doi(self, doi: Doi) -> BasePublication | None:
         return publication_repository.find_by_doi(doi)
@@ -75,15 +72,6 @@ class BaseImmediateDOIRepository:
         override: OverrideImport,
         funder_matches: list[FunderMatch],
     ) -> FundingRequestId:
-        dto = build_creation_dto(self, self._funder_resolver, preview, override, funder_matches)
+        resolved = resolve_funders(funder_matches, self._ror_client)
+        dto = build_creation_dto(self, resolved, preview, override)
         return fundingrequests.create_fundingrequest(dto, checkfactory=NullCheckFactory())
-
-
-class ImmediateDOIRepository(BaseImmediateDOIRepository):
-    """DOIRepository that performs all DB operations immediately.
-
-    Wraps existing service/repository calls directly with no batching
-    or deferral. Suitable for single-DOI imports.
-    """
-
-    pass

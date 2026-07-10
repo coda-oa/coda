@@ -12,17 +12,18 @@ Uses ``FundedArticleScenario`` (whose HZDR funder carries Crossref id
 
 import pytest
 from tests.contexts.publication.fixtures import FundedArticleScenario
-from tests.contexts.publication.fixtures._ror_stub import (
-    HZDR_CROSSREF,
-    HZDR_ROR,
-    StubRORClient,
-)
+from tests.contexts.publication.fixtures._ror_stub import HZDR_CROSSREF, HZDR_ROR, StubRORClient
 
 from coda.apps.fundingrequests.models import FundingOrganizationLink
-from coda.contexts.publication.dto.preview import PreviewExternalFunding
-from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient
-from coda.contexts.publication.services.doi_import_service import DOIImportService, OverrideImport
+from coda.contexts.fundingrequest.services.funder_resolver import FunderMatch, resolve_funders
+from coda.contexts.publication.services.doi_import_service import (
+    DOIImportService,
+    OverrideImport,
+)
+from coda.contexts.publication.services.doi_repository_immediate import ImmediateDOIRepository
 from coda.contexts.publication.services.mass_doi_import_service import MassDOIImportService
+from coda.domain.institution.links import Ror
+from coda.domain.publication.links import CrossrefId
 
 
 def _assert_ror_link_persisted() -> None:
@@ -35,7 +36,8 @@ def test__import_from_doi__ror_resolved_funder__persists_ror_link() -> None:
     scenario = FundedArticleScenario.with_in_memory_client()
     scenario.setup_db()
 
-    sut = DOIImportService(scenario.client, ror_client=StubRORClient())
+    repo = ImmediateDOIRepository(ror_client=StubRORClient())
+    sut = DOIImportService(scenario.client, repo=repo)
     sut.import_from_doi(scenario.doi)
 
     _assert_ror_link_persisted()
@@ -62,15 +64,13 @@ def test__import_multi__ror_resolved_funder__persists_ror_link() -> None:
     _assert_ror_link_persisted()
 
 
-def test__enrich_funders__ror_record__appends_ror_link() -> None:
-    """Given a ROR record for a funder's Crossref ID, _enrich_funders adds a Ror link."""
-    from coda.domain.institution.links import Ror
-
-    sut = DOIImportService(InMemoryDOIMetadataClient(), ror_client=StubRORClient())
-
-    matches = sut._enrich_funders(
-        [PreviewExternalFunding(name="HZDR", identifiers=[HZDR_CROSSREF])]
+@pytest.mark.django_db
+def test__resolve_funders__ror_record__appends_ror_link() -> None:
+    """Given a ROR record for a funder's Crossref ID, resolve_funders adds a Ror link."""
+    matches = resolve_funders(
+        [FunderMatch(name="HZDR", links=(CrossrefId(HZDR_CROSSREF),))],
+        ror_client=StubRORClient(),
     )
 
     assert len(matches) == 1
-    assert Ror(HZDR_ROR) in matches[0].links
+    assert Ror(HZDR_ROR) in matches[0].funder.links

@@ -10,6 +10,7 @@ never deals with raw identifier strings, and resolves the DB link type from
 each link's own ``type()``.
 """
 
+import logging
 from dataclasses import dataclass
 
 from coda.apps.fundingrequests.models import (
@@ -17,9 +18,16 @@ from coda.apps.fundingrequests.models import (
     FundingOrganizationLink,
     FundingOrganizationLinkType,
 )
+from coda.contexts.publication.services.ror_client import (
+    CachingRORClient,
+    RORClient,
+    RORRecord,
+)
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.institution.links import Ror
 from coda.domain.publication.links import CrossrefId, Doi, Link
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,15 +44,25 @@ class ResolvedFunder:
 
 def resolve_funders(
     funders: list[FunderMatch],
+    ror_client: RORClient | CachingRORClient | None = None,
 ) -> list[ResolvedFunder]:
     """Match funders by identifier (DOI preferred, then Crossref ID), then by name.
 
-    Creates missing funding organizations and persists DOI and Crossref links
-    so future imports can match by either identifier even when the funder name
-    differs.
+    When ``ror_client`` is provided, each ``FunderMatch`` is first enriched via
+    ROR: its Crossref ID is resolved to a ROR record, the ROR link is appended,
+    and the funder name is updated to the canonical ROR name (falling back to the
+    metadata name when ROR resolution fails for the whole batch). Enrichment is
+    skipped entirely when ``ror_client`` is ``None``.
+
+    Creates missing funding organizations and persists DOI, Crossref and ROR
+    links so future imports can match by either identifier even when the funder
+    name differs.
 
     Returns one ResolvedFunder per input FunderMatch, preserving order.
     """
+    if ror_client is not None:
+        funders = _enrich_with_ror(funders, ror_client)
+
     link_types = _link_types()
     matched = _match_existing_links(link_types, funders)
     name_to_org = _resolve_organizations(funders, matched)
@@ -52,6 +70,51 @@ def resolve_funders(
     _persist_new_links(link_types, funders, matched, name_to_org)
 
     return _build_resolved_funders(funders, name_to_org)
+
+
+def _enrich_with_ror(
+    funders: list[FunderMatch],
+    ror_client: RORClient | CachingRORClient,
+) -> list[FunderMatch]:
+    """Enrich funders with ROR data, falling back to metadata names on failure.
+
+    Resolves every Crossref ID in the batch in a single ROR call. For each
+    funder whose Crossref ID resolves, appends a ``Ror`` link and uses the
+    canonical ROR name. On a batch-level ROR failure, logs a warning and keeps
+    the original metadata names and links.
+    """
+    crossref_ids = {
+        link.value() for f in funders for link in f.links if isinstance(link, CrossrefId)
+    }
+    ror_results: dict[str, RORRecord] = {}
+    if crossref_ids:
+        try:
+            ror_results = ror_client.resolve_by_ids([CrossrefId(cid) for cid in crossref_ids])
+        except Exception:
+            logger.warning(
+                "ROR resolution failed for IDs %s — falling back to metadata names",
+                crossref_ids,
+                exc_info=True,
+            )
+
+    enriched: list[FunderMatch] = []
+    for f in funders:
+        crossref_id = next((link.value() for link in f.links if isinstance(link, CrossrefId)), None)
+        record = ror_results.get(crossref_id) if crossref_id else None
+        links = list(f.links)
+        if record is not None:
+            try:
+                links.append(Ror(record.id))
+            except Exception:
+                logger.warning(
+                    "ROR ID %s for funder '%s' is not a valid ROR identifier — skipping ROR link",
+                    record.id,
+                    f.name,
+                    exc_info=True,
+                )
+        name = record.name if record else f.name
+        enriched.append(FunderMatch(name=name, links=tuple(links)))
+    return enriched
 
 
 def _link_types() -> dict[str, FundingOrganizationLinkType]:

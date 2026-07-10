@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import TypeAdapter
 
-from coda.contexts.fundingrequest.services.funder_resolver import FunderMatch, resolve_funders
+from coda.contexts.fundingrequest.services.funder_resolver import FunderMatch
 from coda.contexts.publication.dto.external_metadata import (
     ExternalFundingMetadata,
     ExternalFundingOrganisationMetadata,
@@ -24,16 +23,10 @@ from coda.contexts.publication.services.doi_client import DOIMetadataClient
 from coda.contexts.publication.services.doi_client._crossref._crossref_type_detector import (
     detect_publication_type,
 )
-from coda.contexts.publication.services.doi_client._ror import (
-    CachingRORClient,
-    RORClient,
-    RORRecord,
-)
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
-from coda.domain.institution.links import Ror
 from coda.domain.issn import Issn
 from coda.domain.publication import JournalId
 from coda.domain.publication.links import CrossrefId, Doi, Link
@@ -42,30 +35,9 @@ from coda.domain.string import NonEmptyStr
 
 from ._map_to_preview import build_preview_article, build_preview_monograph
 
-logger = logging.getLogger(__name__)
-
 if TYPE_CHECKING:
     from coda.apps.journals.models import Journal
     from coda.apps.publishers.models import Publisher
-
-
-class FunderResolver(Protocol):
-    """Resolves funder names/DOIs to funding organization IDs.
-
-    Abstracts the funder-resolution (match-by-DOI, match-by-name,
-    create-missing, persist-DOI-links) so that ``DOIRepository``
-    implementations remain persistence-agnostic.
-    """
-
-    def resolve(self, matches: list[FunderMatch]) -> dict[str, FundingOrganizationId]: ...
-
-
-class DatabaseFunderResolver:
-    """Default implementation that delegates to the real ``resolve_funders``."""
-
-    def resolve(self, matches: list[FunderMatch]) -> dict[str, FundingOrganizationId]:
-        resolved = resolve_funders(matches)
-        return {r.funder.name: r.organization_id for r in resolved}
 
 
 class DOIRepository(Protocol):
@@ -235,23 +207,17 @@ class DOIImportService:
         doi_client: DOIMetadataClient,
         repo: DOIRepository | None = None,
         metadata_cache: dict[Doi, ExternalPublicationMetadata] | None = None,
-        ror_client: RORClient | CachingRORClient | None = None,
     ) -> None:
-        """Initialize the service with a DOI client and optional ROR client.
+        """Initialize the service with a DOI client.
 
         Args:
             doi_client: Client to fetch metadata from external APIs (e.g., Crossref)
             repo: Repository for database operations. Defaults to ``ImmediateDOIRepository``.
             metadata_cache: Optional pre-populated cache of raw metadata (avoids re-fetching)
-            ror_client: Client for resolving funder names by Crossref ID via ROR API.
-                        Defaults to ``CachingRORClient(RORClient())`` so caching is
-                        transparent. Pass a pre-warmed ``CachingRORClient`` to avoid
-                        on-demand API calls during import.
         """
         self.doi_client = doi_client
         self._repo = repo or _default_repo()
         self.metadata_cache: dict[Doi, ExternalPublicationMetadata] = metadata_cache or {}
-        self._ror_client = ror_client or CachingRORClient(RORClient())
 
     def _fetch_metadata(self, doi: Doi) -> ExternalPublicationMetadata:
         """Fetch metadata from cache or external API."""
@@ -335,7 +301,7 @@ class DOIImportService:
         self._ensure_doi_not_already_imported(doi)
         preview = self.preview_with_override(doi, override)
         self._validate_preview(preview)
-        funder_matches = self._enrich_funders(preview.publication.funding)
+        funder_matches = self._build_funder_matches(preview.publication.funding)
         return self._repo.create_funding_request(preview, override, funder_matches)
 
     def _ensure_doi_not_already_imported(self, doi: Doi) -> None:
@@ -376,46 +342,16 @@ class DOIImportService:
                 if monograph.publisher_name is None:
                     raise InvalidMetadataError("Monograph missing publisher name")
 
-    def _enrich_funders(self, funding: list[PreviewExternalFunding]) -> list[FunderMatch]:
-        funder_links = [_funder_links(f.identifiers) for f in funding]
+    def _build_funder_matches(self, funding: list[PreviewExternalFunding]) -> list[FunderMatch]:
+        """Turn preview funders into domain ``FunderMatch`` objects.
 
-        crossref_ids = {
-            link.value() for links in funder_links for link in links if isinstance(link, CrossrefId)
-        }
-        ror_results: dict[str, RORRecord] = {}
-        if crossref_ids:
-            try:
-                ror_results = self._ror_client.resolve_by_ids(
-                    [CrossrefId(cid) for cid in crossref_ids]
-                )
-            except Exception:
-                logger.warning(
-                    "ROR resolution failed for IDs %s — falling back to metadata names",
-                    crossref_ids,
-                    exc_info=True,
-                )
-
-        matches = []
-        for f, links in zip(funding, funder_links):
-            links = list(links)
-            crossref_id = next(
-                (link.value() for link in links if isinstance(link, CrossrefId)), None
-            )
-            record = ror_results.get(crossref_id) if crossref_id else None
-            if record is not None:
-                try:
-                    links.append(Ror(record.id))
-                except Exception:
-                    logger.warning(
-                        "ROR ID %s for funder '%s' is not a valid ROR identifier — skipping ROR link",
-                        record.id,
-                        f.name,
-                        exc_info=True,
-                    )
-            name = record.name if record else f.name
-            matches.append(FunderMatch(name=name, links=tuple(links)))
-
-        return matches
+        Parses each funder's raw identifier strings into validated domain
+        ``Link`` objects via ``_funder_links``. ROR enrichment happens later,
+        inside ``resolve_funders`` (owned by the fundingrequest context).
+        """
+        return [
+            FunderMatch(name=f.name, links=tuple(_funder_links(f.identifiers))) for f in funding
+        ]
 
 
 def _funder_links(identifiers: list[str]) -> list[Link]:
@@ -424,6 +360,11 @@ def _funder_links(identifiers: list[str]) -> list[Link]:
     A valid DOI becomes a ``Doi``; a pure-digit Crossref ID becomes a
     ``CrossrefId``. Invalid identifiers surface as domain errors rather than
     being silently dropped.
+
+    Crossref funder IDs live under the ``10.13039`` DOI prefix, so a ``Doi`` of
+    that form (e.g. ``10.13039/501100008530``) is normalized to its bare
+    ``CrossrefId`` (``501100008530``). This collapses the prefixed and bare forms
+    of the same funder ID into a single link instead of storing both.
     """
     links: list[Link] = []
     for id_ in identifiers:

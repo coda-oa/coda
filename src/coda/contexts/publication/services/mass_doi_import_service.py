@@ -28,8 +28,8 @@ from coda.contexts.publication.services.doi_import_service import (
 )
 from coda.contexts.publication.services.doi_repository_uow import UnitOfWorkDOIRepository
 from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
-from coda.contexts.publication.services.doi_client._ror import CachingRORClient, RORClient
-from coda.contexts.publication.services.doi_client._ror.exceptions import RORClientError
+from coda.contexts.publication.services.ror_client import CachingRORClient, RORClient
+from coda.contexts.publication.services.ror_client.exceptions import RORClientError
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.publication.links import CrossrefId, Doi
 
@@ -142,21 +142,21 @@ class MassDOIImportService:
             MassImportResult with per-DOI outcome
         """
         caching_client = CachingDOIMetadataClient(self.doi_client)
-        uow = UnitOfWorkDOIRepository()
+        ror_client = ror_client or CachingRORClient(RORClient())
+
+        uow = UnitOfWorkDOIRepository(ror_client=ror_client)
 
         uow.prewarm_doi_cache([doi for doi, _ in dois_and_overrides])
 
         # Pre-warm ROR cache for all funders before import to avoid
         # on-demand API calls during per-DOI processing.
-        ror_client = ror_client or CachingRORClient(RORClient())
         crossref_ids = _collect_crossref_ids(metadata_cache)
         if crossref_ids:
             try:
                 ror_client.resolve_by_ids([CrossrefId(cid) for cid in crossref_ids])
             except RORClientError:
                 logger.warning(
-                    "ROR batch resolution failed for %d IDs — "
-                    "will resolve on demand during import",
+                    "ROR batch resolution failed for %d IDs — will resolve on demand during import",
                     len(crossref_ids),
                     exc_info=True,
                 )
@@ -165,7 +165,6 @@ class MassDOIImportService:
             doi_client=caching_client,
             repo=uow,
             metadata_cache=metadata_cache,
-            ror_client=ror_client,
         )
 
         result = MassImportResult()

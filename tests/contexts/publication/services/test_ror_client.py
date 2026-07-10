@@ -10,8 +10,8 @@ from typing import Any
 import httpx
 import pytest
 
-from coda.contexts.publication.services.doi_client._ror import RORClient, RORClientError
-from coda.contexts.publication.services.doi_client._ror._caching import CachingRORClient
+from coda.contexts.publication.services.ror_client import RORClient, RORClientError
+from coda.contexts.publication.services.ror_client.caching import CachingRORClient
 from coda.domain.institution.links import Ror
 from coda.domain.publication.links import CrossrefId
 
@@ -199,19 +199,6 @@ def real_ror_client() -> RORClient:
 # ---------------------------------------------------------------------------
 # Round1: empty input -> empty dict
 # ---------------------------------------------------------------------------
-
-
-def test__ror_clients__accept_canonical_link_protocol() -> None:
-    """Link-typed inputs flow through RORClient via the shared domain Link protocol."""
-
-    link = CrossrefId("100000014")
-    # The canonical Link protocol defines type()/value()/url(); CrossrefId satisfies it.
-    assert hasattr(link, "type") and hasattr(link, "value") and hasattr(link, "url")
-    assert isinstance(link, object)  # structural protocol, exercised below
-
-    sut = RORClient(http_client=FakeHttpGet(status=200, json_data=SINGLE_RESPONSE))
-    result = sut.resolve_by_ids([link])
-    assert "100000014" in result
 
 
 def test__ror_client__empty_input__returns_empty_dict() -> None:

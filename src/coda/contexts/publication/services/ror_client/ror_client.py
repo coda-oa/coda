@@ -12,7 +12,7 @@ from typing import Any, Protocol, cast
 
 import httpx
 
-from coda.contexts.publication.services.doi_client._ror.exceptions import RORClientError
+from coda.contexts.publication.services.ror_client.exceptions import RORClientError
 from coda.domain.publication.links import Link
 
 
