@@ -15,6 +15,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views import View
+from pydantic import BaseModel
 
 from coda.contexts.fundingrequest.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.fundingrequest.services.doi_import.doi_client import (
@@ -23,6 +24,7 @@ from coda.contexts.fundingrequest.services.doi_import.doi_client import (
     crossref,
 )
 from coda.contexts.fundingrequest.services.doi_import._service import (
+    DOIImportService,
     OverrideImport,
     OverrideImportTypeAdapter,
 )
@@ -30,6 +32,30 @@ from coda.contexts.fundingrequest.services.doi_import._mass_service import (
     MassDOIImportService,
 )
 from coda.domain.publication.links import Doi
+
+
+class MassImportResultRow(BaseModel):
+    """A single row in the mass import preview table.
+
+    Fields set from the session at construction time:
+        doi, status, title, child_key, error
+
+    Fields derived later by _enrich_row() from the preview DTO
+    (overwrite the session-stored defaults before template rendering):
+        publication_type, warnings, row_class, has_overrides
+    """
+
+    doi: str
+    status: str  # "success" | "error"
+    title: str = ""
+    child_key: str = ""
+    error: str = ""
+
+    # Derived by _enrich_row — defaults are never shown to the user
+    publication_type: str = ""
+    warnings: list[str] = []
+    row_class: str = ""
+    has_overrides: bool = False
 
 
 def _make_child_session_data(
@@ -112,23 +138,21 @@ class MassDOIImportInputView(LoginRequiredMixin, View):
                 mass_import_session_key=mass_session_key,
             )
             mass_session_data["results"].append(
-                {
-                    "doi": str(single.doi),
-                    "status": "success",
-                    "publication_type": single.publication_type,
-                    "title": single.metadata.title,
-                    "child_key": child_key,
-                    "warnings": single.warnings,
-                }
+                MassImportResultRow(
+                    doi=str(single.doi),
+                    status="success",
+                    title=single.metadata.title,
+                    child_key=child_key,
+                ).model_dump(mode="json")
             )
 
         for err in preview.errors:
             mass_session_data["results"].append(
-                {
-                    "doi": str(err.doi),
-                    "status": "error",
-                    "error": err.error,
-                }
+                MassImportResultRow(
+                    doi=str(err.doi),
+                    status="error",
+                    error=err.error,
+                ).model_dump(mode="json")
             )
 
         request.session[mass_session_key] = mass_session_data
@@ -147,31 +171,21 @@ class MassDOIPreviewView(LoginRequiredMixin, View):
         if not session_data:
             return HttpResponse("Preview session not found or expired", status=404)
 
-        results = session_data.get("results", [])
+        rows = [MassImportResultRow.model_validate(r) for r in session_data.get("results", [])]
 
-        # Check override status and set row class for each result
-        for result in results:
-            result["row_class"] = "success" if result["status"] == "success" else "error"
-            if result["status"] == "success":
-                child_key = result.get("child_key")
-                if child_key:
-                    child = request.session.get(child_key)
-                    if child:
-                        override = child.get("override", {})
-                        has_override = any(v not in (None, [], {}) for v in override.values())
-                        result["has_overrides"] = has_override
-                    else:
-                        result["has_overrides"] = False
-                else:
-                    result["has_overrides"] = False
+        metadata_cache = self._build_metadata_cache(rows, request)
+        doi_service = DOIImportService(doi_client=self.doi_client, metadata_cache=metadata_cache)
 
-        success_count = sum(1 for r in results if r["status"] == "success")
-        error_count = sum(1 for r in results if r["status"] == "error")
-        warning_count = sum(1 for r in results if r.get("warnings"))
+        for row in rows:
+            self._enrich_row(row, request, doi_service)
+
+        success_count = sum(1 for r in rows if r.status == "success")
+        error_count = sum(1 for r in rows if r.status == "error")
+        warning_count = sum(1 for r in rows if r.warnings)
 
         context = {
             "session_key": session_key,
-            "results": results,
+            "results": rows,
             "success_count": success_count,
             "error_count": error_count,
             "warning_count": warning_count,
@@ -180,6 +194,51 @@ class MassDOIPreviewView(LoginRequiredMixin, View):
         }
 
         return render(request, "fundingrequests/mass_doi_preview.html", context)
+
+    @staticmethod
+    def _build_metadata_cache(
+        rows: list[MassImportResultRow], request: HttpRequest
+    ) -> dict[Doi, ExternalPublicationMetadata]:
+        cache: dict[Doi, ExternalPublicationMetadata] = {}
+        for row in rows:
+            if row.status != "success" or not row.child_key:
+                continue
+            child = request.session.get(row.child_key)
+            if not child:
+                continue
+            cache[Doi(row.doi)] = ExternalPublicationMetadata.model_validate(
+                child["original_metadata"]
+            )
+        return cache
+
+    @staticmethod
+    def _enrich_row(
+        row: MassImportResultRow,
+        request: HttpRequest,
+        doi_service: DOIImportService,
+    ) -> None:
+        """Set override-derived display fields on a preview row."""
+        row.row_class = "success" if row.status == "success" else "error"
+        if row.status != "success":
+            return
+        if not row.child_key:
+            row.has_overrides = False
+            return
+
+        child = request.session.get(row.child_key)
+        if not child:
+            row.has_overrides = False
+            return
+
+        override = OverrideImportTypeAdapter.validate_python(child.get("override", {}))
+        row.has_overrides = override != OverrideImport.empty()
+
+        preview = doi_service.preview_with_override(Doi(row.doi), override)
+        if preview.publication.publication_kind == "journal_article":
+            row.publication_type = "article"
+        else:
+            row.publication_type = "monograph"
+        row.warnings = list(preview.publication.warnings)
 
 
 class MassDOIPreviewSaveView(LoginRequiredMixin, View):

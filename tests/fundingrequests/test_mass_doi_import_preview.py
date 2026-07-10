@@ -23,14 +23,20 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIPreviewDetailView,
     DOIPreviewSaveView,
 )
+from coda.apps.journals import services as journal_services
 from coda.contexts.fundingrequest.services.doi_import.doi_client import (
     InMemoryDOIMetadataClient,
     crossref,
 )
+from coda.domain.contract import PublisherId
+from coda.domain.issn import Issn
+from coda.domain.string import NonEmptyStr
+from tests import modelfactory
 from tests.contexts.fundingrequest.fixtures.sample_metadata import (
     ArticleScenario,
     BookScenario,
 )
+from tests.fundingrequests.test_doi_import_preview import submit_type_change
 
 
 @pytest.fixture
@@ -281,6 +287,108 @@ class TestMassDOIPreviewView:
     ) -> None:
         response = get_mass_preview(client, "invalid_session_key")
         assert response.status_code == 404
+
+    @pytest.mark.django_db
+    @pytest.mark.usefixtures("logged_in")
+    def test__mass_doi_preview__after_type_override__shows_overridden_type(
+        self,
+        client: Client,
+        fake_doi_client: InMemoryDOIMetadataClient,
+    ) -> None:
+        """Given a mass import with an article, when the type is overridden to monograph
+        via the detail page, the preview table should show the overridden type."""
+        publisher = modelfactory.publisher(name="Test Publisher")
+        ArticleScenario(client=fake_doi_client, doi="10.1234/mass.override").with_publisher(
+            "Test Publisher"
+        ).setup_client()
+
+        session_key = self._create_preview_session(
+            client, fake_doi_client, ["10.1234/mass.override"]
+        )
+
+        mass_session = client.session[session_key]
+        child_key = mass_session["results"][0]["child_key"]
+
+        # Override type to monograph via the public HTTP endpoint
+        submit_type_change(client, child_key, "monograph", publisher=publisher.pk)
+
+        response = get_mass_preview(client, session_key)
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "monograph" in content
+
+    @pytest.mark.django_db
+    @pytest.mark.usefixtures("logged_in")
+    def test__mass_doi_preview__after_type_override__clears_stale_warnings(
+        self,
+        client: Client,
+        fake_doi_client: InMemoryDOIMetadataClient,
+    ) -> None:
+        """Given a mass import with an article missing journal metadata (showing a warning),
+        when the type is overridden to monograph, the stale journal warning should be cleared."""
+        publisher = modelfactory.publisher(name="Test Publisher")
+
+        # Set up the scenario manually (cannot use _create_preview_session
+        # which creates a new default scenario overwriting our custom setup)
+        doi_str = "10.1234/mass.warning"
+        ArticleScenario(client=fake_doi_client, doi=doi_str).with_title(
+            "Article With Warning"
+        ).without_journal().with_publisher("Test Publisher").setup_client()
+
+        response = submit_many_for_preview(client, doi_str)
+        session_key = get_session_key(response)
+
+        mass_session = client.session[session_key]
+        child_key = mass_session["results"][0]["child_key"]
+
+        # Override type to monograph via the public HTTP endpoint
+        submit_type_change(client, child_key, "monograph", publisher=publisher.pk)
+
+        response = get_mass_preview(client, session_key)
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Journal metadata is missing" not in content
+
+    @pytest.mark.django_db
+    @pytest.mark.usefixtures("logged_in")
+    def test__mass_doi_preview__after_article_with_journal_override__clears_stale_warnings(
+        self,
+        client: Client,
+        fake_doi_client: InMemoryDOIMetadataClient,
+    ) -> None:
+        """Given a mass import with an article missing journal metadata (showing a warning),
+        when the type is overridden to article with a specific journal, the stale
+        journal warning should be cleared."""
+        publisher = modelfactory.publisher(name="Test Publisher")
+        journal_pk = int(
+            journal_services.create(
+                title=NonEmptyStr("Test Journal"),
+                eissn=Issn("1234-1231"),
+                publisher_id=PublisherId(publisher.pk),
+            )
+        )
+
+        doi_str = "10.1234/mass.journal.override"
+        ArticleScenario(client=fake_doi_client, doi=doi_str).with_title(
+            "Article Needing Journal"
+        ).without_journal().with_publisher("Test Publisher").setup_client()
+
+        response = submit_many_for_preview(client, doi_str)
+        session_key = get_session_key(response)
+
+        mass_session = client.session[session_key]
+        child_key = mass_session["results"][0]["child_key"]
+
+        # Override to article with a journal via the public HTTP endpoint
+        submit_type_change(client, child_key, "article", journal=journal_pk)
+
+        response = get_mass_preview(client, session_key)
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Journal metadata is missing" not in content
 
 
 class TestMassDOIPreviewSaveView:
