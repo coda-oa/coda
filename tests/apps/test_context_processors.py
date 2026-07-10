@@ -5,7 +5,10 @@ from django.test import RequestFactory, override_settings
 
 from coda.apps.context_processors import demo_context
 from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView
-from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient, crossref
+from coda.contexts.fundingrequest.services.doi_import.doi_client import (
+    InMemoryDOIMetadataClient,
+    crossref,
+)
 
 
 @pytest.fixture

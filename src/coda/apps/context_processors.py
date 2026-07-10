@@ -3,7 +3,7 @@ from typing import Any
 from django.http import HttpRequest
 
 from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView
-from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient
+from coda.contexts.fundingrequest.services.doi_import.doi_client import InMemoryDOIMetadataClient
 
 
 def demo_context(request: HttpRequest) -> dict[str, Any]:

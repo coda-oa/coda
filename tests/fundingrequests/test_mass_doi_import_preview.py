@@ -23,8 +23,11 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIPreviewDetailView,
     DOIPreviewSaveView,
 )
-from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient, crossref
-from tests.contexts.publication.fixtures.sample_metadata import (
+from coda.contexts.fundingrequest.services.doi_import.doi_client import (
+    InMemoryDOIMetadataClient,
+    crossref,
+)
+from tests.contexts.fundingrequest.fixtures.sample_metadata import (
     ArticleScenario,
     BookScenario,
 )

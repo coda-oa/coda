@@ -26,15 +26,17 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIPreviewSaveView,
 )
 from coda.apps.journals import services as journal_services
-from coda.contexts.publication.services.doi_client import crossref
-from coda.contexts.publication.services.doi_client._inmemory import InMemoryDOIMetadataClient
+from coda.contexts.fundingrequest.services.doi_import.doi_client import crossref
+from coda.contexts.fundingrequest.services.doi_import.doi_client._inmemory import (
+    InMemoryDOIMetadataClient,
+)
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest.fundingrequest import FundingRequestId
 from coda.domain.issn import Issn
 from coda.domain.publication import Monograph, Publication
 from coda.domain.string import NonEmptyStr
 from tests import modelfactory
-from tests.contexts.publication.fixtures import ArticleScenario, BookScenario
+from tests.contexts.fundingrequest.fixtures import ArticleScenario, BookScenario
 from tests.fundingrequests.services.test_fundingrequest_services import assert_fundingrequest_eq
 
 

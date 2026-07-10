@@ -10,7 +10,7 @@ from typing import Any
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.fundingrequests.models import FundingOrganization, FundingOrganizationLink
 from coda.apps.institutions import repository as institution_repository
-from coda.contexts.publication.dto.preview import (
+from coda.contexts.fundingrequest.dto.preview import (
     PreviewArticle,
     PreviewExternalFunding,
     PreviewFundingRequest,

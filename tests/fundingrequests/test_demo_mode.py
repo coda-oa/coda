@@ -8,7 +8,10 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIPreviewDetailView,
     DOIPreviewSaveView,
 )
-from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient, crossref
+from coda.contexts.fundingrequest.services.doi_import.doi_client import (
+    InMemoryDOIMetadataClient,
+    crossref,
+)
 
 
 def _reload_app() -> None:

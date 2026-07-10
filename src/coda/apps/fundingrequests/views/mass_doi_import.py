@@ -16,17 +16,17 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views import View
 
-from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
-from coda.contexts.publication.services.doi_client import (
+from coda.contexts.fundingrequest.dto.external_metadata import ExternalPublicationMetadata
+from coda.contexts.fundingrequest.services.doi_import.doi_client import (
     CachingDOIMetadataClient,
     DOIMetadataClient,
     crossref,
 )
-from coda.contexts.publication.services.doi_import_service import (
+from coda.contexts.fundingrequest.services.doi_import._service import (
     OverrideImport,
     OverrideImportTypeAdapter,
 )
-from coda.contexts.publication.services.mass_doi_import_service import (
+from coda.contexts.fundingrequest.services.doi_import._mass_service import (
     MassDOIImportService,
 )
 from coda.domain.publication.links import Doi

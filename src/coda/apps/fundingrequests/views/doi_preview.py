@@ -28,19 +28,22 @@ from coda.apps.fundingrequests.queries.preview_context_builder import (
     build_preview_context,
     tag_existing_funders,
 )
-from coda.contexts.publication.dto.external_metadata import ExternalPublicationMetadata
-from coda.contexts.publication.services.doi_client import DOIMetadataClient, crossref
-from coda.contexts.publication.services.doi_client import errors as doi_errors
-from coda.contexts.publication.services.doi_client._crossref._crossref_type_detector import (
+from coda.contexts.fundingrequest.dto.external_metadata import ExternalPublicationMetadata
+from coda.contexts.fundingrequest.services.doi_import.doi_client import DOIMetadataClient, crossref
+from coda.contexts.fundingrequest.services.doi_import.doi_client import errors as doi_errors
+from coda.contexts.fundingrequest.services.doi_import.doi_client._crossref._crossref_type_detector import (
     detect_publication_type,
 )
-from coda.contexts.publication.services.doi_import_service import (
+from coda.contexts.fundingrequest.services.doi_import._service import (
     DOIImportService,
     OverrideFunding,
     OverrideImport,
     OverrideImportTypeAdapter,
 )
-from coda.contexts.publication.services.errors import DOIAlreadyImported, InvalidMetadataError
+from coda.contexts.fundingrequest.services.doi_import.errors import (
+    DOIAlreadyImported,
+    InvalidMetadataError,
+)
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.publication import JournalId

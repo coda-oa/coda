@@ -5,7 +5,10 @@ from django.test import Client, override_settings
 from django.urls import reverse
 
 from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView
-from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient, crossref
+from coda.contexts.fundingrequest.services.doi_import.doi_client import (
+    InMemoryDOIMetadataClient,
+    crossref,
+)
 from coda.domain.publication.links import Doi
 
 

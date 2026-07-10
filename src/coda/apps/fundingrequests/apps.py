@@ -16,7 +16,9 @@ class FundingrequestsConfig(AppConfig):
                 DOIPreviewDetailView,
                 DOIPreviewSaveView,
             )
-            from coda.contexts.publication.services.doi_client import InMemoryDOIMetadataClient
+            from coda.contexts.fundingrequest.services.doi_import.doi_client import (
+                InMemoryDOIMetadataClient,
+            )
 
             client = InMemoryDOIMetadataClient.from_json(
                 Path(settings.BASE_DIR) / "config/demo/fixtures/demo_dois.json"

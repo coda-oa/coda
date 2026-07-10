@@ -12,7 +12,7 @@ from coda.apps.fundingrequests.models import (
     FundingOrganizationLink,
     FundingOrganizationLinkType,
 )
-from coda.contexts.fundingrequest.services.funder_resolver import (
+from coda.contexts.fundingrequest.services.funder_resolution import (
     FunderMatch,
     ResolvedFunder,
     resolve_funders,

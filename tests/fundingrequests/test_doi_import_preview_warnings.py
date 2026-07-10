@@ -17,8 +17,10 @@ from coda.apps.fundingrequests.views.doi_preview import (
     DOIPreviewSaveView,
 )
 from coda.apps.journals.models import Journal
-from coda.contexts.publication.services.doi_client._inmemory import InMemoryDOIMetadataClient
-from tests.contexts.publication.fixtures.sample_metadata import (
+from coda.contexts.fundingrequest.services.doi_import.doi_client._inmemory import (
+    InMemoryDOIMetadataClient,
+)
+from tests.contexts.fundingrequest.fixtures.sample_metadata import (
     ArticleScenario,
     BookScenario,
 )
