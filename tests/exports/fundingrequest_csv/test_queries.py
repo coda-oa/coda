@@ -4,7 +4,9 @@ import pytest
 from datetime import date
 from decimal import Decimal
 
-from tests import modelfactory
+from coda.apps.invoices import funding_source_repository
+from coda.contexts.finance.services import invoice_service
+from tests import domainfactory, modelfactory
 from coda.apps.invoices.models import Position
 from coda.apps.exports.services.fundingrequest_csv.queries import get_funding_requests_for_export
 from coda.apps.publications.models import PublicationPayment
@@ -17,7 +19,10 @@ from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.invoices.models import FundingAssignment
 from coda.domain.finance.invoice import FundingSourceId
 
-from tests.exports.fundingrequest_csv.helpers import _make_params
+from tests.exports.fundingrequest_csv.helpers import (
+    _make_params,
+    create_invoice_with_publication_position,
+)
 
 
 @pytest.mark.django_db
@@ -108,28 +113,13 @@ def test__combining_funding_request_and_invoice_filters__query_with_combined_fil
             ReviewResult.Approved, Money(Decimal("1000.00"), Currency.EUR)
         )
     )
-    creditor_a = modelfactory.creditor(name="Creditor Alpha")
-    invoice1 = modelfactory.invoice()
-    invoice1.date = date(2026, 3, 15)
-    invoice1.status = "paid"
-    invoice1.creditor = creditor_a
-    invoice1.save()
-    position1 = Position.objects.create(
-        invoice=invoice1,
-        publication=fr1.publication,
-        description="Position 1",
-        cost_amount=Decimal("1000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-1",
-    )
-    budget1 = modelfactory.budget(name="Budget 1")
-    FundingAssignment.objects.create(
-        position=position1,
-        funding_source=budget1,
-        amount=Decimal("1000.00"),
-    )
+    invoice1 = create_invoice_with_publication_position(fr1)
+    invoice_position = list(invoice1.positions)[0]
+    invoice_position.cost.amount = Decimal("1500.00")
+    funding_source_1 = domainfactory.budget()
+    funding_source_1.id = funding_source_repository.create(funding_source_1)
+    invoice_position.assign_funding(funding_source_1, Decimal("1000.00"))
+    invoice_service.save(invoice1)
 
     fr2 = modelfactory.fundingrequest(title="FR 2 - Wrong Status")
     fr2.request_date = date(2026, 3, 10)
@@ -139,49 +129,20 @@ def test__combining_funding_request_and_invoice_filters__query_with_combined_fil
             ReviewResult.Approved, Money(Decimal("2000.00"), Currency.EUR)
         )
     )
-    invoice2 = modelfactory.invoice()
-    invoice2.date = date(2026, 3, 20)
-    invoice2.status = "unpaid"  # Wrong status
-    invoice2.creditor = creditor_a
-    invoice2.save()
-    Position.objects.create(
-        invoice=invoice2,
-        publication=fr2.publication,
-        description="Position 2",
-        cost_amount=Decimal("2000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-2",
-    )
+    create_invoice_with_publication_position(fr2)
 
     fr3 = modelfactory.fundingrequest(title="FR 3 - Wrong Review")
     fr3.request_date = date(2026, 3, 15)
     fr3.save()
     repository.save_review(Review(FundingRequestId(fr3.id)).update_review(ReviewResult.Rejected))
-    invoice3 = modelfactory.invoice()
-    invoice3.date = date(2026, 3, 25)
-    invoice3.status = "paid"
-    invoice3.creditor = creditor_a
-    invoice3.save()
-    Position.objects.create(
-        invoice=invoice3,
-        publication=fr3.publication,
-        description="Position 3",
-        cost_amount=Decimal("3000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-3",
-    )
+    create_invoice_with_publication_position(fr3)
 
-    # Act: Query with combined FR + Invoice filters
     results = get_funding_requests_for_export(
         _make_params(
             date(2026, 3, 1),
             date(2026, 3, 31),
             review_results=[ReviewResult.Approved],
-            funding_source=FundingSourceId(budget1.pk),
+            funding_source=FundingSourceId(funding_source_1.id),
         )
     )
 
