@@ -1,19 +1,24 @@
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from coda.apps.contracts.models import Contract
+from coda.apps.contracts.mappers._domain import ContractDomainMapper
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
-from coda.apps.invoices.models import (
-    Invoice,
-    Position,
-    FundingAssignment,
-    FundingSource,
-    CurrencyConversion,
-)
+from coda.apps.invoices import funding_source_repository
+from coda.contexts.finance.services import invoice_service
+from coda.domain.contract import ContractYear
 from coda.domain.date import DateRange
-from tests import modelfactory
+from coda.domain.publication.publication import PublicationId
+from tests import domainfactory, modelfactory
+
+from coda.domain.finance.invoice import CreditorId, Invoice
+from coda.domain.author import InstitutionId
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.costtypes import PublicationCostType
+from coda.domain.finance.invoice_positions import PublicationItem
+from coda.domain.finance.taxrate import TaxRate
+from coda.domain.money import Currency, Money
 
 
 def _make_params(
@@ -27,193 +32,124 @@ def _make_params(
     )
 
 
-def create_funding_request_with_invoice_and_publication_position(
-    title: str = "Test Publication",
-    invoice_number: str = "INV-001",
-    invoice_date: date = date(2026, 5, 1),
-    cost_amount: Decimal = Decimal("1500.00"),
-    cost_currency: str = "EUR",
-    cost_type: str = "gold-oa",
-    tax_rate: Decimal = Decimal("0.19"),
-    external_position_id: str = "POS-001",
+def create_funding_request(
+    title: str = "Test Publication", request_date: date | None = None
 ) -> FundingRequest:
     funding_request = modelfactory.fundingrequest(title=title)
-    funding_request.request_date = invoice_date
-    funding_request.save()
-
-    invoice = modelfactory.invoice()
-    invoice.number = invoice_number
-    invoice.date = invoice_date
-    invoice.save()
-
-    Position.objects.create(
-        invoice=invoice,
-        publication=funding_request.publication,
-        description="Publication charge",
-        cost_amount=cost_amount,
-        cost_currency=cost_currency,
-        cost_type=cost_type,
-        tax_rate=tax_rate,
-        external_position_id=external_position_id,
-    )
-
+    if request_date:
+        funding_request.request_date = request_date
+        funding_request.save()
     return funding_request
 
 
-def create_funding_request_with_invoices(
-    title: str = "Test Publication",
-    num_invoices: int = 2,
-    base_invoice_number: str = "INV-",
-    base_invoice_date: date = date(2026, 5, 1),
-    cost_amounts: list[Decimal] | None = None,
-    cost_types: list[str] | None = None,
-    tax_rates: list[Decimal] | None = None,
-) -> FundingRequest:
-    funding_request = modelfactory.fundingrequest(title=title)
-    funding_request.request_date = base_invoice_date
-    funding_request.save()
+def create_invoice_with_publication_position(funding_request: FundingRequest) -> Invoice:
+    creditor = modelfactory.creditor()
+    creditor_id = CreditorId(creditor.pk)
 
-    if cost_amounts is None:
-        cost_amounts = [Decimal("1500.00")] * num_invoices
-    if cost_types is None:
-        cost_types = ["gold-oa"] * num_invoices
-    if tax_rates is None:
-        tax_rates = [Decimal("0.19")] * num_invoices
+    position = domainfactory.publication_position(PublicationId(funding_request.publication.id))
+    invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
+    invoice.id = invoice_service.save(invoice)
 
-    for i in range(num_invoices):
-        invoice = modelfactory.invoice()
-        invoice.number = f"{base_invoice_number}{i+1:03d}"
-        invoice.date = base_invoice_date + timedelta(days=i * 14)
-        invoice.save()
-
-        Position.objects.create(
-            invoice=invoice,
-            publication=funding_request.publication,
-            description=f"Publication charge - Invoice {i+1}",
-            cost_amount=cost_amounts[i],
-            cost_currency="EUR",
-            cost_type=cost_types[i],
-            tax_rate=tax_rates[i],
-            external_position_id=f"POS-{i+1:03d}",
-        )
-
-    return funding_request
+    return invoice
 
 
-def create_funding_request_without_invoices(
-    title: str = "Unpaid Publication",
-) -> FundingRequest:
-    funding_request = modelfactory.fundingrequest(title=title)
-    funding_request.request_date = date(2026, 5, 1)
-    funding_request.save()
-    return funding_request
+def create_invoice_with_contract_position(contract_year: "ContractYear") -> Invoice:
+    creditor = modelfactory.creditor()
+    creditor_id = CreditorId(creditor.pk)
+
+    position = domainfactory.contract_position(contract_year)
+    invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
+    invoice.id = invoice_service.save(invoice)
+
+    return invoice
+
+
+def create_invoice_with_free_position() -> Invoice:
+    creditor = modelfactory.creditor()
+    creditor_id = CreditorId(creditor.pk)
+
+    position = domainfactory.free_position()
+    invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
+    invoice.id = invoice_service.save(invoice)
+
+    return invoice
 
 
 def create_invoice_with_funding_assignments(
     funding_request: FundingRequest,
-    invoice_number: str = "INV-001",
-    invoice_date: date = date(2026, 5, 1),
     cost_amount: Decimal = Decimal("1500.00"),
     cost_type: str = "gold-oa",
     tax_rate: Decimal = Decimal("0.19"),
-    budget_name: str = "Budget 2026",
     budget_amount: Decimal = Decimal("1000.00"),
-    institution_name: str = "Test Institution",
     institution_amount: Decimal = Decimal("500.00"),
 ) -> "Invoice":
     """Create an invoice with two funding assignments (budget + institution)."""
-    invoice = modelfactory.invoice()
-    invoice.number = invoice_number
-    invoice.date = invoice_date
-    invoice.save()
 
-    position = Position.objects.create(
-        invoice=invoice,
-        publication=funding_request.publication,
-        description="Split publication charge",
-        cost_amount=cost_amount,
-        cost_currency="EUR",
-        cost_type=cost_type,
-        tax_rate=tax_rate,
+    creditor = modelfactory.creditor()
+    creditor_id = CreditorId(creditor.pk)
+
+    position = invoice_positions.create(
+        item=PublicationItem(
+            item=PublicationId(funding_request.publication.id),
+            cost_type=PublicationCostType(cost_type),
+        ),
+        cost=Money(cost_amount, Currency.EUR),
+        tax_rate=TaxRate.from_percentage(int(tax_rate * 100)),
+        external_position_id="POS-001",
     )
+
+    invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
 
     institution = modelfactory.institution()
-    institution.name = institution_name
-    institution.save()
-    fs_budget = FundingSource.objects.create(type="budget", name=budget_name)
-    fs_institution = FundingSource.objects.create(
-        type="institution", name=institution_name, institution=institution
-    )
+    funding_source_1 = domainfactory.budget()
+    funding_source_2 = domainfactory.split_source(InstitutionId(institution.pk), institution.name)
+    funding_source_1.id = funding_source_repository.create(funding_source_1)
+    funding_source_2.id = funding_source_repository.create(funding_source_2)
 
-    FundingAssignment.objects.create(
-        position=position, funding_source=fs_budget, amount=budget_amount
-    )
-    FundingAssignment.objects.create(
-        position=position, funding_source=fs_institution, amount=institution_amount
-    )
+    position.assign_funding(funding_source_1, budget_amount)
+    position.assign_funding(funding_source_2, institution_amount)
+
+    invoice.id = invoice_service.save(invoice)
 
     return invoice
 
 
 def create_invoice_with_currency_conversion(
-    invoice_number: str = "INV-001",
-    invoice_date: date = date(2026, 5, 1),
-    target_currency: str = "USD",
+    target_currency: Currency = Currency.USD,
     exchange_rate: Decimal = Decimal("1.2500"),
-) -> "Invoice":
-    invoice = modelfactory.invoice()
-    invoice.number = invoice_number
-    invoice.date = invoice_date
-    invoice.save()
+) -> Invoice:
+    creditor = modelfactory.creditor()
+    creditor_id = CreditorId(creditor.pk)
 
-    CurrencyConversion.objects.create(
-        invoice=invoice, target_currency=target_currency, exchange_rate=exchange_rate
+    invoice = domainfactory.invoice(
+        creditor=creditor_id,
+        positions=[],
     )
 
+    invoice.add_conversion(exchange_rate, target_currency)
+
+    invoice.id = invoice_service.save(invoice)
     return invoice
 
 
-def create_invoice_with_mixed_positions(
-    funding_request: FundingRequest,
-    contract: "Contract",
-    invoice_number: str = "INV-001",
-    invoice_date: date = date(2026, 5, 1),
-) -> "Invoice":
-    invoice = modelfactory.invoice()
-    invoice.number = invoice_number
-    invoice.date = invoice_date
-    invoice.save()
+def create_invoice_with_mixed_positions(funding_request: FundingRequest) -> "Invoice":
 
-    # Publication position
-    Position.objects.create(
-        invoice=invoice,
-        publication=funding_request.publication,
-        description="Pub charge",
-        cost_amount=Decimal("1000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
+    publication_position = domainfactory.publication_position(
+        PublicationId(funding_request.publication.id)
     )
-    # Contract position
-    Position.objects.create(
-        invoice=invoice,
-        contract=contract,
-        contract_year=2026,
-        description="Contract fee",
-        cost_amount=Decimal("2000.00"),
-        cost_currency="EUR",
-        cost_type="read",
-        tax_rate=Decimal("0.19"),
+
+    contract = ContractDomainMapper.map(modelfactory.contract())
+    contract_year = domainfactory.contract_year(contract)
+    contract_position = domainfactory.contract_position(contract_year)
+
+    free_position = domainfactory.free_position()
+
+    creditor = modelfactory.creditor()
+    creditor_id = CreditorId(creditor.pk)
+    invoice = domainfactory.invoice(
+        creditor=creditor_id,
+        positions=[publication_position, contract_position, free_position],
     )
-    # Free position
-    Position.objects.create(
-        invoice=invoice,
-        publication=None,
-        contract=None,
-        description="Misc",
-        cost_amount=Decimal("300.00"),
-        cost_currency="EUR",
-        cost_type="other",
-        tax_rate=Decimal("0.19"),
-    )
+    invoice.id = invoice_service.save(invoice)
+
     return invoice
