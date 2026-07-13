@@ -105,7 +105,7 @@ class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
         return ctx
 
     def get_entities(self, request: HttpRequest) -> list[InvoiceListItem]:
-        return list(iq.search(*build_query(request)))
+        return list(iq.search_to_list_items(*build_query(request)))
 
 
 invoice_list = InvoiceListView.as_view()

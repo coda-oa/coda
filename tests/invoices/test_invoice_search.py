@@ -136,7 +136,7 @@ def test__searching_by_generic_criterion_finds_matching_invoices(
     matching_query = create_query_config()
     create_non_matching_invoice()
 
-    actual = iq.search(iq.GenericSearchCriterion(matching_query.query_str))
+    actual = iq.search_to_list_items(iq.GenericSearchCriterion(matching_query.query_str))
 
     assert actual == [
         list_item_from_invoice(matching_query.matching_invoice, matching_query.creditor_name)
@@ -165,7 +165,7 @@ def test__searching_by_payment_status_finds_matching_invoices(
     apply_non_matching_status(non_matching_invoice)
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.PaymentStatusCriterion(matching_invoice.status))
+    actual = iq.search_to_list_items(iq.PaymentStatusCriterion(matching_invoice.status))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -185,7 +185,7 @@ def test__searching_by_date_range_finds_matching_invoices() -> None:
 
     date_range = DateRange(start=date(2024, 1, 1), end=date(2024, 12, 31))
 
-    actual = iq.search(iq.DateRangeCriterion(date_range))
+    actual = iq.search_to_list_items(iq.DateRangeCriterion(date_range))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -221,7 +221,7 @@ def test__searching_by_funding_source_finds_matching_invoices() -> None:
     )
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.FundingSourceCriterion(matching_budget_id))
+    actual = iq.search_to_list_items(iq.FundingSourceCriterion(matching_budget_id))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -239,7 +239,7 @@ def test__searching_by_missing_external_id__finds_invoices_without_external_id()
     non_matching_invoice.external_invoice_id = "EXT-456"
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.MissingExternalIdCriterion())
+    actual = iq.search_to_list_items(iq.MissingExternalIdCriterion())
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -266,7 +266,7 @@ def test__searching_by_contract__finds_invoices_with_matching_contract() -> None
     )
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.ContractCriterion(cast(ContractId, matching_contract.id)))
+    actual = iq.search_to_list_items(iq.ContractCriterion(cast(ContractId, matching_contract.id)))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -292,7 +292,7 @@ def test__searching_by_contract_year__finds_invoices_with_matching_contract_year
     )
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.ContractYearCriterion(contract_year.year))
+    actual = iq.search_to_list_items(iq.ContractYearCriterion(contract_year.year))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -328,7 +328,7 @@ def test__searching_by_has_errors__finds_invoices_with_invalid_contract_years() 
     )
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.HasErrorsCriterion())
+    actual = iq.search_to_list_items(iq.HasErrorsCriterion())
 
     expected = list_item_from_invoice(matching_invoice, creditor.name)
     # has_invalid_contract_years is frozen on InvoiceListItem, so we construct a new one
@@ -362,7 +362,7 @@ def test__searching_by_foreign_currency__finds_invoices_with_foreign_currency_no
     )
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.MissingCurrencyConversionCriterion(home_currency))
+    actual = iq.search_to_list_items(iq.MissingCurrencyConversionCriterion(home_currency))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -385,7 +385,7 @@ def test__searching_by_missing_currency_conversion__excludes_invoices_without_po
     invoice_without_positions = domainfactory.invoice(creditor=creditor_id, positions=())
     invoice_without_positions.id = invoice_service.save(invoice_without_positions)
 
-    actual = iq.search(iq.MissingCurrencyConversionCriterion(home_currency))
+    actual = iq.search_to_list_items(iq.MissingCurrencyConversionCriterion(home_currency))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 

@@ -100,14 +100,13 @@ def get_invoices_for_period(
     end_date: date,
     funding_source: FundingSourceId | None = None,
 ) -> QuerySet[Invoice]:
-    criteria = [
-        invoice_query.DateRangeCriterion(DateRange(start_date, end_date)),
-        invoice_query.PaymentStatusCriterion(PaymentStatus.Paid),
-    ]
-    if funding_source:
-        criteria.append(invoice_query.FundingSourceCriterion(funding_source))
-
-    qs = invoice_query.build_invoice_query(*criteria)
+    params = invoice_query.InvoiceSearchParams(
+        date_range=DateRange(start_date, end_date),
+        payment_status=PaymentStatus.Paid,
+        funding_source=funding_source,
+    )
+    criteria = invoice_query.build_criteria(params)
+    qs = invoice_query.search(*criteria)
 
     return qs.select_related("creditor").prefetch_related(
         "positions",
