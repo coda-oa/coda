@@ -7,6 +7,7 @@ Workflow:
 4. MassDOIImportResultView — display import result summary (GET only)
 """
 
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from typing import Any, ClassVar
 from uuid import uuid4
 
@@ -76,6 +77,7 @@ def _make_child_session_data(
     return data
 
 
+@breadcrumb("DOI Batch Import", parent_url_name="fundingrequests:list")
 class MassDOIImportInputView(LoginRequiredMixin, View):
     """Accept multiple DOIs via textarea, validate, batch fetch, redirect to preview."""
 
@@ -161,6 +163,7 @@ class MassDOIImportInputView(LoginRequiredMixin, View):
         return redirect("fundingrequests:mass_doi_preview", session_key=mass_session_key)
 
 
+@breadcrumb("DOI Batch Import", parent_url_name="fundingrequests:list")
 class MassDOIPreviewView(LoginRequiredMixin, View):
     """Display mass import preview list with per-DOI status and override hints."""
 
@@ -241,6 +244,7 @@ class MassDOIPreviewView(LoginRequiredMixin, View):
         row.warnings = list(preview.publication.warnings)
 
 
+@breadcrumb("DOI Batch Import", parent_url_name="fundingrequests:list")
 class MassDOIPreviewSaveView(LoginRequiredMixin, View):
     """Import all successful DOIs, applying overrides from child sessions."""
 

@@ -1,26 +1,25 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1 class="my-2">Mass DOI Import</h1>
+    <h1 class="my-2">DOI Batch Import</h1>
     <article>
-        <p>
-            Enter up to 100 DOIs, one per line, to automatically import publication metadata
-            and create funding requests. You'll be able to review and fine-tune each publication
-            before saving.
-        </p>
         <form action="{% url "fundingrequests:mass_doi_import_input" %}"
               method="post">
             {% csrf_token %}
             <label for="dois">
-                DOIs
-                <textarea id="dois"
-                          name="dois"
-                          rows="10"
-                          placeholder="10.1038/s41586-020-2649-2&#10;10.1007/978-3-319-18938-3"
-                          required
-                          autofocus>{{ previous_input }}</textarea>
-                <small>Enter one DOI per line (max 100). Invalid lines will be skipped.</small>
+                <p>
+                    Enter up to 100 DOIs, one per line, to automatically import publication metadata
+                    and create funding requests. You'll be able to review and fine-tune each publication
+                    before saving.
+                </p>
             </label>
-            <div class="grid align-center">
+            <textarea id="dois"
+                      name="dois"
+                      rows="20"
+                      placeholder="10.1038/s41586-020-2649-2&#10;10.1007/978-3-319-18938-3"
+                      required
+                      autofocus>{{ previous_input }}</textarea>
+            <small>Enter one DOI per line (max 100). Invalid lines will be skipped.</small>
+            <div class="mt-2 grid align-center">
                 <a href="{% url "fundingrequests:list" %}"
                    class="secondary"
                    role="button">Cancel</a>
