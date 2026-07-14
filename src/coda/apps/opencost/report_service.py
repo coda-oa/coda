@@ -31,7 +31,7 @@ from coda.apps.opencost.models import (
 from coda.apps.opencost.validation import validate_report
 from coda.apps.publications.models import Publication
 from coda.apps.preferences.models import GlobalPreferences
-from coda.apps.fundingrequests import fundingrequest_query
+from coda.apps.exports.services.filter_display import parse_common_filter_fields
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +145,7 @@ logger = logging.getLogger(__name__)
 
 def generate_report(
     title: str,
-    params: fundingrequest_query.FundingRequestSearchParams,
+    filters: dict[str, str],
 ) -> OpenCostReport:
     """
     Generate OpenCost report using bulk operations for maximum performance.
@@ -159,6 +159,8 @@ def generate_report(
 
     Performance: ~50-80 queries regardless of dataset size
     """
+    params = parse_common_filter_fields(filters)
+
     if params.date_range is None:
         raise ValueError("date_range is required for generate_report")
     start_date = params.date_range.start
@@ -171,7 +173,7 @@ def generate_report(
         title=title,
         period_start=start_date,
         period_end=end_date,
-        filters=_params_to_filters_dict(params),
+        filters=filters,
     )
     logger.debug(f"Created report record: {report.id}")
 
@@ -1034,36 +1036,3 @@ def _get_contract_secondary_identifiers(contract: Contract) -> list[tuple[str, s
             identifier_type = link.type.name.lower()
             identifiers.append((identifier_type, link.value))
     return identifiers
-
-
-def _params_to_filters_dict(
-    params: fundingrequest_query.FundingRequestSearchParams,
-) -> dict[str, str]:
-    """Convert FundingRequestSearchParams to a dict for storage in the report."""
-    filters: dict[str, str] = {}
-    if params.date_range:
-        filters["period_start"] = params.date_range.start.isoformat()
-        filters["period_end"] = params.date_range.end.isoformat()
-    if params.review_results:
-        filters["processing_status"] = ",".join(rr.value for rr in params.review_results)
-    if params.payment_statuses:
-        filters["payment_status"] = ",".join(ps.value for ps in params.payment_statuses)
-    if params.labels:
-        filters["labels"] = ",".join(str(label) for label in params.labels)
-    if params.exclude_labels:
-        filters["exclude_labels"] = ",".join(str(label) for label in params.exclude_labels)
-    if params.payment_methods:
-        filters["payment_methods"] = ",".join(pm.value for pm in params.payment_methods)
-    if params.open_access_types:
-        filters["open_access_type"] = ",".join(oat.name for oat in params.open_access_types)
-    if params.publication_states:
-        filters["publication_states"] = ",".join(params.publication_states)
-    if params.entity_type != fundingrequest_query.PublicationEntityType.All:
-        filters["publication_type"] = params.entity_type.value
-    if params.search_term:
-        filters["search_term"] = params.search_term
-    if params.contract_id is not None:
-        filters["contract_name"] = str(params.contract_id)
-    if params.funding_source is not None:
-        filters["funding_source"] = str(params.funding_source)
-    return filters

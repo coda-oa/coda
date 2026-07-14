@@ -25,11 +25,9 @@ from coda.apps.opencost.report_service import (
     generate_report as generate_report_service,
 )
 from coda.apps.exports.services.filter_display import (
-    # CommonFilterFields,
     build_applied_filters,
     build_filter_form_context,
     build_filters_from_request,
-    parse_common_filter_fields,
     create_redo_url,
     parse_current_filters_to_context,
 )
@@ -216,13 +214,11 @@ def generate_report(request: HttpRequest) -> HttpResponse:
             messages.error(request, "Both start and end dates are required.")
             return redirect("opencost:generate")
 
-        # Build params from request using shared filter parsing
         filters = build_filters_from_request(request)
-        params = parse_common_filter_fields(filters)
 
         report = generate_report_service(
             title=title,
-            params=params,
+            filters=filters,
         )
 
         if report.has_issues():

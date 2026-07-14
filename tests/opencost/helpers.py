@@ -8,14 +8,12 @@ from django.urls import reverse
 
 from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
-from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from coda.apps.invoices.models import Creditor, Invoice, Position
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.report_service import generate_report
 from coda.apps.opencost.transformers import report_publication_to_pydantic, to_opencost
 from coda.apps.publications.models import Publication
-from coda.domain.date import DateRange
 from coda.domain.opencost import Data
 from coda.domain.opencost._publication import PublicationType
 from coda.apps.publications.models._attachedentities import AttachedContract
@@ -100,12 +98,13 @@ def create_opencost_report(
     period_start: date = date(2024, 1, 1),
     period_end: date = date(2024, 12, 31),
 ) -> OpenCostReport:
-    params = FundingRequestSearchParams(
-        date_range=DateRange(period_start, period_end),
-    )
+    filters = {
+        "period_start": period_start.isoformat(),
+        "period_end": period_end.isoformat(),
+    }
     return generate_report(
         title=title,
-        params=params,
+        filters=filters,
     )
 
 
@@ -257,12 +256,13 @@ def generate_opencost_report_from_contract() -> Data:
 
     Returns the transformed Data for assertions.
     """
-    params = FundingRequestSearchParams(
-        date_range=DateRange(date(2024, 1, 1), date(2024, 12, 31)),
-    )
+    filters = {
+        "period_start": date(2024, 1, 1).isoformat(),
+        "period_end": date(2024, 12, 31).isoformat(),
+    }
     report = generate_report(
         title="Test Report 2024",
-        params=params,
+        filters=filters,
     )
     return to_opencost(report)
 
@@ -328,9 +328,10 @@ def create_realistic_report_data(
     # Generate the report
     return generate_report(
         title=f"Performance Test Report ({num_publications} pubs, {num_contracts} contracts)",
-        params=FundingRequestSearchParams(
-            date_range=DateRange(period_start, period_end),
-        ),
+        filters={
+            "period_start": period_start.isoformat(),
+            "period_end": period_end.isoformat(),
+        },
     )
 
 

@@ -2,7 +2,6 @@ from datetime import date
 from decimal import Decimal
 import pytest
 
-from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
@@ -31,10 +30,6 @@ from tests.opencost.helpers import (
     create_contract_with_identifiers,
 )
 from coda.apps.institutions.models import Institution, InstitutionLinkType, InstitutionLink
-from coda.domain.date import DateRange
-from coda.apps.fundingrequests.fundingrequest_query import (
-    PaymentStatus as FundingRequestPaymentStatus,
-)
 
 
 @pytest.mark.django_db
@@ -54,16 +49,14 @@ def test__time_period__generate_report__creates_report_record() -> None:
 
 @pytest.mark.django_db
 def test__filters_provided__generate_report__persists_filters_on_report() -> None:
-    params = FundingRequestSearchParams(
-        date_range=DateRange(date(2024, 1, 1), date(2024, 12, 31)),
-        payment_statuses=[
-            FundingRequestPaymentStatus("paid"),
-            FundingRequestPaymentStatus("unpaid"),
-        ],
-        contract_id=1,
-    )
+    filters = {
+        "period_start": "2024-01-01",
+        "period_end": "2024-12-31",
+        "payment_status": "paid,unpaid",
+        "contract_name": "1",
+    }
 
-    report = generate_report(title="Test Report Filters", params=params)
+    report = generate_report(title="Test Report Filters", filters=filters)
 
     saved_report = OpenCostReport.objects.get(pk=report.pk)
     assert saved_report.filters["payment_status"] == "paid,unpaid"
