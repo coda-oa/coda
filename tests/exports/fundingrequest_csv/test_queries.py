@@ -15,12 +15,7 @@ from coda.domain.money import Money, Currency
 from coda.domain.fundingrequest import FundingRequestId
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests import fundingrequest_query
-from coda.domain.finance.costtypes import PublicationCostType
-from coda.domain.finance.funding_sources import Budget
-from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice
-from coda.domain.finance import invoice_positions
-from coda.domain.finance.invoice_positions import PublicationItem
-from coda.domain.finance.taxrate import TaxRate
+from coda.domain.finance.invoice import CreditorId, FundingSourceId
 from coda.domain.publication.publication import PublicationId
 
 from tests.exports.fundingrequest_csv.helpers import (
@@ -209,23 +204,13 @@ def _create_three_fundingrequests_for_performance_check() -> None:
 
         positions = []
         for j in range(2):
-            position = invoice_positions.create(
-                item=PublicationItem(
-                    item=PublicationId(fr.publication.id),
-                    cost_type=PublicationCostType("gold-oa"),
-                ),
-                cost=Money(Decimal("1000.00"), Currency.EUR),
-                tax_rate=TaxRate.from_percentage(19),
-                external_position_id=f"POS-{i+1}-{j+1}",
-            )
+            position = domainfactory.publication_position(PublicationId(fr.publication.id))
             budget_model = modelfactory.budget(name=f"Budget {i+1}-{j+1}")
-            funding_source = Budget(FundingSourceId(budget_model.pk), budget_model.name)
-            position.assign_funding(funding_source, Decimal("500.00"))
+            funding_source = domainfactory.budget(FundingSourceId(budget_model.pk))
+            position.assign_remaining(funding_source)
             positions.append(position)
 
-        invoice = Invoice.new(
-            number=f"INV-{i+1}",
-            date=date(2026, 3, 10 + i),
+        invoice = domainfactory.invoice(
             creditor=CreditorId(creditor.pk),
             positions=positions,
         )

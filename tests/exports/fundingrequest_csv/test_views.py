@@ -2,19 +2,13 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 from datetime import date
-from decimal import Decimal
 from django.core.files.base import ContentFile
 
 from coda.apps.exports.models import FundingRequestCSVExport
 from coda.contexts.finance.services import invoice_service
-from coda.domain.finance import invoice_positions
-from coda.domain.finance.costtypes import PublicationCostType
-from coda.domain.finance.invoice import CreditorId, Invoice
-from coda.domain.finance.invoice_positions import PublicationItem
-from coda.domain.finance.taxrate import TaxRate
-from coda.domain.money import Currency, Money
+from coda.domain.finance.invoice import CreditorId
 from coda.domain.publication.publication import PublicationId
-from tests import modelfactory
+from tests import domainfactory, modelfactory
 
 PREVIEW_COLUMNS = [
     "request_id",
@@ -100,23 +94,10 @@ def test_fundingrequest_csv_export_create_view__is_opened__creates_export_and_re
     fundingrequest.request_date = date(2024, 3, 5)
     fundingrequest.save()
 
+    position = domainfactory.publication_position(PublicationId(fundingrequest.publication.id))
     creditor = modelfactory.creditor()
-    position = invoice_positions.create(
-        item=PublicationItem(
-            item=PublicationId(fundingrequest.publication.id),
-            cost_type=PublicationCostType("gold-oa"),
-        ),
-        cost=Money(Decimal("1500.00"), Currency.EUR),
-        tax_rate=TaxRate.from_percentage(19),
-        external_position_id="POS-CREATE-001",
-    )
-    invoice = Invoice.new(
-        number="INV-CREATE-001",
-        date=date(2024, 3, 5),
-        creditor=CreditorId(creditor.pk),
-        positions=[position],
-    )
-    invoice.id = invoice_service.save(invoice)
+    invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position])
+    invoice_service.save(invoice)
 
     period_start = "2024-01-01"
     period_end = "2024-12-31"
