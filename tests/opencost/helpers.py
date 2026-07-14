@@ -344,9 +344,9 @@ def assert_current_filter(response: HttpResponse, field: str, expected: Any) -> 
         f"Available: {list(current_filters.keys())}"
     )
     actual = current_filters[field]
-    assert actual == expected, (
-        f"Field '{field}' mismatch.\n" f"Expected: {expected!r}\n" f"Got: {actual!r}"
-    )
+    assert (
+        actual == expected
+    ), f"Field '{field}' mismatch.\n Expected: {expected!r}\n Got: {actual!r}"
 
 
 def assert_current_filters(response: HttpResponse, **expected: Any) -> None:

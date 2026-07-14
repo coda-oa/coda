@@ -47,7 +47,7 @@ def test__funding_request_with_single_invoice_position_without_split__flatten_to
 ):
     funding_request = create_funding_request(title="Test Publication for Export")
     invoice = create_invoice_with_publication_position(funding_request)
-    invoice_position = list(invoice.positions)[0]
+    invoice_position = next(iter(invoice.positions))
 
     export_dto = map_funding_request_to_export_dto(funding_request)
 
@@ -183,7 +183,7 @@ def test__missing_optional_fields__flatten_to_csv__handles_none_values() -> None
     funding_request.external_funding.all().delete()
 
     invoice = create_invoice_with_publication_position(funding_request)
-    invoice_position = list(invoice.positions)[0]
+    invoice_position = next(iter(invoice.positions))
 
     export_dto = map_funding_request_to_export_dto(funding_request)
 

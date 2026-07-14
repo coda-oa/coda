@@ -74,7 +74,7 @@ def test__publication_position__maps_to_dto__all_fields_are_mapped_correctly() -
 
     invoice_dto = map_invoice_to_dto(invoice_model, fr)
     position_dto = invoice_dto.positions[0]
-    invoice_position = list(invoice.positions)[0]
+    invoice_position = next(iter(invoice.positions))
 
     assert isinstance(position_dto, PublicationPositionImportDto)
     assert position_dto.type == "publication"
@@ -99,7 +99,7 @@ def test__contract_position__maps_to_dto__all_fields_are_mapped_correctly() -> N
     invoice_dto = map_invoice_to_dto(invoice_model, fr)
     position_dto = invoice_dto.positions[0]
 
-    invoice_position = list(invoice.positions)[0]
+    invoice_position = next(iter(invoice.positions))
 
     assert isinstance(position_dto, ContractPositionImportDto)
     assert position_dto.type == "contract"
@@ -124,7 +124,7 @@ def test__free_position__maps_to_dto__all_fields_are_mapped_correctly() -> None:
     invoice_dto = map_invoice_to_dto(invoice_model, fr)
 
     position_dto = invoice_dto.positions[0]
-    invoice_position = list(invoice.positions)[0]
+    invoice_position = next(iter(invoice.positions))
 
     assert isinstance(position_dto, FreePositionImportDto)
     assert position_dto.type == "free"
@@ -150,7 +150,7 @@ def test__invoice_with_position_and_funding_assignments__maps_to_dto__maps_assig
     )
     assert invoice.id is not None
     invoice_model = InvoiceModel.objects.get(pk=int(invoice.id))
-    position = list(invoice.positions)[0]
+    position = next(iter(invoice.positions))
     assert position is not None
 
     dto = map_invoice_to_dto(invoice_model, fr)

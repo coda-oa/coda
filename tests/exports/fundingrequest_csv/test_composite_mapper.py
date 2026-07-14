@@ -19,18 +19,14 @@ def test__funding_request_with_invoice__mapping_to_export_dto__data_is_mapped_co
 
     composite_dto = map_funding_request_to_export_dto(funding_request)
 
-    assert (
-        composite_dto.funding_request.publication.title
-        == composite_dto.funding_request.publication.title
-    )
+    assert composite_dto.funding_request.publication.title == funding_request.publication.title
     assert composite_dto.funding_request.legacy_request_id == str(funding_request.legacy_request_id)
 
     assert composite_dto.invoices[0].number == invoice.number
     assert composite_dto.invoices[0].date == invoice.date
 
     position_dto = composite_dto.invoices[0].positions[0]
-    positions = list(invoice.positions)
-    actual_position = positions[0]
+    actual_position = next(iter(invoice.positions))
     assert actual_position is not None, "Invoice should have at least one position"
     assert position_dto.amount == actual_position.cost.amount
     assert position_dto.tax_rate == actual_position.tax_rate * 100  # Converted to percentage!
@@ -50,17 +46,14 @@ def test__funding_request_with_multiple_invoices__mapping_to_export_dto__invoice
 
     composite_dto = map_funding_request_to_export_dto(funding_request)
 
-    assert (
-        composite_dto.funding_request.publication.title
-        == composite_dto.funding_request.publication.title
-    )
+    assert composite_dto.funding_request.publication.title == funding_request.publication.title
     assert composite_dto.funding_request.legacy_request_id == str(funding_request.legacy_request_id)
 
     assert composite_dto.invoices[0].number == invoice_1.number
     assert composite_dto.invoices[0].date == invoice_1.date
 
     position1_dto = composite_dto.invoices[0].positions[0]
-    domain_position_1 = list(invoice_1.positions)[0]
+    domain_position_1 = next(iter(invoice_1.positions))
 
     assert position1_dto.amount == domain_position_1.cost.amount
     assert position1_dto.tax_rate == domain_position_1.tax_rate * 100
@@ -71,7 +64,7 @@ def test__funding_request_with_multiple_invoices__mapping_to_export_dto__invoice
     assert composite_dto.invoices[1].date == invoice_2.date
 
     position2_dto = composite_dto.invoices[1].positions[0]
-    domain_position_2 = list(invoice_2.positions)[0]
+    domain_position_2 = next(iter(invoice_2.positions))
 
     assert position2_dto.amount == domain_position_2.cost.amount
     assert position2_dto.tax_rate == domain_position_2.tax_rate * 100
@@ -90,9 +83,6 @@ def test__funding_request_without_invoices__mapping_to_export_dto__maps_to_dto_w
 
     composite_dto = map_funding_request_to_export_dto(funding_request)
 
-    assert (
-        composite_dto.funding_request.publication.title
-        == composite_dto.funding_request.publication.title
-    )
+    assert composite_dto.funding_request.publication.title == funding_request.publication.title
     assert composite_dto.invoices == []
     assert len(composite_dto.invoices) == 0

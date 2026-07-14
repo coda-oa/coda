@@ -114,7 +114,7 @@ def test__combining_funding_request_and_invoice_filters__query_with_combined_fil
         )
     )
     invoice1 = create_invoice_with_publication_position(fr1)
-    invoice_position = list(invoice1.positions)[0]
+    invoice_position = next(iter(invoice1.positions))
     invoice_position.cost.amount = Decimal("1500.00")
     funding_source_1 = domainfactory.budget()
     funding_source_1.id = funding_source_repository.create(funding_source_1)
