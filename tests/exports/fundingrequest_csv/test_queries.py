@@ -7,7 +7,6 @@ from decimal import Decimal
 from coda.apps.invoices import funding_source_repository
 from coda.contexts.finance.services import invoice_service
 from tests import domainfactory, modelfactory
-from coda.apps.invoices.models import Position
 from coda.apps.exports.services.fundingrequest_csv.queries import get_funding_requests_for_export
 from coda.apps.publications.models import PublicationPayment
 
@@ -16,8 +15,13 @@ from coda.domain.money import Money, Currency
 from coda.domain.fundingrequest import FundingRequestId
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests import fundingrequest_query
-from coda.apps.invoices.models import FundingAssignment
-from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.finance.costtypes import PublicationCostType
+from coda.domain.finance.funding_sources import Budget
+from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.invoice_positions import PublicationItem
+from coda.domain.finance.taxrate import TaxRate
+from coda.domain.publication.publication import PublicationId
 
 from tests.exports.fundingrequest_csv.helpers import (
     _make_params,
@@ -202,27 +206,27 @@ def _create_three_fundingrequests_for_performance_check() -> None:
         fr.request_date = date(2026, 3, 5 + i)
         fr.save()
         creditor = modelfactory.creditor(name=f"Creditor {i+1}")
-        invoice = modelfactory.invoice()
-        invoice.date = date(2026, 3, 10 + i)
-        invoice.creditor = creditor
-        invoice.save()
 
-        # Create 2 positions per invoice
+        positions = []
         for j in range(2):
-            position = Position.objects.create(
-                invoice=invoice,
-                publication=fr.publication,
-                description=f"Position {i+1}-{j+1}",
-                cost_amount=Decimal("1000.00"),
-                cost_currency="EUR",
-                cost_type="gold-oa",
-                tax_rate=Decimal("0.19"),
+            position = invoice_positions.create(
+                item=PublicationItem(
+                    item=PublicationId(fr.publication.id),
+                    cost_type=PublicationCostType("gold-oa"),
+                ),
+                cost=Money(Decimal("1000.00"), Currency.EUR),
+                tax_rate=TaxRate.from_percentage(19),
                 external_position_id=f"POS-{i+1}-{j+1}",
             )
-            # Create funding assignment
-            budget = modelfactory.budget(name=f"Budget {i+1}-{j+1}")
-            FundingAssignment.objects.create(
-                position=position,
-                funding_source=budget,
-                amount=Decimal("500.00"),
-            )
+            budget_model = modelfactory.budget(name=f"Budget {i+1}-{j+1}")
+            funding_source = Budget(FundingSourceId(budget_model.pk), budget_model.name)
+            position.assign_funding(funding_source, Decimal("500.00"))
+            positions.append(position)
+
+        invoice = Invoice.new(
+            number=f"INV-{i+1}",
+            date=date(2026, 3, 10 + i),
+            creditor=CreditorId(creditor.pk),
+            positions=positions,
+        )
+        invoice_service.save(invoice)
