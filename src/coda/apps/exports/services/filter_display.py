@@ -196,113 +196,115 @@ class AppliedFilter:
 
 
 def build_applied_filters(filters: dict[str, str]) -> list[AppliedFilter]:
-    applied_filters: list[AppliedFilter] = []
-
-    _add_period_filter(filters, applied_filters)
-    _add_processing_status_filter(filters, applied_filters)
-    _add_payment_methods_filter(filters, applied_filters)
-    _add_open_access_type_filter(filters, applied_filters)
-    _add_publication_states_filter(filters, applied_filters)
-    _add_labels_filter(filters, applied_filters)
-    _add_exclude_labels_filter(filters, applied_filters)
-    _add_payment_status_filter(filters, applied_filters)
-    _add_publication_type_filter(filters, applied_filters)
-    _add_contract_filter(filters, applied_filters)
-    _add_funding_source_filter(filters, applied_filters)
-
-    return applied_filters
-
-
-def _add_period_filter(filters: dict[str, str], result: list[AppliedFilter]) -> None:
-    if "period_start" in filters and "period_end" in filters:
-        start = datetime.strptime(filters["period_start"], "%Y-%m-%d").strftime("%B %-d, %Y")
-        end = datetime.strptime(filters["period_end"], "%Y-%m-%d").strftime("%B %-d, %Y")
-        result.append(AppliedFilter(label="Period", value=f"{start} to {end}"))
+    applied_filters = (
+        _period_filter(filters),
+        _processing_status_filter(filters),
+        _payment_methods_filter(filters),
+        _open_access_type_filter(filters),
+        _publication_states_filter(filters),
+        _labels_filter(filters),
+        _exclude_labels_filter(filters),
+        _payment_status_filter(filters),
+        _publication_type_filter(filters),
+        _contract_filter(filters),
+        _funding_source_filter(filters),
+    )
+    return [f for f in applied_filters if f is not None]
 
 
-def _add_processing_status_filter(filters: dict[str, str], result: list[AppliedFilter]) -> None:
-    if "processing_status" in filters:
-        statuses = [s.strip() for s in filters["processing_status"].split(",") if s]
-        result.append(AppliedFilter(label="Processing Status", value=", ".join(statuses)))
+def _period_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "period_start" not in filters or "period_end" not in filters:
+        return None
+    start = datetime.strptime(filters["period_start"], "%Y-%m-%d").strftime("%B %-d, %Y")
+    end = datetime.strptime(filters["period_end"], "%Y-%m-%d").strftime("%B %-d, %Y")
+    return AppliedFilter(label="Period", value=f"{start} to {end}")
 
 
-def _add_payment_methods_filter(filters: dict[str, str], result: list[AppliedFilter]) -> None:
-    if "payment_methods" in filters:
-        methods = [m.strip() for m in filters["payment_methods"].split(",") if m]
-        result.append(AppliedFilter(label="Payment Methods", value=", ".join(methods)))
+def _processing_status_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "processing_status" not in filters:
+        return None
+    statuses = [s.strip() for s in filters["processing_status"].split(",") if s]
+    return AppliedFilter(label="Processing Status", value=", ".join(statuses))
 
 
-def _add_open_access_type_filter(filters: dict[str, str], result: list[AppliedFilter]) -> None:
-    if "open_access_type" in filters:
-        types = [t.strip() for t in filters["open_access_type"].split(",") if t]
-        result.append(AppliedFilter(label="Open Access Type", value=", ".join(types)))
+def _payment_methods_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "payment_methods" not in filters:
+        return None
+    methods = [m.strip() for m in filters["payment_methods"].split(",") if m]
+    return AppliedFilter(label="Payment Methods", value=", ".join(methods))
 
 
-def _add_publication_states_filter(filters: dict[str, str], result: list[AppliedFilter]) -> None:
-    if "publication_states" in filters:
-        states = [s.strip() for s in filters["publication_states"].split(",") if s]
-        result.append(AppliedFilter(label="Publication States", value=", ".join(states)))
+def _open_access_type_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "open_access_type" not in filters:
+        return None
+    types = [t.strip() for t in filters["open_access_type"].split(",") if t]
+    return AppliedFilter(label="Open Access Type", value=", ".join(types))
 
 
-def _add_labels_filter(filters: dict[str, str], result: list[AppliedFilter]) -> None:
-    if "labels" in filters:
-        label_ids = [int(_id) for _id in filters["labels"].split(",") if _id]
-        labels = Label.objects.filter(id__in=label_ids)
-        result.append(
-            AppliedFilter(
-                label="Labels",
-                value=", ".join(label.name for label in labels),
-            )
-        )
+def _publication_states_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "publication_states" not in filters:
+        return None
+    states = [s.strip() for s in filters["publication_states"].split(",") if s]
+    return AppliedFilter(label="Publication States", value=", ".join(states))
 
 
-def _add_exclude_labels_filter(filters: dict[str, str], result: list[AppliedFilter]) -> None:
-    if "exclude_labels" in filters:
-        exclude_label_ids = [int(_id) for _id in filters["exclude_labels"].split(",") if _id]
-        exclude_labels = Label.objects.filter(id__in=exclude_label_ids)
-        result.append(
-            AppliedFilter(
-                label="Excluded Labels",
-                value=", ".join(label.name for label in exclude_labels),
-            )
-        )
+def _labels_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "labels" not in filters:
+        return None
+    label_ids = [int(_id) for _id in filters["labels"].split(",") if _id]
+    labels = Label.objects.filter(id__in=label_ids)
+    return AppliedFilter(
+        label="Labels",
+        value=", ".join(label.name for label in labels),
+    )
 
 
-def _add_payment_status_filter(filters: dict[str, str], result: list[AppliedFilter]) -> None:
-    if "payment_status" in filters:
-        statuses = [
-            FundingRequestPaymentStatus(s.strip()).value.replace("_", " ").title()
-            for s in filters["payment_status"].split(",")
-            if s
-        ]
-        result.append(AppliedFilter(label="Payment Status", value=", ".join(statuses)))
+def _exclude_labels_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "exclude_labels" not in filters:
+        return None
+    exclude_label_ids = [int(_id) for _id in filters["exclude_labels"].split(",") if _id]
+    exclude_labels = Label.objects.filter(id__in=exclude_label_ids)
+    return AppliedFilter(
+        label="Excluded Labels",
+        value=", ".join(label.name for label in exclude_labels),
+    )
 
 
-def _add_publication_type_filter(filters: dict[str, str], result: list[AppliedFilter]) -> None:
-    if "publication_type" in filters:
-        types = [t.strip() for t in filters["publication_type"].split(",") if t]
-        result.append(AppliedFilter(label="Publication Type", value=", ".join(types)))
+def _payment_status_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "payment_status" not in filters:
+        return None
+    statuses = [
+        FundingRequestPaymentStatus(s.strip()).value.replace("_", " ").title()
+        for s in filters["payment_status"].split(",")
+        if s
+    ]
+    return AppliedFilter(label="Payment Status", value=", ".join(statuses))
 
 
-def _add_contract_filter(filters: dict[str, str], result: list[AppliedFilter]) -> None:
-    if "contract_name" in filters:
-        contract_ids = [int(_id) for _id in filters["contract_name"].split(",") if _id]
-        contracts = Contract.objects.filter(id__in=contract_ids)
-        result.append(
-            AppliedFilter(
-                label="Contracts",
-                value=", ".join(contract.name for contract in contracts),
-            )
-        )
+def _publication_type_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "publication_type" not in filters:
+        return None
+    types = [t.strip() for t in filters["publication_type"].split(",") if t]
+    return AppliedFilter(label="Publication Type", value=", ".join(types))
 
 
-def _add_funding_source_filter(filters: dict[str, str], result: list[AppliedFilter]) -> None:
-    if "funding_source" in filters:
-        funding_source_ids = [int(_id) for _id in filters["funding_source"].split(",") if _id]
-        funding_sources = FundingSource.objects.filter(id__in=funding_source_ids)
-        result.append(
-            AppliedFilter(
-                label="Funding Source",
-                value=", ".join(source.name for source in funding_sources),
-            )
-        )
+def _contract_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "contract_name" not in filters:
+        return None
+    contract_ids = [int(_id) for _id in filters["contract_name"].split(",") if _id]
+    contracts = Contract.objects.filter(id__in=contract_ids)
+    return AppliedFilter(
+        label="Contracts",
+        value=", ".join(contract.name for contract in contracts),
+    )
+
+
+def _funding_source_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "funding_source" not in filters:
+        return None
+    funding_source_ids = [int(_id) for _id in filters["funding_source"].split(",") if _id]
+    funding_sources = FundingSource.objects.filter(id__in=funding_source_ids)
+    return AppliedFilter(
+        label="Funding Source",
+        value=", ".join(source.name for source in funding_sources),
+    )
