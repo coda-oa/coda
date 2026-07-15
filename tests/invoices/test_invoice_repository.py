@@ -94,7 +94,7 @@ def test__invoice_with_vat_position__invoice_list_item__has_only_tax_costs() -> 
     invoice = domainfactory.invoice(positions=[position_1], creditor=creditor)
     invoice.id = repository.create(invoice)
 
-    actual, *_ = invoice_query.search()
+    actual, *_ = invoice_query.search_to_list_items()
 
     assert actual.net == Money(0, position_1.cost.currency)
     assert actual.total == actual.tax == position_1.total()
@@ -145,7 +145,9 @@ def test__has_errors_criterion__filters_invoices_with_invalid_contract_years() -
     no_contract_invoice.id = repository.create(no_contract_invoice)
 
     # Search with has_errors=True
-    results_with_errors = list(invoice_query.search(invoice_query.HasErrorsCriterion()))
+    results_with_errors = list(
+        invoice_query.search_to_list_items(invoice_query.HasErrorsCriterion())
+    )
     result_ids_with_errors = {r.id for r in results_with_errors}
 
     # Should only return invoices with invalid contract years
@@ -155,7 +157,7 @@ def test__has_errors_criterion__filters_invoices_with_invalid_contract_years() -
     assert no_contract_invoice.id not in result_ids_with_errors
 
     # Search with has_errors=False (should return all)
-    results_all = list(invoice_query.search())
+    results_all = list(invoice_query.search_to_list_items())
     result_ids_all = {r.id for r in results_all}
 
     assert invalid_invoice_before.id in result_ids_all
@@ -186,7 +188,7 @@ def test__has_errors_criterion__list_item_has_error_flag() -> None:
     invalid_invoice.id = repository.create(invalid_invoice)
 
     # Search and check the flag
-    results = list(invoice_query.search())
+    results = list(invoice_query.search_to_list_items())
     invoice_item = next(r for r in results if r.id == invalid_invoice.id)
 
     assert invoice_item.has_invalid_contract_years is True

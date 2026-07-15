@@ -1,5 +1,10 @@
+from typing import cast, Any
 from datetime import date
 from decimal import Decimal
+
+from django.http import HttpResponse
+from django.test import Client
+from django.urls import reverse
 
 from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
@@ -93,10 +98,13 @@ def create_opencost_report(
     period_start: date = date(2024, 1, 1),
     period_end: date = date(2024, 12, 31),
 ) -> OpenCostReport:
+    filters = {
+        "period_start": period_start.isoformat(),
+        "period_end": period_end.isoformat(),
+    }
     return generate_report(
         title=title,
-        period_start=period_start,
-        period_end=period_end,
+        filters=filters,
     )
 
 
@@ -248,10 +256,13 @@ def generate_opencost_report_from_contract() -> Data:
 
     Returns the transformed Data for assertions.
     """
+    filters = {
+        "period_start": date(2024, 1, 1).isoformat(),
+        "period_end": date(2024, 12, 31).isoformat(),
+    }
     report = generate_report(
         title="Test Report 2024",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
+        filters=filters,
     )
     return to_opencost(report)
 
@@ -317,6 +328,32 @@ def create_realistic_report_data(
     # Generate the report
     return generate_report(
         title=f"Performance Test Report ({num_publications} pubs, {num_contracts} contracts)",
-        period_start=period_start,
-        period_end=period_end,
+        filters={
+            "period_start": period_start.isoformat(),
+            "period_end": period_end.isoformat(),
+        },
     )
+
+
+def assert_current_filter(response: HttpResponse, field: str, expected: Any) -> None:
+    """Assert that a filter value in the template context matches expected."""
+    context = cast(Any, response).context
+    current_filters = context.get("current_filters", {})
+    assert field in current_filters, (
+        f"Field '{field}' not found in current_filters. "
+        f"Available: {list(current_filters.keys())}"
+    )
+    actual = current_filters[field]
+    assert (
+        actual == expected
+    ), f"Field '{field}' mismatch.\n Expected: {expected!r}\n Got: {actual!r}"
+
+
+def assert_current_filters(response: HttpResponse, **expected: Any) -> None:
+    """Assert multiple filter values at once."""
+    for field, expected_value in expected.items():
+        assert_current_filter(response, field, expected_value)
+
+
+def get_opencost_generate_response(client: Client, **filters: str | list[str]) -> HttpResponse:
+    return cast(HttpResponse, client.get(reverse("opencost:generate"), filters))

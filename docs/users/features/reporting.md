@@ -1,12 +1,10 @@
-# Monitoring & Reporting
+# openCost Reporting
 
-CODA currently provides exporting your publication and contract data in the **openCost** format (XML). You can access the export features by navigating the menu item of the same name. 
+CODA provides exporting your publication and contract data in the **openCost** format (XML). You can access the export features by navigating the menu item of the same name. 
 
 ```{admonition} Note
-Additional monitoring and reporting features are planned for future releases.
+CODA also provides exporting funding request data with their associated costs to CSV format. See [CSV Export](csv-export.md) for further explanation. 
 ```
-
-## openCost Export
 
 The openCost export feature allows you to generate standardized XML reports of your institution's publication costs and publishing contracts. openCost is a community-developed standard for exchanging publication cost data, making it easier to share transparent cost information with funding organizations, libraries, and other institutions.
 
@@ -40,14 +38,27 @@ From this page, you can download existing reports as XML files, view detailed in
 
 To create a new openCost report:
 
-1. Click the **New** button on the Export overview page
+1. Click the **New** button on the overview page for openCost reports
 2. Enter a descriptive **title** for your report (e.g., "2025 Q1 Publication Costs")
-3. Select the **reporting period** by choosing start and end dates
-4. Click **Generate Report**
+3. Select the **reporting period** by choosing start and end dates (refers to paid invoice dates)
+4. Apply filters if needed (see below)
+5. Click **Generate Report**
 
 CODA will automatically gather all publications and contracts from your institution that fall within the specified date range and create an openCost XML report. Included are publications and contracts that are listed on paid invoices within the period of time you specified. 
 
 ![](/_static/img/export_generate_new.png)
+
+#### Filtering Options
+
+You can use filters to control which publications are included in the openCost report. The following filters are available:
+
+- **Review Result**: Filter by review status (Open, Approved, Rejected, Costs Waived, Closed)
+- **Labels**: Include or exclude specific labels
+- **Payment Method**: Direct, Reimbursement, or Unknown
+- **Open Access Type**: Gold, Diamond, Hybrid, etc.
+- **Publication State**: Published, Submitted, Accepted, Rejected, Unknown
+- **Publication Type**: Article or Monograph
+- **Funding Source**: Filter by specific funding source
 
 ### Understanding Validation Messages
 

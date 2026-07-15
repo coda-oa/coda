@@ -105,3 +105,8 @@ def populate_database(django_db_setup: Any, django_db_blocker: DjangoDbBlocker) 
     with django_db_blocker.unblock():
         fixtures = list((BASE_DIR / "config/fixtures").glob("*.json"))
         call_command("loaddata", *fixtures)
+
+
+@pytest.fixture(autouse=True)
+def media_root(settings: Any, tmp_path: Path) -> None:
+    settings.MEDIA_ROOT = tmp_path

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="flex justify-between align-center my-2">
+        <h1 class="my-2">{{ page_title }}</h1>
+    </div>
+    <form method="post" action="{{ form_action_url }}">
+        {% csrf_token %}
+        <article>
+            <h2>{{ parameters_title }}</h2>
+            <div class="form-row">
+                <label for="title">{{ title_label }}*</label>
+                <input type="text"
+                       id="title"
+                       name="title"
+                       placeholder="{{ title_placeholder }}"
+                       required>
+            </div>
+            <div class="grid">
+                <div class="form-row">
+                    <label for="period_start">Period Start*</label>
+                    <input type="date" id="period_start" name="period_start" required>
+                </div>
+                <div class="form-row">
+                    <label for="period_end">Period End*</label>
+                    <input type="date" id="period_end" name="period_end" required>
+                </div>
+            </div>
+            <hr>
+            <details {% if expand_advanced_search %}open{% endif %}>
+                <summary class="flex align-center justify-between button outline contrast">Optional Filters</summary>
+                {% include "fundingrequests/forms/publication_type.html" %}
+                {% include "fundingrequests/forms/contract_dropdown.html" %}
+                {% include "fundingrequests/forms/status_dropdown.html" %}
+                {% include "fundingrequests/forms/payment_method.html" %}
+                {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
+                {% include "fundingrequests/forms/publication_state.html" %}
+                {% include "fundingrequests/forms/label_dropdown.html" %}
+                {% if include_payment_status %}
+                    {% include "fundingrequests/forms/payment_status.html" %}
+                {% endif %}
+                {% include "invoices/partials/funding_source_filter.html" %}
+            </details>
+        </article>
+        <div class="grid wizard-nav">
+            <a href="{{ cancel_url }}" class="button danger text-center">Cancel</a>
+            <button type="submit">{{ submit_button_text }}</button>
+        </div>
+    </form>
+{% endblock content %}

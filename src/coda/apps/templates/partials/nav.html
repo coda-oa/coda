@@ -4,7 +4,11 @@
         <ul>
             <li class="coda-logo">
                 <a href="{% url "home" %}" class="flex align-center">
-                    <img src="{% static "assets/coda-planet.svg" %}" alt="Coda Logo" height="auto" width="auto" class="coda-logo-image">
+                    <img src="{% static "assets/coda-planet.svg" %}"
+                         alt="Coda Logo"
+                         height="auto"
+                         width="auto"
+                         class="coda-logo-image">
                     <strong><span>CODA</span></strong></a>
             </li>
         </ul>
@@ -27,7 +31,7 @@
             <li>
                 {% include "partials/nav_link.html" with link="institutions:list" image="assets/organization.svg" text="Organization" %}
             </li>
-            <li>{% include "partials/nav_link.html" with link="opencost:list" image="assets/export.svg" text="Export" %}</li>
+            <li>{% include "partials/nav_link.html" with link="exports:export_home" image="assets/export.svg" text="Export" %}</li>
             <li>
                 {% include "partials/nav_link.html" with link="preferences:global_preferences" image="assets/settings.svg" text="Preferences" %}
             </li>
@@ -39,7 +43,11 @@
                     <form action="{% url "logout" %}" method="post">
                         {% csrf_token %}
                         <button type="submit" class="login_logout_button outline contrast">
-                            <img src="{% static "assets/logout.svg" %}" class="nav-link-icon" alt="logout" width="auto" height="auto">
+                            <img src="{% static "assets/logout.svg" %}"
+                                 class="nav-link-icon"
+                                 alt="logout"
+                                 width="auto"
+                                 height="auto">
                             <span>Logout</span>
                         </button>
                     </form>
@@ -49,7 +57,11 @@
                     <a role="button"
                        class="login_logout_button outline contrast"
                        href="{% url "login" %}">
-                        <img src="{% static "assets/login.svg" %}" class="nav-link-icon" alt="login" width="auto" height="auto">
+                        <img src="{% static "assets/login.svg" %}"
+                             class="nav-link-icon"
+                             alt="login"
+                             width="auto"
+                             height="auto">
                         <span>Login</span></a>
                 </li>
             {% endif %}

@@ -6,9 +6,14 @@ from django.db.models import Prefetch, QuerySet
 from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract, ContractLink
 from coda.apps.institutions.models import Institution, InstitutionLink
-from coda.apps.invoices.models import Invoice, Position
+from coda.apps.invoices.models import FundingAssignment, Invoice, Position
+from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.publications.models import Publication
 from coda.apps.publications.models._links import Link
+from coda.domain.finance.invoice import FundingSourceId
+from coda.apps.invoices import invoice_query
+from coda.domain.finance.invoice import PaymentStatus
+from coda.domain.date import DateRange
 
 if TYPE_CHECKING:
     from coda.apps.opencost.report_service import InstitutionHierarchyCache
@@ -17,10 +22,15 @@ logger = logging.getLogger(__name__)
 
 
 def get_publications_for_period(
-    start_date: date,
-    end_date: date,
+    params: fundingrequest_query.FundingRequestSearchParams,
     invoices_in_period: QuerySet[Invoice] | None = None,
 ) -> QuerySet[Publication]:
+    # Extract date range – must be provided
+    if params.date_range is None:
+        raise ValueError("date_range is required for get_publications_for_period")
+    start_date = params.date_range.start
+    end_date = params.date_range.end
+
     if invoices_in_period is None:
         invoices_in_period = get_invoices_for_period(start_date, end_date)
 
@@ -30,7 +40,12 @@ def get_publications_for_period(
         .distinct()
     )
 
-    contracts_in_period = get_contracts_for_period(start_date, end_date)
+    contracts_in_period = get_contracts_for_period(
+        start_date,
+        end_date,
+        invoices_in_period=invoices_in_period,
+        contract=params.contract_id,
+    )
 
     publication_ids_attached_to_contracts = (
         Publication.objects.filter(
@@ -46,17 +61,17 @@ def get_publications_for_period(
         publication_ids_attached_to_contracts
     )
 
+    # Apply funding request-side filters using the shared params
+    filtered_publication_ids = _get_filtered_fundingrequest_publication_ids(params)
+    if filtered_publication_ids is not None:
+        all_publication_ids &= filtered_publication_ids
+
     positions_in_period = Position.objects.filter(invoice__in=invoices_in_period).select_related(
         "invoice", "invoice__creditor"
     )
 
-    # Prefetch publication links with their types
     links_with_types = Link.objects.select_related("type")
-
-    # Prefetch institution links with their types
     institution_links_with_types = InstitutionLink.objects.select_related("type")
-
-    # Prefetch authors with their affiliations and affiliation links
     authors_with_affiliation = Author.objects.select_related("affiliation").prefetch_related(
         Prefetch("affiliation__links", queryset=institution_links_with_types)
     )
@@ -80,21 +95,29 @@ def get_publications_for_period(
     )
 
 
-def get_invoices_for_period(start_date: date, end_date: date) -> QuerySet[Invoice]:
-    return (
-        Invoice.objects.filter(
-            date__gte=start_date,
-            date__lte=end_date,
-            status="paid",
-        )
-        .select_related("creditor")
-        .prefetch_related(
-            "positions",
-            "positions__publication",
-            "positions__publication__article_journal",
-            "positions__publication__article_journal__publisher",
-            "positions__publication__monograph_publisher",
-        )
+def get_invoices_for_period(
+    start_date: date,
+    end_date: date,
+    funding_source: FundingSourceId | None = None,
+) -> QuerySet[Invoice]:
+    params = invoice_query.InvoiceSearchParams(
+        date_range=DateRange(start_date, end_date),
+        payment_status=PaymentStatus.Paid,
+        funding_source=funding_source,
+    )
+    criteria = invoice_query.build_criteria(params)
+    qs = invoice_query.search(*criteria)
+
+    return qs.select_related("creditor").prefetch_related(
+        "positions",
+        Prefetch(
+            "positions__funding_assignments",
+            queryset=FundingAssignment.objects.select_related("funding_source"),
+        ),
+        "positions__publication",
+        "positions__publication__article_journal",
+        "positions__publication__article_journal__publisher",
+        "positions__publication__monograph_publisher",
     )
 
 
@@ -102,18 +125,19 @@ def get_contracts_for_period(
     start_date: date,
     end_date: date,
     invoices_in_period: QuerySet[Invoice] | None = None,
+    contract: int | None = None,
 ) -> QuerySet[Contract]:
     if invoices_in_period is None:
         invoices_in_period = get_invoices_for_period(start_date, end_date)
 
-    contract_ids = (
-        Position.objects.filter(
-            invoice__in=invoices_in_period,
-            contract__isnull=False,
-        )
-        .values_list("contract_id", flat=True)
-        .distinct()
+    contract_ids_qs = Position.objects.filter(
+        invoice__in=invoices_in_period,
+        contract__isnull=False,
     )
+    if contract:
+        contract_ids_qs = contract_ids_qs.filter(contract_id=contract)
+
+    contract_ids = contract_ids_qs.values_list("contract_id", flat=True).distinct()
 
     positions_in_period = Position.objects.filter(
         invoice__in=invoices_in_period,
@@ -129,6 +153,19 @@ def get_contracts_for_period(
         Prefetch("position_set", queryset=positions_in_period),
         Prefetch("links", queryset=contract_links_with_types),
     )
+
+
+def _get_filtered_fundingrequest_publication_ids(
+    params: fundingrequest_query.FundingRequestSearchParams,
+) -> set[int] | None:
+    # Exclude date_range – openCost filters by invoice/contract dates, not request_date
+    params_no_date = params.without_date_range()
+    criteria = fundingrequest_query.build_criteria(params_no_date)
+
+    if not criteria:
+        return None
+
+    return set(fundingrequest_query.search(*criteria).values_list("publication_id", flat=True))
 
 
 def _collect_institution_ids_from_authors(publications: QuerySet[Publication]) -> set[int]:

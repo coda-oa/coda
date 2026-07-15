@@ -106,6 +106,7 @@ LOCAL_APPS = [
     "coda.apps.blocklist",
     "coda.apps.breadcrumbs",
     "coda.apps.opencost",
+    "coda.apps.exports",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

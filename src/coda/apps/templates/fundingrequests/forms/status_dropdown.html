@@ -1,3 +1,4 @@
+{% load getlist %}
 <details class="dropdown">
     <summary>Processing Status</summary>
     <ul class="undecorated">
@@ -7,7 +8,7 @@
                        id="status-{{ status }}"
                        name="processing_status"
                        value="{{ status }}"
-                       {% if status in request.GET.processing_status %}checked{% endif %}>
+                       {% if status in request.GET|getlist:"processing_status" %}checked{% endif %}>
                 <label for="status-{{ status }}">{{ status }}</label>
             </li>
         {% endfor %}

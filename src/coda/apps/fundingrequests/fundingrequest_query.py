@@ -8,6 +8,7 @@ from django.db.models.functions import ExtractYear
 from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.domain.date import DateRange
+from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication.publication import OpenAccessType
@@ -263,3 +264,180 @@ def search(
 ) -> QuerySet[FundingRequest]:
     qs = FundingRequest.objects.filter(_to_query(*criteria)).distinct().order_by(sort_order)
     return FundingRequestListMapper.prefetch(qs)
+
+
+@dataclass
+class InvoiceFundingSourceCriteria:
+    funding_source: FundingSourceId
+
+    def _to_query(self) -> Q:
+        return Q(publication__position__funding_assignments__funding_source=self.funding_source)
+
+
+@dataclass
+class FundingRequestSearchParams:
+    date_range: DateRange | None = None
+    review_results: list[ReviewResult] | None = None
+    payment_statuses: list[PaymentStatus] | None = None
+    labels: list[LabelId] | None = None
+    exclude_labels: list[LabelId] | None = None
+    payment_methods: list[PaymentMethod] | None = None
+    open_access_types: list[OpenAccessType] | None = None
+    publication_states: list[str] | None = None
+    entity_type: PublicationEntityType = PublicationEntityType.All
+    search_term: str = ""
+    contract_id: ContractId | None = None
+    contract_year: int | None = None
+    show_invalid_contract_years: bool = False
+    funding_source: FundingSourceId | None = None
+
+    def without_date_range(self) -> "FundingRequestSearchParams":
+        return FundingRequestSearchParams(
+            date_range=None,
+            review_results=self.review_results,
+            payment_statuses=self.payment_statuses,
+            labels=self.labels,
+            exclude_labels=self.exclude_labels,
+            payment_methods=self.payment_methods,
+            open_access_types=self.open_access_types,
+            publication_states=self.publication_states,
+            entity_type=self.entity_type,
+            search_term=self.search_term,
+            contract_id=self.contract_id,
+            contract_year=self.contract_year,
+            show_invalid_contract_years=self.show_invalid_contract_years,
+            funding_source=self.funding_source,
+        )
+
+
+def build_criteria(params: FundingRequestSearchParams) -> list[FundingRequestSearchCriteria]:
+    criteria = (
+        _date_range_criterion(params),
+        _review_results_criterion(params),
+        _payment_statuses_criterion(params),
+        _labels_criterion(params),
+        _payment_methods_criterion(params),
+        _open_access_types_criterion(params),
+        _publication_states_criterion(params),
+        _entity_type_criterion(params),
+        _search_term_criterion(params),
+        _contract_criterion(params),
+        _invalid_contract_year_criterion(params),
+        _funding_source_criterion(params),
+    )
+    return [criterion for criterion in criteria if criterion is not None]
+
+
+def _funding_source_criterion(
+    params: FundingRequestSearchParams,
+) -> FundingRequestSearchCriteria | None:
+    return (
+        InvoiceFundingSourceCriteria(funding_source=params.funding_source)
+        if params.funding_source is not None
+        else None
+    )
+
+
+def _invalid_contract_year_criterion(
+    params: FundingRequestSearchParams,
+) -> FundingRequestSearchCriteria | None:
+    return (
+        InvalidContractYearCriteria(show_only_invalid=True)
+        if params.show_invalid_contract_years
+        else None
+    )
+
+
+def _open_access_types_criterion(
+    params: FundingRequestSearchParams,
+) -> FundingRequestSearchCriteria | None:
+    return (
+        OpenAccessTypeCriteria(open_access_types=params.open_access_types)
+        if params.open_access_types
+        else None
+    )
+
+
+def _payment_methods_criterion(
+    params: FundingRequestSearchParams,
+) -> FundingRequestSearchCriteria | None:
+    return (
+        PaymentMethodCriteria(payment_methods=params.payment_methods)
+        if params.payment_methods
+        else None
+    )
+
+
+def _labels_criterion(params: FundingRequestSearchParams) -> FundingRequestSearchCriteria | None:
+    return (
+        LabelsSearchCriteria(
+            include_labels=params.labels or [],
+            exclude_labels=params.exclude_labels or [],
+        )
+        if params.labels or params.exclude_labels
+        else None
+    )
+
+
+def _payment_statuses_criterion(
+    params: FundingRequestSearchParams,
+) -> FundingRequestSearchCriteria | None:
+    return (
+        PaymentStatusCriteria(payment_statuses=params.payment_statuses)
+        if params.payment_statuses
+        else None
+    )
+
+
+def _review_results_criterion(
+    params: FundingRequestSearchParams,
+) -> FundingRequestSearchCriteria | None:
+    return (
+        ReviewResultCriteria(review_results=params.review_results)
+        if params.review_results
+        else None
+    )
+
+
+def _date_range_criterion(
+    params: FundingRequestSearchParams,
+) -> FundingRequestSearchCriteria | None:
+    return (
+        DateRangeCriteria(date_range=params.date_range) if params.date_range is not None else None
+    )
+
+
+def _publication_states_criterion(
+    params: FundingRequestSearchParams,
+) -> FundingRequestSearchCriteria | None:
+    return (
+        PublicationStateCriteria(publication_states=params.publication_states)
+        if params.publication_states
+        else None
+    )
+
+
+def _entity_type_criterion(
+    params: FundingRequestSearchParams,
+) -> FundingRequestSearchCriteria | None:
+    return (
+        EntityTypeCriteria(entity_type=params.entity_type)
+        if params.entity_type != PublicationEntityType.All
+        else None
+    )
+
+
+def _search_term_criterion(
+    params: FundingRequestSearchParams,
+) -> FundingRequestSearchCriteria | None:
+    return GenericSearchCriteria(search_term=params.search_term) if params.search_term else None
+
+
+def _contract_criterion(params: FundingRequestSearchParams) -> FundingRequestSearchCriteria | None:
+    if params.contract_id is None and params.contract_year is None:
+        return None
+
+    return ContractSearchCriteria(
+        contract=params.contract_id,
+        contract_year=params.contract_year,
+    )

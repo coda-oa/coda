@@ -198,28 +198,110 @@ def has_errors_criterion(criterion: HasErrorsCriterion) -> Q:
     )
 
 
-def search(
-    *criteria: InvoiceSearchCriterion, sort_by: str = "date_desc"
-) -> Sequence[InvoiceListItem]:
+@dataclass
+class InvoiceSearchParams:
+    date_range: DateRange | None = None
+    payment_status: PaymentStatus | None = None
+    search_term: str = ""
+    funding_source: FundingSourceId | None = None
+    contract_id: str | int | None = None
+    contract_positions_only: bool = False
+    contract_year: str | int | None = None
+    contract_year_positions_only: bool = False
+    has_external_id: bool | None = None
+    has_foreign_currency: bool = False
+    home_currency: Currency | None = None
+    has_errors: bool = False
+
+
+def build_criteria(params: InvoiceSearchParams) -> list[InvoiceSearchCriterion]:
+    criteria = (
+        _date_range_criterion(params),
+        _payment_status_criterion(params),
+        _search_term_criterion(params),
+        _funding_source_criterion(params),
+        _contract_criterion(params),
+        _contract_year_criterion(params),
+        _missing_external_id_criterion(params),
+        _missing_currency_conversion_criterion(params),
+        _has_errors_criterion(params),
+    )
+    return [c for c in criteria if c is not None]
+
+
+def _date_range_criterion(params: InvoiceSearchParams) -> DateRangeCriterion | None:
+    return DateRangeCriterion(params.date_range) if params.date_range is not None else None
+
+
+def _payment_status_criterion(params: InvoiceSearchParams) -> PaymentStatusCriterion | None:
+    return (
+        PaymentStatusCriterion(params.payment_status) if params.payment_status is not None else None
+    )
+
+
+def _search_term_criterion(params: InvoiceSearchParams) -> GenericSearchCriterion | None:
+    return GenericSearchCriterion(params.search_term) if params.search_term else None
+
+
+def _funding_source_criterion(params: InvoiceSearchParams) -> FundingSourceCriterion | None:
+    return (
+        FundingSourceCriterion(params.funding_source) if params.funding_source is not None else None
+    )
+
+
+def _contract_criterion(params: InvoiceSearchParams) -> ContractCriterion | None:
+    if params.contract_id is None:
+        return None
+    return ContractCriterion(
+        contract_id=params.contract_id, positions_only=params.contract_positions_only
+    )
+
+
+def _contract_year_criterion(params: InvoiceSearchParams) -> ContractYearCriterion | None:
+    if params.contract_year is None:
+        return None
+    return ContractYearCriterion(
+        contract_year=params.contract_year,
+        contract_positions_only=params.contract_year_positions_only,
+    )
+
+
+def _missing_external_id_criterion(
+    params: InvoiceSearchParams,
+) -> MissingExternalIdCriterion | None:
+    return MissingExternalIdCriterion() if params.has_external_id is False else None
+
+
+def _missing_currency_conversion_criterion(
+    params: InvoiceSearchParams,
+) -> MissingCurrencyConversionCriterion | None:
+    if not params.has_foreign_currency:
+        return None
+    home_currency = params.home_currency or Currency.EUR
+    return MissingCurrencyConversionCriterion(home_currency)
+
+
+def _has_errors_criterion(params: InvoiceSearchParams) -> HasErrorsCriterion | None:
+    return HasErrorsCriterion() if params.has_errors else None
+
+
+def search(*criteria: InvoiceSearchCriterion) -> QuerySet[InvoiceModel]:
     query = Q()
     for c in criteria:
         query &= to_query(c)
-
-    qs = InvoiceModel.objects.filter(query).distinct()
-
-    list_items = get_sorted_list_items(qs, sort_by)
-
-    return list_items
+    return InvoiceModel.objects.filter(query).distinct()
 
 
-def get_sorted_list_items(qs: QuerySet[InvoiceModel], sort_by: str) -> Sequence[InvoiceListItem]:
+def search_to_list_items(
+    *criteria: InvoiceSearchCriterion, sort_by: str = "date_desc"
+) -> Sequence[InvoiceListItem]:
     sort_functions = {
         "alphabetical": _ordered_alphabetically,
         "date_asc": _ordered_date_asc,
         "date_desc": _ordered_date_desc,
     }
     sort_function = sort_functions.get(sort_by, _ordered_date_desc)
-    qs = _annotate_position_based_data(InvoiceListMapper.prefetch(sort_function(qs)))
+    qs = _annotate_position_based_data(InvoiceListMapper.prefetch(sort_function(search(*criteria))))
     return [
         InvoiceListMapper.map(
             model,
