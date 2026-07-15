@@ -1,0 +1,35 @@
+<dialog open>
+    <article>
+        <header class="flex justify-between align-center mb-1">
+            <h2 class="my-1">Archive Creditor?</h2>
+            <button aria-label="Close"
+                    class="close"
+                    onclick="this.closest('dialog').remove()"></button>
+        </header>
+        <div class="my-2">
+            <p>
+                Are you sure you want to archive <strong>{{ creditor.name }}</strong>?
+            </p>
+            <p>
+                <strong>This will hide this creditor from new invoice forms.</strong>
+            </p>
+            <p>Existing invoices referencing this creditor will still display it.</p>
+            {% if error %}
+                <div class="messages error undecorated mt-2">
+                    <p class="error">
+                        <strong>Error:</strong> {{ error }}
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+        <footer class="grid">
+            <button type="button"
+                    class="secondary"
+                    onclick="this.closest('dialog').remove()">Cancel</button>
+            <button type="button"
+                    class="primary"
+                    hx-post="{{ archive_url }}"
+                    hx-target="closest dialog">Archive</button>
+        </footer>
+    </article>
+</dialog>

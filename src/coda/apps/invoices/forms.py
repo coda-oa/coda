@@ -12,7 +12,9 @@ class InvoiceForm(forms.Form):
     use_required_attribute = False
     number = forms.CharField(max_length=255, label="Invoice Number*")
     date = forms.DateField(widget=forms.TextInput(attrs={"type": "date"}), label="Invoice Date*")
-    creditor = forms.ModelChoiceField[Creditor](queryset=Creditor.objects.all(), label="Creditor*")
+    creditor = forms.ModelChoiceField[Creditor](
+        queryset=Creditor.all_objects.all(), label="Creditor*"
+    )
     currency = currency_field()
     status = forms.ChoiceField(
         choices=PaymentStatus.choices(),
@@ -57,7 +59,7 @@ class InvoiceForm(forms.Form):
 class CreditorForm(forms.ModelForm[Creditor]):
     class Meta:
         model = Creditor
-        fields = "__all__"
+        fields = ["name"]
 
 
 class FundingSourceForm(forms.ModelForm[FundingSource]):

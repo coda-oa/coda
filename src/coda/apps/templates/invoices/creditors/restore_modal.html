@@ -1,0 +1,32 @@
+<dialog open>
+    <article>
+        <header class="flex justify-between align-center mb-1">
+            <h2 class="my-1">Restore Creditor?</h2>
+            <button aria-label="Close"
+                    class="close"
+                    onclick="this.closest('dialog').remove()"></button>
+        </header>
+        <div class="my-2">
+            <p>
+                Are you sure you want to restore <strong>{{ creditor.name }}</strong>?
+            </p>
+            <p>This will make it available in new invoice forms again.</p>
+            {% if error %}
+                <div class="messages error undecorated mt-2">
+                    <p class="error">
+                        <strong>Error:</strong> {{ error }}
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+        <footer class="grid">
+            <button type="button"
+                    class="secondary"
+                    onclick="this.closest('dialog').remove()">Cancel</button>
+            <button type="button"
+                    class="success"
+                    hx-post="{{ restore_url }}"
+                    hx-target="closest dialog">Restore</button>
+        </footer>
+    </article>
+</dialog>

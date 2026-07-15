@@ -6,6 +6,7 @@ import pytest
 from django.template.response import TemplateResponse
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 from pytest_django.asserts import assertRedirects
 
 from coda import formdata
@@ -61,6 +62,39 @@ def test__given_invoice__goto_update_view__has_invoice_head_in_form(client: Clie
     assert invoice_form.data["status"] == invoice.status.value
     assert invoice_form.data["comment"] == invoice.comment
     assert invoice_form.data["external_invoice_id"] == invoice.external_invoice_id
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__update_invoice_with_archived_creditor__dropdown_includes_invoices_creditor_but_not_other_archived(
+    client: Client,
+) -> None:
+    active = modelfactory.creditor(name="Active Creditor")
+
+    this_archived = modelfactory.creditor(name="This Invoice's Creditor")
+    this_archived.archived_at = timezone.now()
+    this_archived.save()
+
+    other_archived = modelfactory.creditor(name="Other Archived Creditor")
+    other_archived.archived_at = timezone.now()
+    other_archived.save()
+
+    invoice = Invoice.new(
+        number="123",
+        creditor=CreditorId(this_archived.pk),
+        date=datetime.date.today(),
+        positions=[],
+    )
+    invoice.id = repository.create(invoice)
+
+    response = goto_update_view(client, invoice.id)
+
+    creditors = list(response.context["creditors"])
+    creditor_names = [c.name for c in creditors]
+
+    assert active.name in creditor_names
+    assert this_archived.name in creditor_names
+    assert other_archived.name not in creditor_names
 
 
 @pytest.mark.django_db
