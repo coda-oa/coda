@@ -140,6 +140,7 @@ def test__invalid_form_among_forms__formset_is_invalid() -> None:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__add_form__increases_formset_forms(client: Client) -> None:
     response = client.post("/htmx/", {"total_forms": "1", "form_action_add": "add_form"})
 
@@ -150,6 +151,7 @@ def test__add_form__increases_formset_forms(client: Client) -> None:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__add_form_with_initial_data__new_form_is_added_with_data(client: Client) -> None:
     form_data = {
         "total_forms": "1",
@@ -167,6 +169,7 @@ def test__add_form_with_initial_data__new_form_is_added_with_data(client: Client
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__two_forms__remove_second_form__only_renders_first_form(client: Client) -> None:
     form_data = {
         "total_forms": "2",
@@ -184,6 +187,7 @@ def test__two_forms__remove_second_form__only_renders_first_form(client: Client)
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__two_forms__remove_first_form__only_renders_second_form(client: Client) -> None:
     form_data = {
         "total_forms": "2",
@@ -201,6 +205,7 @@ def test__two_forms__remove_first_form__only_renders_second_form(client: Client)
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__three_forms__removing_second_form__renders_remaining_two_forms(client: Client) -> None:
     form_data = {
         "total_forms": "3",
@@ -219,6 +224,7 @@ def test__three_forms__removing_second_form__renders_remaining_two_forms(client:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__formset_with_hx_include_and_extras__management_view_keeps_hx_include_and_extras(
     client: Client,
 ) -> None:
@@ -272,6 +278,7 @@ def test__formset_with_prerender_hook__forms__get_modified_by_hook() -> None:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__formset_with_prerender_hook__add_form__modifies_forms_in_prerender(
     client: Client,
 ) -> None:

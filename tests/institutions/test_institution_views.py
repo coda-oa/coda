@@ -1,12 +1,10 @@
 import pytest
-from django.test import Client, RequestFactory
+from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 
 from coda.apps.institutions.models import Institution
 from coda.apps.preferences.models import GlobalPreferences
-
-from coda.apps.institutions.views import request_set_successor
 
 
 def create_institution_scenario() -> tuple[Institution, Institution]:
@@ -222,12 +220,16 @@ def test__list_view__search_with_archived_filter(client: Client) -> None:
 
 
 @pytest.mark.django_db
-def test__successor_modal__excludes_current_institution_from_successor_dropdown() -> None:
+@pytest.mark.usefixtures("logged_in")
+def test__successor_modal__excludes_current_institution_from_successor_dropdown(
+    client: Client,
+) -> None:
     institution = Institution.objects.create(name="Test University")
     other_institution = Institution.objects.create(name="Other University")
 
-    request = RequestFactory().get("/")
-    response = request_set_successor(request, pk=institution.pk)
+    response = client.get(
+        reverse("institutions:request_set_successor", kwargs={"pk": institution.pk})
+    )
     html = response.content.decode()
 
     dropdown_start = html.index('id="successor_id"')
