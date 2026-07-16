@@ -72,11 +72,16 @@
               hx-swap="outerHTML">
             {% csrf_token %}
             <div class="flex">
-                <select name="funder_id" required>
+                <select name="funder_id" id="funder-id" aria-label="Select funder" required>
                     <option value="">Select funder...</option>
                     {% for org in funding_organizations %}<option value="{{ org.pk }}">{{ org.name }}</option>{% endfor %}
                 </select>
-                <input type="text" name="project_id" placeholder="Project ID" required>
+                <input type="text"
+                       name="project_id"
+                       id="project-id"
+                       aria-label="Project ID"
+                       placeholder="Project ID"
+                       required>
                 <button type="submit" class="outline max-fit-content">Add Funding</button>
             </div>
         </form>
