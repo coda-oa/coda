@@ -9,7 +9,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import cast
 
-from .exceptions import RORClientError
 from coda.domain.publication.links import Link
 
 from .ror_client import RORClient, RORRecord
@@ -36,10 +35,7 @@ class CachingRORClient:
         """
         uncached = [link for link in links if str(link) not in self._cache]
         if uncached:
-            try:
-                results = self._inner.resolve_by_ids(uncached)
-            except RORClientError:
-                raise
+            results = self._inner.resolve_by_ids(uncached)
             self._cache.update(results)
             # Mark queried-but-not-found IDs as None so they are never retried
             for link in uncached:

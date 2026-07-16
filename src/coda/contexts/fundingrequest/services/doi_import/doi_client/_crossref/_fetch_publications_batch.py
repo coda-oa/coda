@@ -56,7 +56,7 @@ def fetch_publications_batch(
     if not dois:
         return {}
 
-    client = http_client or httpx
+    client: Any = http_client or httpx
 
     filter_value = ",".join(f"doi:{doi}" for doi in dois)
     params: dict[str, str | int] = {
@@ -67,19 +67,36 @@ def fetch_publications_batch(
 
     # Safety cap: at most one item per requested DOI can match,
     # so len(dois) pages is a generous upper bound.
-    max_pages = len(dois)
+    try:
+        items = _fetch_all_pages(client, params, len(dois), timeout)
+    except Exception as e:
+        return {str(doi): map_to_doi_error(e, doi) for doi in dois}
+
+    found = _parse_batch_items(items)
+    return _build_batch_results(dois, found)
+
+
+def _fetch_all_pages(
+    client: Any,
+    params: dict[str, str | int],
+    max_pages: int,
+    timeout: int,
+) -> list[dict[str, Any]]:
+    """Fetch all pages of batch data from Crossref.
+
+    Iterates through cursor-based pagination up to *max_pages* calls.
+    Raises on HTTP or network error; the caller maps the exception
+    to per-DOI error results.
+    """
     all_items: list[dict[str, Any]] = []
     for _ in range(max_pages):
-        try:
-            response = client.get(
-                CROSSREF_API_BASE,
-                params=params,
-                timeout=timeout,
-                follow_redirects=True,
-            ).raise_for_status()
-            data = response.json()
-        except Exception as e:
-            return {str(doi): map_to_doi_error(e, doi) for doi in dois}
+        response = client.get(
+            CROSSREF_API_BASE,
+            params=params,
+            timeout=timeout,
+            follow_redirects=True,
+        ).raise_for_status()
+        data = response.json()
 
         message = data.get("message", {})
         items = message.get("items", [])
@@ -92,23 +109,42 @@ def fetch_publications_batch(
             break
         params["cursor"] = next_cursor
 
-    # Parse found items into a dict keyed by DOI
-    found: dict[str, ExternalPublicationMetadata] = {}
-    for item in all_items:
-        doi_str = item.get("DOI", "")
-        if doi_str:
-            try:
-                found[doi_str] = _parse_crossref_response({"message": item})
-            except Exception as e:
-                logger.warning("Failed to parse Crossref item for DOI %s: %s", doi_str, e)
+    return all_items
 
-    # Build result for all requested DOIs
+
+def _parse_batch_items(
+    items: list[dict[str, Any]],
+) -> dict[str, ExternalPublicationMetadata]:
+    """Parse raw Crossref items into a dict keyed by DOI string.
+
+    Individual parse failures are logged and skipped.
+    """
+    found: dict[str, ExternalPublicationMetadata] = {}
+    for item in items:
+        doi_str = item.get("DOI", "")
+        if not doi_str:
+            continue
+        try:
+            found[doi_str] = _parse_crossref_response({"message": item})
+        except Exception as e:
+            logger.warning("Failed to parse Crossref item for DOI %s: %s", doi_str, e)
+    return found
+
+
+def _build_batch_results(
+    dois: Sequence[Doi],
+    found: dict[str, ExternalPublicationMetadata],
+) -> dict[str, ExternalPublicationMetadata | Exception]:
+    """Build the final result dict for every requested DOI.
+
+    DOIs present in *found* get their metadata; missing DOIs get a
+    :class:`DOINotFoundError`.
+    """
     results: dict[str, ExternalPublicationMetadata | Exception] = {}
     for doi in dois:
         doi_str = str(doi)
         if doi_str in found:
             results[doi_str] = found[doi_str]
-        elif doi_str not in results:
+        else:
             results[doi_str] = DOINotFoundError(doi)
-
     return results

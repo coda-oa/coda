@@ -56,9 +56,8 @@
     {% endif %}
     <div class="grid align-center">
         <a href="{% url "fundingrequests:list" %}"
-           class="secondary"
-           role="button">Back to funding requests</a>
+           class="button secondary text-center">Back to funding requests</a>
         <a href="{% url "fundingrequests:mass_doi_import_input" %}"
-           role="button">Another mass import</a>
+           class="button text-center">Another mass import</a>
     </div>
 {% endblock content %}

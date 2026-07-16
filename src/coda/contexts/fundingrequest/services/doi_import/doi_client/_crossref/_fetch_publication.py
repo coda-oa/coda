@@ -77,7 +77,10 @@ def _parse_authors(author_data: list[dict[str, Any]]) -> list[ExternalAuthor]:
 def _parse_author(author: dict[str, Any]) -> ExternalAuthor:
     """Parse a single author from Crossref format."""
     name = _extract_author_name(author)
-    affiliation_name, ror_id = _extract_affiliation_info(author)
+
+    # TODO: _extract_affiliation_info returns ror as second parameter which is currently unused.
+    # we will properly link institutions in the future
+    affiliation_name, _ = _extract_affiliation_info(author)
 
     return ExternalAuthor(
         name=name,

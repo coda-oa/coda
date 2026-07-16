@@ -12,7 +12,7 @@ from uuid import uuid4
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpRequest, HttpResponse, HttpResponseNotFound
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.html import format_html
@@ -22,23 +22,24 @@ from django.views.decorators.http import require_GET, require_POST
 
 from coda import formdata
 from coda.apps.dto import CodaBaseDto
-from coda.apps.fundingrequests.views.mixins import MassImportAwareMixin
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.fundingrequests.queries.preview_context_builder import (
     build_preview_context,
     tag_existing_funders,
 )
+from coda.apps.fundingrequests.views.decorators import require_session
+from coda.apps.fundingrequests.views.mixins import MassImportAwareMixin
 from coda.contexts.fundingrequest.dto.external_metadata import ExternalPublicationMetadata
-from coda.contexts.fundingrequest.services.doi_import.doi_client import DOIMetadataClient, crossref
-from coda.contexts.fundingrequest.services.doi_import.doi_client import errors as doi_errors
-from coda.contexts.fundingrequest.services.doi_import.doi_client._crossref._crossref_type_detector import (
-    detect_publication_type,
-)
 from coda.contexts.fundingrequest.services.doi_import._service import (
     DOIImportService,
     OverrideFunding,
     OverrideImport,
     OverrideImportTypeAdapter,
+)
+from coda.contexts.fundingrequest.services.doi_import.doi_client import DOIMetadataClient, crossref
+from coda.contexts.fundingrequest.services.doi_import.doi_client import errors as doi_errors
+from coda.contexts.fundingrequest.services.doi_import.doi_client._crossref._crossref_type_detector import (
+    detect_publication_type,
 )
 from coda.contexts.fundingrequest.services.doi_import.errors import (
     DOIAlreadyImported,
@@ -120,6 +121,7 @@ class DOIPreviewDetailView(LoginRequiredMixin, MassImportAwareMixin, View):
 
     doi_client: ClassVar[DOIMetadataClient] = crossref
 
+    @require_session()
     def get(self, request: HttpRequest, session_key: str) -> HttpResponse:
         """
         Load preview data from session, build preview on demand, display detail page.
@@ -130,10 +132,7 @@ class DOIPreviewDetailView(LoginRequiredMixin, MassImportAwareMixin, View):
         Returns:
             Rendered preview detail page (read-only, no edit buttons)
         """
-        session_data = request.session.get(session_key)
-
-        if not session_data:
-            return HttpResponse("Preview session not found or expired", status=404)
+        session_data = request.session[session_key]
 
         doi = Doi(session_data["doi"])
         metadata = ExternalPublicationMetadata.model_validate(session_data["original_metadata"])
@@ -163,6 +162,7 @@ class DOIPreviewSaveView(LoginRequiredMixin, MassImportAwareMixin, View):
 
     doi_client: ClassVar[DOIMetadataClient] = crossref
 
+    @require_session()
     def post(self, request: HttpRequest, session_key: str) -> HttpResponse:
         """
         Save preview data from session to database.
@@ -180,10 +180,7 @@ class DOIPreviewSaveView(LoginRequiredMixin, MassImportAwareMixin, View):
         Returns:
             Redirect to funding request detail page
         """
-        session_data = request.session.get(session_key)
-
-        if not session_data:
-            return HttpResponse("Preview session not found or expired", status=404)
+        session_data = request.session[session_key]
 
         response = self.redirect_if_mass_import(session_data)
         if response:
@@ -253,6 +250,7 @@ def _render_monograph_type_form(
     return render(request, "fundingrequests/partials/doi_type_change_to_monograph.html", context)
 
 
+@require_session()
 @login_required
 @require_GET
 def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpResponse:
@@ -262,9 +260,7 @@ def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpRe
     and the form content are always in sync.
     Uses original_metadata for smart pre-filling (e.g. suggested_publisher).
     """
-    session_data = request.session.get(session_key)
-    if not session_data:
-        return HttpResponse("Preview session not found", status=404)
+    session_data = request.session[session_key]
 
     requested_type = request.GET.get("publication_type", "article")
     original_metadata = session_data.get("original_metadata", {})
@@ -280,6 +276,7 @@ def doi_preview_load_type_form(request: HttpRequest, session_key: str) -> HttpRe
     return render(request, "fundingrequests/partials/doi_type_change_tab_content.html", context)
 
 
+@require_session()
 @login_required
 @require_POST
 def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> HttpResponse:
@@ -292,9 +289,7 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
     On success: returns HX-Redirect header so HTMX triggers a full page navigation
     to the preview detail page.
     """
-    session_data = request.session.get(session_key)
-    if not session_data:
-        return HttpResponse("Preview session not found", status=404)
+    session_data = request.session[session_key]
 
     requested_type = request.POST.get("publication_type")
     if requested_type not in ("article", "monograph"):
@@ -336,6 +331,7 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
     return response
 
 
+@require_session()
 @login_required
 @require_POST
 def doi_preview_reset_type(request: HttpRequest, session_key: str) -> HttpResponse:
@@ -344,9 +340,7 @@ def doi_preview_reset_type(request: HttpRequest, session_key: str) -> HttpRespon
     Clears any journal_id/publisher_id override from session, re-derives the
     original type from original_metadata, and issues HX-Redirect to the preview page.
     """
-    session_data = request.session.get(session_key)
-    if not session_data:
-        return HttpResponse("Preview session not found", status=404)
+    session_data = request.session[session_key]
 
     override = _load_override(session_data)
     override = override.drop_publication_type()
@@ -377,9 +371,7 @@ def _render_funding_partial(request: HttpRequest, session_key: str) -> HttpRespo
     Rebuilds the preview DTO from session (same logic as DOIPreviewDetailView)
     so the returned HTML reflects the current override state.
     """
-    session_data = request.session.get(session_key)
-    if not session_data:
-        return HttpResponseNotFound("Preview session not found")
+    session_data = request.session[session_key]
 
     doi = Doi(session_data["doi"])
     metadata = ExternalPublicationMetadata.model_validate(session_data["original_metadata"])
@@ -403,12 +395,11 @@ def _render_funding_partial(request: HttpRequest, session_key: str) -> HttpRespo
     return render(request, "fundingrequests/partials/doi_import_publication_funding.html", context)
 
 
+@require_session()
 @login_required
 @require_POST
 def doi_preview_delete_funding(request: HttpRequest, session_key: str) -> HttpResponse:
-    session = request.session.get(session_key)
-    if not session:
-        return HttpResponseNotFound("Session not found")
+    session = request.session[session_key]
 
     delete = formdata.map_to_model(DeleteFunding, request.POST)
     override = _load_override(session)
@@ -419,12 +410,11 @@ def doi_preview_delete_funding(request: HttpRequest, session_key: str) -> HttpRe
     return _render_funding_partial(request, session_key)
 
 
+@require_session()
 @login_required
 @require_POST
 def doi_preview_add_funding(request: HttpRequest, session_key: str) -> HttpResponse:
-    session = request.session.get(session_key)
-    if not session:
-        return HttpResponseNotFound("Session not found")
+    session = request.session[session_key]
 
     add = formdata.map_to_model(AddFunding, request.POST)
     override = _load_override(session)
@@ -437,12 +427,11 @@ def doi_preview_add_funding(request: HttpRequest, session_key: str) -> HttpRespo
     return _render_funding_partial(request, session_key)
 
 
+@require_session()
 @login_required
 @require_POST
 def doi_preview_reset_funding(request: HttpRequest, session_key: str) -> HttpResponse:
-    session_data = request.session.get(session_key)
-    if not session_data:
-        return HttpResponseNotFound("Session not found")
+    session_data = request.session[session_key]
 
     override = _load_override(session_data)
     override = override.reset_funding()

@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import TypeAdapter
 
-from coda.contexts.fundingrequest.services.funder_resolution import FunderMatch
 from coda.contexts.fundingrequest.dto.external_metadata import (
     ExternalFundingMetadata,
     ExternalFundingOrganisationMetadata,
@@ -27,6 +26,7 @@ from coda.contexts.fundingrequest.services.doi_import.errors import (
     DOIAlreadyImported,
     InvalidMetadataError,
 )
+from coda.contexts.fundingrequest.services.funder_resolution import FunderMatch
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId

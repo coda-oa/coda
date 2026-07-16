@@ -7,7 +7,6 @@ Workflow:
 4. MassDOIImportResultView — display import result summary (GET only)
 """
 
-from coda.apps.breadcrumbs.decorators import breadcrumb
 from typing import Any, ClassVar
 from uuid import uuid4
 
@@ -18,19 +17,21 @@ from django.urls import reverse
 from django.views import View
 from pydantic import BaseModel
 
+from coda.apps.breadcrumbs.decorators import breadcrumb
+from coda.apps.fundingrequests.views.decorators import require_session
 from coda.contexts.fundingrequest.dto.external_metadata import ExternalPublicationMetadata
-from coda.contexts.fundingrequest.services.doi_import.doi_client import (
-    CachingDOIMetadataClient,
-    DOIMetadataClient,
-    crossref,
+from coda.contexts.fundingrequest.services.doi_import._mass_service import (
+    MassDOIImportService,
 )
 from coda.contexts.fundingrequest.services.doi_import._service import (
     DOIImportService,
     OverrideImport,
     OverrideImportTypeAdapter,
 )
-from coda.contexts.fundingrequest.services.doi_import._mass_service import (
-    MassDOIImportService,
+from coda.contexts.fundingrequest.services.doi_import.doi_client import (
+    CachingDOIMetadataClient,
+    DOIMetadataClient,
+    crossref,
 )
 from coda.domain.publication.links import Doi
 
@@ -82,9 +83,10 @@ class MassDOIImportInputView(LoginRequiredMixin, View):
     """Accept multiple DOIs via textarea, validate, batch fetch, redirect to preview."""
 
     doi_client: ClassVar[DOIMetadataClient] = crossref
+    template_name = "fundingrequests/mass_doi_import_input.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        return render(request, "fundingrequests/mass_doi_import_input.html")
+        return render(request, self.template_name)
 
     def post(self, request: HttpRequest) -> HttpResponse:
         raw_text = request.POST.get("dois", "").strip()
@@ -93,7 +95,7 @@ class MassDOIImportInputView(LoginRequiredMixin, View):
         if not lines:
             return render(
                 request,
-                "fundingrequests/mass_doi_import_input.html",
+                self.template_name,
                 {"error": "Please enter at least one DOI."},
             )
 
@@ -117,7 +119,7 @@ class MassDOIImportInputView(LoginRequiredMixin, View):
         if not valid_dois:
             return render(
                 request,
-                "fundingrequests/mass_doi_import_input.html",
+                self.template_name,
                 {"error": "No valid DOIs were found in your input."},
             )
 
@@ -169,10 +171,9 @@ class MassDOIPreviewView(LoginRequiredMixin, View):
 
     doi_client: ClassVar[DOIMetadataClient] = crossref
 
+    @require_session()
     def get(self, request: HttpRequest, session_key: str) -> HttpResponse:
-        session_data = request.session.get(session_key)
-        if not session_data:
-            return HttpResponse("Preview session not found or expired", status=404)
+        session_data = request.session[session_key]
 
         rows = [MassImportResultRow.model_validate(r) for r in session_data.get("results", [])]
 
@@ -250,10 +251,9 @@ class MassDOIPreviewSaveView(LoginRequiredMixin, View):
 
     doi_client: ClassVar[DOIMetadataClient] = crossref
 
+    @require_session()
     def post(self, request: HttpRequest, session_key: str) -> HttpResponse:
-        session_data = request.session.get(session_key)
-        if not session_data:
-            return HttpResponse("Preview session not found or expired", status=404)
+        session_data = request.session[session_key]
 
         results = session_data.get("results", [])
         caching_client = CachingDOIMetadataClient(self.doi_client)
@@ -340,10 +340,9 @@ class MassDOIImportResultView(LoginRequiredMixin, View):
     MassDOIPreviewSaveView), renders it once, then cleans up the session.
     """
 
+    @require_session("result_key", "Result session not found or expired")
     def get(self, request: HttpRequest, result_key: str) -> HttpResponse:
-        result_data = request.session.get(result_key)
-        if not result_data:
-            return HttpResponse("Result session not found or expired", status=404)
+        result_data = request.session[result_key]
 
         del request.session[result_key]
         request.session.modified = True

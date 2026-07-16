@@ -26,9 +26,9 @@ class DOIFetchError(DomainError):
 
 def map_to_doi_error(err: Exception, doi: Doi) -> DOINotFoundError | DOIFetchError:
     match err:
-        case httpx.TimeoutException() as e:
+        case httpx.TimeoutException():
             return DOIFetchError(doi, "Request timeout")
-        case httpx.ConnectError() as e:
+        case httpx.ConnectError():
             return DOIFetchError(doi, "Network connection failed")
         case httpx.HTTPStatusError() as e:
             if e.response.status_code == 404:
