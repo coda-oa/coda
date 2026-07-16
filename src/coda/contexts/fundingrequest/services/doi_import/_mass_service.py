@@ -10,26 +10,17 @@ import logging
 from dataclasses import dataclass, field
 
 from coda.contexts.fundingrequest.dto.external_metadata import ExternalPublicationMetadata
-from coda.contexts.fundingrequest.services.doi_import._map_to_preview import (
-    build_preview_article,
-    build_preview_monograph,
-)
 from coda.contexts.fundingrequest.services.doi_import.doi_client import (
     CachingDOIMetadataClient,
     DOIMetadataClient,
-)
-from coda.contexts.fundingrequest.services.doi_import.doi_client.publication_type_detector import (
-    detect_publication_type,
 )
 from coda.contexts.fundingrequest.services.doi_import.doi_client.errors import (
     DOIFetchError,
     DOINotFoundError,
 )
-from coda.contexts.fundingrequest.services.doi_import._service import (
-    DOIImportService,
-    OverrideImport,
+from coda.contexts.fundingrequest.services.doi_import.doi_client.publication_type_detector import (
+    detect_publication_type,
 )
-from coda.contexts.fundingrequest.services.doi_import._repository_uow import UnitOfWorkDOIRepository
 from coda.contexts.fundingrequest.services.doi_import.errors import (
     DOIAlreadyImported,
     InvalidMetadataError,
@@ -43,6 +34,13 @@ from coda.contexts.fundingrequest.services.funder_resolution.ror_client.exceptio
 )
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.publication.links import CrossrefId, Doi
+
+from ._map_to_preview import (
+    build_preview_article,
+    build_preview_monograph,
+)
+from ._repository_uow import UnitOfWorkDOIRepository
+from ._service import DOIImportService, OverrideImport
 
 logger = logging.getLogger(__name__)
 
