@@ -18,7 +18,7 @@ from coda.contexts.fundingrequest.services.doi_import.doi_client import (
     CachingDOIMetadataClient,
     DOIMetadataClient,
 )
-from coda.contexts.fundingrequest.services.doi_import.doi_client._crossref._crossref_type_detector import (
+from coda.contexts.fundingrequest.services.doi_import.doi_client.publication_type_detector import (
     detect_publication_type,
 )
 from coda.contexts.fundingrequest.services.doi_import.doi_client.errors import (
