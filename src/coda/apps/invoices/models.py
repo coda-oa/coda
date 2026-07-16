@@ -1,5 +1,6 @@
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
 
 from coda.apps.contracts.models import Contract
 from coda.apps.institutions.models import Institution
@@ -17,8 +18,25 @@ class FundingSource(models.Model):
     institution = models.ForeignKey(Institution, null=True, on_delete=models.CASCADE)
 
 
+class CreditorManager(models.Manager["Creditor"]):
+    def get_queryset(self) -> models.QuerySet["Creditor"]:
+        return super().get_queryset().filter(archived_at__isnull=True)
+
+
 class Creditor(models.Model):
     name = models.CharField(max_length=255)
+    archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    objects = CreditorManager()
+    all_objects = models.Manager()
+
+    def archive(self) -> None:
+        self.archived_at = timezone.now()
+        self.save(update_fields=["archived_at"])
+
+    def restore(self) -> None:
+        self.archived_at = None
+        self.save(update_fields=["archived_at"])
 
     def get_absolute_url(self) -> str:
         return reverse("invoices:creditor_detail", kwargs={"pk": self.pk})
@@ -28,7 +46,7 @@ class Creditor(models.Model):
 
 
 class Invoice(models.Model):
-    creditor = models.ForeignKey(Creditor, on_delete=models.CASCADE)
+    creditor = models.ForeignKey(Creditor, on_delete=models.PROTECT)
     date = models.DateField()
     number = models.CharField(max_length=255)
     status = models.CharField(

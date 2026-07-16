@@ -1,14 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
     <div class="flex justify-between align-center">
-        <h1 class="my-2">Creditor</h1>
-        <a href="{% url "invoices:creditor_update" pk=creditor.pk %}"
-           class="button secondary">Edit</a>
+        <h1 class="my-2">
+            Creditor
+            {% if creditor.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+        </h1>
+        <div class="flex">
+            <a href="{% url "invoices:creditor_update" pk=creditor.pk %}"
+               class="button secondary">Edit</a>
+        </div>
     </div>
-    {% if invoices %}
-        <article>
-            <h2 class="mb-2">{{ creditor.name }}</h2>
-            <h3>Related Invoices</h3>
+    <article>
+        <header>
+            <h2 class="my-0">{{ creditor.name }}</h2>
+        </header>
+        {% if creditor.archived_at %}
+            <p>
+                <strong>Archived:</strong> {{ creditor.archived_at }}
+            </p>
+        {% else %}
+            <p>
+                <strong>Status:</strong> Active
+            </p>
+        {% endif %}
+    </article>
+    <article>
+        <h2 class="mb-2">Related Invoices</h2>
+        {% if invoices %}
             <table>
                 <thead>
                     <tr>
@@ -29,6 +47,27 @@
                     {% endfor %}
                 </tbody>
             </table>
-        </article>
+        {% else %}
+            <p>No related invoices.</p>
+        {% endif %}
+    </article>
+    {% if creditor.archived_at %}
+        <div class="flex justify-end my-2">
+            <button class="outline success"
+                    hx-get="{% url 'invoices:creditor_request_restore' pk=creditor.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Restore</button>
+        </div>
+    {% else %}
+        <div class="flex justify-end my-2">
+            <button class="secondary"
+                    hx-get="{% url 'invoices:creditor_request_archive' pk=creditor.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Archive</button>
+            <button class="danger"
+                    hx-get="{% url 'invoices:creditor_request_delete' pk=creditor.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Delete</button>
+        </div>
     {% endif %}
 {% endblock content %}

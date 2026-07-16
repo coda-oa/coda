@@ -1,5 +1,27 @@
 <article class="flex justify-between align-center">
-    <p class="m-0 text-center">{{ entity.name }}</p>
-    <a class="button outline contrast"
-       href="{% url "invoices:creditor_detail" pk=entity.pk %}">View</a>
+    <div>
+        <p class="mt-1">
+            <a href="{% url 'invoices:creditor_detail' pk=entity.id %}">{{ entity.name }}</a>
+            {% if entity.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+        </p>
+    </div>
+    <div class="flex align-center">
+        <a href="{% url 'invoices:creditor_update' pk=entity.id %}"
+           class="button">Edit</a>
+        {% if entity.archived_at %}
+            <button class="outline success"
+                    hx-get="{% url 'invoices:creditor_request_restore' pk=entity.id %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Restore</button>
+        {% else %}
+            <button class="secondary"
+                    hx-get="{% url 'invoices:creditor_request_archive' pk=entity.id %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Archive</button>
+            <button class="danger"
+                    hx-get="{% url 'invoices:creditor_request_delete' pk=entity.id %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Delete</button>
+        {% endif %}
+    </div>
 </article>
