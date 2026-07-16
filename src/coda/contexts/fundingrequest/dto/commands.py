@@ -9,7 +9,7 @@ import datetime
 from collections.abc import Iterable
 from typing import Annotated
 
-from pydantic import AfterValidator, Field
+from pydantic import Field
 
 from coda.apps.authors.dto import AuthorDto
 from coda.apps.dto import CodaBaseDto, OptionalFromStr
@@ -81,12 +81,12 @@ class ExternalFundingDto(CodaBaseDto):
 
     Attributes:
         organization (FundingOrganizationId): The ID of the funding organization.
-        project_id (Annotated[str, AfterValidator(NonEmptyStr)]): The ID of the project, validated to be a non-empty string.
+        project_id (str): The ID of the project.
         project_name (str): The name of the project.
     """
 
     organization: FundingOrganizationId
-    project_id: Annotated[str, AfterValidator(NonEmptyStr)]
+    project_id: str
     project_name: str
 
     @classmethod
@@ -102,7 +102,7 @@ class ExternalFundingDto(CodaBaseDto):
         """Converts the ExternalFundingDto instance to an ExternalFunding object."""
         return ExternalFunding(
             organization=self.organization,
-            project_id=NonEmptyStr(self.project_id),
+            project_id=self.project_id,
             project_name=self.project_name,
         )
 

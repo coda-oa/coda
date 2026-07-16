@@ -21,6 +21,7 @@ from coda.domain.fundingrequest import (
     Review,
     TPublication,
 )
+from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.publication import Monograph, Publication, PublicationId
 
@@ -221,6 +222,15 @@ def get_review(id: FundingRequestId) -> Review:
 
 def get_funding_organization(pk: int) -> FundingOrganization:
     return FundingOrganization.objects.get(pk=pk)
+
+
+def get_funding_organizations_by_ids(
+    pks: list[FundingOrganizationId],
+) -> Iterable[FundingOrganization]:
+    if not pks:
+        return []
+
+    return FundingOrganization.objects.filter(pk__in=pks)
 
 
 def get_funding_organization_by_name(name: str) -> FundingOrganization | None:

@@ -1,11 +1,15 @@
 <article class="flex justify-between align-center">
-    <span>{{ entity.name }}</span>
+    <div>
+        <span>{{ entity.name }}</span>
+        {% for link in entity.links.all %}
+            <small class="label pill"
+                   style="--label-bg-color: hsl(0, 0%, 90%);
+                          --label-border-color: hsl(0, 0%, 70%)">{{ link.value }}</small>
+        {% endfor %}
+    </div>
     <div>
         <a href="{% url "fundingrequests:funders_update" pk=entity.pk %}"
            role="button"
            class="secondary">Edit</a>
-        {% comment %}
-        <button class="danger" hx-delete="{% url "fundingrequests:funders_delete" pk=entity.pk %}" hx-target="closest article" hx-swap="delete">Delete</button>
-        {% endcomment %}
     </div>
 </article>

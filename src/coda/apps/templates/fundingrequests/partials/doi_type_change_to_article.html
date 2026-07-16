@@ -26,10 +26,4 @@
                 class="inline-search-pill pill-right">Search</button>
     </fieldset>
     {% include "fundingrequests/partials/journal_search_results.html" %}
-    <div class="grid">
-        <button type="submit" class="mt-1">Apply Change to Article</button>
-        <button type="button"
-                hx-post="{% url 'fundingrequests:doi_preview_reset_type' session_key=session_key %}"
-                class="secondary mt-1">Use auto-detected result instead</button>
-    </div>
 </form>

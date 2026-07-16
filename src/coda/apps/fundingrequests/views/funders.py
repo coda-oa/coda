@@ -9,8 +9,12 @@ from django.urls import reverse_lazy
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django.views.generic import CreateView, UpdateView
 
-from coda.apps.fundingrequests.forms import ExternalFundingFormset
-from coda.apps.fundingrequests.models import FundingOrganization
+from coda.apps.fundingrequests.forms import ExternalFundingFormset, FundingOrganizationLinkForm
+from coda.apps.fundingrequests.models import (
+    FundingOrganization,
+    FundingOrganizationLink,
+    FundingOrganizationLinkType,
+)
 from coda.apps.views import SimpleSearchEntityListView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -26,6 +30,7 @@ class FundingOrganizationListView(
     entity_list_item_template = "fundingrequests/funders/funder_list_item.html"
     entity_filter_template = "entity_generic_filter.html"
     use_generic_entity_filter = True
+    queryset = FundingOrganization.objects.prefetch_related("links")
 
 
 fundingorganizations_list = FundingOrganizationListView.as_view()
@@ -37,17 +42,61 @@ class FundingOrganizationForm(forms.ModelForm[FundingOrganization]):
         fields = ["name"]
 
 
+class FundingOrganizationLinkFormMixin:
+    request: HttpRequest
+
+    def has_links(self) -> bool:
+        return bool(self.request.POST.get("link_type") and self.request.POST.get("link_value"))
+
+    def assemble_link_data(self) -> list[dict[str, Any]]:
+        forms = self.link_forms()
+        for form in forms:
+            form.full_clean()
+        return [{"link": form.get_form_data(), "errors": form.errors} for form in forms]
+
+    def link_forms(self) -> list[FundingOrganizationLinkForm]:
+        types = self.request.POST.getlist("link_type")
+        values = self.request.POST.getlist("link_value")
+        return [
+            FundingOrganizationLinkForm({"link_type": t, "link_value": v})
+            for t, v in zip(types, values)
+        ]
+
+
 @breadcrumb("Create Funding Organization", parent_url_name="fundingrequests:funders")
 class FundingOrganizationCreateView(
-    LoginRequiredMixin, CreateView[FundingOrganization, FundingOrganizationForm]
+    LoginRequiredMixin,
+    FundingOrganizationLinkFormMixin,
+    CreateView[FundingOrganization, FundingOrganizationForm],
 ):
     model = FundingOrganization
     form_class = FundingOrganizationForm
-    template_name = "generic_form_view.html"
+    template_name = "fundingrequests/funders/funder_form.html"
     success_url = reverse_lazy("fundingrequests:funders")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        return super().get_context_data(**kwargs) | {"title": "Create Funding Organization"}
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Create Funding Organization"
+        context["link_types"] = FundingOrganizationLinkType.objects.all()
+        context["links"] = self.assemble_link_data() if self.has_links() else []
+        return context
+
+    def form_valid(self, form: Any) -> HttpResponse:
+        forms = self.link_forms()
+        for f in forms:
+            if not f.is_valid():
+                return self.form_invalid(form)
+        self.object = form.save()
+        for f in forms:
+            data = f.get_form_data()
+            if data["link_type"] and data["link_value"]:
+                link_type = FundingOrganizationLinkType.objects.get(name=data["link_type"])
+                FundingOrganizationLink.objects.create(
+                    funding_organization=self.object, type=link_type, value=data["link_value"]
+                )
+        from django.shortcuts import redirect as redirect_fn
+
+        return redirect_fn(self.get_success_url())
 
 
 fundingorganizations_create = FundingOrganizationCreateView.as_view()
@@ -55,15 +104,47 @@ fundingorganizations_create = FundingOrganizationCreateView.as_view()
 
 @breadcrumb("Update Funding Organization", parent_url_name="fundingrequests:funders")
 class FundingOrganizationUpdateView(
-    LoginRequiredMixin, UpdateView[FundingOrganization, FundingOrganizationForm]
+    LoginRequiredMixin,
+    FundingOrganizationLinkFormMixin,
+    UpdateView[FundingOrganization, FundingOrganizationForm],
 ):
     model = FundingOrganization
     form_class = FundingOrganizationForm
-    template_name = "generic_form_view.html"
+    template_name = "fundingrequests/funders/funder_form.html"
     success_url = reverse_lazy("fundingrequests:funders")
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        return super().get_context_data(**kwargs) | {"title": "Update Funding Organization"}
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Update Funding Organization"
+        context["link_types"] = FundingOrganizationLinkType.objects.all()
+        context["links"] = self._get_links_for_context()
+        return context
+
+    def _get_links_for_context(self) -> list[dict[str, Any]]:
+        if self.has_links():
+            return self.assemble_link_data()
+        return [
+            {"link": {"link_type": link.type.name, "link_value": link.value}, "errors": {}}
+            for link in self.object.links.all()
+        ]
+
+    def form_valid(self, form: Any) -> HttpResponse:
+        self.object = form.save()
+        forms = self.link_forms()
+        for link_form in forms:
+            if not link_form.is_valid():
+                return self.form_invalid(form)
+        FundingOrganizationLink.objects.filter(funding_organization=self.object).delete()
+        for link_form in forms:
+            data = link_form.get_form_data()
+            if data["link_type"] and data["link_value"]:
+                link_type = FundingOrganizationLinkType.objects.get(name=data["link_type"])
+                FundingOrganizationLink.objects.create(
+                    funding_organization=self.object, type=link_type, value=data["link_value"]
+                )
+        from django.shortcuts import redirect as redirect_fn
+
+        return redirect_fn(self.get_success_url())
 
 
 fundingorganizations_update = FundingOrganizationUpdateView.as_view()
@@ -123,3 +204,13 @@ def fundingorganization_create_modal_submit(request: HttpRequest) -> HttpRespons
                 "hx_include": "#wizard-form",
             },
         )
+
+
+@login_required
+@require_POST
+def add_funder_linkrow(request: HttpRequest) -> HttpResponse:
+    return render(
+        request,
+        "partials/linkrow.html",
+        {"link_types": FundingOrganizationLinkType.objects.all()},
+    )

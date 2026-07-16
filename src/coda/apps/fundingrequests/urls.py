@@ -7,7 +7,25 @@ from coda.apps.fundingrequests.forms import (
 )
 from coda.apps.fundingrequests.views import review
 from coda.apps.fundingrequests.views.detailview import fundingrequest_detail
+from coda.apps.fundingrequests.views.doi_preview import (
+    DOIImportInputView,
+    DOIPreviewDetailView,
+    DOIPreviewSaveView,
+    doi_preview_add_funding,
+    doi_preview_apply_type_change,
+    doi_preview_delete_funding,
+    doi_preview_load_type_form,
+    doi_preview_reset_funding,
+    doi_preview_reset_type,
+)
+from coda.apps.fundingrequests.views.mass_doi_import import (
+    MassDOIImportInputView,
+    MassDOIImportResultView,
+    MassDOIPreviewSaveView,
+    MassDOIPreviewView,
+)
 from coda.apps.fundingrequests.views.funders import (
+    add_funder_linkrow,
     fundingorganization_create_modal,
     fundingorganization_create_modal_submit,
     fundingorganizations_create,
@@ -34,8 +52,8 @@ from coda.apps.fundingrequests.views.wizard.steps.journal_step import (
 )
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import add_linkrow, parse_authors
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
-    find_publisher,
     clear_publisher_error,
+    find_publisher,
 )
 from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdateExtraInformationView,
@@ -43,14 +61,6 @@ from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdatePublicationView,
 )
 from coda.apps.fundingrequests.views.wizard.update_monograph import MonographUpdateMetaView
-from coda.apps.fundingrequests.views.doi_preview import (
-    DOIImportInputView,
-    DOIPreviewDetailView,
-    DOIPreviewSaveView,
-    doi_preview_load_type_form,
-    doi_preview_apply_type_change,
-    doi_preview_reset_type,
-)
 
 app_name = "fundingrequests"
 
@@ -62,8 +72,39 @@ urlpatterns = [
     path("list/", fundingrequest_list, name="list"),
     path("import/", import_fundingrequests, name="import"),
     path("doi-import/", DOIImportInputView.as_view(), name="doi_import_input"),
+    path("doi-import/mass/", MassDOIImportInputView.as_view(), name="mass_doi_import_input"),
+    path(
+        "doi-import/mass-preview/<str:session_key>/",
+        MassDOIPreviewView.as_view(),
+        name="mass_doi_preview",
+    ),
+    path(
+        "doi-import/mass-preview/<str:session_key>/save/",
+        MassDOIPreviewSaveView.as_view(),
+        name="mass_doi_preview_save",
+    ),
+    path(
+        "doi-import/mass-result/<str:result_key>/",
+        MassDOIImportResultView.as_view(),
+        name="mass_doi_result",
+    ),
     path(
         "doi-preview/<str:session_key>/", DOIPreviewDetailView.as_view(), name="doi_preview_detail"
+    ),
+    path(
+        "doi-preview/<str:session_key>/delete-funding",
+        doi_preview_delete_funding,
+        name="doi_preview_delete_funding",
+    ),
+    path(
+        "doi-preview/<str:session_key>/add-funding",
+        doi_preview_add_funding,
+        name="doi_preview_add_funding",
+    ),
+    path(
+        "doi-preview/<str:session_key>/reset-funding",
+        doi_preview_reset_funding,
+        name="doi_preview_reset_funding",
     ),
     path(
         "doi-preview/<str:session_key>/save/", DOIPreviewSaveView.as_view(), name="doi_preview_save"
@@ -119,6 +160,11 @@ urlpatterns = [
     ),
     path("funders/update/<int:pk>/", fundingorganizations_update, name="funders_update"),
     path("funders/delete/<int:pk>/", fundingorganizations_delete, name="funders_delete"),
+    path(
+        "funders/partial/add-linkrow/",
+        add_funder_linkrow,
+        name="funders_partial_add_linkrow",
+    ),
     path("partial/add-linkrow/", add_linkrow, name="partial_add_linkrow"),
     path("partial/parse-authors/", parse_authors, name="parse_authors"),
     path(

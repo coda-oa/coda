@@ -12,7 +12,13 @@ from coda.apps import fields
 from coda.apps.contracts import repository
 from coda.apps.formbase import CodaFormBase
 from coda.contexts.fundingrequest.dto.commands import ExternalFundingDto, PaymentDto
-from coda.apps.fundingrequests.models import FundingOrganization, FundingRequest, Label
+from coda.apps.fundingrequests.models import (
+    FundingOrganization,
+    FundingOrganizationLinkType,
+    FundingRequest,
+    Label,
+)
+from coda.domain.fundingrequest.links import create_link
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 from coda.apps.publications.dto import ContractYearDto
@@ -219,6 +225,30 @@ class ReviewForm(forms.Form):
     )
     funding_currency = fields.currency_field(label="Currency")
     reviewer_comments = forms.CharField(widget=forms.Textarea, required=False)
+
+
+class FundingOrganizationLinkForm(forms.Form):
+    use_required_attribute = False
+    link_type = forms.ChoiceField(
+        choices=lambda: list(FundingOrganizationLinkType.objects.values_list("name", "name").all())
+    )
+    link_value = forms.CharField()
+
+    def full_clean(self) -> None:
+        super().full_clean()
+        if not self.cleaned_data.get("link_type") or not self.cleaned_data.get("link_value"):
+            return
+        try:
+            validated = create_link(self.cleaned_data["link_type"], self.cleaned_data["link_value"])
+            self.cleaned_data["link_value"] = validated.value()
+        except ValueError as err:
+            self.add_error("link_value", str(err))
+
+    def get_form_data(self) -> dict[str, Any]:
+        return {
+            "link_type": self.cleaned_data.get("link_type", self.data.get("link_type", "")),
+            "link_value": self.cleaned_data.get("link_value", self.data.get("link_value", "")),
+        }
 
 
 @login_required

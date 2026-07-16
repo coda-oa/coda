@@ -233,6 +233,30 @@ def find_by_doi(doi: Doi) -> BasePublication | None:
     return PublicationDomainMapper.map(model)
 
 
+def find_by_dois(dois: list[Doi]) -> dict[str, BasePublication]:
+    """Batch-find publications by DOI.
+
+    Args:
+        dois: List of DOIs to search for
+
+    Returns:
+        Dict mapping DOI string to found publication (omits not-found DOIs)
+    """
+    doi_values = [d.value() for d in dois]
+    models = (
+        PublicationDomainMapper.prefetch(PublicationModel.objects.all())
+        .filter(links__type__name="DOI", links__value__in=doi_values)
+        .distinct()
+    )
+    results: dict[str, BasePublication] = {}
+    for model in models:
+        pub = PublicationDomainMapper.map(model)
+        for link in model.links.all():
+            if link.type.name == "DOI" and link.value in doi_values:
+                results[link.value] = pub
+    return results
+
+
 def find_publications_by_vocabulary(vocabulary_id: VocabularyId) -> list[BasePublication]:
     query = models.Q(publication_type__vocabulary_id=vocabulary_id) | models.Q(
         subject_area__vocabulary_id=vocabulary_id

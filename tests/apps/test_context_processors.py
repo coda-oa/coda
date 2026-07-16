@@ -5,8 +5,10 @@ from django.test import RequestFactory, override_settings
 
 from coda.apps.context_processors import demo_context
 from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView
-from coda.contexts.publication.services.doi_client import CrossrefDoiClient
-from coda.contexts.publication.services.fakes import InMemoryDOIMetadataClient
+from coda.contexts.fundingrequest.services.doi_import.doi_client import (
+    InMemoryDOIMetadataClient,
+    crossref,
+)
 
 
 @pytest.fixture
@@ -25,7 +27,7 @@ def in_memory_client() -> InMemoryDOIMetadataClient:
 @pytest.fixture(autouse=True)
 def restore_doi_client() -> Generator[None]:
     yield
-    DOIImportInputView.doi_client = CrossrefDoiClient()
+    DOIImportInputView.doi_client = crossref
 
 
 def test__demo_context__when_demo_mode_false__returns_empty_dict(
@@ -57,7 +59,7 @@ def test__demo_context__when_demo_mode_true_and_in_memory_client__returns_demo_d
 def test__demo_context__when_demo_mode_true_but_crossref_client__returns_empty_dict(
     request_factory: RequestFactory,
 ) -> None:
-    DOIImportInputView.doi_client = CrossrefDoiClient()
+    DOIImportInputView.doi_client = crossref
     request = request_factory.get("/")
 
     with override_settings(CODA_DEMO_MODE=True):

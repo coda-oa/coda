@@ -1,0 +1,89 @@
+<article id="doi-funding-section">
+    <header class="flex justify-between align-center">
+        <h2 class="my-0">Publication Funding</h2>
+        <button type="button"
+                class="secondary small my-0"
+                hx-post="{% url 'fundingrequests:doi_preview_reset_funding' session_key=session_key %}"
+                hx-target="#doi-funding-section"
+                hx-swap="outerHTML"
+                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>Reset</button>
+    </header>
+    <table>
+        <thead>
+            <tr>
+                <th>Funder</th>
+                <th>Project ID</th>
+                <th>Exists in CODA</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in funding %}
+                <tr>
+                    <td>{{ f.name }}</td>
+                    <td>{{ f.project_id }}</td>
+                    <td>
+                        {% if f.is_new %}
+                            <span class="label pill"
+                                  style="--label-bg-color: var(--coda-primary-background);
+                                         --label-border-color: var(--coda-primary-background)">New</span>
+                        {% else %}
+                            <span class="label pill"
+                                  style="--label-bg-color: var(--coda-validation-valid-color);
+                                         --label-border-color: var(--coda-validation-valid-color)">Exists</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end px-0">
+                        <form hx-post="{% url 'fundingrequests:doi_preview_delete_funding' session_key=session_key %}"
+                              hx-target="#doi-funding-section"
+                              hx-swap="outerHTML">
+                            {% csrf_token %}
+                            <input type="hidden" name="funder" value="{{ f.name }}">
+                            <input type="hidden" name="project_id" value="{{ f.project_id }}">
+                            <button type="submit" class="outline danger max-fit-content my-0">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="3" class="text-muted text-center">No funding information available.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="my-2">
+        <small class="mr-2 text-muted">
+            <span class="label pill"
+                  style="--label-bg-color: var(--coda-validation-valid-color);
+                         --label-border-color: var(--coda-validation-valid-color)">Exists</span>
+            — already in database
+        </small>
+        <small>
+            <span class="label pill"
+                  style="--label-bg-color: var(--coda-primary-background);
+                         --label-border-color: var(--coda-primary-background)">New</span>
+            — will be created
+        </small>
+    </div>
+    <article class="mt-2 mb-0">
+        <h3>Add funding</h3>
+        <form hx-post="{% url 'fundingrequests:doi_preview_add_funding' session_key=session_key %}"
+              hx-target="#doi-funding-section"
+              hx-swap="outerHTML">
+            {% csrf_token %}
+            <div class="flex">
+                <select name="funder_id" id="funder-id" aria-label="Select funder" required>
+                    <option value="">Select funder...</option>
+                    {% for org in funding_organizations %}<option value="{{ org.pk }}">{{ org.name }}</option>{% endfor %}
+                </select>
+                <input type="text"
+                       name="project_id"
+                       id="project-id"
+                       aria-label="Project ID"
+                       placeholder="Project ID"
+                       required>
+                <button type="submit" class="outline max-fit-content">Add Funding</button>
+            </div>
+        </form>
+    </article>
+</article>
