@@ -1,5 +1,6 @@
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
 
 from coda.apps.contracts.models import Contract
 from coda.apps.institutions.models import Institution
@@ -28,6 +29,14 @@ class Creditor(models.Model):
 
     objects = CreditorManager()
     all_objects = models.Manager()
+
+    def archive(self) -> None:
+        self.archived_at = timezone.now()
+        self.save(update_fields=["archived_at"])
+
+    def restore(self) -> None:
+        self.archived_at = None
+        self.save(update_fields=["archived_at"])
 
     def get_absolute_url(self) -> str:
         return reverse("invoices:creditor_detail", kwargs={"pk": self.pk})

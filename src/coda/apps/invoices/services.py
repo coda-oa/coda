@@ -1,5 +1,3 @@
-from django.utils import timezone
-
 from coda.apps.invoices.models import Creditor, Invoice
 
 
@@ -14,15 +12,13 @@ def can_delete_creditor(creditor: Creditor) -> tuple[bool, list[str]]:
 def archive_creditor(creditor: Creditor) -> None:
     if creditor.archived_at:
         raise ValueError("Creditor is already archived")
-    creditor.archived_at = timezone.now()
-    creditor.save(update_fields=["archived_at"])
+    creditor.archive()
 
 
 def restore_creditor(creditor: Creditor) -> None:
     if not creditor.archived_at:
         raise ValueError("Creditor is not archived")
-    creditor.archived_at = None
-    creditor.save(update_fields=["archived_at"])
+    creditor.restore()
 
 
 def delete_creditor(creditor: Creditor) -> None:
