@@ -4,6 +4,8 @@ from typing import Any, cast
 
 from django import forms
 from django.contrib.auth.decorators import login_required
+from django.db import models
+from django.forms import ModelChoiceField
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
@@ -147,10 +149,22 @@ class PaymentForm(CodaFormBase):
 class ExternalFundingForm(forms.Form):
     use_required_attribute = False
     organization = forms.ModelChoiceField[FundingOrganization](
-        queryset=FundingOrganization.all_objects.all(), widget=SearchSelectWidget()
+        queryset=FundingOrganization.objects.all(), widget=SearchSelectWidget()
     )
     project_id = forms.CharField()
     project_name = forms.CharField(required=False)
+
+    def __init__(
+        self,
+        *args: Any,
+        organization_queryset: models.QuerySet[FundingOrganization] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        if organization_queryset is not None:
+            cast(ModelChoiceField[FundingOrganization], self.fields["organization"]).queryset = (
+                organization_queryset
+            )
 
     def is_valid(self) -> bool:
         is_valid = super().is_valid()
@@ -199,12 +213,49 @@ class ExternalFundingFormset(HtmxDynamicFormset[ExternalFundingForm]):
     name: str = "fundingrequests:external_funding_formset"
     form_class = ExternalFundingForm
 
+    @staticmethod
+    def prerender_forms(
+        forms: list[ExternalFundingForm], data: Mapping[str, Any] | None = None
+    ) -> list[ExternalFundingForm]:
+        if data is None:
+            return forms
+        org_pks = _extract_org_pks_from_formset(data)
+        if not org_pks:
+            return forms
+        archived_pks = set(
+            FundingOrganization.all_objects.filter(
+                pk__in=org_pks, archived_at__isnull=False
+            ).values_list("pk", flat=True)
+        )
+        if not archived_pks:
+            return forms
+        custom_qs = FundingOrganization.objects.all() | FundingOrganization.all_objects.filter(
+            pk__in=archived_pks
+        )
+        for form in forms:
+            cast(ModelChoiceField[FundingOrganization], form.fields["organization"]).queryset = (
+                custom_qs
+            )
+        return forms
+
     def is_empty(self) -> bool:
         return all(form.is_empty() for form in self.forms)
 
     def to_dto_list(self) -> list[ExternalFundingDto]:
         _dtos = [form.to_dto() for form in self.forms]
         return [dto for dto in _dtos if dto is not None]
+
+
+def _extract_org_pks_from_formset(data: Mapping[str, Any]) -> set[int]:
+    org_pks: set[int] = set()
+    for key, value in data.items():
+        if not isinstance(key, str) or not key.endswith("-organization") or key.startswith("extra"):
+            continue
+        values = value if isinstance(value, (list, tuple)) else [value]
+        for v in values:
+            if v not in (None, ""):
+                org_pks.add(int(v))
+    return org_pks
 
 
 class LabelForm(forms.ModelForm[Label]):

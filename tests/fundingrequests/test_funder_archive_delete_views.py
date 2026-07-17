@@ -1,7 +1,12 @@
+from typing import cast
+
 import pytest
+from django.forms import ModelChoiceField
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 
+from coda.apps.fundingrequests.forms import ExternalFundingForm, ExternalFundingFormset
 from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganization
 from tests import modelfactory
 
@@ -14,6 +19,49 @@ def assert_content_contains(content: str, *items: str) -> None:
 def assert_content_excludes(content: str, *items: str) -> None:
     for item in items:
         assert item not in content
+
+
+@pytest.mark.django_db
+def test__new_funding_form__excludes_archived_funders_from_dropdown() -> None:
+    archived = FundingOrganization.objects.create(
+        name="Archived Funder", archived_at=timezone.now()
+    )
+    active = FundingOrganization.objects.create(name="Active Funder")
+
+    form = ExternalFundingForm()
+
+    qs = list(
+        cast(ModelChoiceField[FundingOrganization], form.fields["organization"]).queryset or ()
+    )
+    assert active in qs
+    assert archived not in qs
+
+
+@pytest.mark.django_db
+def test__edit_funding_form__includes_invoices_archived_funder_but_not_other_archived() -> None:
+    active = FundingOrganization.objects.create(name="Active Funder")
+    this_archived = FundingOrganization.objects.create(
+        name="This Request's Funder", archived_at=timezone.now()
+    )
+    other_archived = FundingOrganization.objects.create(
+        name="Other Archived Funder", archived_at=timezone.now()
+    )
+
+    funding_data = [
+        {"organization": this_archived.pk, "project_id": "p1", "project_name": "Project 1"},
+    ]
+    formset = ExternalFundingFormset.from_data(funding_data)
+
+    qs = list(
+        cast(
+            ModelChoiceField[FundingOrganization], formset.forms[0].fields["organization"]
+        ).queryset
+        or ()
+    )
+    qs_names = [o.name for o in qs]
+    assert active.name in qs_names
+    assert this_archived.name in qs_names
+    assert other_archived.name not in qs_names
 
 
 @pytest.mark.django_db
