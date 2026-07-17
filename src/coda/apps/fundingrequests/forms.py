@@ -147,7 +147,7 @@ class PaymentForm(CodaFormBase):
 class ExternalFundingForm(forms.Form):
     use_required_attribute = False
     organization = forms.ModelChoiceField[FundingOrganization](
-        queryset=FundingOrganization.objects.all(), widget=SearchSelectWidget()
+        queryset=FundingOrganization.all_objects.all(), widget=SearchSelectWidget()
     )
     project_id = forms.CharField()
     project_name = forms.CharField(required=False)

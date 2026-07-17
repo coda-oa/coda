@@ -1,7 +1,10 @@
 """Shared fixtures for fundingrequests tests."""
 
+from django.utils import timezone
+
 import pytest
 
+from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.journals import services as journal_services
 from coda.apps.journals.models import Journal
 from coda.domain.contract import PublisherId
@@ -25,3 +28,13 @@ def test_journal() -> Journal:
     )
 
     return Journal.objects.get(pk=int(journal_id))
+
+
+@pytest.fixture
+def funder() -> FundingOrganization:
+    return FundingOrganization.objects.create(name="Test Funder")
+
+
+@pytest.fixture
+def archived_funder() -> FundingOrganization:
+    return FundingOrganization.objects.create(name="Archived Funder", archived_at=timezone.now())

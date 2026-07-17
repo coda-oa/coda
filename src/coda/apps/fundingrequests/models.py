@@ -2,6 +2,7 @@ from typing import Any
 from django.core.validators import RegexValidator
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
 
 from coda.apps.publications.models import Publication
 from coda.domain.fundingrequest import PaymentMethod
@@ -17,11 +18,28 @@ class FundingRequestContact(models.Model):
         return self.name
 
 
+class FundingOrganizationManager(models.Manager["FundingOrganization"]):
+    def get_queryset(self) -> models.QuerySet["FundingOrganization"]:
+        return super().get_queryset().filter(archived_at__isnull=True)
+
+
 class FundingOrganization(models.Model):
     name = models.CharField()
+    archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    objects = FundingOrganizationManager()
+    all_objects = models.Manager()
 
     def __str__(self) -> str:
         return self.name
+
+    def archive(self) -> None:
+        self.archived_at = timezone.now()
+        self.save(update_fields=["archived_at"])
+
+    def restore(self) -> None:
+        self.archived_at = None
+        self.save(update_fields=["archived_at"])
 
 
 class FundingOrganizationLinkType(models.Model):
@@ -46,7 +64,7 @@ class ExternalFunding(models.Model):
         related_name="external_funding",
         null=True,
     )
-    organization = models.ForeignKey(FundingOrganization, on_delete=models.CASCADE)
+    organization = models.ForeignKey(FundingOrganization, on_delete=models.PROTECT)
     project_id = models.CharField()
     project_name = models.CharField()
 

@@ -26,12 +26,18 @@ from coda.apps.fundingrequests.views.mass_doi_import import (
 )
 from coda.apps.fundingrequests.views.funders import (
     add_funder_linkrow,
+    archive_funder,
+    delete_funder,
     fundingorganization_create_modal,
     fundingorganization_create_modal_submit,
     fundingorganizations_create,
-    fundingorganizations_delete,
+    fundingorganizations_detail,
     fundingorganizations_list,
     fundingorganizations_update,
+    request_archive_funder,
+    request_delete_funder,
+    request_restore_funder,
+    restore_funder,
 )
 from coda.apps.fundingrequests.views.home import fundingrequest_home
 from coda.apps.fundingrequests.views.labels import (
@@ -151,6 +157,7 @@ urlpatterns = [
     path("labels/attach/", attach_label, name="label_attach"),
     path("labels/detach", detach_label, name="label_detach"),
     path("funders/", fundingorganizations_list, name="funders"),
+    path("funders/<int:pk>/", fundingorganizations_detail, name="funder_detail"),
     path("funders/create/", fundingorganizations_create, name="funders_create"),
     path("funders/create-modal/", fundingorganization_create_modal, name="funders_create_modal"),
     path(
@@ -159,7 +166,16 @@ urlpatterns = [
         name="funders_create_modal_submit",
     ),
     path("funders/update/<int:pk>/", fundingorganizations_update, name="funders_update"),
-    path("funders/delete/<int:pk>/", fundingorganizations_delete, name="funders_delete"),
+    path(
+        "funders/<int:pk>/request-archive/", request_archive_funder, name="funder_request_archive"
+    ),
+    path("funders/<int:pk>/archive/", archive_funder, name="funder_archive"),
+    path("funders/<int:pk>/request-delete/", request_delete_funder, name="funder_request_delete"),
+    path("funders/<int:pk>/delete/", delete_funder, name="funder_delete"),
+    path(
+        "funders/<int:pk>/request-restore/", request_restore_funder, name="funder_request_restore"
+    ),
+    path("funders/<int:pk>/restore/", restore_funder, name="funder_restore"),
     path(
         "funders/partial/add-linkrow/",
         add_funder_linkrow,
