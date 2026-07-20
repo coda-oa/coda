@@ -18,6 +18,7 @@ from coda.apps.fundingrequests.services.funder_services import (
 )
 from coda.apps.fundingrequests.forms import ExternalFundingFormset, FundingOrganizationLinkForm
 from coda.apps.fundingrequests.models import (
+    ExternalFunding,
     FundingOrganization,
     FundingOrganizationLink,
     FundingOrganizationLinkType,
@@ -99,6 +100,15 @@ class FundingOrganizationDetailView(LoginRequiredMixin, DetailView[FundingOrgani
     queryset = FundingOrganization.all_objects.prefetch_related("links")
     template_name = "fundingrequests/funders/detail.html"
 
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+
+        funding_records = ExternalFunding.objects.filter(organization=self.object).select_related(
+            "funding_request"
+        )
+        return super().get_context_data(**kwargs) | {
+            "funding_records": funding_records,
+        }
+
 
 fundingorganizations_detail = FundingOrganizationDetailView.as_view()
 
@@ -142,7 +152,7 @@ class FundingOrganizationCreateView(
 fundingorganizations_create = FundingOrganizationCreateView.as_view()
 
 
-@breadcrumb("Update Funding Organization", parent_url_name="fundingrequests:funders")
+@breadcrumb("Update Funding Organization", parent_url_name="fundingrequests:funder_detail")
 class FundingOrganizationUpdateView(
     LoginRequiredMixin,
     FundingOrganizationLinkFormMixin,

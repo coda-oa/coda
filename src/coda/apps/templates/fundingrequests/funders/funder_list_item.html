@@ -1,9 +1,7 @@
 <article class="flex justify-between align-center">
-    <div>
-        <p class="mt-1">
-            <a href="{% url 'fundingrequests:funder_detail' pk=entity.id %}">{{ entity.name }}</a>
-            {% if entity.archived_at %}<span class="pill danger">Archived</span>{% endif %}
-        </p>
+    <div class="flex align-center">
+        <a href="{% url 'fundingrequests:funder_detail' pk=entity.id %}">{{ entity.name }}</a>
+        {% if entity.archived_at %}<span class="pill danger">Archived</span>{% endif %}
         {% for link in entity.links.all %}<small class="label pill identifier-batch">{{ link.value }}</small>{% endfor %}
     </div>
     <div class="flex align-center">

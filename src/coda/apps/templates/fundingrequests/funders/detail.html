@@ -24,10 +24,59 @@
             </p>
         {% endif %}
         {% if object.links.all %}
-            <p>
-                <strong>Identifiers:</strong>
-                {% for link in object.links.all %}<small class="label pill identifier-batch">{{ link.value }}</small>{% endfor %}
-            </p>
+            <section class="my-2">
+                <h3>Identifiers</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for link in object.links.all %}
+                            <tr>
+                                <td>{{ link.type.name }}</td>
+                                <td>{{ link.value }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+        {% endif %}
+    </article>
+    <article>
+        <header>
+            <h2 class="mb-0">
+                Related Funding Requests
+                {% if funding_records %}({{ funding_records|length }}){% endif %}
+            </h2>
+        </header>
+        {% if funding_records %}
+            <div class="scroll-container max-h-30">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Request ID</th>
+                            <th>Project ID</th>
+                            <th>Project Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in funding_records %}
+                            <tr>
+                                <td>
+                                    <a href="{% url "fundingrequests:detail" pk=record.funding_request.pk %}">{{ record.funding_request.request_id }}</a>
+                                </td>
+                                <td>{{ record.project_id }}</td>
+                                <td>{{ record.project_name }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>No related funding requests.</p>
         {% endif %}
     </article>
     {% if object.archived_at %}
