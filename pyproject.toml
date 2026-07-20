@@ -25,11 +25,7 @@ license = { text = "GPL-3.0-or-later" }
 
 [project.optional-dependencies]
 docs = [
-  "sphinx>=8.0.2",
-  "myst-parser>=4.0.0",
-  "pydata-sphinx-theme>=0.15.4",
-  "sphinx-autobuild>=2024.4.16",
-  "sphinx-copybutton>=0.5.2",
+  "zensical>=0.0.51",
 ]
 [build-system]
 requires = ["pdm-backend"]
@@ -42,6 +38,9 @@ integrationtests = "pytest -m 'not migration_test and not performance and not ui
 migrationtests = "pytest -m 'migration_test' --ff"
 uitests = "pytest -m 'ui_test'"
 alltests = "pytest -vv"
+docs-build = "zensical build"
+docs-serve = "zensical serve"
+docs-clean = "rm -rf site/"
 
 [tool.black]
 line-length = 100
