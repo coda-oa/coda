@@ -1,15 +1,26 @@
 <article class="flex justify-between align-center">
-    <div>
-        <span>{{ entity.name }}</span>
-        {% for link in entity.links.all %}
-            <small class="label pill"
-                   style="--label-bg-color: hsl(0, 0%, 90%);
-                          --label-border-color: hsl(0, 0%, 70%)">{{ link.value }}</small>
-        {% endfor %}
+    <div class="flex align-center">
+        <a href="{% url 'fundingrequests:funder_detail' pk=entity.id %}">{{ entity.name }}</a>
+        {% if entity.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+        {% for link in entity.links.all %}<small class="label pill identifier-batch">{{ link.value }}</small>{% endfor %}
     </div>
-    <div>
+    <div class="flex align-center">
         <a href="{% url "fundingrequests:funders_update" pk=entity.pk %}"
-           role="button"
-           class="secondary">Edit</a>
+           class="button">Edit</a>
+        {% if entity.archived_at %}
+            <button class="outline success"
+                    hx-get="{% url 'fundingrequests:funder_request_restore' pk=entity.id %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Restore</button>
+        {% else %}
+            <button class="secondary"
+                    hx-get="{% url 'fundingrequests:funder_request_archive' pk=entity.id %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Archive</button>
+            <button class="danger"
+                    hx-get="{% url 'fundingrequests:funder_request_delete' pk=entity.id %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Delete</button>
+        {% endif %}
     </div>
 </article>

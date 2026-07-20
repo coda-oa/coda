@@ -1,9 +1,11 @@
-from collections.abc import Mapping
 import datetime
+from collections.abc import Mapping
 from typing import Any, cast
 
 from django import forms
 from django.contrib.auth.decorators import login_required
+from django.db import models
+from django.forms import ModelChoiceField
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
@@ -11,19 +13,19 @@ from django.views.decorators.http import require_POST
 from coda.apps import fields
 from coda.apps.contracts import repository
 from coda.apps.formbase import CodaFormBase
-from coda.contexts.fundingrequest.dto.commands import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.models import (
     FundingOrganization,
     FundingOrganizationLinkType,
     FundingRequest,
     Label,
 )
-from coda.domain.fundingrequest.links import create_link
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 from coda.apps.publications.dto import ContractYearDto
 from coda.apps.widgets import SearchSelectWidget
+from coda.contexts.fundingrequest.dto.commands import ExternalFundingDto, PaymentDto
 from coda.domain.contract import ContractId, ContractYear
+from coda.domain.fundingrequest.links import create_link
 
 
 class ExtraContactForm(CodaFormBase):
@@ -97,12 +99,8 @@ class ContractFormset(HtmxDynamicFormset[ContractForm]):
     def prerender_forms(
         forms: list[ContractForm], mapping: Mapping[str, Any] | None = None
     ) -> list[ContractForm]:
-        if not mapping:
-            return forms
-
-        if ContractFormset.use_inactive_contract_forms(forms, mapping):
+        if mapping and ContractFormset.use_inactive_contract_forms(forms, mapping):
             return [ContractFormWithInactive(form.data, prefix=form.prefix) for form in forms]
-
         return forms
 
     @staticmethod
@@ -152,6 +150,18 @@ class ExternalFundingForm(forms.Form):
     project_id = forms.CharField()
     project_name = forms.CharField(required=False)
 
+    def __init__(
+        self,
+        *args: Any,
+        organization_queryset: models.QuerySet[FundingOrganization] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        if organization_queryset is not None:
+            cast(ModelChoiceField[FundingOrganization], self.fields["organization"]).queryset = (
+                organization_queryset
+            )
+
     def is_valid(self) -> bool:
         is_valid = super().is_valid()
         organization = self.cleaned_data.get("organization")
@@ -199,12 +209,45 @@ class ExternalFundingFormset(HtmxDynamicFormset[ExternalFundingForm]):
     name: str = "fundingrequests:external_funding_formset"
     form_class = ExternalFundingForm
 
+    @staticmethod
+    def prerender_forms(
+        forms: list[ExternalFundingForm], data: Mapping[str, Any] | None = None
+    ) -> list[ExternalFundingForm]:
+        if data is not None:
+            org_pks = _extract_org_pks_from_forms(forms)
+            if org_pks:
+                archived_pks = set(
+                    FundingOrganization.all_objects.filter(
+                        pk__in=org_pks, archived_at__isnull=False
+                    ).values_list("pk", flat=True)
+                )
+                if archived_pks:
+                    custom_qs = (
+                        FundingOrganization.objects.all()
+                        | FundingOrganization.all_objects.filter(pk__in=archived_pks)
+                    )
+                    for form in forms:
+                        cast(
+                            ModelChoiceField[FundingOrganization], form.fields["organization"]
+                        ).queryset = custom_qs
+        return forms
+
     def is_empty(self) -> bool:
         return all(form.is_empty() for form in self.forms)
 
     def to_dto_list(self) -> list[ExternalFundingDto]:
         _dtos = [form.to_dto() for form in self.forms]
         return [dto for dto in _dtos if dto is not None]
+
+
+def _extract_org_pks_from_forms(forms: list[ExternalFundingForm]) -> set[int]:
+    org_pks: set[int] = set()
+    for form in forms:
+        org_key = form.add_prefix("organization")
+        org_value = form.data.get(org_key)
+        if isinstance(org_value, (int, str)) and org_value != "":
+            org_pks.add(int(org_value))
+    return org_pks
 
 
 class LabelForm(forms.ModelForm[Label]):
