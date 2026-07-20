@@ -13,7 +13,7 @@ You can access the Contracts page from the navigation menu. The overview display
 
 You can search for contracts by name using the search box at the top of the page.
 
-![](/_static/img/contracts_overview.png)
+![](/assets/images/contracts_overview.png)
 
 ## Understanding Contracts in CODA
 
@@ -46,7 +46,7 @@ To add a new contract:
 5. Add **Journals** included in the contract
 6. Click **Save** to create the contract
 
-![](/_static/img/contracts_create.png)
+![](/assets/images/contracts_create.png)
 
 
 ### Publication Billing Types
@@ -91,7 +91,7 @@ Publishers define which publishing organizations are part of the agreement:
 4. Repeat to add multiple publishers (some agreements cover publisher groups)
 5. To remove a publisher, click the **Remove** button next to their name
 
-![](/_static/img/contracts_create_publishers.png)
+![](/assets/images/contracts_create_publishers.png)
 
 ```{admonition} Tip
 If a publisher doesn't appear in the search, you may need to create it first in the Publishers section (accessible from the main navigation).
@@ -109,7 +109,7 @@ The journal list defines which journals are covered by the contract:
 4. Repeat for each journal covered by the agreement
 5. To remove a journal, click the **Remove** button next to its name
 
-![](/_static/img/contracts_create_journals.png)
+![](/assets/images/contracts_create_journals.png)
 
 
 ## Viewing Contract Details
@@ -125,7 +125,7 @@ Click on any contract from the list to see its detail page, which shows:
 
 The detail page provides a comprehensive overview of the contract configuration.
 
-![](/_static/img/contracts_detail.png)
+![](/assets/images/contracts_detail.png)
 
 ## Editing an Existing Contract
 

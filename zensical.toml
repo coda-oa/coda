@@ -1,0 +1,69 @@
+[project]
+site_name = "CODA"
+site_description = "Open Access Management & Monitoring"
+site_url = "https://coda-oa.github.io/coda/"
+repo_url = "https://github.com/coda-oa/coda"
+copyright = "TU Braunschweig"
+extra_css = ["assets/stylesheets/extra.css"]
+
+nav = [
+  { "Home" = "index.md" },
+  { "User Docs" = [
+    "users/index.md",
+    { "About" = "users/about.md" },
+    { "Setup" = "users/installation.md" },
+    { "Updating" = "users/updating.md" },
+    { "User Creation" = "users/usercreation.md" },
+    { "Features" = [
+      "users/features/index.md",
+      { "Blocklist" = "users/features/blocklist.md" },
+      { "Contracts" = "users/features/contracts.md" },
+      { "Creditors" = "users/features/creditors.md" },
+      { "CSV Export" = "users/features/csv-export.md" },
+      { "Funders" = "users/features/funders.md" },
+      { "Funding Requests" = "users/features/fundingrequests.md" },
+      { "Funding Sources" = "users/features/fundingsources.md" },
+      { "Institutions" = "users/features/institutions.md" },
+      { "Invoices" = "users/features/invoices.md" },
+      { "Journals" = "users/features/journals.md" },
+      { "Preferences" = "users/features/preferences.md" },
+      { "Publishers" = "users/features/publishers.md" },
+      { "Reporting" = "users/features/reporting.md" },
+      { "Vocabularies" = "users/features/vocabularies.md" },
+    ] },
+  ] },
+  { "Developer Docs" = "dev/index.md" },
+  { "Roadmap" = "roadmap/roadmap.md" },
+]
+
+[project.theme]
+name = "material"
+custom_dir = "docs/overrides"
+logo = "assets/images/coda-planet.svg"
+favicon = "assets/images/coda-planet.svg"
+
+features = [
+  "navigation.instant",
+  "navigation.tracking",
+  "navigation.sections",
+  "navigation.expand",
+  "navigation.indexes",
+  "navigation.top",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "custom"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "custom"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.theme.font]
+text = "Inter"
+code = "Fira Code"

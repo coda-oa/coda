@@ -1,10 +1,3 @@
 # User Docs
 
-```{toctree}
-:maxdepth: 2
-about
-installation
-updating
-usercreation
-features/index
-```
+Welcome to the CODA user documentation. Use the navigation sidebar to browse the available guides and feature documentation.

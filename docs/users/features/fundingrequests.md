@@ -22,7 +22,7 @@ The overview provides powerful filtering options to find specific requests:
 - Filter by date range
 - Search by journal, publisher, or contract
 
-![](/_static/img/fundingrequests_overview.png)
+![](/assets/images/fundingrequests_overview.png)
 
 ## Detail View
 
@@ -52,7 +52,7 @@ The right side provides the review workflow:
 - **Payment status**: Invoice creation and payment tracking
 - **Labels**: Attach or remove labels for categorization
 
-![](/_static/img/fundingrequests_detail.png)
+![](/assets/images/fundingrequests_detail.png)
 
 ## Creating a Funding Request
 
@@ -75,7 +75,7 @@ For monograph requests, you'll select a publisher instead of a journal.
 
 You can also add a contract to the funding request. 
 
-![](/_static/img/fundingrequests_journal_step.png)
+![](/assets/images/fundingrequests_journal_step.png)
 
 
 ### Step 2: Publication Details
@@ -98,7 +98,7 @@ You can add one row per author and give the different roles.
 You can copy author information  and paste it into the text area and let CODA parse the copied text to structured author data. This feature keeps author information that is not relevant for your process, for instance when many authors contributed, but only the corresponding author is interesting for you.  
 ```
 
-![](/_static/img/fundingrequests_authors.png)
+![](/assets/images/fundingrequests_authors.png)
 
 
 **Publication Metadata:**
@@ -131,7 +131,7 @@ You ca add different kinds of identifiers and links related to the publication. 
 The Publication Type and Subject Area fields are based on predefined vocabularies that can be configured by your institution in the [vocabularies](vocabularies.md) section. They are then set in the [Preferences](preferences.md). By default, CODA uses COAR Resource Types 3.1 and DFG Subject Classification.
 ```
 
-![](/_static/img/fundingsrequests_meta_data.png)
+![](/assets/images/fundingsrequests_meta_data.png)
 
 ### Step 3: Costs & Funding
 
@@ -158,14 +158,14 @@ You can add multiple funding sources if the publication is supported by several 
 As the final costs of a publication are not always known when a funding request comes in, CODA allows you to provide an estimate. This is useful during review to determine whether costs exceed funding limits and whether negotiation with publishers may be necessary.
 ```
 
-![](/_static/img/fundingrequests_funding.png)
+![](/assets/images/fundingrequests_funding.png)
 
 
 ### Step 4: Additional contact information
 
 In this final step you can provide additional contact information regarding the funding request besides the authors information. You can also add notes and remarks. 
 
-![](/_static/img/fundingrequests_contact.png)
+![](/assets/images/fundingrequests_contact.png)
 
 After completing all steps, the funding request is created and ready for review.
 
@@ -191,7 +191,7 @@ CODA runs automated checks against institutional policies to help guide your dec
 
 Check results provide immediate feedback on potential policy violations, but final approval decisions remain with reviewers. They are displayed in the detail's page right column.
 
-![](/_static/img/fundingrequests_review_checks.png)
+![](/assets/images/fundingrequests_review_checks.png)
 
 ### Review Form
 
@@ -215,7 +215,7 @@ It allows you to:
 - **Costs Waived**: Publication costs are covered elsewhere (e.g., by a contract)
 - **Close**: Close the request without approval or rejection
 
-![](/_static/img/fundingrequests_review.png)
+![](/assets/images/fundingrequests_review.png)
 
 ## Managing Labels
 

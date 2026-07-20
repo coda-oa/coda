@@ -1,8 +1,0 @@
-internal_id;name;ROR;ISNI;Ringgold;parent;usableAffiliation;archived
-inst_uni001;University of Example;https://ror.org/02mhbdp94;;;;;true;false
-inst_sci001;Faculty of Sciences;;;123456;inst_uni001;true;false
-inst_bio001;Department of Biology;https://ror.org/05dxps055;0000000121032683;;inst_sci001;true;false
-inst_che001;Department of Chemistry;https://ror.org/04cvxnb49;;;inst_sci001;true;false
-inst_hum001;Faculty of Humanities;;;;inst_uni001;true;false
-inst_his001;Department of History;;;;inst_hum001;true;false
-inst_adm001;Central Administration;;;;inst_uni001;false;false 

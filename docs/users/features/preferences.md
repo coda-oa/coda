@@ -2,7 +2,7 @@
 
 The **Preferences** page allows you to configure global settings that affect how CODA works across your entire installation. These settings control default vocabularies for publications, your institution's home currency, and your home institution information.
 
-![](/_static/img/preferences_page.png)
+![](/assets/images/preferences_page.png)
 
 
 

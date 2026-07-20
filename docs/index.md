@@ -1,8 +1,7 @@
-# Home
+---
+template: home.html
+hide:
+  - navigation
+  - toc
+---
 
-```{toctree}
-:maxdepth: 1
-
-users/index
-dev/index
-```

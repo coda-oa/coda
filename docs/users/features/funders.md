@@ -8,7 +8,7 @@ You can access the Funders page from the **Request Center** section in the navig
 
 You can search for funders by name using the search box at the top of the page. By default, only active (non-archived) funders are shown. Use the **Include archived** checkbox to also display archived funders in the list.
 
-![](/_static/img/funders_overview.png)
+![](/assets/images/funders_overview.png)
 
 ## Understanding Funders
 
@@ -47,7 +47,7 @@ To add a new funder:
 
 The funder is immediately available when creating or editing funding requests.
 
-![](/_static/img/funders_create.png)
+![](/assets/images/funders_create.png)
 
 ## Funder Detail Page
 
@@ -59,7 +59,7 @@ Clicking a funder's name in the list opens its detail page. Here you can view:
 
 The detail page provides access to editing, archiving, restoring, and deleting the funder, just like the list view.
 
-![](/_static/img/funder_detail.png)
+![](/assets/images/funder_detail.png)
 
 ## Editing a Funding Organization
 

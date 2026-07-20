@@ -11,7 +11,7 @@ You can access the Vocabularies page from the navigation menu. The overview show
 
 Each vocabulary entry displays its name, version, and action buttons for creating limited versions, editing, or deleting.
 
-![](/_static/img/vocabularies_overview.png)
+![](/assets/images/vocabularies_overview.png)
 
 ## Understanding Vocabulary Types
 
@@ -49,7 +49,7 @@ To create a custom vocabulary based on an existing one:
 4. Move concepts you don't want between the Allowed and Forbidden columns (see below)
 5. Click **Save** to create your vocabulary
 
-![](/_static/img/vocabularies_create_limited.png)
+![](/assets/images/vocabularies_create_limited.png)
 
 ### The Two-Column Interface
 
@@ -80,7 +80,7 @@ You can work with entire hierarchy levels at once:
 
 This is particularly useful for vocabularies with deep hierarchies when you want to keep only top-level categories or hide very specific subconcepts.
 
-![](/_static/img/vocabularies_moving_concepts.png)
+![](/assets/images/vocabularies_moving_concepts.png)
 
 ```{admonition} Tip
 Start by moving large structural nodes (high levels) to quickly shape your vocabulary, then fine-tune by moving individual concepts back if needed.

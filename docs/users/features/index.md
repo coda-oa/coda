@@ -1,19 +1,3 @@
 # Features
 
-```{toctree}
-:maxdepth: 2
-fundingrequests
-funders
-journals
-publishers
-blocklist
-invoices
-creditors
-fundingsources
-contracts
-vocabularies
-institutions
-reporting
-csv-export
-preferences
-```
+CODA provides a comprehensive set of features for managing Open Access publications. Browse the feature documentation using the navigation sidebar.

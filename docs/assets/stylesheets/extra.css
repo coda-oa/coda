@@ -1,0 +1,147 @@
+/* ==============================================
+   CODA documentation theme
+   ============================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@300&display=swap");
+
+/* Light mode: CODA blue */
+:root,
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: hsl(216, 60%, 45%);
+}
+
+/* Dark mode: brighter CODA blue */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: hsl(218, 85%, 65%);
+}
+
+/* Site title in Montserrat, primary color (matches app navbar) */
+.md-header__topic .md-ellipsis {
+  font-family: "Montserrat", sans-serif;
+  font-weight: 300;
+  color: var(--md-primary-fg-color);
+}
+
+/* ---- Landing page ---- */
+
+.coda-hero {
+  text-align: center;
+  padding: clamp(2rem, 10vw, 5rem) 0 clamp(1.5rem, 5vw, 3rem);
+  position: relative;
+}
+
+@keyframes coda-glow {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0.7;
+  }
+}
+
+.coda-hero::before {
+  content: "";
+  position: absolute;
+  top: 80%;
+  left: 50%;
+  width: 1000px;
+  height: 1000px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, hsla(216, 60%, 50%, 0.4) 0%, transparent 50%);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: coda-glow 4s ease-in-out infinite;
+}
+
+[data-md-color-scheme="slate"] .coda-hero::before {
+  background: radial-gradient(circle, hsla(218, 85%, 65%, 0.15) 0%, transparent 50%);
+}
+
+.coda-logo-box {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.coda-logo-box a {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.5rem, 2.5vw, 1rem);
+  border: 2px solid var(--md-primary-fg-color);
+  border-radius: 10px;
+  padding: clamp(0.4rem, 2vw, 0.8rem) clamp(0.8rem, 5vw, 2rem);
+  font: 300 clamp(1.6rem, 7vw, 3.2rem) "Montserrat", sans-serif;
+  color: var(--md-primary-fg-color);
+  text-decoration: none;
+  word-break: keep-all;
+}
+
+.coda-logo-box a:hover {
+  text-decoration: none;
+}
+
+.coda-logo-box img {
+  height: 1em;
+}
+
+.coda-tagline {
+  font-size: 1.1rem;
+  color: var(--md-default-fg-color--light);
+}
+
+/* Card grid */
+.coda-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.coda-card {
+  display: block;
+  padding: 1.5rem;
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 6px;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.coda-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-decoration: none;
+}
+
+.coda-card h3 {
+  margin: 0 0 0.5rem;
+  color: var(--md-primary-fg-color);
+  font-size: 1.2rem;
+}
+
+.coda-card p {
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.9rem;
+}
+
+/* Get in touch */
+.get-in-touch {
+  text-align: center;
+  margin: 4rem 0;
+}
+
+.get-in-touch h2 {
+  color: var(--md-default-fg-color--light);
+}
+
+.get-in-touch .matrix-link {
+  font-size: 1.5rem;
+  color: var(--md-primary-fg-color);
+  text-decoration: none;
+}
+
+.get-in-touch .matrix-link:hover {
+  text-decoration: underline;
+}

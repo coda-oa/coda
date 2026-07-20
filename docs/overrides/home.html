@@ -1,0 +1,54 @@
+{#-
+  CODA Landing Page
+  Extends the base Zensical template.
+-#}
+{% extends "base.html" %}
+
+{% block site_nav %}
+{% endblock %}
+
+{% block content %}
+<main class="container">
+  <div class="coda-hero">
+    <div class="coda-logo-box">
+      <a href="{{ base_url }}/" class="coda-logo-link">
+        <img src="{{ base_url }}/assets/images/coda-planet.svg" alt="Coda Logo">
+        CODA
+      </a>
+    </div>
+    <p class="coda-tagline">Open Access Management & Monitoring</p>
+  </div>
+
+  <div class="coda-card-grid">
+    <a href="{{ base_url }}/users/features/fundingrequests/" class="coda-card">
+      <h3>Funding Requests</h3>
+      <p>Manage and review Funding Requests for Open Access publications</p>
+    </a>
+    <a href="{{ base_url }}/users/features/invoices/" class="coda-card">
+      <h3>Invoices</h3>
+      <p>Monitor the costs of Open Access Publications</p>
+    </a>
+    <a href="{{ base_url }}/users/features/contracts/" class="coda-card">
+      <h3>Contracts</h3>
+      <p>Manage publisher contracts and agreements</p>
+    </a>
+    <a href="{{ base_url }}/users/features/reporting/" class="coda-card">
+      <h3>Reporting</h3>
+      <p>Generate openCost reports for publications and contracts</p>
+    </a>
+  </div>
+
+  <div class="get-in-touch">
+    <h2>Get in touch!</h2>
+    <p>
+      If you have questions, feedback or suggestions, feel free to get in touch
+      with us in our matrix space
+    </p>
+    <p>
+      <a class="matrix-link" href="https://matrix.to/#/#coda:matrix.tu-bs.de">
+        [matrix]
+      </a>
+    </p>
+  </div>
+</main>
+{% endblock %}

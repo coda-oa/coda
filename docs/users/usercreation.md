@@ -2,12 +2,10 @@
 
 After setting up CODA and creating a superuser, you can add additional users who will be able to access and work with CODA. This guide explains how to create regular users through the administration interface.
 
-```{admonition} Prerequisites
-:class: note
-You must be logged in as a superuser to create new users. See the [Installation guide](installation.md#creating-a-superuser) for instructions on creating a superuser.
-```
+!!! note "Prerequisites"
+    You must be logged in as a superuser to create new users. See the [Installation guide](installation.md#creating-a-superuser) for instructions on creating a superuser.
 
-![](/_static/img/administration_overview.png)
+![](/assets/images/administration_overview.png)
 
 ## Accessing the User Management Interface
 
@@ -17,7 +15,7 @@ You must be logged in as a superuser to create new users. See the [Installation 
 4. In the administration panel, locate the **"Users"** section
 5. Click on **"Users"** to access the user management interface
 
-![](/_static/img/administration_user_list.png)
+![](/assets/images/administration_user_list.png)
 
 ## Creating a New User
 
@@ -34,7 +32,7 @@ To create a new user:
 
 After saving, you'll be taken to the detailed user edit page where you can configure additional settings.
 
-![](/_static/img/administration_user_creation.png)
+![](/assets/images/administration_user_creation.png)
 
 ## Configuring User Permissions
 
@@ -59,10 +57,8 @@ Configure the user's access level:
 - **Groups**: Assign the user to groups for easier permission management
 - **User permissions**: Assign specific permissions for fine-grained access control
 
-```{admonition} Important
-:class: warning
-Currently, CODA provides basic group and user assignment functionality. While users can be organized into groups and permissions can be defined at a technical level, a comprehensive permission management system has not yet been fully designed or implemented. As a result, users effectively have unrestricted access within the application at this stage. A more meaningful user management will be part of future development. 
-```
+!!! warning "Important"
+    Currently, CODA provides basic group and user assignment functionality. While users can be organized into groups and permissions can be defined at a technical level, a comprehensive permission management system has not yet been fully designed or implemented. As a result, users effectively have unrestricted access within the application at this stage. A more meaningful user management will be part of future development.
 
 ## Resetting User Passwords
 

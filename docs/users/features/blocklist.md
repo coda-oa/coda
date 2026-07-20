@@ -11,7 +11,7 @@ You can access the Blocklist from the **Journals & Publishers** section in the n
 
 Each blocked entry shows the blocked journal/publisher and provides quick access to unblock if needed.
 
-![](/_static/img/blocklist_overview.png)
+![](/assets/images/blocklist_overview.png)
 
 ## Understanding the Blocklist
 
@@ -81,7 +81,7 @@ Displays all blocked publishers showing:
 - **Publisher name**
 - Quick action: Unblock
 
-![](/_static/img/blocklist_publishers.png)
+![](/assets/images/blocklist_publishers.png)
 
 ## Review System
 
@@ -105,7 +105,7 @@ When a journal shows "Needs Review":
 
 This ensures your blocklist stays current and reflects your institution's evolving policies.
 
-![](/_static/img/blocklist_review.png)
+![](/assets/images/blocklist_review.png)
 
 
 ## Unblocking Journals and Publishers

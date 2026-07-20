@@ -1,5 +1,3 @@
 # Roadmap
 
-```{toctree}
-roadmap
-```
+See [Roadmap Overview](roadmap.md).

@@ -8,7 +8,7 @@ You can access the Creditors page from the **Finances** section in the navigatio
 
 You can search for creditors by name using the search box at the top of the page. By default, archived creditors are hidden from the list. To include them, toggle the **Include archived** switch above the search results.
 
-![](/_static/img/creditors_overview.png)
+![](/assets/images/creditors_overview.png)
 
 ## Understanding Creditors in CODA
 
@@ -43,7 +43,7 @@ To add a new creditor:
 
 That's it! Creditors in CODA are intentionally simple - just a name to identify who is billing you.
 
-![](/_static/img/creditors_create.png)
+![](/assets/images/creditors_create.png)
 
 
 ## Viewing Creditor Details
@@ -65,7 +65,7 @@ This view provides a quick overview of your financial relationship with each cre
 - Find specific invoices by creditor
 - Identify payment patterns or recurring charges
 
-![](/_static/img/creditors_detail.png)
+![](/assets/images/creditors_detail.png)
 
 ## Editing a Creditor
 
@@ -76,7 +76,7 @@ To update a creditor's information:
 3. Update the creditor name
 4. Click **Save**
 
-![](/_static/img/creditors_update.png)
+![](/assets/images/creditors_update.png)
 
 ```{admonition} Note
 Editing a creditor name updates it for display purposes, but existing invoices retain the association. All invoices linked to this creditor will show the updated name.

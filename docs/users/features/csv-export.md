@@ -13,7 +13,7 @@ The export list page displays all exports you have created, showing:
 - Number of records included
 - Action buttons for viewing details and downloading
 
-![](/_static/img/csv_export_list_view.png)
+![](/assets/images/csv_export_list_view.png)
 
 ```{admonition} Note
 CSV exports are generated from your current data, which is stored into snapshots. If you edit data in your CSV export, the snapshot will remain as it is, including an older version of your data.
@@ -82,7 +82,7 @@ To create a new CSV export:
 
 CODA will gather all funding requests that match your filters and create the export. You will be redirected to the export detail page showing a preview of the data.
 
-![](/_static/img/csv_export_generate_new.png)
+![](/assets/images/csv_export_generate_new.png)
 
 ### Filtering Options
 
@@ -125,7 +125,7 @@ From the detail page, you can:
 - **Reuse the filters** to create a new export with the same criteria
 - **Delete** the export
 
-![](/_static/img/csv_export_detail_view.png)
+![](/assets/images/csv_export_detail_view.png)
 
 ```{admonition} Note
 The preview only shows the first 50 rows and a subset of columns. Download the full CSV file for complete data.

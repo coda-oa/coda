@@ -8,7 +8,7 @@ You can access the Funding Sources page from the **Finances** section in the nav
 
 You can search for funding sources by name using the search box at the top of the page.
 
-![](/_static/img/fundingsources_overview.png)
+![](/assets/images/fundingsources_overview.png)
 
 ## Understanding Funding Sources
 
@@ -62,7 +62,7 @@ To add a new budget-type funding source:
 
 The funding source is now available when creating or editing invoices.
 
-![](/_static/img/fundingsources_create.png)
+![](/assets/images/fundingsources_create.png)
 
 ## Editing a Funding Source
 
@@ -75,7 +75,7 @@ You can edit a funding source's name at any time:
 
 All existing funding assignments will automatically reflect the new name.
 
-![](/_static/img/fundingsources_edit.png)
+![](/assets/images/fundingsources_edit.png)
 
 ## Using Funding Sources in Invoices
 

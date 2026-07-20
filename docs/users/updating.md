@@ -2,10 +2,8 @@
 
 This guide explains how to update your CODA installation to the latest version.
 
-```{admonition} Important
-:class: warning
-Always create a backup before updating CODA to ensure you can restore your data if something goes wrong.
-```
+!!! warning "Important"
+    Always create a backup before updating CODA to ensure you can restore your data if something goes wrong.
 
 ## Prerequisites
 
@@ -21,13 +19,13 @@ You can update CODA either using the automated update script or by running each 
 
 The easiest way to update CODA is using the automated update script:
 
-```{code-block} bash
+```bash
 ./commands/update-coda.sh --production --backup
 ```
 
 Or for local environment:
 
-```{code-block} bash
+```bash
 ./commands/update-coda.sh --local --backup
 ```
 
@@ -41,7 +39,7 @@ The script automatically performs all necessary steps: creating a backup (if `--
 
 Examples:
 
-```{code-block} bash
+```bash
 # Production update with backup from stable branch
 ./commands/update-coda.sh --production --backup
 
@@ -60,13 +58,13 @@ If you prefer to run each step manually, follow these steps:
 
 Before updating, create a backup of your database:
 
-```{code-block} bash
+```bash
 ./commands/backups.sh --production create
 ```
 
 Or for local environment:
 
-```{code-block} bash
+```bash
 ./commands/backups.sh --local create
 ```
 
@@ -76,13 +74,13 @@ For more information about backups, see the [Backups section](installation.md#ba
 
 Stop the running CODA instance:
 
-```{code-block} bash
+```bash
 ./commands/stop-coda.sh --production
 ```
 
 Or for local environment:
 
-```{code-block} bash
+```bash
 ./commands/stop-coda.sh --local
 ```
 
@@ -90,26 +88,24 @@ Or for local environment:
 
 Update your local repository with the latest changes from the Git repository:
 
-```{code-block} bash
+```bash
 git pull origin stable
 ```
 
-```{admonition} Note
-:class: tip
-The `stable` branch is the default and recommended option. You can pull it as shown above. If you need access to more recent changes, you can alternatively pull from the `develop` branch using `git pull origin develop`.
-```
+!!! tip "Note"
+    The `stable` branch is the default and recommended option. You can pull it as shown above. If you need access to more recent changes, you can alternatively pull from the `develop` branch using `git pull origin develop`.
 
 #### 4. Restart CODA
 
 Start CODA with the updated code by running the start command:
 
-```{code-block} bash
+```bash
 ./commands/start-coda.sh --production
 ```
 
 Or for local environment:
 
-```{code-block} bash
+```bash
 ./commands/start-coda.sh --local
 ```
 
@@ -131,17 +127,17 @@ After CODA restarts, verify that:
 If the update fails or CODA doesn't start properly:
 
 1. Check the logs for error messages:
-   ```{code-block} bash
+   ```bash
    docker compose -f compose.production.yml logs
    ```
 
 2. If necessary, restore from your backup:
-   ```{code-block} bash
+   ```bash
    ./commands/backups.sh --production restore <backup_name>
    ```
 
 3. Then restart CODA:
-   ```{code-block} bash
+   ```bash
    ./commands/start-coda.sh --production
    ```
 
@@ -149,7 +145,7 @@ If the update fails or CODA doesn't start properly:
 
 To check if updates are available before pulling:
 
-```{code-block} bash
+```bash
 git fetch origin
 git log HEAD..origin/main --oneline
 ```
@@ -164,13 +160,13 @@ Before you start, it's recommended to verify you have recent backups available.
 
 To check existing backups:
 
-```{code-block} bash
+```bash
 ./commands/backups.sh --production list
 ```
 
 Or for local enviroments:
 
-```{code-block} bash
+```bash
 ./commands/backups.sh --local list
 ```
 
@@ -178,13 +174,13 @@ Or for local enviroments:
 
 To upgrade PostgreSQL to a new version, use the upgrade:
 
-```{code-block} bash
+```bash
 ./commands/upgrade-postgres.sh --production
 ```
 
 Or for local enviroments:
 
-```{code-block} bash
+```bash
 ./commands/upgrade-postgres.sh --local 
 ```
 
@@ -213,13 +209,13 @@ DETAIL: The database was created using collation version 2.31, but the operating
 
 The `upgrade-postgres.sh` script automatically fixes collation mismatches. However, you can also run the fix manually if needed: 
 
-```{code-block} bash
+```bash
 ./commands/fix-collation.sh --production
 ```
 
 Or for local development:
 
-```{code-block} bash
+```bash
 ./commands/fix-collation.sh --local
 ```
 
@@ -227,13 +223,13 @@ Or for local development:
 
 **Start CODA services**. The database update script shuts down CODA. After the update is done you have to manually start CODA again, by using the starting script:
 
-```{code-block} bash
+```bash
 ./commands/start-coda.sh --production
 ```
 
 Or for local development:
 
-```{code-block} bash
+```bash
 ./commands/start-coda.sh --local
 ```
 

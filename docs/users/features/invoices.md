@@ -8,7 +8,7 @@ You can access invoices from the **Finances** section in the navigation menu. Th
 
 You can search and filter invoices to find specific transactions quickly. An advanced search can be toggled to filter invoices by various criteria.
 
-![](/_static/img/invoices_list.png)
+![](/assets/images/invoices_list.png)
 
 ## Understanding Invoice Structure
 
@@ -27,7 +27,7 @@ The header contains metadata about the invoice:
 - **External Invoice ID** *(optional)*: Reference ID from external systems
 - **Comment** *(optional)*: Notes about the invoice
 
-![](/_static/img/invoices_head.png)
+![](/assets/images/invoices_head.png)
 
 ### Invoice Positions
 
@@ -49,7 +49,7 @@ Each position includes:
 - Funding sources (optional cost allocation, see [funding sources](fundingsources.md))
 - External position ID (optional reference ID from external systems) 
 
-![](/_static/img/invoices_position.png)
+![](/assets/images/invoices_position.png)
 
 ## Creating an Invoice
 
@@ -61,7 +61,7 @@ To create a new invoice:
 4. Add positions (see below)
 5. Click the **save** button
 
-![](/_static/img/invoices_create.png)
+![](/assets/images/invoices_create.png)
 
 ### Adding Publication Positions
 
@@ -78,7 +78,7 @@ To add a position linked to a publication:
 
 Multiple publications can be added to the same invoice. Negative amounts can be entered. 
 
-![](/_static/img/invoices_add_publication.png)
+![](/assets/images/invoices_add_publication.png)
 
 ### Adding Contract Positions
 
@@ -92,7 +92,7 @@ For invoices related to publishing agreements:
 
 Contract positions are useful when you receive consolidated invoices for multiple publications under a single agreement.
 
-![](/_static/img/invoices_add_contract.png)
+![](/assets/images/invoices_add_contract.png)
 
 ### Adding Free Positions
 
@@ -106,7 +106,7 @@ For other charges not linked to publications or contracts:
 
 Free positions provide flexibility for all types of publication-related costs.
 
-![](/_static/img/invoices_add_free.png)
+![](/assets/images/invoices_add_free.png)
 
 ## Assigning Funding Sources
 
@@ -146,7 +146,7 @@ You don't need to assign all costs to funding sources immediately. CODA allows y
 However, if you mark an invoice as **Paid**, all costs must be assigned to funding sources.
 ```
 
-![](/_static/img/invoices_cost_splitting.png)
+![](/assets/images/invoices_cost_splitting.png)
 
 ## Editing Invoices
 
@@ -210,7 +210,7 @@ If your invoice includes a currency conversion, you can view costs in different 
 2. Select the target currency
 3. All amounts recalculate using the specified exchange rate
 
-![](/_static/img/invoices_conversion.png)
+![](/assets/images/invoices_conversion.png)
 
 ## Importing Invoices
 
@@ -375,7 +375,7 @@ All positions share these common fields:
 5. Click **Save** to start the import
 6. Review the import results
 
-![](/_static/img/invoices_import.png)
+![](/assets/images/invoices_import.png)
 
 ### Import Behavior
 

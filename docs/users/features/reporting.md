@@ -32,7 +32,7 @@ The Export overview page displays all previously generated openCost reports. Eac
 
 From this page, you can download existing reports as XML files, view detailed information, create new reports, or delete old ones.
 
-![](/_static/img/export_list_view.png)
+![](/assets/images/export_list_view.png)
 
 ### Generating a New Report
 
@@ -46,7 +46,7 @@ To create a new openCost report:
 
 CODA will automatically gather all publications and contracts from your institution that fall within the specified date range and create an openCost XML report. Included are publications and contracts that are listed on paid invoices within the period of time you specified. 
 
-![](/_static/img/export_generate_new.png)
+![](/assets/images/export_generate_new.png)
 
 #### Filtering Options
 
@@ -70,7 +70,7 @@ After generating a report, CODA will validate the data against the openCost sche
 
 Validation errors and warnings don't prevent you from downloading and using the report, but they indicate fields that could be completed to provide more comprehensive data. You can view detailed validation information on the report detail page, where links are provided to fix the issues.
 
-![](/_static/img/export_messages.png)
+![](/assets/images/export_messages.png)
 
 ```{admonition} Note
 After fixing any issue with the data in the report, you have to generate a new report to have the changes included. 
@@ -87,7 +87,7 @@ Clicking on a report from the overview page will show you detailed information i
 
 This detail view allows you to review the data before downloading the XML file and provides convenient navigation back to the source records if you need to make corrections.
 
-![](/_static/img/export_detail_view.png)
+![](/assets/images/export_detail_view.png)
 
 ```{admonition} Note
 openCost reports are **snapshots** of your data at the time of generation. If you update a publication or invoice after creating a report, you'll need to generate a new report to reflect those changes.

@@ -8,7 +8,7 @@ You can access the Publishers page from the **Journals & Publishers** section in
 
 You can search for publishers by name using the search box at the top of the page.
 
-![](/_static/img/publishers_overview.png)
+![](/assets/images/publishers_overview.png)
 
 ## Understanding Publishers in CODA
 
@@ -38,7 +38,7 @@ To add a new publisher:
 
 The publisher is immediately available for linking to journals, contracts, and monographs.
 
-![](/_static/img/publishers_create.png)
+![](/assets/images/publishers_create.png)
 
 
 ## Editing a Publisher
@@ -53,7 +53,7 @@ To update a publisher's name:
 
 All journals, contracts, and publications linked to this publisher automatically reflect the updated name.
 
-![](/_static/img/publishers_edit.png)
+![](/assets/images/publishers_edit.png)
 
 ```{admonition} Important
 Editing a publisher's name updates it everywhere in CODA. This affects:

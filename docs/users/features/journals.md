@@ -8,7 +8,7 @@ You can access the Journals page from the **Journals & Publishers** section in t
 
 You can search for journals by title or E-ISSN using the search box at the top of the page.
 
-![](/_static/img/journals_overview.png)
+![](/assets/images/journals_overview.png)
 
 ## Understanding Journals in CODA
 
@@ -38,7 +38,7 @@ To add a new journal to the database:
 
 The journal is immediately available for linking to publications, contracts, and funding requests.
 
-![](/_static/img/journals_create.png)
+![](/assets/images/journals_create.png)
 
 ```{admonition} Publisher Requirement
 You must have the publisher already created in CODA before adding a journal. If the publisher doesn't exist, navigate to [Publishers](publishers.md) first to create it, then return to create the journal.
@@ -56,7 +56,7 @@ To update journal information:
 
 All publications and contracts linked to this journal automatically reflect the updated information.
 
-![](/_static/img/journals_edit.png)
+![](/assets/images/journals_edit.png)
 
 ```{admonition} E-ISSN Uniqueness
 Each E-ISSN must be unique in the system. If you try to create or update a journal with an E-ISSN that already exists, CODA will prevent the duplicate and show an error.
@@ -73,7 +73,7 @@ Click on any journal from the list to see its detail page, which shows:
 
 The detail page provides a focused view of essential journal information.
 
-![](/_static/img/journals_detail.png)
+![](/assets/images/journals_detail.png)
 
 ## Journal Blocklist
 

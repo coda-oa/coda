@@ -13,7 +13,7 @@ The Organization Structure overview page displays all institutions in your syste
 
 You can search for institutions by name using the search box at the top of the page.
 
-![](/_static/img/institutions_list_view.png)
+![](/assets/images/institutions_list_view.png)
 
 ## Viewing Institution Details
 
@@ -29,7 +29,7 @@ The detail page displays:
   - Invoices funded by this institution's funding sources
 - **Action Buttons**: Edit, Archive, Restore, or Delete buttons depending on the institution's current state
 
-![](/_static/img/institutions_detail.png)
+![](/assets/images/institutions_detail.png)
 
 ## Understanding the "Usable as author affiliation" Toggle
 
@@ -90,7 +90,7 @@ CODA automatically validates institutional identifiers when you enter them:
 
 If you enter an invalid identifier, CODA will show an error message and prevent saving until you correct it.
 
-![](/_static/img/institutions_link_validation.png)
+![](/assets/images/institutions_link_validation.png)
 
 ## Creating a New Institution
 
@@ -126,7 +126,7 @@ To update an existing institution:
 3. Add, modify, or remove identifiers as needed
 4. Click **Save** to apply your changes
 
-![](/_static/img/institutions_edit_view.png)
+![](/assets/images/institutions_edit_view.png)
 
 ```{admonition} Note
 If publications or contracts are already linked to an institution, updating the institution's identifiers will ensure future exports use the updated values. However, previously generated reports (like [openCost exports](reporting.md)) are snapshots and won't be affected.
@@ -208,7 +208,7 @@ To import institutions:
 2. Click **Choose File** and select your CSV file
 3. Click **Import** to upload and process the file
 
-![](/_static/img/institutions_import.png)
+![](/assets/images/institutions_import.png)
 
 CODA will:
 - Create new institutions that don't exist
