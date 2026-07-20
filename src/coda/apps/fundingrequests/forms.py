@@ -1,5 +1,5 @@
-from collections.abc import Mapping
 import datetime
+from collections.abc import Mapping
 from typing import Any, cast
 
 from django import forms
@@ -13,19 +13,19 @@ from django.views.decorators.http import require_POST
 from coda.apps import fields
 from coda.apps.contracts import repository
 from coda.apps.formbase import CodaFormBase
-from coda.contexts.fundingrequest.dto.commands import ExternalFundingDto, PaymentDto
 from coda.apps.fundingrequests.models import (
     FundingOrganization,
     FundingOrganizationLinkType,
     FundingRequest,
     Label,
 )
-from coda.domain.fundingrequest.links import create_link
 from coda.apps.fundingrequests.views.wizard.formrestore import restore_formset
 from coda.apps.htmx_components.forms import HtmxDynamicFormset
 from coda.apps.publications.dto import ContractYearDto
 from coda.apps.widgets import SearchSelectWidget
+from coda.contexts.fundingrequest.dto.commands import ExternalFundingDto, PaymentDto
 from coda.domain.contract import ContractId, ContractYear
+from coda.domain.fundingrequest.links import create_link
 
 
 class ExtraContactForm(CodaFormBase):
@@ -214,7 +214,7 @@ class ExternalFundingFormset(HtmxDynamicFormset[ExternalFundingForm]):
         forms: list[ExternalFundingForm], data: Mapping[str, Any] | None = None
     ) -> list[ExternalFundingForm]:
         if data is not None:
-            org_pks = _extract_org_pks_from_formset(data)
+            org_pks = _extract_org_pks_from_forms(forms)
             if org_pks:
                 archived_pks = set(
                     FundingOrganization.all_objects.filter(
@@ -240,15 +240,13 @@ class ExternalFundingFormset(HtmxDynamicFormset[ExternalFundingForm]):
         return [dto for dto in _dtos if dto is not None]
 
 
-def _extract_org_pks_from_formset(data: Mapping[str, Any]) -> set[int]:
+def _extract_org_pks_from_forms(forms: list[ExternalFundingForm]) -> set[int]:
     org_pks: set[int] = set()
-    for key, value in data.items():
-        if not isinstance(key, str) or not key.endswith("-organization") or key.startswith("extra"):
-            continue
-        values = value if isinstance(value, (list, tuple)) else [value]
-        for v in values:
-            if v not in (None, ""):
-                org_pks.add(int(v))
+    for form in forms:
+        org_key = form.add_prefix("organization")
+        org_value = form.data.get(org_key)
+        if isinstance(org_value, (int, str)) and org_value != "":
+            org_pks.add(int(org_value))
     return org_pks
 
 

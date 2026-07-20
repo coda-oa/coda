@@ -36,6 +36,26 @@ def test__cannot_delete_funder_with_external_funding(funder: FundingOrganization
 
 
 @pytest.mark.django_db
+def test__can_delete_funder__when_archived__returns_false(
+    archived_funder: FundingOrganization,
+) -> None:
+    can_delete, blocking = can_delete_funding_organization(archived_funder)
+
+    assert can_delete is False
+    assert any("archived" in reason.lower() for reason in blocking)
+
+
+@pytest.mark.django_db
+def test__delete_funder__when_archived__raises_error(
+    archived_funder: FundingOrganization,
+) -> None:
+    with pytest.raises(ValueError, match="archived"):
+        delete_funding_organization(archived_funder)
+
+    assert FundingOrganization.all_objects.filter(pk=archived_funder.pk).exists()
+
+
+@pytest.mark.django_db
 def test__archive_funder__sets_archived_at(funder: FundingOrganization) -> None:
     archive_funding_organization(funder)
 

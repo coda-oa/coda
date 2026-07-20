@@ -5,17 +5,13 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import CreateView, DetailView, UpdateView
 
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.fundingrequests.services.funder_services import (
-    archive_funding_organization,
-    can_delete_funding_organization,
-    restore_funding_organization,
-)
 from coda.apps.fundingrequests.forms import ExternalFundingFormset, FundingOrganizationLinkForm
 from coda.apps.fundingrequests.models import (
     ExternalFunding,
@@ -23,13 +19,20 @@ from coda.apps.fundingrequests.models import (
     FundingOrganizationLink,
     FundingOrganizationLinkType,
 )
+from coda.apps.fundingrequests.services.funder_services import (
+    archive_funding_organization,
+    can_delete_funding_organization,
+    delete_funding_organization,
+    restore_funding_organization,
+)
 from coda.apps.views import SimpleSearchEntityListView
-
-from coda.apps.breadcrumbs.decorators import breadcrumb
 
 FUNDERS_LIST_URL = "fundingrequests:funders"
 FUNDER_DETAIL_URL = "fundingrequests:funder_detail"
 FUNDER_ENTITY_NAME = "Funding Organization"
+FUNDER_ARCHIVE_SUCCESS_MSG = "Funding organization '{name}' archived successfully."
+FUNDER_RESTORE_SUCCESS_MSG = "Funding organization '{name}' restored successfully."
+FUNDER_DELETE_SUCCESS_MSG = "Funding organization '{name}' deleted successfully."
 
 
 @breadcrumb("Funding Organizations", parent_url_name="fundingrequests:home")
@@ -105,7 +108,6 @@ class FundingOrganizationDetailView(LoginRequiredMixin, DetailView[FundingOrgani
     template_name = "fundingrequests/funders/detail.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-
         funding_records = ExternalFunding.objects.filter(organization=self.object).select_related(
             "funding_request"
         )
@@ -197,9 +199,8 @@ class FundingOrganizationUpdateView(
                 FundingOrganizationLink.objects.create(
                     funding_organization=self.object, type=link_type, value=data["link_value"]
                 )
-        from django.shortcuts import redirect as redirect_fn
 
-        return redirect_fn(self.get_success_url())
+        return redirect(self.get_success_url())
 
 
 fundingorganizations_update = FundingOrganizationUpdateView.as_view()
@@ -209,6 +210,26 @@ def _htmx_redirect(url: str) -> HttpResponse:
     response = HttpResponse(status=200)
     response["HX-Redirect"] = url
     return response
+
+
+def _archive_modal_context(org: FundingOrganization, *, error: str | None = None) -> dict[str, Any]:
+    ctx: dict[str, Any] = {
+        "org": org,
+        "archive_url": reverse("fundingrequests:funder_archive", kwargs={"pk": org.pk}),
+    }
+    if error:
+        ctx["error"] = error
+    return ctx
+
+
+def _restore_modal_context(org: FundingOrganization, *, error: str | None = None) -> dict[str, Any]:
+    ctx: dict[str, Any] = {
+        "org": org,
+        "restore_url": reverse("fundingrequests:funder_restore", kwargs={"pk": org.pk}),
+    }
+    if error:
+        ctx["error"] = error
+    return ctx
 
 
 @login_required
@@ -235,22 +256,13 @@ def request_delete_funder(request: HttpRequest, pk: int) -> HttpResponse:
 def delete_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
 
-    if org.archived_at:
-        messages.error(request, "Cannot delete archived funding organizations.")
+    try:
+        delete_funding_organization(org)
+    except ValueError as e:
+        messages.error(request, str(e))
         return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
-    can_delete, blocking_reasons = can_delete_funding_organization(org)
-
-    if not can_delete:
-        messages.error(
-            request, f"Cannot delete funding organization: {', '.join(blocking_reasons)}"
-        )
-        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
-
-    org_name = org.name
-    org.delete()
-    messages.success(request, f"Funding organization '{org_name}' deleted successfully.")
-
+    messages.success(request, FUNDER_DELETE_SUCCESS_MSG.format(name=org.name))
     return _htmx_redirect(reverse(FUNDERS_LIST_URL))
 
 
@@ -258,14 +270,8 @@ def delete_funder(request: HttpRequest, pk: int) -> HttpResponse:
 @require_GET
 def request_archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
-
     return render(
-        request,
-        "fundingrequests/funders/archive_modal.html",
-        {
-            "org": org,
-            "archive_url": reverse("fundingrequests:funder_archive", kwargs={"pk": pk}),
-        },
+        request, "fundingrequests/funders/archive_modal.html", _archive_modal_context(org)
     )
 
 
@@ -273,23 +279,15 @@ def request_archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 def archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
-
     try:
         archive_funding_organization(org)
     except ValueError as e:
         return render(
             request,
             "fundingrequests/funders/archive_modal.html",
-            {
-                "org": org,
-                "archive_url": reverse("fundingrequests:funder_archive", kwargs={"pk": pk}),
-                "error": str(e),
-            },
+            _archive_modal_context(org, error=str(e)),
         )
-
-    org_name = org.name
-    messages.success(request, f"Funding organization '{org_name}' archived successfully.")
-
+    messages.success(request, FUNDER_ARCHIVE_SUCCESS_MSG.format(name=org.name))
     return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
 
@@ -297,14 +295,8 @@ def archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
 @require_GET
 def request_restore_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
-
     return render(
-        request,
-        "fundingrequests/funders/restore_modal.html",
-        {
-            "org": org,
-            "restore_url": reverse("fundingrequests:funder_restore", kwargs={"pk": pk}),
-        },
+        request, "fundingrequests/funders/restore_modal.html", _restore_modal_context(org)
     )
 
 
@@ -312,23 +304,15 @@ def request_restore_funder(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 def restore_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
-
     try:
         restore_funding_organization(org)
     except ValueError as e:
         return render(
             request,
             "fundingrequests/funders/restore_modal.html",
-            {
-                "org": org,
-                "restore_url": reverse("fundingrequests:funder_restore", kwargs={"pk": pk}),
-                "error": str(e),
-            },
+            _restore_modal_context(org, error=str(e)),
         )
-
-    org_name = org.name
-    messages.success(request, f"Funding organization '{org_name}' restored successfully.")
-
+    messages.success(request, FUNDER_RESTORE_SUCCESS_MSG.format(name=org.name))
     return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
 

@@ -3,6 +3,9 @@ from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganizatio
 
 def can_delete_funding_organization(org: FundingOrganization) -> tuple[bool, list[str]]:
     blocking: list[str] = []
+    if org.archived_at:
+        blocking.append("Funding organization is archived and must be restored before deletion")
+        return len(blocking) == 0, blocking
     funding_count = ExternalFunding.objects.filter(organization=org).count()
     if funding_count > 0:
         blocking.append(f"{funding_count} funding request(s) reference this organization")
