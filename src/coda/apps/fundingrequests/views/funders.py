@@ -27,6 +27,10 @@ from coda.apps.views import SimpleSearchEntityListView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
+FUNDERS_LIST_URL = "fundingrequests:funders"
+FUNDER_DETAIL_URL = "fundingrequests:funder_detail"
+FUNDER_ENTITY_NAME = "Funding Organization"
+
 
 @breadcrumb("Funding Organizations", parent_url_name="fundingrequests:home")
 class FundingOrganizationListView(
@@ -94,7 +98,7 @@ class FundingOrganizationLinkFormMixin:
         ]
 
 
-@breadcrumb("Funding Organization Detail", parent_url_name="fundingrequests:funders")
+@breadcrumb("Funding Organization Detail", parent_url_name=FUNDERS_LIST_URL)
 class FundingOrganizationDetailView(LoginRequiredMixin, DetailView[FundingOrganization]):
     model = FundingOrganization
     queryset = FundingOrganization.all_objects.prefetch_related("links")
@@ -113,7 +117,7 @@ class FundingOrganizationDetailView(LoginRequiredMixin, DetailView[FundingOrgani
 fundingorganizations_detail = FundingOrganizationDetailView.as_view()
 
 
-@breadcrumb("Create Funding Organization", parent_url_name="fundingrequests:funders")
+@breadcrumb("Create Funding Organization", parent_url_name=FUNDERS_LIST_URL)
 class FundingOrganizationCreateView(
     LoginRequiredMixin,
     FundingOrganizationLinkFormMixin,
@@ -122,7 +126,7 @@ class FundingOrganizationCreateView(
     model = FundingOrganization
     form_class = FundingOrganizationForm
     template_name = "fundingrequests/funders/funder_form.html"
-    success_url = reverse_lazy("fundingrequests:funders")
+    success_url = reverse_lazy(FUNDERS_LIST_URL)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -152,7 +156,7 @@ class FundingOrganizationCreateView(
 fundingorganizations_create = FundingOrganizationCreateView.as_view()
 
 
-@breadcrumb("Update Funding Organization", parent_url_name="fundingrequests:funder_detail")
+@breadcrumb("Update Funding Organization", parent_url_name=FUNDER_DETAIL_URL)
 class FundingOrganizationUpdateView(
     LoginRequiredMixin,
     FundingOrganizationLinkFormMixin,
@@ -162,7 +166,7 @@ class FundingOrganizationUpdateView(
     queryset = FundingOrganization.all_objects.all()
     form_class = FundingOrganizationForm
     template_name = "fundingrequests/funders/funder_form.html"
-    success_url = reverse_lazy("fundingrequests:funders")
+    success_url = reverse_lazy(FUNDERS_LIST_URL)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -217,7 +221,7 @@ def request_delete_funder(request: HttpRequest, pk: int) -> HttpResponse:
         request,
         "partials/entity_deletion_modal.html",
         {
-            "entity_type": "Funding Organization",
+            "entity_type": FUNDER_ENTITY_NAME,
             "entity_name": org.name,
             "can_delete": can_delete,
             "blocking_reasons": blocking_reasons,
@@ -233,7 +237,7 @@ def delete_funder(request: HttpRequest, pk: int) -> HttpResponse:
 
     if org.archived_at:
         messages.error(request, "Cannot delete archived funding organizations.")
-        return _htmx_redirect(reverse("fundingrequests:funder_detail", kwargs={"pk": pk}))
+        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
     can_delete, blocking_reasons = can_delete_funding_organization(org)
 
@@ -241,13 +245,13 @@ def delete_funder(request: HttpRequest, pk: int) -> HttpResponse:
         messages.error(
             request, f"Cannot delete funding organization: {', '.join(blocking_reasons)}"
         )
-        return _htmx_redirect(reverse("fundingrequests:funder_detail", kwargs={"pk": pk}))
+        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
     org_name = org.name
     org.delete()
     messages.success(request, f"Funding organization '{org_name}' deleted successfully.")
 
-    return _htmx_redirect(reverse("fundingrequests:funders"))
+    return _htmx_redirect(reverse(FUNDERS_LIST_URL))
 
 
 @login_required
@@ -286,7 +290,7 @@ def archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org_name = org.name
     messages.success(request, f"Funding organization '{org_name}' archived successfully.")
 
-    return _htmx_redirect(reverse("fundingrequests:funder_detail", kwargs={"pk": pk}))
+    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
 
 @login_required
@@ -325,7 +329,7 @@ def restore_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org_name = org.name
     messages.success(request, f"Funding organization '{org_name}' restored successfully.")
 
-    return _htmx_redirect(reverse("fundingrequests:funder_detail", kwargs={"pk": pk}))
+    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
 
 @login_required
@@ -337,7 +341,7 @@ def fundingorganization_create_modal(request: HttpRequest) -> HttpResponse:
         request,
         "partials/entity_creation_modal.html",
         {
-            "entity_name": "Funding Organization",
+            "entity_name": FUNDER_ENTITY_NAME,
             "form": form,
             "entity_create_url": "fundingrequests:funders_create_modal_submit",
             "hx_include": "#wizard-form",
@@ -368,7 +372,7 @@ def fundingorganization_create_modal_submit(request: HttpRequest) -> HttpRespons
             request,
             "partials/entity_creation_modal.html",
             {
-                "entity_name": "Funding Organization",
+                "entity_name": FUNDER_ENTITY_NAME,
                 "form": form,
                 "entity_create_url": "fundingrequests:funders_create_modal_submit",
                 "hx_include": "#wizard-form",

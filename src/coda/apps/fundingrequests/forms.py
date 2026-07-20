@@ -99,12 +99,8 @@ class ContractFormset(HtmxDynamicFormset[ContractForm]):
     def prerender_forms(
         forms: list[ContractForm], mapping: Mapping[str, Any] | None = None
     ) -> list[ContractForm]:
-        if not mapping:
-            return forms
-
-        if ContractFormset.use_inactive_contract_forms(forms, mapping):
+        if mapping and ContractFormset.use_inactive_contract_forms(forms, mapping):
             return [ContractFormWithInactive(form.data, prefix=form.prefix) for form in forms]
-
         return forms
 
     @staticmethod
@@ -217,25 +213,23 @@ class ExternalFundingFormset(HtmxDynamicFormset[ExternalFundingForm]):
     def prerender_forms(
         forms: list[ExternalFundingForm], data: Mapping[str, Any] | None = None
     ) -> list[ExternalFundingForm]:
-        if data is None:
-            return forms
-        org_pks = _extract_org_pks_from_formset(data)
-        if not org_pks:
-            return forms
-        archived_pks = set(
-            FundingOrganization.all_objects.filter(
-                pk__in=org_pks, archived_at__isnull=False
-            ).values_list("pk", flat=True)
-        )
-        if not archived_pks:
-            return forms
-        custom_qs = FundingOrganization.objects.all() | FundingOrganization.all_objects.filter(
-            pk__in=archived_pks
-        )
-        for form in forms:
-            cast(ModelChoiceField[FundingOrganization], form.fields["organization"]).queryset = (
-                custom_qs
-            )
+        if data is not None:
+            org_pks = _extract_org_pks_from_formset(data)
+            if org_pks:
+                archived_pks = set(
+                    FundingOrganization.all_objects.filter(
+                        pk__in=org_pks, archived_at__isnull=False
+                    ).values_list("pk", flat=True)
+                )
+                if archived_pks:
+                    custom_qs = (
+                        FundingOrganization.objects.all()
+                        | FundingOrganization.all_objects.filter(pk__in=archived_pks)
+                    )
+                    for form in forms:
+                        cast(
+                            ModelChoiceField[FundingOrganization], form.fields["organization"]
+                        ).queryset = custom_qs
         return forms
 
     def is_empty(self) -> bool:
