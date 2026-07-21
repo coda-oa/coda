@@ -8,10 +8,10 @@ CODA is a web application for managing and processing funding requests for open 
 
 ---
 
-<table>
+<table border="0">
   <tr>
     <td align="center" valign="top" colspan="2">
-      <a href="docs/_static/img/readme/exports_fundingrequest_light.png">
+      <a href="docs/_static/img/readme/exports_fundingrequest_light.png" title="Export funding requests" target="_blank">
         <picture>
           <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/exports_fundingrequests_dark.png">
           <img src="docs/_static/img/readme/exports_fundingrequest_light.png" alt="Export funding requests" width="100%">
@@ -21,7 +21,7 @@ CODA is a web application for managing and processing funding requests for open 
   </tr>
   <tr>
     <td align="center" valign="top">
-      <a href="docs/_static/img/readme/fundingrequests_list_light.png">
+      <a href="docs/_static/img/readme/fundingrequests_list_light.png" title="Funding requests list" target="_blank">
         <picture>
           <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/fundingrequests_list_dark.png">
           <img src="docs/_static/img/readme/fundingrequests_list_light.png" alt="Funding requests list" width="100%">
@@ -29,7 +29,7 @@ CODA is a web application for managing and processing funding requests for open 
       </a>
     </td>
     <td align="center" valign="top">
-      <a href="docs/_static/img/readme/fundingrequests_detail_light.png">
+      <a href="docs/_static/img/readme/fundingrequests_detail_light.png" title="Funding request detail" target="_blank">
         <picture>
           <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/fundingrequests_detail_dark.png">
           <img src="docs/_static/img/readme/fundingrequests_detail_light.png" alt="Funding request detail" width="100%">
@@ -39,7 +39,7 @@ CODA is a web application for managing and processing funding requests for open 
   </tr>
   <tr>
     <td align="center" valign="top">
-      <a href="docs/_static/img/readme/invoices_list_light.png">
+      <a href="docs/_static/img/readme/invoices_list_light.png" title="Invoices list" target="_blank">
         <picture>
           <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/invoices_list_dark.png">
           <img src="docs/_static/img/readme/invoices_list_light.png" alt="Invoices list" width="100%">
@@ -47,7 +47,7 @@ CODA is a web application for managing and processing funding requests for open 
       </a>
     </td>
     <td align="center" valign="top">
-      <a href="docs/_static/img/readme/invoices_detail_light.png">
+      <a href="docs/_static/img/readme/invoices_detail_light.png" title="Invoice detail" target="_blank">
         <picture>
           <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/invoices_detail_dark.png">
           <img src="docs/_static/img/readme/invoices_detail_light.png" alt="Invoice detail" width="100%">
@@ -61,18 +61,19 @@ CODA is a web application for managing and processing funding requests for open 
 
 ## Table of Contents
 
-- [Features](#features)
-- [Quick Start](#quick-start)
-- [Development](#development)
-  - [Devcontainer](#devcontainer)
+- [Features ✨](#features)
+- [Quick Start 🚀](#quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Deployment](#deployment)
+- [Development ⚙️](#development)
   - [Project management](#project-management)
   - [Pre-commit configuration](#pre-commit-configuration)
     - [Committing](#committing)
-- [Documentation](#documentation)
-- [Get in Touch](#get-in-touch)
-- [License](#license)
+- [Documentation 📝](#documentation)
+- [Get in Touch with us! 📬](#get-in-touch-with-us)
+- [License 📄](#license)
 
-## ✨ Features
+## Features ✨
 
 - 🪄 **Multi-step funding request wizard** — create requests for articles and monographs with DOI-based metadata import; manage metadata, payment status, and contract linking
 - ⚖️ **Review workflow** — approve, reject, or mark requests in progress
@@ -89,37 +90,53 @@ CODA is a web application for managing and processing funding requests for open 
 - 💾 **CSV exports** — filter-based export of funding requests and their associated costs
 - ⚙️ **Global preferences** — configure home currency, home institution, and vocabulary selection
 
-## 🚀 Quick Start
+## Quick Start 🚀
 
 ### Prerequisites
 
 - Docker and Docker Compose
 
-### Production
+### Deployment
 
-1. Clone the repository:
+1. Clone the repository and change to the newly created `coda` directory:
    ```
-   git clone https://github.com/coda-oa/coda.git
+   git clone https://github.com/coda-oa/coda
    cd coda
    ```
 
-2. Create environment files from the templates:
+2. Prepare environment variables:
+
+   In `coda.env` you can set which port CODA will be run under by adjusting the `CODA_EXPOSED_PORT` variable.
+
+   In `django.env` you must set the following variables:
+
+   ```{code-block}
+   DJANGO_SECRET_KEY=<your-secret-key>
+   DJANGO_ALLOWED_HOSTS=<your-allowed-hosts>
+   DJANGO_CSRF_TRUSTED_ORIGINS=<your-trusted-origins>
    ```
-   cp .envs/.production/django.env.template .envs/.production/django.env
-   cp .envs/.production/postgres.env.template .envs/.production/postgres.env
+
+   `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS` should generally point to the same hosts. For example, if CODA is running on the address `coda.example.com`, then these variables could look as follows:
+
    ```
-   Edit these files to configure your database credentials, secret key, and other settings.
+   DJANGO_ALLOWED_HOSTS=coda.example.com
+   DJANGO_CSRF_TRUSTED_ORIGINS=https://coda.example.com
+   ```
+
+   In `postgres.env` you need to set a password for the database:
+
+   ```{code-block}
+   POSTGRES_PASSWORD=<your-password>
+   ```
 
 3. Start the application:
    ```
    ./commands/start-coda.sh --production
    ```
 
-The application will be available at `localhost:8000`.
+For a full deployment guide (local and production), see the [documentation](https://coda-oa.github.io/coda/users/installation.html).
 
-For a full deployment guide, see the [documentation](https://coda-oa.github.io/coda/users/installation.html).
-
-## ⚙️ Development
+## Development ⚙️
 
 We provide a Docker Compose and devcontainer configuration to develop CODA in a Docker environment. Using an editor or IDE with devcontainer support (like VS Code or PyCharm) should be enough to get started. All necessary dependencies will be installed in the devcontainer.
 
@@ -147,16 +164,16 @@ As we use `commitizen` to ensure correct commit formatting, we recommend using i
 pdm run cz commit
 ```
 
-## 📝 Documentation
+## Documentation 📝
 
-Full documentation is available at [https://coda-oa.github.io/coda/](https://coda-oa.github.io/coda/).
+Full documentation about all the features is available at [https://coda-oa.github.io/coda/](https://coda-oa.github.io/coda/).
 
-## 📬 Get in Touch
+## Get in Touch with us! 📬
 
 - **Project Website**: [The website of the Adore-OA project](https://www.tu-braunschweig.de/en/ub/about-us/projects-overview/adore-oa)
-- **Matrix**: [Get in touch with us by joining are matrix space](https://matrix.to/#/#coda:matrix.tu-bs.de)
+- **Matrix**: [Get in touch with us by joining our matrix space](https://matrix.to/#/#coda:matrix.tu-bs.de)
 - **Demo**: [Try our demo installation yourself!](https://coda-demo.ub.tu-braunschweig.de/)
 
-## 📄 License
+## License 📄
 
 CODA is licensed under the [GNU General Public License v3.0 or later](LICENSE).
