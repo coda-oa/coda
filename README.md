@@ -61,17 +61,17 @@ CODA is a web application for managing and processing funding requests for open 
 
 ## Table of Contents
 
-- [Features ✨](#features)
-- [Quick Start 🚀](#quick-start)
+- [Features ✨](#features-)
+- [Quick Start 🚀](#quick-start-)
   - [Prerequisites](#prerequisites)
   - [Deployment](#deployment)
-- [Development ⚙️](#development)
+- [Development](#development)
   - [Project management](#project-management)
   - [Pre-commit configuration](#pre-commit-configuration)
     - [Committing](#committing)
-- [Documentation 📝](#documentation)
-- [Get in Touch with us! 📬](#get-in-touch-with-us)
-- [License 📄](#license)
+- [Documentation 📝](#documentation-)
+- [Get in Touch with us! 📬](#get-in-touch-with-us-)
+- [License 📄](#license-)
 
 ## Features ✨
 
@@ -134,9 +134,9 @@ CODA is a web application for managing and processing funding requests for open 
    ./commands/start-coda.sh --production
    ```
 
-For a full deployment guide (local and production), see the [documentation](https://coda-oa.github.io/coda/users/installation.html).
+For a full deployment guide (local and production), see the <a href="https://coda-oa.github.io/coda/users/installation.html" target="_blank" rel="noopener noreferrer">documentation</a>.
 
-## Development ⚙️
+## Development
 
 We provide a Docker Compose and devcontainer configuration to develop CODA in a Docker environment. Using an editor or IDE with devcontainer support (like VS Code or PyCharm) should be enough to get started. All necessary dependencies will be installed in the devcontainer.
 
@@ -144,7 +144,7 @@ When launching the devcontainer, CODA will automatically be started at `localhos
 
 ### Project management
 
-CODA uses `pdm` to manage the project and its dependencies. See [pdm's documentation](https://pdm-project.org/en/latest/) for more details.
+CODA uses `pdm` to manage the project and its dependencies. See <a href="https://pdm-project.org/en/latest/" target="_blank" rel="noopener noreferrer">pdm's documentation</a> for more details.
 
 ### Pre-commit configuration
 
@@ -154,7 +154,7 @@ CODA uses a strict `pre-commit` configuration that runs checks before allowing a
 2. **ruff** — linting and code style enforcement
 3. **black** — deterministic code formatting
 4. **djlint** — Django template linting
-5. **commitizen** — enforces [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/)
+5. **commitizen** — enforces <a href="https://www.conventionalcommits.org/en/v1.0.0/" target="_blank" rel="noopener noreferrer">conventional commits</a>
 
 #### Committing
 
@@ -166,14 +166,14 @@ pdm run cz commit
 
 ## Documentation 📝
 
-Full documentation about all the features is available at [https://coda-oa.github.io/coda/](https://coda-oa.github.io/coda/).
+Full documentation about all the features is available at <a href="https://coda-oa.github.io/coda/" target="_blank" rel="noopener noreferrer">https://coda-oa.github.io/coda/</a>.
 
 ## Get in Touch with us! 📬
 
-- **Project Website**: [The website of the Adore-OA project](https://www.tu-braunschweig.de/en/ub/about-us/projects-overview/adore-oa)
-- **Matrix**: [Get in touch with us by joining our matrix space](https://matrix.to/#/#coda:matrix.tu-bs.de)
-- **Demo**: [Try our demo installation yourself!](https://coda-demo.ub.tu-braunschweig.de/)
+- **Project Website**: <a href="https://www.tu-braunschweig.de/en/ub/about-us/projects-overview/adore-oa" target="_blank" rel="noopener noreferrer">The website of the Adore-OA project</a>
+- **Matrix**: <a href="https://matrix.to/#/#coda:matrix.tu-bs.de" target="_blank" rel="noopener noreferrer">Get in touch with us by joining our matrix space</a>
+- **Demo**: <a href="https://coda-demo.ub.tu-braunschweig.de/" target="_blank" rel="noopener noreferrer">Try our demo installation yourself!</a>
 
 ## License 📄
 
-CODA is licensed under the [GNU General Public License v3.0 or later](LICENSE).
+CODA is licensed under the <a href="LICENSE" target="_blank" rel="noopener noreferrer">GNU General Public License v3.0 or later</a>.
