@@ -25,6 +25,7 @@
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/license/coda-oa/coda.svg?variant=ghost&amp;mode=dark&amp;theme=rose"><img alt="License" src="https://www.shieldcn.dev/github/license/coda-oa/coda.svg?variant=ghost&amp;mode=light&amp;theme=rose"></picture>
 
 </div>
+
 ---
 
 CODA is a web application for managing and processing funding requests for open access publication fees. It provides a complete workflow from request submission through approval, invoicing, and reporting — designed for academic libraries and research institutions.
