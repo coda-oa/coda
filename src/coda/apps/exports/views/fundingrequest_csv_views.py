@@ -108,7 +108,17 @@ def fundingrequest_csv_export_create_view(
                 "title_placeholder": "Enter a title for the export",
                 "cancel_url": reverse("exports:fundingrequests_csv_list"),
                 "submit_button_text": "Generate CSV Export",
-                "include_payment_status": True,
+                "show_filters": [
+                    "publication_type",
+                    "contract",
+                    "status",
+                    "payment_method",
+                    "open_access_type",
+                    "publication_state",
+                    "labels",
+                    "payment_status",
+                    "funding_source",
+                ],
             }
         )
 

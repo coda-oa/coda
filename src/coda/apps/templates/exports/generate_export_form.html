@@ -28,17 +28,33 @@
             <hr>
             <details {% if expand_advanced_search %}open{% endif %}>
                 <summary class="flex align-center justify-between button outline contrast">Optional Filters</summary>
-                {% include "fundingrequests/forms/publication_type.html" %}
-                {% include "fundingrequests/forms/contract_dropdown.html" %}
-                {% include "fundingrequests/forms/status_dropdown.html" %}
-                {% include "fundingrequests/forms/payment_method.html" %}
-                {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
-                {% include "fundingrequests/forms/publication_state.html" %}
-                {% include "fundingrequests/forms/label_dropdown.html" %}
-                {% if include_payment_status %}
+                {% if "publication_type" in show_filters or not show_filters %}
+                    {% include "fundingrequests/forms/publication_type.html" %}
+                {% endif %}
+                {% if "contract" in show_filters or not show_filters %}
+                    {% include "fundingrequests/forms/contract_dropdown.html" %}
+                {% endif %}
+                {% if "status" in show_filters or not show_filters %}
+                    {% include "fundingrequests/forms/status_dropdown.html" %}
+                {% endif %}
+                {% if "payment_method" in show_filters or not show_filters %}
+                    {% include "fundingrequests/forms/payment_method.html" %}
+                {% endif %}
+                {% if "open_access_type" in show_filters or not show_filters %}
+                    {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
+                {% endif %}
+                {% if "publication_state" in show_filters or not show_filters %}
+                    {% include "fundingrequests/forms/publication_state.html" %}
+                {% endif %}
+                {% if "labels" in show_filters or not show_filters %}
+                    {% include "fundingrequests/forms/label_dropdown.html" %}
+                {% endif %}
+                {% if "payment_status" in show_filters or not show_filters %}
                     {% include "fundingrequests/forms/payment_status.html" %}
                 {% endif %}
-                {% include "invoices/partials/funding_source_filter.html" %}
+                {% if "funding_source" in show_filters or not show_filters %}
+                    {% include "invoices/partials/funding_source_filter.html" %}
+                {% endif %}
             </details>
         </article>
         <div class="grid wizard-nav">
