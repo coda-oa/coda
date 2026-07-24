@@ -1,0 +1,46 @@
+from django.db.models import Exists, OuterRef, Prefetch, QuerySet
+
+from coda.apps.contracts.models import Contract
+from coda.apps.invoices import invoice_query
+from coda.apps.invoices.models import (
+    FundingAssignment,
+    Invoice as InvoiceModel,
+    Position as PositionModel,
+)
+
+
+def get_contracts_for_export(
+    params: invoice_query.InvoiceSearchParams,
+) -> QuerySet[Contract]:
+    criteria = invoice_query.build_criteria(params)
+    matching_invoices = invoice_query.search(*criteria)
+
+    has_matching_position = Exists(
+        PositionModel.objects.filter(
+            contract_id=OuterRef("pk"),
+            invoice__in=matching_invoices,
+        )
+    )
+
+    return (
+        Contract.objects.filter(has_matching_position)
+        .prefetch_related(
+            "publishers",
+            "journals",
+            "links",
+            "links__type",
+            Prefetch(
+                "position_set__invoice",
+                queryset=InvoiceModel.objects.select_related("creditor").prefetch_related(
+                    "currency_conversions",
+                    "positions__funding_assignments__funding_source",
+                    "positions__contract",
+                ),
+            ),
+            Prefetch(
+                "position_set__funding_assignments",
+                queryset=FundingAssignment.objects.select_related("funding_source"),
+            ),
+        )
+        .distinct()
+    )
