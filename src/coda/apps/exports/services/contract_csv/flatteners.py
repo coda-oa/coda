@@ -57,7 +57,7 @@ def _create_row(
         "invoice_comment": invoice.comment or "",
         "external_invoice_id": invoice.external_id or "",
         "position_amount": str(position.amount),
-        "tax_rate": str(position.tax_rate) if position.tax_rate else "",
+        "tax_rate": str(position.tax_rate),
         "cost_type": position.cost_type.value,
         "contract_year": str(position.contract_year),
         "funded_amount": str(funded_amount) if funded_amount is not None else "",

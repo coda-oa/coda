@@ -176,6 +176,17 @@ def _export_form_context(
             "submit_button_text": "Generate CSV Export",
             "include_payment_status": True,
             "include_decimal_separator": True,
+            "show_filters": [
+                    "publication_type",
+                    "contract",
+                    "status",
+                    "payment_method",
+                    "open_access_type",
+                    "publication_state",
+                    "labels",
+                    "payment_status",
+                    "funding_source",
+                ],
         }
     )
     if form_errors is not None:

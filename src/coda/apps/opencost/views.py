@@ -260,6 +260,16 @@ def _report_form_context(
             "submit_button_text": "Generate Report",
             "include_payment_status": False,
             "include_decimal_separator": False,
+            "show_filters": [
+                "publication_type",
+                "contract",
+                "status",
+                "payment_method",
+                "open_access_type",
+                "publication_state",
+                "labels",
+                "funding_source",
+            ],
         }
     )
     if form_errors is not None:
