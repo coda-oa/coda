@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from django.contrib import messages
 from django.http import FileResponse, HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
@@ -76,31 +77,38 @@ def contract_csv_detail_page(request: HttpRequest, pk: int) -> HttpResponse:
 def contract_csv_export_create_view(request: HttpRequest) -> HttpResponse:
 
     if request.method == "GET":
-        context = build_filter_form_context()
-        context["expand_advanced_search"] = bool(request.GET)
-        context.update(
-            {
-                "page_title": "Generate Contract CSV Export",
-                "form_action_url": reverse(CONTRACTS_CSV_CREATE_URL),
-                "parameters_title": "Invoice Filter Parameters",
-                "title_label": "Title",
-                "title_placeholder": "Enter a title for the export",
-                "cancel_url": reverse("exports:contracts_csv_list"),
-                "submit_button_text": "Generate CSV Export",
-                "show_filters": ["payment_status", "funding_source"],
-                "payment_status_choices": invoice_payment_status_choices,
-            }
+        return _render_create_form(request)
+
+    try:
+        return create_csv_export(
+            request,
+            ContractCSVExport,
+            build_filters=_build_export_filters,
+            generate_csv=_generate_csv_from_filters,
+            detail_url_name="exports:contracts_csv_detail",
         )
+    except ValueError as e:
+        messages.error(request, str(e))
+        return _render_create_form(request, status=400)
 
-        return render(request, "exports/generate_export_form.html", context=context)
 
-    return create_csv_export(
-        request,
-        ContractCSVExport,
-        build_filters=_build_export_filters,
-        generate_csv=_generate_csv_from_filters,
-        detail_url_name="exports:contracts_csv_detail",
+def _render_create_form(request: HttpRequest, status: int = 200) -> HttpResponse:
+    context = build_filter_form_context()
+    context["expand_advanced_search"] = bool(request.GET)
+    context.update(
+        {
+            "page_title": "Generate Contract CSV Export",
+            "form_action_url": reverse(CONTRACTS_CSV_CREATE_URL),
+            "parameters_title": "Invoice Filter Parameters",
+            "title_label": "Title",
+            "title_placeholder": "Enter a title for the export",
+            "cancel_url": reverse("exports:contracts_csv_list"),
+            "submit_button_text": "Generate CSV Export",
+            "show_filters": ["payment_status", "funding_source"],
+            "payment_status_choices": invoice_payment_status_choices,
+        }
     )
+    return render(request, "exports/generate_export_form.html", context=context, status=status)
 
 
 @login_required
@@ -139,9 +147,9 @@ def _parse_contract_filter_dict(filters: dict[str, str]) -> InvoiceSearchParams:
         try:
             start = datetime.strptime(start_str, "%Y-%m-%d").date()
             end = datetime.strptime(end_str, "%Y-%m-%d").date()
-            date_range = DateRange(start, end)
         except ValueError:
-            pass
+            raise ValueError("Invalid date format. Please enter dates in YYYY-MM-DD format.")
+        date_range = DateRange(start, end)
 
     payment_status = None
     ps_raw = filters.get("payment_status", "")
