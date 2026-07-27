@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from django.contrib import messages
 from django.http import FileResponse, HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -14,6 +12,10 @@ from coda.apps.exports.services.contract_csv.export_service import export_contra
 from coda.apps.exports.services.filter_display import (
     build_applied_filters_for_contract,
     build_filter_form_context,
+    build_filters_from_request,
+    parse_date_range,
+    parse_funding_source,
+    parse_invoice_payment_status,
 )
 from coda.apps.exports.views.base_csv_views import (
     create_csv_export,
@@ -23,8 +25,7 @@ from coda.apps.exports.views.base_csv_views import (
 )
 from coda.apps.invoices.invoice_query import InvoiceSearchParams
 from coda.apps.views import SimpleSearchEntityListView
-from coda.domain.date import DateRange
-from coda.domain.finance.invoice import FundingSourceId, PaymentStatus
+from coda.domain.finance.invoice import PaymentStatus
 
 CONTRACTS_CSV_CREATE_URL = "exports:contracts_csv_create"
 
@@ -82,7 +83,9 @@ def contract_csv_export_create_view(request: HttpRequest) -> HttpResponse:
         return create_csv_export(
             request,
             ContractCSVExport,
-            build_filters=_build_export_filters,
+            build_filters=lambda req: build_filters_from_request(
+                req, optional_fields=["payment_status", "funding_source"]
+            ),
             generate_csv=_generate_csv_from_filters,
             detail_url_name="exports:contracts_csv_detail",
         )
@@ -125,48 +128,16 @@ def contract_download_csv(request: HttpRequest, pk: int) -> FileResponse:
     return csv_download_view(request, pk, model=ContractCSVExport)
 
 
-def _build_export_filters(request: HttpRequest) -> dict[str, str]:
-    filters: dict[str, str] = {
-        "period_start": request.POST["period_start"],
-        "period_end": request.POST["period_end"],
-    }
-
-    for field in ("payment_status", "funding_source"):
-        values = [v for v in request.POST.getlist(field) if v]
-        if values:
-            filters[field] = ",".join(values)
-
-    return filters
-
-
 def _parse_contract_filter_dict(filters: dict[str, str]) -> InvoiceSearchParams:
-    date_range = None
-    start_str = filters.get("period_start")
-    end_str = filters.get("period_end")
-    if start_str and end_str:
-        try:
-            start = datetime.strptime(start_str, "%Y-%m-%d").date()
-            end = datetime.strptime(end_str, "%Y-%m-%d").date()
-        except ValueError:
-            raise ValueError("Invalid date format. Please enter dates in YYYY-MM-DD format.")
-        date_range = DateRange(start, end)
-
-    payment_status = None
-    ps_raw = filters.get("payment_status", "")
-    if ps_raw:
-        statuses = [s.strip() for s in ps_raw.split(",") if s]
-        if statuses:
-            payment_status = PaymentStatus(statuses[0])
-
-    funding_source = None
-    fs_raw = filters.get("funding_source", "")
-    if fs_raw:
-        funding_source = FundingSourceId(int(fs_raw))
+    try:
+        date_range = parse_date_range(filters)
+    except ValueError:
+        raise ValueError("Invalid date format. Please enter dates in YYYY-MM-DD format.")
 
     return InvoiceSearchParams(
         date_range=date_range,
-        payment_status=payment_status,
-        funding_source=funding_source,
+        payment_status=parse_invoice_payment_status(filters),
+        funding_source=parse_funding_source(filters),
     )
 
 
