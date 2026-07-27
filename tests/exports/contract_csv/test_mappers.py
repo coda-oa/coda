@@ -12,7 +12,7 @@ from tests import domainfactory, modelfactory
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.contracts.models import Contract as ContractModel, ContractLink, ContractLinkType
 from coda.apps.invoices.models import Invoice as InvoiceModel
-from tests.exports.fundingrequest_csv.helpers import create_invoice_with_contract_position
+from tests.exports.helpers import create_invoice_with_contract_position
 
 
 @pytest.mark.django_db

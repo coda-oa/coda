@@ -18,7 +18,7 @@ from coda.domain.fundingrequest import FundingRequestId
 from coda.apps.fundingrequests.repository import save_review
 
 
-from tests.exports.fundingrequest_csv.helpers import _make_params
+from tests.exports.helpers import _make_params
 
 
 @pytest.mark.django_db

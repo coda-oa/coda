@@ -15,7 +15,7 @@ from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 from coda.domain.publication.publication import PublicationId
 from tests import domainfactory, modelfactory
-from tests.exports.fundingrequest_csv.helpers import (
+from tests.exports.helpers import (
     create_funding_request,
     create_invoice_with_publication_position,
 )

@@ -18,7 +18,7 @@ from coda.apps.fundingrequests import fundingrequest_query
 from coda.domain.finance.invoice import CreditorId, FundingSourceId
 from coda.domain.publication.publication import PublicationId
 
-from tests.exports.fundingrequest_csv.helpers import (
+from tests.exports.helpers import (
     _make_params,
     create_invoice_with_publication_position,
 )
