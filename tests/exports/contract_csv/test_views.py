@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 from django.test import Client
 from django.urls import reverse
+from django.contrib.messages import get_messages
 from django.core.files.base import ContentFile
 
 from coda.apps.contracts import repository as contract_repository
@@ -247,3 +248,23 @@ def test_contract_csv_export_create_view__funding_source_filter__is_stored(
     assert response.status_code == 302
     export = ContractCSVExport.objects.get(name=title)
     assert export.filters["funding_source"] == str(budget.id)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_contract_csv_export_create_view__invalid_date_format__returns_error_and_does_not_create_export(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:contracts_csv_create"),
+        data={
+            "period_start": "not-a-date",
+            "period_end": "also-invalid",
+            "title": "Bad Date Export",
+        },
+    )
+
+    assert response.status_code == 400
+    assert ContractCSVExport.objects.count() == 0
+    messages = list(get_messages(response.wsgi_request))
+    assert any("Invalid date format" in str(m) for m in messages)
