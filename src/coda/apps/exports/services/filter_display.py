@@ -6,7 +6,7 @@ projection below only deals with typed values.
 """
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 from typing import Any, get_args, get_origin
 from collections.abc import Callable
@@ -23,7 +23,8 @@ from coda.apps.fundingrequests.fundingrequest_query import (
 from coda.apps.fundingrequests.fundingrequest_query import PublicationEntityType
 from coda.apps.invoices.models import FundingSource
 from coda.contexts.exports.dto.filters import ExportFiltersDto
-from coda.domain.finance.invoice import PaymentStatus as InvoicePaymentStatus
+from coda.domain.date import DateRange
+from coda.domain.finance.invoice import FundingSourceId, PaymentStatus as InvoicePaymentStatus
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import DecimalSeparator
@@ -80,6 +81,60 @@ invoice_payment_status_choices: list[tuple[str, str]] = [
     (status.value, status.value.replace("_", " ").title()) for status in InvoicePaymentStatus
 ]
 
+
+# ---------------------------------------------------------------------------
+# Shared filter keys that are common to both CSV exports and openCost reports.
+# ---------------------------------------------------------------------------
+
+_COMMON_OPTIONAL_FILTER_FIELDS: list[str] = list(
+    MULTI_VALUE_FILTER_FIELDS | SINGLE_VALUE_FILTER_FIELDS
+)
+
+
+def build_filters_from_request(
+    request: HttpRequest,
+    optional_fields: list[str] | None = None,
+) -> dict[str, str]:
+    """Build the raw filter dict from a POST request.
+
+    By default, the common set of optional filter fields
+    (``_COMMON_OPTIONAL_FILTER_FIELDS``) is used.  Pass ``optional_fields`` to
+    use a different set instead.
+    """
+    filters: dict[str, str] = {
+        "period_start": request.POST["period_start"],
+        "period_end": request.POST["period_end"],
+    }
+
+    for field in optional_fields if optional_fields is not None else _COMMON_OPTIONAL_FILTER_FIELDS:
+        values = [v for v in request.POST.getlist(field) if v]
+        if values:
+            filters[field] = ",".join(values)
+
+    return filters
+
+
+def parse_date_range(filters: dict[str, str]) -> DateRange | None:
+    start_str = filters.get("period_start")
+    end_str = filters.get("period_end")
+    if start_str and end_str:
+        start = datetime.strptime(start_str, "%Y-%m-%d").date()
+        end = datetime.strptime(end_str, "%Y-%m-%d").date()
+        return DateRange(start, end)
+    return None
+
+
+def parse_funding_source(filters: dict[str, str]) -> FundingSourceId | None:
+    raw = filters.get("funding_source")
+    return FundingSourceId(int(raw)) if raw else None
+
+
+def parse_invoice_payment_status(filters: dict[str, str]) -> InvoicePaymentStatus | None:
+    raw = filters.get("payment_status", "")
+    if not raw:
+        return None
+    statuses = [s.strip() for s in raw.split(",") if s]
+    return InvoicePaymentStatus(statuses[0]) if statuses else None
 
 def build_filter_form_context() -> dict[str, object]:
     """Return the template context dict needed to render any filter form.
