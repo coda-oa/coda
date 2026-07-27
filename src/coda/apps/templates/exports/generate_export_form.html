@@ -50,7 +50,7 @@
                     {% include "fundingrequests/forms/label_dropdown.html" %}
                 {% endif %}
                 {% if "payment_status" in show_filters or not show_filters %}
-                    {% include "fundingrequests/forms/payment_status.html" %}
+                    {% include payment_status_filter_template|default:"fundingrequests/forms/payment_status.html" %}
                 {% endif %}
                 {% if "funding_source" in show_filters or not show_filters %}
                     {% include "invoices/partials/funding_source_filter.html" %}

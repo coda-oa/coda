@@ -14,7 +14,6 @@ from coda.apps.exports.services.contract_csv.export_service import export_contra
 from coda.apps.exports.services.filter_display import (
     build_applied_filters_for_contract,
     build_filter_form_context,
-    invoice_payment_status_choices,
 )
 from coda.apps.exports.views.base_csv_views import (
     create_csv_export,
@@ -105,7 +104,8 @@ def _render_create_form(request: HttpRequest, status: int = 200) -> HttpResponse
             "cancel_url": reverse("exports:contracts_csv_list"),
             "submit_button_text": "Generate CSV Export",
             "show_filters": ["payment_status", "funding_source"],
-            "payment_status_choices": invoice_payment_status_choices,
+            "payment_status_filter_template": "invoices/partials/payment_status_filter.html",
+            "payment_statuses": [s.value for s in PaymentStatus],
         }
     )
     return render(request, "exports/generate_export_form.html", context=context, status=status)

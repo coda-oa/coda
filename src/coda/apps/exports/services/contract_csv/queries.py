@@ -7,13 +7,16 @@ from coda.apps.invoices.models import (
     Invoice as InvoiceModel,
     Position as PositionModel,
 )
+from coda.domain.finance.invoice import InvoiceId
 
 
 def get_contracts_for_export(
     params: invoice_query.InvoiceSearchParams,
-) -> QuerySet[Contract]:
+) -> tuple[QuerySet[Contract], set[InvoiceId]]:
     criteria = invoice_query.build_criteria(params)
     matching_invoices = invoice_query.search(*criteria)
+
+    matching_invoice_ids = {InvoiceId(pk) for pk in matching_invoices.values_list("pk", flat=True)}
 
     has_matching_position = Exists(
         PositionModel.objects.filter(
@@ -22,7 +25,7 @@ def get_contracts_for_export(
         )
     )
 
-    return (
+    contracts = (
         Contract.objects.filter(has_matching_position)
         .prefetch_related(
             "publishers",
@@ -44,3 +47,5 @@ def get_contracts_for_export(
         )
         .distinct()
     )
+
+    return contracts, matching_invoice_ids
