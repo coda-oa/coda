@@ -1,15 +1,10 @@
 from datetime import datetime
-from io import StringIO
 
-import polars as pl
-from django.contrib import messages
+from django.http import FileResponse, HttpRequest, HttpResponse
+from django.shortcuts import render
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.files.base import ContentFile
-from django.http import FileResponse, HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
-from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -18,8 +13,13 @@ from coda.apps.exports.services.contract_csv.export_service import export_contra
 from coda.apps.exports.services.filter_display import (
     build_applied_filters_for_contract,
     build_filter_form_context,
-    create_redo_url,
     invoice_payment_status_choices,
+)
+from coda.apps.exports.views.base_csv_views import (
+    create_csv_export,
+    csv_delete_view,
+    csv_detail_page,
+    csv_download_view,
 )
 from coda.apps.invoices.invoice_query import InvoiceSearchParams
 from coda.apps.views import SimpleSearchEntityListView
@@ -27,6 +27,14 @@ from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId, PaymentStatus
 
 CONTRACTS_CSV_CREATE_URL = "exports:contracts_csv_create"
+
+PREVIEW_COLUMNS = [
+    "contract_name",
+    "invoice_number",
+    "position_amount",
+    "funded_amount",
+    "funding_source_name",
+]
 
 
 @breadcrumb("Contract CSV Export", parent_url_name="exports:export_home")
@@ -49,46 +57,23 @@ contract_csv_export_list_view = ContractCSVExportListView.as_view()
 
 @login_required
 @require_GET
-@breadcrumb(
-    "CSV Export Details",
-    parent_url_name="exports:contracts_csv_list",
-)
-def contract_csv_detail_page(
-    request: HttpRequest,
-    pk: int,
-) -> HttpResponse:
-
-    export = get_object_or_404(
-        ContractCSVExport,
-        pk=pk,
-    )
-
-    preview_df = _create_preview_dataframe(export.csv_file.open("rb").read().decode("utf-8"))
-
-    applied_filters = build_applied_filters_for_contract(export.filters)
-    redo_url = create_redo_url(export.filters, "exports:contracts_csv_create")
-
-    return render(
+@breadcrumb("CSV Export Details", parent_url_name="exports:contracts_csv_list")
+def contract_csv_detail_page(request: HttpRequest, pk: int) -> HttpResponse:
+    return csv_detail_page(
         request,
-        "export/contract_csv_detail.html",
-        {
-            "export": export,
-            "preview_columns": preview_df.columns,
-            "preview_rows": preview_df.rows(),
-            "applied_filters": applied_filters,
-            "redo_url": redo_url,
-        },
+        pk,
+        model=ContractCSVExport,
+        template_name="export/contract_csv_detail.html",
+        parent_url_name="exports:contracts_csv_list",
+        preview_columns=PREVIEW_COLUMNS,
+        applied_filters_builder=build_applied_filters_for_contract,
+        create_url_name="exports:contracts_csv_create",
     )
 
 
 @login_required
-@breadcrumb(
-    "Generate New CSV Export",
-    parent_url_name="exports:contracts_csv_list",
-)
-def contract_csv_export_create_view(
-    request: HttpRequest,
-) -> HttpResponse:
+@breadcrumb("Generate New CSV Export", parent_url_name="exports:contracts_csv_list")
+def contract_csv_export_create_view(request: HttpRequest) -> HttpResponse:
 
     if request.method == "GET":
         context = build_filter_form_context()
@@ -107,90 +92,29 @@ def contract_csv_export_create_view(
             }
         )
 
-        return render(
-            request,
-            "exports/generate_export_form.html",
-            context=context,
-        )
+        return render(request, "exports/generate_export_form.html", context=context)
 
-    title = request.POST.get("title", "").strip() or "Unnamed CSV Export"
-
-    filters = _build_export_filters(request)
-    csv_content = _generate_csv_from_filters(filters)
-    row_count = pl.read_csv(
-        StringIO(csv_content),
-        separator=";",
-    ).height
-
-    export = ContractCSVExport.objects.create(
-        name=title,
-        filters=filters,
-        record_count=row_count,
-    )
-
-    filename = f"{slugify(title) or 'export'}-{export.id}.csv"
-
-    export.csv_file.save(
-        filename,
-        ContentFile(csv_content.encode("utf-8")),
-    )
-
-    return redirect(
-        "exports:contracts_csv_detail",
-        pk=export.pk,
+    return create_csv_export(
+        request,
+        ContractCSVExport,
+        build_filters=_build_export_filters,
+        generate_csv=_generate_csv_from_filters,
+        detail_url_name="exports:contracts_csv_detail",
     )
 
 
 @login_required
 @require_POST
 def contracts_csv_delete(request: HttpRequest, pk: int) -> HttpResponse:
-    export = get_object_or_404(ContractCSVExport, pk=pk)
-    export_title = export.name
-    export.delete()
-    messages.success(request, f"CSV export '{export_title}' deleted successfully.")
-
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = reverse("exports:contracts_csv_list")
-    return response
+    return csv_delete_view(
+        request, pk, model=ContractCSVExport, list_url_name="exports:contracts_csv_list"
+    )
 
 
 @login_required
 @require_GET
-def contract_download_csv(
-    request: HttpRequest,
-    pk: int,
-) -> FileResponse:
-
-    export = get_object_or_404(
-        ContractCSVExport,
-        pk=pk,
-    )
-    return FileResponse(export.csv_file.open("rb"))
-
-
-# helpers
-
-
-def _create_preview_dataframe(
-    csv_content: str,
-) -> pl.DataFrame:
-
-    preview_columns = [
-        "contract_name",
-        "invoice_number",
-        "position_amount",
-        "funded_amount",
-        "funding_source_name",
-    ]
-
-    return (
-        pl.read_csv(
-            StringIO(csv_content),
-            separator=";",
-        )
-        .select(preview_columns)
-        .head(50)
-    )
+def contract_download_csv(request: HttpRequest, pk: int) -> FileResponse:
+    return csv_download_view(request, pk, model=ContractCSVExport)
 
 
 def _build_export_filters(request: HttpRequest) -> dict[str, str]:
