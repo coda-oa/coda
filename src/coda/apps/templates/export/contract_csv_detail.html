@@ -24,8 +24,9 @@
                         <strong>Number of records:</strong> {{ export.record_count }}
                     </p>
                 </div>
-                <div class="flex justify-between align-center mb-1">
+                <div class="flex justify-between align-center">
                     <strong>Applied filters:</strong>
+                    <a class="button secondary" href="{{ redo_url }}">Reuse Filters For New Export</a>
                 </div>
                 <ul>
                     {% for filter in applied_filters %}
