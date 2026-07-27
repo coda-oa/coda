@@ -39,10 +39,10 @@ def test__contracts_with_positions__query_for_export_without_filters__returns_al
     create_invoice_with_contract_position(contract_year)
 
     params = InvoiceSearchParams()
-    result = get_contracts_for_export(params)
+    contracts, _ = get_contracts_for_export(params)
 
-    assert len(result) == 1
-    assert result[0].pk == int(contract.id)
+    assert len(contracts) == 1
+    assert contracts[0].pk == int(contract.id)
 
 
 @pytest.mark.django_db
@@ -51,9 +51,9 @@ def test__contract_without_positions__query_for_export__is_excluded() -> None:
     contract.id = contract_repository.create(contract)
 
     params = InvoiceSearchParams()
-    result = get_contracts_for_export(params)
+    contracts, _ = get_contracts_for_export(params)
 
-    assert len(result) == 0
+    assert len(contracts) == 0
 
 
 @pytest.mark.django_db
@@ -68,9 +68,9 @@ def test__contracts_with_invoices_outside_date_range__query_with_date_range_filt
     params = InvoiceSearchParams(
         date_range=DateRange(start=date(2020, 1, 1), end=date(2020, 12, 31))
     )
-    result = get_contracts_for_export(params)
+    contracts, _ = get_contracts_for_export(params)
 
-    assert len(result) == 0
+    assert len(contracts) == 0
 
 
 @pytest.mark.django_db
@@ -83,10 +83,10 @@ def test__contracts_with_paid_invoices__query_with_payment_status_filter__return
     _create_invoice_with_status(contract_year, PaymentStatus.Paid)
 
     params = InvoiceSearchParams(payment_status=PaymentStatus.Paid)
-    result = get_contracts_for_export(params)
+    contracts, _ = get_contracts_for_export(params)
 
-    assert len(result) == 1
-    assert result[0].pk == int(contract.id)
+    assert len(contracts) == 1
+    assert contracts[0].pk == int(contract.id)
 
 
 @pytest.mark.django_db
@@ -97,9 +97,9 @@ def test__contracts_with_unpaid_invoices__query_with_rejected_filter__excludes_c
     _create_invoice_with_status(contract_year, PaymentStatus.Unpaid)
 
     params = InvoiceSearchParams(payment_status=PaymentStatus.Rejected)
-    result = get_contracts_for_export(params)
+    contracts, _ = get_contracts_for_export(params)
 
-    assert len(result) == 0
+    assert len(contracts) == 0
 
 
 @pytest.mark.django_db
@@ -115,6 +115,6 @@ def test__multiple_contracts_with_invoices__query_for_export__returns_all_contra
     create_invoice_with_contract_position(contract_year2)
 
     params = InvoiceSearchParams()
-    result = get_contracts_for_export(params)
+    contracts, _ = get_contracts_for_export(params)
 
-    assert len(result) == 2
+    assert len(contracts) == 2

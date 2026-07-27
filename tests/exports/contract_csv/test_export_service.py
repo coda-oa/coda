@@ -9,7 +9,7 @@ from coda.apps.exports.services.contract_csv.export_service import export_contra
 from coda.apps.invoices.invoice_query import InvoiceSearchParams
 from coda.domain.finance.costtypes import ContractCostType
 from coda.domain.finance.funding_sources import Budget
-from coda.domain.finance.invoice import CreditorId, FundingSourceId
+from coda.domain.finance.invoice import CreditorId, FundingSourceId, PaymentStatus
 from coda.domain.finance.invoice_positions import ContractItem
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
@@ -110,3 +110,33 @@ def test__contract_with_multiple_invoices__export_to_csv__combines_all_rows() ->
     invoice_numbers = df["invoice_number"].to_list()
     assert invoice_numbers.count(invoice1.number) == 1
     assert invoice_numbers.count(invoice2.number) == 2
+
+
+@pytest.mark.django_db
+def test__contract_with_mixed_paid_and_unpaid_invoices__export_with_paid_filter__includes_only_paid_invoice_data() -> (
+    None
+):
+    contract, _ = create_contract_with_model()
+    contract_year = domainfactory.contract_year(contract)
+
+    paid_position = domainfactory.contract_position(contract_year)
+    creditor = modelfactory.creditor()
+    paid_invoice = domainfactory.invoice(
+        creditor=CreditorId(creditor.pk), positions=[paid_position]
+    )
+    paid_invoice.pay()
+    paid_invoice.id = invoice_service.save(paid_invoice)
+
+    unpaid_position = domainfactory.contract_position(contract_year)
+    unpaid_invoice = domainfactory.invoice(
+        creditor=CreditorId(creditor.pk), positions=[unpaid_position]
+    )
+    unpaid_invoice.reset_payment()
+    unpaid_invoice.id = invoice_service.save(unpaid_invoice)
+
+    export = export_contract_to_csv(InvoiceSearchParams(payment_status=PaymentStatus.Paid))
+
+    df = pl.read_csv(StringIO(export), separator=";")
+
+    assert df.height == 1
+    assert df["invoice_number"][0] == paid_invoice.number

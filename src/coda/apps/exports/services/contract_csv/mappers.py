@@ -7,16 +7,21 @@ from coda.apps.exports.services.contract_csv.dtos import (
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_invoice_to_dto
 from coda.apps.invoices.models import Invoice
 from coda.contexts.finance.dto.import_dtos import InvoiceImportDto
+from coda.domain.finance.invoice import InvoiceId
 
 
-def map_contract_to_export_dto(contract: Contract) -> ContractCSVExportDto:
+def map_contract_to_export_dto(
+    contract: Contract, matching_invoice_ids: set[InvoiceId] | None = None
+) -> ContractCSVExportDto:
     contract_dto = map_contract_to_dto(contract)
 
-    invoices = get_relevant_invoices_for_contract(contract)
+    invoices = get_relevant_invoices_for_contract(contract, matching_invoice_ids)
 
     invoice_dtos: list[InvoiceImportDto] = []
     for invoice in invoices:
-        scoped_positions = [pos for pos in invoice.positions.all() if pos.contract == contract]
+        scoped_positions = [
+            pos for pos in contract.position_set.all() if pos.invoice_id == invoice.pk
+        ]
         invoice_dtos.append(
             map_invoice_to_dto(invoice, invoice_positions=scoped_positions, funding_request=None)
         )
@@ -44,6 +49,10 @@ def map_contract_to_dto(contract_model: Contract) -> ContractInfoDto:
     )
 
 
-def get_relevant_invoices_for_contract(contract: Contract) -> list[Invoice]:
+def get_relevant_invoices_for_contract(
+    contract: Contract, matching_invoice_ids: set[InvoiceId] | None = None
+) -> list[Invoice]:
     invoices = {pos.invoice for pos in contract.position_set.all() if pos.invoice is not None}
+    if matching_invoice_ids is not None:
+        invoices = {inv for inv in invoices if inv.pk in matching_invoice_ids}
     return list(invoices)

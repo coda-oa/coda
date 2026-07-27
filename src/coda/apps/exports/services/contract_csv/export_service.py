@@ -34,11 +34,11 @@ CSV_COLUMNS = [
 def export_contract_to_csv(
     params: InvoiceSearchParams,
 ) -> str:
-    contracts_with_invoices = queries.get_contracts_for_export(params)
+    contracts, matching_invoice_ids = queries.get_contracts_for_export(params)
 
     export_dtos = [
-        map_contract_to_export_dto(contract_and_invoices)
-        for contract_and_invoices in contracts_with_invoices
+        map_contract_to_export_dto(contract, matching_invoice_ids=matching_invoice_ids)
+        for contract in contracts
     ]
 
     all_rows = []
