@@ -15,7 +15,7 @@ from coda.apps.fundingrequests.fundingrequest_query import (
     PublicationEntityType,
 )
 from coda.domain.date import DateRange
-from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.finance.invoice import FundingSourceId, PaymentStatus as InvoicePaymentStatus
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
@@ -65,6 +65,10 @@ publication_state_choices: list[tuple[str, str]] = [
 
 payment_status_choices: list[tuple[str, str]] = [
     (status.value, status.value.replace("_", " ").title()) for status in FundingRequestPaymentStatus
+]
+
+invoice_payment_status_choices: list[tuple[str, str]] = [
+    (status.value, status.value.replace("_", " ").title()) for status in InvoicePaymentStatus
 ]
 
 
@@ -212,6 +216,15 @@ def build_applied_filters(filters: dict[str, str]) -> list[AppliedFilter]:
     return [f for f in applied_filters if f is not None]
 
 
+def build_applied_filters_for_contract(filters: dict[str, str]) -> list[AppliedFilter]:
+    applied_filters = (
+        _period_filter(filters),
+        _invoice_payment_status_filter(filters),
+        _funding_source_filter(filters),
+    )
+    return [f for f in applied_filters if f is not None]
+
+
 def _period_filter(filters: dict[str, str]) -> AppliedFilter | None:
     if "period_start" not in filters or "period_end" not in filters:
         return None
@@ -297,6 +310,17 @@ def _contract_filter(filters: dict[str, str]) -> AppliedFilter | None:
         label="Contracts",
         value=", ".join(contract.name for contract in contracts),
     )
+
+
+def _invoice_payment_status_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "payment_status" not in filters:
+        return None
+    statuses = [
+        InvoicePaymentStatus(s.strip()).value.replace("_", " ").title()
+        for s in filters["payment_status"].split(",")
+        if s
+    ]
+    return AppliedFilter(label="Payment Status", value=", ".join(statuses))
 
 
 def _funding_source_filter(filters: dict[str, str]) -> AppliedFilter | None:

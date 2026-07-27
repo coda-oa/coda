@@ -16,9 +16,10 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.exports.models import ContractCSVExport
 from coda.apps.exports.services.contract_csv.export_service import export_contract_to_csv
 from coda.apps.exports.services.filter_display import (
-    build_applied_filters,
+    build_applied_filters_for_contract,
     build_filter_form_context,
     create_redo_url,
+    invoice_payment_status_choices,
 )
 from coda.apps.invoices.invoice_query import InvoiceSearchParams
 from coda.apps.views import SimpleSearchEntityListView
@@ -64,7 +65,7 @@ def contract_csv_detail_page(
 
     preview_df = _create_preview_dataframe(export.csv_file.open("rb").read().decode("utf-8"))
 
-    applied_filters = build_applied_filters(export.filters)
+    applied_filters = build_applied_filters_for_contract(export.filters)
     redo_url = create_redo_url(export.filters, "exports:contracts_csv_create")
 
     return render(
@@ -102,6 +103,7 @@ def contract_csv_export_create_view(
                 "cancel_url": reverse("exports:contracts_csv_list"),
                 "submit_button_text": "Generate CSV Export",
                 "show_filters": ["payment_status", "funding_source"],
+                "payment_status_choices": invoice_payment_status_choices,
             }
         )
 
