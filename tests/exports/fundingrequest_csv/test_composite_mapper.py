@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_funding_request_to_export_dto
-from tests.exports.fundingrequest_csv.helpers import (
+from tests.exports.helpers import (
     create_funding_request,
     create_invoice_with_publication_position,
 )

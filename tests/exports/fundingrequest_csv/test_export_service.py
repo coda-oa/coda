@@ -26,7 +26,7 @@ from coda.domain.fundingrequest import FundingRequestId
 from coda.apps.fundingrequests.repository import save_review
 
 
-from tests.exports.fundingrequest_csv.helpers import (
+from tests.exports.helpers import (
     _make_params,
     create_funding_request_with_concepts,
     create_invoice_with_funding_assignments,

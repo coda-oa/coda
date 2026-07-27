@@ -16,7 +16,7 @@ from coda.domain.money import Currency, Money
 from coda.contexts.finance.services import invoice_service
 from tests import domainfactory, modelfactory
 from tests.exports.contract_csv.test_flatteners import _create_contract_with_model
-from tests.exports.fundingrequest_csv.helpers import create_invoice_with_contract_position
+from tests.exports.helpers import create_invoice_with_contract_position
 
 
 @pytest.mark.django_db

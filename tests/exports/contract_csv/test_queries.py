@@ -9,7 +9,7 @@ from coda.domain.date import DateRange
 from coda.domain.finance.invoice import CreditorId, Invoice, PaymentStatus
 from tests import domainfactory, modelfactory
 from coda.apps.contracts import repository as contract_repository
-from tests.exports.fundingrequest_csv.helpers import create_invoice_with_contract_position
+from tests.exports.helpers import create_invoice_with_contract_position
 
 
 def _create_invoice_with_status(contract_year: ContractYear, status: PaymentStatus) -> Invoice:
