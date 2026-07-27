@@ -17,8 +17,10 @@ from tests import domainfactory, modelfactory
 from coda.domain.finance.invoice import CreditorId, Invoice
 from coda.domain.author import InstitutionId
 from coda.domain.finance import invoice_positions
-from coda.domain.finance.costtypes import PublicationCostType
-from coda.domain.finance.invoice_positions import PublicationItem
+from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
+from coda.domain.finance.funding_sources import Budget
+from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.finance.invoice_positions import ContractItem, PublicationItem
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 
@@ -132,6 +134,50 @@ def create_invoice_with_currency_conversion(
     invoice.id = invoice_service.save(invoice)
 
     return invoice
+
+
+def create_contract_and_year() -> tuple[Contract, ContractModel, ContractYear]:
+    contract, contract_model = create_contract_with_model()
+    contract_year = domainfactory.contract_year(contract)
+    return contract, contract_model, contract_year
+
+
+def create_invoice_with_funded_position(contract_year: ContractYear) -> None:
+    position = invoice_positions.create(
+        item=ContractItem(contract_year, cost_type=ContractCostType.Publish),
+        cost=Money(Decimal("3000.00"), Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
+        external_position_id="POS-001",
+    )
+    budget_a = modelfactory.budget(name="Budget A")
+    budget_b = modelfactory.budget(name="Budget B")
+    budget_c = modelfactory.budget(name="Budget C")
+    position.assign_funding(Budget(FundingSourceId(budget_a.pk), budget_a.name), Decimal("1000.00"))
+    position.assign_funding(Budget(FundingSourceId(budget_b.pk), budget_b.name), Decimal("1200.00"))
+    position.assign_funding(Budget(FundingSourceId(budget_c.pk), budget_c.name), Decimal("800.00"))
+    creditor = modelfactory.creditor()
+    invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position])
+    invoice_service.save(invoice)
+
+
+def create_invoices_with_positions(
+    contract_year: ContractYear,
+) -> tuple[Invoice, Invoice]:
+    position1 = domainfactory.contract_position(contract_year)
+    creditor = modelfactory.creditor()
+    invoice1 = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position1])
+    invoice_service.save(invoice1)
+    position2 = domainfactory.contract_position(contract_year)
+    budget_x = modelfactory.budget(name="Budget X")
+    budget_y = modelfactory.budget(name="Budget Y")
+    position2.assign_funding(
+        Budget(FundingSourceId(budget_x.pk), budget_x.name),
+        position2.cost.amount * Decimal("0.6"),
+    )
+    position2.assign_remaining(Budget(FundingSourceId(budget_y.pk), budget_y.name))
+    invoice2 = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position2])
+    invoice_service.save(invoice2)
+    return invoice1, invoice2
 
 
 def create_contract_with_model() -> tuple[Contract, ContractModel]:
