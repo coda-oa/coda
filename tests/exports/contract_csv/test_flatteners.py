@@ -1,41 +1,25 @@
 from decimal import Decimal
 
 import pytest
-from coda.apps.contracts import repository as contract_repository
-from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.exports.services.contract_csv.flatteners import flatten_contract_data
 from coda.apps.exports.services.contract_csv.mappers import map_contract_to_export_dto
 from coda.apps.invoices.models import Invoice as InvoiceModel
-from coda.domain.contract import Contract, PublisherId
 from coda.domain.finance.costtypes import ContractCostType
 from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import CreditorId, FundingSourceId
 from coda.domain.finance.invoice_positions import ContractItem
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
-from coda.domain.publication.publication import JournalId
 from coda.contexts.finance.services import invoice_service
 from tests import domainfactory, modelfactory
-from tests.exports.helpers import create_invoice_with_contract_position
-
-
-def _create_contract_with_model() -> tuple[Contract, ContractModel]:
-    contract = domainfactory.contract()
-    publisher = modelfactory.publisher(name="Test Publisher")
-    journal = modelfactory.journal(title="Test Journal")
-    contract.publishers = [PublisherId(publisher.id)]
-    contract.journals = [JournalId(journal.id)]
-    contract.id = contract_repository.create(contract)
-    assert contract.id is not None
-    contract_model = ContractModel.objects.get(pk=int(contract.id))
-    return contract, contract_model
+from tests.exports.helpers import create_contract_with_model, create_invoice_with_contract_position
 
 
 @pytest.mark.django_db
 def test__contract_with_single_invoice_position_without_split__flatten_to_csv__creates_one_csv_row() -> (
     None
 ):
-    contract, contract_model = _create_contract_with_model()
+    contract, contract_model = create_contract_with_model()
     contract_year = domainfactory.contract_year(contract)
 
     invoice = create_invoice_with_contract_position(contract_year)
@@ -75,7 +59,7 @@ def test__contract_with_single_invoice_position_without_split__flatten_to_csv__c
 def test__contract_with_invoice_position_with_funding_assignments__flatten_to_csv__creates_multiple_rows() -> (
     None
 ):
-    contract, contract_model = _create_contract_with_model()
+    contract, contract_model = create_contract_with_model()
     contract_year = domainfactory.contract_year(contract)
 
     from coda.domain.finance import invoice_positions
@@ -113,7 +97,7 @@ def test__contract_with_invoice_position_with_funding_assignments__flatten_to_cs
 
 @pytest.mark.django_db
 def test__contract_with_multiple_invoices__flatten_to_csv__combines_all_rows() -> None:
-    contract, contract_model = _create_contract_with_model()
+    contract, contract_model = create_contract_with_model()
     contract_year = domainfactory.contract_year(contract)
 
     position1 = domainfactory.contract_position(contract_year)
