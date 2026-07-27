@@ -15,15 +15,14 @@ from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money import Currency, Money
 from coda.contexts.finance.services import invoice_service
 from tests import domainfactory, modelfactory
-from tests.exports.contract_csv.test_flatteners import _create_contract_with_model
-from tests.exports.helpers import create_invoice_with_contract_position
+from tests.exports.helpers import create_contract_with_model, create_invoice_with_contract_position
 
 
 @pytest.mark.django_db
 def test__contract_with_one_invoice_position_and_no_funding_assignments__export_to_csv__returns_csv_with_one_row() -> (
     None
 ):
-    contract, _ = _create_contract_with_model()
+    contract, _ = create_contract_with_model()
     contract_year = domainfactory.contract_year(contract)
 
     invoice = create_invoice_with_contract_position(contract_year)
@@ -46,7 +45,7 @@ def test__contract_with_one_invoice_position_and_no_funding_assignments__export_
 def test__contract_with_invoice_position_with_funding_assignments__export_to_csv__creates_multiple_rows() -> (
     None
 ):
-    contract, _ = _create_contract_with_model()
+    contract, _ = create_contract_with_model()
     contract_year = domainfactory.contract_year(contract)
 
     from coda.domain.finance import invoice_positions
@@ -84,7 +83,7 @@ def test__contract_with_invoice_position_with_funding_assignments__export_to_csv
 
 @pytest.mark.django_db
 def test__contract_with_multiple_invoices__export_to_csv__combines_all_rows() -> None:
-    contract, _ = _create_contract_with_model()
+    contract, _ = create_contract_with_model()
     contract_year = domainfactory.contract_year(contract)
 
     position1 = domainfactory.contract_position(contract_year)

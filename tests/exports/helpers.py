@@ -2,14 +2,16 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from coda.apps.contracts import repository as contract_repository
 from coda.apps.contracts.mappers._domain import ContractDomainMapper
+from coda.apps.contracts.models import Contract as ContractModel
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
 from coda.apps.invoices import funding_source_repository
 from coda.contexts.finance.services import invoice_service
-from coda.domain.contract import ContractYear
+from coda.domain.contract import Contract, ContractYear, PublisherId
 from coda.domain.date import DateRange
-from coda.domain.publication.publication import PublicationId
+from coda.domain.publication.publication import JournalId, PublicationId
 from tests import domainfactory, modelfactory
 
 from coda.domain.finance.invoice import CreditorId, Invoice
@@ -127,9 +129,21 @@ def create_invoice_with_currency_conversion(
     )
 
     invoice.add_conversion(exchange_rate, target_currency)
-
     invoice.id = invoice_service.save(invoice)
+
     return invoice
+
+
+def create_contract_with_model() -> tuple[Contract, ContractModel]:
+    contract = domainfactory.contract()
+    publisher = modelfactory.publisher(name="Test Publisher")
+    journal = modelfactory.journal(title="Test Journal")
+    contract.publishers = [PublisherId(publisher.id)]
+    contract.journals = [JournalId(journal.id)]
+    contract.id = contract_repository.create(contract)
+    assert contract.id is not None
+    contract_model = ContractModel.objects.get(pk=int(contract.id))
+    return contract, contract_model
 
 
 def create_invoice_with_mixed_positions(funding_request: FundingRequest) -> "Invoice":
