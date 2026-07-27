@@ -7,16 +7,7 @@ from coda.apps.exports.models import ContractCSVExport, FundingRequestCSVExport
 
 
 @receiver(post_delete, sender=FundingRequestCSVExport)
-def delete_csv_file_on_export_delete(
-    sender: type[FundingRequestCSVExport], instance: FundingRequestCSVExport, **kwargs: Any
-) -> None:
-    if instance.csv_file:
-        instance.csv_file.delete(save=False)
-
-
 @receiver(post_delete, sender=ContractCSVExport)
-def delete_csv_file_on_contract_export_delete(
-    sender: type[ContractCSVExport], instance: ContractCSVExport, **kwargs: Any
-) -> None:
+def delete_csv_file_on_export_delete(sender: Any, instance: Any, **kwargs: Any) -> None:
     if instance.csv_file:
         instance.csv_file.delete(save=False)
