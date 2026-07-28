@@ -14,7 +14,7 @@
   <br>
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/release/coda-oa/coda.svg?mode=dark"><img alt="Release" src="https://www.shieldcn.dev/github/release/coda-oa/coda.svg?mode=light"></picture>
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/ci/coda-oa/coda.svg?variant=secondary&amp;mode=dark"><img alt="CI" src="https://www.shieldcn.dev/github/ci/coda-oa/coda.svg?variant=secondary&amp;mode=light"></picture>
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/license/coda-oa/coda.svg?variant=ghost&amp;mode=dark&amp;theme=rose"><img alt="License" src="https://www.shieldcn.dev/github/license/coda-oa/coda.svg?variant=ghost&amp;mode=light&amp;theme=orange"></picture>
+  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/license/coda-oa/coda.svg?variant=ghost&amp;mode=dark&amp;theme=orange"><img alt="License" src="https://www.shieldcn.dev/github/license/coda-oa/coda.svg?variant=ghost&amp;mode=light&amp;theme=orange"></picture>
 
 </div>
 
@@ -27,15 +27,16 @@ Full documentation about all the features is available at <a href="https://coda-
 ---
 
 <table border="0">
-  <td align="center" valign="top" colspan="2">
-      <a href="docs/_static/img/readme/fundingrequests_create_wizard_light.png" title="Multi-step wizard guides you throught the funding request creation process" target="_blank">
+<tr>
+<td align="center" valign="top" colspan="2">
+      <a href="docs/_static/img/readme/fundingrequests_detail_light.png" title="Funding request detail" target="_blank">
         <picture>
-          <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/fundingrequests_create_wizard_dark.png">
-          <img src="docs/_static/img/readme/fundingrequests_create_wizard_light.png" alt="Export funding requests" width="100%">
+          <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/fundingrequests_detail_dark.png">
+          <img src="docs/_static/img/readme/fundingrequests_detail_light.png" alt="Funding request detail" width="100%">
         </picture>
       </a>
     </td>
-  </tr>
+    </tr>
   <tr>
     <td align="center" valign="top">
       <a href="docs/_static/img/readme/fundingrequests_list_light.png" title="Funding requests list" target="_blank">
@@ -46,10 +47,10 @@ Full documentation about all the features is available at <a href="https://coda-
       </a>
     </td>
     <td align="center" valign="top">
-      <a href="docs/_static/img/readme/fundingrequests_detail_light.png" title="Funding request detail" target="_blank">
+      <a href="docs/_static/img/readme/invoices_detail_light.png" title="Invoice detail" target="_blank">
         <picture>
-          <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/fundingrequests_detail_dark.png">
-          <img src="docs/_static/img/readme/fundingrequests_detail_light.png" alt="Funding request detail" width="100%">
+          <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/invoices_detail_dark.png">
+          <img src="docs/_static/img/readme/invoices_detail_light.png" alt="Invoice detail" width="100%">
         </picture>
       </a>
     </td>
@@ -64,10 +65,10 @@ Full documentation about all the features is available at <a href="https://coda-
       </a>
     </td>
     <td align="center" valign="top">
-      <a href="docs/_static/img/readme/invoices_detail_light.png" title="Invoice detail" target="_blank">
+      <a href="docs/_static/img/readme/opencost_light.png" title="openCost report detail page" target="_blank">
         <picture>
-          <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/invoices_detail_dark.png">
-          <img src="docs/_static/img/readme/invoices_detail_light.png" alt="Invoice detail" width="100%">
+          <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/opencost_dark.png">
+          <img src="docs/_static/img/readme/opencost_light.png" alt="openCost report detail page" width="100%">
         </picture>
       </a>
     </td>
