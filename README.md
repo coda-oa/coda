@@ -11,9 +11,10 @@
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/contributors/coda-oa/coda.svg?theme=emerald&amp;mode=dark"><img alt="Contributors" src="https://www.shieldcn.dev/github/contributors/coda-oa/coda.svg?theme=emerald&amp;mode=light"></picture>
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/commits/coda-oa/coda.svg?variant=secondary&amp;mode=dark&amp;theme=red"><img alt="Commits" src="https://www.shieldcn.dev/github/commits/coda-oa/coda.svg?variant=secondary&amp;mode=light&amp;theme=red"></picture>
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/merged-prs/coda-oa/coda.svg?variant=ghost&amp;mode=dark&amp;theme=violet"><img alt="Merged PRs" src="https://www.shieldcn.dev/github/merged-prs/coda-oa/coda.svg?variant=ghost&amp;mode=light&amp;theme=violet"></picture>
+  <br>
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/release/coda-oa/coda.svg?mode=dark"><img alt="Release" src="https://www.shieldcn.dev/github/release/coda-oa/coda.svg?mode=light"></picture>
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/ci/coda-oa/coda.svg?variant=secondary&amp;mode=dark"><img alt="CI" src="https://www.shieldcn.dev/github/ci/coda-oa/coda.svg?variant=secondary&amp;mode=light"></picture>
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/license/coda-oa/coda.svg?variant=ghost&amp;mode=dark&amp;theme=rose"><img alt="License" src="https://www.shieldcn.dev/github/license/coda-oa/coda.svg?variant=ghost&amp;mode=light&amp;theme=rose"></picture>
+  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/license/coda-oa/coda.svg?variant=ghost&amp;mode=dark&amp;theme=rose"><img alt="License" src="https://www.shieldcn.dev/github/license/coda-oa/coda.svg?variant=ghost&amp;mode=light&amp;theme=orange"></picture>
 
 </div>
 
