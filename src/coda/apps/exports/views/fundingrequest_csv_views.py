@@ -37,6 +37,7 @@ from coda.apps.exports.services.filter_form import (
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
 FUNDINGREQUESTS_CSV_CREATE_URL = "exports:fundingrequests_csv_create"
+FUNDINGREQUESTS_CSV_LIST_URL = FUNDINGREQUESTS_CSV_LIST_URL
 CSV_ENCODING = "utf-8-sig"
 
 
@@ -64,7 +65,7 @@ fundingrequest_csv_export_list_view = FundingRequestCSVExportListView.as_view()
 @require_GET
 @breadcrumb(
     "CSV Export Details",
-    parent_url_name="exports:fundingrequests_csv_list",
+    parent_url_name=FUNDINGREQUESTS_CSV_LIST_URL,
 )
 def fundingrequest_csv_detail_page(
     request: HttpRequest,
@@ -112,7 +113,7 @@ def fundingrequest_csv_detail_page(
 @require_http_methods(["GET", "POST"])
 @breadcrumb(
     "Generate New CSV Export",
-    parent_url_name="exports:fundingrequests_csv_list",
+    parent_url_name=FUNDINGREQUESTS_CSV_LIST_URL,
 )
 def fundingrequest_csv_export_create_view(
     request: HttpRequest,
@@ -172,7 +173,7 @@ def _export_form_context(
             "parameters_title": "Export Parameters",
             "title_label": "Title",
             "title_placeholder": "Enter a title for the export",
-            "cancel_url": reverse("exports:fundingrequests_csv_list"),
+            "cancel_url": reverse(FUNDINGREQUESTS_CSV_LIST_URL),
             "submit_button_text": "Generate CSV Export",
             "include_payment_status": True,
             "include_decimal_separator": True,
@@ -203,7 +204,7 @@ def fundingrequests_csv_delete(request: HttpRequest, pk: int) -> HttpResponse:
     messages.success(request, f"CSV export '{export_title}' deleted successfully.")
 
     response = HttpResponse(status=200)
-    response["HX-Redirect"] = reverse("exports:fundingrequests_csv_list")
+    response["HX-Redirect"] = reverse(FUNDINGREQUESTS_CSV_LIST_URL)
     return response
 
 
