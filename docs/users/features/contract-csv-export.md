@@ -1,19 +1,19 @@
-# Funding Request CSV Export
+# Contract CSV Export
 
-The Funding Request CSV Export feature allows you to export funding request data with publication, invoice, and cost information for analysis in spreadsheet applications like Excel or LibreOffice Calc. This enables annual reporting, budget tracking, custom analyses, and data sharing.
+The Contract CSV Export feature allows you to export contract data with invoice and cost information for analysis in spreadsheet applications like Excel or LibreOffice Calc. This enables annual reporting, budget tracking for transformative agreements, custom analyses, and data sharing.
 
 ## Overview
 
-You can access the CSV Export feature from the **Export** page in the navigation menu. From there, click **View** on the *Funding Request CSV Export* card to see your previously generated exports.
+You can access the Contract CSV Export feature from the **Export** page in the navigation menu. From there, click **View** on the *Contract CSV Export* card to see your previously generated exports.
 
-The export list page displays all exports you have created, showing:
+The export list page displays all contract exports you have created, showing:
 
 - Export name and generation date
 - Reporting period (start and end dates)
 - Number of records included
 - Action buttons for viewing details and downloading
 
-![](/_static/img/csv_export_list_view.png)
+![](/_static/img/contract_csv_export_list_view.png)
 
 ```{admonition} Note
 CSV exports are generated from your current data, which is stored into snapshots. If you edit data in your CSV export, the snapshot will remain as it is, including an older version of your data.
@@ -21,34 +21,24 @@ CSV exports are generated from your current data, which is stored into snapshots
 
 ## Understanding CSV Export Data
 
-The CSV export provides a detailed view of your funding requests including cost data, if any, with one row per **funding assignment**. This means:
+The CSV export provides a detailed view of your contract-related costs including invoice data, with one row per **funding assignment**. This means:
 
-- A publication with a single invoice position and no cost splitting appears as **one row**
-- A publication with cost splitting across multiple funding sources appears as **multiple rows** (one per assignment)
+- A contract with a single invoice position and no cost splitting appears as **one row**
+- A contract with cost splitting across multiple funding sources appears as **multiple rows** (one per assignment)
 
-This structure enables precise budget tracking and cost split analysis.
+This structure enables precise budget tracking and cost split analysis for transformative agreements and other publishing contracts.
 
 ### What Data Is Exported
 
 The CSV file includes the following categories of information:
 
-**Funding Request Details:**
-- Request ID and legacy request ID
-- Request date
-- Estimated cost and currency
-- Payment method
-- Review result and remarks
-- Decided funding amount and currency
-- Labels
-
-**Publication Information:**
-- Publication title
-- DOI, ISBN, Handle, and other identifiers
-- Journal name, publisher name, E-ISSN
-- License and open access type
-- Publication type and subject area
-- Authors
-- Publishing state and dates (online, print)
+**Contract Details:**
+- Contract name
+- Contract period (start and end dates)
+- Publishers and journals covered by the contract
+- Publication billing method
+- Active status
+- Contract identifiers (ESAC, OAI, EZB)
 
 **Invoice Information:**
 - Invoice number and date
@@ -58,43 +48,40 @@ The CSV file includes the following categories of information:
 - External invoice ID
 
 **Position Details:**
-- Position amount, tax rate, and cost type
-- Position type (publication, contract, free)
-- Contract name and year (for contract positions)
-- Position description (for free positions)
+- Position amount
+- Tax rate
+- Cost type
+- Contract year
 
 **Funding Assignment Information:**
 - Funded amount
 - Funding source name and type (budget or institution)
-- Project ID, project name, and funding organization (for externally funded publications)
+
+```{admonition} Note
+Only positions linked to a contract are included in this export. Publication positions and free positions are excluded, as they are part of the [Funding Request CSV Export](csv-export.md).
+```
 
 ## Creating a New CSV Export
 
-To create a new CSV export:
+To create a new Contract CSV export:
 
 1. Navigate to the **Export** page from the navigation menu
-2. Click **View** on the *Funding Request CSV Export* card
+2. Click **View** on the *Contract CSV Export* card
 3. Click the **New** button on the export list page
-4. Enter a **name** for your export 
-5. Select the **reporting period** by choosing start and end dates (refers to the request date)
+4. Enter a **name** for your export
+5. Select the **reporting period** by choosing start and end dates (refers to the invoice date)
 6. Apply any desired **filters** to narrow down the data (see below)
 7. Click **Create Export**
 
-CODA will gather all funding requests that match your filters and create the export. You will be redirected to the export detail page showing a preview of the data.
+CODA will gather all contracts with invoices that match your filters and create the export. You will be redirected to the export detail page showing a preview of the data.
 
-![](/_static/img/csv_export_generate_new.png)
+![](/_static/img/contract_csv_export_generate_new.png)
 
 ### Filtering Options
 
-You can combine multiple filters to precisely control which funding requests are included in your export. The following filters are available:
+You can combine filters to control which contracts are included in your export. The following filters are available:
 
-- **Review Result**: Filter by review status (Open, Approved, Rejected, Costs Waived, Closed)
-- **Labels**: Include or exclude specific labels
-- **Payment Method**: Direct, Reimbursement, or Unknown
-- **Open Access Type**: Gold, Diamond, Hybrid, etc.
-- **Publication State**: Published, Submitted, Accepted, Rejected, Unknown
-- **Publication Type**: Article or Monograph
-- **Payment Status**: Paid, Unpaid, Covered by Contract or Invoice Received
+- **Payment Status**: Paid, Unpaid, or Rejected (filters by invoice payment status)
 - **Funding Source**: Filter by specific funding source
 
 ```{admonition} Tip
@@ -113,19 +100,19 @@ Clicking on an export from the list page shows you detailed information includin
 
 The preview displays a selection of key columns to help you verify the data structure before downloading:
 
-- Request ID
-- Publication Title
-- DOI
 - Contract Name
 - Invoice Number
 - Position Amount
+- Funded Amount
+- Funding Source
 
 From the detail page, you can:
+
 - **Download the CSV** file
 - **Reuse the filters** to create a new export with the same criteria
 - **Delete** the export
 
-![](/_static/img/csv_export_detail_view.png)
+![](/_static/img/contract_csv_export_detail_view.png)
 
 ```{admonition} Note
 The preview only shows the first 50 rows and a subset of columns. Download the full CSV file for complete data.
@@ -141,7 +128,7 @@ To download a CSV export:
 
 ### CSV Format Details
 
-- **Separator**: Semicolon (`;`) 
+- **Separator**: Semicolon (`;`)
 - **Encoding**: UTF-8
 - **Header row**: Column names are included as the first row
 - **One row per funding assignment**: Enables detailed cost tracking
@@ -163,7 +150,7 @@ If you need to create a new export with the same filters:
 4. Adjust the reporting title, period or filters as needed
 5. Click **Create Export**
 
-This is useful for generating regular reports (e.g., monthly or quarterly) with consistent filtering criteria.
+This is useful for generating regular reports (e.g., quarterly tracking of transformative agreement costs) with consistent filtering criteria.
 
 ## Deleting Exports
 
@@ -174,6 +161,5 @@ If you no longer need an export record:
 3. Confirm the deletion when prompted
 
 ```{admonition} Warning
-Deleting an export only removes the export. It does not affect your funding requests, invoices, or any other data in CODA.
+Deleting an export only removes the export record. It does not affect your contracts, invoices, or any other data in CODA.
 ```
-

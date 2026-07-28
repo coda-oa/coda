@@ -15,5 +15,6 @@ vocabularies
 institutions
 reporting
 csv-export
+contract-csv-export
 preferences
 ```
