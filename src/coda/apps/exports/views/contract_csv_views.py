@@ -28,6 +28,7 @@ from coda.apps.views import SimpleSearchEntityListView
 from coda.domain.finance.invoice import PaymentStatus
 
 CONTRACTS_CSV_CREATE_URL = "exports:contracts_csv_create"
+CONTRACTS_CSV_LIST_URL = "exports:contracts_csv_list"
 
 PREVIEW_COLUMNS = [
     "contract_name",
@@ -58,14 +59,13 @@ contract_csv_export_list_view = ContractCSVExportListView.as_view()
 
 @login_required
 @require_GET
-@breadcrumb("CSV Export Details", parent_url_name="exports:contracts_csv_list")
+@breadcrumb("CSV Export Details", parent_url_name=CONTRACTS_CSV_LIST_URL)
 def contract_csv_detail_page(request: HttpRequest, pk: int) -> HttpResponse:
     return csv_detail_page(
         request,
         pk,
         model=ContractCSVExport,
         template_name="export/contract_csv_detail.html",
-        parent_url_name="exports:contracts_csv_list",
         preview_columns=PREVIEW_COLUMNS,
         applied_filters_builder=build_applied_filters_for_contract,
         create_url_name="exports:contracts_csv_create",
@@ -73,7 +73,7 @@ def contract_csv_detail_page(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
-@breadcrumb("Generate New CSV Export", parent_url_name="exports:contracts_csv_list")
+@breadcrumb("Generate New CSV Export", parent_url_name=CONTRACTS_CSV_LIST_URL)
 def contract_csv_export_create_view(request: HttpRequest) -> HttpResponse:
 
     if request.method == "GET":
@@ -104,7 +104,7 @@ def _render_create_form(request: HttpRequest, status: int = 200) -> HttpResponse
             "parameters_title": "Invoice Filter Parameters",
             "title_label": "Title",
             "title_placeholder": "Enter a title for the export",
-            "cancel_url": reverse("exports:contracts_csv_list"),
+            "cancel_url": reverse(CONTRACTS_CSV_LIST_URL),
             "submit_button_text": "Generate CSV Export",
             "show_filters": ["payment_status", "funding_source"],
             "payment_status_filter_template": "invoices/partials/payment_status_filter.html",
@@ -118,14 +118,14 @@ def _render_create_form(request: HttpRequest, status: int = 200) -> HttpResponse
 @require_POST
 def contracts_csv_delete(request: HttpRequest, pk: int) -> HttpResponse:
     return csv_delete_view(
-        request, pk, model=ContractCSVExport, list_url_name="exports:contracts_csv_list"
+        request, pk, model=ContractCSVExport, list_url_name=CONTRACTS_CSV_LIST_URL
     )
 
 
 @login_required
 @require_GET
 def contract_download_csv(request: HttpRequest, pk: int) -> FileResponse:
-    return csv_download_view(request, pk, model=ContractCSVExport)
+    return csv_download_view(pk, model=ContractCSVExport)
 
 
 def _parse_contract_filter_dict(filters: dict[str, str]) -> InvoiceSearchParams:

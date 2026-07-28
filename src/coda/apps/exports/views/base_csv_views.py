@@ -33,7 +33,6 @@ def csv_detail_page(
     *,
     model: type[Model],
     template_name: str,
-    parent_url_name: str,
     preview_columns: list[str],
     applied_filters_builder: Callable[[dict[str, str]], list[AppliedFilter]],
     create_url_name: str,
@@ -80,7 +79,6 @@ def csv_delete_view(
 
 
 def csv_download_view(
-    request: HttpRequest,
     pk: int,
     *,
     model: type[Model],
