@@ -1,6 +1,6 @@
-# CSV Export
+# Funding Request CSV Export
 
-The CSV Export feature allows you to export funding request data with publication, invoice, and cost information for analysis in spreadsheet applications like Excel or LibreOffice Calc. This enables for annual reporting, budget tracking, custom analyses, and data sharing.
+The Funding Request CSV Export feature allows you to export funding request data with publication, invoice, and cost information for analysis in spreadsheet applications like Excel or LibreOffice Calc. This enables annual reporting, budget tracking, custom analyses, and data sharing.
 
 ## Overview
 
