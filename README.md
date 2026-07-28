@@ -8,17 +8,8 @@
 
 <div align="center">
 
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/stars/coda-oa/coda.svg?variant=secondary&amp;mode=dark&amp;theme=amber"><img alt="GitHub Stars" src="https://www.shieldcn.dev/github/stars/coda-oa/coda.svg?variant=secondary&amp;mode=light&amp;theme=amber"></picture>
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/forks/coda-oa/coda.svg?variant=secondary&amp;mode=dark&amp;theme=slate"><img alt="GitHub Forks" src="https://www.shieldcn.dev/github/forks/coda-oa/coda.svg?variant=secondary&amp;mode=light&amp;theme=slate"></picture>
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/watchers/coda-oa/coda.svg?variant=secondary&amp;mode=dark&amp;theme=blue"><img alt="Watchers" src="https://www.shieldcn.dev/github/watchers/coda-oa/coda.svg?variant=secondary&amp;mode=light&amp;theme=blue"></picture>
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/branches/coda-oa/coda.svg?variant=ghost&amp;mode=dark&amp;theme=rose"><img alt="Branches" src="https://www.shieldcn.dev/github/branches/coda-oa/coda.svg?variant=ghost&amp;mode=light&amp;theme=rose"></picture>
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/contributors/coda-oa/coda.svg?theme=emerald&amp;mode=dark"><img alt="Contributors" src="https://www.shieldcn.dev/github/contributors/coda-oa/coda.svg?theme=emerald&amp;mode=light"></picture>
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/last-commit/coda-oa/coda.svg?variant=secondary&amp;mode=dark&amp;theme=purple"><img alt="Last commit" src="https://www.shieldcn.dev/github/last-commit/coda-oa/coda.svg?variant=secondary&amp;mode=light&amp;theme=purple"></picture>
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/commits/coda-oa/coda.svg?variant=secondary&amp;mode=dark&amp;theme=red"><img alt="Commits" src="https://www.shieldcn.dev/github/commits/coda-oa/coda.svg?variant=secondary&amp;mode=light&amp;theme=red"></picture>
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/open-issues/coda-oa/coda.svg?variant=secondary&amp;mode=dark&amp;theme=cyan"><img alt="Open issues" src="https://www.shieldcn.dev/github/open-issues/coda-oa/coda.svg?variant=secondary&amp;mode=light&amp;theme=cyan"></picture>
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/closed-issues/coda-oa/coda.svg?variant=ghost&amp;mode=dark&amp;theme=amber"><img alt="Closed issues" src="https://www.shieldcn.dev/github/closed-issues/coda-oa/coda.svg?variant=ghost&amp;mode=light&amp;theme=amber"></picture>
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/open-prs/coda-oa/coda.svg?variant=secondary&amp;mode=dark&amp;theme=green"><img alt="Open PRs" src="https://www.shieldcn.dev/github/open-prs/coda-oa/coda.svg?variant=secondary&amp;mode=light&amp;theme=green"></picture>
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/closed-prs/coda-oa/coda.svg?variant=ghost&amp;mode=dark&amp;theme=violet"><img alt="Closed PRs" src="https://www.shieldcn.dev/github/closed-prs/coda-oa/coda.svg?variant=ghost&amp;mode=light&amp;theme=violet"></picture>
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/merged-prs/coda-oa/coda.svg?variant=ghost&amp;mode=dark&amp;theme=violet"><img alt="Merged PRs" src="https://www.shieldcn.dev/github/merged-prs/coda-oa/coda.svg?variant=ghost&amp;mode=light&amp;theme=violet"></picture>
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/release/coda-oa/coda.svg?mode=dark"><img alt="Release" src="https://www.shieldcn.dev/github/release/coda-oa/coda.svg?mode=light"></picture>
   <picture><source media="(prefers-color-scheme: dark)" srcset="https://www.shieldcn.dev/github/ci/coda-oa/coda.svg?variant=secondary&amp;mode=dark"><img alt="CI" src="https://www.shieldcn.dev/github/ci/coda-oa/coda.svg?variant=secondary&amp;mode=light"></picture>
@@ -30,15 +21,16 @@
 
 CODA is a web application for managing and processing funding requests for open access publication fees. It provides a complete workflow from request submission through approval, invoicing, and reporting — designed for academic libraries and research institutions.
 
+Full documentation about all the features is available at <a href="https://coda-oa.github.io/coda/" target="_blank" rel="noopener noreferrer">https://coda-oa.github.io/coda/</a>.
+
 ---
 
 <table border="0">
-  <tr>
-    <td align="center" valign="top" colspan="2">
-      <a href="docs/_static/img/readme/exports_fundingrequest_light.png" title="Export funding requests" target="_blank">
+  <td align="center" valign="top" colspan="2">
+      <a href="docs/_static/img/readme/fundingrequests_create_wizard_light.png" title="Multi-step wizard guides you throught the funding request creation process" target="_blank">
         <picture>
-          <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/exports_fundingrequests_dark.png">
-          <img src="docs/_static/img/readme/exports_fundingrequest_light.png" alt="Export funding requests" width="100%">
+          <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/readme/fundingrequests_create_wizard_dark.png">
+          <img src="docs/_static/img/readme/fundingrequests_create_wizard_light.png" alt="Export funding requests" width="100%">
         </picture>
       </a>
     </td>
@@ -93,7 +85,6 @@ CODA is a web application for managing and processing funding requests for open 
   - [Project management](#project-management)
   - [Pre-commit configuration](#pre-commit-configuration)
     - [Committing](#committing)
-- [Documentation 📝](#documentation-)
 - [Get in Touch with us! 📬](#get-in-touch-with-us-)
 - [License 📄](#license-)
 
@@ -188,9 +179,6 @@ As we use `commitizen` to ensure correct commit formatting, we recommend using i
 pdm run cz commit
 ```
 
-## Documentation 📝
-
-Full documentation about all the features is available at <a href="https://coda-oa.github.io/coda/" target="_blank" rel="noopener noreferrer">https://coda-oa.github.io/coda/</a>.
 
 ## Get in Touch with us! 📬
 
