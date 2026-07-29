@@ -197,7 +197,7 @@ def _export_form_context(
 
 @login_required
 @require_POST
-def fundingrequests_csv_delete(request: HttpRequest, pk: int) -> HttpResponse:
+def fundingrequest_csv_delete_view(request: HttpRequest, pk: int) -> HttpResponse:
     export = get_object_or_404(FundingRequestCSVExport, pk=pk)
     export_title = export.name
     export.delete()

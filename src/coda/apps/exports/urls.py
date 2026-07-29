@@ -1,19 +1,19 @@
 from django.urls import path
 
 from coda.apps.exports.views.contract_csv_views import (
+    contract_csv_delete_view,
     contract_csv_detail_page,
     contract_csv_export_create_view,
     contract_csv_export_list_view,
     contract_download_csv,
-    contracts_csv_delete,
 )
 from coda.apps.exports.views.fundingrequest_csv_views import (
+    fundingrequest_csv_delete_view,
     fundingrequest_csv_detail_page,
     fundingrequest_csv_export_create_view,
     fundingrequest_csv_export_list_view,
     fundingrequest_csv_regen_view,
     fundingrequest_download_csv,
-    fundingrequests_csv_delete,
 )
 from coda.apps.exports.views.export_home import export_home
 
@@ -43,7 +43,7 @@ urlpatterns = [
     ),
     path(
         "fundingrequests-csv/<int:pk>/delete/",
-        view=fundingrequests_csv_delete,
+        view=fundingrequest_csv_delete_view,
         name="fundingrequests_csv_delete",
     ),
     path(
@@ -73,7 +73,7 @@ urlpatterns = [
     ),
     path(
         "contracts-csv/<int:pk>/delete/",
-        view=contracts_csv_delete,
+        view=contract_csv_delete_view,
         name="contracts_csv_delete",
     ),
 ]
