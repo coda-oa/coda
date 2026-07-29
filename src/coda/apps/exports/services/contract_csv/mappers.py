@@ -1,7 +1,7 @@
 from coda.apps.contracts.models import Contract
 from coda.apps.exports.services.contract_csv.dtos import (
     ContractCSVExportDto,
-    ContractInfoDto,
+    ContractDetailsDto,
     ContractLinkDto,
 )
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_invoice_to_dto
@@ -32,9 +32,9 @@ def map_contract_to_export_dto(
     )
 
 
-def map_contract_to_dto(contract_model: Contract) -> ContractInfoDto:
+def map_contract_to_dto(contract_model: Contract) -> ContractDetailsDto:
 
-    return ContractInfoDto(
+    return ContractDetailsDto(
         name=contract_model.name,
         start_date=contract_model.start_date,
         end_date=contract_model.end_date,
