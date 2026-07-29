@@ -7,6 +7,10 @@ _LinkTypes: dict[str, type[FundingOrganizationLink]] = {t.type(): t for t in (Do
 _LoweredLinkTypes = {t_name.lower(): t for t_name, t in _LinkTypes.items()}
 
 
+def link_types() -> list[str]:
+    return list(_LinkTypes.keys())
+
+
 def create_link(link_type: str, link_value: str) -> FundingOrganizationLink:
     constructor = _LoweredLinkTypes.get(link_type.lower())
     if not constructor:

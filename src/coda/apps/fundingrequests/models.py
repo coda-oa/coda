@@ -1,13 +1,16 @@
+from collections.abc import Iterable
 from typing import Any
+
 from django.core.validators import RegexValidator
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
-from coda.apps.publications.models import Publication
-from coda.domain.fundingrequest import PaymentMethod
-from coda.domain.fundingrequest.review import ReviewResult
 from coda.apps.fundingrequests.queryset import FundingRequestManager
+from coda.apps.publications.models import Publication
+from coda.domain.fundingrequest import PaymentMethod, links
+from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.publication.links import Link
 
 
 class FundingRequestContact(models.Model):
@@ -22,12 +25,26 @@ class FundingOrganizationManager(models.Manager["FundingOrganization"]):
     def get_queryset(self) -> models.QuerySet["FundingOrganization"]:
         return super().get_queryset().filter(archived_at__isnull=True)
 
+    def bulk_get_or_create_by_name(self, names: Iterable[str]) -> dict[str, "FundingOrganization"]:
+        """Bulk get-or-create organizations by name.
+
+        Returns a ``{name: organization}`` dict for all given names,
+        creating any that don't already exist.
+        """
+        names_list = list(names)
+        existing = {e.name: e for e in self.filter(name__in=names_list).only("pk", "name")}
+        to_create = set(names_list) - existing.keys()
+        created = self.bulk_create(self.model(name=n) for n in to_create)
+        return existing | {org.name: org for org in created}
+
 
 class FundingOrganization(models.Model):
     name = models.CharField()
     archived_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
-    objects = FundingOrganizationManager()
+    objects: FundingOrganizationManager = (
+        FundingOrganizationManager()
+    )  # pyright: ignore[reportIncompatibleVariableOverride]
     all_objects = models.Manager()
 
     def __str__(self) -> str:
@@ -41,12 +58,64 @@ class FundingOrganization(models.Model):
         self.archived_at = None
         self.save(update_fields=["archived_at"])
 
+    def get_links(self) -> list[Link]:
+        return [links.create_link(link.type.name, link.value) for link in self.links.all()]
+
+    def set_links(self, links: Iterable[Link]) -> None:
+        """Replace all links with domain Link objects.
+
+        Clears existing links and creates new ``FundingOrganizationLink``
+        instances from the provided domain ``Link`` protocol objects.
+
+        Only link types with a corresponding ``FundingOrganizationLinkType``
+        row are persisted; unknown types are silently skipped.
+        """
+        links_list = list(links)
+
+        link_types = FundingOrganizationLinkType.objects.as_name_map()
+
+        self.links.all().delete()
+
+        new_links = [
+            FundingOrganizationLink(
+                type=link_types[link.type()],
+                value=link.value(),
+                funding_organization=self,
+            )
+            for link in links_list
+            if link.type() in link_types
+        ]
+        FundingOrganizationLink.objects.bulk_create(new_links)
+
+
+class FundingOrganizationLinkTypeManager(models.Manager["FundingOrganizationLinkType"]):
+    def as_name_map(self) -> dict[str, "FundingOrganizationLinkType"]:
+        """Return a ``{name: link_type}`` dict for all supported link types.
+
+        The set of supported types is defined by ``link_types()`` in the domain
+        layer, ensuring a single source of truth.
+        """
+        return {lt.name: lt for lt in self.filter(name__in=links.link_types())}
+
 
 class FundingOrganizationLinkType(models.Model):
     name = models.CharField(max_length=255, unique=True)
 
+    objects: FundingOrganizationLinkTypeManager = (
+        FundingOrganizationLinkTypeManager()
+    )  # pyright: ignore[reportIncompatibleVariableOverride]
+
     def __str__(self) -> str:
         return self.name
+
+
+class FundingOrganizationLinkManager(models.Manager["FundingOrganizationLink"]):
+    def find_by_links(self, links: Iterable[Link]) -> models.QuerySet["FundingOrganizationLink"]:
+        """Find existing links matching any of the given domain Link objects."""
+        return self.filter(
+            type__name__in={link.type() for link in links},
+            value__in=[link.value() for link in links],
+        ).select_related("funding_organization")
 
 
 class FundingOrganizationLink(models.Model):
@@ -55,6 +124,10 @@ class FundingOrganizationLink(models.Model):
     funding_organization = models.ForeignKey(
         FundingOrganization, on_delete=models.CASCADE, related_name="links"
     )
+
+    objects: FundingOrganizationLinkManager = (
+        FundingOrganizationLinkManager()
+    )  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class ExternalFunding(models.Model):
@@ -88,7 +161,9 @@ class FundingRequestReview(models.Model):
 
 
 class FundingRequest(models.Model):
-    objects: FundingRequestManager = FundingRequestManager()
+    objects: FundingRequestManager = (
+        FundingRequestManager()
+    )  # pyright: ignore[reportIncompatibleVariableOverride]
 
     PROCESSING_CHOICES = [
         (ReviewResult.Approved.value, "Approved"),

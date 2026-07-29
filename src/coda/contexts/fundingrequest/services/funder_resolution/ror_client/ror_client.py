@@ -13,7 +13,8 @@ from typing import Any, Protocol, cast
 import httpx
 
 from .exceptions import RORClientError
-from coda.domain.publication.links import Link
+from coda.domain.institution.links import Ror
+from coda.domain.publication.links import CrossrefId, Link
 
 
 class HttpGetClient(Protocol):
@@ -27,6 +28,18 @@ class RORRecord:
     id: str
     name: str
     external_ids: dict[str, list[str]] = field(default_factory=dict)
+
+    def to_links(self) -> list[Link]:
+        """Convert this ROR record into domain Link objects.
+
+        Returns a ``Ror`` link from the record's own ID, plus a ``CrossrefId``
+        from the first ``fundref`` external ID when present.
+        """
+        links: list[Link] = [Ror(self.id)]
+        for lt, values in self.external_ids.items():
+            if lt == "fundref":
+                links.append(CrossrefId(values[0]))
+        return links
 
     @staticmethod
     def from_api(item: dict[str, Any]) -> RORRecord:
