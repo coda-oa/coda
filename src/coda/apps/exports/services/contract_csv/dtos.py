@@ -9,7 +9,7 @@ class ContractLinkDto(BaseModel):
     value: str
 
 
-class ContractInfoDto(BaseModel):
+class ContractDetailsDto(BaseModel):
     name: str
     start_date: datetime.date | None = None
     end_date: datetime.date | None = None
@@ -21,5 +21,5 @@ class ContractInfoDto(BaseModel):
 
 
 class ContractCSVExportDto(BaseModel):
-    contract: ContractInfoDto
+    contract: ContractDetailsDto
     invoices: list[InvoiceImportDto]

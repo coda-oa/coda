@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from coda.apps.exports.services.contract_csv.dtos import ContractCSVExportDto, ContractInfoDto
+from coda.apps.exports.services.contract_csv.dtos import ContractCSVExportDto, ContractDetailsDto
 from coda.contexts.finance.dto.import_dtos import (
     ContractPositionImportDto,
     FundingAssignmentImportDto,
@@ -35,7 +35,7 @@ def flatten_contract_data(dto: ContractCSVExportDto) -> list[dict[str, str]]:
 
 
 def _create_row(
-    contract: ContractInfoDto,
+    contract: ContractDetailsDto,
     invoice: InvoiceImportDto,
     position: ContractPositionImportDto,
     assignment: FundingAssignmentImportDto | None = None,
