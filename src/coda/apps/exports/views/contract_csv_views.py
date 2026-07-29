@@ -116,7 +116,7 @@ def _render_create_form(request: HttpRequest, status: int = 200) -> HttpResponse
 
 @login_required
 @require_POST
-def contracts_csv_delete(request: HttpRequest, pk: int) -> HttpResponse:
+def contract_csv_delete_view(request: HttpRequest, pk: int) -> HttpResponse:
     return csv_delete_view(
         request, pk, model=ContractCSVExport, list_url_name=CONTRACTS_CSV_LIST_URL
     )

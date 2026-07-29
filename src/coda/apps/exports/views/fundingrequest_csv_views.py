@@ -117,7 +117,7 @@ def fundingrequest_csv_export_create_view(request: HttpRequest) -> HttpResponse:
 
 @login_required
 @require_POST
-def fundingrequests_csv_delete(request: HttpRequest, pk: int) -> HttpResponse:
+def fundingrequest_csv_delete_view(request: HttpRequest, pk: int) -> HttpResponse:
     return csv_delete_view(
         request, pk, model=FundingRequestCSVExport, list_url_name=FUNDINGREQUESTS_CSV_LIST_URL
     )
