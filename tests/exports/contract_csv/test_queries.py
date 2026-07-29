@@ -118,3 +118,55 @@ def test__multiple_contracts_with_invoices__query_for_export__returns_all_contra
     contracts, _ = get_contracts_for_export(params)
 
     assert len(contracts) == 2
+
+
+@pytest.mark.django_db
+def test__contract_with_invoice_on_date_range_start_boundary__query_with_date_filter__returns_contract() -> (
+    None
+):
+    contract = domainfactory.contract()
+    contract.id = contract_repository.create(contract)
+    contract_year = domainfactory.contract_year(contract)
+
+    creditor = modelfactory.creditor()
+    position = domainfactory.contract_position(contract_year)
+    invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position])
+    invoice.date = date(2024, 6, 1)
+    invoice.id = invoice_service.save(invoice)
+
+    params = InvoiceSearchParams(
+        date_range=DateRange(start=date(2024, 6, 1), end=date(2024, 12, 31))
+    )
+    contracts, _ = get_contracts_for_export(params)
+
+    assert len(contracts) == 1
+
+
+@pytest.mark.django_db
+def test__contract_with_invoice_on_date_range_end_boundary__query_with_date_filter__returns_contract() -> (
+    None
+):
+    contract = domainfactory.contract()
+    contract.id = contract_repository.create(contract)
+    contract_year = domainfactory.contract_year(contract)
+
+    creditor = modelfactory.creditor()
+    position = domainfactory.contract_position(contract_year)
+    invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position])
+    invoice.date = date(2024, 12, 31)
+    invoice.id = invoice_service.save(invoice)
+
+    params = InvoiceSearchParams(
+        date_range=DateRange(start=date(2024, 1, 1), end=date(2024, 12, 31))
+    )
+    contracts, _ = get_contracts_for_export(params)
+
+    assert len(contracts) == 1
+
+
+@pytest.mark.django_db
+def test__no_invoices_in_system__query_for_export__returns_no_contracts() -> None:
+    params = InvoiceSearchParams()
+    contracts, _ = get_contracts_for_export(params)
+
+    assert len(contracts) == 0
