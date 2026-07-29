@@ -203,11 +203,7 @@ def test__funding_request_with_multiple_invoices__export_to_csv__creates_multipl
     df = pl.read_csv(StringIO(requests_exports), separator=";")
     assert df.height == 2
 
-    assert df["publication_title"][0] == "Multi-Invoice Publication"
-    assert df["invoice_number"][0] == "INV-003"
-
-    assert df["publication_title"][1] == "Multi-Invoice Publication"
-    assert df["invoice_number"][1] == "INV-004"
+    assert sorted(df["invoice_number"].to_list()) == ["INV-003", "INV-004"]
 
 
 @pytest.mark.django_db

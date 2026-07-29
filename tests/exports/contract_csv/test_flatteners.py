@@ -4,7 +4,7 @@ import pytest
 from coda.apps.contracts.models import ContractLink, ContractLinkType
 from coda.apps.exports.services.contract_csv.flatteners import flatten_contract_data
 from coda.apps.exports.services.contract_csv.mappers import map_contract_to_export_dto
-from coda.apps.invoices.models import Invoice as InvoiceModel
+from coda.apps.invoices.models import Creditor
 from tests import domainfactory
 from tests.exports.helpers import (
     create_contract_and_year,
@@ -23,8 +23,7 @@ def test__contract_with_single_invoice_position_without_split__flatten_to_csv__c
 
     invoice = create_invoice_with_contract_position(contract_year)
     invoice_position = next(iter(invoice.positions))
-    assert invoice.id is not None
-    invoice_model = InvoiceModel.objects.get(pk=int(invoice.id))
+    creditor = Creditor.objects.get(pk=int(invoice.creditor))
 
     export_dto = map_contract_to_export_dto(contract_model)
     rows = flatten_contract_data(export_dto)
@@ -42,14 +41,14 @@ def test__contract_with_single_invoice_position_without_split__flatten_to_csv__c
 
     assert row["invoice_number"] == invoice.number
     assert row["invoice_date"] == invoice.date.isoformat()
-    assert row["creditor"] == invoice_model.creditor.name
+    assert row["creditor"] == creditor.name
     assert row["invoice_status"] == invoice.status.value
     assert row["invoice_currency"] == invoice.currency().code
     assert row["invoice_comment"] == invoice.comment or ""
     assert row["external_invoice_id"] == invoice.external_invoice_id or ""
 
     assert Decimal(row["position_amount"]) == invoice_position.cost.amount
-    assert Decimal(row["tax_rate"]) == invoice_position.tax_rate * 100
+    assert Decimal(row["tax_rate"]) == invoice_position.tax_rate.percentage()
     assert row["cost_type"] == invoice_position.item.cost_type.value
     assert row["contract_year"] == str(contract_year.year)
 

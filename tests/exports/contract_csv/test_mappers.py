@@ -11,14 +11,12 @@ from coda.domain.publication.publication import JournalId
 from tests import domainfactory, modelfactory
 from coda.apps.contracts import repository as contract_repository
 from coda.apps.contracts.models import Contract as ContractModel, ContractLink, ContractLinkType
-from coda.apps.invoices.models import Invoice as InvoiceModel
+from coda.apps.invoices.models import Creditor
 from tests.exports.helpers import create_invoice_with_contract_position
 
 
 @pytest.mark.django_db
-def test__contract_without_invoices__maps_to_dto__all_required_fields_are_mapped_correctly() -> (
-    None
-):
+def test__contract_without_invoices__maps_to_dto__contract_details_are_mapped() -> None:
     contract = domainfactory.contract()
 
     publisher = modelfactory.publisher(name="Test Publisher")
@@ -41,63 +39,31 @@ def test__contract_without_invoices__maps_to_dto__all_required_fields_are_mapped
 
 
 @pytest.mark.django_db
-def test__contract_with_esac__maps_to_dto__all_required_fields_are_mapped_correctly() -> None:
+@pytest.mark.parametrize(
+    ("link_type_name", "link_value"),
+    [
+        ("ESAC", "esac-12345"),
+        ("OAI", "oai:digitalcommons.odu.edu:oaweek-1012"),
+        ("EZB", "ezb-12345"),
+    ],
+)
+def test__contract_with_link__maps_to_dto__link_is_mapped_correctly(
+    link_type_name: str, link_value: str
+) -> None:
     contract = domainfactory.contract()
     contract.id = contract_repository.create(contract)
 
     contract_model = ContractModel.objects.get(pk=int(contract.id))
-    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
-    esac_link = ContractLink.objects.create(
-        contract=contract_model,
-        type=esac_type,
-        value="esac-12345",
-    )
+    link_type, _ = ContractLinkType.objects.get_or_create(name=link_type_name)
+    link = ContractLink.objects.create(contract=contract_model, type=link_type, value=link_value)
 
     contract_dto = map_contract_to_dto(contract_model)
 
-    assert contract_dto.links == [ContractLinkDto(type=esac_link.type.name, value=esac_link.value)]
+    assert contract_dto.links == [ContractLinkDto(type=link.type.name, value=link.value)]
 
 
 @pytest.mark.django_db
-def test__contract_with_oai__maps_to_dto__all_required_fields_are_mapped_correctly() -> None:
-    contract = domainfactory.contract()
-    contract.id = contract_repository.create(contract)
-
-    contract_model = ContractModel.objects.get(pk=int(contract.id))
-    oai_type, _ = ContractLinkType.objects.get_or_create(name="OAI")
-    oai_link = ContractLink.objects.create(
-        contract=contract_model,
-        type=oai_type,
-        value="oai:digitalcommons.odu.edu:oaweek-1012",
-    )
-
-    contract_dto = map_contract_to_dto(contract_model)
-
-    assert contract_dto.links == [ContractLinkDto(type=oai_link.type.name, value=oai_link.value)]
-
-
-@pytest.mark.django_db
-def test__contract_with_ezb__maps_to_dto__all_required_fields_are_mapped_correctly() -> None:
-    contract = domainfactory.contract()
-    contract.id = contract_repository.create(contract)
-
-    contract_model = ContractModel.objects.get(pk=int(contract.id))
-    ezb_type, _ = ContractLinkType.objects.get_or_create(name="EZB")
-    ezb_link = ContractLink.objects.create(
-        contract=contract_model,
-        type=ezb_type,
-        value="ezb-12345",
-    )
-
-    contract_dto = map_contract_to_dto(contract_model)
-
-    assert contract_dto.links == [ContractLinkDto(type=ezb_link.type.name, value=ezb_link.value)]
-
-
-@pytest.mark.django_db
-def test__contract_with_multiple_links__maps_to_dto__all_required_fields_are_mapped_correctly() -> (
-    None
-):
+def test__contract_with_multiple_links__maps_to_dto__all_links_are_included_in_dto() -> None:
     contract = domainfactory.contract()
     contract.id = contract_repository.create(contract)
 
@@ -136,7 +102,7 @@ def test__contract_with_multiple_links__maps_to_dto__all_required_fields_are_map
 
 
 @pytest.mark.django_db
-def test__contract_and_invoice__mapped_to_composite_export_dto__all_required_fields_are_mapped_correctly() -> (
+def test__contract_and_invoice__mapped_to_composite_export_dto__contract_invoice_and_position_data_are_mapped() -> (
     None
 ):
     contract = domainfactory.contract()
@@ -145,8 +111,7 @@ def test__contract_and_invoice__mapped_to_composite_export_dto__all_required_fie
     contract_model = ContractModel.objects.get(pk=int(contract.id))
 
     invoice = create_invoice_with_contract_position(contract_year)
-    assert invoice.id is not None
-    invoice_model = InvoiceModel.objects.get(pk=int(invoice.id))
+    creditor = Creditor.objects.get(pk=int(invoice.creditor))
 
     dto = map_contract_to_export_dto(contract_model)
 
@@ -165,13 +130,13 @@ def test__contract_and_invoice__mapped_to_composite_export_dto__all_required_fie
     assert len(dto.invoices) == 1
     assert dto.invoices[0].number == invoice.number
     assert dto.invoices[0].date == invoice.date
-    assert dto.invoices[0].creditor == invoice_model.creditor.name
+    assert dto.invoices[0].creditor == creditor.name
     assert dto.invoices[0].status == invoice.status
     assert dto.invoices[0].comment == invoice.comment
     assert dto.invoices[0].external_id == invoice.external_invoice_id
 
     assert dto.invoices[0].positions[0].amount == invoice_position.cost.amount
-    assert dto.invoices[0].positions[0].tax_rate == invoice_position.tax_rate * 100
+    assert dto.invoices[0].positions[0].tax_rate == invoice_position.tax_rate.percentage()
     assert dto.invoices[0].positions[0].cost_type.value == invoice_position.item.cost_type.value
     assert dto.invoices[0].positions[0].external_id == invoice_position.external_position_id
     assert isinstance(dto.invoices[0].positions[0], ContractPositionImportDto)
