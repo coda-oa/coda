@@ -54,9 +54,9 @@ def test__contract_with_invoice_position_with_funding_assignments__export_to_csv
 
     assert df.height == 3
 
-    funded_amounts = sorted(Decimal(str(v)) for v in df["funded_amount"].to_list())
+    funded_amounts = sorted(df["funded_amount"].to_list())
     funding_sources = sorted(df["funding_source_name"].to_list())
-    assert funded_amounts == [Decimal("800.00"), Decimal("1000.00"), Decimal("1200.00")]
+    assert funded_amounts == [800.0, 1000.0, 1200.0]
     assert funding_sources == ["Budget A", "Budget B", "Budget C"]
 
 
