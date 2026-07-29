@@ -1,11 +1,14 @@
 from decimal import Decimal
 
 import pytest
+from coda.apps.contracts.models import ContractLink, ContractLinkType
 from coda.apps.exports.services.contract_csv.flatteners import flatten_contract_data
 from coda.apps.exports.services.contract_csv.mappers import map_contract_to_export_dto
 from coda.apps.invoices.models import Invoice as InvoiceModel
+from tests import domainfactory
 from tests.exports.helpers import (
     create_contract_and_year,
+    create_contract_with_model,
     create_invoice_with_contract_position,
     create_invoice_with_funded_position,
     create_invoices_with_positions,
@@ -85,3 +88,29 @@ def test__contract_with_multiple_invoices__flatten_to_csv__combines_all_rows() -
     invoice_numbers = [row["invoice_number"] for row in rows]
     assert invoice_numbers.count(invoice1.number) == 1
     assert invoice_numbers.count(invoice2.number) == 2
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("link_type_name", "link_value"),
+    [
+        ("ESAC", "esac-12345"),
+        ("OAI", "oai:digitalcommons.odu.edu:oaweek-1012"),
+        ("EZB", "ezb-12345"),
+    ],
+)
+def test__contract_with_link__flatten_to_csv__includes_link_column(
+    link_type_name: str, link_value: str
+) -> None:
+    contract, contract_model = create_contract_with_model()
+    link_type, _ = ContractLinkType.objects.get_or_create(name=link_type_name)
+    ContractLink.objects.create(contract=contract_model, type=link_type, value=link_value)
+
+    contract_year = domainfactory.contract_year(contract)
+    create_invoice_with_contract_position(contract_year)
+
+    export_dto = map_contract_to_export_dto(contract_model)
+    rows = flatten_contract_data(export_dto)
+
+    assert len(rows) == 1
+    assert rows[0][link_type_name.lower()] == link_value
