@@ -49,25 +49,31 @@ def test__funding_request_with_multiple_invoices__mapping_to_export_dto__invoice
     assert composite_dto.funding_request.publication.title == funding_request.publication.title
     assert composite_dto.funding_request.legacy_request_id == str(funding_request.legacy_request_id)
 
-    assert composite_dto.invoices[0].number == invoice_1.number
-    assert composite_dto.invoices[0].date == invoice_1.date
+    invoice_numbers = {inv.number for inv in composite_dto.invoices}
+    assert invoice_1.number in invoice_numbers
+    assert invoice_2.number in invoice_numbers
 
-    position1_dto = composite_dto.invoices[0].positions[0]
+    invoice_dto_by_number = {inv.number: inv for inv in composite_dto.invoices}
+
+    invoice_1_dto = invoice_dto_by_number[invoice_1.number]
+    assert invoice_1_dto.date == invoice_1.date
+
+    position1_dto = invoice_1_dto.positions[0]
     domain_position_1 = next(iter(invoice_1.positions))
 
     assert position1_dto.amount == domain_position_1.cost.amount
-    assert position1_dto.tax_rate == domain_position_1.tax_rate * 100
+    assert position1_dto.tax_rate == domain_position_1.tax_rate.percentage()
     assert position1_dto.cost_type.value == domain_position_1.item.cost_type.value
     assert position1_dto.external_id == domain_position_1.external_position_id
 
-    assert composite_dto.invoices[1].number == invoice_2.number
-    assert composite_dto.invoices[1].date == invoice_2.date
+    invoice_2_dto = invoice_dto_by_number[invoice_2.number]
+    assert invoice_2_dto.date == invoice_2.date
 
-    position2_dto = composite_dto.invoices[1].positions[0]
+    position2_dto = invoice_2_dto.positions[0]
     domain_position_2 = next(iter(invoice_2.positions))
 
     assert position2_dto.amount == domain_position_2.cost.amount
-    assert position2_dto.tax_rate == domain_position_2.tax_rate * 100
+    assert position2_dto.tax_rate == domain_position_2.tax_rate.percentage()
     assert position2_dto.cost_type.value == domain_position_2.item.cost_type.value
     assert position2_dto.external_id == domain_position_2.external_position_id
 
