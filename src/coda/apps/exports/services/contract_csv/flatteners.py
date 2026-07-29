@@ -41,6 +41,7 @@ def _create_row(
     assignment: FundingAssignmentImportDto | None = None,
     funded_amount: Decimal | None = None,
 ) -> dict[str, str]:
+    link_columns = {link.type.lower(): link.value for link in contract.links}
     return {
         "contract_name": contract.name,
         "start_date": str(contract.start_date) if contract.start_date else "",
@@ -49,6 +50,7 @@ def _create_row(
         "journals": ", ".join(contract.journals),
         "publication_billing": contract.publication_billing,
         "active_status": str(contract.active),
+        **link_columns,
         "invoice_number": invoice.number,
         "invoice_date": invoice.date.isoformat(),
         "creditor": invoice.creditor,
