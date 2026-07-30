@@ -66,9 +66,28 @@
                 </li>
             {% endif %}
         </ul>
-        <ul class="nav__version">
-            <li><span>Version: {{ coda_version }}</span></li>
-        </ul>
+        {% if update_available %}
+            <div class="update-banner flex justify-between align-center"
+                 id="update-banner">
+                <span>A new version of CODA is available for {{ current_branch }}</span>
+                <a href="{{ github_branch_url }}"
+                   class="update-banner__link"
+                   target="_blank"
+                   aria-label="View latest version on GitHub"
+                   title="View latest version on GitHub">
+                    <svg class="w-6 h-6"
+                         aria-hidden="true"
+                         xmlns="http://www.w3.org/2000/svg"
+                         width="24"
+                         height="24"
+                         fill="none"
+                         viewBox="0 0 24 24">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.651 7.65a7.131 7.131 0 0 0-12.68 3.15M18.001 4v4h-4m-7.652 8.35a7.13 7.13 0 0 0 12.68-3.15M6 20v-4h4" />
+                    </svg>
+                </a>
+            </div>
+        {% endif %}
+        <p class="nav__version my-1">Version: {{ coda_version }}</p>
         <div>
             <ul class="theme-switch-wrapper">
                 <li>

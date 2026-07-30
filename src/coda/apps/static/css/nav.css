@@ -101,6 +101,21 @@
         color: var(--pico-muted-color);
     }
 
+    .update-banner {
+        padding: calc(var(--coda-spacing) / 1.75);
+        background: var(--pico-primary);
+        color: var(--pico-primary-inverse);
+        font-size: 0.8rem;
+    }
+
+    .update-banner__link {
+        color: var(--pico-primary-inverse);
+    }
+
+    .update-banner__link:hover {
+        opacity: 0.85;
+    }
+
     & a {
         border: 1px solid transparent;
         font-size: 1.15rem;

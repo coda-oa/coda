@@ -1,7 +1,48 @@
 from functools import lru_cache
 import subprocess
+from typing import Any
 
+import httpx
 from django.conf import settings
+from django.core.cache import cache
+
+
+def get_branch() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (FileNotFoundError, subprocess.SubprocessError):
+        pass
+    return "unknown"
+
+
+@lru_cache(maxsize=1)
+def check_update(branch: str, current_commit: str) -> dict[str, Any]:
+    cache_key = f"version_update_{branch}"
+    cached: dict[str, Any] | None = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        url = f"https://api.github.com/repos/coda-oa/coda/branches/{branch}"
+        response = httpx.get(url, timeout=10)
+        response.raise_for_status()
+        latest_sha = response.json()["commit"]["sha"]
+        result = {
+            "update_available": latest_sha != current_commit,
+            "latest_commit": latest_sha,
+        }
+    except Exception as e:
+        result = {"update_available": False, "error": str(e)}
+
+    cache.set(cache_key, result, 3600)
+    return result  #  {"update_available": True}
 
 
 @lru_cache(maxsize=1)

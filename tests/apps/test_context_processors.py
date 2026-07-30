@@ -1,9 +1,10 @@
 from collections.abc import Generator
 
 import pytest
+from django.http import HttpRequest
 from django.test import RequestFactory, override_settings
 
-from coda.apps.context_processors import demo_context
+from coda.apps.context_processors import demo_context, version_context
 from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView
 from coda.contexts.fundingrequest.services.doi_import.doi_client import (
     InMemoryDOIMetadataClient,
@@ -66,3 +67,20 @@ def test__demo_context__when_demo_mode_true_but_crossref_client__returns_empty_d
         result = demo_context(request)
 
     assert result == {}
+
+
+def test_version_context_IncludesUpdateInfo(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("coda.apps.context_processors.get_branch", lambda: "develop")
+    monkeypatch.setattr(
+        "coda.apps.context_processors.check_update",
+        lambda b, c: {"update_available": True},
+    )
+    monkeypatch.setattr("coda.apps.context_processors.get_version", lambda: "abc123")
+
+    request = HttpRequest()
+    ctx = version_context(request)
+
+    assert ctx["coda_version"] == "abc123"
+    assert ctx["update_available"] is True
+    assert ctx["current_branch"] == "develop"
+    assert ctx["github_branch_url"] == "https://github.com/coda-oa/coda/tree/develop"

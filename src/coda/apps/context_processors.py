@@ -5,12 +5,19 @@ from django.http import HttpRequest
 from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView
 from coda.contexts.fundingrequest.services.doi_import.doi_client import InMemoryDOIMetadataClient
 
-from coda.apps.version import get_version
+from coda.apps.version import check_update, get_branch, get_version
 
 
-def version_context(request: HttpRequest) -> dict[str, str]:
-    """Inject CODA version string into all templates."""
-    return {"coda_version": get_version()}
+def version_context(request: HttpRequest) -> dict[str, Any]:
+    version = get_version()
+    branch = get_branch()
+    update_info = check_update(branch, version)
+    return {
+        "coda_version": version,
+        "update_available": update_info.get("update_available", False),
+        "current_branch": branch,
+        "github_branch_url": f"https://github.com/coda-oa/coda/tree/{branch}",
+    }
 
 
 def demo_context(request: HttpRequest) -> dict[str, Any]:
