@@ -47,9 +47,9 @@ COPY --chown=django:django manage.py manage.py
 COPY --chown=django:django pyproject.toml pyproject.toml
 COPY --chown=django:django README.md README.md
 
-RUN echo "${GIT_COMMIT}" > /app/VERSION
-RUN echo "${GIT_BRANCH}" > /app/BRANCH
-RUN echo "${GIT_TAG}" > /app/TAG
+RUN echo "${GIT_COMMIT}" > /app/VERSION \
+    && echo "${GIT_BRANCH}" > /app/BRANCH \
+    && echo "${GIT_TAG}" > /app/TAG
 
 USER django
 

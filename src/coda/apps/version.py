@@ -3,6 +3,8 @@ from pathlib import Path
 import subprocess
 from typing import Any
 
+from urllib.parse import quote
+
 import httpx
 from django.conf import settings
 from django.core.cache import cache
@@ -52,7 +54,7 @@ def check_update(branch: str, current_commit: str) -> dict[str, Any]:
         return cached
 
     try:
-        url = f"https://api.github.com/repos/coda-oa/coda/branches/{branch}"
+        url = f"https://api.github.com/repos/coda-oa/coda/branches/{quote(branch, safe='')}"
         response = httpx.get(url, timeout=10)
         response.raise_for_status()
         latest_sha = response.json()["commit"]["sha"]
