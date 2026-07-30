@@ -24,7 +24,12 @@ from coda.apps.fundingrequests.services.funder_services import (
     can_delete_funding_organization,
     delete_funding_organization,
     restore_funding_organization,
+    update_funder_from_ror,
 )
+from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import (
+    RORClient,
+)
+from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.apps.views import SimpleSearchEntityListView
 
 FUNDERS_LIST_URL = "fundingrequests:funders"
@@ -33,6 +38,10 @@ FUNDER_ENTITY_NAME = "Funding Organization"
 FUNDER_ARCHIVE_SUCCESS_MSG = "Funding organization '{name}' archived successfully."
 FUNDER_RESTORE_SUCCESS_MSG = "Funding organization '{name}' restored successfully."
 FUNDER_DELETE_SUCCESS_MSG = "Funding organization '{name}' deleted successfully."
+
+
+def get_ror_client() -> RORClient:
+    return RORClient()
 
 
 @breadcrumb("Funding Organizations", parent_url_name="fundingrequests:home")
@@ -372,3 +381,32 @@ def add_funder_linkrow(request: HttpRequest) -> HttpResponse:
         "partials/linkrow.html",
         {"link_types": FundingOrganizationLinkType.objects.all()},
     )
+
+
+@login_required
+@require_GET
+def request_update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
+    org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    return render(
+        request,
+        "fundingrequests/funders/update_from_ror_modal.html",
+        {
+            "org": org,
+            "update_url": reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": pk}),
+        },
+    )
+
+
+@login_required
+@require_POST
+def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
+    org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    try:
+        ror_client = get_ror_client()
+        update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)
+        messages.success(
+            request, f"Funding organization '{org.name}' updated from ROR successfully."
+        )
+    except Exception as e:
+        messages.error(request, f"Error updating from ROR: {str(e)}")
+    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))

@@ -6,6 +6,10 @@
             {% if object.archived_at %}<span class="pill danger">Archived</span>{% endif %}
         </h1>
         <div class="flex">
+            <button class="secondary"
+                    hx-get="{% url 'fundingrequests:funder_request_update_from_ror' pk=object.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Update from ROR</button>
             <a href="{% url "fundingrequests:funders_update" pk=object.pk %}"
                class="button secondary">Edit</a>
         </div>

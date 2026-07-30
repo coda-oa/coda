@@ -37,7 +37,9 @@ from coda.apps.fundingrequests.views.funders import (
     request_archive_funder,
     request_delete_funder,
     request_restore_funder,
+    request_update_from_ror_funder,
     restore_funder,
+    update_from_ror_funder,
 )
 from coda.apps.fundingrequests.views.home import fundingrequest_home
 from coda.apps.fundingrequests.views.labels import (
@@ -176,6 +178,16 @@ urlpatterns = [
         "funders/<int:pk>/request-restore/", request_restore_funder, name="funder_request_restore"
     ),
     path("funders/<int:pk>/restore/", restore_funder, name="funder_restore"),
+    path(
+        "funders/<int:pk>/request-update-from-ror/",
+        request_update_from_ror_funder,
+        name="funder_request_update_from_ror",
+    ),
+    path(
+        "funders/<int:pk>/update-from-ror/",
+        update_from_ror_funder,
+        name="funder_update_from_ror",
+    ),
     path(
         "funders/partial/add-linkrow/",
         add_funder_linkrow,
