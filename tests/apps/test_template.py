@@ -1,7 +1,7 @@
 from django.template import Template, Context
 
 
-def test_update_banner_RendersWhenUpdateAvailable() -> None:
+def test__update_banner__renders_when_update_available() -> None:
     template = Template(
         "{% if update_available %}" '<div class="update-banner">update!</div>' "{% endif %}"
     )
@@ -9,7 +9,7 @@ def test_update_banner_RendersWhenUpdateAvailable() -> None:
     assert "update!" in rendered
 
 
-def test_update_banner_NotRenderedWhenNoUpdate() -> None:
+def test__update_banner__not_rendered_when_no_update() -> None:
     template = Template(
         "{% if update_available %}" '<div class="update-banner">update!</div>' "{% endif %}"
     )

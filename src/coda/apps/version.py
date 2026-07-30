@@ -1,10 +1,29 @@
 from functools import lru_cache
+from pathlib import Path
 import subprocess
 from typing import Any
 
 import httpx
 from django.conf import settings
 from django.core.cache import cache
+
+
+def get_version_tag() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--tags", "--exact-match"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (FileNotFoundError, subprocess.SubprocessError):
+        pass
+    tag_path = Path(settings.BASE_DIR / "TAG")
+    if tag_path.is_file():
+        return tag_path.read_text().strip()
+    return None
 
 
 def get_branch() -> str:
@@ -19,6 +38,9 @@ def get_branch() -> str:
             return result.stdout.strip()
     except (FileNotFoundError, subprocess.SubprocessError):
         pass
+    branch_path = Path(settings.BASE_DIR / "BRANCH")
+    if branch_path.is_file():
+        return branch_path.read_text().strip()
     return "unknown"
 
 
@@ -42,7 +64,7 @@ def check_update(branch: str, current_commit: str) -> dict[str, Any]:
         result = {"update_available": False, "error": str(e)}
 
     cache.set(cache_key, result, 3600)
-    return result  #  {"update_available": True}
+    return result
 
 
 @lru_cache(maxsize=1)

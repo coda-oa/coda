@@ -69,13 +69,14 @@ def test__demo_context__when_demo_mode_true_but_crossref_client__returns_empty_d
     assert result == {}
 
 
-def test_version_context_IncludesUpdateInfo(monkeypatch: pytest.MonkeyPatch) -> None:
+def test__version_context__includes_update_info(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("coda.apps.context_processors.get_branch", lambda: "develop")
     monkeypatch.setattr(
         "coda.apps.context_processors.check_update",
         lambda b, c: {"update_available": True},
     )
     monkeypatch.setattr("coda.apps.context_processors.get_version", lambda: "abc123")
+    monkeypatch.setattr("coda.apps.context_processors.get_version_tag", lambda: None)
 
     request = HttpRequest()
     ctx = version_context(request)
@@ -83,4 +84,34 @@ def test_version_context_IncludesUpdateInfo(monkeypatch: pytest.MonkeyPatch) -> 
     assert ctx["coda_version"] == "abc123"
     assert ctx["update_available"] is True
     assert ctx["current_branch"] == "develop"
-    assert ctx["github_branch_url"] == "https://github.com/coda-oa/coda/tree/develop"
+    assert ctx["github_url"] == "https://github.com/coda-oa/coda/tree/develop"
+
+
+def test__version_context__with_tag__uses_release_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("coda.apps.context_processors.get_branch", lambda: "stable")
+    monkeypatch.setattr(
+        "coda.apps.context_processors.check_update",
+        lambda b, c: {"update_available": True},
+    )
+    monkeypatch.setattr("coda.apps.context_processors.get_version", lambda: "2026.01")
+    monkeypatch.setattr("coda.apps.context_processors.get_version_tag", lambda: "2026.01")
+
+    request = HttpRequest()
+    ctx = version_context(request)
+
+    assert ctx["github_url"] == "https://github.com/coda-oa/coda/releases/tag/2026.01"
+
+
+def test__version_context__without_tag__uses_branch_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("coda.apps.context_processors.get_branch", lambda: "develop")
+    monkeypatch.setattr(
+        "coda.apps.context_processors.check_update",
+        lambda b, c: {"update_available": True},
+    )
+    monkeypatch.setattr("coda.apps.context_processors.get_version", lambda: "abc1234")
+    monkeypatch.setattr("coda.apps.context_processors.get_version_tag", lambda: None)
+
+    request = HttpRequest()
+    ctx = version_context(request)
+
+    assert ctx["github_url"] == "https://github.com/coda-oa/coda/tree/develop"

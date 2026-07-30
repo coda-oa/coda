@@ -3,6 +3,8 @@ FROM docker.io/python:3.13-slim-bookworm as python
 ARG BUILD_ENVIRONMENT=production
 ARG APP_HOME=/app
 ARG GIT_COMMIT=unknown
+ARG GIT_BRANCH=unknown
+ARG GIT_TAG=
 
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -46,6 +48,8 @@ COPY --chown=django:django pyproject.toml pyproject.toml
 COPY --chown=django:django README.md README.md
 
 RUN echo "${GIT_COMMIT}" > /app/VERSION
+RUN echo "${GIT_BRANCH}" > /app/BRANCH
+RUN echo "${GIT_TAG}" > /app/TAG
 
 USER django
 
