@@ -58,77 +58,48 @@ class SystemVersionInfoProvider:
     def __init__(self) -> None:
         self._cache = cache
 
-    def get_version_tag(self) -> str | None:
+    def _git(self, args: list[str]) -> str | None:
         try:
-            result = subprocess.run(
-                ["git", "describe", "--tags", "--exact-match"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
+            result = subprocess.run(["git"] + args, capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
                 return result.stdout.strip()
         except (FileNotFoundError, subprocess.SubprocessError):
             pass
-        tag_path = Path(settings.BASE_DIR / "TAG")
-        if tag_path.is_file():
-            return tag_path.read_text().strip()
         return None
 
+    def _baked_file(self, name: str) -> str | None:
+        path = Path(settings.BASE_DIR / name)
+        if path.is_file():
+            return path.read_text().strip()
+        return None
+
+    def get_version_tag(self) -> str | None:
+        return self._git(["describe", "--tags", "--exact-match"]) or self._baked_file("TAG")
+
     def get_branch(self) -> str:
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                return result.stdout.strip()
-        except (FileNotFoundError, subprocess.SubprocessError):
-            pass
-        branch_path = Path(settings.BASE_DIR / "BRANCH")
-        if branch_path.is_file():
-            return branch_path.read_text().strip()
-        return "unknown"
+        return (
+            self._git(["rev-parse", "--abbrev-ref", "HEAD"])
+            or self._baked_file("BRANCH")
+            or "unknown"
+        )
 
     def get_repo(self) -> str:
-        remotes_to_try: list[str] = []
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--symbolic-full-name", "@{upstream}"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                ref = result.stdout.strip()
-                parts = ref.split("/")
-                if len(parts) >= 4 and parts[0] == "refs" and parts[1] == "remotes":
-                    remotes_to_try.append(parts[2])
-        except (FileNotFoundError, subprocess.SubprocessError):
-            pass
+        ref = self._git(["rev-parse", "--symbolic-full-name", "@{upstream}"])
+        if ref:
+            parts = ref.split("/")
+            if len(parts) >= 4 and parts[0] == "refs" and parts[1] == "remotes":
+                url = self._git(["remote", "get-url", parts[2]])
+                repo = _parse_github_url(url) if url else None
+                if repo:
+                    return repo
 
-        remotes_to_try.append("origin")
+        url = self._git(["remote", "get-url", "origin"])
+        repo = _parse_github_url(url) if url else None
+        if repo:
+            return repo
 
-        for remote in remotes_to_try:
-            try:
-                result = subprocess.run(
-                    ["git", "remote", "get-url", remote],
-                    capture_output=True,
-                    text=True,
-                    timeout=5,
-                )
-                if result.returncode == 0:
-                    repo = _parse_github_url(result.stdout.strip())
-                    if repo is not None:
-                        return repo
-            except (FileNotFoundError, subprocess.SubprocessError):
-                continue
-
-        repo_path = Path(settings.BASE_DIR / "REPO")
-        if repo_path.is_file():
-            repo = repo_path.read_text().strip()
+        repo = self._baked_file("REPO")
+        if repo:
             parsed = urlparse(f"https://api.github.com/repos/{repo}")
             if parsed.hostname == "api.github.com" and parsed.path.startswith("/repos/"):
                 return repo
@@ -136,24 +107,12 @@ class SystemVersionInfoProvider:
 
     @lru_cache(maxsize=1)
     def get_version(self) -> str:
-        git_commands = [
-            ["git", "describe", "--tags", "--exact-match"],
-            ["git", "rev-parse", "--short", "HEAD"],
-        ]
-
-        for cmd in git_commands:
-            try:
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-                if result.returncode == 0:
-                    return result.stdout.strip()
-            except (FileNotFoundError, subprocess.SubprocessError):
-                continue
-
-        version_path = settings.BASE_DIR / "VERSION"
-        if version_path.is_file():
-            return version_path.read_text().strip()
-
-        return "unknown"
+        return (
+            self._git(["describe", "--tags", "--exact-match"])
+            or self._git(["rev-parse", "--short", "HEAD"])
+            or self._baked_file("VERSION")
+            or "unknown"
+        )
 
     def check_update(self, branch: str, current_commit: str) -> UpdateCheckResult:
         cache_key = f"version_update_{branch}"
