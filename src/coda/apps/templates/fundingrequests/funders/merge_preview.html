@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="flex justify-between align-center">
+        <h1 class="my-2">Merge Funding Organizations</h1>
+        <div class="flex">
+            <a href="{% url 'fundingrequests:funder_detail' pk=source.pk %}"
+               class="button secondary">Back</a>
+        </div>
+    </div>
+    <article>
+        <header>
+            <h2 class="my-0">Merge Preview</h2>
+        </header>
+        <div class="grid">
+            <section>
+                <h3>Source Organization (will be deleted)</h3>
+                <p>
+                    <strong>Name:</strong> {{ source.name }}
+                </p>
+                {% if source.links.all %}
+                    <h4>Links</h4>
+                    <ul>
+                        {% for link in source.links.all %}<li>{{ link.type.name }}: {{ link.value }}</li>{% endfor %}
+                    </ul>
+                {% endif %}
+            </section>
+            <section>
+                <h3>Target Organization (will be kept)</h3>
+                <p>
+                    <strong>Name:</strong> {{ target.name }}
+                </p>
+                {% if target.links.all %}
+                    <h4>Links</h4>
+                    <ul>
+                        {% for link in target.links.all %}<li>{{ link.type.name }}: {{ link.value }}</li>{% endfor %}
+                    </ul>
+                {% endif %}
+            </section>
+        </div>
+        <section class="my-2">
+            <h3>Merged Result</h3>
+            <p>
+                <strong>Name:</strong> {{ target.name }}
+            </p>
+            {% if merged_links %}
+                <h4>Links</h4>
+                <ul>
+                    {% for link in merged_links %}<li>{{ link.type }}: {{ link.value }}</li>{% endfor %}
+                </ul>
+            {% endif %}
+        </section>
+        <section class="my-2">
+            <h3>Related Funding Requests ({{ affected_records|length }})</h3>
+            {% if affected_records %}
+                <div class="scroll-container max-h-30">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Request ID</th>
+                                <th>Project ID</th>
+                                <th>Project Name</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in affected_records %}
+                                <tr>
+                                    <td>
+                                        {% if record.funding_request %}
+                                            <a href="{% url 'fundingrequests:detail' pk=record.funding_request.pk %}">{{ record.funding_request.request_id }}</a>
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ record.project_id }}</td>
+                                    <td>{{ record.project_name }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No related funding requests.</p>
+            {% endif %}
+        </section>
+        <footer class="flex justify-end my-2">
+            <button type="button"
+                    class="danger"
+                    hx-post="{{ execute_url }}"
+                    hx-target="body"
+                    hx-swap="beforeend"
+                    hx-confirm="Are you sure you want to merge {{ source.name }} into {{ target.name }}? This action cannot be undone.">
+                Confirm Merge
+            </button>
+        </footer>
+    </article>
+{% endblock content %}

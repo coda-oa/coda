@@ -93,6 +93,10 @@
     {% else %}
         <div class="flex justify-end my-2">
             <button class="secondary"
+                    hx-get="{% url 'fundingrequests:funder_merge_select_target' pk=object.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Merge into...</button>
+            <button class="secondary"
                     hx-get="{% url 'fundingrequests:funder_request_archive' pk=object.pk %}"
                     hx-target="body"
                     hx-swap="beforeend">Archive</button>

@@ -1,4 +1,3 @@
-import json
 from collections.abc import Generator
 
 import pytest
@@ -14,37 +13,12 @@ from coda.domain.institution.links import Ror
 from tests import modelfactory
 from tests.contexts.fundingrequest.services.test_ror_client import FakeHttpGet
 
-BMFTR_NAME = "Bundesministerium für Forschung, Technologie und Raumfahrt"
-BMFTR_RESPONSE = """{
-  "number_of_results": 1,
-  "time_taken": 1,
-  "items": [
-    {
-      "id": "https://ror.org/04pz7b180",
-      "names": [
-        {
-          "lang": "de",
-          "types": ["label", "ror_display"],
-          "value": "Bundesministerium für Forschung, Technologie und Raumfahrt"
-        }
-      ],
-      "external_ids": [
-        {
-          "all": ["501100002347"],
-          "preferred": "501100002347",
-          "type": "fundref"
-        }
-      ],
-      "links": []
-    }
-  ]
-}
-"""
+from tests.fundingorganizations.conftest import BMFTR_NAME
 
 
 @pytest.fixture
-def fake_ror_client() -> RORClient:
-    return RORClient(http_client=FakeHttpGet(json_data=json.loads(BMFTR_RESPONSE)))
+def fake_ror_client(bmftr_response_minimal: dict) -> RORClient:
+    return RORClient(http_client=FakeHttpGet(json_data=bmftr_response_minimal))
 
 
 @pytest.fixture

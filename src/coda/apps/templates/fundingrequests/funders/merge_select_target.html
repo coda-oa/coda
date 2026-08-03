@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="flex justify-between align-center">
+        <h1 class="my-2">Merge Funding Organization</h1>
+        <div class="flex">
+            <a href="{% url 'fundingrequests:funder_detail' pk=source.pk %}"
+               class="button secondary">Cancel</a>
+        </div>
+    </div>
+    <article>
+        <header>
+            <h2 class="my-0">Select Target Organization</h2>
+        </header>
+        <p>
+            You are merging <strong>{{ source.name }}</strong> into another organization.
+            Please search for and select the target organization.
+        </p>
+        <form method="get"
+              action="{% url 'fundingrequests:funder_merge_select_target' pk=source.pk %}">
+            <div class="flex">
+                <input type="text"
+                       name="query"
+                       value="{{ query }}"
+                       placeholder="Search by name or identifier (DOI, ROR, Crossref)..." />
+                <button type="submit" class="primary">Search</button>
+            </div>
+        </form>
+        {% if query %}
+            <section class="my-2">
+                <h3>Search Results</h3>
+                {% if results %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for org in results %}
+                                <tr>
+                                    <td>{{ org.name }}</td>
+                                    <td>
+                                        <a href="{% url 'fundingrequests:funder_merge_preview' pk=source.pk target_pk=org.pk %}"
+                                           class="primary">Select</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>No organizations found matching "{{ query }}".</p>
+                {% endif %}
+            </section>
+        {% endif %}
+    </article>
+{% endblock content %}

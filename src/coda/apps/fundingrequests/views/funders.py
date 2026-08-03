@@ -403,10 +403,126 @@ def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     try:
         ror_client = get_ror_client()
-        update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)
+        links_changed = update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)
         messages.success(
             request, f"Funding organization '{org.name}' updated from ROR successfully."
         )
+
+        # Check for overlapping organizations if links changed
+        if links_changed:
+            from coda.apps.fundingrequests.services.funder_services import (
+                find_overlapping_organizations,
+            )
+
+            overlapping_orgs = find_overlapping_organizations(org)
+            if overlapping_orgs:
+                return render(
+                    request,
+                    "fundingrequests/funders/overlap_detection_dialog.html",
+                    {
+                        "source": org,
+                        "overlapping_orgs": overlapping_orgs,
+                    },
+                )
     except Exception as e:
         messages.error(request, f"Error updating from ROR: {str(e)}")
     return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+
+
+@login_required
+@require_GET
+def merge_funder_select_target(request: HttpRequest, pk: int) -> HttpResponse:
+    source = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    query = request.GET.get("query", "").strip()
+    results = []
+
+    if query:
+        from coda.apps.fundingrequests.services.funder_services import (
+            search_organizations_for_merge,
+        )
+
+        results = search_organizations_for_merge(query, exclude_pk=source.pk)
+
+    ctx = {"source": source, "query": query, "results": results}
+    if query:
+        # Search form submission — update content inside existing dialog
+        return render(request, "fundingrequests/funders/merge_select_target_content.html", ctx)
+    # Initial load — return full dialog wrapper
+    return render(request, "fundingrequests/funders/merge_select_target_dialog.html", ctx)
+
+
+@login_required
+@require_GET
+def merge_funder_preview(request: HttpRequest, pk: int, target_pk: int) -> HttpResponse:
+    source = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    target = get_object_or_404(FundingOrganization.all_objects, pk=target_pk)
+
+    from coda.apps.fundingrequests.services.funder_services import can_merge_funding_organization
+
+    can_merge, reasons = can_merge_funding_organization(source, target)
+    if not can_merge:
+        messages.error(request, f"Cannot merge organizations: {', '.join(reasons)}")
+        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+
+    # Get affected funding records from both source and target
+    from coda.apps.fundingrequests.models import ExternalFunding
+
+    affected_records = ExternalFunding.objects.filter(
+        organization__in=[source, target]
+    ).select_related("funding_request")
+
+    # Calculate merged links
+    from coda.contexts.fundingrequest.services.funder_resolution import (
+        FundingOrganization as DomainFundingOrganization,
+    )
+
+    source_links = source.get_links()
+    target_links = target.get_links()
+    merged_funder = DomainFundingOrganization(
+        name=target.name,
+        links=tuple(source_links),
+    )
+    merged_funder = merged_funder.revised(links=target_links)
+
+    return render(
+        request,
+        "fundingrequests/funders/merge_preview.html",
+        {
+            "source": source,
+            "target": target,
+            "merged_links": merged_funder.links,
+            "affected_records": affected_records,
+            "execute_url": reverse(
+                "fundingrequests:funder_merge_execute",
+                kwargs={"pk": pk, "target_pk": target_pk},
+            ),
+        },
+    )
+
+
+@login_required
+@require_POST
+def merge_funder_execute(request: HttpRequest, pk: int, target_pk: int) -> HttpResponse:
+    source = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    target = get_object_or_404(FundingOrganization.all_objects, pk=target_pk)
+
+    from coda.apps.fundingrequests.services.funder_services import (
+        can_merge_funding_organization,
+        merge_funding_organizations,
+    )
+
+    can_merge, reasons = can_merge_funding_organization(source, target)
+    if not can_merge:
+        messages.error(request, f"Cannot merge organizations: {', '.join(reasons)}")
+        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+
+    try:
+        merge_funding_organizations(source, target)
+        messages.success(
+            request,
+            f"Funding organization '{source.name}' merged into '{target.name}' successfully.",
+        )
+    except Exception as e:
+        messages.error(request, f"Error merging organizations: {str(e)}")
+
+    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": target_pk}))

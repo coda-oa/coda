@@ -5,12 +5,15 @@ Provides the ``enrich`` function to enrich a domain
 persistence layer.
 """
 
+import logging
 from collections.abc import Iterable
 
 from coda.domain.fundingrequest import FundingOrganization
 from coda.domain.publication.links import Link
 
 from .ror_client import RORRecord
+
+logger = logging.getLogger(__name__)
 
 
 def _find_ror_record(
@@ -40,4 +43,5 @@ def enrich_from_ror(
     try:
         return funder.revised(name=record.name, links=record.to_links())
     except Exception:
+        logger.debug("ROR record conversion failed", exc_info=True)
         return funder
