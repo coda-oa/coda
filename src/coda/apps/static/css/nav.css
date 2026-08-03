@@ -267,6 +267,37 @@
         width: auto;
     }
 
+    .nav .update-banner {
+        background: var(--pico-primary);
+        padding: 0.35rem;
+        justify-content: center;
+        border-radius: 50%;
+        width: fit-content;
+        margin: 0.5rem auto;
+    }
+
+    .nav .update-banner a svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        display: block;
+    }
+
+    .nav .update-banner span {
+        display: none;
+    }
+
+    .nav-container:is(:hover, :focus-within) .update-banner {
+        border-radius: 0;
+        width: auto;
+        margin: 0;
+        padding: calc(var(--coda-spacing) / 1.75);
+        justify-content: space-between;
+    }
+
+    .nav-container:is(:hover, :focus-within) .update-banner span {
+        display: inline;
+    }
+
     .nav {
         grid-template-columns: [nav logo theme-switch] var(--_nav-container-collapsed-width);
     }

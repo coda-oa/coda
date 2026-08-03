@@ -77,6 +77,7 @@ def test__version_context__includes_update_info(monkeypatch: pytest.MonkeyPatch)
     )
     monkeypatch.setattr("coda.apps.context_processors.get_version", lambda: "abc123")
     monkeypatch.setattr("coda.apps.context_processors.get_version_tag", lambda: None)
+    monkeypatch.setattr("coda.apps.context_processors.get_repo", lambda: "coda-oa/coda")
 
     request = HttpRequest()
     ctx = version_context(request)
@@ -95,6 +96,7 @@ def test__version_context__with_tag__uses_release_url(monkeypatch: pytest.Monkey
     )
     monkeypatch.setattr("coda.apps.context_processors.get_version", lambda: "2026.01")
     monkeypatch.setattr("coda.apps.context_processors.get_version_tag", lambda: "2026.01")
+    monkeypatch.setattr("coda.apps.context_processors.get_repo", lambda: "coda-oa/coda")
 
     request = HttpRequest()
     ctx = version_context(request)
@@ -110,6 +112,7 @@ def test__version_context__without_tag__uses_branch_url(monkeypatch: pytest.Monk
     )
     monkeypatch.setattr("coda.apps.context_processors.get_version", lambda: "abc1234")
     monkeypatch.setattr("coda.apps.context_processors.get_version_tag", lambda: None)
+    monkeypatch.setattr("coda.apps.context_processors.get_repo", lambda: "coda-oa/coda")
 
     request = HttpRequest()
     ctx = version_context(request)

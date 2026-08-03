@@ -5,18 +5,19 @@ from django.http import HttpRequest
 from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView
 from coda.contexts.fundingrequest.services.doi_import.doi_client import InMemoryDOIMetadataClient
 
-from coda.apps.version import check_update, get_branch, get_version, get_version_tag
+from coda.apps.version import check_update, get_branch, get_repo, get_version, get_version_tag
 
 
 def version_context(request: HttpRequest) -> dict[str, Any]:
     version = get_version()
     branch = get_branch()
     tag = get_version_tag()
+    repo = get_repo()
     update_info = check_update(branch, version)
     if tag:
-        github_url = f"https://github.com/coda-oa/coda/releases/tag/{tag}"
+        github_url = f"https://github.com/{repo}/releases/tag/{tag}"
     else:
-        github_url = f"https://github.com/coda-oa/coda/tree/{branch}"
+        github_url = f"https://github.com/{repo}/tree/{branch}"
     return {
         "coda_version": version,
         "update_available": update_info.get("update_available", False),

@@ -5,6 +5,7 @@ ARG APP_HOME=/app
 ARG GIT_COMMIT=unknown
 ARG GIT_BRANCH=unknown
 ARG GIT_TAG=
+ARG GIT_REPO=coda-oa/coda
 
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -49,7 +50,8 @@ COPY --chown=django:django README.md README.md
 
 RUN echo "${GIT_COMMIT}" > /app/VERSION \
     && echo "${GIT_BRANCH}" > /app/BRANCH \
-    && echo "${GIT_TAG}" > /app/TAG
+    && echo "${GIT_TAG}" > /app/TAG \
+    && echo "${GIT_REPO}" > /app/REPO
 
 USER django
 

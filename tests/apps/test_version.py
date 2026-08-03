@@ -1,6 +1,6 @@
 from unittest import mock
 
-from coda.apps.version import check_update, get_branch, get_version_tag
+from coda.apps.version import check_update, get_branch, get_repo, get_version_tag
 
 
 def test__get_branch__given_git_fails_but_branch_file_exists__returns_branch_from_file() -> None:
@@ -46,6 +46,57 @@ def test__get_version_tag__given_git_fails_but_tag_file_exists__returns_tag_from
         mock_path.return_value.is_file.return_value = True
         mock_path.return_value.read_text.return_value = "2026.01\n"
         assert get_version_tag() == "2026.01"
+
+
+def test__get_repo__given_upstream_remote__uses_upstream() -> None:
+    mock_run = mock.MagicMock()
+    mock_run.side_effect = [
+        mock.MagicMock(returncode=0, stdout="refs/remotes/fjen/feature/version-info\n"),
+        mock.MagicMock(returncode=0, stdout="https://github.com/fjen/coda.git\n"),
+    ]
+    with mock.patch("coda.apps.version.subprocess.run", mock_run):
+        assert get_repo() == "fjen/coda"
+
+
+def test__get_repo__given_no_upstream_falls_back_to_origin_with_https() -> None:
+    mock_run = mock.MagicMock()
+    mock_run.side_effect = [
+        mock.MagicMock(returncode=1, stdout=""),
+        mock.MagicMock(returncode=0, stdout="https://github.com/coda-oa/coda.git\n"),
+    ]
+    with mock.patch("coda.apps.version.subprocess.run", mock_run):
+        assert get_repo() == "coda-oa/coda"
+
+
+def test__get_repo__given_no_upstream_falls_back_to_origin_with_ssh() -> None:
+    mock_run = mock.MagicMock()
+    mock_run.side_effect = [
+        mock.MagicMock(returncode=1, stdout=""),
+        mock.MagicMock(returncode=0, stdout="git@github.com:coda-oa/coda.git\n"),
+    ]
+    with mock.patch("coda.apps.version.subprocess.run", mock_run):
+        assert get_repo() == "coda-oa/coda"
+
+
+def test__get_repo__given_git_fails_but_repo_file_exists__returns_repo_from_file() -> None:
+    with (
+        mock.patch("coda.apps.version.subprocess.run") as mock_run,
+        mock.patch("coda.apps.version.Path") as mock_path,
+    ):
+        mock_run.side_effect = FileNotFoundError()
+        mock_path.return_value.is_file.return_value = True
+        mock_path.return_value.read_text.return_value = "my-fork/coda\n"
+        assert get_repo() == "my-fork/coda"
+
+
+def test__get_repo__given_git_fails_and_no_file__returns_default() -> None:
+    with (
+        mock.patch("coda.apps.version.subprocess.run") as mock_run,
+        mock.patch("coda.apps.version.Path") as mock_path,
+    ):
+        mock_run.side_effect = FileNotFoundError()
+        mock_path.return_value.is_file.return_value = False
+        assert get_repo() == "coda-oa/coda"
 
 
 def test__get_branch__given_git_available__returns_branch_name() -> None:

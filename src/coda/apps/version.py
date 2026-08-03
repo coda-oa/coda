@@ -46,7 +46,56 @@ def get_branch() -> str:
     return "unknown"
 
 
-@lru_cache(maxsize=1)
+def _parse_github_url(url: str) -> str | None:
+    for prefix in ["https://github.com/", "git@github.com:"]:
+        if url.startswith(prefix):
+            repo = url.removeprefix(prefix)
+            if repo.endswith(".git"):
+                repo = repo.removesuffix(".git")
+            return repo
+    return None
+
+
+def get_repo() -> str:
+    remotes_to_try: list[str] = []
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--symbolic-full-name", "@{upstream}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            ref = result.stdout.strip()
+            parts = ref.split("/")
+            if len(parts) >= 4 and parts[0] == "refs" and parts[1] == "remotes":
+                remotes_to_try.append(parts[2])
+    except (FileNotFoundError, subprocess.SubprocessError):
+        pass
+
+    remotes_to_try.append("origin")
+
+    for remote in remotes_to_try:
+        try:
+            result = subprocess.run(
+                ["git", "remote", "get-url", remote],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                repo = _parse_github_url(result.stdout.strip())
+                if repo is not None:
+                    return repo
+        except (FileNotFoundError, subprocess.SubprocessError):
+            continue
+
+    repo_path = Path(settings.BASE_DIR / "REPO")
+    if repo_path.is_file():
+        return repo_path.read_text().strip()
+    return "coda-oa/coda"
+
+
 def check_update(branch: str, current_commit: str) -> dict[str, Any]:
     cache_key = f"version_update_{branch}"
     cached: dict[str, Any] | None = cache.get(cache_key)
@@ -54,7 +103,8 @@ def check_update(branch: str, current_commit: str) -> dict[str, Any]:
         return cached
 
     try:
-        url = f"https://api.github.com/repos/coda-oa/coda/branches/{quote(branch, safe='')}"
+        repo = get_repo()
+        url = f"https://api.github.com/repos/{repo}/branches/{quote(branch, safe='')}"
         response = httpx.get(url, timeout=10)
         response.raise_for_status()
         latest_sha = response.json()["commit"]["sha"]
