@@ -128,7 +128,10 @@ class SystemVersionInfoProvider:
 
         repo_path = Path(settings.BASE_DIR / "REPO")
         if repo_path.is_file():
-            return repo_path.read_text().strip()
+            repo = repo_path.read_text().strip()
+            parsed = urlparse(f"https://api.github.com/repos/{repo}")
+            if parsed.hostname == "api.github.com" and parsed.path.startswith("/repos/"):
+                return repo
         return "coda-oa/coda"
 
     @lru_cache(maxsize=1)
@@ -161,9 +164,6 @@ class SystemVersionInfoProvider:
         try:
             repo = self.get_repo()
             url = f"https://api.github.com/repos/{repo}/branches/{quote(branch, safe='')}"
-            parsed = urlparse(url)
-            if parsed.hostname != "api.github.com" or not parsed.path.startswith("/repos/"):
-                raise ValueError(f"Invalid repository URL: {url!r}")
             response = httpx.get(url, timeout=10)
             response.raise_for_status()
             latest_sha = response.json()["commit"]["sha"]
