@@ -31,6 +31,17 @@ class UpdateCheckResult(TypedDict):
     error: NotRequired[str]
 
 
+def has_newer_commit(latest_sha: str, current_commit: str) -> bool:
+    """Return True if *latest_sha* (from GitHub) differs from *current_commit*.
+
+    *current_commit* may be a short SHA (e.g. ``"8d68c555"``), a full SHA
+    (e.g. ``"8d68c555e344cad5ec94e735b2be766e39f8e389"``), or a tag name
+    (e.g. ``"2026.01"``).  Short SHAs are matched by prefix so that comparing
+    a full remote SHA against a short local SHA works correctly.
+    """
+    return not latest_sha.startswith(current_commit)
+
+
 def _parse_github_url(url: str) -> str | None:
     for prefix in ["https://github.com/", "git@github.com:"]:
         if url.startswith(prefix):
@@ -154,7 +165,7 @@ class SystemVersionInfoProvider:
             response.raise_for_status()
             latest_sha = response.json()["commit"]["sha"]
             result: UpdateCheckResult = {
-                "update_available": latest_sha != current_commit,
+                "update_available": has_newer_commit(latest_sha, current_commit),
                 "latest_commit": latest_sha,
             }
         except Exception as e:
