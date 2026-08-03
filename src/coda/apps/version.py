@@ -160,6 +160,9 @@ class SystemVersionInfoProvider:
 
         try:
             repo = self.get_repo()
+            parts = repo.split("/")
+            if len(parts) != 2 or not all(parts) or ".." in repo:
+                raise ValueError(f"Invalid repository name: {repo!r}")
             url = f"https://api.github.com/repos/{repo}/branches/{quote(branch, safe='')}"
             response = httpx.get(url, timeout=10)
             response.raise_for_status()

@@ -6,7 +6,7 @@ source ${script_dir}/common.sh "$@"
 _get_repo() {
 	local remote
 	remote=$(git rev-parse --abbrev-ref @{upstream} 2>/dev/null | cut -d/ -f1)
-	if [ -n "$remote" ]; then
+	if [[ -n "$remote" ]]; then
 		git remote get-url "$remote" 2>/dev/null | sed 's/.*github.com[:\/]//' | sed 's/\.git$//' && return
 	fi
 	git remote get-url origin 2>/dev/null | sed 's/.*github.com[:\/]//' | sed 's/\.git$//' || echo "coda-oa/coda"
