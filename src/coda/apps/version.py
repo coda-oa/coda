@@ -58,21 +58,6 @@ class SystemVersionInfoProvider:
     def __init__(self) -> None:
         self._cache = cache
 
-    def _git(self, args: list[str]) -> str | None:
-        try:
-            result = subprocess.run(["git"] + args, capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
-                return result.stdout.strip()
-        except (FileNotFoundError, subprocess.SubprocessError):
-            pass
-        return None
-
-    def _baked_file(self, name: str) -> str | None:
-        path = Path(settings.BASE_DIR / name)
-        if path.is_file():
-            return path.read_text().strip()
-        return None
-
     def get_version_tag(self) -> str | None:
         return self._git(["describe", "--tags", "--exact-match"]) or self._baked_file("TAG")
 
@@ -84,26 +69,12 @@ class SystemVersionInfoProvider:
         )
 
     def get_repo(self) -> str:
-        ref = self._git(["rev-parse", "--symbolic-full-name", "@{upstream}"])
-        if ref:
-            parts = ref.split("/")
-            if len(parts) >= 4 and parts[0] == "refs" and parts[1] == "remotes":
-                url = self._git(["remote", "get-url", parts[2]])
-                repo = _parse_github_url(url) if url else None
-                if repo:
-                    return repo
-
-        url = self._git(["remote", "get-url", "origin"])
-        repo = _parse_github_url(url) if url else None
-        if repo:
-            return repo
-
-        repo = self._baked_file("REPO")
-        if repo:
-            parsed = urlparse(f"https://api.github.com/repos/{repo}")
-            if parsed.hostname == "api.github.com" and parsed.path.startswith("/repos/"):
-                return repo
-        return "coda-oa/coda"
+        return (
+            self._repo_from_upstream()
+            or self._repo_from_remote("origin")
+            or self._baked_repo()
+            or "coda-oa/coda"
+        )
 
     @lru_cache(maxsize=1)
     def get_version(self) -> str:
@@ -120,21 +91,72 @@ class SystemVersionInfoProvider:
         if cached is not None:
             return cached
 
+        latest_sha, error = self._fetch_latest_commit(branch)
+        result: UpdateCheckResult = {
+            "update_available": (
+                has_newer_commit(latest_sha, current_commit) if latest_sha else False
+            ),
+        }
+        if latest_sha:
+            result["latest_commit"] = latest_sha
+        if error:
+            result["error"] = error
+
+        self._cache.set(cache_key, result, 3600)
+        return result
+
+    def _git(self, args: list[str]) -> str | None:
+        try:
+            result = subprocess.run(["git"] + args, capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except (FileNotFoundError, subprocess.SubprocessError):
+            pass
+        return None
+
+    def _baked_file(self, name: str) -> str | None:
+        path = Path(settings.BASE_DIR / name)
+        if path.is_file():
+            return path.read_text().strip()
+        return None
+
+    def _repo_from_remote(self, name: str) -> str | None:
+        url = self._git(["remote", "get-url", name])
+        return _parse_github_url(url) if url else None
+
+    def _upstream_remote_name(self) -> str | None:
+        ref = self._git(["rev-parse", "--symbolic-full-name", "@{upstream}"])
+        if ref is None:
+            return None
+        parts = ref.split("/")
+        if len(parts) >= 4 and parts[0] == "refs" and parts[1] == "remotes":
+            return parts[2]
+        return None
+
+    def _baked_repo(self) -> str | None:
+        repo = self._baked_file("REPO")
+        if repo is None:
+            return None
+        parsed = urlparse(f"https://api.github.com/repos/{repo}")
+        if parsed.hostname == "api.github.com" and parsed.path.startswith("/repos/"):
+            return repo
+        return None
+
+    def _repo_from_upstream(self) -> str | None:
+        remote = self._upstream_remote_name()
+        return self._repo_from_remote(remote) if remote else None
+
+    def _fetch_latest_commit(self, branch: str) -> tuple[str | None, str | None]:
         try:
             repo = self.get_repo()
             url = f"https://api.github.com/repos/{repo}/branches/{quote(branch, safe='')}"
             response = httpx.get(url, timeout=10)
             response.raise_for_status()
-            latest_sha = response.json()["commit"]["sha"]
-            result: UpdateCheckResult = {
-                "update_available": has_newer_commit(latest_sha, current_commit),
-                "latest_commit": latest_sha,
-            }
-        except Exception as e:
-            result = {"update_available": False, "error": str(e)}
-
-        self._cache.set(cache_key, result, 3600)
-        return result
+            return response.json()["commit"]["sha"], None
+        except httpx.HTTPStatusError as e:
+            return None, str(e)
+        except (httpx.RequestError, KeyError, ValueError) as e:
+            return None, str(e)
 
 
 _provider: VersionInfoProvider = SystemVersionInfoProvider()
