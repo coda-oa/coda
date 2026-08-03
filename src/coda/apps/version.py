@@ -4,7 +4,7 @@ import subprocess
 from typing import Protocol, TypedDict
 from typing import NotRequired
 
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import httpx
 from django.conf import settings
@@ -160,10 +160,10 @@ class SystemVersionInfoProvider:
 
         try:
             repo = self.get_repo()
-            parts = repo.split("/")
-            if len(parts) != 2 or not all(parts) or ".." in repo:
-                raise ValueError(f"Invalid repository name: {repo!r}")
             url = f"https://api.github.com/repos/{repo}/branches/{quote(branch, safe='')}"
+            parsed = urlparse(url)
+            if parsed.hostname != "api.github.com" or not parsed.path.startswith("/repos/"):
+                raise ValueError(f"Invalid repository URL: {url!r}")
             response = httpx.get(url, timeout=10)
             response.raise_for_status()
             latest_sha = response.json()["commit"]["sha"]
