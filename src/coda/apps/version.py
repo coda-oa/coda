@@ -1,3 +1,4 @@
+import threading
 from functools import lru_cache
 from pathlib import Path
 import subprocess
@@ -97,19 +98,28 @@ class SystemVersionInfoProvider:
         if cached is not None:
             return cached
 
-        latest_sha, error = self._fetch_latest_commit(branch)
-        result: UpdateCheckResult = {
-            "update_available": (
-                has_newer_commit(latest_sha, current_commit) if latest_sha else False
-            ),
-        }
-        if latest_sha:
-            result["latest_commit"] = latest_sha
-        if error:
-            result["error"] = error
+        threading.Thread(
+            target=self._refresh_update_cache,
+            args=(cache_key, branch, current_commit),
+            daemon=True,
+        ).start()
+        return {"update_available": False}
 
-        self._cache.set(cache_key, result, 3600)
-        return result
+    def _refresh_update_cache(self, cache_key: str, branch: str, current_commit: str) -> None:
+        try:
+            latest_sha, error = self._fetch_latest_commit(branch)
+            result: UpdateCheckResult = {
+                "update_available": (
+                    has_newer_commit(latest_sha, current_commit) if latest_sha else False
+                ),
+            }
+            if latest_sha:
+                result["latest_commit"] = latest_sha
+            if error:
+                result["error"] = error
+            self._cache.set(cache_key, result, 3600)
+        except Exception:
+            pass
 
     def _git(self, args: list[str]) -> str | None:
         try:

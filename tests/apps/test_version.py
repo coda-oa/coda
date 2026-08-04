@@ -9,6 +9,8 @@ from coda.apps.version import (
     get_version_tag,
     has_newer_commit,
 )
+from django.core.cache import cache as django_cache
+from coda.apps.version import SystemVersionInfoProvider
 
 
 @pytest.fixture
@@ -93,6 +95,16 @@ def test__get_commit_sha__given_tag_version__returns_raw_sha(
     provider.version_tag = "2026.01"
     provider.commit_sha = "8d68c555e344cad5ec94e735b2be766e39f8e389"
     assert get_commit_sha() == "8d68c555e344cad5ec94e735b2be766e39f8e389"
+
+
+def test__check_update__given_cache_miss__returns_optimistic_false() -> None:
+
+    django_cache.delete("version_update_develop")
+
+    provider = SystemVersionInfoProvider()
+    result = provider.check_update("develop", "abc1234")
+
+    assert result == {"update_available": False}
 
 
 def test__has_newer_commit__short_sha_matches_full() -> None:
