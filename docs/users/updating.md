@@ -13,6 +13,21 @@ Always create a backup before updating CODA to ensure you can restore your data 
 - Access to the CODA directory
 - Git installed on your system
 
+## Checking Available Updates
+
+CODA automatically checks for new commits on GitHub.
+If a newer version is available, a colored banner appears in the left
+navigation bar with a link to the changes on GitHub.
+
+To manually check for updates before pulling:
+
+```{code-block} bash
+git fetch origin
+git log HEAD..origin/main --oneline
+```
+
+This shows you what commits are available for download.
+
 ## Update Process
 
 You can update CODA either using the automated update script or by running each step manually.
@@ -145,16 +160,6 @@ If the update fails or CODA doesn't start properly:
    ./commands/start-coda.sh --production
    ```
 
-### Checking Available Updates
-
-To check if updates are available before pulling:
-
-```{code-block} bash
-git fetch origin
-git log HEAD..origin/main --oneline
-```
-
-This shows you what commits are available for download.
 
 ## Update PostgreSQL Version
 

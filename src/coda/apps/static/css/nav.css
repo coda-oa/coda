@@ -67,8 +67,7 @@
 
     min-height: 100vh;
     grid-template-columns: [nav logo theme-switch] var(--_nav-container-expanded-width);
-    grid-template-rows: [logo] min-content [nav] max-content [theme-switch] auto;
-    align-items: end;
+    grid-template-rows: [logo] min-content [nav] 1fr [version] min-content [theme-switch] auto;
 
     position: sticky;
     top: 0;
@@ -93,6 +92,28 @@
         padding-inline-start: 0;
         margin-inline-start: calc(var(--coda-spacing));
         margin-block: calc(var(--coda-spacing) / 2);
+    }
+
+    .nav__version {
+        text-align: center;
+        font-size: 0.7rem;
+        font-family: monospace;
+        color: var(--pico-muted-color);
+    }
+
+    .update-banner {
+        padding: calc(var(--coda-spacing) / 1.75);
+        background: var(--pico-primary);
+        color: var(--pico-primary-inverse);
+        font-size: 0.8rem;
+    }
+
+    .update-banner__link {
+        color: var(--pico-primary-inverse);
+    }
+
+    .update-banner__link:hover {
+        opacity: 0.85;
     }
 
     & a {
@@ -244,6 +265,37 @@
         visibility: visible;
         opacity: 1;
         width: auto;
+    }
+
+    .nav .update-banner {
+        background: var(--pico-primary);
+        padding: 0.35rem;
+        justify-content: center;
+        border-radius: 50%;
+        width: fit-content;
+        margin: 0.5rem auto;
+    }
+
+    .nav .update-banner a svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        display: block;
+    }
+
+    .nav .update-banner span {
+        display: none;
+    }
+
+    .nav-container:is(:hover, :focus-within) .update-banner {
+        border-radius: 0;
+        width: auto;
+        margin: 0;
+        padding: calc(var(--coda-spacing) / 1.75);
+        justify-content: space-between;
+    }
+
+    .nav-container:is(:hover, :focus-within) .update-banner span {
+        display: inline;
     }
 
     .nav {
