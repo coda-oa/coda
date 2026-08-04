@@ -23,7 +23,7 @@ def all() -> Sequence[Journal]:
 
 def find_by_title(title: str) -> Sequence[Journal]:
     return DomainQuerySet(
-        Journal.objects.filter(title__icontains=title).order_by("title"), _map_self
+        Journal.objects.filter(title__icontains=title.strip()).order_by("title"), _map_self
     )
 
 
