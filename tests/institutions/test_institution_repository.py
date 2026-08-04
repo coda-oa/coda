@@ -52,6 +52,25 @@ def test__search__filters_by_name() -> None:
 
 
 @pytest.mark.django_db
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("search_term",),
+    [
+        ("  University",),
+        ("University  ",),
+        ("  University  ",),
+    ],
+)
+def test__search__leading_or_trailing_whitespace__still_found(search_term: str) -> None:
+    Institution.objects.create(name="University of Berlin")
+
+    results = list(repository.search(name=search_term))
+
+    assert len(results) == 1
+    assert results[0].name == "University of Berlin"
+
+
+@pytest.mark.django_db
 def test__search__filters_by_name_and_excludes_archived() -> None:
     active = Institution.objects.create(name="Test University")
     archived = Institution.objects.create(name="Test College", archived_at=timezone.now())

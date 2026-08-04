@@ -144,3 +144,23 @@ def test__find_by_name_contains__no_match__returns_empty() -> None:
     results = list(services.find_by_name_contains("wiley"))
 
     assert results == []
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("search_term",),
+    [
+        ("  Springer",),
+        ("Springer  ",),
+        ("  Springer  ",),
+    ],
+)
+def test__find_by_name_contains__leading_or_trailing_whitespace__still_found(
+    search_term: str,
+) -> None:
+    PublisherFactory(name="Springer Nature")
+
+    results = list(services.find_by_name_contains(search_term))
+
+    assert len(results) == 1
+    assert results[0].name == "Springer Nature"

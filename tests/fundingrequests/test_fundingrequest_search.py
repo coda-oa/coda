@@ -51,6 +51,28 @@ def test__searching_for_funding_requests_by_title__shows_only_matching_funding_r
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize(
+    ("search_term",),
+    [
+        ("  The Search",),
+        ("The Search  ",),
+        ("  The Search  ",),
+    ],
+)
+def test__searching_for_funding_requests_by_title__leading_or_trailing_whitespace__still_found(
+    client: Client, search_term: str
+) -> None:
+    matching_request = modelfactory.fundingrequest("The Search Term")
+
+    _ = modelfactory.fundingrequest("No match")
+
+    response = search_fundingrequests(client, {"search_term": search_term})
+
+    assert_contains(response.context, {matching_request})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__searching_funding_request_by_author__shows_only_matching_funding_requests(
     client: Client,
 ) -> None:
