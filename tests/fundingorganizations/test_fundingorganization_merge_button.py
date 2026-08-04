@@ -23,11 +23,8 @@ class TestMergeButtonOnDetailPage:
         self, client: Client
     ) -> None:
         """Should hide merge button for archived organizations."""
-        from django.utils import timezone
-
         org = modelfactory.funding_organization(name="Test Org")
-        org.archived_at = timezone.now()
-        org.save()
+        org.archive()
 
         response = client.get(reverse("fundingrequests:funder_detail", kwargs={"pk": org.pk}))
         content = response.content.decode()

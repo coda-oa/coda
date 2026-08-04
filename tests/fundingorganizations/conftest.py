@@ -3,6 +3,9 @@ from typing import Any, cast
 
 import pytest
 
+from coda.apps.fundingrequests.models import FundingOrganization
+from tests import modelfactory
+
 BMFTR_NAME = "Bundesministerium für Forschung, Technologie und Raumfahrt"
 
 # Valid ROR IDs with correct checksums
@@ -225,3 +228,17 @@ def bmftr_response() -> dict[str, Any]:
 @pytest.fixture
 def bmftr_response_minimal() -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(BMFTR_RESPONSE_MINIMAL))
+
+
+@pytest.fixture
+def source_target_orgs() -> tuple[FundingOrganization, FundingOrganization]:
+    source = modelfactory.funding_organization(name="Source Org")
+    target = modelfactory.funding_organization(name="Target Org")
+    return source, target
+
+
+@pytest.fixture
+def archived_funding_organization() -> FundingOrganization:
+    org = modelfactory.funding_organization(name="Archived Org")
+    org.archive()
+    return org

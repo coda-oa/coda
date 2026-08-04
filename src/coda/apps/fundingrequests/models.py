@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from datetime import datetime
 from typing import Any
 
 from django.core.validators import RegexValidator
@@ -50,10 +51,10 @@ class FundingOrganization(models.Model):
     def __str__(self) -> str:
         return self.name
 
-    def archive(self) -> None:
+    def archive(self, *, when: datetime | None = None) -> None:
         if self.archived_at:
             raise ValueError("Funding organization is already archived")
-        self.archived_at = timezone.now()
+        self.archived_at = when or timezone.now()
         self.save(update_fields=["archived_at"])
 
     def restore(self) -> None:

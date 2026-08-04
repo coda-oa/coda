@@ -1,9 +1,10 @@
-from collections.abc import Generator
+from typing import Any
 
 import pytest
 from django.contrib.messages import get_messages
 from django.test import Client
 from django.urls import reverse
+from pytest import MonkeyPatch
 
 from coda.apps.fundingrequests.views import funders
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import (
@@ -17,17 +18,20 @@ from tests.fundingorganizations.conftest import BMFTR_NAME
 
 
 @pytest.fixture
-def fake_ror_client(bmftr_response_minimal: dict) -> RORClient:
-    return RORClient(http_client=FakeHttpGet(json_data=bmftr_response_minimal))
+def inject_ror_client(
+    bmftr_response_minimal: dict[str, Any],
+    monkeypatch: MonkeyPatch,
+) -> None:
+    fake_client = RORClient(http_client=FakeHttpGet(json_data=bmftr_response_minimal))
+    monkeypatch.setattr(funders, "get_ror_client", lambda: fake_client)
 
 
 @pytest.fixture
-def inject_ror_client(fake_ror_client: RORClient) -> Generator[None]:
-    """Inject fake ROR client into view via dependency injection."""
-    original = funders.get_ror_client
-    funders.get_ror_client = lambda: fake_ror_client
-    yield
-    funders.get_ror_client = original
+def inject_failing_ror_client(monkeypatch: MonkeyPatch) -> None:
+    def _raise() -> RORClient:
+        raise Exception("ROR API unavailable")
+
+    monkeypatch.setattr(funders, "get_ror_client", _raise)
 
 
 @pytest.mark.django_db
@@ -54,8 +58,7 @@ def test__update_from_ror_modal__provides_confirmation_action(client: Client) ->
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
-@pytest.mark.usefixtures("inject_ror_client")
+@pytest.mark.usefixtures("logged_in", "inject_ror_client")
 def test__update_from_ror__updates_organization_name(client: Client) -> None:
     old_name = "Bundesministerium für Bildung und Forschung"
     org = modelfactory.funding_organization(name=old_name)
@@ -69,8 +72,7 @@ def test__update_from_ror__updates_organization_name(client: Client) -> None:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
-@pytest.mark.usefixtures("inject_ror_client")
+@pytest.mark.usefixtures("logged_in", "inject_ror_client")
 def test__update_from_ror__adds_success_message(client: Client) -> None:
     org = modelfactory.funding_organization(name="Test Funder")
     org.set_links([Ror("https://ror.org/04pz7b180")])
@@ -83,8 +85,7 @@ def test__update_from_ror__adds_success_message(client: Client) -> None:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
-@pytest.mark.usefixtures("inject_ror_client")
+@pytest.mark.usefixtures("logged_in", "inject_ror_client")
 def test__update_from_ror__redirects_to_detail_page(client: Client) -> None:
     org = modelfactory.funding_organization(name="Test Funder")
     org.set_links([Ror("https://ror.org/04pz7b180")])
@@ -97,42 +98,22 @@ def test__update_from_ror__redirects_to_detail_page(client: Client) -> None:
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
+@pytest.mark.usefixtures("logged_in", "inject_failing_ror_client")
 def test__update_from_ror__on_failure__adds_error_message(client: Client) -> None:
     org = modelfactory.funding_organization(name="Test Funder")
 
-    def failing_client() -> RORClient:
-        raise Exception("ROR API unavailable")
-
-    original = funders.get_ror_client
-    funders.get_ror_client = failing_client
-    try:
-        response = client.post(
-            reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org.pk})
-        )
-    finally:
-        funders.get_ror_client = original
+    response = client.post(reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org.pk}))
 
     messages_list = list(get_messages(response.wsgi_request))
     assert any("Error" in msg.message for msg in messages_list)
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
+@pytest.mark.usefixtures("logged_in", "inject_failing_ror_client")
 def test__update_from_ror__on_failure__redirects_to_detail_page(client: Client) -> None:
     org = modelfactory.funding_organization(name="Test Funder")
 
-    def failing_client() -> RORClient:
-        raise Exception("ROR API unavailable")
-
-    original = funders.get_ror_client
-    funders.get_ror_client = failing_client
-    try:
-        response = client.post(
-            reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org.pk})
-        )
-    finally:
-        funders.get_ror_client = original
+    response = client.post(reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org.pk}))
 
     expected_url = reverse("fundingrequests:funder_detail", kwargs={"pk": org.pk})
     assert response["HX-Redirect"] == expected_url

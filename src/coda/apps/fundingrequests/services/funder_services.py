@@ -1,12 +1,22 @@
 from django.db import transaction
 
-from coda.apps.fundingrequests.models import ExternalFunding
+from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganizationLink
 from coda.apps.fundingrequests.models import FundingOrganization as FundingOrganizationModel
-from coda.apps.fundingrequests.models import FundingOrganizationLink
 from coda.contexts.fundingrequest.services.funder_resolution import FunderRecord, enrich_from_ror
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client import RORClient
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.fundingrequest.organization import preview_merge_funders
+
+
+def compute_merge_preview(
+    source: FundingOrganizationModel,
+    target: FundingOrganizationModel,
+) -> FunderRecord:
+    return preview_merge_funders(
+        target_name=target.name,
+        source_links=source.get_links(),
+        target_links=target.get_links(),
+    )
 
 
 def can_delete_funding_organization(org: FundingOrganizationModel) -> tuple[bool, list[str]]:
@@ -59,13 +69,7 @@ def merge_funding_organizations(
     ExternalFunding.objects.filter(organization=source).update(organization=target)
 
     # Merge links from source to target (target takes priority)
-    source_links = source.get_links()
-    target_links = target.get_links()
-    merged_funder = preview_merge_funders(
-        target_name=target.name,
-        source_links=source_links,
-        target_links=target_links,
-    )
+    merged_funder = compute_merge_preview(source, target)
     target.set_links(merged_funder.links)
 
     # Delete the source organization

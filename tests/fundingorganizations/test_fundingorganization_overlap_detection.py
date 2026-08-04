@@ -1,5 +1,4 @@
 import pytest
-from django.utils import timezone
 
 from coda.apps.fundingrequests.services.funder_services import find_overlapping_organizations
 from coda.domain.institution.links import Ror
@@ -47,11 +46,9 @@ class TestFindOverlappingOrganizations:
 
     def test__find_overlapping__excludes_archived_organizations(self) -> None:
         """Should exclude archived organizations from results."""
-
         org1 = modelfactory.funding_organization(name="Org 1")
         org2 = modelfactory.funding_organization(name="Org 2")
-        org2.archived_at = timezone.now()
-        org2.save()
+        org2.archive()
         org1.set_links([Ror(VALID_ROR_ID)])
         org2.set_links([Ror(VALID_ROR_ID)])
 

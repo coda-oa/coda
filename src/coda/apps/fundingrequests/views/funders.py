@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from typing import Any, cast
 
 from django import forms
@@ -21,6 +23,7 @@ from coda.apps.fundingrequests.models import (
 from coda.apps.fundingrequests.services.funder_services import (
     can_delete_funding_organization,
     can_merge_funding_organization,
+    compute_merge_preview,
     delete_funding_organization,
     find_overlapping_organizations,
     merge_funding_organizations,
@@ -30,7 +33,6 @@ from coda.apps.fundingrequests.services.funder_services import (
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import RORClient
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
-from coda.domain.fundingrequest.organization import preview_merge_funders
 
 FUNDERS_LIST_URL = "fundingrequests:funders"
 FUNDER_DETAIL_URL = "fundingrequests:funder_detail"
@@ -214,24 +216,55 @@ def _htmx_redirect(url: str) -> HttpResponse:
     return response
 
 
-def _archive_modal_context(org: FundingOrganization, *, error: str | None = None) -> dict[str, Any]:
+def _guard_can_merge(
+    request: HttpRequest,
+    pk: int,
+    source: FundingOrganization,
+    target: FundingOrganization,
+) -> HttpResponse | None:
+    can_merge, reasons = can_merge_funding_organization(source, target)
+    if not can_merge:
+        messages.error(request, f"Cannot merge organizations: {', '.join(reasons)}")
+        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+    return None
+
+
+def _modal_context(
+    org: FundingOrganization,
+    url_key: str,
+    url_name: str,
+    *,
+    error: str | None = None,
+) -> dict[str, Any]:
     ctx: dict[str, Any] = {
         "org": org,
-        "archive_url": reverse("fundingrequests:funder_archive", kwargs={"pk": org.pk}),
+        url_key: reverse(url_name, kwargs={"pk": org.pk}),
     }
     if error:
         ctx["error"] = error
     return ctx
 
 
-def _restore_modal_context(org: FundingOrganization, *, error: str | None = None) -> dict[str, Any]:
-    ctx: dict[str, Any] = {
-        "org": org,
-        "restore_url": reverse("fundingrequests:funder_restore", kwargs={"pk": org.pk}),
-    }
-    if error:
-        ctx["error"] = error
-    return ctx
+def _archival_action(
+    request: HttpRequest,
+    pk: int,
+    action_method: Callable[[FundingOrganization], None],
+    modal_template: str,
+    url_key: str,
+    url_name: str,
+    success_msg: str,
+) -> HttpResponse:
+    org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    try:
+        action_method(org)
+    except ValueError as e:
+        return render(
+            request,
+            modal_template,
+            _modal_context(org, url_key, url_name, error=str(e)),
+        )
+    messages.success(request, success_msg.format(name=org.name))
+    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
 
 @login_required
@@ -273,24 +306,24 @@ def delete_funder(request: HttpRequest, pk: int) -> HttpResponse:
 def request_archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     return render(
-        request, "fundingrequests/funders/archive_modal.html", _archive_modal_context(org)
+        request,
+        "fundingrequests/funders/archive_modal.html",
+        _modal_context(org, "archive_url", "fundingrequests:funder_archive"),
     )
 
 
 @login_required
 @require_POST
 def archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
-    org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
-    try:
-        org.archive()
-    except ValueError as e:
-        return render(
-            request,
-            "fundingrequests/funders/archive_modal.html",
-            _archive_modal_context(org, error=str(e)),
-        )
-    messages.success(request, FUNDER_ARCHIVE_SUCCESS_MSG.format(name=org.name))
-    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+    return _archival_action(
+        request,
+        pk,
+        action_method=FundingOrganization.archive,
+        modal_template="fundingrequests/funders/archive_modal.html",
+        url_key="archive_url",
+        url_name="fundingrequests:funder_archive",
+        success_msg=FUNDER_ARCHIVE_SUCCESS_MSG,
+    )
 
 
 @login_required
@@ -298,24 +331,24 @@ def archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
 def request_restore_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     return render(
-        request, "fundingrequests/funders/restore_modal.html", _restore_modal_context(org)
+        request,
+        "fundingrequests/funders/restore_modal.html",
+        _modal_context(org, "restore_url", "fundingrequests:funder_restore"),
     )
 
 
 @login_required
 @require_POST
 def restore_funder(request: HttpRequest, pk: int) -> HttpResponse:
-    org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
-    try:
-        org.restore()
-    except ValueError as e:
-        return render(
-            request,
-            "fundingrequests/funders/restore_modal.html",
-            _restore_modal_context(org, error=str(e)),
-        )
-    messages.success(request, FUNDER_RESTORE_SUCCESS_MSG.format(name=org.name))
-    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+    return _archival_action(
+        request,
+        pk,
+        action_method=FundingOrganization.restore,
+        modal_template="fundingrequests/funders/restore_modal.html",
+        url_key="restore_url",
+        url_name="fundingrequests:funder_restore",
+        success_msg=FUNDER_RESTORE_SUCCESS_MSG,
+    )
 
 
 @login_required
@@ -442,10 +475,9 @@ def merge_funder_preview(request: HttpRequest, pk: int, target_pk: int) -> HttpR
     source = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     target = get_object_or_404(FundingOrganization.all_objects, pk=target_pk)
 
-    can_merge, reasons = can_merge_funding_organization(source, target)
-    if not can_merge:
-        messages.error(request, f"Cannot merge organizations: {', '.join(reasons)}")
-        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+    guard_response = _guard_can_merge(request, pk, source, target)
+    if guard_response is not None:
+        return guard_response
 
     # Get affected funding records from both source and target
 
@@ -454,13 +486,7 @@ def merge_funder_preview(request: HttpRequest, pk: int, target_pk: int) -> HttpR
     ).select_related("funding_request")
 
     # Calculate merged links
-    source_links = source.get_links()
-    target_links = target.get_links()
-    merged_funder = preview_merge_funders(
-        target_name=target.name,
-        source_links=source_links,
-        target_links=target_links,
-    )
+    merged_funder = compute_merge_preview(source, target)
 
     return render(
         request,
@@ -484,10 +510,9 @@ def merge_funder_execute(request: HttpRequest, pk: int, target_pk: int) -> HttpR
     source = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     target = get_object_or_404(FundingOrganization.all_objects, pk=target_pk)
 
-    can_merge, reasons = can_merge_funding_organization(source, target)
-    if not can_merge:
-        messages.error(request, f"Cannot merge organizations: {', '.join(reasons)}")
-        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+    guard_response = _guard_can_merge(request, pk, source, target)
+    if guard_response is not None:
+        return guard_response
 
     try:
         merge_funding_organizations(source, target)

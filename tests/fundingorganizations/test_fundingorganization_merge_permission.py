@@ -1,6 +1,6 @@
 import pytest
-from django.utils import timezone
 
+from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.fundingrequests.services.funder_services import can_merge_funding_organization
 from tests import modelfactory
 
@@ -9,10 +9,12 @@ from tests import modelfactory
 class TestCanMergeFundingOrganization:
     """Tests for merge permission checks."""
 
-    def test__can_merge__returns_true_when_both_active_and_different(self) -> None:
+    def test__can_merge__returns_true_when_both_active_and_different(
+        self,
+        source_target_orgs: tuple[FundingOrganization, FundingOrganization],
+    ) -> None:
         """Should allow merge when both organizations are active and different."""
-        source = modelfactory.funding_organization(name="Source Org")
-        target = modelfactory.funding_organization(name="Target Org")
+        source, target = source_target_orgs
 
         can_merge, reasons = can_merge_funding_organization(source, target)
 
@@ -32,8 +34,7 @@ class TestCanMergeFundingOrganization:
     def test__can_merge__returns_false_when_source_is_archived(self) -> None:
         """Should not allow merging an archived organization."""
         source = modelfactory.funding_organization(name="Archived Org")
-        source.archived_at = timezone.now()
-        source.save()
+        source.archive()
         target = modelfactory.funding_organization(name="Target Org")
 
         can_merge, reasons = can_merge_funding_organization(source, target)
@@ -46,8 +47,7 @@ class TestCanMergeFundingOrganization:
         """Should not allow merging into an archived organization."""
         source = modelfactory.funding_organization(name="Source Org")
         target = modelfactory.funding_organization(name="Archived Org")
-        target.archived_at = timezone.now()
-        target.save()
+        target.archive()
 
         can_merge, reasons = can_merge_funding_organization(source, target)
 
@@ -58,8 +58,7 @@ class TestCanMergeFundingOrganization:
     def test__can_merge__returns_multiple_reasons_when_multiple_issues(self) -> None:
         """Should return multiple reasons when multiple issues exist."""
         org = modelfactory.funding_organization(name="Same Org")
-        org.archived_at = timezone.now()
-        org.save()
+        org.archive()
 
         can_merge, reasons = can_merge_funding_organization(org, org)
 

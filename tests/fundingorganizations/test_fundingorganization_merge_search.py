@@ -55,12 +55,9 @@ class TestSearchOrganizationsForMerge:
 
     def test__search__excludes_archived_organizations(self) -> None:
         """Should exclude archived organizations from results."""
-        from django.utils import timezone
-
         org1 = modelfactory.funding_organization(name="Org 1")
         org2 = modelfactory.funding_organization(name="Org 2")
-        org2.archived_at = timezone.now()
-        org2.save()
+        org2.archive()
 
         results = search_organizations_for_merge("Org", exclude_pk=org1.pk)
 

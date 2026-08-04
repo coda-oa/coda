@@ -1,7 +1,9 @@
 import re
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
 from coda.domain.errors import DomainError
+from coda.domain.publication.links import Link, link_registry
 from coda.domain.string import NonEmptyStr
 
 
@@ -162,13 +164,11 @@ class Ringgold:
         return hash((self._ringgold,))
 
 
-_LinkTypes = {t.type(): t for t in (Ror, Isni, Ringgold)}
-_LoweredLinkTypes = {t_name.lower(): t for t_name, t in _LinkTypes.items()}
+_registry = link_registry(Ror, Isni, Ringgold)
+
+_LinkTypes: dict[str, type[Link]] = _registry.by_type
+_LoweredLinkTypes: dict[str, Callable[[str], Link]] = _registry.by_lower
 
 
 def create_link(link_type: str, link_value: str) -> Ror | Isni | Ringgold:
-    link_constructor = _LoweredLinkTypes.get(link_type.lower())
-    if not link_constructor:
-        raise ValueError(f"Unknown link type: {link_type}")
-
-    return link_constructor(link_value)
+    return cast(Ror | Isni | Ringgold, _registry.create_link(link_type, link_value))

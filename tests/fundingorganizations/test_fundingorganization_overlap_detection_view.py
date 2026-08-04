@@ -4,7 +4,27 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
+from coda.apps.fundingrequests.models import (
+    FundingOrganization,
+    FundingOrganizationLink,
+    FundingOrganizationLinkType,
+)
 from tests import modelfactory
+
+_OVERLAP_ROR_URL = "https://ror.org/05a28rw58"
+
+
+def _create_overlapping_ror_orgs() -> tuple[FundingOrganization, FundingOrganization]:
+    org1 = modelfactory.funding_organization(name="Org 1")
+    org2 = modelfactory.funding_organization(name="Org 2")
+    ror_type = FundingOrganizationLinkType.objects.get(name="ROR")
+    FundingOrganizationLink.objects.create(
+        funding_organization=org1, type=ror_type, value=_OVERLAP_ROR_URL
+    )
+    FundingOrganizationLink.objects.create(
+        funding_organization=org2, type=ror_type, value=_OVERLAP_ROR_URL
+    )
+    return org1, org2
 
 
 @pytest.mark.django_db
@@ -16,33 +36,12 @@ class TestAutomaticOverlapDetection:
         self, client: Client
     ) -> None:
         """Should show overlap dialog when overlapping organizations are found."""
-        # Create two organizations with the same ROR link
-        org1 = modelfactory.funding_organization(name="Org 1")
-        org2 = modelfactory.funding_organization(name="Org 2")
+        org1, org2 = _create_overlapping_ror_orgs()
 
-        # Add the same ROR link to both organizations
-        from coda.apps.fundingrequests.models import FundingOrganizationLinkType
-
-        ror_type = FundingOrganizationLinkType.objects.get(name="ROR")
-        from coda.apps.fundingrequests.models import FundingOrganizationLink
-
-        FundingOrganizationLink.objects.create(
-            funding_organization=org1,
-            type=ror_type,
-            value="https://ror.org/05a28rw58",
-        )
-        FundingOrganizationLink.objects.create(
-            funding_organization=org2,
-            type=ror_type,
-            value="https://ror.org/05a28rw58",
-        )
-
-        # Update org1 from ROR (this should trigger overlap detection)
         response = client.post(
             reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org1.pk})
         )
 
-        # The response should contain the overlap dialog
         content = response.content.decode()
         assert "Duplicate Organization Detected" in content
         assert "Org 2" in content
@@ -52,35 +51,16 @@ class TestAutomaticOverlapDetection:
         """Should not show overlap dialog when no overlapping organizations are found."""
         org = modelfactory.funding_organization(name="Unique Org")
 
-        # Update org from ROR (no overlaps should be found)
         response = client.post(
             reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org.pk})
         )
 
-        # The response should not contain the overlap dialog
         content = response.content.decode()
         assert "Duplicate Organization Detected" not in content
 
     def test__update_from_ror__dialog_has_dismiss_button(self, client: Client) -> None:
         """Should have a dismiss button in the overlap dialog."""
-        org1 = modelfactory.funding_organization(name="Org 1")
-        org2 = modelfactory.funding_organization(name="Org 2")
-
-        from coda.apps.fundingrequests.models import FundingOrganizationLinkType
-
-        ror_type = FundingOrganizationLinkType.objects.get(name="ROR")
-        from coda.apps.fundingrequests.models import FundingOrganizationLink
-
-        FundingOrganizationLink.objects.create(
-            funding_organization=org1,
-            type=ror_type,
-            value="https://ror.org/05a28rw58",
-        )
-        FundingOrganizationLink.objects.create(
-            funding_organization=org2,
-            type=ror_type,
-            value="https://ror.org/05a28rw58",
-        )
+        org1, _org2 = _create_overlapping_ror_orgs()
 
         response = client.post(
             reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org1.pk})
@@ -91,29 +71,11 @@ class TestAutomaticOverlapDetection:
 
     def test__update_from_ror__dialog_has_merge_buttons(self, client: Client) -> None:
         """Should have merge buttons for each overlapping organization."""
-        org1 = modelfactory.funding_organization(name="Org 1")
-        org2 = modelfactory.funding_organization(name="Org 2")
-
-        from coda.apps.fundingrequests.models import FundingOrganizationLinkType
-
-        ror_type = FundingOrganizationLinkType.objects.get(name="ROR")
-        from coda.apps.fundingrequests.models import FundingOrganizationLink
-
-        FundingOrganizationLink.objects.create(
-            funding_organization=org1,
-            type=ror_type,
-            value="https://ror.org/05a28rw58",
-        )
-        FundingOrganizationLink.objects.create(
-            funding_organization=org2,
-            type=ror_type,
-            value="https://ror.org/05a28rw58",
-        )
+        org1, org2 = _create_overlapping_ror_orgs()
 
         response = client.post(
             reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org1.pk})
         )
 
         content = response.content.decode()
-        # Check that there's a merge button for org2
-        assert "Merge into Org 2" in content
+        assert f"Merge into {org2.name}" in content
