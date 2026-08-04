@@ -111,6 +111,9 @@ class Isni:
     def value(self) -> str:
         return self._isni
 
+    def url(self) -> str:
+        return f"https://isni.org/isni/{self.value()}"
+
     def __str__(self) -> str:
         return self._isni
 
@@ -143,6 +146,9 @@ class Ringgold:
 
     def value(self) -> str:
         return self._ringgold
+
+    def url(self) -> str:
+        return f"https://isni.org/isni/{self.value()}"
 
     def __str__(self) -> str:
         return self._ringgold

@@ -1,13 +1,12 @@
+import re
+
 import pytest
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 
 from coda.apps.fundingrequests.models import FundingOrganization
 from tests import modelfactory
-
-# Valid ROR IDs with correct checksums
-VALID_ROR_ID = "https://ror.org/04pz7b180"
-VALID_ROR_ID_2 = "https://ror.org/03yrm5c26"
 
 
 @pytest.mark.django_db
@@ -72,13 +71,11 @@ class TestMergeFunderSelectTarget:
         )
         content = response.content.decode()
         assert "Target Org" in content
-        # Source should not appear in search results
-        assert content.count("Source Org") == 1  # Only in the title, not in results
+        # Source should not appear in search results (only in the dialog title)
+        assert content.count("<td>Source Org</td>") == 0
 
     def test__select_target__excludes_archived_organizations(self, client: Client) -> None:
         """Should exclude archived organizations from search results."""
-        from django.utils import timezone
-
         source = modelfactory.funding_organization(name="Source Org")
         target = modelfactory.funding_organization(name="Target Org")
         target.archived_at = timezone.now()
@@ -90,7 +87,6 @@ class TestMergeFunderSelectTarget:
         )
         content = response.content.decode()
         # Use regex to ensure we're matching the exact name, not a substring
-        import re
 
         assert not re.search(r"<td>Target Org</td>", content)
 
@@ -206,8 +202,7 @@ class TestMergeFunderPreview:
                 kwargs={"pk": source.pk, "target_pk": target.pk},
             )
         )
-        content = response.content.decode()
-        assert "Related Funding Requests (3)" in content
+        assert response.context["affected_records"].count() == 3
 
     def test__preview__shows_confirm_merge_button(self, client: Client) -> None:
         """Should show the confirm merge button."""
@@ -224,7 +219,6 @@ class TestMergeFunderPreview:
 
     def test__preview__returns_redirect_for_archived_source(self, client: Client) -> None:
         """Should return redirect for archived source organization."""
-        from django.utils import timezone
 
         source = modelfactory.funding_organization(name="Source Org")
         source.archived_at = timezone.now()
@@ -243,8 +237,6 @@ class TestMergeFunderPreview:
 
     def test__preview__returns_redirect_for_archived_target(self, client: Client) -> None:
         """Should return redirect for archived target organization."""
-        from django.utils import timezone
-
         source = modelfactory.funding_organization(name="Source Org")
         target = modelfactory.funding_organization(name="Target Org")
         target.archived_at = timezone.now()
@@ -299,8 +291,6 @@ class TestMergeFunderExecute:
 
     def test__execute__returns_redirect_for_archived_source(self, client: Client) -> None:
         """Should return redirect for archived source organization."""
-        from django.utils import timezone
-
         source = modelfactory.funding_organization(name="Source Org")
         source.archived_at = timezone.now()
         source.save()
@@ -319,8 +309,6 @@ class TestMergeFunderExecute:
 
     def test__execute__returns_redirect_for_archived_target(self, client: Client) -> None:
         """Should return redirect for archived target organization."""
-        from django.utils import timezone
-
         source = modelfactory.funding_organization(name="Source Org")
         target = modelfactory.funding_organization(name="Target Org")
         target.archived_at = timezone.now()

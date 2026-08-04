@@ -3,12 +3,10 @@ from django.db import transaction
 from coda.apps.fundingrequests.models import ExternalFunding
 from coda.apps.fundingrequests.models import FundingOrganization as FundingOrganizationModel
 from coda.apps.fundingrequests.models import FundingOrganizationLink
-from coda.contexts.fundingrequest.services.funder_resolution import (
-    FundingOrganization,
-    enrich_from_ror,
-)
+from coda.contexts.fundingrequest.services.funder_resolution import FunderRecord, enrich_from_ror
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client import RORClient
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
+from coda.domain.fundingrequest.organization import preview_merge_funders
 
 
 def can_delete_funding_organization(org: FundingOrganizationModel) -> tuple[bool, list[str]]:
@@ -20,18 +18,6 @@ def can_delete_funding_organization(org: FundingOrganizationModel) -> tuple[bool
     if funding_count > 0:
         blocking.append(f"{funding_count} funding request(s) reference this organization")
     return len(blocking) == 0, blocking
-
-
-def archive_funding_organization(org: FundingOrganizationModel) -> None:
-    if org.archived_at:
-        raise ValueError("Funding organization is already archived")
-    org.archive()
-
-
-def restore_funding_organization(org: FundingOrganizationModel) -> None:
-    if not org.archived_at:
-        raise ValueError("Funding organization is not archived")
-    org.restore()
 
 
 def delete_funding_organization(org: FundingOrganizationModel) -> None:
@@ -52,7 +38,7 @@ def update_funder_from_ror(
     org = FundingOrganizationModel.objects.get(pk=funder_id)
 
     api_result = ror_client.resolve_by_ids(org.get_links())
-    funder = FundingOrganization(name=org.name, links=tuple(org.get_links()))
+    funder = FunderRecord(name=org.name, links=tuple(org.get_links()))
     enriched = enrich_from_ror(funder, api_result)
 
     links_changed = enriched.links != tuple(org.get_links())
@@ -69,26 +55,17 @@ def merge_funding_organizations(
     source: FundingOrganizationModel,
     target: FundingOrganizationModel,
 ) -> None:
-    if source.pk == target.pk:
-        raise ValueError("Cannot merge organization into itself")
-
-    if source.archived_at:
-        raise ValueError("Cannot merge an archived organization")
-
-    if target.archived_at:
-        raise ValueError("Cannot merge into an archived organization")
-
     # Move all ExternalFunding records from source to target
     ExternalFunding.objects.filter(organization=source).update(organization=target)
 
     # Merge links from source to target (target takes priority)
     source_links = source.get_links()
     target_links = target.get_links()
-    merged_funder = FundingOrganization(
-        name=target.name,
-        links=tuple(source_links),
+    merged_funder = preview_merge_funders(
+        target_name=target.name,
+        source_links=source_links,
+        target_links=target_links,
     )
-    merged_funder = merged_funder.revised(links=target_links)
     target.set_links(merged_funder.links)
 
     # Delete the source organization

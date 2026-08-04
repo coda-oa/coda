@@ -1,13 +1,11 @@
 import pytest
+from django.utils import timezone
 
 from coda.apps.fundingrequests.services.funder_services import find_overlapping_organizations
 from coda.domain.institution.links import Ror
 from coda.domain.publication.links import CrossrefId
 from tests import modelfactory
-
-# Valid ROR IDs with correct checksums
-VALID_ROR_ID = "https://ror.org/04pz7b180"
-VALID_ROR_ID_2 = "https://ror.org/03yrm5c26"
+from tests.fundingorganizations.conftest import VALID_ROR_ID, VALID_ROR_ID_2
 
 
 @pytest.mark.django_db
@@ -49,7 +47,6 @@ class TestFindOverlappingOrganizations:
 
     def test__find_overlapping__excludes_archived_organizations(self) -> None:
         """Should exclude archived organizations from results."""
-        from django.utils import timezone
 
         org1 = modelfactory.funding_organization(name="Org 1")
         org2 = modelfactory.funding_organization(name="Org 2")

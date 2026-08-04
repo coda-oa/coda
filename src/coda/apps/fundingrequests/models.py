@@ -51,10 +51,14 @@ class FundingOrganization(models.Model):
         return self.name
 
     def archive(self) -> None:
+        if self.archived_at:
+            raise ValueError("Funding organization is already archived")
         self.archived_at = timezone.now()
         self.save(update_fields=["archived_at"])
 
     def restore(self) -> None:
+        if not self.archived_at:
+            raise ValueError("Funding organization is not archived")
         self.archived_at = None
         self.save(update_fields=["archived_at"])
 

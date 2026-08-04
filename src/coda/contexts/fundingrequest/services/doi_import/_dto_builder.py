@@ -15,7 +15,7 @@ from coda.contexts.fundingrequest.dto.commands import (
     ExtraInformationDto,
     PaymentDto,
 )
-from coda.domain.fundingrequest import FundingOrganization
+from coda.domain.fundingrequest import FunderRecord
 from coda.contexts.fundingrequest.dto.preview import (
     PreviewArticle,
     PreviewFundingRequest,
@@ -34,7 +34,7 @@ from coda.domain.string import NonEmptyStr
 
 def build_creation_dto(
     repo: DOIRepository,
-    resolved: list[FundingOrganization],
+    resolved: list[FunderRecord],
     preview: PreviewFundingRequest,
     override: OverrideImport,
 ) -> CreateFundingRequestDto:

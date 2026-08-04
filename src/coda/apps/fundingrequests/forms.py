@@ -15,7 +15,6 @@ from coda.apps.contracts import repository
 from coda.apps.formbase import CodaFormBase
 from coda.apps.fundingrequests.models import (
     FundingOrganization,
-    FundingOrganizationLinkType,
     FundingRequest,
     Label,
 )
@@ -25,7 +24,7 @@ from coda.apps.publications.dto import ContractYearDto
 from coda.apps.widgets import SearchSelectWidget
 from coda.contexts.fundingrequest.dto.commands import ExternalFundingDto, PaymentDto
 from coda.domain.contract import ContractId, ContractYear
-from coda.domain.fundingrequest.links import create_link
+from coda.domain.fundingrequest.links import FundingOrganizationLink, create_link, link_types
 
 
 class ExtraContactForm(CodaFormBase):
@@ -272,20 +271,25 @@ class ReviewForm(forms.Form):
 
 class FundingOrganizationLinkForm(forms.Form):
     use_required_attribute = False
-    link_type = forms.ChoiceField(
-        choices=lambda: list(FundingOrganizationLinkType.objects.values_list("name", "name").all())
-    )
+    link_type = forms.ChoiceField(choices=[(t, t) for t in link_types()])
     link_value = forms.CharField()
 
     def full_clean(self) -> None:
         super().full_clean()
+        self._link_object = None
         if not self.cleaned_data.get("link_type") or not self.cleaned_data.get("link_value"):
             return
         try:
-            validated = create_link(self.cleaned_data["link_type"], self.cleaned_data["link_value"])
-            self.cleaned_data["link_value"] = validated.value()
+            self._link_object = create_link(
+                self.cleaned_data["link_type"], self.cleaned_data["link_value"]
+            )
+            self.cleaned_data["link_value"] = self._link_object.value()
         except ValueError as err:
             self.add_error("link_value", str(err))
+
+    def link_object(self) -> FundingOrganizationLink | None:
+        """Return the validated domain Link, or None if not yet cleaned or invalid."""
+        return getattr(self, "_link_object", None)
 
     def get_form_data(self) -> dict[str, Any]:
         return {

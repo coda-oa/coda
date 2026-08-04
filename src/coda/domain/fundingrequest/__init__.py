@@ -13,10 +13,10 @@ from .fundingrequest import (
     TPublication,
 )
 from .identity import PublicFundingRequestId
-from .organization import FundingOrganization
+from .organization import FunderRecord
 
 __all__ = [
-    "FundingOrganization",
+    "FunderRecord",
     "FundingRequest",
     "FundingRequestId",
     "Payment",

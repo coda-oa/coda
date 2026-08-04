@@ -1,14 +1,14 @@
 """Funder enrichment via ROR — model-free domain logic.
 
 Provides the ``enrich`` function to enrich a domain
-``FundingOrganization`` with ROR API results, independent of any
+``FunderRecord`` with ROR API results, independent of any
 persistence layer.
 """
 
 import logging
 from collections.abc import Iterable
 
-from coda.domain.fundingrequest import FundingOrganization
+from coda.domain.fundingrequest import FunderRecord
 from coda.domain.publication.links import Link
 
 from .ror_client import RORRecord
@@ -29,12 +29,12 @@ def _find_ror_record(
 
 
 def enrich_from_ror(
-    funder: FundingOrganization,
+    funder: FunderRecord,
     ror_results: dict[str, RORRecord],
-) -> FundingOrganization:
-    """Enrich a FundingOrganization with ROR data, returning a new FundingOrganization.
+) -> FunderRecord:
+    """Enrich a FunderRecord with ROR data, returning a new FunderRecord.
 
-    Returns the original FundingOrganization unchanged when no ROR record matches
+    Returns the original FunderRecord unchanged when no ROR record matches
     or when ROR record conversion fails.
     """
     record = _find_ror_record(funder.links, ror_results)

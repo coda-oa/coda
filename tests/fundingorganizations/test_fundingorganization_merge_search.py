@@ -4,10 +4,7 @@ from coda.apps.fundingrequests.services.funder_services import search_organizati
 from coda.domain.institution.links import Ror
 from coda.domain.publication.links import CrossrefId
 from tests import modelfactory
-
-# Valid ROR IDs with correct checksums
-VALID_ROR_ID = "https://ror.org/04pz7b180"
-VALID_ROR_ID_2 = "https://ror.org/03yrm5c26"
+from tests.fundingorganizations.conftest import VALID_ROR_ID
 
 
 @pytest.mark.django_db

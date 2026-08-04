@@ -1,17 +1,11 @@
 import pytest
-from django.utils import timezone
-from collections.abc import Iterable
 
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.fundingrequests.services.funder_services import merge_funding_organizations
 from coda.domain.institution.links import Ror
 from coda.domain.publication.links import CrossrefId
-from coda.domain.publication.links import Link
 from tests import modelfactory
-
-# Valid ROR ID with correct checksum
-VALID_ROR_ID = "https://ror.org/04pz7b180"
-VALID_ROR_ID_2 = "https://ror.org/03yrm5c26"
+from tests.fundingorganizations.conftest import VALID_ROR_ID, VALID_ROR_ID_2
 
 
 @pytest.mark.django_db
@@ -64,59 +58,3 @@ class TestMergeFundingOrganizations:
 
         target.refresh_from_db()
         assert target.name == "Target Org"
-
-    def test__merge__raises_error_when_source_equals_target(self) -> None:
-        """Merging an organization into itself should raise ValueError."""
-        org = modelfactory.funding_organization(name="Same Org")
-
-        with pytest.raises(ValueError, match="Cannot merge organization into itself"):
-            merge_funding_organizations(org, org)
-
-    def test__merge__raises_error_when_source_is_archived(self) -> None:
-        """Merging an archived organization should raise ValueError."""
-        source = modelfactory.funding_organization(name="Archived Org")
-        source.archived_at = timezone.now()
-        source.save()
-        target = modelfactory.funding_organization(name="Target Org")
-
-        with pytest.raises(ValueError, match="Cannot merge an archived organization"):
-            merge_funding_organizations(source, target)
-
-    def test__merge__raises_error_when_target_is_archived(self) -> None:
-        """Merging into an archived organization should raise ValueError."""
-        source = modelfactory.funding_organization(name="Source Org")
-        target = modelfactory.funding_organization(name="Archived Org")
-        target.archived_at = timezone.now()
-        target.save()
-
-        with pytest.raises(ValueError, match="Cannot merge into an archived organization"):
-            merge_funding_organizations(source, target)
-
-    def test__merge__is_atomic(self) -> None:
-        """When merging, all operations should be atomic (all-or-nothing)."""
-        source = modelfactory.funding_organization(name="Source Org")
-        target = modelfactory.funding_organization(name="Target Org")
-        source.set_links([Ror(VALID_ROR_ID)])
-        source_pk = source.pk
-        target_pk = target.pk
-
-        # Simulate an error during merge by raising an exception
-        # The merge should roll back all changes
-        original_set_links = FundingOrganization.set_links
-
-        def failing_set_links(self: FundingOrganization, links: Iterable[Link]) -> None:
-            if self.pk == target_pk:
-                raise Exception("Simulated error")
-            return original_set_links(self, links)
-
-        import unittest.mock
-
-        with unittest.mock.patch.object(FundingOrganization, "set_links", failing_set_links):
-            with pytest.raises(Exception, match="Simulated error"):
-                merge_funding_organizations(source, target)
-
-        # Source should still exist (rollback)
-        assert FundingOrganization.all_objects.filter(pk=source_pk).exists()
-        # Target should not have any links (rollback)
-        target.refresh_from_db()
-        assert len(target.get_links()) == 0

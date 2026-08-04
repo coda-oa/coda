@@ -1,8 +1,13 @@
 import json
+from typing import Any, cast
 
 import pytest
 
 BMFTR_NAME = "Bundesministerium für Forschung, Technologie und Raumfahrt"
+
+# Valid ROR IDs with correct checksums
+VALID_ROR_ID = "https://ror.org/04pz7b180"
+VALID_ROR_ID_2 = "https://ror.org/03yrm5c26"
 
 BMFTR_RESPONSE_FULL = """{
   "number_of_results": 1,
@@ -213,10 +218,10 @@ BMFTR_RESPONSE_MINIMAL = """{
 
 
 @pytest.fixture
-def bmftr_response() -> dict:
-    return json.loads(BMFTR_RESPONSE_FULL)
+def bmftr_response() -> dict[str, Any]:
+    return cast(dict[str, Any], json.loads(BMFTR_RESPONSE_FULL))
 
 
 @pytest.fixture
-def bmftr_response_minimal() -> dict:
-    return json.loads(BMFTR_RESPONSE_MINIMAL)
+def bmftr_response_minimal() -> dict[str, Any]:
+    return cast(dict[str, Any], json.loads(BMFTR_RESPONSE_MINIMAL))

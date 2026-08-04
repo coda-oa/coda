@@ -7,7 +7,7 @@ from coda.contexts.fundingrequest.services.funder_resolution.enrichment import e
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import (
     RORRecord,
 )
-from coda.domain.fundingrequest import FundingOrganization
+from coda.domain.fundingrequest import FunderRecord
 from coda.domain.institution.links import Ror
 from coda.domain.publication.links import CrossrefId
 
@@ -25,7 +25,7 @@ def _ror_record(
 
 
 def test__enrich_from_ror__given_matching_record__updates_name_and_links() -> None:
-    funder = FundingOrganization(
+    funder = FunderRecord(
         name="Old Name",
         links=(Ror("https://ror.org/04pz7b180"),),
     )
@@ -40,7 +40,7 @@ def test__enrich_from_ror__given_matching_record__updates_name_and_links() -> No
 
 
 def test__enrich_from_ror__given_no_matching_record__returns_unchanged() -> None:
-    funder = FundingOrganization(
+    funder = FunderRecord(
         name="Original Name",
         links=(Ror("https://ror.org/04pz7b180"),),
     )
@@ -53,7 +53,7 @@ def test__enrich_from_ror__given_no_matching_record__returns_unchanged() -> None
 
 
 def test__enrich_from_ror__given_record_conversion_error__returns_unchanged() -> None:
-    funder = FundingOrganization(
+    funder = FunderRecord(
         name="Original Name",
         links=(Ror("https://ror.org/04pz7b180"),),
     )
@@ -68,7 +68,7 @@ def test__enrich_from_ror__given_record_conversion_error__returns_unchanged() ->
 
 
 def test__enrich_from_ror__given_multiple_records__uses_first_match() -> None:
-    funder = FundingOrganization(
+    funder = FunderRecord(
         name="Old Name",
         links=(
             Ror("https://ror.org/04pz7b180"),

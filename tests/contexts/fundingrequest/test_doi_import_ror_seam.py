@@ -24,7 +24,7 @@ from coda.contexts.fundingrequest.services.doi_import._service import (
     OverrideImport,
 )
 from coda.contexts.fundingrequest.services.funder_resolution import resolve_funders
-from coda.domain.fundingrequest import FundingOrganization
+from coda.domain.fundingrequest import FunderRecord
 from coda.domain.institution.links import Ror
 from coda.domain.publication.links import CrossrefId
 
@@ -71,7 +71,7 @@ def test__import_multi__ror_resolved_funder__persists_ror_link() -> None:
 def test__resolve_funders__ror_record__appends_ror_link() -> None:
     """Given a ROR record for a funder's Crossref ID, resolve_funders adds a Ror link."""
     matches = resolve_funders(
-        [FundingOrganization(name="HZDR", links=(CrossrefId(HZDR_CROSSREF),))],
+        [FunderRecord(name="HZDR", links=(CrossrefId(HZDR_CROSSREF),))],
         ror_client=StubRORClient(),
     )
 

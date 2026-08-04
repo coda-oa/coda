@@ -16,21 +16,21 @@ from coda.apps.fundingrequests.forms import ExternalFundingFormset, FundingOrgan
 from coda.apps.fundingrequests.models import (
     ExternalFunding,
     FundingOrganization,
-    FundingOrganizationLink,
     FundingOrganizationLinkType,
 )
 from coda.apps.fundingrequests.services.funder_services import (
-    archive_funding_organization,
     can_delete_funding_organization,
+    can_merge_funding_organization,
     delete_funding_organization,
-    restore_funding_organization,
+    find_overlapping_organizations,
+    merge_funding_organizations,
+    search_organizations_for_merge,
     update_funder_from_ror,
 )
-from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import (
-    RORClient,
-)
-from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.apps.views import SimpleSearchEntityListView
+from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import RORClient
+from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
+from coda.domain.fundingrequest.organization import preview_merge_funders
 
 FUNDERS_LIST_URL = "fundingrequests:funders"
 FUNDER_DETAIL_URL = "fundingrequests:funder_detail"
@@ -109,6 +109,18 @@ class FundingOrganizationLinkFormMixin:
             for t, v in zip(types, values)
         ]
 
+    def persist_links(
+        self, org: FundingOrganization, link_forms: list[FundingOrganizationLinkForm]
+    ) -> bool:
+        """Validate link forms and persist to org. Returns True if all valid."""
+        for form in link_forms:
+            if not form.is_valid():
+                return False
+        _links = [form.link_object() for form in link_forms]
+        links = [link for link in _links if link is not None]
+        org.set_links(links)
+        return True
+
 
 @breadcrumb("Funding Organization Detail", parent_url_name=FUNDERS_LIST_URL)
 class FundingOrganizationDetailView(LoginRequiredMixin, DetailView[FundingOrganization]):
@@ -147,21 +159,13 @@ class FundingOrganizationCreateView(
         return context
 
     def form_valid(self, form: Any) -> HttpResponse:
-        forms = self.link_forms()
-        for f in forms:
+        link_forms = self.link_forms()
+        for f in link_forms:
             if not f.is_valid():
                 return self.form_invalid(form)
-        self.object = form.save()
-        for f in forms:
-            data = f.get_form_data()
-            if data["link_type"] and data["link_value"]:
-                link_type = FundingOrganizationLinkType.objects.get(name=data["link_type"])
-                FundingOrganizationLink.objects.create(
-                    funding_organization=self.object, type=link_type, value=data["link_value"]
-                )
-        from django.shortcuts import redirect as redirect_fn
-
-        return redirect_fn(self.get_success_url())
+        self.object = cast(FundingOrganization, form.save())
+        self.persist_links(self.object, link_forms)
+        return redirect(self.get_success_url())
 
 
 fundingorganizations_create = FundingOrganizationCreateView.as_view()
@@ -190,25 +194,14 @@ class FundingOrganizationUpdateView(
         if self.has_links():
             return self.assemble_link_data()
         return [
-            {"link": {"link_type": link.type.name, "link_value": link.value}, "errors": {}}
-            for link in self.object.links.all()
+            {"link": {"link_type": link.type(), "link_value": link.value()}, "errors": {}}
+            for link in self.object.get_links()
         ]
 
     def form_valid(self, form: Any) -> HttpResponse:
         self.object = form.save()
-        forms = self.link_forms()
-        for link_form in forms:
-            if not link_form.is_valid():
-                return self.form_invalid(form)
-        FundingOrganizationLink.objects.filter(funding_organization=self.object).delete()
-        for link_form in forms:
-            data = link_form.get_form_data()
-            if data["link_type"] and data["link_value"]:
-                link_type = FundingOrganizationLinkType.objects.get(name=data["link_type"])
-                FundingOrganizationLink.objects.create(
-                    funding_organization=self.object, type=link_type, value=data["link_value"]
-                )
-
+        if not self.persist_links(self.object, self.link_forms()):
+            return self.form_invalid(form)
         return redirect(self.get_success_url())
 
 
@@ -289,7 +282,7 @@ def request_archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
 def archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     try:
-        archive_funding_organization(org)
+        org.archive()
     except ValueError as e:
         return render(
             request,
@@ -314,7 +307,7 @@ def request_restore_funder(request: HttpRequest, pk: int) -> HttpResponse:
 def restore_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     try:
-        restore_funding_organization(org)
+        org.restore()
     except ValueError as e:
         return render(
             request,
@@ -410,10 +403,6 @@ def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
 
         # Check for overlapping organizations if links changed
         if links_changed:
-            from coda.apps.fundingrequests.services.funder_services import (
-                find_overlapping_organizations,
-            )
-
             overlapping_orgs = find_overlapping_organizations(org)
             if overlapping_orgs:
                 return render(
@@ -437,10 +426,6 @@ def merge_funder_select_target(request: HttpRequest, pk: int) -> HttpResponse:
     results = []
 
     if query:
-        from coda.apps.fundingrequests.services.funder_services import (
-            search_organizations_for_merge,
-        )
-
         results = search_organizations_for_merge(query, exclude_pk=source.pk)
 
     ctx = {"source": source, "query": query, "results": results}
@@ -457,32 +442,25 @@ def merge_funder_preview(request: HttpRequest, pk: int, target_pk: int) -> HttpR
     source = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     target = get_object_or_404(FundingOrganization.all_objects, pk=target_pk)
 
-    from coda.apps.fundingrequests.services.funder_services import can_merge_funding_organization
-
     can_merge, reasons = can_merge_funding_organization(source, target)
     if not can_merge:
         messages.error(request, f"Cannot merge organizations: {', '.join(reasons)}")
         return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
     # Get affected funding records from both source and target
-    from coda.apps.fundingrequests.models import ExternalFunding
 
     affected_records = ExternalFunding.objects.filter(
         organization__in=[source, target]
     ).select_related("funding_request")
 
     # Calculate merged links
-    from coda.contexts.fundingrequest.services.funder_resolution import (
-        FundingOrganization as DomainFundingOrganization,
-    )
-
     source_links = source.get_links()
     target_links = target.get_links()
-    merged_funder = DomainFundingOrganization(
-        name=target.name,
-        links=tuple(source_links),
+    merged_funder = preview_merge_funders(
+        target_name=target.name,
+        source_links=source_links,
+        target_links=target_links,
     )
-    merged_funder = merged_funder.revised(links=target_links)
 
     return render(
         request,
@@ -505,11 +483,6 @@ def merge_funder_preview(request: HttpRequest, pk: int, target_pk: int) -> HttpR
 def merge_funder_execute(request: HttpRequest, pk: int, target_pk: int) -> HttpResponse:
     source = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     target = get_object_or_404(FundingOrganization.all_objects, pk=target_pk)
-
-    from coda.apps.fundingrequests.services.funder_services import (
-        can_merge_funding_organization,
-        merge_funding_organizations,
-    )
 
     can_merge, reasons = can_merge_funding_organization(source, target)
     if not can_merge:

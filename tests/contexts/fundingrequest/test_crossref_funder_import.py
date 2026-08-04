@@ -16,7 +16,7 @@ from tests.fundingrequests.services.test_fundingrequest_services import assert_f
 
 from coda.apps.fundingrequests import repository
 from coda.contexts.fundingrequest.services.funder_resolution import resolve_funders
-from coda.domain.fundingrequest import FundingOrganization
+from coda.domain.fundingrequest import FunderRecord
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client import RORClient
 from coda.contexts.fundingrequest.services.doi_import._service import DOIImportService
 from coda.contexts.fundingrequest.services.doi_import._repository_immediate import (
@@ -70,7 +70,7 @@ def test__resolve_funders__doi_only_funder_is_not_dropped() -> None:
 
     ror_client = RORClient(http_client=FakeRORHttpGet())
 
-    funding = [FundingOrganization(name="Grant X", links=(Doi("10.13039/abcxyz"),))]
+    funding = [FunderRecord(name="Grant X", links=(Doi("10.13039/abcxyz"),))]
     matches = resolve_funders(funding, ror_client=ror_client)
 
     assert len(matches) == 1

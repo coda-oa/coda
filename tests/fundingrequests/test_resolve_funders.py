@@ -1,6 +1,6 @@
 """Tests for resolving external funder metadata to DB entities.
 
-These tests verify how FundingOrganization objects from external sources (Crossref,
+These tests verify how FunderRecord objects from external sources (Crossref,
 DataCite) are matched to existing FundingOrganizations by DOI, Crossref ID,
 or name. They are distinct from funder CRUD/business logic tests.
 """
@@ -10,14 +10,14 @@ import pytest
 from coda.apps.fundingrequests.models import FundingOrganization as FundingOrganizationModel
 from coda.apps.fundingrequests.models import FundingOrganizationLink, FundingOrganizationLinkType
 from coda.contexts.fundingrequest.services.funder_resolution import resolve_funders
-from coda.domain.fundingrequest import FundingOrganization
+from coda.domain.fundingrequest import FunderRecord
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.institution.links import Ror
 from coda.domain.publication.links import CrossrefId, Doi, Link
 
 
-def a_funder(*, name: str, links: tuple[Link, ...] = ()) -> FundingOrganization:
-    return FundingOrganization(name=name, links=links)
+def a_funder(*, name: str, links: tuple[Link, ...] = ()) -> FunderRecord:
+    return FunderRecord(name=name, links=links)
 
 
 def doi_link(value: str) -> Link:
@@ -32,7 +32,7 @@ def crossref_link(value: str) -> Link:
 def test__resolve_funders__crossref_id_matches_org_with_different_name() -> None:
     """Regression: funder matched by Crossref ID to an org with a different DB name must not raise KeyError.
 
-    When a FundingOrganization has a crossref_id that matches a pre-existing
+    When a FunderRecord has a crossref_id that matches a pre-existing
     FundingOrganizationLink whose org.name differs from the funder's
     name, _resolve_organizations must still find the org by funder name.
     """
@@ -52,7 +52,7 @@ def test__resolve_funders__crossref_id_matches_org_with_different_name() -> None
     )
 
     assert len(result) == 1
-    assert isinstance(result[0], FundingOrganization)
+    assert isinstance(result[0], FunderRecord)
     assert result[0].name == "Ministerio de Economía y Competitividad"
     assert result[0].organization_id == FundingOrganizationId(org.pk)
 
@@ -61,14 +61,14 @@ def test__resolve_funders__crossref_id_matches_org_with_different_name() -> None
 def test__resolve_funders__duplicate_doi_different_names__does_not_raise_keyerror() -> None:
     """Regression: two funders sharing the same DOI but with different names must not cause KeyError.
 
-    When multiple FundingOrganization objects share the same identifier, the matched
+    When multiple FunderRecord objects share the same identifier, the matched
     org is resolved for each by its own name.
     """
 
     result = resolve_funders(
         [
-            FundingOrganization(name="NSFC", links=(doi_link("10.13039/501100001809"),)),
-            FundingOrganization(
+            FunderRecord(name="NSFC", links=(doi_link("10.13039/501100001809"),)),
+            FunderRecord(
                 name="National Natural Science Foundation of China",
                 links=(doi_link("10.13039/501100001809"),),
             ),
@@ -156,7 +156,7 @@ def test_resolve_funders_link_already_in_db_is_not_duplicated() -> None:
 
 @pytest.mark.django_db
 def test_resolve_funders_ror_link_is_persisted() -> None:
-    """Given a FundingOrganization carrying a ROR link, the ROR ID is persisted as a link.
+    """Given a FunderRecord carrying a ROR link, the ROR ID is persisted as a link.
 
     We already persist DOI and Crossref links; the ROR ID resolved by
     the ROR API must be persisted too so future imports can match by it.

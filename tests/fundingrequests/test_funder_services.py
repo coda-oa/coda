@@ -4,8 +4,6 @@ from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganizatio
 from coda.apps.fundingrequests.models import FundingOrganizationLink, FundingOrganizationLinkType
 from coda.apps.fundingrequests.services.funder_services import (
     can_delete_funding_organization,
-    archive_funding_organization,
-    restore_funding_organization,
     delete_funding_organization,
 )
 from tests import modelfactory
@@ -57,7 +55,7 @@ def test__delete_funder__when_archived__raises_error(
 
 @pytest.mark.django_db
 def test__archive_funder__sets_archived_at(funder: FundingOrganization) -> None:
-    archive_funding_organization(funder)
+    funder.archive()
 
     funder.refresh_from_db()
     assert funder.archived_at is not None
@@ -65,17 +63,17 @@ def test__archive_funder__sets_archived_at(funder: FundingOrganization) -> None:
 
 @pytest.mark.django_db
 def test__archive_funder__raises_error_if_already_archived(funder: FundingOrganization) -> None:
-    archive_funding_organization(funder)
+    funder.archive()
 
     with pytest.raises(ValueError, match="already archived"):
-        archive_funding_organization(funder)
+        funder.archive()
 
 
 @pytest.mark.django_db
 def test__restore_funder__clears_archived_at(funder: FundingOrganization) -> None:
-    archive_funding_organization(funder)
+    funder.archive()
 
-    restore_funding_organization(funder)
+    funder.restore()
 
     funder.refresh_from_db()
     assert funder.archived_at is None
@@ -84,7 +82,7 @@ def test__restore_funder__clears_archived_at(funder: FundingOrganization) -> Non
 @pytest.mark.django_db
 def test__restore_funder__raises_error_if_not_archived(funder: FundingOrganization) -> None:
     with pytest.raises(ValueError, match="not archived"):
-        restore_funding_organization(funder)
+        funder.restore()
 
 
 @pytest.mark.django_db

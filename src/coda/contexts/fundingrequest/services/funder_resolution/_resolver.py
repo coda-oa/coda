@@ -15,7 +15,7 @@ from functools import reduce
 
 from coda.apps.fundingrequests.models import FundingOrganization as FundingOrganizationModel
 from coda.apps.fundingrequests.models import FundingOrganizationLink
-from coda.domain.fundingrequest import FundingOrganization, FundingOrganizationId
+from coda.domain.fundingrequest import FunderRecord, FundingOrganizationId
 
 from .enrichment import enrich_from_ror
 from .ror_client import CachingRORClient, RORClient, RORRecord
@@ -24,12 +24,12 @@ logger = logging.getLogger(__name__)
 
 
 def resolve_funders(
-    funders: list[FundingOrganization],
+    funders: list[FunderRecord],
     ror_client: RORClient | CachingRORClient | None = None,
-) -> list[FundingOrganization]:
+) -> list[FunderRecord]:
     """Match funders by identifier (DOI preferred, then Crossref ID), then by name.
 
-    When ``ror_client`` is provided, each ``FundingOrganization`` is first enriched
+    When ``ror_client`` is provided, each ``FunderRecord`` is first enriched
     via ROR: its links are resolved to a ROR record, the ROR links are merged in,
     and the funder name is updated to the canonical ROR name (falling back to the
     metadata name when ROR resolution fails for the whole batch). Enrichment is
@@ -39,7 +39,7 @@ def resolve_funders(
     links so future imports can match by either identifier even when the funder
     name differs.
 
-    Returns one ``FundingOrganization`` per input, with ``organization_id``
+    Returns one ``FunderRecord`` per input, with ``organization_id``
     populated, preserving order.
     """
     if ror_client is not None:
@@ -55,9 +55,9 @@ def resolve_funders(
 
 
 def _enrich_with_ror(
-    funders: list[FundingOrganization],
+    funders: list[FunderRecord],
     ror_client: RORClient | CachingRORClient,
-) -> list[FundingOrganization]:
+) -> list[FunderRecord]:
     """Enrich funders with ROR data, falling back to metadata names on failure.
 
     Resolves all funder links in a single batch ROR call. For each funder
@@ -80,7 +80,7 @@ def _enrich_with_ror(
 
 
 def _match_existing_links(
-    funders: list[FundingOrganization],
+    funders: list[FunderRecord],
 ) -> dict[tuple[str, str], FundingOrganizationModel]:
     all_links = [link for f in funders for link in f.links]
     if not all_links:
@@ -91,7 +91,7 @@ def _match_existing_links(
 
 
 def _resolve_organizations(
-    funders: list[FundingOrganization],
+    funders: list[FunderRecord],
     matched: dict[tuple[str, str], FundingOrganizationModel],
 ) -> dict[str, FundingOrganizationModel]:
     name_to_org: dict[str, FundingOrganizationModel] = {}
@@ -108,13 +108,13 @@ def _resolve_organizations(
 
 
 def _match_or_create_by_name(
-    funders: list[FundingOrganization],
+    funders: list[FunderRecord],
 ) -> dict[str, FundingOrganizationModel]:
     names = {f.name for f in funders}
     return FundingOrganizationModel.objects.bulk_get_or_create_by_name(names)
 
 
-def _persist_new_links(resolved: list[FundingOrganization]) -> None:
+def _persist_new_links(resolved: list[FunderRecord]) -> None:
     """Fold funder links per org using domain logic, then persist.
 
     Fetches all target organizations in a single bulk query.
@@ -132,9 +132,9 @@ def _persist_new_links(resolved: list[FundingOrganization]) -> None:
 
 
 def _build_resolved_funders(
-    funders: list[FundingOrganization],
+    funders: list[FunderRecord],
     name_to_org: dict[str, FundingOrganizationModel],
-) -> list[FundingOrganization]:
+) -> list[FunderRecord]:
     return [
         f.with_id(organization_id=FundingOrganizationId(name_to_org[f.name].pk)) for f in funders
     ]
