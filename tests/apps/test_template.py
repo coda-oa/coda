@@ -1,17 +1,49 @@
-from django.template import Template, Context
+from django.test import Client
+import pytest
+from django.urls import reverse
+
+from tests.apps._doubles import InMemoryVersionInfoProvider
 
 
-def test__update_banner__renders_when_update_available() -> None:
-    template = Template(
-        "{% if update_available %}" '<div class="update-banner">update!</div>' "{% endif %}"
-    )
-    rendered = template.render(Context({"update_available": True}))
-    assert "update!" in rendered
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__nav_template__given_update_available__renders_banner(
+    monkeypatch: pytest.MonkeyPatch,
+    client: Client,
+) -> None:
+    provider = InMemoryVersionInfoProvider()
+    provider.update_info = {"update_available": True, "latest_commit": "abc123"}
+    monkeypatch.setattr("coda.apps.version._provider", provider)
+
+    response = client.get(reverse("home"))
+
+    assert "update-banner" in response.content.decode()
 
 
-def test__update_banner__not_rendered_when_no_update() -> None:
-    template = Template(
-        "{% if update_available %}" '<div class="update-banner">update!</div>' "{% endif %}"
-    )
-    rendered = template.render(Context({"update_available": False}))
-    assert "update!" not in rendered
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__nav_template__given_no_update__hides_banner(
+    monkeypatch: pytest.MonkeyPatch,
+    client: Client,
+) -> None:
+    provider = InMemoryVersionInfoProvider()
+    monkeypatch.setattr("coda.apps.version._provider", provider)
+
+    response = client.get(reverse("home"))
+
+    assert "update-banner" not in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__nav_template__displays_version(
+    monkeypatch: pytest.MonkeyPatch,
+    client: Client,
+) -> None:
+    provider = InMemoryVersionInfoProvider()
+    provider.version = "2026.01"
+    monkeypatch.setattr("coda.apps.version._provider", provider)
+
+    response = client.get(reverse("home"))
+
+    assert "Version: 2026.01" in response.content.decode()

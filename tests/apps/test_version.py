@@ -59,7 +59,7 @@ def test__get_version_tag__given_tag_exists__returns_tag(
     assert get_version_tag() == "2026.01"
 
 
-def test__check_update__given_newer_commit__returns_update_available(
+def test__check_update__given_provider_returns_update_available__returns_update_available(
     provider: InMemoryVersionInfoProvider,
 ) -> None:
     provider.update_info = {
@@ -71,7 +71,7 @@ def test__check_update__given_newer_commit__returns_update_available(
     assert result["latest_commit"] == "abcdef1234567890abcdef1234567890abcdef12"
 
 
-def test__check_update__given_same_commit__returns_no_update(
+def test__check_update__given_provider_returns_no_update__returns_false(
     provider: InMemoryVersionInfoProvider,
 ) -> None:
     provider.update_info = {"update_available": False}
@@ -79,7 +79,7 @@ def test__check_update__given_same_commit__returns_no_update(
     assert result["update_available"] is False
 
 
-def test__check_update__given_github_api_fails__returns_no_update(
+def test__check_update__given_provider_returns_error__returns_no_update(
     provider: InMemoryVersionInfoProvider,
 ) -> None:
     provider.update_info = {"update_available": False, "error": "Network error"}
