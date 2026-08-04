@@ -61,6 +61,7 @@ class SystemVersionInfoProvider:
     def __init__(self) -> None:
         self._cache = cache
 
+    @lru_cache(maxsize=1)
     def get_version_tag(self) -> str | None:
         return self._git(["describe", "--tags", "--exact-match"]) or self._baked_file("TAG")
 
@@ -82,7 +83,7 @@ class SystemVersionInfoProvider:
     @lru_cache(maxsize=1)
     def get_version(self) -> str:
         return (
-            self._git(["describe", "--tags", "--exact-match"])
+            self.get_version_tag()
             or self._git(["rev-parse", "--short", "HEAD"])
             or self._baked_file("VERSION")
             or "unknown"
