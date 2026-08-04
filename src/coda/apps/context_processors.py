@@ -5,7 +5,14 @@ from django.http import HttpRequest
 from coda.apps.fundingrequests.views.doi_preview import DOIImportInputView
 from coda.contexts.fundingrequest.services.doi_import.doi_client import InMemoryDOIMetadataClient
 
-from coda.apps.version import check_update, get_branch, get_repo, get_version, get_version_tag
+from coda.apps.version import (
+    check_update,
+    get_branch,
+    get_commit_sha,
+    get_repo,
+    get_version,
+    get_version_tag,
+)
 
 
 def version_context(request: HttpRequest) -> dict[str, Any]:
@@ -13,7 +20,8 @@ def version_context(request: HttpRequest) -> dict[str, Any]:
     branch = get_branch()
     tag = get_version_tag()
     repo = get_repo()
-    update_info = check_update(branch, version)
+    commit_sha = get_commit_sha()
+    update_info = check_update(branch, commit_sha)
     if tag:
         github_url = f"https://github.com/{repo}/releases/tag/{tag}"
     else:

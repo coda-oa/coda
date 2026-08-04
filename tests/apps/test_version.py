@@ -1,7 +1,14 @@
 import pytest
 
 from tests.apps._doubles import InMemoryVersionInfoProvider
-from coda.apps.version import check_update, get_branch, get_repo, get_version_tag, has_newer_commit
+from coda.apps.version import (
+    check_update,
+    get_branch,
+    get_commit_sha,
+    get_repo,
+    get_version_tag,
+    has_newer_commit,
+)
 
 
 @pytest.fixture
@@ -77,6 +84,15 @@ def test__check_update__given_github_api_fails__returns_no_update(
     result = check_update("develop", "abc")
     assert result["update_available"] is False
     assert "error" in result
+
+
+def test__get_commit_sha__given_tag_version__returns_raw_sha(
+    provider: InMemoryVersionInfoProvider,
+) -> None:
+    provider.version = "2026.01"
+    provider.version_tag = "2026.01"
+    provider.commit_sha = "8d68c555e344cad5ec94e735b2be766e39f8e389"
+    assert get_commit_sha() == "8d68c555e344cad5ec94e735b2be766e39f8e389"
 
 
 def test__has_newer_commit__short_sha_matches_full() -> None:

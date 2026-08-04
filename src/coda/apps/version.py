@@ -22,6 +22,8 @@ class VersionInfoProvider(Protocol):
 
     def get_version_tag(self) -> str | None: ...
 
+    def get_commit_sha(self) -> str: ...
+
     def check_update(self, branch: str, current_commit: str) -> "UpdateCheckResult": ...
 
 
@@ -84,6 +86,10 @@ class SystemVersionInfoProvider:
             or self._baked_file("VERSION")
             or "unknown"
         )
+
+    @lru_cache(maxsize=1)
+    def get_commit_sha(self) -> str:
+        return self._git(["rev-parse", "HEAD"]) or self._baked_file("SHA") or "unknown"
 
     def check_update(self, branch: str, current_commit: str) -> UpdateCheckResult:
         cache_key = f"version_update_{branch}"
@@ -176,6 +182,10 @@ def get_version() -> str:
 
 def get_version_tag() -> str | None:
     return _provider.get_version_tag()
+
+
+def get_commit_sha() -> str:
+    return _provider.get_commit_sha()
 
 
 def check_update(branch: str, current_commit: str) -> UpdateCheckResult:

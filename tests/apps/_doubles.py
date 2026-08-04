@@ -11,6 +11,7 @@ class InMemoryVersionInfoProvider:
         self.repo = "coda-oa/coda"
         self.version = "abc1234"
         self.version_tag: str | None = None
+        self.commit_sha: str = "abc1234"
         self.update_info: UpdateCheckResult = {"update_available": False}
 
     def get_branch(self) -> str:
@@ -24,6 +25,9 @@ class InMemoryVersionInfoProvider:
 
     def get_version_tag(self) -> str | None:
         return self.version_tag
+
+    def get_commit_sha(self) -> str:
+        return self.commit_sha
 
     def check_update(self, branch: str, current_commit: str) -> UpdateCheckResult:
         return self.update_info
