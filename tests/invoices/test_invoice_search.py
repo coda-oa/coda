@@ -73,8 +73,8 @@ def invoice_matching_creditor() -> MatchingQueryConfig:
     return MatchingQueryConfig(invoice, creditor.name, query_str=creditor.name)
 
 
-def invoice_matching_request_id() -> MatchingQueryConfig:
-    creditor = modelfactory.creditor()
+def invoice_matching_request_id(creditor_name: str = "") -> MatchingQueryConfig:
+    creditor = modelfactory.creditor(name=creditor_name)
     creditor_id = CreditorId(creditor.pk)
 
     journal = JournalId(modelfactory.journal().pk)
@@ -438,23 +438,10 @@ def test__generic_search__empty_or_whitespace__returns_all_invoices(search_term:
 def test__generic_search__multi_word_across_creditor_and_request_id__matches_independently_per_field() -> (
     None
 ):
-    creditor = modelfactory.creditor(name="ACS Publishing")
-    creditor_id = CreditorId(creditor.pk)
-    journal = JournalId(modelfactory.journal().pk)
-    request = domainfactory.fundingrequest(journal_id=journal)
-    request.id = fundingrequests.create_fundingrequest(
-        CreateFundingRequestDto(
-            publication=PublicationDto.from_publication(request.publication),
-            payment=PaymentDto.from_payment(request.estimated_cost),
-            extra_information=ExtraInformationDto(),
-        )
-    )
-    saved_request = fundingrequest_repository.get_article_request(request.id)
-    position = domainfactory.publication_position(saved_request.publication.id)
-    invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
-    invoice.id = invoice_service.save(invoice)
+    match = invoice_matching_request_id(creditor_name="ACS Publishing")
+    request_id = match.query_str
 
-    actual = iq.search_to_list_items(iq.GenericSearchCriterion(f"acs {saved_request.request_id}"))
+    actual = iq.search_to_list_items(iq.GenericSearchCriterion(f"acs {request_id}"))
 
     assert len(actual) == 1
     assert actual[0].creditor_name == "ACS Publishing"
