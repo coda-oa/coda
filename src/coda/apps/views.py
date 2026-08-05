@@ -95,6 +95,7 @@ ModelType = TypeVar("ModelType", bound=Model)
 class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
     model: type[ModelType]
     search_fields: list[str] = ["name"]
+    ordering: list[str] | None = None
 
     def get_entities(self, request: HttpRequest) -> Sequence[ModelType]:
         search_term = request.GET.get("query", "").strip()
@@ -103,4 +104,5 @@ class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
         if search_term:
             queryset = queryset.filter(words_icontains(search_term, *self.search_fields))
 
-        return DomainQuerySet(queryset.order_by(*self.search_fields), lambda x: cast(ModelType, x))
+        order = self.ordering or self.search_fields
+        return DomainQuerySet(queryset.order_by(*order), lambda x: cast(ModelType, x))

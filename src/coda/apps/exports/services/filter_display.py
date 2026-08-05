@@ -15,7 +15,7 @@ from coda.apps.fundingrequests.fundingrequest_query import (
     PublicationEntityType,
 )
 from coda.domain.date import DateRange
-from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.finance.invoice import FundingSourceId, PaymentStatus as InvoicePaymentStatus
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
@@ -67,6 +67,10 @@ payment_status_choices: list[tuple[str, str]] = [
     (status.value, status.value.replace("_", " ").title()) for status in FundingRequestPaymentStatus
 ]
 
+invoice_payment_status_choices: list[tuple[str, str]] = [
+    (status.value, status.value.replace("_", " ").title()) for status in InvoicePaymentStatus
+]
+
 
 # ---------------------------------------------------------------------------
 # Shared filter keys that are common to both CSV exports and openCost reports.
@@ -79,25 +83,48 @@ _COMMON_OPTIONAL_FILTER_FIELDS: list[str] = list(
 
 def build_filters_from_request(
     request: HttpRequest,
-    extra_optional_fields: list[str] | None = None,
+    optional_fields: list[str] | None = None,
 ) -> dict[str, str]:
     """Build the raw filter dict from a POST request.
 
-    Both CSV exports and openCost reports share the same set of base optional
-    filter fields.  Pass ``extra_optional_fields`` to include additional fields
-    (e.g. invoice date fields used only in the CSV flow).
+    By default, the common set of optional filter fields
+    (``_COMMON_OPTIONAL_FILTER_FIELDS``) is used.  Pass ``optional_fields`` to
+    use a different set instead.
     """
     filters: dict[str, str] = {
         "period_start": request.POST["period_start"],
         "period_end": request.POST["period_end"],
     }
 
-    for field in _COMMON_OPTIONAL_FILTER_FIELDS + (extra_optional_fields or []):
+    for field in optional_fields if optional_fields is not None else _COMMON_OPTIONAL_FILTER_FIELDS:
         values = [v for v in request.POST.getlist(field) if v]
         if values:
             filters[field] = ",".join(values)
 
     return filters
+
+
+def parse_date_range(filters: dict[str, str]) -> DateRange | None:
+    start_str = filters.get("period_start")
+    end_str = filters.get("period_end")
+    if start_str and end_str:
+        start = datetime.strptime(start_str, "%Y-%m-%d").date()
+        end = datetime.strptime(end_str, "%Y-%m-%d").date()
+        return DateRange(start, end)
+    return None
+
+
+def parse_funding_source(filters: dict[str, str]) -> FundingSourceId | None:
+    raw = filters.get("funding_source")
+    return FundingSourceId(int(raw)) if raw else None
+
+
+def parse_invoice_payment_status(filters: dict[str, str]) -> InvoicePaymentStatus | None:
+    raw = filters.get("payment_status", "")
+    if not raw:
+        return None
+    statuses = [s.strip() for s in raw.split(",") if s]
+    return InvoicePaymentStatus(statuses[0]) if statuses else None
 
 
 def parse_common_filter_fields(filters: dict[str, str]) -> FundingRequestSearchParams:
@@ -123,23 +150,12 @@ def parse_common_filter_fields(filters: dict[str, str]) -> FundingRequestSearchP
         PublicationEntityType(entity_type_raw) if entity_type_raw else PublicationEntityType.All
     )
 
-    funding_source_raw = filters.get("funding_source")
-    funding_source = FundingSourceId(int(funding_source_raw)) if funding_source_raw else None
+    funding_source = parse_funding_source(filters)
 
     contract_raw = filters.get("contract_name") or filters.get("contract")
     contract_id = int(contract_raw) if contract_raw else None
 
-    # Parse date range
-    start_str = filters.get("period_start")
-    end_str = filters.get("period_end")
-    date_range = None
-    if start_str and end_str:
-        try:
-            start = datetime.strptime(start_str, "%Y-%m-%d").date()
-            end = datetime.strptime(end_str, "%Y-%m-%d").date()
-            date_range = DateRange(start, end)
-        except ValueError:
-            pass
+    date_range = parse_date_range(filters)
 
     search_term = filters.get("search_term", "")
 
@@ -207,6 +223,15 @@ def build_applied_filters(filters: dict[str, str]) -> list[AppliedFilter]:
         _payment_status_filter(filters),
         _publication_type_filter(filters),
         _contract_filter(filters),
+        _funding_source_filter(filters),
+    )
+    return [f for f in applied_filters if f is not None]
+
+
+def build_applied_filters_for_contract(filters: dict[str, str]) -> list[AppliedFilter]:
+    applied_filters = (
+        _period_filter(filters),
+        _invoice_payment_status_filter(filters),
         _funding_source_filter(filters),
     )
     return [f for f in applied_filters if f is not None]
@@ -297,6 +322,17 @@ def _contract_filter(filters: dict[str, str]) -> AppliedFilter | None:
         label="Contracts",
         value=", ".join(contract.name for contract in contracts),
     )
+
+
+def _invoice_payment_status_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "payment_status" not in filters:
+        return None
+    statuses = [
+        InvoicePaymentStatus(s.strip()).value.replace("_", " ").title()
+        for s in filters["payment_status"].split(",")
+        if s
+    ]
+    return AppliedFilter(label="Payment Status", value=", ".join(statuses))
 
 
 def _funding_source_filter(filters: dict[str, str]) -> AppliedFilter | None:

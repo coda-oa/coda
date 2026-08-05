@@ -28,17 +28,27 @@
             <hr>
             <details {% if expand_advanced_search %}open{% endif %}>
                 <summary class="flex align-center justify-between button outline contrast">Optional Filters</summary>
-                {% include "fundingrequests/forms/publication_type.html" %}
-                {% include "fundingrequests/forms/contract_dropdown.html" %}
-                {% include "fundingrequests/forms/status_dropdown.html" %}
-                {% include "fundingrequests/forms/payment_method.html" %}
-                {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
-                {% include "fundingrequests/forms/publication_state.html" %}
-                {% include "fundingrequests/forms/label_dropdown.html" %}
-                {% if include_payment_status %}
-                    {% include "fundingrequests/forms/payment_status.html" %}
-                {% endif %}
-                {% include "invoices/partials/funding_source_filter.html" %}
+                {% for filter_key in show_filters %}
+                    {% if filter_key == "publication_type" %}
+                        {% include "fundingrequests/forms/publication_type.html" %}
+                    {% elif filter_key == "contract" %}
+                        {% include "fundingrequests/forms/contract_dropdown.html" %}
+                    {% elif filter_key == "status" %}
+                        {% include "fundingrequests/forms/status_dropdown.html" %}
+                    {% elif filter_key == "payment_method" %}
+                        {% include "fundingrequests/forms/payment_method.html" %}
+                    {% elif filter_key == "open_access_type" %}
+                        {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
+                    {% elif filter_key == "publication_state" %}
+                        {% include "fundingrequests/forms/publication_state.html" %}
+                    {% elif filter_key == "labels" %}
+                        {% include "fundingrequests/forms/label_dropdown.html" %}
+                    {% elif filter_key == "payment_status" %}
+                        {% include payment_status_filter_template|default:"fundingrequests/forms/payment_status.html" %}
+                    {% elif filter_key == "funding_source" %}
+                        {% include "invoices/partials/funding_source_filter.html" %}
+                    {% endif %}
+                {% endfor %}
             </details>
         </article>
         <div class="grid wizard-nav">

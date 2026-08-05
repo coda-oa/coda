@@ -167,7 +167,16 @@ def generate_report_form(request: HttpRequest) -> HttpResponse:
             "title_placeholder": "Enter a title for the report",
             "cancel_url": reverse(OPENCOST_LIST_URL),
             "submit_button_text": "Generate Report",
-            "include_payment_status": False,
+            "show_filters": [
+                "publication_type",
+                "contract",
+                "status",
+                "payment_method",
+                "open_access_type",
+                "publication_state",
+                "labels",
+                "funding_source",
+            ],
         }
     )
     return render(request, "exports/generate_export_form.html", context)

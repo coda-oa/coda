@@ -1,34 +1,41 @@
-from io import StringIO
-from django.contrib import messages
-
-from django.urls import reverse
-import polars as pl
-from django.core.files.base import ContentFile
 from django.http import FileResponse, HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.text import slugify
+from django.shortcuts import render
+from django.urls import reverse
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.decorators.http import require_GET, require_POST
 
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.exports.models import FundingRequestCSVExport
 from coda.apps.exports.services.fundingrequest_csv.export_service import (
     export_fundingrequests_to_csv,
 )
-from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
-from coda.apps.views import SimpleSearchEntityListView
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
-from coda.apps.breadcrumbs.decorators import breadcrumb
-from django.views.decorators.http import require_GET, require_POST
-
 from coda.apps.exports.services.filter_display import (
     build_applied_filters,
     build_filter_form_context,
     build_filters_from_request,
     parse_common_filter_fields,
-    create_redo_url,
     parse_current_filters_to_context,
 )
+from coda.apps.exports.views.base_csv_views import (
+    create_csv_export,
+    csv_delete_view,
+    csv_detail_page,
+    csv_download_view,
+)
+from coda.apps.views import SimpleSearchEntityListView
 
 FUNDINGREQUESTS_CSV_CREATE_URL = "exports:fundingrequests_csv_create"
+FUNDINGREQUESTS_CSV_LIST_URL = "exports:fundingrequests_csv_list"
+
+PREVIEW_COLUMNS = [
+    "request_id",
+    "publication_title",
+    "doi",
+    "contract_name",
+    "invoice_number",
+    "position_amount",
+]
 
 
 @breadcrumb("Funding Request CSV Export", parent_url_name="exports:export_home")
@@ -53,50 +60,25 @@ fundingrequest_csv_export_list_view = FundingRequestCSVExportListView.as_view()
 
 @login_required
 @require_GET
-@breadcrumb(
-    "CSV Export Details",
-    parent_url_name="exports:fundingrequests_csv_list",
-)
-def fundingrequest_csv_detail_page(
-    request: HttpRequest,
-    pk: int,
-) -> HttpResponse:
-
-    export = get_object_or_404(
-        FundingRequestCSVExport,
-        pk=pk,
-    )
-
-    preview_df = _create_preview_dataframe(export.csv_file.open("rb").read().decode("utf-8"))
-
-    applied_filters = build_applied_filters(export.filters)
-
-    redo_url = create_redo_url(export.filters, "exports:fundingrequests_csv_create")
-
-    return render(
+@breadcrumb("CSV Export Details", parent_url_name=FUNDINGREQUESTS_CSV_LIST_URL)
+def fundingrequest_csv_detail_page(request: HttpRequest, pk: int) -> HttpResponse:
+    return csv_detail_page(
         request,
-        "export/fundingrequest_csv_detail.html",
-        {
-            "export": export,
-            "preview_columns": preview_df.columns,
-            "preview_rows": preview_df.rows(),
-            "applied_filters": applied_filters,
-            "redo_url": redo_url,
-        },
+        pk,
+        model=FundingRequestCSVExport,
+        template_name="export/fundingrequest_csv_detail.html",
+        preview_columns=PREVIEW_COLUMNS,
+        applied_filters_builder=build_applied_filters,
+        create_url_name="exports:fundingrequests_csv_create",
     )
 
 
 @login_required
-@breadcrumb(
-    "Generate New CSV Export",
-    parent_url_name="exports:fundingrequests_csv_list",
-)
-def fundingrequest_csv_export_create_view(
-    request: HttpRequest,
-) -> HttpResponse:
+@breadcrumb("Generate New CSV Export", parent_url_name=FUNDINGREQUESTS_CSV_LIST_URL)
+def fundingrequest_csv_export_create_view(request: HttpRequest) -> HttpResponse:
 
     if request.method == "GET":
-        context = _get_export_form_context()
+        context = build_filter_form_context()
         context["expand_advanced_search"] = bool(request.GET)
         context["current_filters"] = parse_current_filters_to_context(request)
         context.update(
@@ -106,112 +88,47 @@ def fundingrequest_csv_export_create_view(
                 "parameters_title": "Export Parameters",
                 "title_label": "Title",
                 "title_placeholder": "Enter a title for the export",
-                "cancel_url": reverse("exports:fundingrequests_csv_list"),
+                "cancel_url": reverse(FUNDINGREQUESTS_CSV_LIST_URL),
                 "submit_button_text": "Generate CSV Export",
-                "include_payment_status": True,
+                "show_filters": [
+                    "publication_type",
+                    "contract",
+                    "status",
+                    "payment_method",
+                    "open_access_type",
+                    "publication_state",
+                    "labels",
+                    "payment_status",
+                    "funding_source",
+                ],
             }
         )
 
-        return render(
-            request,
-            "exports/generate_export_form.html",
-            context=context,
-        )
+        return render(request, "exports/generate_export_form.html", context=context)
 
-    title = request.POST.get("title", "").strip() or "Unnamed CSV Export"
-
-    filters = _build_export_filters(request)
-    csv_content = _generate_csv_from_filters(filters)
-    row_count = pl.read_csv(
-        StringIO(csv_content),
-        separator=";",
-    ).height
-
-    export = FundingRequestCSVExport.objects.create(
-        name=title,
-        filters=filters,
-        record_count=row_count,
-    )
-
-    filename = f"{slugify(title) or 'export'}-{export.id}.csv"
-
-    export.csv_file.save(
-        filename,
-        ContentFile(csv_content.encode("utf-8")),
-    )
-
-    return redirect(
-        "exports:fundingrequests_csv_detail",
-        pk=export.pk,
+    return create_csv_export(
+        request,
+        FundingRequestCSVExport,
+        build_filters=build_filters_from_request,
+        generate_csv=_generate_csv_from_filters,
+        detail_url_name="exports:fundingrequests_csv_detail",
     )
 
 
 @login_required
 @require_POST
-def fundingrequests_csv_delete(request: HttpRequest, pk: int) -> HttpResponse:
-    export = get_object_or_404(FundingRequestCSVExport, pk=pk)
-    export_title = export.name
-    export.delete()
-    messages.success(request, f"CSV export '{export_title}' deleted successfully.")
-
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = reverse("exports:fundingrequests_csv_list")
-    return response
+def fundingrequest_csv_delete_view(request: HttpRequest, pk: int) -> HttpResponse:
+    return csv_delete_view(
+        request, pk, model=FundingRequestCSVExport, list_url_name=FUNDINGREQUESTS_CSV_LIST_URL
+    )
 
 
 @login_required
 @require_GET
-def fundingrequest_download_csv(
-    request: HttpRequest,
-    pk: int,
-) -> FileResponse:
-
-    export = get_object_or_404(
-        FundingRequestCSVExport,
-        pk=pk,
-    )
-    return FileResponse(export.csv_file.open("rb"))
-
-
-# helpers
-
-
-def _parse_filter_dict(filters: dict[str, str]) -> FundingRequestSearchParams:
-    """Parse filter dict into a FundingRequestSearchParams object."""
-    return parse_common_filter_fields(filters)
-
-
-def _create_preview_dataframe(
-    csv_content: str,
-) -> pl.DataFrame:
-
-    preview_columns = [
-        "request_id",
-        "publication_title",
-        "doi",
-        "contract_name",
-        "invoice_number",
-        "position_amount",
-    ]
-
-    return (
-        pl.read_csv(
-            StringIO(csv_content),
-            separator=";",
-        )
-        .select(preview_columns)
-        .head(50)
-    )
-
-
-def _build_export_filters(request: HttpRequest) -> dict[str, str]:
-    return build_filters_from_request(request)
-
-
-def _get_export_form_context() -> dict[str, object]:
-    return build_filter_form_context()
+def fundingrequest_download_csv(request: HttpRequest, pk: int) -> FileResponse:
+    return csv_download_view(pk, model=FundingRequestCSVExport)
 
 
 def _generate_csv_from_filters(filters: dict[str, str]) -> str:
-    params = _parse_filter_dict(filters)
+    params = parse_common_filter_fields(filters)
     return export_fundingrequests_to_csv(params)
