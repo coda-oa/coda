@@ -147,7 +147,7 @@ class GenericSearchCriteria:
     search_term: str = ""
 
     def _to_query(self) -> Q:
-        if not self.search_term:
+        if not self.search_term.strip():
             return Q()
 
         return words_icontains(

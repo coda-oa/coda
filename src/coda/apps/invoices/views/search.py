@@ -18,7 +18,7 @@ def search_publications(request: HttpRequest) -> HttpResponse:
     if query:
         publications = Publication.objects.filter(
             words_icontains(query, "title")
-            | Q(links__type__name="DOI") & words_icontains(query, "links__value")
+            | (Q(links__type__name="DOI") & words_icontains(query, "links__value"))
             | words_icontains(query, "fundingrequest__request_id")
         ).distinct()
     else:
@@ -42,7 +42,7 @@ def search_contracts(request: HttpRequest) -> HttpResponse:
     if query:
         contracts = Contract.objects.filter(
             words_icontains(query, "name")
-            | Q(links__type__name="ESAC") & words_icontains(query, "links__value")
+            | (Q(links__type__name="ESAC") & words_icontains(query, "links__value"))
         ).distinct()
     else:
         contracts = Contract.objects.none()

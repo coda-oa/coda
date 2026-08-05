@@ -43,7 +43,7 @@ def search(name: str | None = None, include_archived: bool = False) -> QuerySet[
         qs = Institution.objects.all()
 
     if name is not None:
-        qs = qs.filter(words_icontains(name.strip(), "name"))
+        qs = qs.filter(words_icontains(name, "name"))
 
     return _sort_hierarchically(qs)
 

@@ -47,7 +47,7 @@ def find_by_name_contains(name: str) -> "QuerySet[Publisher]":
     Returns:
         QuerySet of Publisher instances ordered by name
     """
-    return Publisher.objects.filter(words_icontains(name.strip(), "name")).order_by("name")
+    return Publisher.objects.filter(words_icontains(name, "name")).order_by("name")
 
 
 def get_by_pk(pk: int) -> Publisher:
