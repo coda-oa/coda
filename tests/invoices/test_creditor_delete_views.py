@@ -245,3 +245,16 @@ def test__list_view__includes_archived_when_requested(
 
     content = response.content.decode()
     assert_content_contains(content, creditor.name, archived_creditor.name)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__list_view__multi_word_search__each_word_matches_independently(
+    client: Client,
+) -> None:
+    Creditor.objects.create(name="Alpha Beta Gamma")
+
+    response = client.get(reverse("invoices:creditor_list"), {"query": "Alpha Gamma"})
+
+    assert response.status_code == 200
+    assert "Alpha Beta Gamma" in response.content.decode()

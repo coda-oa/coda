@@ -144,3 +144,49 @@ def test__find_by_name_contains__no_match__returns_empty() -> None:
     results = list(services.find_by_name_contains("wiley"))
 
     assert results == []
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "search_term",
+    ["", "   ", "\t"],
+)
+def test__find_by_name_contains__empty_or_whitespace__returns_all_publishers(
+    search_term: str,
+) -> None:
+    PublisherFactory(name="Springer Nature")
+    PublisherFactory(name="Elsevier")
+
+    results = list(services.find_by_name_contains(search_term))
+
+    assert len(results) == 2
+
+
+@pytest.mark.django_db
+def test__find_by_name_contains__multi_word_search__each_word_matches_independently() -> None:
+    PublisherFactory(name="Springer Nature")
+
+    results = list(services.find_by_name_contains("Spr Natur"))
+
+    assert len(results) == 1
+    assert results[0].name == "Springer Nature"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("search_term",),
+    [
+        ("  Springer",),
+        ("Springer  ",),
+        ("  Springer  ",),
+    ],
+)
+def test__find_by_name_contains__leading_or_trailing_whitespace__still_found(
+    search_term: str,
+) -> None:
+    PublisherFactory(name="Springer Nature")
+
+    results = list(services.find_by_name_contains(search_term))
+
+    assert len(results) == 1
+    assert results[0].name == "Springer Nature"

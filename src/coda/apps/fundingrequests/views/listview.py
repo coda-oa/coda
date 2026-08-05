@@ -137,7 +137,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
         open_access_types=open_access_types,
         publication_states=publication_states,
         entity_type=fq.PublicationEntityType.try_parse(request.GET.get("publication_type")),
-        search_term=request.GET.get("search_term", ""),
+        search_term=request.GET.get("search_term", "").strip(),
         contract_id=map_or_none(int, request.GET.get("contract_name")),
         contract_year=map_or_none(int, request.GET.get("contract_year")),
         show_invalid_contract_years=show_invalid_contract_years,

@@ -108,3 +108,16 @@ def test__funder_list__shows_identifier_tags(client: Client) -> None:
     assert "10.13039/501100002347" in content
     assert "label" in content
     assert "pill" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__list_view__multi_word_search__each_word_matches_independently(
+    client: Client,
+) -> None:
+    FundingOrganization.objects.create(name="Alpha Beta Gamma")
+
+    response = client.get(reverse("fundingrequests:funders"), {"query": "Alpha Gamma"})
+
+    assert response.status_code == 200
+    assert "Alpha Beta Gamma" in response.content.decode()

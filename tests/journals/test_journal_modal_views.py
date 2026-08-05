@@ -2,8 +2,10 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
+from coda.apps.journals import services as journal_services
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
+from tests import modelfactory
 
 
 @pytest.mark.django_db
@@ -122,3 +124,43 @@ def test__create_journal_with_new_publisher_in_modal__creates_both_entities(
     assert Journal.objects.filter(title=journal_title, eissn=eissn).exists()
     journal = Journal.objects.get(title=journal_title, eissn=eissn)
     assert journal.publisher == publisher
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "search_term",
+    ["", "   ", "\t"],
+)
+def test__find_by_title__empty_or_whitespace__returns_all_journals(search_term: str) -> None:
+    publisher = modelfactory.publisher()
+    modelfactory.journal(title="Nature Communications", publisher_id=publisher.pk)
+    modelfactory.journal(title="Science Advances", publisher_id=publisher.pk)
+
+    results = list(journal_services.find_by_title(search_term))
+
+    assert len(results) == 2
+
+
+@pytest.mark.django_db
+def test__find_by_title__multi_word_search__each_word_matches_independently() -> None:
+    publisher = modelfactory.publisher()
+    modelfactory.journal(title="Nature Communications", publisher_id=publisher.pk)
+
+    results = list(journal_services.find_by_title("Nat Comm"))
+
+    assert len(results) == 1
+    assert results[0].title == "Nature Communications"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__journal_list_view__multi_word_search__each_word_matches_independently(
+    client: Client,
+) -> None:
+    publisher = modelfactory.publisher()
+    modelfactory.journal(title="Nature Communications", publisher_id=publisher.pk)
+
+    response = client.get(reverse("publishing:journals:list"), {"query": "Nat Comm"})
+
+    assert response.status_code == 200
+    assert "Nature Communications" in response.content.decode()

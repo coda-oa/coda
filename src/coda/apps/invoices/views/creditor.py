@@ -11,6 +11,7 @@ from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices import repository, services
+from coda.apps.search import words_icontains
 from coda.apps.invoices.forms import CreditorForm
 from coda.apps.invoices.models import Creditor
 from coda.apps.views import SimpleSearchEntityListView
@@ -37,7 +38,7 @@ class CreditorListView(LoginRequiredMixin, SimpleSearchEntityListView[Creditor])
         queryset = Creditor.all_objects.all() if include_archived else Creditor.objects.all()
 
         if search_term:
-            queryset = queryset.filter(name__icontains=search_term)
+            queryset = queryset.filter(words_icontains(search_term, "name"))
 
         return DomainQuerySet(queryset.order_by("name"), lambda x: cast(Creditor, x))
 

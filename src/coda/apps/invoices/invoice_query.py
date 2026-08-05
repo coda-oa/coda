@@ -9,6 +9,7 @@ from django.db.models import Case, DecimalField, Exists, F, OuterRef, Q, QuerySe
 from django.db.models.functions import Coalesce, ExtractYear
 
 from coda.apps.invoices.mappers._list import InvoiceListMapper
+from coda.apps.search import words_icontains
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.models import Position as PositionModel
 from coda.domain.date import DateRange
@@ -50,22 +51,15 @@ class GenericSearchCriterion(InvoiceSearchCriterion):
 @empty_if_none
 @to_query.register
 def generic_search_criterion(criterion: GenericSearchCriterion) -> Q:
-    return (
-        _invoice_number_criterion(criterion.generic_search)
-        | _creditor_criterion(criterion.generic_search)
-        | Q(positions__publication__fundingrequest__request_id__iexact=criterion.generic_search)
-        | Q(external_invoice_id__iexact=criterion.generic_search)
+    if not criterion.generic_search.strip():
+        return Q()
+    return words_icontains(
+        criterion.generic_search,
+        "number",
+        "creditor__name",
+        "external_invoice_id",
+        "positions__publication__fundingrequest__request_id",
     )
-
-
-@empty_if_none
-def _invoice_number_criterion(invoice_number: str) -> Q:
-    return Q(number__icontains=invoice_number)
-
-
-@empty_if_none
-def _creditor_criterion(creditor: str) -> Q:
-    return Q(creditor__name__icontains=creditor)
 
 
 @dataclass(frozen=True)

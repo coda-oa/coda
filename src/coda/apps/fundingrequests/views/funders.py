@@ -12,6 +12,7 @@ from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.search import words_icontains
 from coda.apps.fundingrequests.forms import ExternalFundingFormset, FundingOrganizationLinkForm
 from coda.apps.fundingrequests.models import (
     ExternalFunding,
@@ -58,7 +59,7 @@ class FundingOrganizationListView(
         )
 
         if search_term:
-            queryset = queryset.filter(name__icontains=search_term)
+            queryset = queryset.filter(words_icontains(search_term, "name"))
 
         return DomainQuerySet(
             queryset.prefetch_related("links").order_by("name"),

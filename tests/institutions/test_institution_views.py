@@ -221,6 +221,17 @@ def test__list_view__search_with_archived_filter(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__list_view__multi_word_search__each_word_matches_independently(client: Client) -> None:
+    Institution.objects.create(name="Active University")
+
+    response = client.get(reverse("institutions:list"), {"name": "Act Univ"})
+
+    assert response.status_code == 200
+    assert "Active University" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__successor_modal__excludes_current_institution_from_successor_dropdown(
     client: Client,
 ) -> None:

@@ -12,6 +12,7 @@ from coda.domain.contract import Contract, PublisherId
 from coda.domain.date import DateRange
 from coda.domain.publication import JournalId
 from coda.domain.string import NonEmptyStr
+from tests import modelfactory
 from tests.contracts.test_contract_repository import (
     assert_contract_eq,
     make_contract,
@@ -119,3 +120,18 @@ def contract_form_data(contract: Contract) -> dict[str, str]:
 
 def entity_form_data(entities: Iterable[PublisherId] | Iterable[JournalId]) -> list[dict[str, str]]:
     return [{"entity_id": str(id)} for id in entities]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__contract_list_view__multi_word_search__each_word_matches_independently(
+    client: Client,
+) -> None:
+    contract = modelfactory.contract()
+    contract.name = "Alpha Beta Gamma"
+    contract.save()
+
+    response = client.get(reverse("contracts:list"), {"query": "Alpha Gamma"})
+
+    assert response.status_code == 200
+    assert "Alpha Beta Gamma" in response.content.decode()

@@ -73,8 +73,8 @@ def invoice_matching_creditor() -> MatchingQueryConfig:
     return MatchingQueryConfig(invoice, creditor.name, query_str=creditor.name)
 
 
-def invoice_matching_request_id() -> MatchingQueryConfig:
-    creditor = modelfactory.creditor()
+def invoice_matching_request_id(creditor_name: str = "") -> MatchingQueryConfig:
+    creditor = modelfactory.creditor(name=creditor_name)
     creditor_id = CreditorId(creditor.pk)
 
     journal = JournalId(modelfactory.journal().pk)
@@ -414,3 +414,92 @@ def test__invoice_list_view__searching_by_payment_status_via_http_request__finds
     invoice_ids = [item.id for item in invoice_list]
     assert unpaid_invoice.id in invoice_ids
     assert paid_invoice.id not in invoice_ids
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "search_term",
+    ["", "   ", "\t"],
+)
+def test__generic_search__empty_or_whitespace__returns_all_invoices(search_term: str) -> None:
+    creditor = modelfactory.creditor()
+    creditor_id = CreditorId(creditor.pk)
+    invoice1 = domainfactory.invoice(creditor=creditor_id, positions=())
+    invoice1.id = invoice_service.save(invoice1)
+    invoice2 = domainfactory.invoice(creditor=creditor_id, positions=())
+    invoice2.id = invoice_service.save(invoice2)
+
+    actual = iq.search_to_list_items(iq.GenericSearchCriterion(search_term))
+
+    assert len(actual) == 2
+
+
+@pytest.mark.django_db
+def test__generic_search__multi_word_across_creditor_and_request_id__matches_independently_per_field() -> (
+    None
+):
+    match = invoice_matching_request_id(creditor_name="ACS Publishing")
+    request_id = match.query_str
+
+    actual = iq.search_to_list_items(iq.GenericSearchCriterion(f"acs {request_id}"))
+
+    assert len(actual) == 1
+    assert actual[0].creditor_name == "ACS Publishing"
+
+
+@pytest.mark.django_db
+def test__generic_search__multi_word_across_different_fields__matches_independently_per_field() -> (
+    None
+):
+    creditor = modelfactory.creditor(name="ACS Publishing")
+    creditor_id = CreditorId(creditor.pk)
+    invoice = domainfactory.invoice(creditor=creditor_id, positions=())
+    invoice.id = invoice_service.save(invoice)
+
+    actual = iq.search_to_list_items(iq.GenericSearchCriterion(f"acs {invoice.number}"))
+
+    assert len(actual) == 1
+    assert actual[0].creditor_name == "ACS Publishing"
+
+
+@pytest.mark.django_db
+def test__generic_search__multi_word_creditor__each_word_matches_independently() -> None:
+    creditor = modelfactory.creditor(name="Alpha Beta Gamma")
+    creditor_id = CreditorId(creditor.pk)
+    invoice = domainfactory.invoice(creditor=creditor_id, positions=())
+    invoice.id = invoice_service.save(invoice)
+
+    actual = iq.search_to_list_items(iq.GenericSearchCriterion("Alpha Gamma"))
+
+    assert len(actual) == 1
+    assert actual[0].creditor_name == "Alpha Beta Gamma"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__search_publications__multi_word_search__each_word_matches_independently(
+    client: Client,
+) -> None:
+    modelfactory.fundingrequest("Nature Communications")
+
+    response = client.post(
+        reverse("invoices:pub_search"),
+        {"q": "Nat Comm"},
+    )
+
+    assert response.status_code == 200
+    assert "Nature Communications" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__fundingsource_list_view__multi_word_search__each_word_matches_independently(
+    client: Client,
+) -> None:
+
+    modelfactory.budget(name="Alpha Beta Gamma")
+
+    response = client.get(reverse("invoices:fundingsource_list"), {"query": "Alpha Gamma"})
+
+    assert response.status_code == 200
+    assert "Alpha Beta Gamma" in response.content.decode()
