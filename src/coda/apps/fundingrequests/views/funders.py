@@ -167,6 +167,11 @@ class FundingOrganizationCreateView(
                 return self.form_invalid(form)
         self.object = cast(FundingOrganization, form.save())
         self.persist_links(self.object, link_forms)
+
+        response = _overlap_response(self.request, self.object)
+        if response:
+            return response
+
         return redirect(self.get_success_url())
 
 
@@ -204,6 +209,11 @@ class FundingOrganizationUpdateView(
         self.object = form.save()
         if not self.persist_links(self.object, self.link_forms()):
             return self.form_invalid(form)
+
+        response = _overlap_response(self.request, self.object)
+        if response:
+            return response
+
         return redirect(self.get_success_url())
 
 
@@ -423,6 +433,25 @@ def request_update_from_ror_funder(request: HttpRequest, pk: int) -> HttpRespons
     )
 
 
+def _overlap_response(
+    request: HttpRequest,
+    org: FundingOrganization,
+) -> HttpResponse | None:
+    """Return the overlap detection dialog if ``org`` shares identifiers
+    with another funding organization, or ``None`` if not."""
+    overlapping_orgs = find_overlapping_organizations(org)
+    if overlapping_orgs:
+        return render(
+            request,
+            "fundingrequests/funders/overlap_detection_dialog.html",
+            {
+                "source": org,
+                "overlapping_orgs": overlapping_orgs,
+            },
+        )
+    return None
+
+
 @login_required
 @require_POST
 def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
@@ -434,18 +463,9 @@ def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
             request, f"Funding organization '{org.name}' updated from ROR successfully."
         )
 
-        # Check for overlapping organizations — two orgs may already share
-        # identifiers whether or not the ROR update changed anything.
-        overlapping_orgs = find_overlapping_organizations(org)
-        if overlapping_orgs:
-            return render(
-                request,
-                "fundingrequests/funders/overlap_detection_dialog.html",
-                {
-                    "source": org,
-                    "overlapping_orgs": overlapping_orgs,
-                },
-            )
+        response = _overlap_response(request, org)
+        if response:
+            return response
     except Exception as e:
         messages.error(request, f"Error updating from ROR: {str(e)}")
     return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
