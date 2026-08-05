@@ -70,22 +70,32 @@ def test__demo_context__when_demo_mode_true_but_crossref_client__returns_empty_d
     assert result == {}
 
 
-def test__version_context__includes_update_info(
+def test__version_context__includes_version_info(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     provider = InMemoryVersionInfoProvider()
     provider.branch = "develop"
     provider.version = "abc123"
-    provider.update_info = {"update_available": True}
     monkeypatch.setattr("coda.apps.version._provider", provider)
 
     request = HttpRequest()
     ctx = version_context(request)
 
     assert ctx["coda_version"] == "abc123"
-    assert ctx["update_available"] is True
     assert ctx["current_branch"] == "develop"
     assert ctx["github_url"] == "https://github.com/coda-oa/coda/tree/develop"
+
+
+def test__version_context__update_available_is_false_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = InMemoryVersionInfoProvider()
+    monkeypatch.setattr("coda.apps.version._provider", provider)
+
+    request = HttpRequest()
+    ctx = version_context(request)
+
+    assert ctx["update_available"] is False
 
 
 def test__version_context__with_tag__uses_release_url(
