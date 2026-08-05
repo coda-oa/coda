@@ -19,10 +19,7 @@
             {% endfor %}
         </ul>
         <footer>
-            <button class="secondary"
-                    onclick="{% if dismiss_url %}window.location.href='{{ dismiss_url }}'{% else %}document.getElementById('overlap-dialog').close(){% endif %}">
-                Dismiss
-            </button>
+            <a href="{{ dismiss_url }}" class="button secondary">Dismiss</a>
         </footer>
     </article>
 </dialog>
