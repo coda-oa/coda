@@ -52,7 +52,6 @@ def test__search__filters_by_name() -> None:
 
 
 @pytest.mark.django_db
-@pytest.mark.django_db
 @pytest.mark.parametrize(
     ("search_term",),
     [
