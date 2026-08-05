@@ -2,7 +2,7 @@ import pytest
 
 from coda.apps.fundingrequests.services.funder_services import find_overlapping_organizations
 from coda.domain.institution.links import Ror
-from coda.domain.publication.links import CrossrefId
+from coda.domain.publication.links import CrossrefId, Doi
 from tests import modelfactory
 from tests.fundingorganizations.conftest import VALID_ROR_ID, VALID_ROR_ID_2
 
@@ -92,3 +92,35 @@ class TestFindOverlappingOrganizations:
         overlapping = find_overlapping_organizations(org1)
 
         assert len(overlapping) == 0
+
+    def test__find_overlapping__detects_overlap_when_orgs_share_subset_of_links(
+        self,
+    ) -> None:
+        """Should detect overlap when one org has a superset of another org's links.
+        Org A has ROR + Crossref, Org B has DOI + same ROR + same Crossref.
+        They share ROR and Crossref — overlap should be detected."""
+        org_a = modelfactory.funding_organization(name="Org A")
+        org_b = modelfactory.funding_organization(name="Org B")
+
+        org_a.set_links([Ror(VALID_ROR_ID), CrossrefId("12345")])
+        org_b.set_links([Doi("10.1000/xyz789"), Ror(VALID_ROR_ID), CrossrefId("12345")])
+
+        overlapping = find_overlapping_organizations(org_a)
+
+        assert len(overlapping) == 1
+        assert overlapping[0].pk == org_b.pk
+
+    def test__find_overlapping__detects_overlap_when_orgs_share_subset_of_links_reverse(
+        self,
+    ) -> None:
+        """Same as above but searching from the org with the superset of links."""
+        org_a = modelfactory.funding_organization(name="Org A")
+        org_b = modelfactory.funding_organization(name="Org B")
+
+        org_a.set_links([Ror(VALID_ROR_ID), CrossrefId("12345")])
+        org_b.set_links([Doi("10.1000/xyz789"), Ror(VALID_ROR_ID), CrossrefId("12345")])
+
+        overlapping = find_overlapping_organizations(org_b)
+
+        assert len(overlapping) == 1
+        assert overlapping[0].pk == org_a.pk

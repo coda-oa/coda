@@ -65,14 +65,11 @@ def merge_funding_organizations(
     source: FundingOrganizationModel,
     target: FundingOrganizationModel,
 ) -> None:
-    # Move all ExternalFunding records from source to target
-    ExternalFunding.objects.filter(organization=source).update(organization=target)
+    ExternalFunding.objects.transfer_to(source, target)
 
-    # Merge links from source to target (target takes priority)
     merged_funder = compute_merge_preview(source, target)
     target.set_links(merged_funder.links)
 
-    # Delete the source organization
     source.delete()
 
 

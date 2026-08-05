@@ -429,23 +429,23 @@ def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     try:
         ror_client = get_ror_client()
-        links_changed = update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)
+        update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)
         messages.success(
             request, f"Funding organization '{org.name}' updated from ROR successfully."
         )
 
-        # Check for overlapping organizations if links changed
-        if links_changed:
-            overlapping_orgs = find_overlapping_organizations(org)
-            if overlapping_orgs:
-                return render(
-                    request,
-                    "fundingrequests/funders/overlap_detection_dialog.html",
-                    {
-                        "source": org,
-                        "overlapping_orgs": overlapping_orgs,
-                    },
-                )
+        # Check for overlapping organizations — two orgs may already share
+        # identifiers whether or not the ROR update changed anything.
+        overlapping_orgs = find_overlapping_organizations(org)
+        if overlapping_orgs:
+            return render(
+                request,
+                "fundingrequests/funders/overlap_detection_dialog.html",
+                {
+                    "source": org,
+                    "overlapping_orgs": overlapping_orgs,
+                },
+            )
     except Exception as e:
         messages.error(request, f"Error updating from ROR: {str(e)}")
     return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))

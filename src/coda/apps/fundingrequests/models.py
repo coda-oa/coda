@@ -4,6 +4,7 @@ from typing import Any
 
 from django.core.validators import RegexValidator
 from django.db import models
+from django.db.models import Min, Q
 from django.urls import reverse
 from django.utils import timezone
 
@@ -117,10 +118,10 @@ class FundingOrganizationLinkType(models.Model):
 class FundingOrganizationLinkManager(models.Manager["FundingOrganizationLink"]):
     def find_by_links(self, links: Iterable[Link]) -> models.QuerySet["FundingOrganizationLink"]:
         """Find existing links matching any of the given domain Link objects."""
-        return self.filter(
-            type__name__in={link.type() for link in links},
-            value__in=[link.value() for link in links],
-        ).select_related("funding_organization")
+        query = Q()
+        for link in links:
+            query |= Q(type__name=link.type(), value=link.value())
+        return self.filter(query).select_related("funding_organization")
 
 
 class FundingOrganizationLink(models.Model):
@@ -135,6 +136,37 @@ class FundingOrganizationLink(models.Model):
     )  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
+class ExternalFundingManager(models.Manager["ExternalFunding"]):
+    def transfer_to(
+        self,
+        source: FundingOrganization,
+        target: FundingOrganization,
+    ) -> None:
+        """Transfer all ExternalFunding records from source to target.
+
+        After the move, rows that share the same ``(funding_request_id, project_id)``
+        pair are deduplicated — if both organisations funded the same request under
+        the same project, only one row is kept.
+        """
+        self.filter(organization=source).update(organization=target)
+        self._deduplicate(target)
+
+    def _deduplicate(self, organization: FundingOrganization) -> None:
+        """Remove duplicate ExternalFunding rows for the given organization.
+
+        Two rows are considered duplicates when they share the same
+        ``(funding_request_id, project_id)`` pair. Only the earliest row
+        (lowest primary key) is kept per unique combination.
+        """
+        keep_ids = (
+            self.filter(organization=organization)
+            .values("funding_request_id", "project_id")
+            .annotate(min_id=Min("id"))
+            .values_list("min_id", flat=True)
+        )
+        self.filter(organization=organization).exclude(id__in=list(keep_ids)).delete()
+
+
 class ExternalFunding(models.Model):
     funding_request = models.ForeignKey(
         "FundingRequest",
@@ -145,6 +177,10 @@ class ExternalFunding(models.Model):
     organization = models.ForeignKey(FundingOrganization, on_delete=models.PROTECT)
     project_id = models.CharField()
     project_name = models.CharField()
+
+    objects: ExternalFundingManager = (
+        ExternalFundingManager()
+    )  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class Label(models.Model):

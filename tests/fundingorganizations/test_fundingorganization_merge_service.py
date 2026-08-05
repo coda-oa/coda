@@ -1,6 +1,6 @@
 import pytest
 
-from coda.apps.fundingrequests.models import FundingOrganization
+from coda.apps.fundingrequests.models import ExternalFunding, FundingOrganization
 from coda.apps.fundingrequests.services.funder_services import merge_funding_organizations
 from coda.domain.institution.links import Ror
 from coda.domain.publication.links import CrossrefId
@@ -66,3 +66,100 @@ class TestMergeFundingOrganizations:
 
         target.refresh_from_db()
         assert target.name == "Target Org"
+
+    def test__merge__deduplicates_external_funding_when_source_and_target_share_same_funding_request_with_same_project_id(
+        self,
+        source_target_orgs: tuple[FundingOrganization, FundingOrganization],
+    ) -> None:
+        """When both source and target have ExternalFunding records for the same funding request
+        with the same project_id, the merge should deduplicate (only keep one)."""
+        source, target = source_target_orgs
+        funding_request = modelfactory.fundingrequest()
+
+        ExternalFunding.objects.create(
+            funding_request=funding_request,
+            organization=source,
+            project_id="PROJ-001",
+            project_name="Grant A",
+        )
+        ExternalFunding.objects.create(
+            funding_request=funding_request,
+            organization=target,
+            project_id="PROJ-001",
+            project_name="Grant A",
+        )
+
+        merge_funding_organizations(source, target)
+
+        remaining = ExternalFunding.objects.filter(
+            funding_request=funding_request,
+            organization=target,
+            project_id="PROJ-001",
+        )
+        assert remaining.count() == 1
+
+    def test__merge__keeps_external_funding_with_different_project_ids_on_same_funding_request(
+        self,
+        source_target_orgs: tuple[FundingOrganization, FundingOrganization],
+    ) -> None:
+        """When source and target each fund the same request via different grants
+        (different project_id), the merge should keep both — they're distinct."""
+        source, target = source_target_orgs
+        funding_request = modelfactory.fundingrequest()
+
+        ExternalFunding.objects.create(
+            funding_request=funding_request,
+            organization=source,
+            project_id="PROJ-001",
+            project_name="Grant A",
+        )
+        ExternalFunding.objects.create(
+            funding_request=funding_request,
+            organization=target,
+            project_id="PROJ-002",
+            project_name="Grant B",
+        )
+
+        merge_funding_organizations(source, target)
+
+        remaining = ExternalFunding.objects.filter(
+            funding_request=funding_request,
+            organization=target,
+        )
+        assert remaining.count() == 2
+
+    def test__merge__handles_mixed_shared_and_unique_external_funding(
+        self,
+        source_target_orgs: tuple[FundingOrganization, FundingOrganization],
+    ) -> None:
+        """When source and target share some ExternalFunding records but also have unique ones,
+        merge should deduplicate shared ones and keep unique ones."""
+        source, target = source_target_orgs
+        fr1 = modelfactory.fundingrequest()
+        fr2 = modelfactory.fundingrequest()
+
+        # fr1: both orgs fund it with SAME project_id (should deduplicate)
+        ExternalFunding.objects.create(
+            funding_request=fr1,
+            organization=source,
+            project_id="SHARED",
+            project_name="Shared Project",
+        )
+        ExternalFunding.objects.create(
+            funding_request=fr1,
+            organization=target,
+            project_id="SHARED",
+            project_name="Shared Project",
+        )
+        # fr2: only source funds it (should move normally)
+        ExternalFunding.objects.create(
+            funding_request=fr2,
+            organization=source,
+            project_id="UNIQUE",
+            project_name="Unique Project",
+        )
+
+        merge_funding_organizations(source, target)
+
+        assert ExternalFunding.objects.filter(organization_id=target.pk).count() == 2
+        assert not ExternalFunding.objects.filter(organization_id=source.pk).exists()

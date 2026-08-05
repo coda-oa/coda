@@ -79,3 +79,28 @@ class TestAutomaticOverlapDetection:
 
         content = response.content.decode()
         assert f"Merge into {org2.name}" in content
+
+    def test__update_from_ror__shows_overlap_dialog_even_when_no_links_changed(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Overlap detection should run regardless of whether the ROR update
+        actually changed any links. Two orgs may already share identifiers;
+        that overlap exists whether or not the update mutated anything."""
+        org1, org2 = _create_overlapping_ror_orgs()
+
+        def mock_update(*args: object, **kwargs: object) -> bool:
+            return False  # Simulate: ROR update didn't change any links
+
+        monkeypatch.setattr(
+            "coda.apps.fundingrequests.views.funders.update_funder_from_ror",
+            mock_update,
+        )
+
+        response = client.post(
+            reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org1.pk})
+        )
+
+        content = response.content.decode()
+        assert "Duplicate Organization Detected" in content
+        assert "Org 2" in content
+        assert "Merge" in content
