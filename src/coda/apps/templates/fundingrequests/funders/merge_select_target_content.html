@@ -1,0 +1,60 @@
+<article>
+    <header class="flex justify-between align-center mb-1">
+        <h2 class="my-1">Merge Funding Organization</h2>
+        <button aria-label="Close"
+                class="close"
+                onclick="this.closest('dialog').remove()"></button>
+    </header>
+    <div class="my-2">
+        <p>
+            You are merging <strong>{{ source.name }}</strong> into another organization.
+            Please search for and select the target organization.
+        </p>
+    </div>
+    <form method="get"
+          hx-get="{% url 'fundingrequests:funder_merge_select_target' pk=source.pk %}"
+          hx-target="closest dialog"
+          hx-swap="innerHTML">
+        <div class="flex">
+            <input type="text"
+                   name="query"
+                   value="{{ query }}"
+                   aria-label="Search target organization"
+                   placeholder="Search by name or identifier (DOI, ROR, Crossref)..." />
+            <button type="submit" class="primary">Search</button>
+        </div>
+    </form>
+    {% if query %}
+        <section class="my-2">
+            <h3>Search Results</h3>
+            {% if results %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for org in results %}
+                            <tr>
+                                <td>{{ org.name }}</td>
+                                <td>
+                                    <a href="{% url 'fundingrequests:funder_merge_preview' pk=source.pk target_pk=org.pk %}"
+                                       class="primary">Select</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No organizations found matching "{{ query }}".</p>
+            {% endif %}
+        </section>
+    {% endif %}
+    <footer class="flex justify-end mt-2">
+        <button type="button"
+                class="secondary my-0"
+                onclick="this.closest('dialog').remove()">Cancel</button>
+    </footer>
+</article>

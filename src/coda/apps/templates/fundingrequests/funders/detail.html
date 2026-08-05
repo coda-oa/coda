@@ -6,6 +6,10 @@
             {% if object.archived_at %}<span class="pill danger">Archived</span>{% endif %}
         </h1>
         <div class="flex">
+            <button class="secondary"
+                    hx-get="{% url 'fundingrequests:funder_request_update_from_ror' pk=object.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Update from ROR</button>
             <a href="{% url "fundingrequests:funders_update" pk=object.pk %}"
                class="button secondary">Edit</a>
         </div>
@@ -88,6 +92,10 @@
         </div>
     {% else %}
         <div class="flex justify-end my-2">
+            <button class="secondary"
+                    hx-get="{% url 'fundingrequests:funder_merge_select_target' pk=object.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Merge into...</button>
             <button class="secondary"
                     hx-get="{% url 'fundingrequests:funder_request_archive' pk=object.pk %}"
                     hx-target="body"

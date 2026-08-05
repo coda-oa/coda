@@ -1,14 +1,20 @@
+from collections.abc import Callable
+from typing import cast
+
 from coda.domain.institution.links import Ror
-from coda.domain.publication.links import CrossrefId, Doi
+from coda.domain.publication.links import CrossrefId, Doi, Link, link_registry
 
 type FundingOrganizationLink = Doi | Ror | CrossrefId
 
-_LinkTypes: dict[str, type[FundingOrganizationLink]] = {t.type(): t for t in (Doi, Ror, CrossrefId)}
-_LoweredLinkTypes = {t_name.lower(): t for t_name, t in _LinkTypes.items()}
+_registry = link_registry(Doi, Ror, CrossrefId)
+
+_LinkTypes: dict[str, type[Link]] = _registry.by_type
+_LoweredLinkTypes: dict[str, Callable[[str], Link]] = _registry.by_lower
+
+
+def link_types() -> list[str]:
+    return list(_LinkTypes.keys())
 
 
 def create_link(link_type: str, link_value: str) -> FundingOrganizationLink:
-    constructor = _LoweredLinkTypes.get(link_type.lower())
-    if not constructor:
-        raise ValueError(f"Unknown link type: {link_type}")
-    return constructor(link_value)
+    return cast(FundingOrganizationLink, _registry.create_link(link_type, link_value))

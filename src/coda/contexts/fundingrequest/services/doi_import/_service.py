@@ -26,7 +26,7 @@ from coda.contexts.fundingrequest.services.doi_import.errors import (
     DOIAlreadyImported,
     InvalidMetadataError,
 )
-from coda.contexts.fundingrequest.services.funder_resolution import FunderMatch
+from coda.domain.fundingrequest import FunderRecord
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequestId
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
@@ -67,7 +67,7 @@ class DOIRepository(Protocol):
         self,
         preview: PreviewFundingRequest,
         override: OverrideImport,
-        funder_matches: list[FunderMatch],
+        funder_matches: list[FunderRecord],
     ) -> FundingRequestId: ...
 
 
@@ -345,15 +345,15 @@ class DOIImportService:
                 if monograph.publisher_name is None:
                     raise InvalidMetadataError("Monograph missing publisher name")
 
-    def _build_funder_matches(self, funding: list[PreviewExternalFunding]) -> list[FunderMatch]:
-        """Turn preview funders into domain ``FunderMatch`` objects.
+    def _build_funder_matches(self, funding: list[PreviewExternalFunding]) -> list[FunderRecord]:
+        """Turn preview funders into domain ``FunderRecord`` objects.
 
         Parses each funder's raw identifier strings into validated domain
         ``Link`` objects via ``_funder_links``. ROR enrichment happens later,
         inside ``resolve_funders`` (owned by the fundingrequest context).
         """
         return [
-            FunderMatch(name=f.name, links=tuple(_funder_links(f.identifiers))) for f in funding
+            FunderRecord(name=f.name, links=tuple(_funder_links(f.identifiers))) for f in funding
         ]
 
 

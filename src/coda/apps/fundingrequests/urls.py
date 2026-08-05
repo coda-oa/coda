@@ -34,10 +34,15 @@ from coda.apps.fundingrequests.views.funders import (
     fundingorganizations_detail,
     fundingorganizations_list,
     fundingorganizations_update,
+    merge_funder_execute,
+    merge_funder_preview,
+    merge_funder_select_target,
     request_archive_funder,
     request_delete_funder,
     request_restore_funder,
+    request_update_from_ror_funder,
     restore_funder,
+    update_from_ror_funder,
 )
 from coda.apps.fundingrequests.views.home import fundingrequest_home
 from coda.apps.fundingrequests.views.labels import (
@@ -176,6 +181,31 @@ urlpatterns = [
         "funders/<int:pk>/request-restore/", request_restore_funder, name="funder_request_restore"
     ),
     path("funders/<int:pk>/restore/", restore_funder, name="funder_restore"),
+    path(
+        "funders/<int:pk>/request-update-from-ror/",
+        request_update_from_ror_funder,
+        name="funder_request_update_from_ror",
+    ),
+    path(
+        "funders/<int:pk>/update-from-ror/",
+        update_from_ror_funder,
+        name="funder_update_from_ror",
+    ),
+    path(
+        "funders/<int:pk>/merge/select-target/",
+        merge_funder_select_target,
+        name="funder_merge_select_target",
+    ),
+    path(
+        "funders/<int:pk>/merge/<int:target_pk>/",
+        merge_funder_preview,
+        name="funder_merge_preview",
+    ),
+    path(
+        "funders/<int:pk>/merge/<int:target_pk>/execute/",
+        merge_funder_execute,
+        name="funder_merge_execute",
+    ),
     path(
         "funders/partial/add-linkrow/",
         add_funder_linkrow,

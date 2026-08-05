@@ -20,11 +20,8 @@ from coda.apps.publications.repositories import publication_repository
 from coda.apps.publishers import services as publisher_services
 from coda.checks.nullcheckfactory import NullCheckFactory
 from coda.contexts.fundingrequest.services import fundingrequests
-from coda.contexts.fundingrequest.services.funder_resolution import (
-    FunderMatch,
-    ResolvedFunder,
-    resolve_funders,
-)
+from coda.domain.fundingrequest import FunderRecord
+from coda.contexts.fundingrequest.services.funder_resolution import resolve_funders
 from coda.contexts.fundingrequest.dto.preview import PreviewFundingRequest
 from coda.contexts.fundingrequest.services.doi_import._dto_builder import build_creation_dto
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client import (
@@ -50,7 +47,7 @@ if TYPE_CHECKING:
 class _DraftImport:
     preview: PreviewFundingRequest
     override: OverrideImport
-    funder_matches: list[FunderMatch] = field(default_factory=list)
+    funder_matches: list[FunderRecord] = field(default_factory=list)
 
 
 class UnitOfWorkDOIRepository:
@@ -151,7 +148,7 @@ class UnitOfWorkDOIRepository:
         self,
         preview: PreviewFundingRequest,
         override: OverrideImport,
-        funder_matches: list[FunderMatch],
+        funder_matches: list[FunderRecord],
     ) -> FundingRequestId:
         self._drafts.append(
             _DraftImport(preview=preview, override=override, funder_matches=funder_matches)
@@ -170,11 +167,11 @@ class UnitOfWorkDOIRepository:
             return []
 
         # Step 1: resolve all funders once
-        all_matches: list[FunderMatch] = []
+        all_matches: list[FunderRecord] = []
         for draft in self._drafts:
             all_matches.extend(draft.funder_matches)
 
-        resolved: list[ResolvedFunder] = []
+        resolved: list[FunderRecord] = []
         if all_matches:
             resolved = resolve_funders(all_matches, self._ror_client)
 

@@ -13,6 +13,7 @@ import pytest
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client import (
     RORClient,
     RORClientError,
+    RORRecord,
 )
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client.caching import (
     CachingRORClient,
@@ -174,6 +175,24 @@ EXACT_ONE_PAGE: dict[int, dict[str, Any]] = {1: _funders_response(20)}
 
 
 EMPTY_PAGE: dict[int, dict[str, Any]] = {1: {"number_of_results": 0, "items": []}}
+
+
+# ---------------------------------------------------------------------------
+# RORRecord.to_links tests
+# ---------------------------------------------------------------------------
+
+
+def test__ror_record_to_links__empty_fundref_all__does_not_crash() -> None:
+    """Given a fundref entry with an empty 'all' array, to_links() should not
+    raise IndexError and should return only the Ror link."""
+    record = RORRecord(
+        id="https://ror.org/01pp8nd67",
+        name="Test Institution",
+        external_ids={"fundref": []},
+    )
+    links = record.to_links()
+    assert len(links) == 1
+    assert isinstance(links[0], Ror)
 
 
 # ---------------------------------------------------------------------------

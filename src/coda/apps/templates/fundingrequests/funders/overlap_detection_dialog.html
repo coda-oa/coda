@@ -1,0 +1,25 @@
+<dialog id="overlap-dialog" open>
+    <article>
+        <header>
+            <h2>Duplicate Organization Detected</h2>
+        </header>
+        <p>We found another organization with matching identifiers:</p>
+        <ul>
+            {% for org in overlapping_orgs %}
+                <li>
+                    <strong>{{ org.name }}</strong>
+                    {% if org.links.all %}
+                        <ul>
+                            {% for link in org.links.all %}<li>{{ link.type.name }}: {{ link.value }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                    <a href="{% url 'fundingrequests:funder_merge_preview' pk=source.pk target_pk=org.pk %}"
+                       class="primary">Merge into {{ org.name }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+        <footer>
+            <a href="{{ dismiss_url }}" class="button secondary">Dismiss</a>
+        </footer>
+    </article>
+</dialog>

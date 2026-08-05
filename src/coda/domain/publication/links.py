@@ -1,5 +1,6 @@
 import re
-from typing import Any, NamedTuple, Protocol
+from collections.abc import Callable
+from typing import Any, NamedTuple, Protocol, cast
 
 import pydantic
 
@@ -17,6 +18,45 @@ class Link(Protocol):
     def value(self) -> str: ...
 
     def url(self) -> str | None: ...
+
+
+class LinkRegistry:
+    by_type: dict[str, type[Link]]
+    by_lower: dict[str, Callable[[str], Link]]
+    _create: Callable[[str, str], Link]
+
+    def __init__(
+        self,
+        by_type: dict[str, type[Link]],
+        by_lower: dict[str, Callable[[str], Link]],
+        create: Callable[[str, str], Link],
+    ) -> None:
+        self.by_type = by_type
+        self.by_lower = by_lower
+        self._create = create
+
+    def create_link(self, link_type: str, link_value: str) -> Link:
+        return self._create(link_type, link_value)
+
+
+def link_registry(
+    *link_types: type[Link],
+    fallback: Callable[[str, str], Link] | None = None,
+) -> LinkRegistry:
+    by_type: dict[str, type[Link]] = {}
+    for t in link_types:
+        by_type[cast(Any, t).type()] = t
+    by_lower: dict[str, Callable[[str], Link]] = {name.lower(): t for name, t in by_type.items()}
+
+    def create_link(link_type: str, link_value: str) -> Link:
+        constructor = by_lower.get(link_type.lower())
+        if not constructor:
+            if fallback is not None:
+                return fallback(link_type, link_value)
+            raise ValueError(f"Unknown link type: {link_type}")
+        return constructor(link_value)
+
+    return LinkRegistry(by_type=by_type, by_lower=by_lower, create=create_link)
 
 
 class UserLink(NamedTuple):
@@ -529,8 +569,22 @@ class CrossrefId:
         return hash((self._value,))
 
 
-_LinkTypes = {t.type(): t for t in (Doi, Isbn, Url, Pmid, Pmc, Handle, Urn, Arxiv, Oai, CrossrefId)}
-_LoweredLinkTypes = {t_name.lower(): t for t_name, t in _LinkTypes.items()}
+_registry = link_registry(
+    Doi,
+    Isbn,
+    Url,
+    Pmid,
+    Pmc,
+    Handle,
+    Urn,
+    Arxiv,
+    Oai,
+    CrossrefId,
+    fallback=lambda t, v: UserLink(link_type=t, link_value=v),
+)
+
+_LinkTypes = _registry.by_type
+_LoweredLinkTypes = _registry.by_lower
 
 
 def link_types() -> list[str]:
@@ -542,8 +596,4 @@ def valid_link_type(v: str) -> bool:
 
 
 def create_link(link_type: str, link_value: str) -> Link:
-    link_constructor = _LoweredLinkTypes.get(link_type.lower())
-    if not link_constructor:
-        return UserLink(link_type=link_type, link_value=link_value)
-
-    return link_constructor(link_value)
+    return _registry.create_link(link_type, link_value)

@@ -14,7 +14,8 @@ from coda.apps.publications.repositories import publication_repository
 from coda.apps.publishers import services as publisher_services
 from coda.checks.nullcheckfactory import NullCheckFactory
 from coda.contexts.fundingrequest.services import fundingrequests
-from coda.contexts.fundingrequest.services.funder_resolution import FunderMatch, resolve_funders
+from coda.domain.fundingrequest import FunderRecord
+from coda.contexts.fundingrequest.services.funder_resolution import resolve_funders
 from coda.contexts.fundingrequest.dto.preview import PreviewFundingRequest
 from coda.contexts.fundingrequest.services.doi_import._dto_builder import build_creation_dto
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client import (
@@ -73,7 +74,7 @@ class ImmediateDOIRepository:
         self,
         preview: PreviewFundingRequest,
         override: OverrideImport,
-        funder_matches: list[FunderMatch],
+        funder_matches: list[FunderRecord],
     ) -> FundingRequestId:
         resolved = resolve_funders(funder_matches, self._ror_client)
         dto = build_creation_dto(self, resolved, preview, override)

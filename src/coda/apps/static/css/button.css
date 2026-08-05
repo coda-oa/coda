@@ -49,6 +49,10 @@ button.undecorated {
   color: var(--coda-validation-text-color);
 }
 
+a.button {
+  display: inline-block;
+}
+
 .button.contrast {
   background-color: var(--coda-contrast-background-color);
   border-color: var(--coda-contrast-border-color);

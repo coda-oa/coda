@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from typing import Any, cast
 
 from django import forms
@@ -17,16 +19,21 @@ from coda.apps.fundingrequests.forms import ExternalFundingFormset, FundingOrgan
 from coda.apps.fundingrequests.models import (
     ExternalFunding,
     FundingOrganization,
-    FundingOrganizationLink,
     FundingOrganizationLinkType,
 )
 from coda.apps.fundingrequests.services.funder_services import (
-    archive_funding_organization,
     can_delete_funding_organization,
+    can_merge_funding_organization,
+    compute_merge_preview,
     delete_funding_organization,
-    restore_funding_organization,
+    find_overlapping_organizations,
+    merge_funding_organizations,
+    search_organizations_for_merge,
+    update_funder_from_ror,
 )
 from coda.apps.views import SimpleSearchEntityListView
+from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import RORClient
+from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 
 FUNDERS_LIST_URL = "fundingrequests:funders"
 FUNDER_DETAIL_URL = "fundingrequests:funder_detail"
@@ -34,6 +41,10 @@ FUNDER_ENTITY_NAME = "Funding Organization"
 FUNDER_ARCHIVE_SUCCESS_MSG = "Funding organization '{name}' archived successfully."
 FUNDER_RESTORE_SUCCESS_MSG = "Funding organization '{name}' restored successfully."
 FUNDER_DELETE_SUCCESS_MSG = "Funding organization '{name}' deleted successfully."
+
+
+def get_ror_client() -> RORClient:
+    return RORClient()
 
 
 @breadcrumb("Funding Organizations", parent_url_name="fundingrequests:home")
@@ -101,6 +112,18 @@ class FundingOrganizationLinkFormMixin:
             for t, v in zip(types, values)
         ]
 
+    def persist_links(
+        self, org: FundingOrganization, link_forms: list[FundingOrganizationLinkForm]
+    ) -> bool:
+        """Validate link forms and persist to org. Returns True if all valid."""
+        for form in link_forms:
+            if not form.is_valid():
+                return False
+        _links = [form.link_object() for form in link_forms]
+        links = [link for link in _links if link is not None]
+        org.set_links(links)
+        return True
+
 
 @breadcrumb("Funding Organization Detail", parent_url_name=FUNDERS_LIST_URL)
 class FundingOrganizationDetailView(LoginRequiredMixin, DetailView[FundingOrganization]):
@@ -139,21 +162,18 @@ class FundingOrganizationCreateView(
         return context
 
     def form_valid(self, form: Any) -> HttpResponse:
-        forms = self.link_forms()
-        for f in forms:
+        link_forms = self.link_forms()
+        for f in link_forms:
             if not f.is_valid():
                 return self.form_invalid(form)
-        self.object = form.save()
-        for f in forms:
-            data = f.get_form_data()
-            if data["link_type"] and data["link_value"]:
-                link_type = FundingOrganizationLinkType.objects.get(name=data["link_type"])
-                FundingOrganizationLink.objects.create(
-                    funding_organization=self.object, type=link_type, value=data["link_value"]
-                )
-        from django.shortcuts import redirect as redirect_fn
+        self.object = cast(FundingOrganization, form.save())
+        self.persist_links(self.object, link_forms)
 
-        return redirect_fn(self.get_success_url())
+        response = _overlap_response(self.request, self.object, dismiss_url=self.get_success_url())
+        if response:
+            return response
+
+        return redirect(self.get_success_url())
 
 
 fundingorganizations_create = FundingOrganizationCreateView.as_view()
@@ -182,24 +202,18 @@ class FundingOrganizationUpdateView(
         if self.has_links():
             return self.assemble_link_data()
         return [
-            {"link": {"link_type": link.type.name, "link_value": link.value}, "errors": {}}
-            for link in self.object.links.all()
+            {"link": {"link_type": link.type(), "link_value": link.value()}, "errors": {}}
+            for link in self.object.get_links()
         ]
 
     def form_valid(self, form: Any) -> HttpResponse:
         self.object = form.save()
-        forms = self.link_forms()
-        for link_form in forms:
-            if not link_form.is_valid():
-                return self.form_invalid(form)
-        FundingOrganizationLink.objects.filter(funding_organization=self.object).delete()
-        for link_form in forms:
-            data = link_form.get_form_data()
-            if data["link_type"] and data["link_value"]:
-                link_type = FundingOrganizationLinkType.objects.get(name=data["link_type"])
-                FundingOrganizationLink.objects.create(
-                    funding_organization=self.object, type=link_type, value=data["link_value"]
-                )
+        if not self.persist_links(self.object, self.link_forms()):
+            return self.form_invalid(form)
+
+        response = _overlap_response(self.request, self.object, dismiss_url=self.get_success_url())
+        if response:
+            return response
 
         return redirect(self.get_success_url())
 
@@ -213,24 +227,55 @@ def _htmx_redirect(url: str) -> HttpResponse:
     return response
 
 
-def _archive_modal_context(org: FundingOrganization, *, error: str | None = None) -> dict[str, Any]:
+def _guard_can_merge(
+    request: HttpRequest,
+    pk: int,
+    source: FundingOrganization,
+    target: FundingOrganization,
+) -> HttpResponse | None:
+    can_merge, reasons = can_merge_funding_organization(source, target)
+    if not can_merge:
+        messages.error(request, f"Cannot merge organizations: {', '.join(reasons)}")
+        return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+    return None
+
+
+def _modal_context(
+    org: FundingOrganization,
+    url_key: str,
+    url_name: str,
+    *,
+    error: str | None = None,
+) -> dict[str, Any]:
     ctx: dict[str, Any] = {
         "org": org,
-        "archive_url": reverse("fundingrequests:funder_archive", kwargs={"pk": org.pk}),
+        url_key: reverse(url_name, kwargs={"pk": org.pk}),
     }
     if error:
         ctx["error"] = error
     return ctx
 
 
-def _restore_modal_context(org: FundingOrganization, *, error: str | None = None) -> dict[str, Any]:
-    ctx: dict[str, Any] = {
-        "org": org,
-        "restore_url": reverse("fundingrequests:funder_restore", kwargs={"pk": org.pk}),
-    }
-    if error:
-        ctx["error"] = error
-    return ctx
+def _archival_action(
+    request: HttpRequest,
+    pk: int,
+    action_method: Callable[[FundingOrganization], None],
+    modal_template: str,
+    url_key: str,
+    url_name: str,
+    success_msg: str,
+) -> HttpResponse:
+    org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    try:
+        action_method(org)
+    except ValueError as e:
+        return render(
+            request,
+            modal_template,
+            _modal_context(org, url_key, url_name, error=str(e)),
+        )
+    messages.success(request, success_msg.format(name=org.name))
+    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
 
 
 @login_required
@@ -272,24 +317,24 @@ def delete_funder(request: HttpRequest, pk: int) -> HttpResponse:
 def request_archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     return render(
-        request, "fundingrequests/funders/archive_modal.html", _archive_modal_context(org)
+        request,
+        "fundingrequests/funders/archive_modal.html",
+        _modal_context(org, "archive_url", "fundingrequests:funder_archive"),
     )
 
 
 @login_required
 @require_POST
 def archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
-    org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
-    try:
-        archive_funding_organization(org)
-    except ValueError as e:
-        return render(
-            request,
-            "fundingrequests/funders/archive_modal.html",
-            _archive_modal_context(org, error=str(e)),
-        )
-    messages.success(request, FUNDER_ARCHIVE_SUCCESS_MSG.format(name=org.name))
-    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+    return _archival_action(
+        request,
+        pk,
+        action_method=FundingOrganization.archive,
+        modal_template="fundingrequests/funders/archive_modal.html",
+        url_key="archive_url",
+        url_name="fundingrequests:funder_archive",
+        success_msg=FUNDER_ARCHIVE_SUCCESS_MSG,
+    )
 
 
 @login_required
@@ -297,24 +342,24 @@ def archive_funder(request: HttpRequest, pk: int) -> HttpResponse:
 def request_restore_funder(request: HttpRequest, pk: int) -> HttpResponse:
     org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
     return render(
-        request, "fundingrequests/funders/restore_modal.html", _restore_modal_context(org)
+        request,
+        "fundingrequests/funders/restore_modal.html",
+        _modal_context(org, "restore_url", "fundingrequests:funder_restore"),
     )
 
 
 @login_required
 @require_POST
 def restore_funder(request: HttpRequest, pk: int) -> HttpResponse:
-    org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
-    try:
-        restore_funding_organization(org)
-    except ValueError as e:
-        return render(
-            request,
-            "fundingrequests/funders/restore_modal.html",
-            _restore_modal_context(org, error=str(e)),
-        )
-    messages.success(request, FUNDER_RESTORE_SUCCESS_MSG.format(name=org.name))
-    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+    return _archival_action(
+        request,
+        pk,
+        action_method=FundingOrganization.restore,
+        modal_template="fundingrequests/funders/restore_modal.html",
+        url_key="restore_url",
+        url_name="fundingrequests:funder_restore",
+        success_msg=FUNDER_RESTORE_SUCCESS_MSG,
+    )
 
 
 @login_required
@@ -373,3 +418,149 @@ def add_funder_linkrow(request: HttpRequest) -> HttpResponse:
         "partials/linkrow.html",
         {"link_types": FundingOrganizationLinkType.objects.all()},
     )
+
+
+@login_required
+@require_GET
+def request_update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
+    org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    return render(
+        request,
+        "fundingrequests/funders/update_from_ror_modal.html",
+        {
+            "org": org,
+            "update_url": reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": pk}),
+        },
+    )
+
+
+def _overlap_response(
+    request: HttpRequest,
+    org: FundingOrganization,
+    *,
+    dismiss_url: str | None = None,
+) -> HttpResponse | None:
+    """Check for overlapping organisations and respond appropriately.
+
+    For HTMX requests the overlap dialog is returned as a fragment that
+    overlays the current page.  For regular requests the dialog is wrapped in
+    a page that extends ``base.html``.
+
+    When *dismiss_url* is provided the dialog's dismiss button navigates
+    there; otherwise it just closes the dialog (the default, which is the
+    right behaviour for HTMX requests where the underlying page is still
+    visible).
+    """
+    overlapping_orgs = find_overlapping_organizations(org)
+    if not overlapping_orgs:
+        return None
+
+    return render(
+        request,
+        (
+            "fundingrequests/funders/overlap_detection_page.html"
+            if request.headers.get("HX-Request") != "true"
+            else "fundingrequests/funders/overlap_detection_dialog.html"
+        ),
+        {
+            "source": org,
+            "overlapping_orgs": overlapping_orgs,
+            "dismiss_url": dismiss_url,
+        },
+    )
+
+
+@login_required
+@require_POST
+def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
+    org = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    try:
+        ror_client = get_ror_client()
+        update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)
+        org.refresh_from_db()
+        messages.success(
+            request, f"Funding organization '{org.name}' updated from ROR successfully."
+        )
+
+        detail_url = reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk})
+        response = _overlap_response(request, org, dismiss_url=detail_url)
+        if response:
+            return response
+    except Exception as e:
+        messages.error(request, f"Error updating from ROR: {str(e)}")
+    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk}))
+
+
+@login_required
+@require_GET
+def merge_funder_select_target(request: HttpRequest, pk: int) -> HttpResponse:
+    source = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    query = request.GET.get("query", "").strip()
+    results = []
+
+    if query:
+        results = search_organizations_for_merge(query, exclude_pk=source.pk)
+
+    ctx = {"source": source, "query": query, "results": results}
+    if query:
+        # Search form submission — update content inside existing dialog
+        return render(request, "fundingrequests/funders/merge_select_target_content.html", ctx)
+    # Initial load — return full dialog wrapper
+    return render(request, "fundingrequests/funders/merge_select_target_dialog.html", ctx)
+
+
+@login_required
+@require_GET
+def merge_funder_preview(request: HttpRequest, pk: int, target_pk: int) -> HttpResponse:
+    source = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    target = get_object_or_404(FundingOrganization.all_objects, pk=target_pk)
+
+    guard_response = _guard_can_merge(request, pk, source, target)
+    if guard_response is not None:
+        return guard_response
+
+    # Get affected funding records from both source and target
+
+    affected_records = ExternalFunding.objects.filter(
+        organization__in=[source, target]
+    ).select_related("funding_request")
+
+    # Calculate merged links
+    merged_funder = compute_merge_preview(source, target)
+
+    return render(
+        request,
+        "fundingrequests/funders/merge_preview.html",
+        {
+            "source": source,
+            "target": target,
+            "merged_links": merged_funder.links,
+            "affected_records": affected_records,
+            "execute_url": reverse(
+                "fundingrequests:funder_merge_execute",
+                kwargs={"pk": pk, "target_pk": target_pk},
+            ),
+        },
+    )
+
+
+@login_required
+@require_POST
+def merge_funder_execute(request: HttpRequest, pk: int, target_pk: int) -> HttpResponse:
+    source = get_object_or_404(FundingOrganization.all_objects, pk=pk)
+    target = get_object_or_404(FundingOrganization.all_objects, pk=target_pk)
+
+    guard_response = _guard_can_merge(request, pk, source, target)
+    if guard_response is not None:
+        return guard_response
+
+    try:
+        merge_funding_organizations(source, target)
+        messages.success(
+            request,
+            f"Funding organization '{source.name}' merged into '{target.name}' successfully.",
+        )
+    except Exception as e:
+        messages.error(request, f"Error merging organizations: {str(e)}")
+
+    return _htmx_redirect(reverse(FUNDER_DETAIL_URL, kwargs={"pk": target_pk}))
