@@ -7,6 +7,7 @@ from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.forms import FundingSourceForm
+from coda.apps.search import words_icontains
 from coda.apps.invoices.models import FundingSource
 from coda.apps.views import SimpleSearchEntityListView
 
@@ -51,12 +52,10 @@ class FundingSourceListView(LoginRequiredMixin, SimpleSearchEntityListView[Fundi
     use_generic_entity_filter = True
 
     def get_entities(self, request: HttpRequest) -> Sequence[FundingSource]:
-        if request.GET.get("query"):
-            fs = FundingSource.objects.filter(
-                type="budget", name__icontains=request.GET.get("query", "")
-            )
-        else:
-            fs = FundingSource.objects.filter(type="budget")
+        search_term = request.GET.get("query", "").strip()
+        fs = FundingSource.objects.filter(type="budget")
+        if search_term:
+            fs = fs.filter(words_icontains(search_term, "name"))
 
         return DomainQuerySet(fs, lambda fs: fs)
 

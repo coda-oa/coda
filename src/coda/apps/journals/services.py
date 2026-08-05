@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 
+
 from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.search import words_icontains
 from coda.apps.journals.models import Journal
 from coda.domain.contract import PublisherId
 from coda.domain.issn import Issn
@@ -23,7 +25,7 @@ def all() -> Sequence[Journal]:
 
 def find_by_title(title: str) -> Sequence[Journal]:
     return DomainQuerySet(
-        Journal.objects.filter(title__icontains=title.strip()).order_by("title"), _map_self
+        Journal.objects.filter(words_icontains(title.strip(), "title")).order_by("title"), _map_self
     )
 
 

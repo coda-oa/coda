@@ -5,9 +5,10 @@ from django.core.paginator import Paginator
 from django.http import HttpRequest
 from django.views.generic import TemplateView
 
-from django.db.models import Model, Q
+from django.db.models import Model
 
 from coda.apps.domainqueryset import DomainQuerySet
+from coda.apps.search import words_icontains
 
 EntityType = TypeVar("EntityType")
 
@@ -60,9 +61,6 @@ class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
         queryset = self.model.objects.all()  # type: ignore[attr-defined]
 
         if search_term:
-            query = Q()
-            for field in self.search_fields:
-                query |= Q(**{f"{field}__icontains": search_term})
-            queryset = queryset.filter(query)
+            queryset = queryset.filter(words_icontains(search_term, *self.search_fields))
 
         return DomainQuerySet(queryset.order_by(*self.search_fields), lambda x: cast(ModelType, x))

@@ -36,6 +36,22 @@ def test__searching_for_funding_requests__shows_all_funding_requests(client: Cli
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize(
+    "search_term",
+    ["", "   ", "\t"],
+)
+def test__search__empty_or_whitespace_search_term__shows_all_funding_requests(
+    client: Client, search_term: str
+) -> None:
+    requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
+
+    response = search_fundingrequests(client, {"search_term": search_term})
+
+    assert_contains(response.context, requests)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__searching_for_funding_requests_by_title__shows_only_matching_funding_requests(
     client: Client,
 ) -> None:
@@ -84,6 +100,22 @@ def test__searching_funding_request_by_author__shows_only_matching_funding_reque
     _ = modelfactory.fundingrequest("No match", authors=Authors([non_matching_author]))
 
     response = search_fundingrequests(client, by_submitter(matching_author.name))
+
+    assert_contains(response.context, {matching_request})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_funding_request_by_author_with_multi_word_search__each_word_matches_via_icontains(
+    client: Client,
+) -> None:
+    matching_author = domainfactory.author()
+    matching_author.name = NonEmptyStr("Olivia Mastermeier")
+    matching_request = modelfactory.fundingrequest(authors=Authors([matching_author]))
+
+    _ = modelfactory.fundingrequest("No match")
+
+    response = search_fundingrequests(client, {"search_term": "Liv Meier"})
 
     assert_contains(response.context, {matching_request})
 

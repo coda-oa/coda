@@ -5,6 +5,8 @@ from typing import Protocol
 from django.db.models import F, Q, QuerySet
 from django.db.models.functions import ExtractYear
 
+from coda.apps.search import words_icontains
+
 from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.domain.date import DateRange
@@ -148,13 +150,14 @@ class GenericSearchCriteria:
         if not self.search_term:
             return Q()
 
-        return (
-            Q(publication__title__icontains=self.search_term)
-            | Q(publication__relevant_authors__name__icontains=self.search_term)
-            | Q(publication__article_journal__title__icontains=self.search_term)
-            | Q(publication__article_journal__publisher__name__icontains=self.search_term)
-            | Q(publication__monograph_publisher__name__icontains=self.search_term)
-            | Q(request_id__icontains=self.search_term)
+        return words_icontains(
+            self.search_term,
+            "publication__title",
+            "publication__relevant_authors__name",
+            "publication__article_journal__title",
+            "publication__article_journal__publisher__name",
+            "publication__monograph_publisher__name",
+            "request_id",
         )
 
 

@@ -9,6 +9,7 @@ from django.urls import reverse
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices.views.position_parsers import maybe_request_context
 from coda.apps.publications.models import Publication
+from coda.apps.search import words_icontains
 
 
 @login_required
@@ -16,9 +17,9 @@ def search_publications(request: HttpRequest) -> HttpResponse:
     query = request.POST.get("q", "").strip()
     if query:
         publications = Publication.objects.filter(
-            Q(title__icontains=query)
-            | Q(links__type__name="DOI", links__value__icontains=query)
-            | Q(fundingrequest__request_id__icontains=query)
+            words_icontains(query, "title")
+            | Q(links__type__name="DOI") & words_icontains(query, "links__value")
+            | words_icontains(query, "fundingrequest__request_id")
         ).distinct()
     else:
         publications = Publication.objects.none()
@@ -40,7 +41,8 @@ def search_contracts(request: HttpRequest) -> HttpResponse:
     query = request.POST.get("contract_query", "").strip()
     if query:
         contracts = Contract.objects.filter(
-            Q(name__icontains=query) | Q(links__type__name="ESAC", links__value__icontains=query)
+            words_icontains(query, "name")
+            | Q(links__type__name="ESAC") & words_icontains(query, "links__value")
         ).distinct()
     else:
         contracts = Contract.objects.none()

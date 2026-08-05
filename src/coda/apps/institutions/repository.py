@@ -3,6 +3,7 @@ from collections.abc import Container, Iterable
 from django.db.models import Case, IntegerField, QuerySet, When
 
 from coda.apps.institutions.models import Institution
+from coda.apps.search import words_icontains
 
 
 def create(name: str, parent: Institution | None = None) -> Institution:
@@ -42,7 +43,7 @@ def search(name: str | None = None, include_archived: bool = False) -> QuerySet[
         qs = Institution.objects.all()
 
     if name is not None:
-        qs = qs.filter(name__icontains=name.strip())
+        qs = qs.filter(words_icontains(name.strip(), "name"))
 
     return _sort_hierarchically(qs)
 

@@ -93,6 +93,30 @@ def test__search__filters_by_name_and_includes_archived() -> None:
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    "search_term",
+    ["", "   ", "\t"],
+)
+def test__search__empty_or_whitespace_name__returns_all_institutions(search_term: str) -> None:
+    Institution.objects.create(name="University of Berlin")
+    Institution.objects.create(name="Technical Institute")
+
+    results = list(repository.search(name=search_term))
+
+    assert len(results) == 2
+
+
+@pytest.mark.django_db
+def test__search__multi_word_search__each_word_matches_independently() -> None:
+    Institution.objects.create(name="University of Berlin")
+
+    results = list(repository.search(name="Uni Ber"))
+
+    assert len(results) == 1
+    assert results[0].name == "University of Berlin"
+
+
+@pytest.mark.django_db
 def test__hierarchical_institutions__search__returns_hierarchical_order() -> None:
     zebra = Institution.objects.create(name="Zebra University")
     bio = Institution.objects.create(name="Biology Department", parent=zebra)
