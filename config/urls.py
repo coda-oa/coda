@@ -4,13 +4,45 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth.views import LogoutView
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import include, path
 from django.views import defaults as default_views
+from django.views.decorators.http import require_GET
 
 from coda.apps import home
 from coda.apps.htmx_components.forms import DemoFormset
 from coda.apps.login import CustomLoginView
+from coda.apps.version import (
+    check_update as check_version_update,
+    get_branch,
+    get_commit_sha,
+    get_repo,
+    get_version_tag,
+)
+
+
+@require_GET
+def check_update(request: HttpRequest) -> HttpResponse:
+    branch = get_branch()
+    commit_sha = get_commit_sha()
+    tag = get_version_tag()
+    repo = get_repo()
+    update_info = check_version_update(branch, commit_sha)
+    if tag:
+        github_url = f"https://github.com/{repo}/releases/tag/{tag}"
+    else:
+        github_url = f"https://github.com/{repo}/tree/{branch}"
+    return render(
+        request,
+        "partials/update_banner.html",
+        {
+            "update_available": update_info.get("update_available", False),
+            "branch": branch,
+            "github_url": github_url,
+        },
+    )
+
 
 urlpatterns = [
     # Django Admin, use {% url 'admin:index' %}
@@ -34,6 +66,7 @@ urlpatterns = [
     path("infopage/", include("coda.apps.infopage.urls", namespace="infopage")),
     path("opencost/", include("coda.apps.opencost.urls", namespace="opencost")),
     path("exports/", include("coda.apps.exports.urls", namespace="exports")),
+    path("check-update/", check_update, name="check_update"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
