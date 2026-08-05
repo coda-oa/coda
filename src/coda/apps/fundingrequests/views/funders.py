@@ -168,7 +168,7 @@ class FundingOrganizationCreateView(
         self.object = cast(FundingOrganization, form.save())
         self.persist_links(self.object, link_forms)
 
-        response = _overlap_response(self.request, self.object)
+        response = _overlap_response(self.request, self.object, dismiss_url=self.get_success_url())
         if response:
             return response
 
@@ -210,7 +210,7 @@ class FundingOrganizationUpdateView(
         if not self.persist_links(self.object, self.link_forms()):
             return self.form_invalid(form)
 
-        response = _overlap_response(self.request, self.object)
+        response = _overlap_response(self.request, self.object, dismiss_url=self.get_success_url())
         if response:
             return response
 
@@ -436,20 +436,37 @@ def request_update_from_ror_funder(request: HttpRequest, pk: int) -> HttpRespons
 def _overlap_response(
     request: HttpRequest,
     org: FundingOrganization,
+    *,
+    dismiss_url: str | None = None,
 ) -> HttpResponse | None:
-    """Return the overlap detection dialog if ``org`` shares identifiers
-    with another funding organization, or ``None`` if not."""
+    """Check for overlapping organisations and respond appropriately.
+
+    For HTMX requests the overlap dialog is returned as a fragment that
+    overlays the current page.  For regular requests the dialog is wrapped in
+    a page that extends ``base.html``.
+
+    When *dismiss_url* is provided the dialog's dismiss button navigates
+    there; otherwise it just closes the dialog (the default, which is the
+    right behaviour for HTMX requests where the underlying page is still
+    visible).
+    """
     overlapping_orgs = find_overlapping_organizations(org)
-    if overlapping_orgs:
-        return render(
-            request,
-            "fundingrequests/funders/overlap_detection_dialog.html",
-            {
-                "source": org,
-                "overlapping_orgs": overlapping_orgs,
-            },
-        )
-    return None
+    if not overlapping_orgs:
+        return None
+
+    return render(
+        request,
+        (
+            "fundingrequests/funders/overlap_detection_page.html"
+            if request.headers.get("HX-Request") != "true"
+            else "fundingrequests/funders/overlap_detection_dialog.html"
+        ),
+        {
+            "source": org,
+            "overlapping_orgs": overlapping_orgs,
+            "dismiss_url": dismiss_url,
+        },
+    )
 
 
 @login_required
@@ -459,11 +476,13 @@ def update_from_ror_funder(request: HttpRequest, pk: int) -> HttpResponse:
     try:
         ror_client = get_ror_client()
         update_funder_from_ror(FundingOrganizationId(org.pk), ror_client)
+        org.refresh_from_db()
         messages.success(
             request, f"Funding organization '{org.name}' updated from ROR successfully."
         )
 
-        response = _overlap_response(request, org)
+        detail_url = reverse(FUNDER_DETAIL_URL, kwargs={"pk": pk})
+        response = _overlap_response(request, org, dismiss_url=detail_url)
         if response:
             return response
     except Exception as e:

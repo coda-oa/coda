@@ -1,10 +1,9 @@
 """Tests for automatic overlap detection."""
 
 from collections.abc import Iterable
-from typing import cast
+from typing import TYPE_CHECKING
 
 import pytest
-from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
 
@@ -14,6 +13,10 @@ from coda.apps.fundingrequests.models import (
     FundingOrganizationLinkType,
 )
 from tests import modelfactory
+from tests.fundingorganizations.conftest import update_from_ror
+
+if TYPE_CHECKING:
+    from django.test.client import _MonkeyPatchedWSGIResponse
 
 _OVERLAP_ROR_URL = "https://ror.org/05a28rw58"
 
@@ -26,25 +29,18 @@ def create_link(org: FundingOrganization, type_name: str, value: str) -> Funding
     )
 
 
-def update_from_ror(client: Client, pk: int) -> HttpResponse:
-    return cast(
-        HttpResponse,
-        client.post(reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": pk})),
-    )
-
-
 def create_funding_organization(
     client: Client,
     name: str,
     *,
     link_type: str | None = None,
     link_value: str | None = None,
-) -> HttpResponse:
+) -> "_MonkeyPatchedWSGIResponse":
     data: dict[str, object] = {"name": name}
     if link_type and link_value:
         data["link_type"] = [link_type]
         data["link_value"] = [link_value]
-    return cast(HttpResponse, client.post(reverse("fundingrequests:funders_create"), data))
+    return client.post(reverse("fundingrequests:funders_create"), data)
 
 
 def update_funding_organization(
@@ -54,18 +50,15 @@ def update_funding_organization(
     *,
     link_type: str | None = None,
     link_value: str | None = None,
-) -> HttpResponse:
+) -> "_MonkeyPatchedWSGIResponse":
     data: dict[str, object] = {"name": name}
     if link_type and link_value:
         data["link_type"] = [link_type]
         data["link_value"] = [link_value]
-    return cast(
-        HttpResponse,
-        client.post(reverse("fundingrequests:funders_update", kwargs={"pk": pk}), data),
-    )
+    return client.post(reverse("fundingrequests:funders_update", kwargs={"pk": pk}), data)
 
 
-def assert_overlap_dialog(response: HttpResponse, *org_names: str) -> None:
+def assert_overlap_dialog(response: "_MonkeyPatchedWSGIResponse", *org_names: str) -> None:
     """Assert the response contains the overlap dialog with the expected org names."""
     content = response.content.decode()
     assert "Duplicate Organization Detected" in content
@@ -74,12 +67,12 @@ def assert_overlap_dialog(response: HttpResponse, *org_names: str) -> None:
         assert name in content
 
 
-def assert_no_overlap_dialog(response: HttpResponse) -> None:
+def assert_no_overlap_dialog(response: "_MonkeyPatchedWSGIResponse") -> None:
     """Assert the response does not contain the overlap dialog."""
     assert "Duplicate Organization Detected" not in response.content.decode()
 
 
-def assert_redirect(response: HttpResponse) -> None:
+def assert_redirect(response: "_MonkeyPatchedWSGIResponse") -> None:
     assert response.status_code == 302
 
 
@@ -93,7 +86,11 @@ def overlapping_org_fixture(
 # ── ROR update overlap detection ──────────────────────────────────────
 
 
-class BaseTestAutomaticOverlapDetection:
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+class TestAutomaticOverlapDetection:
+    """Tests for automatic overlap detection after ROR update."""
+
     def test__update_from_ror__shows_overlap_dialog_when_overlaps_found(
         self, client: Client
     ) -> None:
@@ -152,14 +149,6 @@ class BaseTestAutomaticOverlapDetection:
         assert_overlap_dialog(response, "Org 2")
 
 
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
-class TestAutomaticOverlapDetection(BaseTestAutomaticOverlapDetection):
-    """Tests for automatic overlap detection after ROR update."""
-
-    pass
-
-
 # ── Update form overlap detection ─────────────────────────────────────
 
 
@@ -181,6 +170,7 @@ class TestOverlapDetectionOnUpdateForm:
             link_value=_OVERLAP_ROR_URL,
         )
 
+        assert response.status_code == 200
         assert_overlap_dialog(response, "Existing Org")
 
     def test__update_form__redirects_when_no_overlaps(self, client: Client) -> None:
@@ -209,6 +199,7 @@ class TestOverlapDetectionOnCreateForm:
             client, "New Org", link_type="ROR", link_value=_OVERLAP_ROR_URL
         )
 
+        assert response.status_code == 200
         assert_overlap_dialog(response, "Existing Org")
 
     def test__create_form__redirects_when_no_overlaps(self, client: Client) -> None:

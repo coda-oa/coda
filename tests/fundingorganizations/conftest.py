@@ -1,10 +1,20 @@
 import json
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from django.test.client import _MonkeyPatchedWSGIResponse
 
 import pytest
+from django.test import Client
+from django.urls import reverse
 
 from coda.apps.fundingrequests.models import FundingOrganization
+from coda.apps.fundingrequests.views import funders
+from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import (
+    RORClient,
+)
 from tests import modelfactory
+from tests.contexts.fundingrequest.services.test_ror_client import FakeHttpGet
 
 BMFTR_NAME = "Bundesministerium für Forschung, Technologie und Raumfahrt"
 
@@ -242,3 +252,35 @@ def archived_funding_organization() -> FundingOrganization:
     org = modelfactory.funding_organization(name="Archived Org")
     org.archive()
     return org
+
+
+# ── ROR update helpers ──────────────────────────────────────────────────
+
+
+def update_from_ror(client: Client, pk: int) -> "_MonkeyPatchedWSGIResponse":
+    """POST to trigger a ROR update — the real request is made via HTMX.
+
+    Returns a ``_MonkeyPatchedWSGIResponse`` (from django-stubs) which carries
+    ``wsgi_request`` alongside standard ``HttpResponse`` attributes.
+    """
+    return client.post(
+        reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": pk}),
+        HTTP_HX_REQUEST="true",
+    )
+
+
+@pytest.fixture
+def inject_ror_client(
+    bmftr_response_minimal: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_client = RORClient(http_client=FakeHttpGet(json_data=bmftr_response_minimal))
+    monkeypatch.setattr(funders, "get_ror_client", lambda: fake_client)
+
+
+@pytest.fixture
+def inject_failing_ror_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _raise() -> RORClient:
+        raise Exception("ROR API unavailable")
+
+    monkeypatch.setattr(funders, "get_ror_client", _raise)

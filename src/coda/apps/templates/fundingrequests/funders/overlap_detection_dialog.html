@@ -20,7 +20,9 @@
         </ul>
         <footer>
             <button class="secondary"
-                    onclick="document.getElementById('overlap-dialog').close()">Dismiss</button>
+                    onclick="{% if dismiss_url %}window.location.href='{{ dismiss_url }}'{% else %}document.getElementById('overlap-dialog').close(){% endif %}">
+                Dismiss
+            </button>
         </footer>
     </article>
 </dialog>

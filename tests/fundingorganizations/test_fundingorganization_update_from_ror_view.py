@@ -1,37 +1,13 @@
-from typing import Any
+"""Tests for the Update from ROR view (modal + POST handler)."""
 
 import pytest
 from django.contrib.messages import get_messages
 from django.test import Client
 from django.urls import reverse
-from pytest import MonkeyPatch
 
-from coda.apps.fundingrequests.views import funders
-from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import (
-    RORClient,
-)
 from coda.domain.institution.links import Ror
 from tests import modelfactory
-from tests.contexts.fundingrequest.services.test_ror_client import FakeHttpGet
-
-from tests.fundingorganizations.conftest import BMFTR_NAME
-
-
-@pytest.fixture
-def inject_ror_client(
-    bmftr_response_minimal: dict[str, Any],
-    monkeypatch: MonkeyPatch,
-) -> None:
-    fake_client = RORClient(http_client=FakeHttpGet(json_data=bmftr_response_minimal))
-    monkeypatch.setattr(funders, "get_ror_client", lambda: fake_client)
-
-
-@pytest.fixture
-def inject_failing_ror_client(monkeypatch: MonkeyPatch) -> None:
-    def _raise() -> RORClient:
-        raise Exception("ROR API unavailable")
-
-    monkeypatch.setattr(funders, "get_ror_client", _raise)
+from tests.fundingorganizations.conftest import BMFTR_NAME, update_from_ror
 
 
 @pytest.mark.django_db
@@ -59,61 +35,69 @@ def test__update_from_ror_modal__provides_confirmation_action(client: Client) ->
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in", "inject_ror_client")
-def test__update_from_ror__updates_organization_name(client: Client) -> None:
-    old_name = "Bundesministerium für Bildung und Forschung"
-    org = modelfactory.funding_organization(name=old_name)
-    org.set_links([Ror("https://ror.org/04pz7b180")])
-    org.save()
+class TestUpdateFromRorPost:
+    """Tests for the POST handler that performs the ROR update."""
 
-    client.post(reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org.pk}))
+    def test__updates_organization_name(self, client: Client) -> None:
+        old_name = "Bundesministerium für Bildung und Forschung"
+        org = modelfactory.funding_organization(name=old_name)
+        org.set_links([Ror("https://ror.org/04pz7b180")])
+        org.save()
 
-    org.refresh_from_db()
-    assert org.name == BMFTR_NAME
+        update_from_ror(client, org.pk)
 
+        org.refresh_from_db()
+        assert org.name == BMFTR_NAME
 
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "inject_ror_client")
-def test__update_from_ror__adds_success_message(client: Client) -> None:
-    org = modelfactory.funding_organization(name="Test Funder")
-    org.set_links([Ror("https://ror.org/04pz7b180")])
-    org.save()
+    def test__adds_success_message(self, client: Client) -> None:
+        org = modelfactory.funding_organization(name="Test Funder")
+        org.set_links([Ror("https://ror.org/04pz7b180")])
+        org.save()
 
-    response = client.post(reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org.pk}))
+        response = update_from_ror(client, org.pk)
 
-    messages_list = list(get_messages(response.wsgi_request))
-    assert any("updated from ROR" in msg.message for msg in messages_list)
+        messages_list = list(get_messages(response.wsgi_request))
+        assert any("updated from ROR" in msg.message for msg in messages_list)
 
+    def test__success_message_uses_updated_name(self, client: Client) -> None:
+        old_name = "Bundesministerium für Bildung und Forschung"
+        org = modelfactory.funding_organization(name=old_name)
+        org.set_links([Ror("https://ror.org/04pz7b180")])
+        org.save()
 
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "inject_ror_client")
-def test__update_from_ror__redirects_to_detail_page(client: Client) -> None:
-    org = modelfactory.funding_organization(name="Test Funder")
-    org.set_links([Ror("https://ror.org/04pz7b180")])
-    org.save()
+        response = update_from_ror(client, org.pk)
 
-    response = client.post(reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org.pk}))
+        messages_list = list(get_messages(response.wsgi_request))
+        assert any(BMFTR_NAME in msg.message for msg in messages_list)
 
-    expected_url = reverse("fundingrequests:funder_detail", kwargs={"pk": org.pk})
-    assert response["HX-Redirect"] == expected_url
+    def test__redirects_to_detail_page(self, client: Client) -> None:
+        org = modelfactory.funding_organization(name="Test Funder")
+        org.set_links([Ror("https://ror.org/04pz7b180")])
+        org.save()
 
+        response = update_from_ror(client, org.pk)
 
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in", "inject_failing_ror_client")
-def test__update_from_ror__on_failure__adds_error_message(client: Client) -> None:
-    org = modelfactory.funding_organization(name="Test Funder")
-
-    response = client.post(reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org.pk}))
-
-    messages_list = list(get_messages(response.wsgi_request))
-    assert any("Error" in msg.message for msg in messages_list)
+        expected_url = reverse("fundingrequests:funder_detail", kwargs={"pk": org.pk})
+        assert response["HX-Redirect"] == expected_url
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in", "inject_failing_ror_client")
-def test__update_from_ror__on_failure__redirects_to_detail_page(client: Client) -> None:
-    org = modelfactory.funding_organization(name="Test Funder")
+class TestUpdateFromRorFailure:
+    """Tests for error handling when the ROR API is unavailable."""
 
-    response = client.post(reverse("fundingrequests:funder_update_from_ror", kwargs={"pk": org.pk}))
+    def test__adds_error_message(self, client: Client) -> None:
+        org = modelfactory.funding_organization(name="Test Funder")
 
-    expected_url = reverse("fundingrequests:funder_detail", kwargs={"pk": org.pk})
-    assert response["HX-Redirect"] == expected_url
+        response = update_from_ror(client, org.pk)
+
+        messages_list = list(get_messages(response.wsgi_request))
+        assert any("Error" in msg.message for msg in messages_list)
+
+    def test__redirects_to_detail_page(self, client: Client) -> None:
+        org = modelfactory.funding_organization(name="Test Funder")
+
+        response = update_from_ror(client, org.pk)
+
+        expected_url = reverse("fundingrequests:funder_detail", kwargs={"pk": org.pk})
+        assert response["HX-Redirect"] == expected_url
