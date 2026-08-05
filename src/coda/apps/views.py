@@ -2,15 +2,55 @@ from collections.abc import Sequence
 from typing import Any, Generic, TypeVar, cast
 
 from django.core.paginator import Paginator
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import render
+from django.views.decorators.http import require_GET
 from django.views.generic import TemplateView
 
-from django.db.models import Model
+from coda.apps.version import (
+    check_update as check_version_update,
+    get_branch,
+    get_commit_sha,
+    get_repo,
+    get_version_tag,
+)
+
+from coda.apps.version import (
+    check_update as check_version_update,
+    get_branch,
+    get_commit_sha,
+    get_repo,
+    get_version_tag,
+)
+
+from django.db.models import Model 
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.search import words_icontains
 
 EntityType = TypeVar("EntityType")
+
+
+@require_GET
+def check_update(request: HttpRequest) -> HttpResponse:
+    branch = get_branch()
+    commit_sha = get_commit_sha()
+    tag = get_version_tag()
+    repo = get_repo()
+    update_info = check_version_update(branch, commit_sha)
+    if tag:
+        github_url = f"https://github.com/{repo}/releases/tag/{tag}"
+    else:
+        github_url = f"https://github.com/{repo}/tree/{branch}"
+    return render(
+        request,
+        "partials/update_banner.html",
+        {
+            "update_available": update_info.get("update_available", False),
+            "branch": branch,
+            "github_url": github_url,
+        },
+    )
 
 
 class EntityListView(Generic[EntityType], TemplateView):
