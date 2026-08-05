@@ -33,11 +33,11 @@ class RORRecord:
         """Convert this ROR record into domain Link objects.
 
         Returns a ``Ror`` link from the record's own ID, plus a ``CrossrefId``
-        from the first ``fundref`` external ID when present.
+        from the first ``fundref`` external ID when present and non-empty.
         """
         links: list[Link] = [Ror(self.id)]
         for lt, values in self.external_ids.items():
-            if lt == "fundref":
+            if lt == "fundref" and values:
                 links.append(CrossrefId(values[0]))
         return links
 
