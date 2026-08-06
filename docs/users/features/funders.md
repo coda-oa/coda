@@ -49,6 +49,11 @@ The funder is immediately available when creating or editing funding requests.
 
 ![](/_static/img/funders_create.png)
 
+(duplicate-detection)=
+### Duplicate Detection
+
+After saving a funder, CODA checks whether its identifiers (DOI, ROR, Crossref) match any existing funder in the system. If a match is found, a dialog appears showing the potential duplicate and offering a **Merge** action to combine them. You can also dismiss the warning and keep both funders separate.
+
 ## Funder Detail Page
 
 Clicking a funder's name in the list opens its detail page. Here you can view:
@@ -58,6 +63,12 @@ Clicking a funder's name in the list opens its detail page. Here you can view:
 - A list of all funding requests related to this funder
 
 The detail page provides access to editing, archiving, restoring, and deleting the funder, just like the list view.
+
+### Updating from ROR
+
+The detail page includes an **Update from ROR** button. Clicking this fetches the latest data from the [Research Organization Registry (ROR)](https://ror.org/) for any identifiers associated with this funder (ROR ID, Crossref ID, DOI). CODA updates the funder's name and identifiers if the ROR data contains more current information.
+
+After updating, CODA automatically checks for overlapping organizations with matching identifiers and offers to [merge](#merging-funding-organizations) them if found.
 
 ![](/_static/img/funder_detail.png)
 
@@ -69,6 +80,34 @@ The detail page provides access to editing, archiving, restoring, and deleting t
 4. Click **Save**
 
 All existing funding requests that reference this organization will automatically show the updated name.
+
+(merging-funding-organizations)=
+## Merging Funding Organizations
+
+If two funders represent the same organization, you can merge them into one. Merging moves all related funding requests from the source funder to the target funder, combines their identifiers, and deletes the source funder.
+
+![](/_static/img/funders_merge_preview.png)
+
+### Finding Candidates for Merge
+
+You can trigger a merge from a funder's detail page, or from the [duplicate detection dialog](#duplicate-detection) that appears after creating or updating a funder.
+
+### Merging Two Funders
+
+1. Navigate to the source funder's **detail page**
+2. Click the **Merge into...** button
+3. Search for the target funder by name or identifier
+4. Select the target funder
+5. Review the merge preview showing:
+   - The combined identifiers from both funders
+   - A list of all funding requests that will be moved
+6. Click **Execute Merge** to complete
+
+### Requirements
+
+- The source funder must be active (not archived)
+- The target funder must be active
+- You cannot merge a funder into itself
 
 ## Archiving and Restoring a Funding Organization
 

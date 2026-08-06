@@ -3,6 +3,7 @@
 ```{toctree}
 :maxdepth: 2
 fundingrequests
+doi-import
 funders
 journals
 publishers
