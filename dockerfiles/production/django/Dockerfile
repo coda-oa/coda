@@ -37,12 +37,12 @@ RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
 
 # make django owner of the WORKDIR directory as well.
-RUN chown -R django:django ${APP_HOME}
-RUN mkdir ${APP_HOME}/staticfiles && chown -R django:django ${APP_HOME}/staticfiles
-
+RUN chown -R django:django "${APP_HOME}"
+RUN mkdir "${APP_HOME}/staticfiles" && chown -R django:django "${APP_HOME}/staticfiles"
 ENV PATH="/home/django/.local/bin:${PATH}"
 
 COPY --chown=django:django src src
+RUN mkdir -p "${APP_HOME}/src/coda/apps/media" && chown -R django:django "${APP_HOME}/src/coda/apps/media"
 COPY --chown=django:django tests tests
 COPY --chown=django:django config config
 COPY --chown=django:django manage.py manage.py

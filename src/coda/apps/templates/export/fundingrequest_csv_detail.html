@@ -5,8 +5,10 @@
         <div class="flex justify-between align-center">
             <h1 class="my-2">Export Details</h1>
             <div class="flex">
-                <a href="{% url 'exports:fundingrequests_csv_download' export.id %}"
-                   class="button secondary">Download CSV</a>
+                {% if not file_missing %}
+                    <a href="{% url 'exports:fundingrequests_csv_download' export.id %}"
+                       class="button secondary">Download CSV</a>
+                {% endif %}
                 <button hx-post="{% url "exports:fundingrequests_csv_delete" pk=export.id %}"
                         hx-confirm="Are you sure you want to delete this export?"
                         class="danger">Delete Export</button>
@@ -36,35 +38,51 @@
                     </ul>
                 </div>
             </section>
-            <section>
-                <article>
-                    <header>
-                        <h2>Preview of Exported Data</h2>
-                    </header>
-                    <p>This is a preview of the exported data showing the first 50 rows (or less) and an excerpt of the columns:</p>
-                    <div class="scroll-container max-h-30">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Request ID</th>
-                                    <th>Publication Title</th>
-                                    <th>DOI</th>
-                                    <th>Contract Name</th>
-                                    <th>Invoice Number</th>
-                                    <th>Position Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for row in preview_rows %}
+            {% if file_missing %}
+                <section>
+                    <article class="warning-box">
+                        <header>
+                            <h2 class="my-0">Export File Not Found</h2>
+                        </header>
+                        <p>The CSV file for this export could not be found. It may have been deleted or lost during a server restart.</p>
+                        <p>Please re-generate the report to recreate the file using the button below.</p>
+                        <form method="post" action="{{ regen_url }}">
+                            {% csrf_token %}
+                            <button type="submit" class="button primary">Re-generate Report</button>
+                        </form>
+                    </article>
+                </section>
+            {% else %}
+                <section>
+                    <article>
+                        <header>
+                            <h2 class="my-0">Preview of Exported Data</h2>
+                        </header>
+                        <p>This is a preview of the exported data showing the first 50 rows (or less) and an excerpt of the columns:</p>
+                        <div class="scroll-container max-h-30">
+                            <table class="table">
+                                <thead>
                                     <tr>
-                                        {% for cell in row %}<td>{{ cell|truncatewords:10 }}</td>{% endfor %}
+                                        <th>Request ID</th>
+                                        <th>Publication Title</th>
+                                        <th>DOI</th>
+                                        <th>Contract Name</th>
+                                        <th>Invoice Number</th>
+                                        <th>Position Amount</th>
                                     </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </article>
-            </section>
+                                </thead>
+                                <tbody>
+                                    {% for row in preview_rows %}
+                                        <tr>
+                                            {% for cell in row %}<td>{{ cell|truncatewords:10 }}</td>{% endfor %}
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+                </section>
+            {% endif %}
         </article>
     </div>
 {% endblock content %}
