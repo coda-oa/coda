@@ -27,7 +27,7 @@
                 <strong>Status:</strong> Active
             </p>
         {% endif %}
-        {% if object.links.all %}
+        {% if object.get_links %}
             <section class="my-2">
                 <h3>Identifiers</h3>
                 <table>
@@ -38,10 +38,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for link in object.links.all %}
+                        {% for link in object.get_links %}
                             <tr>
-                                <td>{{ link.type.name }}</td>
-                                <td>{{ link.value }}</td>
+                                <td>{{ link.type }}</td>
+                                <td>
+                                    <a href="{{ link.url }}">{{ link.value }}</a>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>

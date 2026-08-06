@@ -563,6 +563,11 @@ class CrossrefId:
         return self._value
 
     def url(self) -> str:
+        # FIXME: this is actually incorrect.
+        # This DOI prefix only works for the crossref funder registry.
+        # In CODA this currently does not pose a problem,
+        # because CrossrefId is only used by FundingOrganization right now.
+        # However, it needs to be fixed ASAP by making the CrossrefId type more specific.
         return f"https://doi.org/10.13039/{self._value}"
 
     def __str__(self) -> str:
