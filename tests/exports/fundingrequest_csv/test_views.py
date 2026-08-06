@@ -1,3 +1,4 @@
+import os
 import pytest
 from django.test import Client
 from django.urls import reverse
@@ -231,3 +232,134 @@ def test_fundingrequest_csv_export_create_view__contract_filter__is_stored(
     assert response.status_code == 302
     export = FundingRequestCSVExport.objects.get(name=title)
     assert export.filters["contract_name"] == str(contract.id)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__fundingrequest_csv_detail_page__csv_file_missing__shows_metadata_and_file_missing_flag(
+    client: Client,
+) -> None:
+    export = FundingRequestCSVExport.objects.create(
+        name="Missing File Export",
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
+        record_count=42,
+    )
+    export.csv_file.save(
+        "missing.csv",
+        ContentFile(
+            b"request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
+            b"REQ-1;Test;;;INV-1;100.00\n"
+        ),
+        save=True,
+    )
+    os.remove(export.csv_file.path)
+
+    response = client.get(reverse("exports:fundingrequests_csv_detail", args=[export.id]))
+
+    assert response.status_code == 200
+    assert response.context["file_missing"] is True
+    assert response.context["export"] == export
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__fundingrequest_csv_detail_page__csv_file_missing__provides_regen_url(
+    client: Client,
+) -> None:
+    export = FundingRequestCSVExport.objects.create(
+        name="Missing File Export",
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
+        record_count=42,
+    )
+    export.csv_file.save(
+        "missing.csv",
+        ContentFile(
+            b"request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
+            b"REQ-1;Test;;;INV-1;100.00\n"
+        ),
+        save=True,
+    )
+    os.remove(export.csv_file.path)
+
+    response = client.get(reverse("exports:fundingrequests_csv_detail", args=[export.id]))
+
+    assert response.status_code == 200
+    assert "regen_url" in response.context
+    assert response.context["regen_url"] == reverse(
+        "exports:fundingrequests_csv_regen", args=[export.id]
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__fundingrequest_csv_download__csv_file_missing__returns_correct_404_error(
+    client: Client,
+) -> None:
+    export = FundingRequestCSVExport.objects.create(
+        name="Missing Download",
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
+        record_count=0,
+    )
+    export.csv_file.save(
+        "download_missing.csv",
+        ContentFile(
+            b"request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
+            b"REQ-1;Test;;;INV-1;100.00\n"
+        ),
+        save=True,
+    )
+    os.remove(export.csv_file.path)
+
+    response = client.get(reverse("exports:fundingrequests_csv_download", args=[export.id]))
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__fundingrequest_csv_regen__called_with_existing_export__regenerates_csv_using_stored_filters(
+    client: Client,
+) -> None:
+    fundingrequest = modelfactory.fundingrequest(title="Regen Test Publication")
+    fundingrequest.request_date = date(2024, 3, 5)
+    fundingrequest.save()
+
+    position = domainfactory.publication_position(PublicationId(fundingrequest.publication.id))
+    creditor = modelfactory.creditor()
+    invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position])
+    invoice_service.save(invoice)
+
+    export = FundingRequestCSVExport.objects.create(
+        name="Regen Export",
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
+        record_count=0,
+    )
+    export.csv_file.save(
+        "regen.csv",
+        ContentFile(
+            b"request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
+            b"REQ-1;Old;;;INV-1;100.00\n"
+        ),
+        save=True,
+    )
+    os.remove(export.csv_file.path)
+
+    response = client.post(reverse("exports:fundingrequests_csv_regen", args=[export.id]))
+
+    assert response.status_code == 302
+    export.refresh_from_db()
+    assert export.csv_file
+    assert os.path.exists(export.csv_file.path)
+    assert export.record_count == 1
