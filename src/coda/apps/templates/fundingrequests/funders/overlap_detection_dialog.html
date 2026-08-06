@@ -8,13 +8,15 @@
             {% for org in overlapping_orgs %}
                 <li>
                     <strong>{{ org.name }}</strong>
-                    {% if org.links.all %}
-                        <ul>
-                            {% for link in org.links.all %}<li>{{ link.type.name }}: {{ link.value }}</li>{% endfor %}
-                        </ul>
-                    {% endif %}
-                    <a href="{% url 'fundingrequests:funder_merge_preview' pk=source.pk target_pk=org.pk %}"
-                       class="primary">Merge into {{ org.name }}</a>
+                    <div class="flex align-center justify-between">
+                        {% if org.links.all %}
+                            <ul>
+                                {% for link in org.links.all %}<li>{{ link.type.name }}: {{ link.value }}</li>{% endfor %}
+                            </ul>
+                        {% endif %}
+                        <a href="{% url 'fundingrequests:funder_merge_preview' pk=source.pk target_pk=org.pk %}"
+                           class="button outline">Merge</a>
+                    </div>
                 </li>
             {% endfor %}
         </ul>

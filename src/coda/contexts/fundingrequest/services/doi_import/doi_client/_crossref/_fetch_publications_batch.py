@@ -67,13 +67,10 @@ def fetch_publications_batch(
 
     # Safety cap: at most one item per requested DOI can match,
     # so len(dois) pages is a generous upper bound.
-    try:
-        items = _fetch_all_pages(client, params, len(dois), timeout)
-    except Exception as e:
-        return {str(doi): map_to_doi_error(e, doi) for doi in dois}
+    items, error = _fetch_all_pages(client, params, len(dois), timeout)
 
     found = _parse_batch_items(items)
-    return _build_batch_results(dois, found)
+    return _build_batch_results(dois, found, error)
 
 
 def _fetch_all_pages(
@@ -81,25 +78,31 @@ def _fetch_all_pages(
     params: dict[str, str | int],
     max_pages: int,
     timeout: int,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], Exception | None]:
     """Fetch all pages of batch data from Crossref.
 
     Iterates through cursor-based pagination up to *max_pages* calls.
-    Raises on HTTP or network error; the caller maps the exception
-    to per-DOI error results.
+
+    Returns a tuple of ``(items, error)``. If a page fails after earlier pages
+    succeeded, the items already collected are preserved and the error is
+    returned alongside them, so the caller can still resolve the DOIs found on
+    earlier pages instead of failing the entire batch.
     """
     all_items: list[dict[str, Any]] = []
     for _ in range(max_pages):
-        response = client.get(
-            CROSSREF_API_BASE,
-            params=params,
-            timeout=timeout,
-            follow_redirects=True,
-        ).raise_for_status()
+        try:
+            response = client.get(
+                CROSSREF_API_BASE,
+                params=params,
+                timeout=timeout,
+                follow_redirects=True,
+            ).raise_for_status()
+        except Exception as e:
+            return all_items, e
         data = response.json()
 
         message = data.get("message", {})
-        items = message.get("items", [])
+        items: list[Any] = message.get("items", [])
         if not items:
             break
         all_items.extend(items)
@@ -109,7 +112,7 @@ def _fetch_all_pages(
             break
         params["cursor"] = next_cursor
 
-    return all_items
+    return all_items, None
 
 
 def _parse_batch_items(
@@ -134,17 +137,21 @@ def _parse_batch_items(
 def _build_batch_results(
     dois: Sequence[Doi],
     found: dict[str, ExternalPublicationMetadata],
+    error: Exception | None = None,
 ) -> dict[str, ExternalPublicationMetadata | Exception]:
     """Build the final result dict for every requested DOI.
 
-    DOIs present in *found* get their metadata; missing DOIs get a
-    :class:`DOINotFoundError`.
+    DOIs present in *found* get their metadata. Missing DOIs get a
+    :class:`DOINotFoundError`, unless a page failed partway through the batch
+    (``error`` is set), in which case they get the mapped error instead.
     """
     results: dict[str, ExternalPublicationMetadata | Exception] = {}
     for doi in dois:
         doi_str = str(doi)
         if doi_str in found:
             results[doi_str] = found[doi_str]
+        elif error is not None:
+            results[doi_str] = map_to_doi_error(error, doi)
         else:
             results[doi_str] = DOINotFoundError(doi)
     return results
