@@ -41,3 +41,18 @@ def test__doi__url__returns_url() -> None:
     sut = Doi("10.1234/foobar")
 
     assert sut.url() == f"https://doi.org/{sut}"
+
+
+@pytest.mark.parametrize("protocol", ["https", "http"])
+def test__doi_from_url__strips_doi_org_domain(protocol: str) -> None:
+    sut = Doi(f"{protocol}://doi.org/10.1234/0000/9485")
+
+    assert sut == Doi("10.1234/0000/9485")
+
+
+def test__dois_are_case_insensitive() -> None:
+    first = Doi("10.1234/foobar")
+    second = Doi("10.1234/FoObAR")
+
+    assert first == second
+    assert first.value() == second.value() == "10.1234/foobar"

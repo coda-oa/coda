@@ -145,7 +145,14 @@ class Doi:
     __match_args__ = ("_doi",)
 
     def __init__(self, doi: str) -> None:
-        self._doi = NonEmptyStr(doi).strip()
+        self._doi = (
+            NonEmptyStr(doi)
+            .strip()
+            .lower()
+            .removeprefix("https://")
+            .removeprefix("http://")
+            .removeprefix("doi.org/")
+        )
         if not self._valid():
             raise InvalidDoi()
 
