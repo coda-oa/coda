@@ -56,3 +56,10 @@ def test__dois_are_case_insensitive() -> None:
 
     assert first == second
     assert first.value() == second.value() == "10.1234/foobar"
+
+
+def test__doi_with_trailing_slash__strips_slash() -> None:
+    sut = Doi("10.1234/1234/")
+    expected = Doi("10.1234/1234")
+
+    assert sut == expected

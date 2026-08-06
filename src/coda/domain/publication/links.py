@@ -152,6 +152,7 @@ class Doi:
             .removeprefix("https://")
             .removeprefix("http://")
             .removeprefix("doi.org/")
+            .removesuffix("/")
         )
         if not self._valid():
             raise InvalidDoi()
