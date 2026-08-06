@@ -3,6 +3,19 @@
     <header class="flex justify-between align-center">
         <h2 class="fundingrequest__detail-title">Publication Details</h2>
         {% if edit_publication_url %}<a href="{{ edit_publication_url }}" role="button">Edit</a>{% endif %}
+        {% if is_preview %}
+            <div>
+                <button type="button"
+                        class="my-0"
+                        commandfor="type-change-modal"
+                        command="show-modal">Change Publication Type</button>
+                {% include "fundingrequests/partials/doi_type_change_modal.html" %}
+                <button type="button"
+                        class="secondary my-0"
+                        hx-post="{% url 'fundingrequests:doi_preview_reset_type' session_key=session_key %}"
+                        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>Reset</button>
+            </div>
+        {% endif %}
     </header>
     {% if publication.relevant_authors %}
         <h3 class="mt-1">Relevant Authors</h3>

@@ -21,8 +21,8 @@ from coda.domain.fundingrequest import (
     Review,
     TPublication,
 )
+from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
 from coda.domain.fundingrequest.identity import PublicFundingRequestId
-from coda.domain.fundingrequest.references import FundingRequestReference
 from coda.domain.publication import Monograph, Publication, PublicationId
 
 
@@ -202,13 +202,6 @@ def get_by_request_id(request_id: PublicFundingRequestId) -> AnyFundingRequest:
     return FundingRequestDomainMapper.map(model)
 
 
-def find_reference_by_publication(publication: PublicationId) -> FundingRequestReference | None:
-    model = FundingRequestModel.objects.filter(publication_id=publication).first()
-    if not model:
-        return None
-    return FundingRequestReference(request_id=model.request_id, url=model.get_absolute_url())
-
-
 def get_by_publication_id(publication_id: PublicationId) -> AnyFundingRequest:
     model = FundingRequestDomainMapper.prefetch(FundingRequestModel.objects.all()).get(
         publication_id=publication_id
@@ -229,6 +222,15 @@ def get_review(id: FundingRequestId) -> Review:
 
 def get_funding_organization(pk: int) -> FundingOrganization:
     return FundingOrganization.objects.get(pk=pk)
+
+
+def get_funding_organizations_by_ids(
+    pks: list[FundingOrganizationId],
+) -> Iterable[FundingOrganization]:
+    if not pks:
+        return []
+
+    return FundingOrganization.objects.filter(pk__in=pks)
 
 
 def get_funding_organization_by_name(name: str) -> FundingOrganization | None:

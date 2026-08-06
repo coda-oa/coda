@@ -15,7 +15,6 @@ from coda.domain.author import Role
 from coda.domain.fundingrequest import PaymentMethod, ReviewResult
 from coda.domain.publication import License, OpenAccessType, links
 
-
 # === Custom validators ===
 
 
@@ -168,6 +167,7 @@ class FundingRequestImportDto(pydantic.BaseModel):
         default_factory=SeperateContactImportDto.default
     )
     labels: list[str] = pydantic.Field(default_factory=list)
+    request_id: str | None = None
 
 
 class FundingRequestImportListDto(pydantic.BaseModel):

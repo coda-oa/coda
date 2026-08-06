@@ -22,6 +22,30 @@ def test__find_publisher__returns_publisher_name_in_row(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize(
+    ("search_term",),
+    [
+        ("  Springer",),
+        ("Springer  ",),
+        ("  Springer  ",),
+    ],
+)
+def test__find_publisher__leading_or_trailing_whitespace__still_found(
+    client: Client, search_term: str
+) -> None:
+    modelfactory.publisher(name="Springer Nature")
+
+    response = client.post(
+        reverse("fundingrequests:wizard_find_publisher"),
+        data={"publisher_name": search_term},
+    )
+
+    assert response.status_code == 200
+    assert "Springer Nature" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__find_publisher__no_results__shows_no_results_message(client: Client) -> None:
     response = client.post(
         reverse("fundingrequests:wizard_find_publisher"),

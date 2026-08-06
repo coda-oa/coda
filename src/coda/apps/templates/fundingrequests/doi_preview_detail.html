@@ -7,27 +7,26 @@
     </p>
     <div>
         <div>
-            {% if is_preview %}
-                {% include "fundingrequests/partials/doi_type_selector.html" %}
-            {% endif %}
-            <h2>
-                <span data-tooltip="Funding request for a {{ current_publication_type }}"
-                      class="icon-tooltip">
-                    <svg class="mb-0_5 text-gray-800 dark:text-white"
-                         aria-hidden="true"
-                         xmlns="http://www.w3.org/2000/svg"
-                         width="1em"
-                         height="1em"
-                         fill="none"
-                         viewBox="0 0 24 24">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 3v4a1 1 0 0 1-1 1H5m4 8h6m-6-4h6m4-8v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Z" />
-                    </svg>
+            <h2 class="flex justify-between align-center">
+                <span>
+                    <span data-tooltip="Funding request for a {{ current_publication_type }}"
+                          class="icon-tooltip">
+                        <svg class="mb-0_5 text-gray-800 dark:text-white"
+                             aria-hidden="true"
+                             xmlns="http://www.w3.org/2000/svg"
+                             width="1em"
+                             height="1em"
+                             fill="none"
+                             viewBox="0 0 24 24">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 3v4a1 1 0 0 1-1 1H5m4 8h6m-6-4h6m4-8v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Z" />
+                        </svg>
+                    </span>
+                    {% if current_publication_type == "monograph" %}
+                        Monograph
+                    {% else %}
+                        Article
+                    {% endif %}
                 </span>
-                {% if current_publication_type == "monograph" %}
-                    Monograph
-                {% else %}
-                    Article
-                {% endif %}
             </h2>
             {% if warnings %}
                 <div class="messages error w-100">
@@ -35,16 +34,24 @@
                 </div>
             {% endif %}
             {% include "fundingrequests/partials/publication_section.html" %}
-            <form class="wizard-nav"
-                  method="post"
-                  action="{% url "fundingrequests:doi_preview_save" session_key=session_key %}">
-                {% csrf_token %}
+            {% include "fundingrequests/partials/doi_import_publication_funding.html" %}
+            {% if is_mass_import %}
                 <div class="grid align-center">
-                    <a href="{% url "fundingrequests:list" %}"
-                       class="button danger text-center m-0">Cancel</a>
-                    <button class="m-0" type="submit">Save to Database</button>
+                    <a href="{{ mass_import_back_url }}"
+                       class="button secondary text-center m-0">← Back to mass import</a>
                 </div>
-            </form>
+            {% else %}
+                <form class="wizard-nav"
+                      method="post"
+                      action="{% url "fundingrequests:doi_preview_save" session_key=session_key %}">
+                    {% csrf_token %}
+                    <div class="grid align-center">
+                        <a href="{% url "fundingrequests:list" %}"
+                           class="button danger text-center m-0">Cancel</a>
+                        <button class="m-0" type="submit">Save to Database</button>
+                    </div>
+                </form>
+            {% endif %}
         </div>
     </div>
 {% endblock content %}

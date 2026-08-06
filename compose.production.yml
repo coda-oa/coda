@@ -2,6 +2,7 @@ volumes:
   production_postgres_data: {}
   production_postgres_data_backups: {}
   static_volume: {}
+  media_volume: {}
 
 services:
   django:
@@ -24,6 +25,7 @@ services:
 
     volumes:
       - static_volume:/app/staticfiles:rw
+      - media_volume:/app/src/coda/apps/media:rw
 
     command: /start
 

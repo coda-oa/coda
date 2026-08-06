@@ -1,6 +1,7 @@
 import logging
 from typing import Any
 
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest
 from django.urls import reverse
 
@@ -20,7 +21,7 @@ from coda.domain.contract import PublisherId
 
 
 @breadcrumb("Update Publication Details", parent_url_name="fundingrequests:detail")
-class MonographUpdateMetaView(Wizard):
+class MonographUpdateMetaView(LoginRequiredMixin, Wizard):
     store_name = "monograph_request_update_meta"
     steps = [PublicationStep.for_monograph(), PublisherStep()]
     store_factory = SessionStore

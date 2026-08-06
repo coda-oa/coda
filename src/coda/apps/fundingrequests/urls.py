@@ -7,13 +7,42 @@ from coda.apps.fundingrequests.forms import (
 )
 from coda.apps.fundingrequests.views import review
 from coda.apps.fundingrequests.views.detailview import fundingrequest_detail
+from coda.apps.fundingrequests.views.doi_preview import (
+    DOIImportInputView,
+    DOIPreviewDetailView,
+    DOIPreviewSaveView,
+    doi_preview_add_funding,
+    doi_preview_apply_type_change,
+    doi_preview_delete_funding,
+    doi_preview_load_type_form,
+    doi_preview_reset_funding,
+    doi_preview_reset_type,
+)
+from coda.apps.fundingrequests.views.mass_doi_import import (
+    MassDOIImportInputView,
+    MassDOIImportResultView,
+    MassDOIPreviewSaveView,
+    MassDOIPreviewView,
+)
 from coda.apps.fundingrequests.views.funders import (
+    add_funder_linkrow,
+    archive_funder,
+    delete_funder,
     fundingorganization_create_modal,
     fundingorganization_create_modal_submit,
     fundingorganizations_create,
-    fundingorganizations_delete,
+    fundingorganizations_detail,
     fundingorganizations_list,
     fundingorganizations_update,
+    merge_funder_execute,
+    merge_funder_preview,
+    merge_funder_select_target,
+    request_archive_funder,
+    request_delete_funder,
+    request_restore_funder,
+    request_update_from_ror_funder,
+    restore_funder,
+    update_from_ror_funder,
 )
 from coda.apps.fundingrequests.views.home import fundingrequest_home
 from coda.apps.fundingrequests.views.labels import (
@@ -34,8 +63,8 @@ from coda.apps.fundingrequests.views.wizard.steps.journal_step import (
 )
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import add_linkrow, parse_authors
 from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
-    find_publisher,
     clear_publisher_error,
+    find_publisher,
 )
 from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdateExtraInformationView,
@@ -43,14 +72,6 @@ from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdatePublicationView,
 )
 from coda.apps.fundingrequests.views.wizard.update_monograph import MonographUpdateMetaView
-from coda.apps.fundingrequests.views.doi_preview import (
-    DOIImportInputView,
-    DOIPreviewDetailView,
-    DOIPreviewSaveView,
-    doi_preview_load_type_form,
-    doi_preview_apply_type_change,
-    doi_preview_reset_type,
-)
 
 app_name = "fundingrequests"
 
@@ -62,8 +83,39 @@ urlpatterns = [
     path("list/", fundingrequest_list, name="list"),
     path("import/", import_fundingrequests, name="import"),
     path("doi-import/", DOIImportInputView.as_view(), name="doi_import_input"),
+    path("doi-import/mass/", MassDOIImportInputView.as_view(), name="mass_doi_import_input"),
+    path(
+        "doi-import/mass-preview/<str:session_key>/",
+        MassDOIPreviewView.as_view(),
+        name="mass_doi_preview",
+    ),
+    path(
+        "doi-import/mass-preview/<str:session_key>/save/",
+        MassDOIPreviewSaveView.as_view(),
+        name="mass_doi_preview_save",
+    ),
+    path(
+        "doi-import/mass-result/<str:result_key>/",
+        MassDOIImportResultView.as_view(),
+        name="mass_doi_result",
+    ),
     path(
         "doi-preview/<str:session_key>/", DOIPreviewDetailView.as_view(), name="doi_preview_detail"
+    ),
+    path(
+        "doi-preview/<str:session_key>/delete-funding",
+        doi_preview_delete_funding,
+        name="doi_preview_delete_funding",
+    ),
+    path(
+        "doi-preview/<str:session_key>/add-funding",
+        doi_preview_add_funding,
+        name="doi_preview_add_funding",
+    ),
+    path(
+        "doi-preview/<str:session_key>/reset-funding",
+        doi_preview_reset_funding,
+        name="doi_preview_reset_funding",
     ),
     path(
         "doi-preview/<str:session_key>/save/", DOIPreviewSaveView.as_view(), name="doi_preview_save"
@@ -110,6 +162,7 @@ urlpatterns = [
     path("labels/attach/", attach_label, name="label_attach"),
     path("labels/detach", detach_label, name="label_detach"),
     path("funders/", fundingorganizations_list, name="funders"),
+    path("funders/<int:pk>/", fundingorganizations_detail, name="funder_detail"),
     path("funders/create/", fundingorganizations_create, name="funders_create"),
     path("funders/create-modal/", fundingorganization_create_modal, name="funders_create_modal"),
     path(
@@ -118,7 +171,46 @@ urlpatterns = [
         name="funders_create_modal_submit",
     ),
     path("funders/update/<int:pk>/", fundingorganizations_update, name="funders_update"),
-    path("funders/delete/<int:pk>/", fundingorganizations_delete, name="funders_delete"),
+    path(
+        "funders/<int:pk>/request-archive/", request_archive_funder, name="funder_request_archive"
+    ),
+    path("funders/<int:pk>/archive/", archive_funder, name="funder_archive"),
+    path("funders/<int:pk>/request-delete/", request_delete_funder, name="funder_request_delete"),
+    path("funders/<int:pk>/delete/", delete_funder, name="funder_delete"),
+    path(
+        "funders/<int:pk>/request-restore/", request_restore_funder, name="funder_request_restore"
+    ),
+    path("funders/<int:pk>/restore/", restore_funder, name="funder_restore"),
+    path(
+        "funders/<int:pk>/request-update-from-ror/",
+        request_update_from_ror_funder,
+        name="funder_request_update_from_ror",
+    ),
+    path(
+        "funders/<int:pk>/update-from-ror/",
+        update_from_ror_funder,
+        name="funder_update_from_ror",
+    ),
+    path(
+        "funders/<int:pk>/merge/select-target/",
+        merge_funder_select_target,
+        name="funder_merge_select_target",
+    ),
+    path(
+        "funders/<int:pk>/merge/<int:target_pk>/",
+        merge_funder_preview,
+        name="funder_merge_preview",
+    ),
+    path(
+        "funders/<int:pk>/merge/<int:target_pk>/execute/",
+        merge_funder_execute,
+        name="funder_merge_execute",
+    ),
+    path(
+        "funders/partial/add-linkrow/",
+        add_funder_linkrow,
+        name="funders_partial_add_linkrow",
+    ),
     path("partial/add-linkrow/", add_linkrow, name="partial_add_linkrow"),
     path("partial/parse-authors/", parse_authors, name="parse_authors"),
     path(

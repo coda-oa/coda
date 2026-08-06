@@ -39,7 +39,7 @@ def make_search_view(
     @login_required
     @require_POST
     def _view(request: HttpRequest) -> HttpResponse:
-        search_term = request.POST.get(param_name, "")
+        search_term = request.POST.get(param_name, "").strip()
         results = search_fn(search_term)
         row_template_override = request.POST.get("row_template", "")
         row_template = (

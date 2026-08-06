@@ -10,6 +10,12 @@ from coda.apps.invoices.views.creditor import (
     CreditorDetailView,
     CreditorListView,
     CreditorUpdateView,
+    archive_creditor,
+    delete_creditor,
+    request_archive_creditor,
+    request_delete_creditor,
+    request_restore_creditor,
+    restore_creditor,
 )
 from coda.apps.invoices.views.finances_home import finances_home
 from coda.apps.invoices.views.fundingsources import (
@@ -85,6 +91,24 @@ urlpatterns = [
     path("creditors/<int:pk>/", CreditorDetailView.as_view(), name="creditor_detail"),
     path("creditors/create/", CreditorCreateView.as_view(), name="creditor_create"),
     path("creditors/<int:pk>/update/", CreditorUpdateView.as_view(), name="creditor_update"),
+    path(
+        "creditors/<int:pk>/request-archive/",
+        request_archive_creditor,
+        name="creditor_request_archive",
+    ),
+    path("creditors/<int:pk>/archive/", archive_creditor, name="creditor_archive"),
+    path(
+        "creditors/<int:pk>/request-delete/",
+        request_delete_creditor,
+        name="creditor_request_delete",
+    ),
+    path("creditors/<int:pk>/delete/", delete_creditor, name="creditor_delete"),
+    path(
+        "creditors/<int:pk>/request-restore/",
+        request_restore_creditor,
+        name="creditor_request_restore",
+    ),
+    path("creditors/<int:pk>/restore/", restore_creditor, name="creditor_restore"),
     path("fundingsources/", fundingsource_listview, name="fundingsource_list"),
     path("fundingsources/<int:pk>/", fundingsource_detailview, name="fundingsource_detail"),
     path("fundingsources/create/", fundingsource_createview, name="fundingsource_create"),

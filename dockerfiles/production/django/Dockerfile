@@ -2,6 +2,11 @@ FROM docker.io/python:3.13-slim-bookworm as python
 
 ARG BUILD_ENVIRONMENT=production
 ARG APP_HOME=/app
+ARG GIT_COMMIT=unknown
+ARG GIT_BRANCH=unknown
+ARG GIT_TAG=
+ARG GIT_REPO=coda-oa/coda
+ARG GIT_SHA=unknown
 
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -32,17 +37,23 @@ RUN sed -i 's/\r$//g' /start
 RUN chmod +x /start
 
 # make django owner of the WORKDIR directory as well.
-RUN chown -R django:django ${APP_HOME}
-RUN mkdir ${APP_HOME}/staticfiles && chown -R django:django ${APP_HOME}/staticfiles
-
+RUN chown -R django:django "${APP_HOME}"
+RUN mkdir "${APP_HOME}/staticfiles" && chown -R django:django "${APP_HOME}/staticfiles"
 ENV PATH="/home/django/.local/bin:${PATH}"
 
 COPY --chown=django:django src src
+RUN mkdir -p "${APP_HOME}/src/coda/apps/media" && chown -R django:django "${APP_HOME}/src/coda/apps/media"
 COPY --chown=django:django tests tests
 COPY --chown=django:django config config
 COPY --chown=django:django manage.py manage.py
 COPY --chown=django:django pyproject.toml pyproject.toml
 COPY --chown=django:django README.md README.md
+
+RUN echo "${GIT_COMMIT}" > /app/VERSION \
+    && echo "${GIT_BRANCH}" > /app/BRANCH \
+    && echo "${GIT_TAG}" > /app/TAG \
+    && echo "${GIT_REPO}" > /app/REPO \
+    && echo "${GIT_SHA}" > /app/SHA
 
 USER django
 

@@ -1,0 +1,30 @@
+{# Swappable tab bar + form content for the publication type change modal. #}
+{# HTMX swaps this entire fragment via outerHTML when a tab is clicked. #}
+{# Parameters: session_key, current_publication_type, suggested_publisher #}
+<div id="type-change-tab-content">
+    <div class="tab-list" role="tablist">
+        <button role="tab"
+                hx-get="{% url 'fundingrequests:doi_preview_load_type_form' session_key=session_key %}"
+                hx-vals='{"publication_type": "article"}'
+                hx-target="#type-change-tab-content"
+                hx-swap="outerHTML transition:true"
+                {% if current_publication_type == "article" %}class="active" aria-selected="true"{% endif %}>
+            Article
+        </button>
+        <button role="tab"
+                hx-get="{% url 'fundingrequests:doi_preview_load_type_form' session_key=session_key %}"
+                hx-vals='{"publication_type": "monograph"}'
+                hx-target="#type-change-tab-content"
+                hx-swap="outerHTML transition:true"
+                {% if current_publication_type == "monograph" %}class="active" aria-selected="true"{% endif %}>
+            Monograph
+        </button>
+    </div>
+    <div id="type-change-form" class="mt-1 tab-content">
+        {% if current_publication_type == "article" %}
+            {% include "fundingrequests/partials/doi_type_change_to_article.html" %}
+        {% else %}
+            {% include "fundingrequests/partials/doi_type_change_to_monograph.html" %}
+        {% endif %}
+    </div>
+</div>

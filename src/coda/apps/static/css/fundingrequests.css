@@ -148,3 +148,8 @@ details.dropdown > ul:has(.label) {
 details.dropdown > ul:has(.label) > li {
     padding-block: 0.75rem;
 }
+
+.identifier-batch {
+    --label-bg-color: hsl(0, 0%, 90%);
+    --label-border-color: hsl(0, 0%, 70%);
+}

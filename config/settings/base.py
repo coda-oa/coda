@@ -106,6 +106,7 @@ LOCAL_APPS = [
     "coda.apps.blocklist",
     "coda.apps.breadcrumbs",
     "coda.apps.opencost",
+    "coda.apps.exports",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -202,6 +203,7 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
                 "coda.apps.breadcrumbs.context_processors.breadcrumb_context",
+                "coda.apps.context_processors.version_context",
                 "coda.apps.context_processors.demo_context",
             ],
             "libraries": {

@@ -165,3 +165,12 @@ cython_debug/
 
 # Git worktrees
 .worktrees/
+
+# Build-time metadata files (baked into production image)
+VERSION
+BRANCH
+TAG
+REPO
+SHA
+
+media/

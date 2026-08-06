@@ -73,8 +73,8 @@ def invoice_matching_creditor() -> MatchingQueryConfig:
     return MatchingQueryConfig(invoice, creditor.name, query_str=creditor.name)
 
 
-def invoice_matching_request_id() -> MatchingQueryConfig:
-    creditor = modelfactory.creditor()
+def invoice_matching_request_id(creditor_name: str = "") -> MatchingQueryConfig:
+    creditor = modelfactory.creditor(name=creditor_name)
     creditor_id = CreditorId(creditor.pk)
 
     journal = JournalId(modelfactory.journal().pk)
@@ -136,7 +136,7 @@ def test__searching_by_generic_criterion_finds_matching_invoices(
     matching_query = create_query_config()
     create_non_matching_invoice()
 
-    actual = iq.search(iq.GenericSearchCriterion(matching_query.query_str))
+    actual = iq.search_to_list_items(iq.GenericSearchCriterion(matching_query.query_str))
 
     assert actual == [
         list_item_from_invoice(matching_query.matching_invoice, matching_query.creditor_name)
@@ -165,7 +165,7 @@ def test__searching_by_payment_status_finds_matching_invoices(
     apply_non_matching_status(non_matching_invoice)
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.PaymentStatusCriterion(matching_invoice.status))
+    actual = iq.search_to_list_items(iq.PaymentStatusCriterion(matching_invoice.status))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -185,7 +185,7 @@ def test__searching_by_date_range_finds_matching_invoices() -> None:
 
     date_range = DateRange(start=date(2024, 1, 1), end=date(2024, 12, 31))
 
-    actual = iq.search(iq.DateRangeCriterion(date_range))
+    actual = iq.search_to_list_items(iq.DateRangeCriterion(date_range))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -221,7 +221,7 @@ def test__searching_by_funding_source_finds_matching_invoices() -> None:
     )
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.FundingSourceCriterion(matching_budget_id))
+    actual = iq.search_to_list_items(iq.FundingSourceCriterion(matching_budget_id))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -239,7 +239,7 @@ def test__searching_by_missing_external_id__finds_invoices_without_external_id()
     non_matching_invoice.external_invoice_id = "EXT-456"
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.MissingExternalIdCriterion())
+    actual = iq.search_to_list_items(iq.MissingExternalIdCriterion())
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -266,7 +266,7 @@ def test__searching_by_contract__finds_invoices_with_matching_contract() -> None
     )
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.ContractCriterion(cast(ContractId, matching_contract.id)))
+    actual = iq.search_to_list_items(iq.ContractCriterion(cast(ContractId, matching_contract.id)))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -292,7 +292,7 @@ def test__searching_by_contract_year__finds_invoices_with_matching_contract_year
     )
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.ContractYearCriterion(contract_year.year))
+    actual = iq.search_to_list_items(iq.ContractYearCriterion(contract_year.year))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -328,7 +328,7 @@ def test__searching_by_has_errors__finds_invoices_with_invalid_contract_years() 
     )
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.HasErrorsCriterion())
+    actual = iq.search_to_list_items(iq.HasErrorsCriterion())
 
     expected = list_item_from_invoice(matching_invoice, creditor.name)
     # has_invalid_contract_years is frozen on InvoiceListItem, so we construct a new one
@@ -362,7 +362,7 @@ def test__searching_by_foreign_currency__finds_invoices_with_foreign_currency_no
     )
     non_matching_invoice.id = invoice_service.save(non_matching_invoice)
 
-    actual = iq.search(iq.MissingCurrencyConversionCriterion(home_currency))
+    actual = iq.search_to_list_items(iq.MissingCurrencyConversionCriterion(home_currency))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -385,7 +385,7 @@ def test__searching_by_missing_currency_conversion__excludes_invoices_without_po
     invoice_without_positions = domainfactory.invoice(creditor=creditor_id, positions=())
     invoice_without_positions.id = invoice_service.save(invoice_without_positions)
 
-    actual = iq.search(iq.MissingCurrencyConversionCriterion(home_currency))
+    actual = iq.search_to_list_items(iq.MissingCurrencyConversionCriterion(home_currency))
 
     assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
 
@@ -414,3 +414,92 @@ def test__invoice_list_view__searching_by_payment_status_via_http_request__finds
     invoice_ids = [item.id for item in invoice_list]
     assert unpaid_invoice.id in invoice_ids
     assert paid_invoice.id not in invoice_ids
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "search_term",
+    ["", "   ", "\t"],
+)
+def test__generic_search__empty_or_whitespace__returns_all_invoices(search_term: str) -> None:
+    creditor = modelfactory.creditor()
+    creditor_id = CreditorId(creditor.pk)
+    invoice1 = domainfactory.invoice(creditor=creditor_id, positions=())
+    invoice1.id = invoice_service.save(invoice1)
+    invoice2 = domainfactory.invoice(creditor=creditor_id, positions=())
+    invoice2.id = invoice_service.save(invoice2)
+
+    actual = iq.search_to_list_items(iq.GenericSearchCriterion(search_term))
+
+    assert len(actual) == 2
+
+
+@pytest.mark.django_db
+def test__generic_search__multi_word_across_creditor_and_request_id__matches_independently_per_field() -> (
+    None
+):
+    match = invoice_matching_request_id(creditor_name="ACS Publishing")
+    request_id = match.query_str
+
+    actual = iq.search_to_list_items(iq.GenericSearchCriterion(f"acs {request_id}"))
+
+    assert len(actual) == 1
+    assert actual[0].creditor_name == "ACS Publishing"
+
+
+@pytest.mark.django_db
+def test__generic_search__multi_word_across_different_fields__matches_independently_per_field() -> (
+    None
+):
+    creditor = modelfactory.creditor(name="ACS Publishing")
+    creditor_id = CreditorId(creditor.pk)
+    invoice = domainfactory.invoice(creditor=creditor_id, positions=())
+    invoice.id = invoice_service.save(invoice)
+
+    actual = iq.search_to_list_items(iq.GenericSearchCriterion(f"acs {invoice.number}"))
+
+    assert len(actual) == 1
+    assert actual[0].creditor_name == "ACS Publishing"
+
+
+@pytest.mark.django_db
+def test__generic_search__multi_word_creditor__each_word_matches_independently() -> None:
+    creditor = modelfactory.creditor(name="Alpha Beta Gamma")
+    creditor_id = CreditorId(creditor.pk)
+    invoice = domainfactory.invoice(creditor=creditor_id, positions=())
+    invoice.id = invoice_service.save(invoice)
+
+    actual = iq.search_to_list_items(iq.GenericSearchCriterion("Alpha Gamma"))
+
+    assert len(actual) == 1
+    assert actual[0].creditor_name == "Alpha Beta Gamma"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__search_publications__multi_word_search__each_word_matches_independently(
+    client: Client,
+) -> None:
+    modelfactory.fundingrequest("Nature Communications")
+
+    response = client.post(
+        reverse("invoices:pub_search"),
+        {"q": "Nat Comm"},
+    )
+
+    assert response.status_code == 200
+    assert "Nature Communications" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__fundingsource_list_view__multi_word_search__each_word_matches_independently(
+    client: Client,
+) -> None:
+
+    modelfactory.budget(name="Alpha Beta Gamma")
+
+    response = client.get(reverse("invoices:fundingsource_list"), {"query": "Alpha Gamma"})
+
+    assert response.status_code == 200
+    assert "Alpha Beta Gamma" in response.content.decode()

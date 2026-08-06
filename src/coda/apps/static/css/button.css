@@ -1,5 +1,9 @@
 button:is(.info, .success, .warning, .danger) {
-  --_background-hover-color: color-mix(in hsl, var(--_background-color) 90%, white 10%);
+  --_background-hover-color: color-mix(
+    in hsl,
+    var(--_background-color) 90%,
+    white 10%
+  );
 }
 
 button:is(.info, .success, .warning, .danger):hover {
@@ -8,7 +12,11 @@ button:is(.info, .success, .warning, .danger):hover {
 }
 
 button.outline:is(.info, .success, .warning, .danger) {
-  --_background-hover-color: color-mix(in hsl, var(--_background-color) 85%, white 15%);
+  --_background-hover-color: color-mix(
+    in hsl,
+    var(--_background-color) 85%,
+    white 15%
+  );
   background-color: transparent;
   border-color: var(--_background-color);
   color: var(--_background-color);
@@ -32,12 +40,17 @@ button.undecorated {
 }
 
 .button {
-  padding: var(--coda-form-element-spacing-vertical) var(--coda-form-element-spacing-horizontal);
+  padding: var(--coda-form-element-spacing-vertical)
+    var(--coda-form-element-spacing-horizontal);
   border: 1px solid var(--coda-border-color);
   border-radius: var(--coda-border-radius);
   text-decoration: none;
   background-color: var(--pico-primary-background);
   color: var(--coda-validation-text-color);
+}
+
+a.button {
+  display: inline-block;
 }
 
 .button.contrast {
@@ -49,7 +62,7 @@ button.undecorated {
 a.button.secondary {
   background-color: var(--coda-secondary-background);
   color: var(--coda-secondary-inverse);
-
+  border-color: var(--coda-secondary-background);
 }
 
 #search-form .button {

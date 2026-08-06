@@ -16,7 +16,7 @@ FundingOrganizationId = NewType("FundingOrganizationId", int)
 
 class ExternalFunding(NamedTuple):
     organization: FundingOrganizationId
-    project_id: NonEmptyStr
+    project_id: str
     project_name: str
 
 

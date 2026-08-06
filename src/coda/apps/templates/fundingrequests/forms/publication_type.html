@@ -1,6 +1,7 @@
+{% load getlist %}
 <select name="publication_type">
     {% for type in publication_types %}
         <option value="{{ type.0 }}"
-                {% if type.0 == selected_publication_types %}selected{% endif %}>{{ type.1 }}</option>
+                {% if type.0 in request.GET|getlist:"publication_type" %}selected{% endif %}>{{ type.1 }}</option>
     {% endfor %}
 </select>

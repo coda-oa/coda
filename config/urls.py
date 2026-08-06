@@ -11,6 +11,7 @@ from django.views import defaults as default_views
 from coda.apps import home
 from coda.apps.htmx_components.forms import DemoFormset
 from coda.apps.login import CustomLoginView
+from coda.apps.views import check_update
 
 urlpatterns = [
     # Django Admin, use {% url 'admin:index' %}
@@ -33,6 +34,8 @@ urlpatterns = [
     path("blocklist/", include("coda.apps.blocklist.urls", namespace="blocklist")),
     path("infopage/", include("coda.apps.infopage.urls", namespace="infopage")),
     path("opencost/", include("coda.apps.opencost.urls", namespace="opencost")),
+    path("exports/", include("coda.apps.exports.urls", namespace="exports")),
+    path("check-update/", check_update, name="check_update"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

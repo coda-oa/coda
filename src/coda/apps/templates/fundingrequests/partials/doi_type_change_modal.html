@@ -1,0 +1,28 @@
+{# Publication type change modal - replaces inline radio buttons #}
+{# Parameters: session_key, current_publication_type #}
+<dialog id="type-change-modal">
+    <article>
+        <header class="flex justify-between align-center">
+            <h2 class="my-1">Change Publication Type</h2>
+            <button aria-label="Close"
+                    class="close"
+                    commandfor="type-change-modal"
+                    command="close"></button>
+        </header>
+        <p class="text-muted">
+            Select the publication type. The search form below will let you pick the journal or publisher.
+        </p>
+        {% include "fundingrequests/partials/doi_type_change_tab_content.html" %}
+        <footer class="grid">
+            <button type="submit"
+                    hx-post="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
+                    hx-include="#type-change-form"
+                    hx-target="#type-change-form"
+                    hx-swap="innerHTML">Apply</button>
+            <button type="button"
+                    class="secondary"
+                    commandfor="type-change-modal"
+                    command="close">Cancel</button>
+        </footer>
+    </article>
+</dialog>

@@ -60,8 +60,10 @@ def test_validate_report_contract_missing_esac_id() -> None:
 
     report = generate_report(
         title="Test Report",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
     )
 
     warnings = validate_report(report)
@@ -87,8 +89,10 @@ def test_validate_report_publication_missing_doi() -> None:
 
     report = generate_report(
         title="Test Report",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
     )
 
     warnings = validate_report(report)
@@ -110,8 +114,10 @@ def test_validation_caching_consistency() -> None:
 
     report = generate_report(
         title="Caching Test Report",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
     )
 
     # Call validation methods multiple times
@@ -157,8 +163,10 @@ def test_has_issues_returns_false_for_clean_report() -> None:
 
     report = generate_report(
         title="Clean Report",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
     )
 
     assert report.has_issues() is False
@@ -204,8 +212,10 @@ def test_get_issue_counts_separates_errors_and_warnings() -> None:
 
     report = generate_report(
         title="Mixed Issues Report",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
     )
 
     counts = report.get_issue_counts()

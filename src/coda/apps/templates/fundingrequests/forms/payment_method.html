@@ -1,3 +1,4 @@
+{% load getlist %}
 <details class="dropdown">
     <summary>Payment Method</summary>
     <ul class="undecorated">
@@ -7,7 +8,7 @@
                        id="payment-method-{{ value }}"
                        name="payment_methods"
                        value="{{ value }}"
-                       {% if value in request.GET.payment_methods %}checked{% endif %}>
+                       {% if value in request.GET|getlist:"payment_methods" %}checked{% endif %}>
                 <label for="payment-method-{{ value }}">{{ label }}</label>
             </li>
         {% endfor %}

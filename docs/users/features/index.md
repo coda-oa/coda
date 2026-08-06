@@ -3,6 +3,7 @@
 ```{toctree}
 :maxdepth: 2
 fundingrequests
+doi-import
 funders
 journals
 publishers
@@ -14,5 +15,6 @@ contracts
 vocabularies
 institutions
 reporting
+csv-export
 preferences
 ```

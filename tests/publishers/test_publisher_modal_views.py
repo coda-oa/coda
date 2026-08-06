@@ -3,6 +3,7 @@ from django.test import Client
 from django.urls import reverse
 
 from coda.apps.publishers.models import Publisher
+from tests import modelfactory
 
 
 @pytest.mark.django_db
@@ -60,3 +61,16 @@ def test__invalid_publisher_entered__click_create_button__returns_modal_with_err
     assert "partials/entity_creation_modal.html" in [t.name for t in response.templates]
     assert "form" in response.context
     assert response.context["form"].errors
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__publisher_list_view__multi_word_search__each_word_matches_independently(
+    client: Client,
+) -> None:
+    modelfactory.publisher(name="Springer Nature")
+
+    response = client.get(reverse("publishing:publishers:list"), {"query": "Sprin Natur"})
+
+    assert response.status_code == 200
+    assert "Springer Nature" in response.content.decode()

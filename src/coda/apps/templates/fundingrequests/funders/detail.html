@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="flex justify-between align-center">
+        <h1 class="my-2">
+            Funding Organization
+            {% if object.archived_at %}<span class="pill danger">Archived</span>{% endif %}
+        </h1>
+        <div class="flex">
+            <button class="secondary"
+                    hx-get="{% url 'fundingrequests:funder_request_update_from_ror' pk=object.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Update from ROR</button>
+            <a href="{% url "fundingrequests:funders_update" pk=object.pk %}"
+               class="button secondary">Edit</a>
+        </div>
+    </div>
+    <article>
+        <header>
+            <h2 class="my-0">{{ object.name }}</h2>
+        </header>
+        {% if object.archived_at %}
+            <p>
+                <strong>Archived:</strong> {{ object.archived_at }}
+            </p>
+        {% else %}
+            <p>
+                <strong>Status:</strong> Active
+            </p>
+        {% endif %}
+        {% if object.get_links %}
+            <section class="my-2">
+                <h3>Identifiers</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for link in object.get_links %}
+                            <tr>
+                                <td>{{ link.type }}</td>
+                                <td>
+                                    <a href="{{ link.url }}">{{ link.value }}</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+        {% endif %}
+    </article>
+    <article>
+        <header>
+            <h2 class="mb-0">
+                Related Funding Requests
+                {% if funding_records %}({{ funding_records|length }}){% endif %}
+            </h2>
+        </header>
+        {% if funding_records %}
+            <div class="scroll-container max-h-30">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Request ID</th>
+                            <th>Project ID</th>
+                            <th>Project Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in funding_records %}
+                            <tr>
+                                <td>
+                                    <a href="{% url "fundingrequests:detail" pk=record.funding_request.pk %}">{{ record.funding_request.request_id }}</a>
+                                </td>
+                                <td>{{ record.project_id }}</td>
+                                <td>{{ record.project_name }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>No related funding requests.</p>
+        {% endif %}
+    </article>
+    {% if object.archived_at %}
+        <div class="flex justify-end my-2">
+            <button class="outline success"
+                    hx-get="{% url 'fundingrequests:funder_request_restore' pk=object.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Restore</button>
+        </div>
+    {% else %}
+        <div class="flex justify-end my-2">
+            <button class="secondary"
+                    hx-get="{% url 'fundingrequests:funder_merge_select_target' pk=object.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Merge into...</button>
+            <button class="secondary"
+                    hx-get="{% url 'fundingrequests:funder_request_archive' pk=object.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Archive</button>
+            <button class="danger"
+                    hx-get="{% url 'fundingrequests:funder_request_delete' pk=object.pk %}"
+                    hx-target="body"
+                    hx-swap="beforeend">Delete</button>
+        </div>
+    {% endif %}
+{% endblock content %}

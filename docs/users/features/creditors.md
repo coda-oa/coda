@@ -6,7 +6,7 @@ The Creditors feature allows you to manage the entities that send invoices to yo
 
 You can access the Creditors page from the **Finances** section in the navigation menu. The overview displays all creditors in your system, showing their names with links to the creditor's detail page. The detail page shows related invoices.
 
-You can search for creditors by name using the search box at the top of the page.
+You can search for creditors by name using the search box at the top of the page. By default, archived creditors are hidden from the list. To include them, toggle the **Include archived** switch above the search results.
 
 ![](/_static/img/creditors_overview.png)
 
@@ -82,6 +82,69 @@ To update a creditor's information:
 Editing a creditor name updates it for display purposes, but existing invoices retain the association. All invoices linked to this creditor will show the updated name.
 ```
 
+## Archiving a Creditor
+
+If a creditor changes its name, is merged with another organization, or is no longer actively used, you can **archive** it rather than deleting it. Archiving preserves all historical invoice data while hiding the creditor from most selection lists.
+
+To archive a creditor:
+
+1. Navigate to the creditor's detail page (or use the **Archive** button on the list view)
+2. Click the **Archive** button
+3. Confirm in the dialog that appears
+
+### What Happens When You Archive
+
+- The creditor is marked as **Archived** with a timestamp (visible on the detail page)
+- The creditor is **hidden** from the dropdown when creating new invoices
+- The creditor **remains visible** when editing existing invoices that reference it
+- All existing invoices and financial records are preserved
+
+### Finding Archived Creditors
+
+By default, archived creditors are hidden from the list view. To find them:
+
+1. Go to the Creditors page
+2. Toggle the **Include archived** switch above the search bar
+3. Archived creditors appear with a red **Archived** badge
+
+## Restoring a Creditor
+
+If you need to bring an archived creditor back into active use:
+
+1. Find the archived creditor using the **Include archived** toggle
+2. Navigate to its detail page (or click **Restore** from the list view)
+3. Click the **Restore** button
+4. Confirm in the dialog
+
+The creditor will immediately reappear in all selection lists as if it was never archived.
+
+## Deleting a Creditor
+
+Deleting a creditor permanently removes it from the system. This should only be done when you're certain the creditor is no longer needed.
+
+```{warning}
+Deleting a creditor is **permanent and cannot be undone**. Consider archiving instead if you might need the creditor again.
+```
+
+### Requirements for Deletion
+
+A creditor can only be deleted if **no invoices reference it**. If any invoices are linked to the creditor, deletion is blocked and you'll see a message listing the blocking reason.
+
+To delete a creditor:
+
+1. Navigate to the creditor's detail page (or click **Delete** from the list view)
+2. Click the **Delete** button
+3. Review the deletion warning
+4. If deletion is allowed, click **Delete** in the confirmation dialog
+5. If deletion is blocked, the dialog shows the reason (e.g., "2 invoice(s) reference this creditor")
+
+### Handling Blocked Deletion
+
+If deletion is blocked, you have two options:
+
+- **Reassign invoices**: Edit each invoice to change the creditor to another one, then try deleting again
+- **Archive instead**: Archiving preserves records without requiring invoice reassignment
+
 ## Using Creditors in CODA
 
 Once you've created creditors, they integrate with the invoice management workflow:
@@ -91,11 +154,15 @@ Once you've created creditors, they integrate with the invoice management workfl
 When creating a new invoice:
 
 1. One of the required fields is **Creditor**
-2. Select from the dropdown of existing creditors
-3. If the creditor doesn't exist yet, you'll need to create it first
+2. Select from the dropdown of **active** (non-archived) creditors
+3. If the creditor doesn't exist yet, you'll need to create it first by using the **New** button
 4. The selected creditor appears on the invoice detail view
 
-This ensures every invoice is properly attributed to the organization that sent it. You can use the serach field in the invoices section to filter by creditor. 
+```{admonition} Archived Creditors in Invoice Editing
+When editing an existing invoice that references an archived creditor, the archived creditor remains visible and selectable in the dropdown. This ensures you can save changes without losing the association. Other archived creditors that are not linked to the invoice are hidden to avoid clutter.
+```
+
+This ensures every invoice is properly attributed to the organization that sent it. You can use the search field in the invoices section to filter by creditor.
 
 ## Relationship with Publishers
 

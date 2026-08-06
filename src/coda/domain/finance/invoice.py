@@ -23,6 +23,10 @@ class PaymentStatus(enum.Enum):
     Unpaid = "unpaid"
     Rejected = "rejected"
 
+    @classmethod
+    def choices(cls) -> list[tuple[str, str]]:
+        return [(s.value, s.value) for s in cls]
+
 
 class UnassignedCosts(errors.DomainError):
     pass

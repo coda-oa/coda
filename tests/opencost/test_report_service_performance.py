@@ -204,8 +204,10 @@ def test_generate_report_link_queries_dont_scale_with_dataset() -> None:
     with CaptureQueriesContext(connection) as context:
         report = generate_report(
             title="Link Prefetch Test",
-            period_start=date(2024, 1, 1),
-            period_end=date(2024, 12, 31),
+            filters={
+                "period_start": "2024-01-01",
+                "period_end": "2024-12-31",
+            },
         )
 
     # Count link-related queries
@@ -259,8 +261,10 @@ def test_generate_report_fetches_invoices_only_once() -> None:
     with CaptureQueriesContext(connection) as context:
         report = generate_report(
             title="Invoice Dedup Test",
-            period_start=date(2024, 1, 1),
-            period_end=date(2024, 12, 31),
+            filters={
+                "period_start": "2024-01-01",
+                "period_end": "2024-12-31",
+            },
         )
 
     # Count invoice queries (should be reasonable regardless of publications/contracts)
@@ -309,8 +313,10 @@ def test_generate_report_bulk_operations_performance() -> None:
     with CaptureQueriesContext(connection) as query_context:
         report = generate_report(
             title="Phase 5 Performance Test",
-            period_start=date(2024, 1, 1),
-            period_end=date(2024, 12, 31),
+            filters={
+                "period_start": "2024-01-01",
+                "period_end": "2024-12-31",
+            },
         )
 
     # Get query count from the generation above
@@ -358,8 +364,10 @@ def test_validation_performance_and_caching() -> None:
     # Generate report
     report = generate_report(
         title="Phase 6 Validation Test",
-        period_start=date(2024, 1, 1),
-        period_end=date(2024, 12, 31),
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
     )
 
     # First validation call: prefetch + validation
@@ -650,7 +658,11 @@ def test_phase6b_institution_hierarchy_cache_performance(
     # Phase 4: Generate report with query counting
     with CaptureQueriesContext(connection) as context:
         report = generate_report(
-            title="Phase 6B Performance Test", period_start=period_start, period_end=period_end
+            title="Phase 6B Performance Test",
+            filters={
+                "period_start": period_start.isoformat(),
+                "period_end": period_end.isoformat(),
+            },
         )
 
     # Phase 5: Assert performance and correctness

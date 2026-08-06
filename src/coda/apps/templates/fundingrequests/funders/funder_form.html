@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+    <section class="my-2">
+        <h1>{{ title }}</h1>
+        <form method="post">
+            {% csrf_token %}
+            <article>
+                <h2>Basic Information</h2>
+                {{ form.as_div }}
+                <h2 class="mt-2">Identifiers</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Value</th>
+                            <th>
+                                <button type="button"
+                                        hx-post="{% url 'fundingrequests:funders_partial_add_linkrow' %}"
+                                        hx-target="#funder-linktable"
+                                        hx-swap="beforeend">Add</button>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="funder-linktable">
+                        {% for link_context in links %}
+                            {% with link=link_context.link errors=link_context.errors %}
+                                {% include "partials/linkrow.html" %}
+                            {% endwith %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </article>
+            <div class="grid wizard-nav">
+                <a href="{% url "fundingrequests:funders" %}"
+                   class="button danger text-center">Cancel</a>
+                <button type="submit">Save</button>
+            </div>
+        </form>
+    </section>
+{% endblock content %}

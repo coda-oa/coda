@@ -1,5 +1,6 @@
 import re
-from typing import Any, NamedTuple, Protocol
+from collections.abc import Callable
+from typing import Any, NamedTuple, Protocol, cast
 
 import pydantic
 
@@ -12,14 +13,50 @@ from pydantic_extra_types.isbn import ISBN
 
 
 class Link(Protocol):
-    def type(self) -> str:
-        ...
+    def type(self) -> str: ...
 
-    def value(self) -> str:
-        ...
+    def value(self) -> str: ...
 
-    def url(self) -> str | None:
-        ...
+    def url(self) -> str | None: ...
+
+
+class LinkRegistry:
+    by_type: dict[str, type[Link]]
+    by_lower: dict[str, Callable[[str], Link]]
+    _create: Callable[[str, str], Link]
+
+    def __init__(
+        self,
+        by_type: dict[str, type[Link]],
+        by_lower: dict[str, Callable[[str], Link]],
+        create: Callable[[str, str], Link],
+    ) -> None:
+        self.by_type = by_type
+        self.by_lower = by_lower
+        self._create = create
+
+    def create_link(self, link_type: str, link_value: str) -> Link:
+        return self._create(link_type, link_value)
+
+
+def link_registry(
+    *link_types: type[Link],
+    fallback: Callable[[str, str], Link] | None = None,
+) -> LinkRegistry:
+    by_type: dict[str, type[Link]] = {}
+    for t in link_types:
+        by_type[cast(Any, t).type()] = t
+    by_lower: dict[str, Callable[[str], Link]] = {name.lower(): t for name, t in by_type.items()}
+
+    def create_link(link_type: str, link_value: str) -> Link:
+        constructor = by_lower.get(link_type.lower())
+        if not constructor:
+            if fallback is not None:
+                return fallback(link_type, link_value)
+            raise ValueError(f"Unknown link type: {link_type}")
+        return constructor(link_value)
+
+    return LinkRegistry(by_type=by_type, by_lower=by_lower, create=create_link)
 
 
 class UserLink(NamedTuple):
@@ -108,7 +145,15 @@ class Doi:
     __match_args__ = ("_doi",)
 
     def __init__(self, doi: str) -> None:
-        self._doi = NonEmptyStr(doi).strip()
+        self._doi = (
+            NonEmptyStr(doi)
+            .strip()
+            .lower()
+            .removeprefix("https://")
+            .removeprefix("http://")
+            .removeprefix("doi.org/")
+            .removesuffix("/")
+        )
         if not self._valid():
             raise InvalidDoi()
 
@@ -497,8 +542,62 @@ class Arxiv:
         return hash((self._arxiv,))
 
 
-_LinkTypes = {t.type(): t for t in (Doi, Isbn, Url, Pmid, Pmc, Handle, Urn, Arxiv, Oai)}
-_LoweredLinkTypes = {t_name.lower(): t for t_name, t in _LinkTypes.items()}
+class InvalidCrossrefId(DomainError):
+    def __init__(self, *args: object) -> None:
+        super().__init__("Invalid Crossref ID format", *args)
+
+
+class CrossrefId:
+    __match_args__ = ("_value",)
+
+    def __init__(self, value: str) -> None:
+        self._value = NonEmptyStr(value)
+        if not self._value.isdigit():
+            raise InvalidCrossrefId("Crossref ID must contain only digits")
+
+    @staticmethod
+    def type() -> str:
+        return "Crossref"
+
+    def value(self) -> str:
+        return self._value
+
+    def url(self) -> str:
+        # FIXME: this is actually incorrect.
+        # This DOI prefix only works for the crossref funder registry.
+        # In CODA this currently does not pose a problem,
+        # because CrossrefId is only used by FundingOrganization right now.
+        # However, it needs to be fixed ASAP by making the CrossrefId type more specific.
+        return f"https://doi.org/10.13039/{self._value}"
+
+    def __str__(self) -> str:
+        return self._value
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, CrossrefId):
+            return False
+        return self._value == other._value
+
+    def __hash__(self) -> int:
+        return hash((self._value,))
+
+
+_registry = link_registry(
+    Doi,
+    Isbn,
+    Url,
+    Pmid,
+    Pmc,
+    Handle,
+    Urn,
+    Arxiv,
+    Oai,
+    CrossrefId,
+    fallback=lambda t, v: UserLink(link_type=t, link_value=v),
+)
+
+_LinkTypes = _registry.by_type
+_LoweredLinkTypes = _registry.by_lower
 
 
 def link_types() -> list[str]:
@@ -510,8 +609,4 @@ def valid_link_type(v: str) -> bool:
 
 
 def create_link(link_type: str, link_value: str) -> Link:
-    link_constructor = _LoweredLinkTypes.get(link_type.lower())
-    if not link_constructor:
-        return UserLink(link_type=link_type, link_value=link_value)
-
-    return link_constructor(link_value)
+    return _registry.create_link(link_type, link_value)

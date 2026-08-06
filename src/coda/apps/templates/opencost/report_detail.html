@@ -26,6 +26,19 @@
                     <p>
                         <strong>Contracts:</strong> {{ contracts_count }}
                     </p>
+                    {% if applied_filters %}
+                        <div class="flex justify-between align-center">
+                            <strong>Applied filters:</strong>
+                            <a class="button secondary" href="{{ redo_url }}">Reuse Filters For New Report</a>
+                        </div>
+                        <ul>
+                            {% for filter in applied_filters %}
+                                <li>
+                                    <strong>{{ filter.label }}</strong>: {{ filter.value }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
                 </div>
             </section>
             {% if has_issues %}

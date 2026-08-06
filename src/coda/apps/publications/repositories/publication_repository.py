@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from typing import TypedDict, cast
 
 from django.db import models, transaction
@@ -14,6 +15,7 @@ from coda.apps.publications.models import Publication as PublicationModel
 from coda.domain.author import Author, AuthorNames
 from coda.domain.contract import ContractId, ContractYear
 from coda.domain.fundingrequest.fundingrequest import FundingRequestId
+from coda.domain.fundingrequest.identity import PublicFundingRequestId
 from coda.domain.publication import (
     Authors,
     BasePublication,
@@ -231,6 +233,30 @@ def find_by_doi(doi: Doi) -> BasePublication | None:
     return PublicationDomainMapper.map(model)
 
 
+def find_by_dois(dois: list[Doi]) -> dict[str, BasePublication]:
+    """Batch-find publications by DOI.
+
+    Args:
+        dois: List of DOIs to search for
+
+    Returns:
+        Dict mapping DOI string to found publication (omits not-found DOIs)
+    """
+    doi_values = [d.value() for d in dois]
+    models = (
+        PublicationDomainMapper.prefetch(PublicationModel.objects.all())
+        .filter(links__type__name="DOI", links__value__in=doi_values)
+        .distinct()
+    )
+    results: dict[str, BasePublication] = {}
+    for model in models:
+        pub = PublicationDomainMapper.map(model)
+        for link in model.links.all():
+            if link.type.name == "DOI" and link.value in doi_values:
+                results[link.value] = pub
+    return results
+
+
 def find_publications_by_vocabulary(vocabulary_id: VocabularyId) -> list[BasePublication]:
     query = models.Q(publication_type__vocabulary_id=vocabulary_id) | models.Q(
         subject_area__vocabulary_id=vocabulary_id
@@ -267,6 +293,34 @@ def get_contracts_for_publications(
         result.setdefault(pub_id, []).append(contract_year)
 
     return result
+
+
+@dataclass
+class FundingRequestReference:
+    request_id: str
+    url: str
+
+
+@dataclass(frozen=True)
+class PublicationReference:
+    id: PublicationId
+    title: str
+    fundingrequest_reference: FundingRequestReference | None
+
+
+def get_publication_reference(publication_id: PublicationId) -> PublicationReference | None:
+    ref = PublicationModel.objects.filter(pk=publication_id).first()
+    if not ref:
+        return None
+
+    request_ref = None
+    if related_request := getattr(ref, "fundingrequest", None):
+        request_id = PublicFundingRequestId.from_str(related_request.request_id)
+        request_ref = FundingRequestReference(
+            request_id=str(request_id), url=related_request.get_absolute_url()
+        )
+
+    return PublicationReference(PublicationId(ref.pk), ref.title, request_ref)
 
 
 def _map_to_contract_year(c: AttachedContract) -> ContractYear:

@@ -1,0 +1,12 @@
+<div class="form-row">
+    <label for="funding_source" class="form-row-item-sm">Funding Source</label>
+    <select id="funding_source" name="funding_source">
+        <option {% if not request.GET.funding_source %}selected{% endif %} value>-------</option>
+        {% for fs in funding_sources %}
+            <option value="{{ fs.id }}"
+                    {% if fs.id|stringformat:"s" == request.GET.funding_source %}selected{% endif %}>
+                {{ fs.name }}
+            </option>
+        {% endfor %}
+    </select>
+</div>

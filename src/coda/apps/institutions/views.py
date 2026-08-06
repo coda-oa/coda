@@ -202,6 +202,7 @@ def institution_detail(request: HttpRequest, pk: int) -> HttpResponse:
     )
 
 
+@login_required
 @require_GET
 def request_set_successor(request: HttpRequest, pk: int) -> HttpResponse:
     institution = get_object_or_404(Institution.objects, pk=pk)
@@ -222,6 +223,7 @@ def request_set_successor(request: HttpRequest, pk: int) -> HttpResponse:
     )
 
 
+@login_required
 @require_GET
 def request_delete_institution(request: HttpRequest, pk: int) -> HttpResponse:
     institution = get_object_or_404(Institution.objects, pk=pk)
