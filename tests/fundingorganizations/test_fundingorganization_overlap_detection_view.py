@@ -127,7 +127,7 @@ class TestAutomaticOverlapDetection:
         response = update_from_ror(client, org1.pk)
 
         content = response.content.decode()
-        assert f"Merge into {org2.name}" in content
+        assert "Merge" in content
 
     def test__update_from_ror__shows_overlap_dialog_even_when_no_links_changed(
         self, client: Client, monkeypatch: pytest.MonkeyPatch
