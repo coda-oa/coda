@@ -209,9 +209,9 @@ def fundingrequest_csv_regen_view(
 def _save_csv_file(export: FundingRequestCSVExport, csv_content: str) -> None:
     row_count = pl.read_csv(StringIO(csv_content), separator=";").height
     filename = f"{slugify(export.name) or 'export'}-{export.id}.csv"
-    export.csv_file.save(filename, ContentFile(csv_content.encode("utf-8")))
+    export.csv_file.save(filename, ContentFile(csv_content.encode("utf-8")), save=False)
     export.record_count = row_count
-    export.save(update_fields=["record_count"])
+    export.save(update_fields=["csv_file", "record_count"])
 
 
 def _parse_filter_dict(filters: dict[str, str]) -> FundingRequestSearchParams:

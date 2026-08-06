@@ -65,4 +65,3 @@ services:
 
     volumes:
       - static_volume:/usr/share/nginx/static/
-      - media_volume:/usr/share/nginx/media/
