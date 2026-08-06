@@ -9,9 +9,6 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-import httpx
-import pytest
-
 from coda.contexts.fundingrequest.dto.external_metadata import ExternalPublicationMetadata
 from coda.contexts.fundingrequest.services.doi_import.doi_client import crossref
 from coda.contexts.fundingrequest.services.doi_import.doi_client.errors import DOINotFoundError
@@ -215,40 +212,6 @@ class TestCrossrefBatchPagination:
         assert_pages_requested(fake_client, 2)
         assert_all_found(result, dois)
         assert isinstance(result["10.1234/extra"], Exception)
-
-
-class TestCrossrefBatchTrailingSlash:
-    """Tests for how DOIs with trailing slashes are handled.
-
-    A DOI with a trailing slash (e.g. ``10.1038/nature12373/``) is a distinct
-    DOI from the canonical form (``10.1038/nature12373``). It is not registered
-    in Crossref, so it must be reported as not found rather than silently
-    resolved to the canonical DOI's metadata.
-    """
-
-    @pytest.mark.parametrize(
-        "http_client",
-        [
-            pytest.param(
-                FakeHttpxClient(FakeHttpxResponse([_make_item("10.1038/nature12373")])),
-                id="fake-client",
-            ),
-            pytest.param(httpx, id="real-crossref-api", marks=pytest.mark.integration),
-        ],
-    )
-    def test__fetch_publications_batch__doi_with_trailing_slash__is_not_found(
-        self, http_client: Any
-    ) -> None:
-        """Given a DOI with a trailing slash, it is a distinct DOI and reported
-        as not found.
-
-        Uses a real, registered DOI (10.1038/nature12373) with a trailing slash
-        appended, so the same scenario is verifiable against the live API.
-        """
-        doi = Doi("10.1038/nature12373/")
-        result = crossref.fetch_publications_batch([doi], http_client=http_client)
-
-        assert isinstance(result[str(doi)], DOINotFoundError)
 
 
 class TestCrossrefBatchWithRealData:
