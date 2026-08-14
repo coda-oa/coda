@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from ._types import NonEmptyString
 from ._institution import InstitutionType
@@ -135,6 +136,14 @@ class BibliographicInformation(BaseModel):
 class PublicationPrimaryIdentifier(BaseModel):
     doi: NonEmptyString | None = None
     bibliographic_information: BibliographicInformation | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one_of_doi_or_bibliographic_information(self) -> Self:
+        if (self.doi is not None) == (self.bibliographic_information is not None):
+            raise ValueError(
+                "exactly one of 'doi' or 'bibliographic_information' must be set"
+            )
+        return self
 
 
 class PartOfContractType(BaseModel):
