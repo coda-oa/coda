@@ -47,10 +47,7 @@ class TestParseSearchTerms:
         assert _parse_search_terms('mit "press" springer') == (["press"], ["mit", "springer"])
 
     def test_unmatched_quote_treated_as_literal(self) -> None:
-        phrases, words = _parse_search_terms('"mit press')
-        assert phrases == []
-        assert '"mit' in words
-        assert 'press"' in words or "press" in words
+        assert _parse_search_terms('"mit press') == ([], ['"mit', "press"])
 
     def test_empty_quotes(self) -> None:
         assert _parse_search_terms('""') == ([""], [])
@@ -64,45 +61,36 @@ def test__empty_or_whitespace__returns_noop_q(query: str) -> None:
 class TestBuildSearchFilterSingleField:
     def test_single_word(self) -> None:
         q = build_search_filter("hello", "title")
-        assert repr(q) == "<Q: (AND: ('title__icontains', 'hello'))>"
+        assert q == Q(title__icontains="hello")
 
     def test_multiple_words(self) -> None:
         q = build_search_filter("hello world", "title")
-        assert repr(q) == (
-            "<Q: (AND: ('title__icontains', 'hello'), ('title__icontains', 'world'))>"
-        )
+        assert q == Q(title__icontains="hello") & Q(title__icontains="world")
 
     def test_quoted_phrase(self) -> None:
         q = build_search_filter('"hello world"', "title")
-        assert repr(q) == "<Q: (AND: ('title__icontains', 'hello world'))>"
+        assert q == Q(title__icontains="hello world")
 
     def test_phrase_and_word(self) -> None:
         q = build_search_filter('"hello world" foo', "title")
-        assert repr(q) == (
-            "<Q: (AND: ('title__icontains', 'hello world'), " "('title__icontains', 'foo'))>"
-        )
+        assert q == Q(title__icontains="hello world") & Q(title__icontains="foo")
 
 
 class TestBuildSearchFilterMultipleFields:
     def test_single_word_or_across_fields(self) -> None:
         q = build_search_filter("hello", "title", "author")
-        assert repr(q) == (
-            "<Q: (OR: ('title__icontains', 'hello'), ('author__icontains', 'hello'))>"
-        )
+        assert q == Q(title__icontains="hello") | Q(author__icontains="hello")
 
     def test_multiple_words_and_across_groups(self) -> None:
         q = build_search_filter("hello world", "title", "author")
-        assert repr(q) == (
-            "<Q: (AND: (OR: ('title__icontains', 'hello'), ('author__icontains', 'hello')), "
-            "(OR: ('title__icontains', 'world'), ('author__icontains', 'world')))>"
+        expected = (Q(title__icontains="hello") | Q(author__icontains="hello")) & (
+            Q(title__icontains="world") | Q(author__icontains="world")
         )
+        assert q == expected
 
     def test_quoted_phrase_or_across_fields(self) -> None:
         q = build_search_filter('"hello world"', "title", "author")
-        assert repr(q) == (
-            "<Q: (OR: ('title__icontains', 'hello world'), "
-            "('author__icontains', 'hello world'))>"
-        )
+        assert q == Q(title__icontains="hello world") | Q(author__icontains="hello world")
 
 
 class TestBackwardCompatibility:
@@ -114,7 +102,7 @@ class TestBackwardCompatibility:
         q1 |= Q(author__icontains="hello")
 
         q2 = build_search_filter("hello", "title", "author")
-        assert repr(q2) == repr(q1)
+        assert q2 == q1
 
     def test_multiple_words(self) -> None:
         q1 = Q()
@@ -129,7 +117,7 @@ class TestBackwardCompatibility:
         q1 &= word_q
 
         q2 = build_search_filter("hello world", "title", "author")
-        assert repr(q2) == repr(q1)
+        assert q2 == q1
 
 
 class TestParsePrefixedTerms:
@@ -180,7 +168,7 @@ class TestBuildSearchFilterWithAliases:
         q = build_search_filter(
             'author:"john doe"', "title", "author__name", field_aliases={"author": "author__name"}
         )
-        assert repr(q) == "<Q: (AND: ('author__name__icontains', 'john doe'))>"
+        assert q == Q(author__name__icontains="john doe")
 
     def test_prefixed_and_unprefixed_terms(self) -> None:
         q = build_search_filter(
@@ -189,10 +177,10 @@ class TestBuildSearchFilterWithAliases:
             "author__name",
             field_aliases={"author": "author__name"},
         )
-        assert repr(q) == (
-            "<Q: (AND: ('author__name__icontains', 'john'), "
-            "(OR: ('title__icontains', 'springer'), ('author__name__icontains', 'springer')))>"
+        expected = Q(author__name__icontains="john") & (
+            Q(title__icontains="springer") | Q(author__name__icontains="springer")
         )
+        assert q == expected
 
     def test_multiple_prefixed(self) -> None:
         q = build_search_filter(
@@ -201,9 +189,7 @@ class TestBuildSearchFilterWithAliases:
             "author__name",
             field_aliases={"author": "author__name", "title": "title"},
         )
-        assert repr(q) == (
-            "<Q: (AND: ('author__name__icontains', 'john'), " "('title__icontains', 'foo'))>"
-        )
+        assert q == Q(author__name__icontains="john") & Q(title__icontains="foo")
 
     def test_prefixed_can_be_multi_field(self) -> None:
         q = build_search_filter(
@@ -211,14 +197,12 @@ class TestBuildSearchFilterWithAliases:
             "title",
             field_aliases={"publisher": ["j_pub", "m_pub"]},
         )
-        assert repr(q) == (
-            "<Q: (OR: ('j_pub__icontains', 'springer'), " "('m_pub__icontains', 'springer'))>"
-        )
+        assert q == Q(j_pub__icontains="springer") | Q(m_pub__icontains="springer")
 
     def test_unprefixed_no_aliases_behaviour_unchanged(self) -> None:
         """When field_aliases is None, prefixed terms are treated as literal text."""
         q = build_search_filter("author:john", "title")
-        assert repr(q) == "<Q: (AND: ('title__icontains', 'author:john'))>"
+        assert q == Q(title__icontains="author:john")
 
     def test_terms_phrases_and_words_combined(self) -> None:
         """AND order is preserved: prefixed terms, then phrases, then words."""
@@ -228,11 +212,12 @@ class TestBuildSearchFilterWithAliases:
             "author__name",
             field_aliases={"author": "author__name"},
         )
-        assert repr(q) == (
-            "<Q: (AND: ('author__name__icontains', 'a'), "
-            "(OR: ('title__icontains', 'b c'), ('author__name__icontains', 'b c')), "
-            "(OR: ('title__icontains', 'd'), ('author__name__icontains', 'd')))>"
+        expected = (
+            Q(author__name__icontains="a")
+            & (Q(title__icontains="b c") | Q(author__name__icontains="b c"))
+            & (Q(title__icontains="d") | Q(author__name__icontains="d"))
         )
+        assert q == expected
 
 
 class TestScopedAlias:
@@ -252,19 +237,13 @@ class TestScopedAlias:
         assert result.remaining == ""
 
     def test_scoped_single_field_q_shape(self) -> None:
+        extra = Q(publication__links__type__name="DOI")
         q = build_search_filter(
             "doi:10.1234/abc",
             "title",
-            field_aliases={
-                "doi": ScopedAlias(
-                    "publication__links__value", Q(publication__links__type__name="DOI")
-                )
-            },
+            field_aliases={"doi": ScopedAlias("publication__links__value", extra)},
         )
-        assert repr(q) == (
-            "<Q: (AND: ('publication__links__value__icontains', '10.1234/abc'), "
-            "('publication__links__type__name', 'DOI'))>"
-        )
+        assert q == Q(publication__links__value__icontains="10.1234/abc") & extra
 
     def test_scoped_multi_field_q_shape(self) -> None:
         q = build_search_filter(
@@ -272,25 +251,21 @@ class TestScopedAlias:
             "title",
             field_aliases={"doi": ScopedAlias(["a__value", "b__value"], Q(a__type="DOI"))},
         )
-        assert repr(q) == (
-            "<Q: (AND: (OR: ('a__value__icontains', 'x'), ('b__value__icontains', 'x')), "
-            "('a__type', 'DOI'))>"
-        )
+        expected = (Q(a__value__icontains="x") | Q(b__value__icontains="x")) & Q(a__type="DOI")
+        assert q == expected
 
     def test_scoped_plain_and_word_terms_order(self) -> None:
         """Scoped term (with extra filter) comes before generic words in AND order."""
+        extra = Q(publication__links__type__name="DOI")
         q = build_search_filter(
             'doi:"10.1234/abc" springer',
             "title",
             "author__name",
-            field_aliases={
-                "doi": ScopedAlias(
-                    "publication__links__value", Q(publication__links__type__name="DOI")
-                )
-            },
+            field_aliases={"doi": ScopedAlias("publication__links__value", extra)},
         )
-        assert repr(q) == (
-            "<Q: (AND: ('publication__links__value__icontains', '10.1234/abc'), "
-            "('publication__links__type__name', 'DOI'), "
-            "(OR: ('title__icontains', 'springer'), ('author__name__icontains', 'springer')))>"
+        expected = (
+            Q(publication__links__value__icontains="10.1234/abc")
+            & extra
+            & (Q(title__icontains="springer") | Q(author__name__icontains="springer"))
         )
+        assert q == expected
