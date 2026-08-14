@@ -23,6 +23,13 @@ class ScopedAlias:
 
 type SearchFieldAliases = dict[str, str | list[str] | ScopedAlias]
 
+# Match a prefixed term: a word-char prefix, a colon, and either a
+# double-quoted value ("...") or a single non-whitespace word
+_PREFIXED_TERM_RE = re.compile(r"""\b(\w+):("[^"]*"|\S+)""")
+
+# Match a double-quoted phrase, capturing its content
+_QUOTED_PHRASE_RE = re.compile(r'"([^"]*)"')
+
 
 @dataclass
 class _PrefixedTerm:
@@ -116,8 +123,8 @@ def _parse_search_terms(search_term: str) -> tuple[list[str], list[str]]:
 
     Unmatched quotes are left in the word tokens as literal characters.
     """
-    phrases = re.findall(r'"([^"]*)"', search_term)
-    remaining = re.sub(r'"[^"]*"', "", search_term).strip()
+    phrases = _QUOTED_PHRASE_RE.findall(search_term)
+    remaining = _QUOTED_PHRASE_RE.sub("", search_term).strip()
     words = remaining.split() if remaining else []
     return phrases, words
 
@@ -136,9 +143,6 @@ def _parse_prefixed_terms(
         k: _normalise_alias(v) for k, v in aliases.items()
     }
 
-    # Match either a quoted value ("...") or a single non-whitespace word
-    pattern = re.compile(r"""(\w+):("(?:[^"]*)"|\S+)""")
-
     terms: list[_PrefixedTerm] = []
 
     def _replace(m: re.Match[str]) -> str:
@@ -153,7 +157,7 @@ def _parse_prefixed_terms(
             return ""
         return m.group(0)
 
-    remaining = pattern.sub(_replace, search_term).strip()
+    remaining = _PREFIXED_TERM_RE.sub(_replace, search_term).strip()
     return _PrefixedParseResult(terms=terms, remaining=remaining)
 
 
