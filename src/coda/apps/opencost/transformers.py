@@ -70,6 +70,11 @@ def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> Pub
 
     part_of_contract = _get_part_of_contract(report_pub)
 
+    if invoice_data is None and part_of_contract is None:
+        # XSD requires at least one of invoice or part_of_contract.
+        # Without cost data we cannot produce a valid record.
+        return None
+
     cost_data = PublicationCostDataType(invoice=invoice_data, part_of_contract=part_of_contract)
 
     return PublicationType(

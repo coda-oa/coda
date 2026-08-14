@@ -155,6 +155,14 @@ class PublicationCostDataType(BaseModel):
     invoice: list[PublicationInvoiceType] | None = None
     part_of_contract: PartOfContractType | None = None
 
+    @model_validator(mode="after")
+    def _at_least_one_invoice_or_part_of_contract(self) -> Self:
+        if not self.invoice and self.part_of_contract is None:
+            raise ValueError(
+                "at least one of 'invoice' or 'part_of_contract' must be set"
+            )
+        return self
+
 
 class PublicationType(BaseModel):
     primary_identifier: PublicationPrimaryIdentifier
