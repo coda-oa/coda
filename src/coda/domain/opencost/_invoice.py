@@ -1,6 +1,7 @@
 from decimal import Decimal
+from typing import Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ._types import NonEmptyString, Currency, DateFormat, ContractCostType, PublicationCostType
 
@@ -20,6 +21,12 @@ class AmountInvoice(BaseModel):
 class Dates(BaseModel):
     invoice: DateFormat | None = None
     paid: DateFormat | None = None
+
+    @model_validator(mode="after")
+    def _at_least_one_date(self) -> Self:
+        if self.invoice is None and self.paid is None:
+            raise ValueError("at least one of 'invoice' or 'paid' must be set")
+        return self
 
 
 class PublicationInvoiceType(BaseModel):
