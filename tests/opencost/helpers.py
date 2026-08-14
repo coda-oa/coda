@@ -13,6 +13,7 @@ from coda.apps.invoices.models import Creditor, Invoice, Position
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.report_service import generate_report
 from coda.apps.opencost.transformers import report_publication_to_pydantic, to_opencost
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import Publication
 from coda.domain.opencost import Data
 from coda.domain.opencost._publication import PublicationType
@@ -98,6 +99,8 @@ def create_opencost_report(
     period_start: date = date(2024, 1, 1),
     period_end: date = date(2024, 12, 31),
 ) -> OpenCostReport:
+    _ensure_home_institution()
+
     filters = {
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
@@ -245,6 +248,13 @@ def create_contract_with_invoice(
     return invoice, positions
 
 
+def _ensure_home_institution() -> None:
+    prefs, _ = GlobalPreferences.objects.get_or_create()
+    if not prefs.home_institution_id:
+        prefs.home_institution = modelfactory.institution()
+        prefs.save()
+
+
 def generate_opencost_report_from_contract() -> Data:
     """
     Helper to generate an OpenCost report and transform to OpenCostData.
@@ -256,6 +266,7 @@ def generate_opencost_report_from_contract() -> Data:
 
     Returns the transformed Data for assertions.
     """
+    _ensure_home_institution()
     filters = {
         "period_start": date(2024, 1, 1).isoformat(),
         "period_end": date(2024, 12, 31).isoformat(),
