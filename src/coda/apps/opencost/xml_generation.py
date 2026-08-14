@@ -316,5 +316,8 @@ def generate_xml(
     contracts: list["OpenCostReportContract"] | None = None,
 ) -> str:
     data = to_opencost(report, publications, contracts)
+    if data is None:
+        # XSD requires at least one publication or contract — nothing to generate.
+        return ""
     xml_string = pydantic_to_xml(data)
     return xml_string
