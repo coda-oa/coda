@@ -36,6 +36,12 @@ class PublicationInvoiceType(BaseModel):
     dates: Dates
     creditor: NonEmptyString | None = None
 
+    @model_validator(mode="after")
+    def _at_least_one_amount_paid(self) -> Self:
+        if not self.amounts_paid:
+            raise ValueError("at least one 'amount_paid' must be set")
+        return self
+
 
 class ContractAmountPaidType(BaseModel):
     currency: Currency
@@ -50,6 +56,12 @@ class ContractInvoiceType(BaseModel):
     creditor: NonEmptyString | None = None
     dates: Dates
     amounts_paid: list[ContractAmountPaidType]
+
+    @model_validator(mode="after")
+    def _at_least_one_amount_paid(self) -> Self:
+        if not self.amounts_paid:
+            raise ValueError("at least one 'amount_paid' must be set")
+        return self
 
 
 class ContractInvoicePeriodType(BaseModel):
