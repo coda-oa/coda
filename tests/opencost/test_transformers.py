@@ -6,6 +6,8 @@ from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
     OpenCostReportContractInstitutionIdentifier,
+    OpenCostReportContractInvoice,
+    OpenCostReportContractInvoicePosition,
 )
 from coda.apps.opencost.transformers import to_opencost
 from coda.apps.publications.models._attachedentities import PublicationAttachedConcept
@@ -368,6 +370,27 @@ def test__report_standalone_contract_with_institution_data__transforming_to_open
         report_contract=report_contract,
         identifier_type="isni",
         value="0000 0001 2345 6789",
+    )
+
+    creditor = create_creditor("Test Creditor")
+    invoice = create_invoice(creditor=creditor, invoice_date=date(2024, 7, 1), number="INV-CONTRACT-001")
+    create_position(invoice=invoice, contract=contract, description="Service Fee", cost_amount=Decimal("1200.00"), cost_type="publish")
+    report_invoice = OpenCostReportContractInvoice.objects.create(
+        report_contract=report_contract,
+        invoice=invoice,
+        invoice_number="INV-CONTRACT-001",
+        creditor="Test Creditor",
+        invoice_date=date(2024, 7, 1),
+        amount_invoice=Decimal("1200.00"),
+        amount_invoice_currency="EUR",
+        group_id="test-group-id",
+    )
+    OpenCostReportContractInvoicePosition.objects.create(
+        report_contract_invoice=report_invoice,
+        position=invoice.positions.first(),
+        amount=Decimal("1200.00"),
+        currency="EUR",
+        cost_type="publish",
     )
 
     opencost_data = to_opencost(report)

@@ -271,6 +271,10 @@ def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> Cont
     contract_secondary_identifiers = _get_contract_secondary_identifiers(report_contract)
 
     cost_data = _get_contract_cost_data(report_contract)
+    if cost_data is None:
+        # XSD requires at least one invoice_group — without cost data
+        # we cannot produce a valid record.
+        return None
 
     return ContractType(
         contract_name=report_contract.contract_name,
@@ -308,11 +312,12 @@ def _get_contract_institution(report_contract: OpenCostReportContract) -> Instit
     )
 
 
-def _get_contract_cost_data(report_contract: OpenCostReportContract) -> ContractCostDataType:
+def _get_contract_cost_data(report_contract: OpenCostReportContract) -> ContractCostDataType | None:
     report_invoices = report_contract.invoices.all()
 
     if not report_invoices:
-        return ContractCostDataType(invoice_group=[])
+        # XSD requires at least one invoice_group — nothing to produce.
+        return None
 
     invoice_list = []
     for report_invoice in report_invoices:
@@ -353,12 +358,14 @@ def _get_contract_cost_data(report_contract: OpenCostReportContract) -> Contract
         )
 
     if not invoice_list:
-        return ContractCostDataType(invoice_group=[])
+        # XSD requires at least one invoice_group — nothing to produce.
+        return None
 
     first_invoice = report_invoices[0]
 
     if not first_invoice.group_id or not report_contract.report:
-        return ContractCostDataType(invoice_group=[])
+        # XSD requires group_id and invoices_period — nothing to produce.
+        return None
 
     invoices_period = ContractInvoicePeriodType(
         **{

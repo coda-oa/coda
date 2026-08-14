@@ -77,3 +77,9 @@ class ContractInvoiceGroupType(BaseModel):
 
 class ContractCostDataType(BaseModel):
     invoice_group: list[ContractInvoiceGroupType]
+
+    @model_validator(mode="after")
+    def _at_least_one_invoice_group(self) -> Self:
+        if not self.invoice_group:
+            raise ValueError("at least one 'invoice_group' must be set")
+        return self
