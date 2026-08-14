@@ -45,7 +45,13 @@ from coda.domain.opencost._publication import (
 )
 
 
-def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> PublicationType:
+def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> PublicationType | None:
+    institution = _get_institution(report_pub)
+    if institution is None:
+        # XSD requires institution to have at least one name or id.
+        # Without institution data we cannot produce a valid record.
+        return None
+
     if report_pub.doi:
         primary_identifier = PublicationPrimaryIdentifier(doi=report_pub.doi)
     else:
@@ -58,8 +64,6 @@ def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> Pub
 
     secondary_identifiers = _get_secondary_identifiers(report_pub)
 
-    institution = _get_institution(report_pub)
-
     publication_type = _get_publication_type(report_pub)
 
     invoice_data = _get_invoice_data(report_pub)
@@ -68,7 +72,7 @@ def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> Pub
 
     cost_data = PublicationCostDataType(invoice=invoice_data, part_of_contract=part_of_contract)
 
-    publication = PublicationType(
+    return PublicationType(
         primary_identifier=primary_identifier,
         secondary_identifiers=secondary_identifiers,
         institution=institution,
@@ -76,8 +80,6 @@ def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> Pub
         external_costsplitting=report_pub.external_costsplitting,
         cost_data=cost_data,
     )
-
-    return publication
 
 
 def _get_publication_type(report_pub: OpenCostReportPublication) -> CoarPublicationType:
@@ -179,7 +181,7 @@ def _get_invoice_data(report_pub: OpenCostReportPublication) -> list[Publication
     return invoice_list if invoice_list else None
 
 
-def _get_institution(report_pub: OpenCostReportPublication) -> InstitutionType:
+def _get_institution(report_pub: OpenCostReportPublication) -> InstitutionType | None:
     names = []
     if report_pub.institution_name:
         names.append(
@@ -193,6 +195,11 @@ def _get_institution(report_pub: OpenCostReportPublication) -> InstitutionType:
             identifiers.append(InstitutionId(value=inst_id.value, type=id_type))
         except ValueError:
             continue
+
+    # XSD requires at least one name or id (minOccurs=1 on choice).
+    # Return None when unavailable so the caller can skip this entity.
+    if not names and not identifiers:
+        return None
 
     return InstitutionType(
         name=names if names else None,
@@ -211,9 +218,17 @@ def to_opencost(
     if contracts_list is None:
         contracts_list = list(report.contracts.all())
 
-    publications = [report_publication_to_pydantic(report_pub) for report_pub in publications_list]
+    publications = [
+        pub
+        for report_pub in publications_list
+        if (pub := report_publication_to_pydantic(report_pub)) is not None
+    ]
 
-    contracts = [report_contract_to_pydantic(report_contract) for report_contract in contracts_list]
+    contracts = [
+        contract
+        for report_contract in contracts_list
+        if (contract := report_contract_to_pydantic(report_contract)) is not None
+    ]
 
     return Data(
         publication=publications if publications else None,
@@ -221,8 +236,12 @@ def to_opencost(
     )
 
 
-def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> ContractType:
+def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> ContractType | None:
     institution = _get_contract_institution(report_contract)
+    if institution is None:
+        # XSD requires institution to have at least one name or id.
+        # Without institution data we cannot produce a valid record.
+        return None
 
     participation = ParticipationType(
         **{
@@ -254,7 +273,7 @@ def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> Cont
     )
 
 
-def _get_contract_institution(report_contract: OpenCostReportContract) -> InstitutionType:
+def _get_contract_institution(report_contract: OpenCostReportContract) -> InstitutionType | None:
     names = []
     if report_contract.institution_name:
         names.append(
@@ -268,6 +287,11 @@ def _get_contract_institution(report_contract: OpenCostReportContract) -> Instit
             identifiers.append(InstitutionId(value=inst_id.value, type=id_type))
         except ValueError:
             continue
+
+    # XSD requires at least one name or id (minOccurs=1 on choice).
+    # Return None when unavailable so the caller can skip this entity.
+    if not names and not identifiers:
+        return None
 
     return InstitutionType(
         name=names if names else None,
@@ -319,24 +343,25 @@ def _get_contract_cost_data(report_contract: OpenCostReportContract) -> Contract
             )
         )
 
-    group_id = None
-    if invoice_list and report_invoices:
-        first_invoice = report_invoices[0]
-        group_id = first_invoice.group_id if first_invoice.group_id else None
+    if not invoice_list:
+        return ContractCostDataType(invoice_group=[])
 
-    invoices_period = None
-    if report_contract.report:
-        invoices_period = ContractInvoicePeriodType(
-            **{
-                "from": str(report_contract.report.period_start),
-                "to": str(report_contract.report.period_end),
-            }
-        )
+    first_invoice = report_invoices[0]
+
+    if not first_invoice.group_id or not report_contract.report:
+        return ContractCostDataType(invoice_group=[])
+
+    invoices_period = ContractInvoicePeriodType(
+        **{
+            "from": str(report_contract.report.period_start),
+            "to": str(report_contract.report.period_end),
+        }
+    )
 
     invoice_group = ContractInvoiceGroupType(
-        group_id=group_id,
+        group_id=first_invoice.group_id,
         invoices_period=invoices_period,
-        invoice=invoice_list if invoice_list else None,
+        invoice=invoice_list,
     )
 
     return ContractCostDataType(invoice_group=[invoice_group])
