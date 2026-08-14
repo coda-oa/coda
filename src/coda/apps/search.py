@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from django.db.models import Q
 
-type _FieldAliases = dict[str, str | list[str]]
+type SearchFieldAliases = dict[str, str | list[str]]
 
 
 @dataclass
@@ -37,7 +37,7 @@ class _PrefixedParseResult:
 def build_search_filter(
     query: str,
     *fields: str,
-    field_aliases: _FieldAliases | None = None,
+    field_aliases: SearchFieldAliases | None = None,
 ) -> Q:
     """Build a Q filter that matches all words/phrases across any of the given fields.
 
@@ -100,7 +100,7 @@ def _parse_search_terms(search_term: str) -> tuple[list[str], list[str]]:
 
 def _parse_prefixed_terms(
     search_term: str,
-    aliases: _FieldAliases,
+    aliases: SearchFieldAliases,
 ) -> _PrefixedParseResult:
     """Extract field-prefixed terms (``prefix:value``) from the search string.
 

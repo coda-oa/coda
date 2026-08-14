@@ -294,3 +294,19 @@ def test__searching_for_funding_requests_by_publications_publication_state__show
     response = search_fundingrequests(client, query)
 
     assert_contains(response.context, {matching_request})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__list_view__search_field_prefixes_context__matches_field_aliases(client: Client) -> None:
+    response = search_fundingrequests(client)
+
+    assert response.context["search_field_prefixes"] == [
+        "author",
+        "title",
+        "journal",
+        "publisher",
+        "doi",
+        "eissn",
+    ]
+    assert "author, title, journal, publisher, doi, eissn" in response.content.decode()

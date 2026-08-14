@@ -5,7 +5,7 @@ from typing import Protocol
 from django.db.models import F, Q, QuerySet
 from django.db.models.functions import ExtractYear
 
-from coda.apps.search import build_search_filter
+from coda.apps.search import SearchFieldAliases, build_search_filter
 
 from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.models import FundingRequest
@@ -142,6 +142,19 @@ class PublicationStateCriteria:
         return Q(publication__publication_state__in=self.publication_states)
 
 
+SEARCH_FIELD_ALIASES: SearchFieldAliases = {
+    "author": "publication__relevant_authors__name",
+    "title": "publication__title",
+    "journal": "publication__article_journal__title",
+    "publisher": [
+        "publication__article_journal__publisher__name",
+        "publication__monograph_publisher__name",
+    ],
+    "doi": "publication__links__value",
+    "eissn": "publication__article_journal__eissn",
+}
+
+
 @dataclass
 class GenericSearchCriteria:
     search_term: str = ""
@@ -160,17 +173,7 @@ class GenericSearchCriteria:
             "publication__article_journal__eissn",
             "publication__links__value",
             "request_id",
-            field_aliases={
-                "author": "publication__relevant_authors__name",
-                "title": "publication__title",
-                "journal": "publication__article_journal__title",
-                "publisher": [
-                    "publication__article_journal__publisher__name",
-                    "publication__monograph_publisher__name",
-                ],
-                "doi": "publication__links__value",
-                "eissn": "publication__article_journal__eissn",
-            },
+            field_aliases=SEARCH_FIELD_ALIASES,
         )
 
 

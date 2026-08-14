@@ -100,6 +100,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             "selected_publication_types": selected_publication_types,
             "payment_methods": payment_methods,
             "publication_states": _publication_state_choices,
+            "search_field_prefixes": list(fq.SEARCH_FIELD_ALIASES),
         }
 
 
