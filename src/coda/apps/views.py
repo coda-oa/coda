@@ -10,7 +10,7 @@ from django.views.decorators.http import require_GET
 from django.views.generic import TemplateView
 
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 from coda.apps.version import (
     check_update as check_version_update,
 )
@@ -100,7 +100,7 @@ class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
         queryset = self.model.objects.all()  # type: ignore[attr-defined]
 
         if search_term:
-            queryset = queryset.filter(words_icontains(search_term, *self.search_fields))
+            queryset = queryset.filter(build_search_filter(search_term, *self.search_fields))
 
         order_by = self.ordering or self.search_fields
         return DomainQuerySet(queryset.order_by(*order_by), lambda x: cast(ModelType, x))

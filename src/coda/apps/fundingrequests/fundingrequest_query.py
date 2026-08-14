@@ -8,7 +8,7 @@ from django.db.models.functions import ExtractYear
 
 from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
@@ -140,7 +140,7 @@ class GenericSearchCriteria:
         if not self.search_term.strip():
             return Q()
 
-        return words_icontains(
+        return build_search_filter(
             self.search_term,
             "publication__title",
             "publication__relevant_authors__name",
