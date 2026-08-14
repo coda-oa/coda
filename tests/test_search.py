@@ -4,6 +4,7 @@ import pytest
 from django.db.models import Q
 
 from coda.apps.search import (
+    ScopedAlias,
     _parse_prefixed_terms,
     _parse_search_terms,
     _PrefixedTerm,
@@ -231,4 +232,65 @@ class TestBuildSearchFilterWithAliases:
             "<Q: (AND: ('author__name__icontains', 'a'), "
             "(OR: ('title__icontains', 'b c'), ('author__name__icontains', 'b c')), "
             "(OR: ('title__icontains', 'd'), ('author__name__icontains', 'd')))>"
+        )
+
+
+class TestScopedAlias:
+    def test_parse_scoped_alias(self) -> None:
+        extra = Q(publication__links__type__name="DOI")
+        result = _parse_prefixed_terms(
+            "doi:10.1234/abc",
+            {"doi": ScopedAlias("publication__links__value", extra)},
+        )
+        assert result.terms == [
+            _PrefixedTerm(
+                fields=["publication__links__value"],
+                value="10.1234/abc",
+                extra=extra,
+            )
+        ]
+        assert result.remaining == ""
+
+    def test_scoped_single_field_q_shape(self) -> None:
+        q = build_search_filter(
+            "doi:10.1234/abc",
+            "title",
+            field_aliases={
+                "doi": ScopedAlias(
+                    "publication__links__value", Q(publication__links__type__name="DOI")
+                )
+            },
+        )
+        assert repr(q) == (
+            "<Q: (AND: ('publication__links__value__icontains', '10.1234/abc'), "
+            "('publication__links__type__name', 'DOI'))>"
+        )
+
+    def test_scoped_multi_field_q_shape(self) -> None:
+        q = build_search_filter(
+            "doi:x",
+            "title",
+            field_aliases={"doi": ScopedAlias(["a__value", "b__value"], Q(a__type="DOI"))},
+        )
+        assert repr(q) == (
+            "<Q: (AND: (OR: ('a__value__icontains', 'x'), ('b__value__icontains', 'x')), "
+            "('a__type', 'DOI'))>"
+        )
+
+    def test_scoped_plain_and_word_terms_order(self) -> None:
+        """Scoped term (with extra filter) comes before generic words in AND order."""
+        q = build_search_filter(
+            'doi:"10.1234/abc" springer',
+            "title",
+            "author__name",
+            field_aliases={
+                "doi": ScopedAlias(
+                    "publication__links__value", Q(publication__links__type__name="DOI")
+                )
+            },
+        )
+        assert repr(q) == (
+            "<Q: (AND: ('publication__links__value__icontains', '10.1234/abc'), "
+            "('publication__links__type__name', 'DOI'), "
+            "(OR: ('title__icontains', 'springer'), ('author__name__icontains', 'springer')))>"
         )

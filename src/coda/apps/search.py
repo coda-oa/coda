@@ -4,7 +4,24 @@ from dataclasses import dataclass
 
 from django.db.models import Q
 
-type SearchFieldAliases = dict[str, str | list[str]]
+
+@dataclass(frozen=True)
+class ScopedAlias:
+    """A field alias with an additional row filter.
+
+    Attributes:
+        fields: The Django field lookups the term should be searched against.
+        extra:  An additional Q condition applied to the same relation row as the
+                field match, e.g. ``Q(publication__links__type__name="DOI")`` when
+                ``fields`` is ``"publication__links__value"``. Must traverse the
+                same relation path as ``fields`` so both conditions apply to one row.
+    """
+
+    fields: str | list[str]
+    extra: Q
+
+
+type SearchFieldAliases = dict[str, str | list[str] | ScopedAlias]
 
 
 @dataclass
@@ -14,10 +31,12 @@ class _PrefixedTerm:
     Attributes:
         fields: The Django field lookups the term should be searched against.
         value:  The search value (quotes already stripped).
+        extra:  Optional additional Q condition applied to the matched row.
     """
 
     fields: list[str]
     value: str
+    extra: Q | None = None
 
 
 @dataclass
@@ -46,6 +65,8 @@ def build_search_filter(
 
     When ``field_aliases`` is provided, terms prefixed with a recognised alias are
     scoped to the mapped field(s) instead of being searched across all ``*fields``.
+    An alias may also be a ``ScopedAlias``, which ANDs an extra Q condition onto the
+    matched row (e.g. only links of a given type).
     Prefixed terms use the same phrase/word splitting around the colon value:
     the value can be a double-quoted phrase (``author:"john doe"``) or a single word
     (``author:john``). Unprefixed terms remain in the generic multi-field search.
@@ -71,7 +92,10 @@ def build_search_filter(
 
     for term in result.terms:
         if term.value.strip():
-            q &= _match_any_field(term.value, term.fields)
+            term_q = _match_any_field(term.value, term.fields)
+            if term.extra is not None:
+                term_q = term_q & term.extra
+            q &= term_q
 
     if result.remaining:
         phrases, words = _parse_search_terms(result.remaining)
@@ -107,9 +131,9 @@ def _parse_prefixed_terms(
     Only prefixes present in ``aliases`` are extracted; unknown prefixes are left
     in the remaining string as-is.
     """
-    # Normalise single-field aliases to lists for uniform handling
-    normalized_aliases: dict[str, list[str]] = {
-        k: [v] if isinstance(v, str) else v for k, v in aliases.items()
+    # Normalise aliases to (fields, extra) pairs for uniform handling
+    normalized_aliases: dict[str, tuple[list[str], Q | None]] = {
+        k: _normalise_alias(v) for k, v in aliases.items()
     }
 
     # Match either a quoted value ("...") or a single non-whitespace word
@@ -124,7 +148,8 @@ def _parse_prefixed_terms(
             # Strip surrounding quotes if present
             value = raw_value.strip('"')
             if value:
-                terms.append(_PrefixedTerm(fields=normalized_aliases[prefix], value=value))
+                fields, extra = normalized_aliases[prefix]
+                terms.append(_PrefixedTerm(fields=fields, value=value, extra=extra))
             return ""
         return m.group(0)
 
@@ -142,3 +167,30 @@ def _match_any_field(value: str, fields: Sequence[str]) -> Q:
     for field in fields:
         q |= Q(**{f"{field}__icontains": value})
     return q
+
+
+def _normalise_alias(alias: str | list[str] | ScopedAlias) -> tuple[list[str], Q | None]:
+    """Normalise any alias form to a (fields, extra) pair.
+
+    Returns:
+        A tuple (fields, extra) where fields is a list of Django lookups and extra
+        is the optional additional Q condition (None for plain field aliases).
+    """
+    if isinstance(alias, ScopedAlias):
+        fields = [alias.fields] if isinstance(alias.fields, str) else alias.fields
+        return fields, alias.extra
+    fields = [alias] if isinstance(alias, str) else alias
+    return fields, None
+
+
+def alias_field_paths(aliases: SearchFieldAliases) -> list[str]:
+    """All field paths referenced by an alias mapping, in dict order.
+
+    Returns:
+        The Django lookups referenced by every alias, flattened.
+    """
+    fields: list[str] = []
+    for alias in aliases.values():
+        normalised, _ = _normalise_alias(alias)
+        fields.extend(normalised)
+    return fields
