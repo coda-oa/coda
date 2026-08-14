@@ -147,6 +147,8 @@ class GenericSearchCriteria:
             "publication__article_journal__title",
             "publication__article_journal__publisher__name",
             "publication__monograph_publisher__name",
+            "publication__article_journal__eissn",
+            "publication__links__value",
             "request_id",
             field_aliases={
                 "author": "publication__relevant_authors__name",
@@ -156,6 +158,8 @@ class GenericSearchCriteria:
                     "publication__article_journal__publisher__name",
                     "publication__monograph_publisher__name",
                 ],
+                "doi": "publication__links__value",
+                "eissn": "publication__article_journal__eissn",
             },
         )
 
