@@ -58,8 +58,8 @@ class ContractInvoicePeriodType(BaseModel):
 
 
 class ContractInvoiceGroupType(BaseModel):
-    group_id: NonEmptyString | None = None
-    invoices_period: ContractInvoicePeriodType | None = None
+    group_id: NonEmptyString
+    invoices_period: ContractInvoicePeriodType
     invoice: list[ContractInvoiceType] | None = None
 
 
