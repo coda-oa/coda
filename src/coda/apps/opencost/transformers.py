@@ -216,7 +216,7 @@ def to_opencost(
     report: OpenCostReport,
     publications_list: list[OpenCostReportPublication] | None = None,
     contracts_list: list[OpenCostReportContract] | None = None,
-) -> Data:
+) -> Data | None:
     # Use pre-loaded data if provided, otherwise fetch (backwards compatible)
     if publications_list is None:
         publications_list = list(report.publications.all())
@@ -234,6 +234,10 @@ def to_opencost(
         for report_contract in contracts_list
         if (contract := report_contract_to_pydantic(report_contract)) is not None
     ]
+
+    if not publications and not contracts:
+        # OpenCost requires at least one publication or contract
+        return None
 
     return Data(
         publication=publications if publications else None,
