@@ -104,6 +104,15 @@ class CoarPublicationType(Enum):
     working_paper = "working paper"
     trademark = "trademark"
     workflow = "workflow"
+    archival_collection = "archival collection"
+    artistic_work = "artistic work"
+    collection = "collection"
+    court_documents = "court documents"
+    knowledge_organization_system = "knowledge organization system"
+    knowledge_synthesis_protocol = "knowledge synthesis protocol"
+    magazine_article = "magazine article"
+    physical_sample = "physical sample"
+    research_instrument = "research instrument"
 
 
 class PublicationSecondaryIdTypeEnum(Enum):
