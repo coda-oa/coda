@@ -26,7 +26,7 @@ from coda.apps.version import (
 from django.db.models import Model 
 
 from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 
 EntityType = TypeVar("EntityType")
 
@@ -101,6 +101,6 @@ class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
         queryset = self.model.objects.all()  # type: ignore[attr-defined]
 
         if search_term:
-            queryset = queryset.filter(words_icontains(search_term, *self.search_fields))
+            queryset = queryset.filter(build_search_filter(search_term, *self.search_fields))
 
         return DomainQuerySet(queryset.order_by(*self.search_fields), lambda x: cast(ModelType, x))

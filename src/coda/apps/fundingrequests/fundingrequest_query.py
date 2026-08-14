@@ -5,7 +5,7 @@ from typing import Protocol
 from django.db.models import F, Q, QuerySet
 from django.db.models.functions import ExtractYear
 
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 
 from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.models import FundingRequest
@@ -150,7 +150,7 @@ class GenericSearchCriteria:
         if not self.search_term.strip():
             return Q()
 
-        return words_icontains(
+        return build_search_filter(
             self.search_term,
             "publication__title",
             "publication__relevant_authors__name",
