@@ -3,7 +3,12 @@
 import pytest
 from django.db.models import Q
 
-from coda.apps.search import _parse_search_terms, build_search_filter
+from coda.apps.search import (
+    _parse_prefixed_terms,
+    _parse_search_terms,
+    _PrefixedTerm,
+    build_search_filter,
+)
 
 
 class TestParseSearchTerms:
@@ -73,8 +78,7 @@ class TestBuildSearchFilterSingleField:
     def test_phrase_and_word(self) -> None:
         q = build_search_filter('"hello world" foo', "title")
         assert repr(q) == (
-            "<Q: (AND: ('title__icontains', 'hello world'), "
-            "('title__icontains', 'foo'))>"
+            "<Q: (AND: ('title__icontains', 'hello world'), " "('title__icontains', 'foo'))>"
         )
 
 
@@ -125,3 +129,106 @@ class TestBackwardCompatibility:
 
         q2 = build_search_filter("hello world", "title", "author")
         assert repr(q2) == repr(q1)
+
+
+class TestParsePrefixedTerms:
+    def test_no_prefixes(self) -> None:
+        result = _parse_prefixed_terms("hello world", {"author": ["author__name"]})
+        assert result.terms == []
+        assert result.remaining == "hello world"
+
+    def test_quoted_prefixed_value(self) -> None:
+        result = _parse_prefixed_terms('author:"john doe"', {"author": ["author__name"]})
+        assert result.terms == [_PrefixedTerm(fields=["author__name"], value="john doe")]
+        assert result.remaining == ""
+
+    def test_unquoted_prefixed_value(self) -> None:
+        result = _parse_prefixed_terms("author:john", {"author": ["author__name"]})
+        assert result.terms == [_PrefixedTerm(fields=["author__name"], value="john")]
+        assert result.remaining == ""
+
+    def test_prefixed_and_unprefixed(self) -> None:
+        result = _parse_prefixed_terms('author:"john" springer', {"author": ["author__name"]})
+        assert result.terms == [_PrefixedTerm(fields=["author__name"], value="john")]
+        assert result.remaining == "springer"
+
+    def test_multiple_prefixed(self) -> None:
+        result = _parse_prefixed_terms(
+            'author:"john" title:foo',
+            {"author": ["author__name"], "title": ["title"]},
+        )
+        assert result.terms == [
+            _PrefixedTerm(fields=["author__name"], value="john"),
+            _PrefixedTerm(fields=["title"], value="foo"),
+        ]
+        assert result.remaining == ""
+
+    def test_unknown_prefix_left_as_literal(self) -> None:
+        result = _parse_prefixed_terms("unknown:value", {"author": ["author__name"]})
+        assert result.terms == []
+        assert "unknown:value" in result.remaining
+
+    def test_empty_quoted_value_skipped(self) -> None:
+        result = _parse_prefixed_terms('author:""', {"author": ["author__name"]})
+        assert result.terms == []
+        assert result.remaining == ""
+
+
+class TestBuildSearchFilterWithAliases:
+    def test_single_prefixed_quoted(self) -> None:
+        q = build_search_filter(
+            'author:"john doe"', "title", "author__name", field_aliases={"author": "author__name"}
+        )
+        assert repr(q) == "<Q: (AND: ('author__name__icontains', 'john doe'))>"
+
+    def test_prefixed_and_unprefixed_terms(self) -> None:
+        q = build_search_filter(
+            'author:"john" springer',
+            "title",
+            "author__name",
+            field_aliases={"author": "author__name"},
+        )
+        assert repr(q) == (
+            "<Q: (AND: ('author__name__icontains', 'john'), "
+            "(OR: ('title__icontains', 'springer'), ('author__name__icontains', 'springer')))>"
+        )
+
+    def test_multiple_prefixed(self) -> None:
+        q = build_search_filter(
+            'author:"john" title:foo',
+            "title",
+            "author__name",
+            field_aliases={"author": "author__name", "title": "title"},
+        )
+        assert repr(q) == (
+            "<Q: (AND: ('author__name__icontains', 'john'), " "('title__icontains', 'foo'))>"
+        )
+
+    def test_prefixed_can_be_multi_field(self) -> None:
+        q = build_search_filter(
+            'publisher:"springer"',
+            "title",
+            field_aliases={"publisher": ["j_pub", "m_pub"]},
+        )
+        assert repr(q) == (
+            "<Q: (OR: ('j_pub__icontains', 'springer'), " "('m_pub__icontains', 'springer'))>"
+        )
+
+    def test_unprefixed_no_aliases_behaviour_unchanged(self) -> None:
+        """When field_aliases is None, prefixed terms are treated as literal text."""
+        q = build_search_filter("author:john", "title")
+        assert repr(q) == "<Q: (AND: ('title__icontains', 'author:john'))>"
+
+    def test_terms_phrases_and_words_combined(self) -> None:
+        """AND order is preserved: prefixed terms, then phrases, then words."""
+        q = build_search_filter(
+            'author:a "b c" d',
+            "title",
+            "author__name",
+            field_aliases={"author": "author__name"},
+        )
+        assert repr(q) == (
+            "<Q: (AND: ('author__name__icontains', 'a'), "
+            "(OR: ('title__icontains', 'b c'), ('author__name__icontains', 'b c')), "
+            "(OR: ('title__icontains', 'd'), ('author__name__icontains', 'd')))>"
+        )

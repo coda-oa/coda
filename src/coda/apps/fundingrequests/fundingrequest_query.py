@@ -158,6 +158,15 @@ class GenericSearchCriteria:
             "publication__article_journal__publisher__name",
             "publication__monograph_publisher__name",
             "request_id",
+            field_aliases={
+                "author": "publication__relevant_authors__name",
+                "title": "publication__title",
+                "journal": "publication__article_journal__title",
+                "publisher": [
+                    "publication__article_journal__publisher__name",
+                    "publication__monograph_publisher__name",
+                ],
+            },
         )
 
 
