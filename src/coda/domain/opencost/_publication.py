@@ -126,6 +126,12 @@ class PublicationSecondaryIdType(BaseModel):
 class PublicationSecondaryIdentifiers(BaseModel):
     id: list[PublicationSecondaryIdType]
 
+    @model_validator(mode="after")
+    def _at_least_one_id(self) -> Self:
+        if not self.id:
+            raise ValueError("at least one 'id' must be set")
+        return self
+
 
 class BibliographicInformation(BaseModel):
     Title: NonEmptyString
