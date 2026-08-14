@@ -5,7 +5,8 @@
            placeholder="Search by title, author, journal, publisher or ID",
            aria-describedby="search-query-helper"
     >
-    <small id="search-query-helper">Prefix with <code>author:</code>, <code>title:</code>, <code>journal:</code> or <code>publisher:</code> to search a specific field (e.g. <code>author:&quot;john doe&quot;</code>).</small>
+    <small id="search-query-helper">
+        Prefix term to search a specific field (e.g. <code>author:"john doe"</code>). Available prefixes: <code>author, title, journal, publisher, doi, eissn</code></small>
     <details {% if expand_advanced_search %}open{% endif %}>
         <summary class="button outline muted">
             <span class="m-0">Advanced search</span>
