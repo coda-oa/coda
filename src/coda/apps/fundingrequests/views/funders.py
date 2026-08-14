@@ -31,7 +31,7 @@ from coda.apps.fundingrequests.services.funder_services import (
     search_organizations_for_merge,
     update_funder_from_ror,
 )
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.fundingrequest.services.funder_resolution.ror_client.ror_client import RORClient
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
@@ -70,7 +70,7 @@ class FundingOrganizationListView(
         )
 
         if search_term:
-            queryset = queryset.filter(words_icontains(search_term, "name"))
+            queryset = queryset.filter(build_search_filter(search_term, "name"))
 
         return DomainQuerySet(
             queryset.prefetch_related("links").order_by("name"),

@@ -18,7 +18,7 @@ from coda.apps.contracts.models import ContractLink, ContractLinkType
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.journals.models import Journal
 from coda.apps.publishers.models import Publisher
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 from coda.apps.views import EntityListView
 from coda.domain.contract import Contract, ContractId, PublisherId
 from coda.domain.publication import JournalId
@@ -36,7 +36,7 @@ class ContractListView(LoginRequiredMixin, EntityListView[Contract]):
         search_term = request.GET.get("query", "").strip()
         contracts = ContractModel.objects.all()
         if search_term:
-            contracts = contracts.filter(words_icontains(search_term, "name"))
+            contracts = contracts.filter(build_search_filter(search_term, "name"))
         if request.GET.get("include_inactive") != "on":
             contracts = contracts.active()
 
