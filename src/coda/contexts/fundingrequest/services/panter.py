@@ -19,13 +19,12 @@ Usage::
 
 from collections.abc import Sequence
 from datetime import date
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from django.conf import settings
 from django.core.cache import cache
 from pydantic import BaseModel, Field
-
 
 # ── Response models ─────────────────────────────────────────────
 
@@ -176,7 +175,8 @@ def _get(path: str) -> dict[str, Any] | None:
     try:
         resp = httpx.get(url, timeout=30)
         resp.raise_for_status()
-        return resp.json()
+        data: dict[str, Any] = resp.json()
+        return data
     except (httpx.HTTPError, ValueError):
         return None
 
@@ -196,7 +196,8 @@ def _post(path: str, body: Any = None) -> dict[str, Any] | None:
     try:
         resp = httpx.post(url, json=body, timeout=30)
         resp.raise_for_status()
-        return resp.json()
+        data: dict[str, Any] = resp.json()
+        return data
     except (httpx.HTTPError, ValueError):
         return None
 
@@ -263,9 +264,9 @@ def journal_info(issn: str) -> JournalInfo | None:
         (unknown ISSN, API unreachable, or empty response).
     """
     key = f"panter:journal_info:{issn}"
-    cached = cache.get(key, _NOT_CACHED)
+    cached: JournalInfo | None | object = cache.get(key, _NOT_CACHED)
     if cached is not _NOT_CACHED:
-        return cached
+        return cast(JournalInfo | None, cached)
     data = _get(f"/JournalInfo/{issn}")
     info: JournalInfo | None = None
     if data is not None:
@@ -370,9 +371,9 @@ def fetch_journal_pricing(issn: str) -> Pricing | None:
         the API is unreachable, or the pricing data is absent or malformed.
     """
     key = f"panter:pricing:{issn}"
-    cached = cache.get(key, _NOT_CACHED)
+    cached: Pricing | None | object = cache.get(key, _NOT_CACHED)
     if cached is not _NOT_CACHED:
-        return cached
+        return cast(Pricing | None, cached)
     info = journal_info(issn)
     pricing = info.pricing() if info is not None else None
     cache.set(key, pricing, PANTER_CACHE_TTL)
