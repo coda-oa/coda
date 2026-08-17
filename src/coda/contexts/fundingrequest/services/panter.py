@@ -17,6 +17,7 @@ Usage::
             print(apc.fee)
 """
 
+import logging
 from collections.abc import Sequence
 from datetime import date
 from typing import Any, cast
@@ -24,7 +25,9 @@ from typing import Any, cast
 import httpx
 from django.conf import settings
 from django.core.cache import cache
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+
+logger = logging.getLogger(__name__)
 
 # ── Response models ─────────────────────────────────────────────
 
@@ -269,15 +272,17 @@ def journal_info(issn: str) -> JournalInfo | None:
         return cast(JournalInfo | None, cached)
     data = _get(f"/JournalInfo/{issn}")
     info: JournalInfo | None = None
-    if data is not None:
-        journals = data.get("journals", [])
-        if journals:
+    if data is not None and (journals := data.get("journals", [])):
+        try:
             info = JournalInfo.model_validate(journals[0])
+        except ValidationError:
+            logger.debug("JournalInfo validation failed for ISSN %s", issn)
+            return None
     cache.set(key, info, PANTER_CACHE_TTL)
     return info
 
 
-def journal_info_bulk(issns: Sequence[str]) -> Sequence[JournalInfo]:
+def journal_info_bulk(issns: Sequence[str]) -> Sequence[JournalInfo | None]:
     """Fetch journal information for one or more ISSNs in a single request.
 
     Corresponds to ``POST /pricemonitor/coda/v1/JournalInfo``.
@@ -296,7 +301,15 @@ def journal_info_bulk(issns: Sequence[str]) -> Sequence[JournalInfo]:
     data = _post("/JournalInfo", {"issn": list(issns)})
     if data is None:
         return []
-    return [JournalInfo.model_validate(j) for j in data.get("journals", [])]
+    journal_info_models: list[JournalInfo | None] = []
+    for j in data.get("journals", []):
+        try:
+            journal_info_models.append(JournalInfo.model_validate(j))
+        except ValidationError:
+            logger.debug("JournalInfo validation failed for entry: %s", j)
+            journal_info_models.append(None)
+
+    return journal_info_models
 
 
 def search_journals(
