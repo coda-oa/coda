@@ -165,11 +165,15 @@ class SearchSelectMulti extends HTMLElement {
         ).map(optionElement => optionElement.textContent.trim());
     }
 
+    optionEntry(optionElement, optionText) {
+        return { text: optionText, color: optionElement.getAttribute('data-color') || null };
+    }
+
     selectOption(optionText) {
         const optionElement = this.slotOptions.find(option => option.textContent.trim() === optionText);
         if (optionElement && optionElement.value) {
             const optionValue = optionElement.value;
-            this.selectedOptions.set(optionValue, optionText);
+            this.selectedOptions.set(optionValue, this.optionEntry(optionElement, optionText));
             this.updateSelectedOptions();
             this.updateOriginalOptionElement(optionValue, true);
             this.updateFormValue();

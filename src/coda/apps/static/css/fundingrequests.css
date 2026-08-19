@@ -103,7 +103,7 @@ li.fundingrequest-check {
 }
 
 .label {
-    --label-text-color: color-mix(in srgb, var(--label-border-color) 80%, white);
+    --label-text-color: var(--coda-text-contrast-color);
     box-sizing: border-box;
     padding: var(--coda-pill-padding-vertical) var(--coda-pill-padding-horizontal);
     width: fit-content;
@@ -152,4 +152,24 @@ details.dropdown > ul:has(.label) > li {
 .identifier-batch {
     --label-bg-color: hsl(0, 0%, 90%);
     --label-border-color: hsl(0, 0%, 70%);
+}
+
+.coda-label-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem 0;
+}
+
+.label-filter-pill {
+    opacity: 0.45;
+    text-decoration: none;
+}
+
+.label-filter-pill:hover {
+    text-decoration: none;
+}
+
+.label-filter-pill.included {
+    opacity: 1;
 }
