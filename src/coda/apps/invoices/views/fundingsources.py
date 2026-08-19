@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from decimal import Decimal
 from typing import Any
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest
@@ -7,9 +8,12 @@ from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.forms import FundingSourceForm
+from coda.apps.invoices.funding_summary import funding_source_summary
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.search import words_icontains
 from coda.apps.invoices.models import FundingSource
 from coda.apps.views import SimpleSearchEntityListView
+from coda.domain.money import Money
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 
@@ -63,10 +67,46 @@ class FundingSourceListView(LoginRequiredMixin, SimpleSearchEntityListView[Fundi
 fundingsource_listview = FundingSourceListView.as_view()
 
 
+def _percentage(amount: Money, denominator: Decimal) -> float:
+    if denominator <= 0:
+        return 0.0
+    return float(round(amount.amount / denominator * 100, 2))
+
+
 @breadcrumb("Funding Source Detail", parent_url_name="invoices:fundingsource_list")
 class FundingSourceDetailView(LoginRequiredMixin, DetailView[FundingSource]):
     model = FundingSource
     template_name = "invoices/fundingsources/detail.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        funding_source = self.object
+        home_currency = GlobalPreferences.get_home_currency()
+        summary = funding_source_summary(funding_source, home_currency)
+
+        context["home_currency"] = home_currency
+        context["spent"] = summary.spent
+        context["reserved"] = summary.reserved
+        context["invoices"] = summary.invoices
+        context["unconverted_invoices"] = summary.unconverted
+
+        if funding_source.type == FundingSource.TypeChoices.budget:
+            context["is_budget"] = True
+            if funding_source.budget_amount:
+                total = Money(funding_source.budget_amount, home_currency)
+                remaining = max(total - summary.spent - summary.reserved, Money(0, home_currency))
+                denominator = max(total.amount, summary.spent.amount + summary.reserved.amount)
+                context["budget_total"] = total
+                context["remaining"] = remaining
+                context["bar_total"] = total.amount
+                context["bar_spent"] = summary.spent.amount
+                context["bar_reserved"] = summary.reserved.amount
+                context["bar_remaining"] = remaining.amount
+                context["spent_pct"] = _percentage(summary.spent, denominator)
+                context["reserved_pct"] = _percentage(summary.reserved, denominator)
+                context["remaining_pct"] = _percentage(remaining, denominator)
+
+        return context
 
 
 fundingsource_detailview = FundingSourceDetailView.as_view()
