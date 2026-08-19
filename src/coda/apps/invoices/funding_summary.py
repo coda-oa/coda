@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from decimal import Decimal
+from collections.abc import Iterable
 
 from django.db.models import QuerySet
 
@@ -16,6 +17,14 @@ class InvoiceUsage:
     invoice: Invoice
     converted_amount: Money
     unconverted_amounts: tuple[Money, ...] = ()
+
+    @property
+    def status_class(self) -> str:
+        if self.invoice.status == PaymentStatus.Paid.value:
+            return "approved"
+        if self.invoice.status == PaymentStatus.Unpaid.value:
+            return "open"
+        return "rejected"
 
 
 @dataclass(frozen=True)
@@ -70,7 +79,7 @@ def funding_source_summary(
     return FundingSourceSummary(
         spent=spent,
         reserved=reserved,
-        invoices=tuple(
+        invoices=_sorted(
             InvoiceUsage(
                 invoice=bucket.invoice,
                 converted_amount=bucket.converted_total or Money(0, home),
@@ -78,7 +87,7 @@ def funding_source_summary(
             for bucket in buckets.values()
             if not bucket.unconverted_amounts and bucket.converted_total is not None
         ),
-        unconverted=tuple(
+        unconverted=_sorted(
             InvoiceUsage(
                 invoice=bucket.invoice,
                 converted_amount=bucket.converted_total or Money(0, home),
@@ -87,6 +96,12 @@ def funding_source_summary(
             for bucket in buckets.values()
             if bucket.unconverted_amounts
         ),
+    )
+
+
+def _sorted(usages: Iterable[InvoiceUsage]) -> tuple[InvoiceUsage, ...]:
+    return tuple(
+        sorted(usages, key=lambda usage: (usage.invoice.date, usage.invoice.number), reverse=True)
     )
 
 
