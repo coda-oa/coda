@@ -16,6 +16,7 @@ class FundingSource(models.Model):
     type = models.CharField(max_length=255, default="budget", choices=TypeChoices)
     name = models.CharField(max_length=255, blank=True)
     institution = models.ForeignKey(Institution, null=True, on_delete=models.CASCADE)
+    budget_amount = models.DecimalField(max_digits=20, decimal_places=4, null=True, blank=True)
 
 
 class CreditorManager(models.Manager["Creditor"]):
