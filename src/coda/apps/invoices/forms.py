@@ -65,4 +65,4 @@ class CreditorForm(forms.ModelForm[Creditor]):
 class FundingSourceForm(forms.ModelForm[FundingSource]):
     class Meta:
         model = FundingSource
-        fields = ["name"]
+        fields = ["name", "budget_amount"]

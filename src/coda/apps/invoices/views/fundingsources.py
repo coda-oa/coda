@@ -19,7 +19,7 @@ class CreateFundingSourceView(LoginRequiredMixin, CreateView[FundingSource, Fund
     model = FundingSource
     success_url = reverse_lazy("invoices:fundingsource_list")
     template_name = "generic_form_view.html"
-    fields = ["name"]
+    fields = ["name", "budget_amount"]
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {"title": "Create Funding Source"}
@@ -33,7 +33,7 @@ class UpdateFundingSourceView(LoginRequiredMixin, UpdateView[FundingSource, Fund
     model = FundingSource
     success_url = reverse_lazy("invoices:fundingsource_list")
     template_name = "generic_form_view.html"
-    fields = ["name"]
+    fields = ["name", "budget_amount"]
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {"title": "Update Funding Source"}
