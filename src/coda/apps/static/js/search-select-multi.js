@@ -87,6 +87,7 @@ TEMPLATE.innerHTML =  /*html*/ `
 
         .selected-tag {
             background-color: var(--coda-secondary-background);
+            color: var(--coda-secondary-inverse);
             padding: calc(var(--coda-spacing) / 2);
             border-radius: var(--coda-border-radius);
             display: flex;
@@ -104,7 +105,7 @@ TEMPLATE.innerHTML =  /*html*/ `
             cursor: pointer;
             border: none;
             background: none;
-            color: var(--coda-text-color);
+            color: var(--coda-text-contrast-color);
         }
     </style>
     <div class="container">
@@ -166,7 +167,7 @@ class SearchSelectMulti extends HTMLElement {
     }
 
     optionEntry(optionElement, optionText) {
-        return { text: optionText, color: optionElement.getAttribute('data-color') || null };
+        return { text: optionText, color: optionElement.dataset.color || null };
     }
 
     selectOption(optionText) {
@@ -204,7 +205,7 @@ class SearchSelectMulti extends HTMLElement {
     updateSelectedOptions() {
         const container = this.shadowRoot.querySelector('.selected-options');
         container.innerHTML = Array.from(this.selectedOptions.entries())
-            .map(([value, text]) => this.createSelectedTag(value, text))
+            .map(([value, { text, color }]) => this.createSelectedTag(value, text, color))
             .join('');
 
         container.querySelectorAll('.remove-btn').forEach(btn => {
@@ -212,9 +213,12 @@ class SearchSelectMulti extends HTMLElement {
         });
     }
 
-    createSelectedTag(value, text) {
+    createSelectedTag(value, text, color) {
+        const style = color
+            ? ` style="background-color: color-mix(in hsl, ${color} 25%, transparent 75%); border: 1px solid ${color}; color: var(--coda-text-contrast-color)"`
+            : '';
         return `
-            <div class="selected-tag">
+            <div class="selected-tag"${style}>
                 <span>${text}</span>
                 <button class="remove-btn" data-option="${value}">×</button>
             </div>
@@ -230,7 +234,7 @@ class SearchSelectMulti extends HTMLElement {
                 const optionValue = optionElement.value;
                 this.options.push(optionText);
                 if (optionElement.hasAttribute('selected')) {
-                    this.selectedOptions.set(optionValue, optionText);
+                    this.selectedOptions.set(optionValue, this.optionEntry(optionElement, optionText));
                 }
             });
             this.updateDropdown(this.options);

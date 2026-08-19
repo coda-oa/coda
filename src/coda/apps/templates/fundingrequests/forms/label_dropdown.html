@@ -5,6 +5,7 @@
     {% for label in labels %}
         <option slot="options"
                 value="{{ label.pk }}"
+                data-color="{{ label.hexcolor }}"
                 {% if label.pk|stringformat:"i" in request.GET|getlist:"exclude_labels" %}selected{% endif %}>
             {{ label.name }}
         </option>
