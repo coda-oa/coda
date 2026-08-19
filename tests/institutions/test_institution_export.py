@@ -104,6 +104,20 @@ def test__export_view__requested__returns_csv_download(client: Client) -> None:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__export_view__requested__csv_starts_with_utf8_bom(client: Client) -> None:
+    Institution.objects.create(name="Überprüfung Institut", internal_id="inst_bom1")
+
+    url = reverse("institutions:export")
+    response = client.get(url)
+
+    # b"\xef\xbb\xbf" is the UTF-8 byte order mark (BOM). Excel needs it to
+    # detect the file as UTF-8; without it Excel assumes Windows-1252 and
+    # garbles umlauts (ä -> Ã¤).
+    assert response.content[:3] == b"\xef\xbb\xbf"
+
+
+@pytest.mark.django_db
 def test__institutions_exist__export_and_reimport_with_name_change__updates_without_duplicating() -> (
     None
 ):
