@@ -123,6 +123,30 @@ def test_fundingrequest_csv_export_create_view__is_opened__creates_export_and_re
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test_fundingrequest_csv_export_create_view__saved_file__starts_with_utf8_bom(
+    client: Client,
+) -> None:
+
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "title": "Encoding Test Export",
+        },
+    )
+
+    assert response.status_code == 302
+    export = FundingRequestCSVExport.objects.get(name="Encoding Test Export")
+    with export.csv_file.open("rb") as f:
+        # b"\xef\xbb\xbf" is the UTF-8 byte order mark (BOM). Excel needs it to
+        # detect the file as UTF-8; without it Excel assumes Windows-1252 and
+        # garbles umlauts (ä -> Ã¤).
+        assert f.read(3) == b"\xef\xbb\xbf"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test_fundingrequest_csv_export_delete_view__is_called__deletes_export_and_returns_success_response(
     client: Client,
 ) -> None:
