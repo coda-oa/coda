@@ -175,8 +175,20 @@ def test__detail_view__shows_invoice_table_totals(client: Client) -> None:
 def test__detail_view__lists_related_invoices_with_status(client: Client) -> None:
     funding_source = modelfactory.budget("EU Horizon")
     paid_invoice = modelfactory.invoice()
+    unpaid_invoice = modelfactory.invoice()
+    rejected_invoice = modelfactory.invoice()
     create_assignment(
         funding_source, Decimal("100.00"), "EUR", paid_invoice, status=PaymentStatus.Paid.value
+    )
+    create_assignment(
+        funding_source, Decimal("50.00"), "EUR", unpaid_invoice, status=PaymentStatus.Unpaid.value
+    )
+    create_assignment(
+        funding_source,
+        Decimal("25.00"),
+        "EUR",
+        rejected_invoice,
+        status=PaymentStatus.Rejected.value,
     )
 
     response = client.get(
@@ -185,8 +197,12 @@ def test__detail_view__lists_related_invoices_with_status(client: Client) -> Non
 
     content = response.content.decode()
     assert paid_invoice.number in content
+    assert unpaid_invoice.number in content
+    assert rejected_invoice.number in content
     assert "100.00 EUR" in content
-    assert "Paid" in content
+    assert ">Paid</small>" in content
+    assert ">Reserved</small>" in content
+    assert ">not included (invoice rejected)</small>" in content
 
 
 @pytest.mark.django_db

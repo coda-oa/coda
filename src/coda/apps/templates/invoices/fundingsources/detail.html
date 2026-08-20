@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-    <div class="flex justify-between align-center">
+    <div class="flex justify-between align-center my-2">
         <h1>Funding Source</h1>
-        {% comment %} <a href="{% url "invoices:fundingsource_edit" pk=fundingsource.id %}" class="secondary" role="button">Edit</a> {% endcomment %}
+        <a href="{% url "invoices:fundingsource_update" pk=fundingsource.id %}"
+           class="secondary"
+           role="button">Edit</a>
     </div>
     <article>
         <p>
@@ -21,28 +23,41 @@
                        class="mb-2">
             </div>
         {% endif %}
+        <style>
+            html[data-theme="light"] {
+                --red-light: #df4655;
+                --blue-light: #508fe2;
+                --green-light: #3ac2a0;
+
+                --red: var(--red-light);
+                --blue: var(--blue-light);
+                --green: var(--green-light);
+            }
+
+            html[data-theme="dark"] {
+                --red-dark: #cb3443;
+                --blue-dark: #2b64ae;
+                --green-dark: #2bad8c;
+
+                --red: var(--red-dark);
+                --blue: var(--blue-dark);
+                --green: var(--green-dark);
+            }
+
+            .budget-pill {
+                color: white;
+            }
+
+            .budget-pill.spent {
+                --_status-color: var(--red);
+            }
+
+            .budget-pill.reserved {
+                --_status-color: var(--blue);
+            }
+        </style>
         {% if budget_total %}
             <style>
-                html[data-theme="light"] {
-                    --red-light: #df4655;
-                    --blue-light: #508fe2;
-                    --green-light: #3ac2a0;
-
-                    --red: var(--red-light);
-                    --blue: var(--blue-light);
-                    --green: var(--green-light);
-                }
-
-                html[data-theme="dark"] {
-                    --red-dark: #cb3443;
-                    --blue-dark: #2b64ae;
-                    --green-dark: #2bad8c;
-
-                    --red: var(--red-dark);
-                    --blue: var(--blue-dark);
-                    --green: var(--green-dark);
-                }
-
                 .budget-bar {
                     /* --total, --spent, --reserved, --remaining are set inline
                        from the view context (budget amounts, home currency). */
@@ -160,7 +175,13 @@
                                 <td>{{ usage.invoice.date }}</td>
                                 <td>{{ usage.converted_amount }}</td>
                                 <td>
-                                    <small class="pill status-label {{ usage.status_class }}">{{ usage.invoice.status|title }}</small>
+                                    {% if usage.invoice.status == "paid" %}
+                                        <small class="pill status-label budget-pill spent">Paid</small>
+                                    {% elif usage.invoice.status == "unpaid" %}
+                                        <small class="pill status-label budget-pill reserved">Reserved</small>
+                                    {% else %}
+                                        <small>not included (invoice rejected)</small>
+                                    {% endif %}
                                 </td>
                             </tr>
                         {% endfor %}

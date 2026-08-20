@@ -18,14 +18,6 @@ class InvoiceUsage:
     converted_amount: Money
     unconverted_amounts: tuple[Money, ...] = ()
 
-    @property
-    def status_class(self) -> str:
-        if self.invoice.status == PaymentStatus.Paid.value:
-            return "approved"
-        if self.invoice.status == PaymentStatus.Unpaid.value:
-            return "open"
-        return "rejected"
-
 
 @dataclass(frozen=True)
 class FundingSourceSummary:

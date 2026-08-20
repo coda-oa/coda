@@ -172,23 +172,3 @@ def test__summary__invoices_sorted_by_date_descending() -> None:
     summary = funding_summary.funding_source_summary(sut)
 
     assert [usage.invoice for usage in summary.invoices] == [new_invoice, old_invoice]
-
-
-@pytest.mark.django_db
-def test__summary__invoice_usage_exposes_status_class() -> None:
-    sut = modelfactory.budget()
-    paid_invoice = modelfactory.invoice()
-    unpaid_invoice = modelfactory.invoice()
-    rejected_invoice = modelfactory.invoice()
-    create_assignment(sut, Decimal("10"), "EUR", paid_invoice, status=PaymentStatus.Paid.value)
-    create_assignment(sut, Decimal("10"), "EUR", unpaid_invoice, status=PaymentStatus.Unpaid.value)
-    create_assignment(
-        sut, Decimal("10"), "EUR", rejected_invoice, status=PaymentStatus.Rejected.value
-    )
-
-    summary = funding_summary.funding_source_summary(sut)
-    by_status = {usage.invoice.status: usage for usage in summary.invoices}
-
-    assert by_status[PaymentStatus.Paid.value].status_class == "approved"
-    assert by_status[PaymentStatus.Unpaid.value].status_class == "open"
-    assert by_status[PaymentStatus.Rejected.value].status_class == "rejected"
