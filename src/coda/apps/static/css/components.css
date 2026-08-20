@@ -199,3 +199,10 @@ span.icon-tooltip[data-tooltip] {
 #successor-form:has(#radio-select-existing:checked) #existing-selector-field {
     display: block;
 }
+
+
+/* Budget Overview */
+.budget-overview {
+  max-width: 600px;
+  margin: 2rem auto;
+}

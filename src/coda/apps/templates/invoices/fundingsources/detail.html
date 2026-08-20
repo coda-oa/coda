@@ -8,236 +8,195 @@
         <p>
             <strong>Name:</strong> {{ fundingsource.name }}
         </p>
-        <div style="margin-top: 2rem;">
-            <label for="budget-input">
-                <strong>Total Budget</strong>
-            </label>
-            <input type="text"
-                   id="budget-input"
-                   value="€50,000.00"
-                   readonly
-                   style="margin-bottom: 2rem">
-        </div>
-        <style>
-            html[data-theme="light"] {
-                --red-light: #df4655;
-                --blue-light: #508fe2;
-                --green-light: #3ac2a0;
+        {% if is_budget %}
+            <div class="mt-2">
+                <label for="budget-input">
+                    <strong>Total Budget</strong>
+                </label>
+                <input type="text"
+                       id="budget-input"
+                       {% if budget_total %}value="{{ budget_total.amount }} {{ budget_total.currency.code }}"{% endif %}
+                       placeholder="Not set"
+                       readonly
+                       class="mb-2">
+            </div>
+        {% endif %}
+        {% if budget_total %}
+            <style>
+                html[data-theme="light"] {
+                    --red-light: #df4655;
+                    --blue-light: #508fe2;
+                    --green-light: #3ac2a0;
 
-                --red: var(--red-light);
-                --blue: var(--blue-light);
-                --green: var(--green-light);
-            }
+                    --red: var(--red-light);
+                    --blue: var(--blue-light);
+                    --green: var(--green-light);
+                }
 
-            html[data-theme="dark"] {
-                --red-dark: #cb3443;
-                --blue-dark: #2b64ae;
-                --green-dark: #2bad8c;
+                html[data-theme="dark"] {
+                    --red-dark: #cb3443;
+                    --blue-dark: #2b64ae;
+                    --green-dark: #2bad8c;
 
-                --red: var(--red-dark);
-                --blue: var(--blue-dark);
-                --green: var(--green-dark);
-            }
+                    --red: var(--red-dark);
+                    --blue: var(--blue-dark);
+                    --green: var(--green-dark);
+                }
 
+                .budget-bar {
+                    /* --total, --spent, --reserved, --remaining are set inline
+                       from the view context (budget amounts, home currency). */
+                    --remaining-pct: calc(var(--remaining) / var(--total) * 100);
+                    --spent-pct: calc(var(--spent) / var(--total) * 100);
+                    --reserved-pct: calc(var(--reserved) / var(--total) * 100);
 
-            .budget-bar {
-                --total: 50000;
-                --spent: 16000;
-                --reserved: 4000;
-                --remaining: 30000;
+                    --spent-start: calc(var(--remaining-pct) * 1%);
+                    --reserved-start: calc((var(--remaining-pct) + var(--spent-pct)) * 1%);
 
-                /* Calculate percentages in CSS */
-                --remaining-pct: calc(var(--remaining) / var(--total) * 100);
-                --spent-pct: calc(var(--spent) / var(--total) * 100);
-                --reserved-pct: calc(var(--reserved) / var(--total) * 100);
+                    --green-dark: color-mix(in srgb, var(--green) 80%, black);
+                    --red-dark: color-mix(in srgb, var(--red) 80%, black);
+                    --blue-dark: color-mix(in srgb, var(--blue) 80%, black);
 
-                /* Calculate gradient stops */
-                --spent-start: calc(var(--remaining-pct) * 1%);
-                --reserved-start: calc((var(--remaining-pct) + var(--spent-pct)) * 1%);
+                    height: 60px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    background:
+                        repeating-linear-gradient(
+                            -45deg,
+                            transparent,
+                            transparent 10px,
+                            rgba(0, 0, 0, 0.1) 10px,
+                            rgba(0, 0, 0, 0.1) 20px
+                        ),
+                        linear-gradient(to right,
+                            var(--green) 0% var(--spent-start),
+                            var(--coda-border-color) var(--spent-start) calc(var(--spent-start) + 1px),
+                            var(--red) var(--spent-start) var(--reserved-start),
+                            var(--coda-border-color) var(--reserved-start) calc(var(--reserved-start) + 1px),
+                            var(--blue) var(--reserved-start) 100%
+                        );
+                }
 
-                /* Darker stripe colors */
-                --green-dark: color-mix(in srgb, var(--green) 80%, black);
-                --red-dark: color-mix(in srgb, var(--red) 80%, black);
-                --blue-dark: color-mix(in srgb, var(--blue) 80%, black);
+                .budget-legend {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-top: 1rem;
+                    font-size: 0.9rem;
+                    flex-wrap: wrap;
+                    gap: 0.5rem;
+                }
 
-                height: 60px;
-                border-radius: 8px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                background:
-                    /* Diagonal stripes */
-                    repeating-linear-gradient(
-                        -45deg,
-                        transparent,
-                        transparent 10px,
-                        rgba(0, 0, 0, 0.1) 10px,
-                        rgba(0, 0, 0, 0.1) 20px
-                    ),
-                    /* Color sections */
-                    linear-gradient(to right,
-                        var(--green) 0% var(--spent-start),
-                        var(--coda-border-color) var(--spent-start) calc(var(--spent-start) + 1px),
-                        var(--red) var(--spent-start) var(--reserved-start),
-                        var(--coda-border-color) var(--reserved-start) calc(var(--reserved-start) + 1px),
-                        var(--blue) var(--reserved-start) 100%
-                    );
-            }
+                .budget-legend-item {
+                    display: flex;
+                    align-items: center;
+                }
 
-            .budget-legend {
-                display: flex;
-                justify-content: space-between;
-                margin-top: 1rem;
-                font-size: 0.9rem;
-                flex-wrap: wrap;
-                gap: 0.5rem;
-            }
+                .budget-legend-color {
+                    display: inline-block;
+                    width: 16px;
+                    height: 16px;
+                    margin-right: 0.5rem;
+                    border-radius: 3px;
+                }
 
-            .budget-legend-item {
-                display: flex;
-                align-items: center;
-            }
-
-            .budget-legend-color {
-                display: inline-block;
-                width: 16px;
-                height: 16px;
-                margin-right: 0.5rem;
-                border-radius: 3px;
-            }
-
-            .color-remaining { background-color: #4c9b8a; }
-            .color-spent { background-color: #b86a6b; }
-            .color-reserved { background-color: #0172ad; }
-        </style>
-        <div style="max-width: 600px; margin: 2rem auto;">
-            <h3>Budget Overview</h3>
-            <div style="margin-top: 1.5rem;">
-                <div class="budget-bar"
-                     data-total="50000"
-                     data-spent="16000"
-                     data-reserved="4000"
-                     data-remaining="30000"></div>
-                <div class="budget-legend">
-                    <div class="budget-legend-item">
-                        <span class="budget-legend-color color-remaining"></span>
-                        <span>Remaining: €30,000 (60%)</span>
-                    </div>
-                    <div class="budget-legend-item">
-                        <span class="budget-legend-color color-spent"></span>
-                        <span>Spent: €16,000 (32%)</span>
-                    </div>
-                    <div class="budget-legend-item">
-                        <span class="budget-legend-color color-reserved"></span>
-                        <span>Reserved: €4,000 (8%)</span>
+                .color-remaining { background-color: #4c9b8a; }
+                .color-spent { background-color: #b86a6b; }
+                .color-reserved { background-color: #0172ad; }
+            </style>
+            <div class="budget-overview">
+                <h3>Budget Overview</h3>
+                <div class="mt-1_5">
+                    <div class="budget-bar"
+                         style="--total: {{ bar_total }};
+                                --spent: {{ bar_spent }};
+                                --reserved: {{ bar_reserved }};
+                                --remaining: {{ bar_remaining }}"></div>
+                    <div class="budget-legend">
+                        <div class="budget-legend-item">
+                            <span class="budget-legend-color color-remaining"></span>
+                            <span>Remaining: {{ remaining }} ({{ remaining_pct|floatformat:0 }}%)</span>
+                        </div>
+                        <div class="budget-legend-item">
+                            <span class="budget-legend-color color-spent"></span>
+                            <span>Spent: {{ spent }} ({{ spent_pct|floatformat:0 }}%)</span>
+                        </div>
+                        <div class="budget-legend-item">
+                            <span class="budget-legend-color color-reserved"></span>
+                            <span>Reserved: {{ reserved }} ({{ reserved_pct|floatformat:0 }}%)</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div style="margin-top: 3rem;">
+        {% elif is_budget %}
+            <p class="messages warning">Set a total budget to see the budget overview.</p>
+        {% endif %}
+        {% if unconverted_invoices %}
+            <p class="messages warning">
+                Not included in the totals (no conversion to {{ home_currency.code }}):
+                {% for usage in unconverted_invoices %}
+                    {{ usage.invoice.number }} ({{ usage.unconverted_amounts|join:", " }})
+                    {% if not forloop.last %};{% endif %}
+                {% endfor %}
+            </p>
+        {% endif %}
+        <div class="mt-2">
             <h3>Related Invoices</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Invoice Number</th>
-                        <th>Date</th>
-                        {% comment %} <th>Description</th> {% endcomment %}
-                        <th>Amount</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>INV-2026-001</td>
-                        <td>2026-01-15</td>
-                        {% comment %} <td>Research Equipment</td> {% endcomment %}
-                        <td style="color: #dc3545;">€8,500.00</td>
-                        <td>
-                            <span style="background: #dc3545;
-                                         color: white;
-                                         padding: 0.25rem 0.5rem;
-                                         border-radius: 4px;
-                                         font-size: 0.85rem">Paid</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>INV-2026-002</td>
-                        <td>2026-02-20</td>
-                        {% comment %} <td>Lab Supplies</td> {% endcomment %}
-                        <td style="color: #dc3545;">€3,200.00</td>
-                        <td>
-                            <span style="background: #dc3545;
-                                         color: white;
-                                         padding: 0.25rem 0.5rem;
-                                         border-radius: 4px;
-                                         font-size: 0.85rem">Paid</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>INV-2026-003</td>
-                        <td>2026-03-10</td>
-                        {% comment %} <td>Conference Registration</td> {% endcomment %}
-                        <td style="color: #0d6efd;">€1,800.00</td>
-                        <td>
-                            <span style="background: #0d6efd;
-                                         color: white;
-                                         padding: 0.25rem 0.5rem;
-                                         border-radius: 4px;
-                                         font-size: 0.85rem">Reserved</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>INV-2026-004</td>
-                        <td>2026-04-05</td>
-                        {% comment %} <td>Software Licenses</td> {% endcomment %}
-                        <td style="color: #dc3545;">€4,300.00</td>
-                        <td>
-                            <span style="background: #dc3545;
-                                         color: white;
-                                         padding: 0.25rem 0.5rem;
-                                         border-radius: 4px;
-                                         font-size: 0.85rem">Paid</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>INV-2026-005</td>
-                        <td>2026-05-12</td>
-                        {% comment %} <td>Travel Expenses</td> {% endcomment %}
-                        <td style="color: #0d6efd;">€2,200.00</td>
-                        <td>
-                            <span style="background: #0d6efd;
-                                         color: white;
-                                         padding: 0.25rem 0.5rem;
-                                         border-radius: 4px;
-                                         font-size: 0.85rem">Reserved</span>
-                        </td>
-                    </tr>
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="2">
-                            <strong>Total Spent:</strong>
-                        </td>
-                        <td colspan="2" style="color: #dc3545;">
-                            <strong>€16,000.00</strong>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <strong>Total Reserved:</strong>
-                        </td>
-                        <td colspan="2" style="color: #0d6efd;">
-                            <strong>€4,000.00</strong>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <strong>Remaining Budget:</strong>
-                        </td>
-                        <td colspan="2" style="color: #198754;">
-                            <strong>€30,000.00</strong>
-                        </td>
-                    </tr>
-                </tfoot>
-            </table>
+            {% if invoices %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Invoice Number</th>
+                            <th>Date</th>
+                            <th>Amount ({{ home_currency.code }})</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for usage in invoices %}
+                            <tr>
+                                <td>
+                                    <a href="{{ usage.invoice.get_absolute_url }}">{{ usage.invoice.number }}</a>
+                                </td>
+                                <td>{{ usage.invoice.date }}</td>
+                                <td>{{ usage.converted_amount }}</td>
+                                <td>
+                                    <small class="pill status-label {{ usage.status_class }}">{{ usage.invoice.status|title }}</small>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="2">
+                                <strong>Total Spent:</strong>
+                            </td>
+                            <td colspan="2">
+                                <strong>{{ spent }}</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2">
+                                <strong>Total Reserved:</strong>
+                            </td>
+                            <td colspan="2">
+                                <strong>{{ reserved }}</strong>
+                            </td>
+                        </tr>
+                        {% if budget_total %}
+                            <tr>
+                                <td colspan="2">
+                                    <strong>Remaining Budget:</strong>
+                                </td>
+                                <td colspan="2">
+                                    <strong>{{ remaining }}</strong>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tfoot>
+                </table>
+            {% else %}
+                <p>No invoices are assigned to this funding source yet.</p>
+            {% endif %}
         </div>
     </article>
 {% endblock content %}
