@@ -274,7 +274,7 @@ def test__invoice_in_currency_without_conversion__on_view__shows_unconverted_war
 
     content = response.content.decode()
     assert "Not included in the totals (no conversion to EUR)" in content
-    assert usd_invoice.number in content
+    assert f'<a href="{usd_invoice.get_absolute_url()}">{usd_invoice.number}</a>' in content
     assert "100.00 USD" in content
     assert content.count(usd_invoice.number) == 1
     assert "Remaining: 990.00 EUR" in content

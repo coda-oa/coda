@@ -52,13 +52,17 @@
             <p class="messages warning">Set a total budget to see the budget overview.</p>
         {% endif %}
         {% if unconverted_invoices %}
-            <p class="messages warning">
-                Not included in the totals (no conversion to {{ home_currency.code }}):
-                {% for usage in unconverted_invoices %}
-                    {{ usage.invoice.number }} ({{ usage.unconverted_amounts|join:", " }})
-                    {% if not forloop.last %};{% endif %}
-                {% endfor %}
-            </p>
+            <div class="messages warning">
+                <p>Not included in the totals (no conversion to {{ home_currency.code }}):</p>
+                <ul>
+                    {% for usage in unconverted_invoices %}
+                        <li>
+                            <a href="{{ usage.invoice.get_absolute_url }}">{{ usage.invoice.number }}</a>
+                            <span>({{ usage.unconverted_amounts|join:", " }})</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
         {% endif %}
         <div class="mt-2">
             <h3>Related Invoices</h3>
