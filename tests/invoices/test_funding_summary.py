@@ -13,7 +13,7 @@ from tests.invoices.funding_helpers import create_assignment
 
 
 @pytest.mark.django_db
-def test__summary__paid_invoice_counts_as_spent() -> None:
+def test__budget_with_paid_invoice__on_summary__counts_invoice_as_spent() -> None:
     sut = modelfactory.budget()
     paid_invoice = modelfactory.invoice()
     create_assignment(sut, Decimal("100.00"), "EUR", paid_invoice, status=PaymentStatus.Paid.value)
@@ -25,7 +25,7 @@ def test__summary__paid_invoice_counts_as_spent() -> None:
 
 
 @pytest.mark.django_db
-def test__summary__unpaid_invoice_counts_as_reserved() -> None:
+def test__budget_with_unpaid_invoice__on_summary__counts_invoice_as_reserved() -> None:
     sut = modelfactory.budget()
     unpaid_invoice = modelfactory.invoice()
     create_assignment(
@@ -39,7 +39,7 @@ def test__summary__unpaid_invoice_counts_as_reserved() -> None:
 
 
 @pytest.mark.django_db
-def test__summary__rejected_invoice_listed_but_not_counted() -> None:
+def test__budget_with_rejected_invoice__on_summary__lists_invoice_without_counting_it() -> None:
     sut = modelfactory.budget()
     rejected_invoice = modelfactory.invoice()
     create_assignment(
@@ -56,7 +56,7 @@ def test__summary__rejected_invoice_listed_but_not_counted() -> None:
 
 
 @pytest.mark.django_db
-def test__summary__ignores_assignments_of_other_funding_sources() -> None:
+def test__invoice_assigned_to_two_budgets__on_summary__only_counts_own_assignments() -> None:
     sut = modelfactory.budget()
     other = modelfactory.budget()
     invoice = modelfactory.invoice()
@@ -70,7 +70,7 @@ def test__summary__ignores_assignments_of_other_funding_sources() -> None:
 
 
 @pytest.mark.django_db
-def test__summary__without_assignments_is_empty() -> None:
+def test__budget_without_assignments__on_summary__returns_empty_totals() -> None:
     sut = modelfactory.budget()
 
     summary = funding_summary.funding_source_summary(sut)
@@ -82,7 +82,7 @@ def test__summary__without_assignments_is_empty() -> None:
 
 
 @pytest.mark.django_db
-def test__summary__sums_assignments_per_invoice() -> None:
+def test__invoice_with_multiple_assignments__on_summary__sums_amount_per_invoice() -> None:
     sut = modelfactory.budget()
     invoice = modelfactory.invoice()
     create_assignment(sut, Decimal("30"), "EUR", invoice)
@@ -96,7 +96,7 @@ def test__summary__sums_assignments_per_invoice() -> None:
 
 
 @pytest.mark.django_db
-def test__summary__converts_amounts_to_home_currency() -> None:
+def test__assignment_in_foreign_currency__on_summary__converts_amount_to_home_currency() -> None:
     sut = modelfactory.budget()
     invoice = modelfactory.invoice()
     create_assignment(sut, Decimal("100"), "USD", invoice)
@@ -111,7 +111,7 @@ def test__summary__converts_amounts_to_home_currency() -> None:
 
 
 @pytest.mark.django_db
-def test__summary__missing_conversion_excludes_invoice_from_totals() -> None:
+def test__foreign_currency_without_conversion__on_summary__excludes_invoice_from_totals() -> None:
     sut = modelfactory.budget()
     invoice = modelfactory.invoice()
     create_assignment(sut, Decimal("100"), "USD", invoice)
@@ -127,7 +127,7 @@ def test__summary__missing_conversion_excludes_invoice_from_totals() -> None:
 
 
 @pytest.mark.django_db
-def test__summary__uses_configured_home_currency() -> None:
+def test__home_currency_set_to_usd__on_summary__uses_configured_home_currency() -> None:
     GlobalPreferences.objects.create(home_currency="USD")
     sut = modelfactory.budget()
     invoice = modelfactory.invoice()
@@ -142,7 +142,7 @@ def test__summary__uses_configured_home_currency() -> None:
 
 
 @pytest.mark.django_db
-def test__summary__spans_multiple_currencies__sums_into_home_currency() -> None:
+def test__paid_invoices_in_two_currencies__on_summary__sums_into_home_currency() -> None:
     sut = modelfactory.budget()
     paid_eur_invoice = modelfactory.invoice()
     paid_usd_invoice = modelfactory.invoice()
@@ -158,7 +158,7 @@ def test__summary__spans_multiple_currencies__sums_into_home_currency() -> None:
 
 
 @pytest.mark.django_db
-def test__summary__invoices_sorted_by_date_descending() -> None:
+def test__budget_with_invoices_on_different_dates__on_summary__sorts_by_date_descending() -> None:
     sut = modelfactory.budget()
     old_invoice = modelfactory.invoice()
     old_invoice.date = datetime.date(2025, 1, 1)

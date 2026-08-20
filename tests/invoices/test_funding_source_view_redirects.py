@@ -8,7 +8,7 @@ from tests import modelfactory
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__create_view__redirects_to_detail_page(client: Client) -> None:
+def test__valid_create_form__on_save__redirects_to_detail_page(client: Client) -> None:
     response = client.post(
         reverse("invoices:fundingsource_create"),
         {"name": "EU Horizon", "budget_amount": "50000.00"},
@@ -24,7 +24,7 @@ def test__create_view__redirects_to_detail_page(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__update_view__redirects_to_detail_page(client: Client) -> None:
+def test__valid_update_form__on_save__redirects_to_detail_page(client: Client) -> None:
     funding_source = modelfactory.budget("EU Horizon")
 
     response = client.post(

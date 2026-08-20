@@ -13,7 +13,9 @@ from tests.invoices.funding_helpers import create_assignment
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__detail_view__context_contains_budget_summary(client: Client) -> None:
+def test__budget_with_paid_and_unpaid_invoices__on_view__contains_budget_summary_in_context(
+    client: Client,
+) -> None:
     funding_source = modelfactory.budget("EU Horizon")
     funding_source.budget_amount = Decimal("50000.00")
     funding_source.save()
@@ -41,7 +43,9 @@ def test__detail_view__context_contains_budget_summary(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__detail_view__without_budget_amount_has_no_bar_values(client: Client) -> None:
+def test__budget_without_amount__on_view__omits_bar_values_from_context(
+    client: Client,
+) -> None:
     funding_source = modelfactory.budget("No budget")
 
     response = client.get(
@@ -56,7 +60,9 @@ def test__detail_view__without_budget_amount_has_no_bar_values(client: Client) -
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__detail_view__institution_source_has_no_budget_values(client: Client) -> None:
+def test__institution_source__on_view__omits_budget_values_from_context(
+    client: Client,
+) -> None:
     institution = modelfactory.institution()
     funding_source = FundingSource.objects.create(
         type="institution", institution=institution, name=institution.name
@@ -76,7 +82,9 @@ def test__detail_view__institution_source_has_no_budget_values(client: Client) -
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__detail_view__shows_budget_total_in_header(client: Client) -> None:
+def test__budget_with_set_amount__on_view__shows_budget_total_in_header(
+    client: Client,
+) -> None:
     funding_source = modelfactory.budget("EU Horizon")
     funding_source.budget_amount = Decimal("50000.00")
     funding_source.save()
@@ -92,7 +100,9 @@ def test__detail_view__shows_budget_total_in_header(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__detail_view__renders_budget_bar_with_actual_css_variables(client: Client) -> None:
+def test__budget_with_invoices__on_view__renders_budget_bar_with_actual_css_variables(
+    client: Client,
+) -> None:
     funding_source = modelfactory.budget("EU Horizon")
     funding_source.budget_amount = Decimal("50000.00")
     funding_source.save()
@@ -119,7 +129,7 @@ def test__detail_view__renders_budget_bar_with_actual_css_variables(client: Clie
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__detail_view__renders_legend_with_real_amounts(client: Client) -> None:
+def test__budget_with_invoices__on_view__renders_legend_with_real_amounts(client: Client) -> None:
     funding_source = modelfactory.budget("EU Horizon")
     funding_source.budget_amount = Decimal("50000.00")
     funding_source.save()
@@ -144,7 +154,7 @@ def test__detail_view__renders_legend_with_real_amounts(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__detail_view__shows_invoice_table_totals(client: Client) -> None:
+def test__budget_with_invoices__on_view__shows_invoice_table_totals(client: Client) -> None:
     funding_source = modelfactory.budget("EU Horizon")
     funding_source.budget_amount = Decimal("50000.00")
     funding_source.save()
@@ -172,7 +182,9 @@ def test__detail_view__shows_invoice_table_totals(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__detail_view__lists_related_invoices_with_status(client: Client) -> None:
+def test__invoices_with_all_payment_statuses__on_view__lists_invoices_with_status_pill(
+    client: Client,
+) -> None:
     funding_source = modelfactory.budget("EU Horizon")
     paid_invoice = modelfactory.invoice()
     unpaid_invoice = modelfactory.invoice()
@@ -207,7 +219,7 @@ def test__detail_view__lists_related_invoices_with_status(client: Client) -> Non
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__detail_view__shows_hint_instead_of_bar_without_budget_amount(client: Client) -> None:
+def test__budget_without_amount__on_view__shows_hint_instead_of_bar(client: Client) -> None:
     funding_source = modelfactory.budget("No budget")
 
     response = client.get(
@@ -221,7 +233,7 @@ def test__detail_view__shows_hint_instead_of_bar_without_budget_amount(client: C
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__detail_view__institution_source_shows_invoices_without_budget_bar(
+def test__institution_source_with_invoice__on_view__shows_invoices_without_budget_bar(
     client: Client,
 ) -> None:
     institution = modelfactory.institution()
@@ -244,7 +256,9 @@ def test__detail_view__institution_source_shows_invoices_without_budget_bar(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__detail_view__shows_warning_for_unconvertible_invoices(client: Client) -> None:
+def test__invoice_in_currency_without_conversion__on_view__shows_unconverted_warning(
+    client: Client,
+) -> None:
     funding_source = modelfactory.budget("EU Horizon")
     funding_source.budget_amount = Decimal("1000.00")
     funding_source.save()
@@ -268,7 +282,7 @@ def test__detail_view__shows_warning_for_unconvertible_invoices(client: Client) 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__detail_view__shows_empty_state_without_invoices(client: Client) -> None:
+def test__budget_without_invoices__on_view__shows_empty_state(client: Client) -> None:
     funding_source = modelfactory.budget("Empty")
 
     response = client.get(
