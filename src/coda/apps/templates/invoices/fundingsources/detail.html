@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-    <div class="flex justify-between align-center my-2">
-        <h1>Funding Source</h1>
+    <div class="flex justify-between align-center">
+        <h1 class="my-2">Funding Source</h1>
         <a href="{% url "invoices:fundingsource_update" pk=fundingsource.id %}"
            class="secondary"
            role="button">Edit</a>

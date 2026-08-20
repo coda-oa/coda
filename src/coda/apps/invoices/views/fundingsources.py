@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest
-from django.urls import reverse_lazy
+from django.urls import reverse
 from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.domainqueryset import DomainQuerySet
@@ -21,9 +21,12 @@ from coda.apps.breadcrumbs.decorators import breadcrumb
 @breadcrumb("Create Funding Source", parent_url_name="invoices:fundingsource_list")
 class CreateFundingSourceView(LoginRequiredMixin, CreateView[FundingSource, FundingSourceForm]):
     model = FundingSource
-    success_url = reverse_lazy("invoices:fundingsource_list")
     template_name = "generic_form_view.html"
     fields = ["name", "budget_amount"]
+
+    def get_success_url(self) -> str:
+        assert self.object is not None
+        return reverse("invoices:fundingsource_detail", kwargs={"pk": self.object.pk})
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {"title": "Create Funding Source"}
@@ -32,12 +35,15 @@ class CreateFundingSourceView(LoginRequiredMixin, CreateView[FundingSource, Fund
 fundingsource_createview = CreateFundingSourceView.as_view()
 
 
-@breadcrumb("Update Funding Source", parent_url_name="invoices:fundingsource_list")
+@breadcrumb("Update Funding Source", parent_url_name="invoices:fundingsource_detail")
 class UpdateFundingSourceView(LoginRequiredMixin, UpdateView[FundingSource, FundingSourceForm]):
     model = FundingSource
-    success_url = reverse_lazy("invoices:fundingsource_list")
     template_name = "generic_form_view.html"
     fields = ["name", "budget_amount"]
+
+    def get_success_url(self) -> str:
+        assert self.object is not None
+        return reverse("invoices:fundingsource_detail", kwargs={"pk": self.object.pk})
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         return super().get_context_data(**kwargs) | {"title": "Update Funding Source"}

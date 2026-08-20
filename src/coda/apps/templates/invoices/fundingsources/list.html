@@ -1,5 +1,5 @@
 <article class="flex justify-between align-center">
-    <p class="m-0">{{ entity.name }}</p>
+    <a href="{% url 'invoices:fundingsource_detail' pk=entity.id %}">{{ entity.name }}</a>
     <a href="{% url "invoices:fundingsource_update" pk=entity.id %}"
        class="button secondary">Edit</a>
 </article>

@@ -249,6 +249,8 @@ def test__detail_view__shows_warning_for_unconvertible_invoices(client: Client) 
     funding_source.budget_amount = Decimal("1000.00")
     funding_source.save()
     usd_invoice = modelfactory.invoice()
+    usd_invoice.number = "USD-INV-42"
+    usd_invoice.save()
     create_assignment(funding_source, Decimal("100.00"), "USD", usd_invoice)
     create_assignment(funding_source, Decimal("10.00"), "EUR", modelfactory.invoice())
 
