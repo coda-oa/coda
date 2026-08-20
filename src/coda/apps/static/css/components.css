@@ -206,3 +206,79 @@ span.icon-tooltip[data-tooltip] {
   max-width: 600px;
   margin: 2rem auto;
 }
+
+.budget-pill {
+  color: white;
+}
+
+.budget-pill.spent {
+  --_status-color: var(--coda-red);
+}
+
+.budget-pill.reserved {
+  --_status-color: var(--coda-blue);
+}
+
+.budget-bar {
+  /* --total, --spent, --reserved, --remaining are set inline
+     from the view context (budget amounts, home currency). */
+  --remaining-pct: calc(var(--remaining) / var(--total) * 100);
+  --spent-pct: calc(var(--spent) / var(--total) * 100);
+  --reserved-pct: calc(var(--reserved) / var(--total) * 100);
+
+  --spent-start: calc(var(--remaining-pct) * 1%);
+  --reserved-start: calc((var(--remaining-pct) + var(--spent-pct)) * 1%);
+
+  height: 60px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  background:
+      repeating-linear-gradient(
+          -45deg,
+          transparent,
+          transparent 10px,
+          rgba(0, 0, 0, 0.1) 10px,
+          rgba(0, 0, 0, 0.1) 20px
+      ),
+      linear-gradient(to right,
+          var(--coda-green) 0% var(--spent-start),
+          var(--coda-border-color) var(--spent-start) calc(var(--spent-start) + 1px),
+          var(--coda-red) var(--spent-start) var(--reserved-start),
+          var(--coda-border-color) var(--reserved-start) calc(var(--reserved-start) + 1px),
+          var(--coda-blue) var(--reserved-start) 100%
+      );
+}
+
+.budget-legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.budget-legend-item {
+  display: flex;
+  align-items: center;
+}
+
+.budget-legend-color {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 0.5rem;
+  border-radius: 3px;
+}
+
+.color-remaining {
+  background-color: #4c9b8a;
+}
+
+.color-spent {
+  background-color: #b86a6b;
+}
+
+.color-reserved {
+  background-color: #0172ad;
+}

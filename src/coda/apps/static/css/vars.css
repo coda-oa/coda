@@ -51,6 +51,10 @@
   --coda-spacing: var(--pico-spacing);
   --coda-gap: var(--coda-spacing);
 
+  --coda-red: #df4655;
+  --coda-blue: #508fe2;
+  --coda-green: #3ac2a0;
+
   --coda-text-contrast-color: black;
 }
 
@@ -65,6 +69,10 @@
     --coda-primary: hsl(218, 85%, 65%);
     --coda-primary-hover: hsl(218, 85%, 80%);
 
+    --coda-red: #cb3443;
+    --coda-blue: #2b64ae;
+    --coda-green: #2bad8c;
+
     --coda-text-contrast-color: white;
   }
 }
@@ -77,6 +85,10 @@
 
   --coda-primary: hsl(218, 85%, 65%);
   --coda-primary-hover: hsl(218, 85%, 80%);
+
+  --coda-red: #cb3443;
+  --coda-blue: #2b64ae;
+  --coda-green: #2bad8c;
 
   --coda-text-contrast-color: white;
 }
