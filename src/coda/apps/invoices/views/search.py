@@ -9,7 +9,23 @@ from django.urls import reverse
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices.views.position_parsers import maybe_request_context
 from coda.apps.publications.models import Publication
-from coda.apps.search import build_search_filter
+from coda.apps.search import (
+    ScopedAlias,
+    SearchFieldAliases,
+    alias_field_paths,
+    build_search_filter,
+)
+
+PUBLICATION_SEARCH_FIELD_ALIASES: SearchFieldAliases = {
+    "title": "title",
+    "doi": ScopedAlias("links__value", Q(links__type__name="DOI")),
+    "request": "fundingrequest__request_id",
+}
+
+CONTRACT_SEARCH_FIELD_ALIASES: SearchFieldAliases = {
+    "name": "name",
+    "esac": ScopedAlias("links__value", Q(links__type__name="ESAC")),
+}
 
 
 @login_required
@@ -17,9 +33,11 @@ def search_publications(request: HttpRequest) -> HttpResponse:
     query = request.POST.get("q", "").strip()
     if query:
         publications = Publication.objects.filter(
-            build_search_filter(query, "title")
-            | (Q(links__type__name="DOI") & build_search_filter(query, "links__value"))
-            | build_search_filter(query, "fundingrequest__request_id")
+            build_search_filter(
+                query,
+                *alias_field_paths(PUBLICATION_SEARCH_FIELD_ALIASES),
+                field_aliases=PUBLICATION_SEARCH_FIELD_ALIASES,
+            )
         ).distinct()
     else:
         publications = Publication.objects.none()
@@ -41,8 +59,11 @@ def search_contracts(request: HttpRequest) -> HttpResponse:
     query = request.POST.get("contract_query", "").strip()
     if query:
         contracts = Contract.objects.filter(
-            build_search_filter(query, "name")
-            | (Q(links__type__name="ESAC") & build_search_filter(query, "links__value"))
+            build_search_filter(
+                query,
+                *alias_field_paths(CONTRACT_SEARCH_FIELD_ALIASES),
+                field_aliases=CONTRACT_SEARCH_FIELD_ALIASES,
+            )
         ).distinct()
     else:
         contracts = Contract.objects.none()

@@ -1,3 +1,4 @@
+{% load search_prefixes %}
 <form method="get" id="search-form">
     <input type="search"
            name="search_term"
@@ -6,7 +7,7 @@
            aria-describedby="search-query-helper">
     <small id="search-query-helper">
         Prefix term to search a specific field (e.g. <code>author:"john doe"</code>). Available prefixes:
-        <code>{{ search_field_prefixes|join:", " }}</code>
+        <code>{% fundingrequest_search_prefixes %}</code>
     </small>
     <details {% if expand_advanced_search %}open{% endif %}>
         <summary class="button outline muted">
