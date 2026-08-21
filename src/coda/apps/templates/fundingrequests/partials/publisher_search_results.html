@@ -1,33 +1,28 @@
+{# Context: publishers, search_term, row_template #}
 <div id="publisher-search-results" class="scroll-container max-h-30">
     {% if publishers %}
-        <table class="my-2">
+        <table>
             <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Select</th>
-                </tr>
+            <tr>
+                <th>Name</th>
+                <th>Select</th>
+            </tr>
             </thead>
             <tbody>
-                {% for publisher in publishers %}
-                    {% include row_template|default:"fundingrequests/partials/publisher_row.html" %}
-                {% endfor %}
+            {% for publisher in publishers %}
+                {% include row_template|default:"fundingrequests/partials/publisher_row.html" %}
+            {% endfor %}
             </tbody>
         </table>
-        <div class="flex justify-between align-center my-2">
-            <p>Couldn't find the right publisher?</p>
-            <button type="button"
-                    hx-get="{% url 'publishing:publishers:create_modal' %}"
-                    hx-target="#entity-creation-modal-wrapper"
-                    class="secondary">New Publisher</button>
-        </div>
     {% elif search_term %}
-        <div class="flex justify-between align-center my-2">
-            <p>No results for "{{ search_term }}".</p>
-            <button type="button"
-                    hx-get="{% url 'publishing:publishers:create_modal' %}"
-                    hx-target="#entity-creation-modal-wrapper"
-                    class="secondary">New Publisher</button>
-        </div>
+        <p>No publishers found for "{{ search_term }}".</p>
     {% endif %}
+    <div class="flex justify-between align-center mt-2">
+        <button type="button"
+                hx-get="{% url 'publishing:publishers:create_modal' %}"
+                hx-target="#entity-creation-modal-wrapper"
+                class="secondary">New Publisher
+        </button>
+    </div>
     <div id="entity-creation-modal-wrapper"></div>
 </div>

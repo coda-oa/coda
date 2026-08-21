@@ -304,6 +304,26 @@ def test_load_article_form_search_button_uses_find_journal_endpoint(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test_load_article_form_journal_search_requests_stripped_row_template(
+    client: Client, scenario: ArticleScenario
+) -> None:
+    """Journal search must send the DOI row-template override.
+
+    Without it the search endpoint replies with wizard journal rows whose
+    clear_journal_error HTMX targets #journal-error, which does not exist in
+    the DOI type-change modal.
+    """
+    response = submit_for_preview(client, scenario.doi.value())
+    session_key = get_session_key(response)
+
+    form_response = load_type_form(client, session_key, "article")
+
+    content = form_response.content.decode()
+    assert "fundingrequests/partials/doi_journal_row.html" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test_load_monograph_form_shows_prefilled_publisher(
     client: Client, scenario: ArticleScenario
 ) -> None:
@@ -392,12 +412,13 @@ def test_submit_type_change_article_without_journal_shows_inline_error(
     response = submit_for_preview(client, doi_str)
     session_key = get_session_key(response)
 
-    change_response = submit_type_change(client, session_key, "article")
+    change_response = submit_type_change(client, session_key, "article", journal_title="Nature")
 
     assert change_response.status_code == 200
     assert "HX-Redirect" not in change_response
     content = change_response.content.decode()
     assert "Please select a journal before applying." in content
+    assert 'value="Nature"' in content
     session_data = client.session[session_key]
     assert "journal_id" not in session_data
 
