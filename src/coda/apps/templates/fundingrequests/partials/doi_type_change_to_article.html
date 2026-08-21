@@ -1,29 +1,27 @@
 {# Form for changing to article type - requires journal selection #}
-{# Parameters: session_key, journals, selected_journal, error #}
-{# Note: form submission requires JavaScript (HTMX). Non-JS fallback is not supported. #}
-<form method="post"
-      action="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
-      hx-post="{% url 'fundingrequests:doi_preview_apply_type_change' session_key=session_key %}"
-      hx-target="#type-change-form"
-      hx-swap="innerHTML">
-    {% csrf_token %}
-    <input type="hidden" name="publication_type" value="article">
-    <input type="hidden"
-           name="row_template"
-           value="fundingrequests/partials/doi_journal_row.html">
-    <h4 class="mt-1">Select Journal</h4>
-    <p class="text-muted">Search for the journal where this article was published.</p>
-    {% if error %}<p class="error">{{ error }}</p>{% endif %}
-    <fieldset role="group">
-        <input type="search"
-               name="journal_title"
-               id="journal_title"
-               placeholder="Search journal by title...">
-        <button type="button"
-                hx-post="{% url 'fundingrequests:wizard_find_journal' %}"
-                hx-target="#journal-search-results"
-                hx-swap="outerHTML"
-                class="inline-search-pill pill-right">Search</button>
-    </fieldset>
-    {% include "fundingrequests/partials/journal_search_results.html" %}
-</form>
+{# Parameters: journals, suggested_journal, error #}
+{# Note: the whole flow requires JavaScript (HTMX). Non-JS fallback is not supported. #}
+{# There is deliberately no form element: the Apply button posts while hx-including #}
+{# the #type-change-form wrapper, and keeping the inputs out of a form means Enter in #}
+{# the search field can only trigger the journal search, never a submit. #}
+<h4 class="mt-1">Select Journal</h4>
+<p class="text-muted">Search for the journal where this article was published.</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<fieldset role="group"
+          hx-post="{% url 'fundingrequests:wizard_find_journal' %}"
+          hx-target="#journal-search-results"
+          hx-include="#journal_title"
+          hx-vals='{"row_template": "fundingrequests/partials/doi_journal_row.html"}'
+          hx-swap="outerHTML"
+          hx-trigger="keydown[key=='Enter'] from:#journal_title, click from:#journal_search_button">
+    <input type="search"
+           name="journal_title"
+           id="journal_title"
+           placeholder="Search journal by title..."
+           value="{{ suggested_journal }}">
+    <button type="button"
+            id="journal_search_button"
+            class="inline-search-pill pill-right">Search</button>
+</fieldset>
+<input type="hidden" name="publication_type" value="article">
+{% include "fundingrequests/partials/journal_search_results.html" %}

@@ -53,7 +53,7 @@ def test__find_publisher__no_results__shows_no_results_message(client: Client) -
     )
 
     assert response.status_code == 200
-    assert "No results" in response.content.decode()
+    assert 'No publishers found for "nonexistent"' in response.content.decode()
 
 
 @pytest.mark.django_db
@@ -98,7 +98,46 @@ def test__find_journal__no_results__shows_no_results_message(client: Client) -> 
     )
 
     assert response.status_code == 200
-    assert "No results" in response.content.decode()
+    assert 'No journals found for "nonexistent"' in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__find_journal__row_template_override__renders_stripped_doi_row(
+    client: Client,
+) -> None:
+    publisher = modelfactory.publisher(name="Springer")
+    modelfactory.journal(title="Nature", publisher_id=publisher.pk)
+
+    response = client.post(
+        reverse("fundingrequests:wizard_find_journal"),
+        data={
+            "journal_title": "Nature",
+            "row_template": "fundingrequests/partials/doi_journal_row.html",
+        },
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert 'name="journal"' in content
+    assert reverse("fundingrequests:clear_journal_error") not in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__find_journal__without_row_template_override__uses_wizard_row(client: Client) -> None:
+    publisher = modelfactory.publisher(name="Springer")
+    modelfactory.journal(title="Nature", publisher_id=publisher.pk)
+
+    response = client.post(
+        reverse("fundingrequests:wizard_find_journal"),
+        data={"journal_title": "Nature"},
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert 'name="journal"' in content
+    assert reverse("fundingrequests:clear_journal_error") in content
 
 
 @pytest.mark.django_db
