@@ -8,6 +8,14 @@ You can access invoices from the **Finances** section in the navigation menu. Th
 
 You can search and filter invoices to find specific transactions quickly. An advanced search can be toggled to filter invoices by various criteria.
 
+### Search
+
+The search box matches all entered words against the invoice number, the creditor name, the external invoice ID, and the funding request IDs of the invoice's positions. Every word must occur in at least one of these fields, so results get more specific with each added word.
+
+Wrap a term in double quotes to search for an exact phrase: `"alpha beta"` matches the phrase as a whole, not the two words separately.
+
+When adding positions, the publication and contract search boxes support field prefixes: `title:`, `doi:` and `request:` for publications, `name:` and `esac:` for contracts (e.g. `doi:10.1234/abc`).
+
 ![](/_static/img/invoices_list.png)
 
 ## Understanding Invoice Structure

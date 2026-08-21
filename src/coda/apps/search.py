@@ -67,6 +67,10 @@ def build_search_filter(
 ) -> Q:
     """Build a Q filter that matches all words/phrases across any of the given fields.
 
+    When ``*fields`` is omitted and ``field_aliases`` is given, the generic fields
+    default to all field paths referenced by the aliases; when ``*fields`` is given
+    explicitly it replaces the derived list.
+
     Each unquoted word or double-quoted phrase must appear (case-insensitively) in at
     least one of the fields - AND logic across words, OR across fields.
 
@@ -93,6 +97,11 @@ def build_search_filter(
     if not query.strip():
         return Q()
 
+    if fields:
+        generic_fields = list(fields)
+    else:
+        generic_fields = alias_field_paths(field_aliases or {})
+
     q = Q()
 
     result = _parse_prefixed_terms(query, field_aliases or {})
@@ -108,7 +117,7 @@ def build_search_filter(
         phrases, words = _parse_search_terms(result.remaining)
         for value in [*phrases, *words]:
             if value.strip():
-                q &= _match_any_field(value, fields)
+                q &= _match_any_field(value, generic_fields)
 
     return q
 
