@@ -334,6 +334,14 @@ def test__unparsable_filter_param__is_ignored_by_filter(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__list_view__search_helper__lists_field_aliases(client: Client) -> None:
+    response = search_fundingrequests(client)
+
+    assert "author, title, journal, publisher, doi, eissn" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__searching_with_doi_prefix__matches_only_doi_typed_links(client: Client) -> None:
     """The doi: prefix must only match links of type DOI, not other link types.
 

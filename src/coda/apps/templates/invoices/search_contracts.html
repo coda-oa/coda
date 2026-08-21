@@ -1,3 +1,4 @@
+{% load search_prefixes %}
 <div id="contract-search">
     <h3>Search Contracts</h3>
     <div class="form-row pill"
@@ -10,13 +11,18 @@
                id="contract_query"
                name="contract_query"
                placeholder="Search contracts by name or ESAC"
-               value="{{ request.POST.contract_query }}">
+               value="{{ request.POST.contract_query }}"
+               aria-describedby="contract-search-query-helper">
         <button type="button"
                 name="action"
                 value="search"
                 id="contract_query_search_button"
                 class="form-row-item-sm">Search</button>
     </div>
+    <small id="contract-search-query-helper">
+        Prefix term to search a specific field (e.g. <code>esac:esac-12345</code>). Available prefixes:
+        <code>{% contract_search_prefixes %}</code>
+    </small>
     {% if contracts %}
         <table>
             <thead>

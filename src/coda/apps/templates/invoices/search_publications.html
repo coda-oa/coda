@@ -1,3 +1,4 @@
+{% load search_prefixes %}
 <div id="publication-search">
     <h3>Search Publications</h3>
     <div class="form-row pill"
@@ -10,13 +11,18 @@
                id="publication_query"
                name="q"
                placeholder="Search publications by title, DOI or funding request ID"
-               value="{{ request.POST.q }}">
+               value="{{ request.POST.q }}"
+               aria-describedby="publication-search-query-helper">
         <button type="button"
                 name="action"
                 value="search"
                 id="publication_query_search_button"
                 class="form-row-item-sm">Search</button>
     </div>
+    <small id="publication-search-query-helper">
+        Prefix term to search a specific field (e.g. <code>doi:10.1234/abc</code>). Available prefixes:
+        <code>{% publication_search_prefixes %}</code>
+    </small>
     {% if publications %}
         <table>
             <thead>
