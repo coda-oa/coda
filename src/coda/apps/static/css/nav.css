@@ -16,8 +16,6 @@
     --_coda-logo-color: var(--coda-primary);
 
     max-width: fit-content;
-    border: 1px solid var(--_coda-logo-color) !important;
-    border-radius: var(--coda-border-radius);
 
     margin-inline: var(--coda-spacing);
     margin-block: calc(var(--coda-spacing) * 1.5);
@@ -92,6 +90,31 @@
         padding-inline-start: 0;
         margin-inline-start: calc(var(--coda-spacing));
         margin-block: calc(var(--coda-spacing) / 2);
+    }
+
+    & .nav__group .nav__submenu {
+        display: none;
+        margin-top: calc(var(--coda-spacing) / 2);
+        margin-inline: 0;
+        padding-inline-start: calc(var(--coda-spacing) / 2);
+        border-left: 1px solid var(--coda-border-color);
+    }
+    & .nav__group--active,
+    & .nav__group:is(:hover, :focus-within){
+        padding-bottom: 0;
+    }
+
+    & .nav__group--active .nav__submenu,
+    & .nav__group:is(:hover, :focus-within) .nav__submenu {
+        display: block;
+    }
+
+    & .nav__submenu li {
+        margin-block: calc(var(--coda-spacing) / 4);
+    }
+
+    & .nav__sublink {
+        font-size: 0.95rem;
     }
 
     .nav__version {
@@ -265,6 +288,26 @@
         visibility: visible;
         opacity: 1;
         width: auto;
+    }
+
+    .nav-container:not(:is(:hover, :focus-within)) .nav__submenu {
+        display: none;
+    }
+
+    .nav-container:not(:is(:hover, :focus-within)) .nav__group--active > a {
+        position: relative;
+    }
+
+    .nav-container:not(:is(:hover, :focus-within)) .nav__group--active > a::before {
+        content: "";
+        position: absolute;
+        top: 20%;
+        left: 0;
+        height: 60%;
+        width: 4px;
+
+        border-radius: var(--coda-border-radius);
+        background-color: var(--coda-primary-border);
     }
 
     .nav .update-banner {
