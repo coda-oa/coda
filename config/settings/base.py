@@ -90,6 +90,7 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS: list[str] = []
 
 LOCAL_APPS = [
+    "coda.apps.common",
     "coda.apps.users",
     "coda.apps.authors",
     "coda.apps.institutions",
@@ -206,12 +207,6 @@ TEMPLATES = [
                 "coda.apps.context_processors.version_context",
                 "coda.apps.context_processors.demo_context",
             ],
-            "libraries": {
-                "getitem": "coda.apps.templatetags.getitem",
-                "getlist": "coda.apps.templatetags.getlist",
-                "param_replace": "coda.apps.templatetags.param_replace",
-                "formset_tags": "coda.apps.templatetags.formset_tags",
-            },
         },
     }
 ]
