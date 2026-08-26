@@ -606,7 +606,9 @@ def add_institution_linkrow(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_GET
 def export_institutions(request: HttpRequest) -> HttpResponse:
-    csv_content = services.export_to_csv()
+    # Encode as UTF-8 with BOM so Excel detects the file as UTF-8; without it
+    # Excel assumes Windows-1252 and garbles umlauts (ä -> Ã¤).
+    csv_content = services.export_to_csv().encode("utf-8-sig")
     response = HttpResponse(csv_content, content_type="text/csv")
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
