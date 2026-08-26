@@ -61,6 +61,7 @@ class ContractImportDto(pydantic.BaseModel):
 class ConceptImportDto(pydantic.BaseModel):
     name: str = ""
     vocabulary_name: str = ""
+    concept_id: str = ""
 
 
 # === Review DTOs ===

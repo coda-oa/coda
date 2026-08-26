@@ -1,5 +1,7 @@
 # tests/exports/fundingrequest_csv/test_queries.py
 
+import uuid
+
 import pytest
 from datetime import date
 from decimal import Decimal
@@ -7,7 +9,10 @@ from decimal import Decimal
 from coda.apps.invoices import funding_source_repository
 from coda.contexts.finance.services import invoice_service
 from tests import domainfactory, modelfactory
-from coda.apps.exports.services.fundingrequest_csv.queries import get_funding_requests_for_export
+from coda.apps.exports.services.fundingrequest_csv.queries import (
+    get_concept_id_lookup,
+    get_funding_requests_for_export,
+)
 from coda.apps.publications.models import PublicationPayment
 
 from coda.domain.fundingrequest.review import ReviewResult, Review
@@ -20,6 +25,7 @@ from coda.domain.publication.publication import PublicationId
 
 from tests.exports.fundingrequest_csv.helpers import (
     _make_params,
+    create_funding_request_with_concepts,
     create_invoice_with_publication_position,
 )
 
@@ -193,6 +199,39 @@ def test__query_with_prefetch__accessing_related_objects__does_not_trigger_addit
     assert (
         query_count < 25
     ), f"Too many queries: {query_count}. Prefetch may not be working correctly."
+
+
+@pytest.mark.django_db
+def test__funding_requests_with_vocabulary_concepts__get_concept_id_lookup__maps_entity_ids_to_concept_ids() -> (
+    None
+):
+    fr1, sa_concept_1, pt_concept_1 = create_funding_request_with_concepts(
+        title="FR 1", subject_area_concept_id="SA-001", publication_type_concept_id="PT-001"
+    )
+    fr2, sa_concept_2, pt_concept_2 = create_funding_request_with_concepts(
+        title="FR 2", subject_area_concept_id="SA-002", publication_type_concept_id="PT-002"
+    )
+
+    lookup = get_concept_id_lookup([fr1, fr2])
+
+    assert lookup[sa_concept_1.entity_id] == "SA-001"
+    assert lookup[pt_concept_1.entity_id] == "PT-001"
+    assert lookup[sa_concept_2.entity_id] == "SA-002"
+    assert lookup[pt_concept_2.entity_id] == "PT-002"
+
+
+@pytest.mark.django_db
+def test__funding_request_with_orphaned_concept__get_concept_id_lookup__omits_unresolvable_concepts() -> (
+    None
+):
+    fr, _, pt_concept = create_funding_request_with_concepts(title="Orphaned FR")
+    fr.publication.subject_area.entity_id = uuid.uuid4()
+    fr.publication.subject_area.save()
+
+    lookup = get_concept_id_lookup([fr])
+
+    assert fr.publication.subject_area.entity_id not in lookup
+    assert lookup[pt_concept.entity_id] == "PT-002"
 
 
 def _create_three_fundingrequests_for_performance_check() -> None:

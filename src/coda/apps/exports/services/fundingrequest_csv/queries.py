@@ -1,8 +1,12 @@
+import uuid
+from collections.abc import Iterable
+
 from django.db.models import Prefetch, QuerySet
 
 from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.invoices.models import FundingAssignment, Invoice
+from coda.apps.publications.models import Concept
 
 type LabelId = int
 
@@ -56,3 +60,22 @@ def get_funding_requests_for_export(
         )
         .distinct()
     )
+
+
+def get_concept_id_lookup(
+    funding_requests: Iterable[FundingRequest],
+) -> dict[uuid.UUID, str]:
+    entity_ids = {
+        attached.entity_id
+        for funding_request in funding_requests
+        for attached in (
+            funding_request.publication.subject_area,
+            funding_request.publication.publication_type,
+        )
+        if attached is not None
+    }
+
+    return {
+        concept.entity_id: concept.concept_id
+        for concept in Concept.objects.filter(entity_id__in=entity_ids)
+    }

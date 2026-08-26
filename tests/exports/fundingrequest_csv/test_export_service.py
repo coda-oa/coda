@@ -18,7 +18,10 @@ from coda.domain.fundingrequest import FundingRequestId
 from coda.apps.fundingrequests.repository import save_review
 
 
-from tests.exports.fundingrequest_csv.helpers import _make_params
+from tests.exports.fundingrequest_csv.helpers import (
+    _make_params,
+    create_funding_request_with_concepts,
+)
 
 
 @pytest.mark.django_db
@@ -60,6 +63,33 @@ def test__single_funding_request_with_one_invoice__export_to_csv__returns_csv_wi
     assert df["invoice_number"][0] == "INV-001"
     assert df["invoice_date"][0] == "2026-05-01"
     assert df["request_id"][0] == str(funding_request.request_id)
+
+
+@pytest.mark.django_db
+def test__funding_request_with_vocabulary_concepts__export_to_csv__includes_concept_id_columns() -> (
+    None
+):
+    funding_request, subject_area_concept, publication_type_concept = (
+        create_funding_request_with_concepts(
+            title="Concept Export Publication",
+            subject_area_concept_id="DFG-51D",
+            publication_type_concept_id="PT-ART",
+        )
+    )
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31))
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert df.height == 1
+    assert df["subject_area_id"][0] == subject_area_concept.concept_id
+    assert df["publication_type_id"][0] == publication_type_concept.concept_id
+    assert df["subject_area"][0] == subject_area_concept.name
+    assert df["publication_type"][0] == publication_type_concept.name
 
 
 @pytest.mark.django_db
