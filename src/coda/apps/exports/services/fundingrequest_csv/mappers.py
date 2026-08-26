@@ -371,4 +371,4 @@ def get_invoices_for_request(funding_request: FundingRequest) -> list[Invoice]:
     invoices = {
         pos.invoice for pos in funding_request.publication.position_set.all() if pos.invoice
     }
-    return list(invoices)
+    return sorted(invoices, key=lambda invoice: invoice.id)

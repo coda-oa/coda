@@ -61,6 +61,17 @@ CSV_COLUMNS = [
 ]
 
 
+def _single_line(value: str) -> str:
+    return (
+        value.replace("\r\n", " ")
+        .replace("\n", " ")
+        .replace("\r", " ")
+        .replace("\u2028", " ")
+        .replace("\u2029", " ")
+        .replace("\ufeff", "")
+    )
+
+
 def export_fundingrequests_to_csv(
     params: FundingRequestSearchParams,
 ) -> str:
@@ -84,7 +95,8 @@ def export_fundingrequests_to_csv(
     all_rows = []
     for dto in export_dtos:
         rows = flatten_detailed(dto)
-        all_rows.extend(rows)
+        for row in rows:
+            all_rows.append({key: _single_line(value) for key, value in row.items()})
 
     # 5. Build Polars DataFrame from rows
     if not all_rows:

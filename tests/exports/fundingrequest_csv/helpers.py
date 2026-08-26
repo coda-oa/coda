@@ -82,12 +82,17 @@ def create_funding_request_with_concepts(
     return funding_request, subject_area_concept, publication_type_concept
 
 
-def create_invoice_with_publication_position(funding_request: FundingRequest) -> Invoice:
+def create_invoice_with_publication_position(
+    funding_request: FundingRequest,
+    comment: str | None = None,
+) -> Invoice:
     creditor = modelfactory.creditor()
     creditor_id = CreditorId(creditor.pk)
 
     position = domainfactory.publication_position(PublicationId(funding_request.publication.id))
     invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
+    if comment is not None:
+        invoice.comment = comment
     invoice.id = invoice_service.save(invoice)
 
     return invoice
