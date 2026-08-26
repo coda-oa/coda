@@ -1,10 +1,12 @@
 from collections.abc import Callable, Sequence
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest
+from django.urls import reverse
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import Contract
@@ -22,7 +24,6 @@ from coda.domain.publication import OpenAccessType
 from coda.domain.publication.publication import UnpublishedState
 
 _advanced_search_fields = [
-    "labels",
     "exclude_labels",
     "processing_status",
     "open_access_type",
@@ -83,7 +84,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             if self.request.GET.get(key) and self.request.GET.get(key) != _default_choices.get(key)
         )
 
-        labels = Label.objects.all()
+        labels = list(Label.objects.all().order_by("name"))
         publication_types = [(et.value, et.value) for et in fq.PublicationEntityType]
         selected_publication_types = self.request.GET.get("publication_type")
 
@@ -91,7 +92,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
 
         return ctx | {
             "labels": labels,
-            "exlude_labels": labels,
+            "label_pills": build_label_pills(self.request, labels),
             "processing_states": [rr.value for rr in ReviewResult],
             "open_access_types": [oat.value for oat in OpenAccessType],
             "expand_advanced_search": expand_advanced_search,
@@ -131,8 +132,8 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
         date_range=date_range,
         review_results=review_results,
         payment_statuses=requested_payment_statuses,
-        labels=[int(_id) for _id in request.GET.getlist("labels")],
-        exclude_labels=[int(_id) for _id in request.GET.getlist("exclude_labels")],
+        labels=sorted(_label_ids(request.GET.getlist("labels"))),
+        exclude_labels=sorted(_label_ids(request.GET.getlist("exclude_labels"))),
         payment_methods=payment_methods,
         open_access_types=open_access_types,
         publication_states=publication_states,
@@ -156,3 +157,58 @@ def map_or_none[T](map_fn: Callable[[str], T], value: str | None) -> T | None:
 
 def get_contract_list_context() -> dict[str, Any]:
     return {"contract_list": Contract.objects.all()}
+
+
+@dataclass(frozen=True)
+class LabelPill:
+    name: str
+    color: str
+    state: Literal["default", "included"]
+    toggle_url: str
+
+
+def _label_ids(values: list[str]) -> set[int]:
+    """Parse label ids from raw query values, ignoring non-int values."""
+    ids = set()
+    for value in values:
+        try:
+            ids.add(int(value))
+        except ValueError:
+            continue
+    return ids
+
+
+def label_pill_url(request: HttpRequest, *, labels: set[int]) -> str:
+    """Build the list URL for a given label filter state.
+
+    Preserves all current GET params except ``labels`` and ``page``, then sets
+    the new label list. An empty list is omitted. ``exclude_labels`` is
+    managed by the advanced-search.
+    """
+    params = request.GET.copy()
+    params.pop("labels", None)
+    params.pop("page", None)
+    if labels:
+        params.setlist("labels", [str(x) for x in sorted(labels)])
+    encoded = params.urlencode()
+    path = reverse("fundingrequests:list")
+    return f"{path}?{encoded}" if encoded else path
+
+
+def build_label_pills(request: HttpRequest, labels: Sequence[Label]) -> list[LabelPill]:
+    """Build one pill per label, reflecting the current ``labels`` filter.
+
+    A label in the ``labels`` query param renders as ``included`` and its
+    toggle link removes it; every other label renders as ``default`` and its
+    toggle link adds it.
+    """
+    included = _label_ids(request.GET.getlist("labels"))
+    return [
+        LabelPill(
+            name=label.name,
+            color=label.hexcolor,
+            state="included" if label.pk in included else "default",
+            toggle_url=label_pill_url(request, labels=included ^ {label.pk}),
+        )
+        for label in labels
+    ]
