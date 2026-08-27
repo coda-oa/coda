@@ -1,3 +1,6 @@
+import uuid
+from collections.abc import Mapping
+
 from coda.apps.exports.services.fundingrequest_csv.dtos import FundingRequestExportDto
 
 from coda.apps.fundingrequests.models import FundingRequest
@@ -33,8 +36,11 @@ from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.fundingrequest import PaymentMethod
 
 
-def map_funding_request_to_dto(funding_request: FundingRequest) -> FundingRequestImportDto:
-    publication = _map_publication_to_dto(funding_request)
+def map_funding_request_to_dto(
+    funding_request: FundingRequest,
+    concept_ids: Mapping[uuid.UUID, str] | None = None,
+) -> FundingRequestImportDto:
+    publication = _map_publication_to_dto(funding_request, concept_ids)
     research_funding = _map_external_funding_to_dto(funding_request)
     review = _map_review_to_dto(funding_request)
     estimated_cost = _map_estimated_cost_to_dto(funding_request)
@@ -56,14 +62,20 @@ def map_funding_request_to_dto(funding_request: FundingRequest) -> FundingReques
     )
 
 
-def _map_concept_to_dto(concept_field: object) -> ConceptImportDto:
+def _map_concept_to_dto(
+    concept_field: object,
+    concept_ids: Mapping[uuid.UUID, str] | None = None,
+) -> ConceptImportDto:
     if concept_field is None:
-        return ConceptImportDto(name="", vocabulary_name="")
+        return ConceptImportDto(name="", vocabulary_name="", concept_id="")
     vocabulary = getattr(concept_field, "vocabulary", None)
     vocabulary_name = vocabulary.name if vocabulary else ""
+    entity_id = getattr(concept_field, "entity_id", None)
+    concept_id = concept_ids.get(entity_id, "") if concept_ids and entity_id is not None else ""
     return ConceptImportDto(
         name=getattr(concept_field, "name", ""),
         vocabulary_name=vocabulary_name,
+        concept_id=concept_id,
     )
 
 
@@ -89,7 +101,10 @@ def _map_authors_to_dto(funding_request: FundingRequest) -> list[AuthorImportDto
             affiliation=author.affiliation.name if author.affiliation else None,
             role=Role[author.roles] if author.roles else Role.CO_AUTHOR,
         )
-        for author in funding_request.publication.relevant_authors.all()
+        for author in sorted(
+            funding_request.publication.relevant_authors.all(),
+            key=lambda author: author.id,
+        )
     ]
 
 
@@ -117,14 +132,19 @@ def _map_publishing_state_to_dto(funding_request: FundingRequest) -> PublishingS
     )
 
 
-def _map_publication_to_dto(funding_request: FundingRequest) -> PublicationImportDto:
+def _map_publication_to_dto(
+    funding_request: FundingRequest,
+    concept_ids: Mapping[uuid.UUID, str] | None = None,
+) -> PublicationImportDto:
     is_article, eissn, journal_name, publisher_name = _get_journal_info(funding_request)
 
     authors = _map_authors_to_dto(funding_request)
     links = _map_links_to_dto(funding_request)
     contracts = _map_contracts_to_dto(funding_request)
-    subject_area = _map_concept_to_dto(funding_request.publication.subject_area)
-    publication_type = _map_concept_to_dto(funding_request.publication.publication_type)
+    subject_area = _map_concept_to_dto(funding_request.publication.subject_area, concept_ids)
+    publication_type = _map_concept_to_dto(
+        funding_request.publication.publication_type, concept_ids
+    )
     publishing_state = _map_publishing_state_to_dto(funding_request)
 
     return PublicationImportDto(
@@ -315,9 +335,10 @@ def _map_funding_assignment_to_dto(assignment: FundingAssignment) -> FundingAssi
 def map_funding_request_to_export_dto(
     funding_request: FundingRequest,
     funding_source: FundingSourceId | None = None,
+    concept_ids: Mapping[uuid.UUID, str] | None = None,
 ) -> FundingRequestExportDto:
 
-    funding_request_dto = map_funding_request_to_dto(funding_request)
+    funding_request_dto = map_funding_request_to_dto(funding_request, concept_ids)
 
     invoices = get_invoices_for_request(funding_request)
 
@@ -353,4 +374,4 @@ def get_invoices_for_request(funding_request: FundingRequest) -> list[Invoice]:
     invoices = {
         pos.invoice for pos in funding_request.publication.position_set.all() if pos.invoice
     }
-    return list(invoices)
+    return sorted(invoices, key=lambda invoice: invoice.id)

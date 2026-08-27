@@ -1,6 +1,13 @@
+import uuid
 from datetime import date
 from decimal import Decimal
 from typing import Any
+
+from coda.apps.publications.models import (
+    Concept,
+    PublicationAttachedConcept,
+    Vocabulary,
+)
 
 from coda.apps.contracts.mappers._domain import ContractDomainMapper
 from coda.apps.fundingrequests.models import FundingRequest
@@ -42,12 +49,50 @@ def create_funding_request(
     return funding_request
 
 
-def create_invoice_with_publication_position(funding_request: FundingRequest) -> Invoice:
+def create_funding_request_with_concepts(
+    title: str = "Test Publication",
+    subject_area_concept_id: str = "SA-001",
+    publication_type_concept_id: str = "PT-002",
+) -> "tuple[FundingRequest, Concept, Concept]":
+    funding_request = create_funding_request(title=title)
+
+    vocab = Vocabulary.objects.create(name=uuid.uuid4().hex, version="1.0")
+    subject_area_concept = Concept.objects.create(
+        vocabulary=vocab,
+        concept_id=subject_area_concept_id,
+        name="Computer Science",
+        hint="",
+    )
+    publication_type_concept = Concept.objects.create(
+        vocabulary=vocab,
+        concept_id=publication_type_concept_id,
+        name="Research Article",
+        hint="",
+    )
+    funding_request.publication.subject_area = PublicationAttachedConcept.objects.create(
+        name="Computer Science", vocabulary=vocab, entity_id=subject_area_concept.entity_id
+    )
+    funding_request.publication.publication_type = PublicationAttachedConcept.objects.create(
+        name="Research Article",
+        vocabulary=vocab,
+        entity_id=publication_type_concept.entity_id,
+    )
+    funding_request.publication.save()
+
+    return funding_request, subject_area_concept, publication_type_concept
+
+
+def create_invoice_with_publication_position(
+    funding_request: FundingRequest,
+    comment: str | None = None,
+) -> Invoice:
     creditor = modelfactory.creditor()
     creditor_id = CreditorId(creditor.pk)
 
     position = domainfactory.publication_position(PublicationId(funding_request.publication.id))
     invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
+    if comment is not None:
+        invoice.comment = comment
     invoice.id = invoice_service.save(invoice)
 
     return invoice

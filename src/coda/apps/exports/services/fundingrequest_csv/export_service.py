@@ -25,7 +25,9 @@ CSV_COLUMNS = [
     "online_date",
     "print_date",
     "subject_area",
+    "subject_area_id",
     "publication_type",
+    "publication_type_id",
     "estimated_amount",
     "estimated_currency",
     "payment_method",
@@ -59,35 +61,71 @@ CSV_COLUMNS = [
 ]
 
 
+MONEY_COLUMNS = {
+    "estimated_amount",
+    "decided_funding_amount",
+    "position_amount",
+    "tax_rate",
+    "funded_amount",
+}
+
+
+def _format_money_value(value: str, key: str, decimal_separator: str) -> str:
+    if decimal_separator == "," and key in MONEY_COLUMNS:
+        return value.replace(".", ",")
+    return value
+
+
+def _single_line(value: str) -> str:
+    return (
+        value.replace("\r\n", " ")
+        .replace("\n", " ")
+        .replace("\r", " ")
+        .replace("\u2028", " ")
+        .replace("\u2029", " ")
+        .replace("\ufeff", "")
+    )
+
+
 def export_fundingrequests_to_csv(
     params: FundingRequestSearchParams,
 ) -> str:
     # 1. Get funding requests using the shared params
-    funding_requests = queries.get_funding_requests_for_export(params)
+    funding_requests = list(queries.get_funding_requests_for_export(params))
 
-    # 2. Map to export DTOs
+    # 2. Fetch concept ids in a single query to avoid N+1 lookups per funding request
+    concept_ids = queries.get_concept_id_lookup(funding_requests)
+
+    # 3. Map to export DTOs
     export_dtos = [
         map_funding_request_to_export_dto(
             fr,
             funding_source=params.funding_source,
+            concept_ids=concept_ids,
         )
         for fr in funding_requests
     ]
 
-    # 3. Flatten to CSV rows
+    # 4. Flatten to CSV rows
     all_rows = []
     for dto in export_dtos:
         rows = flatten_detailed(dto)
-        all_rows.extend(rows)
+        for row in rows:
+            all_rows.append(
+                {
+                    key: _format_money_value(_single_line(value), key, params.decimal_separator)
+                    for key, value in row.items()
+                }
+            )
 
-    # 4. Build Polars DataFrame from rows
+    # 5. Build Polars DataFrame from rows
     if not all_rows:
         schema = {column: pl.String for column in CSV_COLUMNS}
         df = pl.DataFrame(schema=schema)
     else:
         df = pl.DataFrame(all_rows)
 
-    # 5. Write CSV to StringIO with separator semicolon
+    # 6. Write CSV to StringIO with separator semicolon
     buffer = StringIO()
     df.write_csv(buffer, separator=";")
 

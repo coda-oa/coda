@@ -39,7 +39,9 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
     """
     fr_model = FundingRequestDetailMapper.prefetch(FundingRequestModel.objects.all()).get(pk=fr_id)
 
-    affiliation_names = _fetch_affiliation_names(list(fr_model.publication.relevant_authors.all()))
+    affiliation_names = _fetch_affiliation_names(
+        sorted(fr_model.publication.relevant_authors.all(), key=lambda author: author.id)
+    )
     payment_status = publication_service.get_payment_status(PublicationId(fr_model.publication_id))
     payment_details = PaymentDetailMapper.map(payment_status, fr_model.request_id)
 

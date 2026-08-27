@@ -2,8 +2,9 @@ import os
 import pytest
 from django.test import Client
 from django.urls import reverse
-from datetime import date
+from datetime import date, timedelta
 from django.core.files.base import ContentFile
+from django.utils import timezone
 
 from coda.apps.exports.models import FundingRequestCSVExport
 from coda.contexts.finance.services import invoice_service
@@ -119,6 +120,42 @@ def test_fundingrequest_csv_export_create_view__is_opened__creates_export_and_re
     assert export.filters["period_start"] == period_start
     assert export.filters["period_end"] == period_end
     assert export.record_count == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_fundingrequest_csv_export_create_view__is_opened__form_offers_decimal_separator_choices(
+    client: Client,
+) -> None:
+
+    response = client.get(reverse("exports:fundingrequests_csv_create"))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert 'name="decimal_separator"' in content
+    assert ". (English/ISO)" in content
+    assert ", (e.g. German)" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_fundingrequest_csv_export_create_view__decimal_separator_comma__is_stored_in_export_filters(
+    client: Client,
+) -> None:
+
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "title": "Comma Separator Export",
+            "decimal_separator": ",",
+        },
+    )
+
+    assert response.status_code == 302
+    export = FundingRequestCSVExport.objects.get(name="Comma Separator Export")
+    assert export.filters["decimal_separator"] == ","
 
 
 @pytest.mark.django_db
@@ -387,3 +424,28 @@ def test__fundingrequest_csv_regen__called_with_existing_export__regenerates_csv
     assert export.csv_file
     assert os.path.exists(export.csv_file.path)
     assert export.record_count == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__export_list__is_ordered_by_created_at_descending(client: Client) -> None:
+    now = timezone.now()
+    older = FundingRequestCSVExport.objects.create(
+        name="a_old.csv",
+        filters={},
+        record_count=0,
+    )
+    older.created_at = now - timedelta(days=2)
+    older.save()
+    newer = FundingRequestCSVExport.objects.create(
+        name="b_new.csv",
+        filters={},
+        record_count=0,
+    )
+    newer.created_at = now
+    newer.save()
+
+    response = client.get(reverse("exports:fundingrequests_csv_list"))
+
+    assert response.status_code == 200
+    assert [e.name for e in response.context["entities"]] == ["b_new.csv", "a_old.csv"]

@@ -172,7 +172,7 @@ def _collect_institution_ids_from_authors(publications: QuerySet[Publication]) -
     """Extract institution IDs from corresponding authors (no database query)."""
     institution_ids: set[int] = set()
     for publication in publications:
-        for author in publication.relevant_authors.all():
+        for author in sorted(publication.relevant_authors.all(), key=lambda author: author.id):
             if author.roles and "CORRESPONDING_AUTHOR" in author.roles:
                 if author.affiliation_id:
                     institution_ids.add(author.affiliation_id)

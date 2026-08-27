@@ -11,6 +11,7 @@ from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.apps.fundingrequests.models import ExternalFunding
 from coda.apps.publications.models import (
+    Concept,
     LinkType,
     Link,
     AttachedContract,
@@ -247,6 +248,47 @@ def test__funding_request_with_subject_area_and_publication_type__maps_to_dto__a
 
     assert dto.publication.subject_area.name == "Computer Science"
     assert dto.publication.publication_type.name == "Research Article"
+
+
+@pytest.mark.django_db
+def test__funding_request_with_concepts_from_vocabulary__maps_to_dto__concept_ids_are_mapped() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="Concept Publication")
+
+    vocab = Vocabulary.objects.create(name="Test Vocabulary")
+    subject_area_concept = Concept.objects.create(
+        vocabulary=vocab, concept_id="SA-001", name="Computer Science", hint=""
+    )
+    publication_type_concept = Concept.objects.create(
+        vocabulary=vocab, concept_id="PT-002", name="Research Article", hint=""
+    )
+    funding_request.publication.subject_area = PublicationAttachedConcept.objects.create(
+        name="Computer Science", vocabulary=vocab, entity_id=subject_area_concept.entity_id
+    )
+    funding_request.publication.publication_type = PublicationAttachedConcept.objects.create(
+        name="Research Article", vocabulary=vocab, entity_id=publication_type_concept.entity_id
+    )
+    funding_request.publication.save()
+
+    concept_ids = {
+        subject_area_concept.entity_id: subject_area_concept.concept_id,
+        publication_type_concept.entity_id: publication_type_concept.concept_id,
+    }
+    dto = map_funding_request_to_dto(funding_request, concept_ids=concept_ids)
+
+    assert dto.publication.subject_area.concept_id == "SA-001"
+    assert dto.publication.publication_type.concept_id == "PT-002"
+
+
+@pytest.mark.django_db
+def test__funding_request_without_concept_lookup__maps_to_dto__concept_ids_are_empty() -> None:
+    funding_request = modelfactory.fundingrequest(title="Conceptless Publication")
+
+    dto = map_funding_request_to_dto(funding_request)
+
+    assert dto.publication.subject_area.concept_id == ""
+    assert dto.publication.publication_type.concept_id == ""
 
 
 @pytest.mark.django_db

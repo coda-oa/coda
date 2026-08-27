@@ -1,4 +1,5 @@
 from typing import cast
+from urllib.parse import parse_qs, urlparse
 
 from django.http import HttpResponse
 from django.urls import reverse
@@ -9,6 +10,15 @@ from tests.opencost.helpers import (
     assert_current_filter,
     assert_current_filters,
 )
+
+from coda.apps.exports.services.filter_display import create_redo_url
+
+
+def test__create_redo_url__decimal_separator_comma__keeps_comma_value_intact() -> None:
+    url = create_redo_url({"decimal_separator": ","}, "exports:fundingrequests_csv_create")
+    query = parse_qs(urlparse(url).query)
+
+    assert query["decimal_separator"] == [","]
 
 
 @pytest.mark.django_db
@@ -74,6 +84,13 @@ def test__redo_button__prefills_contract_name(client: Client) -> None:
     contract = modelfactory.contract()
     response = get_export_create_response(client, contract_name=[str(contract.pk)])
     assert_current_filter(response, "contract_name", str(contract.pk))
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__redo_button__prefills_decimal_separator(client: Client) -> None:
+    response = get_export_create_response(client, decimal_separator=",")
+    assert_current_filter(response, "decimal_separator", ",")
 
 
 def get_export_create_response(client: Client, **filters: str | list[str]) -> HttpResponse:

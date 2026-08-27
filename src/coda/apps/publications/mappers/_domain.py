@@ -98,7 +98,10 @@ def _common_args(model: PublicationModel) -> dict[str, Any]:
         open_access_type=OpenAccessType[model.open_access_type],
         publication_type=_deserialize_concept(model.publication_type),
         subject_area=_deserialize_concept(model.subject_area),
-        relevant_authors=Authors(AuthorDomainMapper.map(a) for a in model.relevant_authors.all()),
+        relevant_authors=Authors(
+            AuthorDomainMapper.map(a)
+            for a in sorted(model.relevant_authors.all(), key=lambda author: author.id)
+        ),
         other_authors=AuthorNames.from_str(model.author_list or ""),
         publication_state=_deserialize_publication_state(model),
         contracts=tuple(

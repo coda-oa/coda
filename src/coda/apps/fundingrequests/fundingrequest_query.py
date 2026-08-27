@@ -293,6 +293,7 @@ class FundingRequestSearchParams:
     contract_year: int | None = None
     show_invalid_contract_years: bool = False
     funding_source: FundingSourceId | None = None
+    decimal_separator: str = "."
 
     def without_date_range(self) -> "FundingRequestSearchParams":
         return FundingRequestSearchParams(
@@ -310,6 +311,7 @@ class FundingRequestSearchParams:
             contract_year=self.contract_year,
             show_invalid_contract_years=self.show_invalid_contract_years,
             funding_source=self.funding_source,
+            decimal_separator=self.decimal_separator,
         )
 
 

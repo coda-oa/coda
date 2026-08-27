@@ -18,7 +18,12 @@ from coda.domain.fundingrequest import FundingRequestId
 from coda.apps.fundingrequests.repository import save_review
 
 
-from tests.exports.fundingrequest_csv.helpers import _make_params
+from tests.exports.fundingrequest_csv.helpers import (
+    _make_params,
+    create_funding_request_with_concepts,
+    create_invoice_with_funding_assignments,
+    create_invoice_with_publication_position,
+)
 
 
 @pytest.mark.django_db
@@ -60,6 +65,145 @@ def test__single_funding_request_with_one_invoice__export_to_csv__returns_csv_wi
     assert df["invoice_number"][0] == "INV-001"
     assert df["invoice_date"][0] == "2026-05-01"
     assert df["request_id"][0] == str(funding_request.request_id)
+
+
+@pytest.mark.django_db
+def test__invoice_comment_with_crlf__export_to_csv__replaces_linebreak_with_single_space() -> None:
+    funding_request = modelfactory.fundingrequest(title="CRLF Comment Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_publication_position(funding_request, comment="line one\r\nline two")
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31))
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert df["invoice_comment"][0] == "line one line two"
+
+
+@pytest.mark.django_db
+def test__review_remarks_with_lf__export_to_csv__replaces_linebreak_with_single_space() -> None:
+    funding_request = modelfactory.fundingrequest(title="LF Remarks Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    save_review(
+        Review(FundingRequestId(funding_request.id)).update_review(
+            ReviewResult.Approved, Money(Decimal("2000.00"), Currency.EUR), "entry one\nentry two"
+        )
+    )
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31))
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert df["review_remarks"][0] == "entry one entry two"
+
+
+@pytest.mark.django_db
+def test__invoice_comment_with_cr__export_to_csv__replaces_cr_with_single_space() -> None:
+    funding_request = modelfactory.fundingrequest(title="CR Comment Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_publication_position(funding_request, comment="line one\rline two")
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31))
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert df["invoice_comment"][0] == "line one line two"
+
+
+@pytest.mark.django_db
+def test__invoice_comment_with_unicode_line_separators__export_to_csv__replaces_them_with_spaces() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="Unicode Separator Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_publication_position(
+        funding_request, comment="line one\u2028line two\u2029line three"
+    )
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31))
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert df["invoice_comment"][0] == "line one line two line three"
+    assert "\u2028" not in requests_exports
+    assert "\u2029" not in requests_exports
+
+
+@pytest.mark.django_db
+def test__invoice_comment_with_zero_width_no_break_space__export_to_csv__removes_it() -> None:
+    funding_request = modelfactory.fundingrequest(title="ZWNBSP Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_publication_position(funding_request, comment="line\ufeffone")
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31))
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert df["invoice_comment"][0] == "lineone"
+    assert "\ufeff" not in requests_exports
+
+
+@pytest.mark.django_db
+def test__multiline_invoice_comment__export_to_csv__keeps_one_line_per_record() -> None:
+    funding_request = modelfactory.fundingrequest(title="Multiline Record Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_publication_position(funding_request, comment="line one\r\nline two")
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31))
+    )
+
+    assert requests_exports.count("\n") == 2
+    assert "\r" not in requests_exports
+
+
+@pytest.mark.django_db
+def test__funding_request_with_vocabulary_concepts__export_to_csv__includes_concept_id_columns() -> (
+    None
+):
+    funding_request, subject_area_concept, publication_type_concept = (
+        create_funding_request_with_concepts(
+            title="Concept Export Publication",
+            subject_area_concept_id="DFG-51D",
+            publication_type_concept_id="PT-ART",
+        )
+    )
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31))
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert df.height == 1
+    assert df["subject_area_id"][0] == subject_area_concept.concept_id
+    assert df["publication_type_id"][0] == publication_type_concept.concept_id
+    assert df["subject_area"][0] == subject_area_concept.name
+    assert df["publication_type"][0] == publication_type_concept.name
 
 
 @pytest.mark.django_db
@@ -504,3 +648,73 @@ def test__shared_invoice_across_multiple_publications__export_to_csv__does_not_d
     shared_invoice_rows = df.filter(pl.col("invoice_number") == "W-2024-01147-B")
 
     assert shared_invoice_rows.height == 4
+
+
+@pytest.mark.django_db
+def test__funding_request_with_comma_decimal_separator__export_to_csv__formats_money_values_with_comma() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="Comma Separator Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_funding_assignments(
+        funding_request,
+        cost_amount=Decimal("1600.00"),
+        budget_amount=Decimal("1200.00"),
+        institution_amount=Decimal("400.00"),
+    )
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31), decimal_separator=",")
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert sorted(df["position_amount"].to_list()) == ["1600,0000", "1600,0000"]
+    assert sorted(df["funded_amount"].to_list()) == ["1200,0000", "400,0000"]
+    assert sorted(df["tax_rate"].to_list()) == ["19,0000", "19,0000"]
+
+
+@pytest.mark.django_db
+def test__funding_request_with_estimated_cost_and_review__comma_separator__formats_remaining_money_columns_with_comma() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="All Money Columns Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.estimated_cost = Decimal("2500.00")
+    funding_request.estimated_cost_currency = "EUR"
+    funding_request.save()
+
+    save_review(
+        Review(FundingRequestId(funding_request.id)).update_review(
+            ReviewResult.Approved, Money(Decimal("2000.00"), Currency.EUR), "remarks"
+        )
+    )
+
+    create_invoice_with_funding_assignments(funding_request)
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31), decimal_separator=",")
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert sorted(set(df["estimated_amount"].to_list())) == ["2500,0000"]
+    assert sorted(set(df["decided_funding_amount"].to_list())) == ["2000,0000"]
+
+
+@pytest.mark.django_db
+def test__funding_request__export_to_csv__keeps_dot_decimal_separator_by_default() -> None:
+    funding_request = modelfactory.fundingrequest(title="Dot Separator Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_funding_assignments(funding_request)
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31))
+    )
+
+    assert "1500.0000" in requests_exports
+    assert "1500,0000" not in requests_exports

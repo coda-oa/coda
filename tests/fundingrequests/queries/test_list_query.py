@@ -23,6 +23,12 @@ from coda.domain.publication import JournalId
 from tests import domainfactory, modelfactory
 
 
+def test__funding_request_search_params__without_decimal_separator__defaults_to_dot() -> None:
+    params = fq.FundingRequestSearchParams()
+
+    assert params.decimal_separator == "."
+
+
 @pytest.mark.django_db
 def test__get_list_items__empty_queryset__returns_empty_list() -> None:
     """Verify empty queryset returns empty list."""
