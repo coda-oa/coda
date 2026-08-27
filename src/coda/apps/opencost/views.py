@@ -168,6 +168,7 @@ def generate_report_form(request: HttpRequest) -> HttpResponse:
             "cancel_url": reverse(OPENCOST_LIST_URL),
             "submit_button_text": "Generate Report",
             "include_payment_status": False,
+            "include_decimal_separator": False,
         }
     )
     return render(request, "exports/generate_export_form.html", context)

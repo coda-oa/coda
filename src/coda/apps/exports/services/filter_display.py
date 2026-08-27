@@ -39,6 +39,7 @@ SINGLE_VALUE_FILTER_FIELDS = {
     "period_start",
     "period_end",
     "search_term",
+    "decimal_separator",
 }
 
 
@@ -143,6 +144,10 @@ def parse_common_filter_fields(filters: dict[str, str]) -> FundingRequestSearchP
 
     search_term = filters.get("search_term", "")
 
+    decimal_separator = filters.get("decimal_separator", ".")
+    if decimal_separator not in {".", ","}:
+        decimal_separator = "."
+
     return FundingRequestSearchParams(
         date_range=date_range,
         review_results=review_results,
@@ -156,6 +161,7 @@ def parse_common_filter_fields(filters: dict[str, str]) -> FundingRequestSearchP
         search_term=search_term,
         contract_id=contract_id,
         funding_source=funding_source,
+        decimal_separator=decimal_separator,
     )
 
 
@@ -182,7 +188,7 @@ def create_redo_url(filters: dict[str, str], url_name: str) -> str:
     redo_params: dict[str, str | list[str]] = {}
     all_multi_value = MULTI_VALUE_FILTER_FIELDS | SINGLE_VALUE_FILTER_FIELDS
     for key, value in filters.items():
-        if key in all_multi_value:
+        if key in all_multi_value and key != "decimal_separator":
             redo_params[key] = value.split(",")
         else:
             redo_params[key] = value
@@ -208,8 +214,16 @@ def build_applied_filters(filters: dict[str, str]) -> list[AppliedFilter]:
         _publication_type_filter(filters),
         _contract_filter(filters),
         _funding_source_filter(filters),
+        _decimal_separator_filter(filters),
     )
     return [f for f in applied_filters if f is not None]
+
+
+def _decimal_separator_filter(filters: dict[str, str]) -> AppliedFilter | None:
+    if "decimal_separator" not in filters:
+        return None
+    value = ", (e.g. German)" if filters["decimal_separator"] == "," else ". (English/ISO)"
+    return AppliedFilter(label="Decimal Separator", value=value)
 
 
 def _period_filter(filters: dict[str, str]) -> AppliedFilter | None:

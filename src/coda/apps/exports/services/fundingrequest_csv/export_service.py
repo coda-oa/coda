@@ -61,6 +61,21 @@ CSV_COLUMNS = [
 ]
 
 
+MONEY_COLUMNS = {
+    "estimated_amount",
+    "decided_funding_amount",
+    "position_amount",
+    "tax_rate",
+    "funded_amount",
+}
+
+
+def _format_money_value(value: str, key: str, decimal_separator: str) -> str:
+    if decimal_separator == "," and key in MONEY_COLUMNS:
+        return value.replace(".", ",")
+    return value
+
+
 def _single_line(value: str) -> str:
     return (
         value.replace("\r\n", " ")
@@ -96,7 +111,12 @@ def export_fundingrequests_to_csv(
     for dto in export_dtos:
         rows = flatten_detailed(dto)
         for row in rows:
-            all_rows.append({key: _single_line(value) for key, value in row.items()})
+            all_rows.append(
+                {
+                    key: _format_money_value(_single_line(value), key, params.decimal_separator)
+                    for key, value in row.items()
+                }
+            )
 
     # 5. Build Polars DataFrame from rows
     if not all_rows:

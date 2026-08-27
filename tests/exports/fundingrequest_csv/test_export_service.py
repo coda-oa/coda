@@ -21,6 +21,7 @@ from coda.apps.fundingrequests.repository import save_review
 from tests.exports.fundingrequest_csv.helpers import (
     _make_params,
     create_funding_request_with_concepts,
+    create_invoice_with_funding_assignments,
     create_invoice_with_publication_position,
 )
 
@@ -647,3 +648,73 @@ def test__shared_invoice_across_multiple_publications__export_to_csv__does_not_d
     shared_invoice_rows = df.filter(pl.col("invoice_number") == "W-2024-01147-B")
 
     assert shared_invoice_rows.height == 4
+
+
+@pytest.mark.django_db
+def test__funding_request_with_comma_decimal_separator__export_to_csv__formats_money_values_with_comma() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="Comma Separator Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_funding_assignments(
+        funding_request,
+        cost_amount=Decimal("1600.00"),
+        budget_amount=Decimal("1200.00"),
+        institution_amount=Decimal("400.00"),
+    )
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31), decimal_separator=",")
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert sorted(df["position_amount"].to_list()) == ["1600,0000", "1600,0000"]
+    assert sorted(df["funded_amount"].to_list()) == ["1200,0000", "400,0000"]
+    assert sorted(df["tax_rate"].to_list()) == ["19,0000", "19,0000"]
+
+
+@pytest.mark.django_db
+def test__funding_request_with_estimated_cost_and_review__comma_separator__formats_remaining_money_columns_with_comma() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="All Money Columns Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.estimated_cost = Decimal("2500.00")
+    funding_request.estimated_cost_currency = "EUR"
+    funding_request.save()
+
+    save_review(
+        Review(FundingRequestId(funding_request.id)).update_review(
+            ReviewResult.Approved, Money(Decimal("2000.00"), Currency.EUR), "remarks"
+        )
+    )
+
+    create_invoice_with_funding_assignments(funding_request)
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31), decimal_separator=",")
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    assert sorted(set(df["estimated_amount"].to_list())) == ["2500,0000"]
+    assert sorted(set(df["decided_funding_amount"].to_list())) == ["2000,0000"]
+
+
+@pytest.mark.django_db
+def test__funding_request__export_to_csv__keeps_dot_decimal_separator_by_default() -> None:
+    funding_request = modelfactory.fundingrequest(title="Dot Separator Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    create_invoice_with_funding_assignments(funding_request)
+
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31))
+    )
+
+    assert "1500.0000" in requests_exports
+    assert "1500,0000" not in requests_exports

@@ -124,6 +124,7 @@ def fundingrequest_csv_export_create_view(
                 "cancel_url": reverse("exports:fundingrequests_csv_list"),
                 "submit_button_text": "Generate CSV Export",
                 "include_payment_status": True,
+                "include_decimal_separator": True,
             }
         )
 

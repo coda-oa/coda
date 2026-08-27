@@ -15,15 +15,7 @@ from coda.apps.version import (
     get_version_tag,
 )
 
-from coda.apps.version import (
-    check_update as check_version_update,
-    get_branch,
-    get_commit_sha,
-    get_repo,
-    get_version_tag,
-)
-
-from django.db.models import Model 
+from django.db.models import Model
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.search import words_icontains
@@ -95,6 +87,7 @@ ModelType = TypeVar("ModelType", bound=Model)
 class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
     model: type[ModelType]
     search_fields: list[str] = ["name"]
+    ordering: list[str] = []
 
     def get_entities(self, request: HttpRequest) -> Sequence[ModelType]:
         search_term = request.GET.get("query", "").strip()
@@ -103,4 +96,5 @@ class SimpleSearchEntityListView(EntityListView[ModelType], Generic[ModelType]):
         if search_term:
             queryset = queryset.filter(words_icontains(search_term, *self.search_fields))
 
-        return DomainQuerySet(queryset.order_by(*self.search_fields), lambda x: cast(ModelType, x))
+        order_by = self.ordering or self.search_fields
+        return DomainQuerySet(queryset.order_by(*order_by), lambda x: cast(ModelType, x))
