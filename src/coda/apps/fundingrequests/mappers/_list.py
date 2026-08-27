@@ -51,7 +51,13 @@ class FundingRequestListMapper:
                 id=model.pk,
                 url=model.get_absolute_url(),
                 publication_title=model.publication.title,
-                authors=[a.name for a in model.publication.relevant_authors.all()],
+                authors=[
+                    a.name
+                    for a in sorted(
+                        model.publication.relevant_authors.all(),
+                        key=lambda author: author.id,
+                    )
+                ],
                 publishing_entity_type="Journal",
                 publishing_entity_name=journal.title,
                 publishing_entity_url=journal.get_absolute_url(),
@@ -75,7 +81,13 @@ class FundingRequestListMapper:
                 id=model.pk,
                 url=model.get_absolute_url(),
                 publication_title=model.publication.title,
-                authors=[a.name for a in model.publication.relevant_authors.all()],
+                authors=[
+                    a.name
+                    for a in sorted(
+                        model.publication.relevant_authors.all(),
+                        key=lambda author: author.id,
+                    )
+                ],
                 publishing_entity_type="Publisher",
                 publishing_entity_name=publisher.name,
                 publishing_entity_url=publisher.get_absolute_url(),
