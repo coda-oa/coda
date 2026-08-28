@@ -1,4 +1,8 @@
+{% load getlist %}
 <form method="get" id="search-form">
+    {% for label_id in request.GET|getlist:"labels" %}
+    <input type="hidden" name="labels" value="{{ label_id }}">
+    {% endfor %}
     <input type="search"
            name="search_term"
            value="{{ request.GET.search_term }}"
