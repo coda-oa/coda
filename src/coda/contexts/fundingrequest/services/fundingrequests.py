@@ -2,7 +2,7 @@ import datetime
 import itertools
 import random
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import Protocol, cast, overload
 
@@ -332,6 +332,9 @@ def update_extra_information(
     fr.extra_contact = extra_information.extra_contact.to_contact()
     fr.request_remarks = extra_information.request_remarks
     repository.update(fr)
+    if extra_information.reviewer_remarks is not None:
+        review = repository.get_review(fundingrequest_id)
+        repository.save_review(replace(review, remarks=extra_information.reviewer_remarks))
 
 
 def update_funding(

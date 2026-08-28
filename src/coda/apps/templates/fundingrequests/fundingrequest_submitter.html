@@ -10,4 +10,10 @@
         <h2>Remarks by Request Submitter</h2>
         <textarea name="request_remarks" rows="10">{{ request_remarks }}</textarea>
     </article>
+    {% if show_reviewer_remarks %}
+        <article>
+            <h2>Reviewer Remarks</h2>
+            <textarea name="reviewer_remarks" rows="10">{{ reviewer_remarks }}</textarea>
+        </article>
+    {% endif %}
 {% endblock wizard_step %}
