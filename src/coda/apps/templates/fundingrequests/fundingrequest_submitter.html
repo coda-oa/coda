@@ -1,6 +1,6 @@
 {% extends "forms/wizardform.html" %}
 {% block wizard_step %}
-    <h1>New Funding Request</h1>
+    <h1>{{ page_title|default:"New Funding Request" }}</h1>
     <article>
         <h2>Separate contact information</h2>
         <p>Additional contact information in case communication for this funding request is not handled by the authors.</p>

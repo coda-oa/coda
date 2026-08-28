@@ -36,6 +36,7 @@ class UpdateExtraInformationStep(ExtraInformationStep):
 
     def get_context_data(self, request: HttpRequest, store: Store) -> dict[str, Any]:
         return super().get_context_data(request, store) | {
+            "page_title": "Additional Information",
             "show_reviewer_remarks": True,
             "reviewer_remarks": self.restore_reviewer_remarks(request, store),
         }
