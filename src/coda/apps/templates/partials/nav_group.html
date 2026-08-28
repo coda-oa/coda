@@ -1,14 +1,16 @@
 <li class="nav__group{% if group_active %} nav__group--active{% endif %}">
     {% include "partials/nav_link.html" with link=link image=image text=text match="exact" path=path %}
-    <ul class="nav__submenu">
-        {% for item in items %}
-            <li>
-                <a href="{% url item.link %}"
-                   class="contrast nav__sublink{% if item.active %} active{% endif %}"
-                   {% if item.active %}aria-current="page"{% endif %}>
-                    <span>{{ item.text }}</span>
-                </a>
-            </li>
-        {% endfor %}
-    </ul>
+    <div class="nav__submenu-wrapper">
+        <ul class="nav__submenu">
+            {% for item in items %}
+                <li>
+                    <a href="{% url item.link %}"
+                       class="contrast nav__sublink{% if item.active %} active{% endif %}"
+                       {% if item.active %}aria-current="page"{% endif %}>
+                        <span>{{ item.text }}</span>
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
 </li>
