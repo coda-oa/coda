@@ -30,6 +30,7 @@ from coda.apps.exports.services.filter_display import (
 )
 
 FUNDINGREQUESTS_CSV_CREATE_URL = "exports:fundingrequests_csv_create"
+CSV_ENCODING = "utf-8-sig"
 
 
 @breadcrumb("Funding Request CSV Export", parent_url_name="exports:export_home")
@@ -85,7 +86,7 @@ def fundingrequest_csv_detail_page(
             },
         )
 
-    preview_df = _create_preview_dataframe(export.csv_file.open("rb").read().decode("utf-8-sig"))
+    preview_df = _create_preview_dataframe(export.csv_file.open("rb").read().decode(CSV_ENCODING))
 
     return render(
         request,
@@ -210,7 +211,7 @@ def fundingrequest_csv_regen_view(
 def _save_csv_file(export: FundingRequestCSVExport, csv_content: str) -> None:
     row_count = pl.read_csv(StringIO(csv_content), separator=";").height
     filename = f"{slugify(export.name) or 'export'}-{export.id}.csv"
-    export.csv_file.save(filename, ContentFile(csv_content.encode("utf-8-sig")), save=False)
+    export.csv_file.save(filename, ContentFile(csv_content.encode(CSV_ENCODING)), save=False)
     export.record_count = row_count
     export.save(update_fields=["csv_file", "record_count"])
 

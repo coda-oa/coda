@@ -183,13 +183,10 @@ def test__multiline_invoice_comment__export_to_csv__keeps_one_line_per_record() 
 def test__funding_request_with_vocabulary_concepts__export_to_csv__includes_concept_id_columns() -> (
     None
 ):
-    funding_request, subject_area_concept, publication_type_concept = (
-        create_funding_request_with_concepts(
-            title="Concept Export Publication",
-            subject_area_concept_id="DFG-51D",
-            publication_type_concept_id="PT-ART",
-        )
-    )
+    created = create_funding_request_with_concepts(title="Concept Export Publication")
+    funding_request = created.funding_request
+    subject_area_concept = created.subject_area_concept
+    publication_type_concept = created.publication_type_concept
     funding_request.request_date = date(2026, 5, 1)
     funding_request.save()
 
