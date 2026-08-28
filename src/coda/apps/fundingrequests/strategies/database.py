@@ -92,7 +92,11 @@ class DatabasePersistenceStrategy:
         if fr.extra_contact:
             contact = ExtraContactDto(name=fr.extra_contact.name, email=fr.extra_contact.email)
 
-        return ExtraInformationDto(request_remarks=fr.request_remarks, extra_contact=contact)
+        return ExtraInformationDto(
+            request_remarks=fr.request_remarks,
+            extra_contact=contact,
+            reviewer_remarks=fr.review_remarks,
+        )
 
     def save_extra_information(self, extra_info: ExtraInformationDto) -> None:
         """Persist extra information."""

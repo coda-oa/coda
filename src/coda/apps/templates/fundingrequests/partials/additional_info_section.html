@@ -26,7 +26,13 @@
     {% if publication.request_remarks %}
         <h3>Remarks by Request Submitter</h3>
         <blockquote>
-            {{ publication.request_remarks }}
+            {{ publication.request_remarks|linebreaks }}
+        </blockquote>
+    {% endif %}
+    {% if funding_request.review_remarks %}
+        <h3>Reviewer Remarks</h3>
+        <blockquote>
+            {{ funding_request.review_remarks|linebreaks }}
         </blockquote>
     {% endif %}
 </article>

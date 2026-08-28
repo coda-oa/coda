@@ -135,6 +135,8 @@ class ExtraContactDto(CodaBaseDto):
 class ExtraInformationDto(CodaBaseDto):
     extra_contact: ExtraContactDto = Field(default_factory=ExtraContactDto)
     request_remarks: str = ""
+    # None = leave stored reviewer remarks untouched; str = overwrite them.
+    reviewer_remarks: str | None = None
 
 
 class UpdateReviewDto(CodaBaseDto):
