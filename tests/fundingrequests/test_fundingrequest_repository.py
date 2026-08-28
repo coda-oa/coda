@@ -147,6 +147,37 @@ def test__searching_for_funding_requests_with_label__returns_matching_funding_re
 
 
 @pytest.mark.django_db
+def test__searching_with_included_and_excluded_label__excluded_label_wins() -> None:
+    included = label_create("Included", Color())
+    excluded = label_create("Excluded", Color())
+    has_both = modelfactory.fundingrequest("Has both")
+    label_attach(has_both, included)
+    label_attach(has_both, excluded)
+    only_included = modelfactory.fundingrequest("Only included")
+    label_attach(only_included, included)
+
+    results = fundingrequest_query.search(
+        fundingrequest_query.LabelsSearchCriteria([included.pk], [excluded.pk])
+    )
+
+    assert list(results) == [only_included]
+
+
+@pytest.mark.django_db
+def test__searching_with_excluded_label__keeps_requests_without_labels() -> None:
+    excluded = label_create("Excluded", Color())
+    excluded_request = modelfactory.fundingrequest("Has excluded")
+    label_attach(excluded_request, excluded)
+    no_labels = modelfactory.fundingrequest("No labels")
+
+    results = fundingrequest_query.search(
+        fundingrequest_query.LabelsSearchCriteria([], [excluded.pk])
+    )
+
+    assert list(results) == [no_labels]
+
+
+@pytest.mark.django_db
 def test__searching_for_funding_requests_by_process_state__returns_matching_funding_requests() -> (
     None
 ):
