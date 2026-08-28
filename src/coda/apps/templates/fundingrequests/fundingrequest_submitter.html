@@ -3,17 +3,20 @@
     <h1>{{ page_title|default:"New Funding Request" }}</h1>
     <article>
         <h2>Separate contact information</h2>
-        <p>Additional contact information in case communication for this funding request is not handled by the authors.</p>
-        <div class="mt-2">{{ form.as_div }}</div>
+        <p>Additional contact information in case communication for this funding request is not handled by the
+            authors.</p>
+        {{ form.as_div }}
+
+        <h2>Comments</h2>
+        <label>
+            Remarks by Request Submitter
+            <textarea name="request_remarks" rows="10">{{ request_remarks }}</textarea>
+        </label>
+
+        {% if show_reviewer_remarks %}
+            <label>Reviewer Remarks
+                <textarea name="reviewer_remarks" rows="10">{{ reviewer_remarks }}</textarea>
+            </label>
+        {% endif %}
     </article>
-    <article>
-        <h2>Remarks by Request Submitter</h2>
-        <textarea name="request_remarks" rows="10">{{ request_remarks }}</textarea>
-    </article>
-    {% if show_reviewer_remarks %}
-        <article>
-            <h2>Reviewer Remarks</h2>
-            <textarea name="reviewer_remarks" rows="10">{{ reviewer_remarks }}</textarea>
-        </article>
-    {% endif %}
 {% endblock wizard_step %}
