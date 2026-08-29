@@ -7,7 +7,7 @@ from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.invoices.forms import FundingSourceForm
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 from coda.apps.invoices.models import FundingSource
 from coda.apps.views import SimpleSearchEntityListView
 
@@ -55,7 +55,7 @@ class FundingSourceListView(LoginRequiredMixin, SimpleSearchEntityListView[Fundi
         search_term = request.GET.get("query", "").strip()
         fs = FundingSource.objects.filter(type="budget")
         if search_term:
-            fs = fs.filter(words_icontains(search_term, "name"))
+            fs = fs.filter(build_search_filter(search_term, "name"))
 
         return DomainQuerySet(fs, lambda fs: fs)
 

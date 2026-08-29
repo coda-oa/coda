@@ -20,7 +20,26 @@ The overview provides powerful filtering options to find specific requests:
 - Filter by publication state (Published, Unknown, Submitted, Accepted, Rejected)
 - Filter by labels (include or exclude specific labels)
 - Filter by date range
-- Search by journal, publisher, or contract
+- Search by title, author, journal, publisher, E-ISSN, DOI or request ID
+
+### Search
+
+The search box matches all entered words against the title, authors, journal, publisher, E-ISSN, DOIs and other identifiers, and the request ID. Every word must occur in at least one of these fields, so results get more specific with each added word.
+
+Wrap a term in double quotes to search for an exact phrase: `"artificial intelligence"` matches the phrase as a whole, not the two words separately.
+
+A term can be restricted to a specific field with a prefix:
+
+| Prefix | Searches in |
+|--------|-------------|
+| `author:` | author names |
+| `title:` | publication titles |
+| `journal:` | journal titles |
+| `publisher:` | journal and book publishers |
+| `doi:` | DOIs |
+| `eissn:` | journal E-ISSNs |
+
+Prefixes can be combined with plain terms: `author:"john doe" springer` finds requests by John Doe in which *springer* occurs anywhere else.
 
 ![](/_static/img/fundingrequests_overview.png)
 

@@ -294,3 +294,34 @@ def test__searching_for_funding_requests_by_publications_publication_state__show
     response = search_fundingrequests(client, query)
 
     assert_contains(response.context, {matching_request})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__list_view__search_helper__lists_field_aliases(client: Client) -> None:
+    response = search_fundingrequests(client)
+
+    assert "author, title, journal, publisher, doi, eissn" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__searching_with_doi_prefix__matches_only_doi_typed_links(client: Client) -> None:
+    """The doi: prefix must only match links of type DOI, not other link types.
+
+    Every factory publication carries a Doi("10.1234/5678") and an
+    Isbn("9783608961157") link, so the same value on a non-DOI link must not match.
+    """
+    requests = {modelfactory.fundingrequest(), modelfactory.fundingrequest()}
+
+    # Positive: the DOI value matches under the doi: prefix.
+    doi_response = search_fundingrequests(client, {"search_term": "doi:10.1234/5678"})
+    assert_contains(doi_response.context, requests)
+
+    # Negative: the ISBN value does not match under the doi: prefix, even though
+    # a generic search for the same value would find it.
+    isbn_response = search_fundingrequests(client, {"search_term": "doi:9783608961157"})
+    assert_contains(isbn_response.context, set())
+
+    generic_response = search_fundingrequests(client, {"search_term": "9783608961157"})
+    assert_contains(generic_response.context, requests)

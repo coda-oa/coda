@@ -2,7 +2,12 @@
     <input type="search"
            name="search_term"
            value="{{ request.GET.search_term }}"
-           placeholder="Search by invoice number, creditor, external invoice ID or funding request ID">
+           placeholder="Search by invoice number, creditor, external invoice ID or funding request ID"
+           aria-describedby="search-query-helper">
+    <small id="search-query-helper">
+        Every word must occur in at least one of these fields. Wrap a term in double quotes to search for an exact
+        phrase, e.g. <code>"INV-2024"</code>.
+    </small>
     <details {% if expand_advanced_search %}open{% endif %}>
         <summary class="button outline muted">
             <span class="m-0">Advanced search</span>

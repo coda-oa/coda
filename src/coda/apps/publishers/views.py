@@ -14,7 +14,7 @@ from django.views.generic import CreateView, UpdateView
 from coda.apps.blocklist.models import BlockList
 from coda.apps.domainqueryset import DomainModelProtocol, DomainQuerySet
 from coda.apps.publishers.models import Publisher
-from coda.apps.search import words_icontains
+from coda.apps.search import build_search_filter
 from coda.apps.views import EntityListView
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -41,7 +41,7 @@ class PublisherListView(LoginRequiredMixin, EntityListView[PublisherViewModel]):
     def get_entities(self, request: Any) -> Sequence[PublisherViewModel]:
         search_term = request.GET.get("query", "").strip()
         return DomainQuerySet(
-            Publisher.objects.filter(words_icontains(search_term, "name")).order_by("name"),
+            Publisher.objects.filter(build_search_filter(search_term, "name")).order_by("name"),
             self.publisher_viewmodel,
         )
 

@@ -5,7 +5,12 @@ from typing import Protocol
 from django.db.models import F, Q, QuerySet
 from django.db.models.functions import ExtractYear
 
-from coda.apps.search import words_icontains
+from coda.apps.search import (
+    ScopedAlias,
+    SearchFieldAliases,
+    alias_field_paths,
+    build_search_filter,
+)
 
 from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.models import FundingRequest
@@ -142,6 +147,19 @@ class PublicationStateCriteria:
         return Q(publication__publication_state__in=self.publication_states)
 
 
+SEARCH_FIELD_ALIASES: SearchFieldAliases = {
+    "author": "publication__relevant_authors__name",
+    "title": "publication__title",
+    "journal": "publication__article_journal__title",
+    "publisher": [
+        "publication__article_journal__publisher__name",
+        "publication__monograph_publisher__name",
+    ],
+    "doi": ScopedAlias("publication__links__value", Q(publication__links__type__name="DOI")),
+    "eissn": "publication__article_journal__eissn",
+}
+
+
 @dataclass
 class GenericSearchCriteria:
     search_term: str = ""
@@ -150,14 +168,11 @@ class GenericSearchCriteria:
         if not self.search_term.strip():
             return Q()
 
-        return words_icontains(
+        return build_search_filter(
             self.search_term,
-            "publication__title",
-            "publication__relevant_authors__name",
-            "publication__article_journal__title",
-            "publication__article_journal__publisher__name",
-            "publication__monograph_publisher__name",
+            *alias_field_paths(SEARCH_FIELD_ALIASES),
             "request_id",
+            field_aliases=SEARCH_FIELD_ALIASES,
         )
 
 
