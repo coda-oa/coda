@@ -6,6 +6,8 @@ import pytest
 from datetime import date
 from decimal import Decimal
 
+from pytest_django import DjangoAssertNumQueries
+
 from coda.apps.invoices import funding_source_repository
 from coda.contexts.finance.services import invoice_service
 from tests import domainfactory, modelfactory
@@ -45,6 +47,52 @@ def test__funding_requests_with_different_request_dates__query_for_export__retur
     results = get_funding_requests_for_export(_make_params(date(2026, 3, 1), date(2026, 3, 31)))
 
     assert list(results) == [fr_march]
+
+
+@pytest.mark.django_db
+def test__funding_request_with_multiple_authors__query_for_export__authors_returned_in_id_order() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Multi author FR")
+    fr.request_date = date(2026, 3, 15)
+    fr.save()
+    fr.publication.relevant_authors.all().delete()
+
+    authors_in_id_order = sorted(
+        (modelfactory.author() for _ in range(3)), key=lambda author: author.pk
+    )
+    for author in authors_in_id_order:
+        author.publication = fr.publication
+        author.save()
+
+    results = get_funding_requests_for_export(_make_params(date(2026, 3, 1), date(2026, 3, 31)))
+
+    export_authors = list(results[0].publication.relevant_authors.all())
+    assert export_authors == authors_in_id_order
+
+
+@pytest.mark.django_db
+@pytest.mark.performance
+def test__funding_request_with_author_affiliation_and_identifier__query_for_export__fetches_authors_without_extra_queries(
+    django_assert_num_queries: DjangoAssertNumQueries,
+) -> None:
+    """Author prefetch (with identifier and affiliation) costs a single query, no N+1."""
+    fr = modelfactory.fundingrequest(title="Query count FR")
+    fr.request_date = date(2026, 3, 15)
+    fr.save()
+    institution = modelfactory.institution()
+    extra_author = modelfactory.author()
+    extra_author.publication = fr.publication
+    extra_author.affiliation = institution
+    extra_author.save()
+
+    with django_assert_num_queries(13):
+        results = get_funding_requests_for_export(_make_params(date(2026, 3, 1), date(2026, 3, 31)))
+        for funding_request in results:
+            for author in funding_request.publication.relevant_authors.all():
+                _ = author.name
+                _ = author.identifier.orcid if author.identifier else None
+                _ = author.affiliation.name if author.affiliation else None
 
 
 @pytest.mark.django_db

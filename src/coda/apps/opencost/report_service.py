@@ -991,7 +991,7 @@ def _get_institution_data(
     corresponding_author = next(
         (
             author
-            for author in sorted(publication.relevant_authors.all(), key=lambda author: author.id)
+            for author in publication.relevant_authors.all()
             if author.roles and "CORRESPONDING_AUTHOR" in author.roles
         ),
         None,
