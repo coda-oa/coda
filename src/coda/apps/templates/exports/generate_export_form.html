@@ -5,6 +5,18 @@
     </div>
     <form method="post" action="{{ form_action_url }}">
         {% csrf_token %}
+        {% if form_errors %}
+            <div>
+                <ul class="error undecorated messages">
+                    {% for item in form_errors %}
+                        <li>
+                            <strong>{{ item.label }}:</strong>
+                            {% for error in item.errors %}{{ error }}{% endfor %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
         <article>
             <h2>{{ parameters_title }}</h2>
             <div class="form-row">

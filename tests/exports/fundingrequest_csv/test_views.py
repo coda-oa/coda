@@ -449,3 +449,58 @@ def test__export_list__is_ordered_by_created_at_descending(client: Client) -> No
 
     assert response.status_code == 200
     assert [e.name for e in response.context["entities"]] == ["b_new.csv", "a_old.csv"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invalid_processing_status_post__creating_export__re_renders_without_creating(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "title": "Bad Export",
+            "processing_status": ["bogus"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert "form_errors" in response.context
+    assert response.context["current_filters"]["processing_status"] == ["bogus"]
+    assert FundingRequestCSVExport.objects.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__malformed_date_in_create_post__creating_export__re_renders_without_creating(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={
+            "period_start": "01.01.2024",
+            "period_end": "2024-12-31",
+            "title": "Bad Date Export",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "form_errors" in response.context
+    assert FundingRequestCSVExport.objects.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__missing_period_end_in_create_post__creating_export__re_renders_without_creating(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={"period_start": "2024-01-01", "title": "No End Date"},
+    )
+
+    assert response.status_code == 200
+    assert "form_errors" in response.context
+    assert FundingRequestCSVExport.objects.count() == 0

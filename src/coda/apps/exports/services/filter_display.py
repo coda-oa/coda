@@ -21,6 +21,24 @@ from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
 from coda.domain.publication.publication import UnpublishedState
 
+FIELD_LABELS: dict[str, str] = {
+    "period_start": "Period Start",
+    "period_end": "Period End",
+    "processing_status": "Processing Status",
+    "payment_methods": "Payment Methods",
+    "open_access_type": "Open Access Type",
+    "publication_states": "Publication States",
+    "labels": "Labels",
+    "exclude_labels": "Excluded Labels",
+    "payment_status": "Payment Status",
+    "publication_type": "Publication Type",
+    "contract_name": "Contracts",
+    "funding_source": "Funding Source",
+    "decimal_separator": "Decimal Separator",
+    "search_term": "Search Term",
+}
+
+
 MULTI_VALUE_FILTER_FIELDS = {
     "open_access_type",
     "labels",
@@ -67,38 +85,6 @@ publication_state_choices: list[tuple[str, str]] = [
 payment_status_choices: list[tuple[str, str]] = [
     (status.value, status.value.replace("_", " ").title()) for status in FundingRequestPaymentStatus
 ]
-
-
-# ---------------------------------------------------------------------------
-# Shared filter keys that are common to both CSV exports and openCost reports.
-# ---------------------------------------------------------------------------
-
-_COMMON_OPTIONAL_FILTER_FIELDS: list[str] = list(
-    MULTI_VALUE_FILTER_FIELDS | SINGLE_VALUE_FILTER_FIELDS
-)
-
-
-def build_filters_from_request(
-    request: HttpRequest,
-    extra_optional_fields: list[str] | None = None,
-) -> dict[str, str]:
-    """Build the raw filter dict from a POST request.
-
-    Both CSV exports and openCost reports share the same set of base optional
-    filter fields.  Pass ``extra_optional_fields`` to include additional fields
-    (e.g. invoice date fields used only in the CSV flow).
-    """
-    filters: dict[str, str] = {
-        "period_start": request.POST["period_start"],
-        "period_end": request.POST["period_end"],
-    }
-
-    for field in _COMMON_OPTIONAL_FILTER_FIELDS + (extra_optional_fields or []):
-        values = [v for v in request.POST.getlist(field) if v]
-        if values:
-            filters[field] = ",".join(values)
-
-    return filters
 
 
 def parse_common_filter_fields(filters: dict[str, str]) -> FundingRequestSearchParams:
@@ -223,7 +209,7 @@ def _decimal_separator_filter(filters: dict[str, str]) -> AppliedFilter | None:
     if "decimal_separator" not in filters:
         return None
     value = ", (e.g. German)" if filters["decimal_separator"] == "," else ". (English/ISO)"
-    return AppliedFilter(label="Decimal Separator", value=value)
+    return AppliedFilter(label=FIELD_LABELS["decimal_separator"], value=value)
 
 
 def _period_filter(filters: dict[str, str]) -> AppliedFilter | None:
@@ -238,28 +224,28 @@ def _processing_status_filter(filters: dict[str, str]) -> AppliedFilter | None:
     if "processing_status" not in filters:
         return None
     statuses = [s.strip() for s in filters["processing_status"].split(",") if s]
-    return AppliedFilter(label="Processing Status", value=", ".join(statuses))
+    return AppliedFilter(label=FIELD_LABELS["processing_status"], value=", ".join(statuses))
 
 
 def _payment_methods_filter(filters: dict[str, str]) -> AppliedFilter | None:
     if "payment_methods" not in filters:
         return None
     methods = [m.strip() for m in filters["payment_methods"].split(",") if m]
-    return AppliedFilter(label="Payment Methods", value=", ".join(methods))
+    return AppliedFilter(label=FIELD_LABELS["payment_methods"], value=", ".join(methods))
 
 
 def _open_access_type_filter(filters: dict[str, str]) -> AppliedFilter | None:
     if "open_access_type" not in filters:
         return None
     types = [t.strip() for t in filters["open_access_type"].split(",") if t]
-    return AppliedFilter(label="Open Access Type", value=", ".join(types))
+    return AppliedFilter(label=FIELD_LABELS["open_access_type"], value=", ".join(types))
 
 
 def _publication_states_filter(filters: dict[str, str]) -> AppliedFilter | None:
     if "publication_states" not in filters:
         return None
     states = [s.strip() for s in filters["publication_states"].split(",") if s]
-    return AppliedFilter(label="Publication States", value=", ".join(states))
+    return AppliedFilter(label=FIELD_LABELS["publication_states"], value=", ".join(states))
 
 
 def _labels_filter(filters: dict[str, str]) -> AppliedFilter | None:
@@ -268,7 +254,7 @@ def _labels_filter(filters: dict[str, str]) -> AppliedFilter | None:
     label_ids = [int(_id) for _id in filters["labels"].split(",") if _id]
     labels = Label.objects.filter(id__in=label_ids)
     return AppliedFilter(
-        label="Labels",
+        label=FIELD_LABELS["labels"],
         value=", ".join(label.name for label in labels),
     )
 
@@ -279,7 +265,7 @@ def _exclude_labels_filter(filters: dict[str, str]) -> AppliedFilter | None:
     exclude_label_ids = [int(_id) for _id in filters["exclude_labels"].split(",") if _id]
     exclude_labels = Label.objects.filter(id__in=exclude_label_ids)
     return AppliedFilter(
-        label="Excluded Labels",
+        label=FIELD_LABELS["exclude_labels"],
         value=", ".join(label.name for label in exclude_labels),
     )
 
@@ -292,14 +278,14 @@ def _payment_status_filter(filters: dict[str, str]) -> AppliedFilter | None:
         for s in filters["payment_status"].split(",")
         if s
     ]
-    return AppliedFilter(label="Payment Status", value=", ".join(statuses))
+    return AppliedFilter(label=FIELD_LABELS["payment_status"], value=", ".join(statuses))
 
 
 def _publication_type_filter(filters: dict[str, str]) -> AppliedFilter | None:
     if "publication_type" not in filters:
         return None
     types = [t.strip() for t in filters["publication_type"].split(",") if t]
-    return AppliedFilter(label="Publication Type", value=", ".join(types))
+    return AppliedFilter(label=FIELD_LABELS["publication_type"], value=", ".join(types))
 
 
 def _contract_filter(filters: dict[str, str]) -> AppliedFilter | None:
@@ -308,7 +294,7 @@ def _contract_filter(filters: dict[str, str]) -> AppliedFilter | None:
     contract_ids = [int(_id) for _id in filters["contract_name"].split(",") if _id]
     contracts = Contract.objects.filter(id__in=contract_ids)
     return AppliedFilter(
-        label="Contracts",
+        label=FIELD_LABELS["contract_name"],
         value=", ".join(contract.name for contract in contracts),
     )
 
@@ -319,6 +305,6 @@ def _funding_source_filter(filters: dict[str, str]) -> AppliedFilter | None:
     funding_source_ids = [int(_id) for _id in filters["funding_source"].split(",") if _id]
     funding_sources = FundingSource.objects.filter(id__in=funding_source_ids)
     return AppliedFilter(
-        label="Funding Source",
+        label=FIELD_LABELS["funding_source"],
         value=", ".join(source.name for source in funding_sources),
     )
