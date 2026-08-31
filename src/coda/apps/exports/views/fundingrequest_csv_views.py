@@ -18,7 +18,7 @@ from coda.apps.views import SimpleSearchEntityListView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from coda.apps.exports.services.filter_display import (
     build_applied_filters,
@@ -102,6 +102,7 @@ def fundingrequest_csv_detail_page(
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 @breadcrumb(
     "Generate New CSV Export",
     parent_url_name="exports:fundingrequests_csv_list",
