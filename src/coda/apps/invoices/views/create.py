@@ -13,8 +13,12 @@ from coda.apps.invoices.views.position_context import DefaultContext, funding_so
 from coda.apps.invoices.views.position_parsers import PositionDtoWithErrors
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.dto.edit_position_dtos import PositionList
-from coda.contexts.finance.services import invoice_parser, invoice_service
-from coda.domain.finance.invoice import Invoice, UnassignedCosts
+from coda.contexts.finance.services.invoice_import import (
+    InvoiceParseError,
+    parse_invoice,
+    save,
+)
+from coda.domain.finance.invoice import Invoice, InvoiceId, UnassignedCosts
 from coda.domain.money import Currency
 from django.views.decorators.http import require_GET, require_POST
 
@@ -37,7 +41,7 @@ def create_invoice(request: HttpRequest) -> HttpResponse:
     if request.POST.get("action") == "create":
         invoice, errors = try_parse_invoice(request, position_list, conversions=conversion)
         if invoice:
-            new_id = invoice_service.save(invoice)
+            new_id = save(invoice)
             return redirect("invoices:detail", pk=new_id)
 
         if errors:
@@ -63,13 +67,13 @@ def try_parse_invoice(
     position_list: PositionList,
     *,
     conversions: dict[Currency, Decimal],
-) -> tuple[Invoice | None, invoice_parser.InvoiceParseError | None]:
+    ) -> tuple[Invoice | None, InvoiceParseError | None]:
     form = InvoiceForm(request.POST)
     if not form.is_valid():
         return None, None
 
     try:
-        invoice = invoice_parser.parse_invoice(form.invoice_head(), position_list.positions)
+        invoice = parse_invoice(form.invoice_head(), position_list.positions)
         for currency, rate in conversions.items():
             invoice.add_conversion(rate, currency)
 
@@ -77,12 +81,12 @@ def try_parse_invoice(
     except UnassignedCosts:
         messages.error(request, "Invoice has unassigned costs")
         return None, None
-    except invoice_parser.InvoiceParseError as e:
+    except InvoiceParseError as e:
         return None, e
 
 
 def build_position_errors(
-    errors: invoice_parser.InvoiceParseError, position_list: PositionList
+    errors: InvoiceParseError, position_list: PositionList
 ) -> PositionList:
     error_positions = PositionList(positions=[])
 

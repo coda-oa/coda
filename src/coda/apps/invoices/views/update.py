@@ -20,7 +20,7 @@ from coda.apps.invoices.views.position_context import (
 from coda.apps.invoices.views.position_views import safe_invoice_total
 from coda.apps.preferences.models import GlobalPreferences
 from coda.contexts.finance.dto.edit_position_dtos import PositionList
-from coda.contexts.finance.services import invoice_parser, invoice_service
+from coda.contexts.finance.services.invoice_import import position_to_dto, save
 from coda.domain.finance.invoice import Invoice, InvoiceId
 from coda.domain.money._currency import Currency
 from django.db import models
@@ -42,7 +42,7 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))
 
     if request.method == "GET":
-        positions = [invoice_parser.position_to_dto(p) for p in invoice.positions]
+        positions = [position_to_dto(p) for p in invoice.positions]
         position_list = PositionList(positions=positions)
         return render_edit_view(request, invoice, position_list)
 
@@ -57,7 +57,7 @@ def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
 
     if parsed_invoice:
         parsed_invoice.id = invoice.id
-        invoice_service.save(parsed_invoice)
+        save(parsed_invoice)
         return redirect("invoices:detail", pk=invoice.id)
 
     if errors:

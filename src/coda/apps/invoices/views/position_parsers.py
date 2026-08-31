@@ -12,8 +12,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     PublicationItemDto,
     RelatedFundingRequest,
 )
-from coda.contexts.finance.services import invoice_parser
-from coda.contexts.finance.services.invoice_parser._parser import PositionParseError
+from coda.contexts.finance.services.invoice_import import PositionParseError, to_position
 from coda.domain.money._currency import Currency
 
 
@@ -92,7 +91,7 @@ def _generic_position_parser(prefix: str) -> Callable[[HttpRequest], PositionDto
         dto = formdata.map_to_model(PositionDto, filtered_by_prefix, prefix=prefix)
         try:
             any_currency = Currency.EUR
-            invoice_parser.to_position(dto, any_currency)
+            to_position(dto, any_currency)
         except PositionParseError as e:
             dto = PositionDtoWithErrors.from_dto(dto, e.message())
 

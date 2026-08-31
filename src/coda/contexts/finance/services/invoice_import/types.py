@@ -1,12 +1,23 @@
 """Type definitions for invoice import functionality."""
 
 from dataclasses import dataclass
+from typing import Protocol
 
+from coda.contexts.finance.dto.edit_position_dtos import ItemDto, PositionDto
 from coda.domain import errors
 from coda.domain.contract import Contract
 from coda.domain.finance.funding_sources import FundingSource
 from coda.domain.finance.invoice import CreditorId, FundingSourceId
+from coda.domain.finance.invoice_positions import Position, PositionItemType
 from coda.domain.publication.publication import PublicationId
+
+
+class PositionParser(Protocol):
+    def to_itemdto(self, position: Position) -> ItemDto: ...
+
+    def parse_item_from(
+        self, position: PositionDto, *, parse_safe: bool = False
+    ) -> PositionItemType: ...
 
 
 class InvoiceProcessingError(errors.DomainError):
