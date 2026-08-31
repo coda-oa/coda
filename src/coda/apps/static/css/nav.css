@@ -100,10 +100,6 @@
         transition: grid-template-rows 0.2s ease-in-out, margin-top 0.2s ease-in-out,
             visibility 0.2s ease-in-out;
     }
-    & .nav__group--active,
-    & .nav__group:is(:hover, :focus-within) {
-        padding-bottom: 0;
-    }
 
     & .nav__group--active .nav__submenu-wrapper,
     & .nav__group:is(:hover, :focus-within) .nav__submenu-wrapper {
