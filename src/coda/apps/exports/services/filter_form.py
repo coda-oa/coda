@@ -31,6 +31,7 @@ class FundingRequestFilterForm(forms.Form):
     validates the POSTed data (field names match the widget ``name`` attrs).
     """
 
+    title = forms.CharField(required=False, max_length=255)
     period_start = forms.DateField(input_formats=("%Y-%m-%d",))
     period_end = forms.DateField(input_formats=("%Y-%m-%d",))
     decimal_separator = forms.ChoiceField(
@@ -83,6 +84,7 @@ class FilterCleanedData(TypedDict):
     optionals arrive as ``""`` / ``[]`` / ``None`` / empty queryset).
     """
 
+    title: str
     period_start: date
     period_end: date
     decimal_separator: str

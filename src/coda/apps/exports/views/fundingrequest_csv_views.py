@@ -120,8 +120,6 @@ def fundingrequest_csv_export_create_view(
     request: HttpRequest,
 ) -> HttpResponse:
 
-    title = request.POST.get("title", "").strip() or "Unnamed CSV Export"
-
     if request.method == "POST":
         form = FundingRequestFilterForm(request.POST)
         if not form.is_valid():
@@ -130,12 +128,15 @@ def fundingrequest_csv_export_create_view(
                 "exports/generate_export_form.html",
                 _export_form_context(
                     request,
+                    form,
                     form_errors=form_error_lines(form),
                     current_filters=current_filters_from_post(request.POST),
                 ),
             )
 
-        filters = build_filters_from_cleaned_data(cast(FilterCleanedData, form.cleaned_data))
+        cleaned = cast(FilterCleanedData, form.cleaned_data)
+        title = cleaned["title"].strip() or "Unnamed CSV Export"
+        filters = build_filters_from_cleaned_data(cleaned)
         csv_content = _generate_csv_from_filters(filters)
 
         export = FundingRequestCSVExport.objects.create(
@@ -153,16 +154,18 @@ def fundingrequest_csv_export_create_view(
     return render(
         request,
         "exports/generate_export_form.html",
-        _export_form_context(request),
+        _export_form_context(request, FundingRequestFilterForm()),
     )
 
 
 def _export_form_context(
     request: HttpRequest,
+    form: FundingRequestFilterForm,
     form_errors: list[FormFieldErrors] | None = None,
     current_filters: dict[str, str | list[str]] | None = None,
 ) -> dict[str, object]:
     context = build_filter_form_context()
+    context["form"] = form
     context["expand_advanced_search"] = bool(request.GET) or form_errors is not None
     context["current_filters"] = current_filters or parse_current_filters_to_context(request)
     context.update(

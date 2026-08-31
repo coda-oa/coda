@@ -25,16 +25,25 @@
                        id="title"
                        name="title"
                        placeholder="{{ title_placeholder }}"
+                       value="{{ form.title.value|default:'' }}"
                        required>
             </div>
             <div class="grid">
                 <div class="form-row">
                     <label for="period_start">Period Start*</label>
-                    <input type="date" id="period_start" name="period_start" required>
+                    <input type="date"
+                           id="period_start"
+                           name="period_start"
+                           value="{{ form.period_start.value|default:'' }}"
+                           required>
                 </div>
                 <div class="form-row">
                     <label for="period_end">Period End*</label>
-                    <input type="date" id="period_end" name="period_end" required>
+                    <input type="date"
+                           id="period_end"
+                           name="period_end"
+                           value="{{ form.period_end.value|default:'' }}"
+                           required>
                 </div>
             </div>
             {% if include_decimal_separator %}

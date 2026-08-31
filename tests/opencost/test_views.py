@@ -43,3 +43,24 @@ def test__valid_minimal_generate_post__generating_report__creates_report(client:
         "period_start": "2024-01-01",
         "period_end": "2024-01-31",
     }
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invalid_open_access_type__generating_report__preserves_entered_title_and_dates(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("opencost:generate_submit"),
+        data={
+            "title": "Keep Me",
+            "period_start": "2024-01-01",
+            "period_end": "2024-01-31",
+            "open_access_type": ["bogus"],
+        },
+    )
+
+    content = response.content.decode()
+    assert 'value="Keep Me"' in content
+    assert 'value="2024-01-01"' in content
+    assert 'value="2024-01-31"' in content

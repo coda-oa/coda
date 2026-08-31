@@ -493,6 +493,26 @@ def test__malformed_date_in_create_post__creating_export__re_renders_without_cre
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__malformed_date_in_create_post__creating_export__preserves_entered_title_and_dates(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={
+            "period_start": "01.01.2024",
+            "period_end": "2024-12-31",
+            "title": "Keep Me",
+        },
+    )
+
+    content = response.content.decode()
+    assert 'value="Keep Me"' in content
+    assert 'value="01.01.2024"' in content
+    assert 'value="2024-12-31"' in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__missing_period_end_in_create_post__creating_export__re_renders_without_creating(
     client: Client,
 ) -> None:

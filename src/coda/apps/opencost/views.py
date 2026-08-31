@@ -164,7 +164,11 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
 @require_GET
 @breadcrumb("Generate New Report", parent_url_name=OPENCOST_LIST_URL)
 def generate_report_form(request: HttpRequest) -> HttpResponse:
-    return render(request, "exports/generate_export_form.html", _report_form_context(request))
+    return render(
+        request,
+        "exports/generate_export_form.html",
+        _report_form_context(request, FundingRequestFilterForm()),
+    )
 
 
 def _build_issue_message(report: OpenCostReport, detail_url: str) -> str:
@@ -198,8 +202,6 @@ def _build_success_message(report: OpenCostReport) -> str:
 @login_required
 @require_POST
 def generate_report(request: HttpRequest) -> HttpResponse:
-    title = request.POST.get("title", "OpenCost Report")
-
     form = FundingRequestFilterForm(request.POST)
     if not form.is_valid():
         return render(
@@ -207,12 +209,15 @@ def generate_report(request: HttpRequest) -> HttpResponse:
             "exports/generate_export_form.html",
             _report_form_context(
                 request,
+                form,
                 form_errors=form_error_lines(form),
                 current_filters=current_filters_from_post(request.POST),
             ),
         )
 
-    filters = build_filters_from_cleaned_data(cast(FilterCleanedData, form.cleaned_data))
+    cleaned = cast(FilterCleanedData, form.cleaned_data)
+    title = cleaned["title"].strip() or "OpenCost Report"
+    filters = build_filters_from_cleaned_data(cleaned)
 
     try:
         report = generate_report_service(
@@ -236,10 +241,12 @@ def generate_report(request: HttpRequest) -> HttpResponse:
 
 def _report_form_context(
     request: HttpRequest,
+    form: FundingRequestFilterForm,
     form_errors: list[FormFieldErrors] | None = None,
     current_filters: dict[str, str | list[str]] | None = None,
 ) -> dict[str, object]:
     context = build_filter_form_context()
+    context["form"] = form
     context["expand_advanced_search"] = bool(request.GET) or form_errors is not None
     context["current_filters"] = current_filters or parse_current_filters_to_context(request)
     context.update(
