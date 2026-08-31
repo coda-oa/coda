@@ -49,7 +49,8 @@
                 {% include "fundingrequests/forms/payment_method.html" %}
                 {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
                 {% include "fundingrequests/forms/publication_state.html" %}
-                {% include "fundingrequests/forms/label_dropdown.html" %}
+                {% include "fundingrequests/forms/label_dropdown.html"%}
+                {% include "fundingrequests/forms/label_dropdown.html" with exclude=True %}
                 {% if include_payment_status %}
                     {% include "fundingrequests/forms/payment_status.html" %}
                 {% endif %}

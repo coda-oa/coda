@@ -1,14 +1,16 @@
 {% load getlist %}
-<div class="form-row">
-    <label for="exclude_labels">Exclude labels</label>
-    <search-select-multi name="exclude_labels" class="w-100" id="exclude_labels">
-    {% for label in labels %}
-        <option slot="options"
-                value="{{ label.pk }}"
-                data-color="{{ label.hexcolor }}"
-                {% if label.pk|stringformat:"i" in request.GET|getlist:"exclude_labels" %}selected{% endif %}>
-            {{ label.name }}
-        </option>
-    {% endfor %}
-    </search-select-multi>
-</div>
+{% with field_name=exclude|yesno:"exclude_labels,labels" heading=exclude|yesno:"Exclude labels,Labels" %}
+    <div class="form-row">
+        <label for="{{ field_name }}">{{ heading }}</label>
+        <search-select-multi name="{{ field_name }}" class="w-100" id="{{ field_name }}">
+        {% for label in labels %}
+            <option slot="options"
+                    value="{{ label.pk }}"
+                    data-color="{{ label.hexcolor }}"
+                    {% if label.pk|stringformat:"i" in request.GET|getlist:field_name %}selected{% endif %}>
+                {{ label.name }}
+            </option>
+        {% endfor %}
+        </search-select-multi>
+    </div>
+{% endwith %}
