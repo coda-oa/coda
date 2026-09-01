@@ -48,7 +48,12 @@ The CSV file includes the following categories of information:
 - License and open access type
 - Publication type and subject area
 - Authors
+- Corresponding author, including name, affiliation, and the affiliation's internal ID
 - Publishing state and dates (online, print)
+
+**External Funding (for externally funded publications):**
+- External funding — one entry per funding organization, combined into a single column in the format `Organization (Project ID – Project Name)`
+  - Publications with several funding organizations list all of them, separated by ` | ` (sorted by organization name), for example: `BMBF (456 – Cancer Research) | DFG (123 – Awesome Project)`
 
 **Invoice Information:**
 - Invoice number and date
@@ -65,8 +70,13 @@ The CSV file includes the following categories of information:
 
 **Funding Assignment Information:**
 - Funded amount
-- Funding source name and type (budget or institution)
-- Project ID, project name, and funding organization (for externally funded publications)
+- Funding source name and type (budget or institution) — for institution funding sources, the institution's name is shown
+
+```{admonition} Analyzing costs by institution
+Use the corresponding author's affiliation columns to evaluate costs per institution (e.g. "how much did we cover for faculty X?"). Match the `corresponding_author_affiliation_internal_id` against the institution structure export (available from the Institutions page), which provides the internal ID, name, and parent for every institution — this lets you analyze costs at any level of the institution hierarchy.
+
+Note: institutions receive their internal ID when the institution structure is exported or if the internal ID was already part of the import. Internal IDs can also be set manually when editing institutions. For more information check out the [institutions](institutions.md) documentation. Export the institutions once first so that all of them have an ID available for matching.
+```
 
 ## Creating a New CSV Export
 
