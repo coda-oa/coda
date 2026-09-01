@@ -190,6 +190,29 @@ def test__funding_request_with_one_author_with_affiliation__maps_to_dto__author_
 
 
 @pytest.mark.django_db
+def test__funding_request_with_affiliated_corresponding_author__maps_to_dto__affiliation_internal_id_is_mapped() -> (
+    None
+):
+    institution = modelfactory.institution()
+    institution.internal_id = "TU-001"
+    institution.save()
+    author = domainfactory.author(
+        affiliation=InstitutionId(institution.id), role=Role.CORRESPONDING_AUTHOR
+    )
+    funding_request = modelfactory.fundingrequest(
+        title="Test Publication", authors=Authors([author])
+    )
+
+    dto = map_funding_request_to_dto(funding_request)
+
+    corresponding = [a for a in dto.publication.authors if a.role.is_corresponding_role()]
+    assert len(corresponding) == 1
+    assert corresponding[0].name == author.name
+    assert corresponding[0].affiliation == institution.name
+    assert corresponding[0].affiliation_internal_id == institution.internal_id
+
+
+@pytest.mark.django_db
 def test__funding_request_with_links__maps_to_dto__links_are_mapped_correctly() -> None:
     funding_request = modelfactory.fundingrequest(title="Test Publication")
 

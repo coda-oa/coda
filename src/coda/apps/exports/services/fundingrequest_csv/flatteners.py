@@ -67,6 +67,7 @@ def _create_base_row(
     review_info = _get_review_info(review)
     cost_info = _get_cost_info(cost)
     identifiers = _get_identifiers(pub.links)
+    corresponding_author = _get_corresponding_author(pub.authors)
 
     return {
         "legacy_request_id": funding_request.legacy_request_id or "",
@@ -79,6 +80,9 @@ def _create_base_row(
         "license": pub.license.value,
         "open_access_type": pub.open_access_type.value,
         "authors": _format_authors(pub.authors),
+        "corresponding_author": corresponding_author.name,
+        "corresponding_author_affiliation": corresponding_author.affiliation,
+        "corresponding_author_affiliation_internal_id": corresponding_author.affiliation_internal_id,
         "doi": identifiers.doi,
         "isbn": identifiers.isbn,
         "handle": identifiers.handle,
@@ -152,6 +156,26 @@ def _format_authors(
     authors: list[AuthorImportDto],
 ) -> str:
     return "; ".join(author.name for author in authors if author.name)
+
+
+@dataclass(frozen=True)
+class CorrespondingAuthorInfo:
+    name: str
+    affiliation: str
+    affiliation_internal_id: str
+
+
+def _get_corresponding_author(authors: list[AuthorImportDto]) -> CorrespondingAuthorInfo:
+    corresponding = [author for author in authors if author.role.is_corresponding_role()]
+    return CorrespondingAuthorInfo(
+        name="; ".join(author.name for author in corresponding),
+        affiliation="; ".join(author.affiliation for author in corresponding if author.affiliation),
+        affiliation_internal_id="; ".join(
+            author.affiliation_internal_id
+            for author in corresponding
+            if author.affiliation_internal_id
+        ),
+    )
 
 
 def _get_position_specific_fields(

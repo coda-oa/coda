@@ -99,6 +99,7 @@ def _map_authors_to_dto(funding_request: FundingRequest) -> list[AuthorImportDto
                 else None
             ),
             affiliation=author.affiliation.name if author.affiliation else None,
+            affiliation_internal_id=author.affiliation.internal_id if author.affiliation else None,
             role=Role[author.roles] if author.roles else Role.CO_AUTHOR,
         )
         for author in sorted(

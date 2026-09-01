@@ -11,14 +11,14 @@ from coda.apps.exports.services.fundingrequest_csv.export_service import (
 from coda.apps.invoices import funding_source_repository
 from coda.apps.publications.models import AttachedContract
 from coda.contexts.finance.services import invoice_service
-from coda.domain.author import InstitutionId
+from coda.domain.author import InstitutionId, Role
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.costtypes import PublicationCostType
 from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import CreditorId, PaymentStatus
 from coda.domain.finance.invoice_positions import PublicationItem
 from coda.domain.finance.taxrate import TaxRate
-from coda.domain.publication.publication import PublicationId
+from coda.domain.publication.publication import Authors, PublicationId
 from tests import domainfactory, modelfactory
 from coda.domain.fundingrequest.review import ReviewResult, Review
 from coda.domain.money import Money, Currency
@@ -252,6 +252,19 @@ def test__no_funding_requests_in_period__export_to_csv__returns_csv_with_only_he
 
 
 @pytest.mark.django_db
+def test__no_funding_requests_in_period__export_to_csv__header_includes_corresponding_author_columns() -> (
+    None
+):
+    csv_content = export_fundingrequests_to_csv(_make_params(date(2026, 1, 1), date(2026, 12, 31)))
+
+    df = pl.read_csv(StringIO(csv_content), separator=";")
+    assert df.height == 0
+    assert "corresponding_author" in df.columns
+    assert "corresponding_author_affiliation" in df.columns
+    assert "corresponding_author_affiliation_internal_id" in df.columns
+
+
+@pytest.mark.django_db
 def test__funding_request_with_invoice_position_with_multiple_funding_assignments__export_to_csv__creates_multiple_rows() -> (
     None
 ):
@@ -334,6 +347,49 @@ def test__funding_request_with_institution_funding_source__export_to_csv__instit
     assert df.height == 1
     assert df["funding_source_type"][0] == "institution"
     assert df["funding_source_name"][0] == institution.name
+
+
+@pytest.mark.django_db
+def test__funding_request_with_affiliated_corresponding_author__export_to_csv__includes_corresponding_author_columns() -> (
+    None
+):
+    institution = modelfactory.institution()
+    institution.internal_id = "TU-001"
+    institution.save()
+    corresponding = domainfactory.author(
+        affiliation=InstitutionId(institution.pk), role=Role.CORRESPONDING_AUTHOR
+    )
+    funding_request = modelfactory.fundingrequest(
+        title="Corresponding Author Export",
+        authors=Authors([corresponding]),
+    )
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    position = invoice_positions.create(
+        item=PublicationItem(
+            PublicationId(funding_request.publication.id),
+            cost_type=PublicationCostType("gold-oa"),
+        ),
+        cost=Money(Decimal("1500.00"), Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
+    )
+
+    invoice = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=[position]
+    )
+    invoice.id = invoice_service.save(invoice)
+
+    period_start = date(2026, 1, 1)
+    period_end = date(2026, 12, 31)
+    requests_exports = export_fundingrequests_to_csv(_make_params(period_start, period_end))
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+    assert df.height == 1
+    assert df["publication_title"][0] == funding_request.publication.title
+    assert df["corresponding_author"][0] == corresponding.name
+    assert df["corresponding_author_affiliation"][0] == institution.name
+    assert df["corresponding_author_affiliation_internal_id"][0] == institution.internal_id
 
 
 @pytest.mark.django_db
