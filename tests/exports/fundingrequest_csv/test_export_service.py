@@ -9,10 +9,15 @@ from coda.apps.exports.services.fundingrequest_csv.export_service import (
     export_fundingrequests_to_csv,
 )
 from coda.apps.invoices import funding_source_repository
-from coda.apps.invoices.models import FundingAssignment, FundingSource, Position
 from coda.apps.publications.models import AttachedContract
 from coda.contexts.finance.services import invoice_service
-from coda.domain.finance.invoice import CreditorId, FundingSourceId
+from coda.domain.author import InstitutionId
+from coda.domain.finance import invoice_positions
+from coda.domain.finance.costtypes import PublicationCostType
+from coda.domain.finance.funding_sources import Budget
+from coda.domain.finance.invoice import CreditorId, PaymentStatus
+from coda.domain.finance.invoice_positions import PublicationItem
+from coda.domain.finance.taxrate import TaxRate
 from coda.domain.publication.publication import PublicationId
 from tests import domainfactory, modelfactory
 from coda.domain.fundingrequest.review import ReviewResult, Review
@@ -37,21 +42,18 @@ def test__single_funding_request_with_one_invoice__export_to_csv__returns_csv_wi
     funding_request.request_date = date(2026, 5, 1)
     funding_request.save()
 
-    invoice = modelfactory.invoice()
-    invoice.number = "INV-001"
-    invoice.date = date(2026, 5, 1)
-    invoice.save()
-
-    Position.objects.create(
-        invoice=invoice,
-        publication=funding_request.publication,
-        description="Publication charge",
-        cost_amount=Decimal("1500.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-001",
+    position = invoice_positions.create(
+        item=PublicationItem(
+            PublicationId(funding_request.publication.id),
+            cost_type=PublicationCostType("gold-oa"),
+        ),
+        cost=Money(Decimal("1500.00"), Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
     )
+    invoice = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=[position]
+    )
+    invoice.id = invoice_service.save(invoice)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
@@ -65,8 +67,8 @@ def test__single_funding_request_with_one_invoice__export_to_csv__returns_csv_wi
 
     assert df.height == 1
     assert df["publication_title"][0] == "Test Publication for Export"
-    assert df["invoice_number"][0] == "INV-001"
-    assert df["invoice_date"][0] == "2026-05-01"
+    assert df["invoice_number"][0] == str(invoice.number)
+    assert df["invoice_date"][0] == invoice.date.isoformat()
     assert df["request_id"][0] == str(funding_request.request_id)
 
 
@@ -258,33 +260,26 @@ def test__funding_request_with_invoice_position_with_multiple_funding_assignment
     funding_request.request_date = date(2026, 5, 1)
     funding_request.save()
 
-    invoice = modelfactory.invoice()
-    invoice.number = "INV-002"
-    invoice.date = date(2026, 5, 1)
-    invoice.save()
+    budget_1 = Budget.new("Budget 1")
+    budget_2 = Budget.new("Budget 2")
+    budget_1.id = funding_source_repository.create(budget_1)
+    budget_2.id = funding_source_repository.create(budget_2)
 
-    position = Position.objects.create(
-        invoice=invoice,
-        publication=funding_request.publication,
-        description="Publication charge",
-        cost_amount=Decimal("2000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),  # 19% as fraction
-        external_position_id="POS-002",
+    position = invoice_positions.create(
+        item=PublicationItem(
+            PublicationId(funding_request.publication.id),
+            cost_type=PublicationCostType("gold-oa"),
+        ),
+        cost=Money(Decimal("2000.00"), Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
     )
+    position.assign_funding(budget_1, Decimal("1200.00"))
+    position.assign_funding(budget_2, Decimal("800.00"))
 
-    FundingAssignment.objects.create(
-        position=position,
-        funding_source=modelfactory.budget(name="Budget 1"),
-        amount=Decimal("1200.00"),
+    invoice = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=[position]
     )
-
-    FundingAssignment.objects.create(
-        position=position,
-        funding_source=modelfactory.budget(name="Budget 2"),
-        amount=Decimal("800.00"),
-    )
+    invoice.id = invoice_service.save(invoice)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
@@ -294,12 +289,12 @@ def test__funding_request_with_invoice_position_with_multiple_funding_assignment
     assert df.height == 2
 
     assert df["publication_title"][0] == "Split Cost Publication"
-    assert df["invoice_number"][0] == "INV-002"
+    assert df["invoice_number"][0] == str(invoice.number)
     assert Decimal(df["funded_amount"][0]) == Decimal("1200.00")
     assert df["funding_source_name"][0] == "Budget 1"
 
     assert df["publication_title"][1] == "Split Cost Publication"
-    assert df["invoice_number"][1] == "INV-002"
+    assert df["invoice_number"][1] == str(invoice.number)
     assert Decimal(df["funded_amount"][1]) == Decimal("800.00")
     assert df["funding_source_name"][1] == "Budget 2"
 
@@ -313,31 +308,23 @@ def test__funding_request_with_institution_funding_source__export_to_csv__instit
     funding_request.request_date = date(2026, 5, 1)
     funding_request.save()
 
-    invoice = modelfactory.invoice()
-    invoice.number = "INV-007"
-    invoice.date = date(2026, 5, 1)
-    invoice.save()
-
-    position = Position.objects.create(
-        invoice=invoice,
-        publication=funding_request.publication,
-        description="Publication charge",
-        cost_amount=Decimal("1000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-007",
-    )
-
     institution = modelfactory.institution()
-    institution_source = FundingSource.objects.create(
-        type="institution", name="", institution=institution
+    institution_source = domainfactory.split_source(InstitutionId(institution.pk), institution.name)
+
+    position = invoice_positions.create(
+        item=PublicationItem(
+            PublicationId(funding_request.publication.id),
+            cost_type=PublicationCostType("gold-oa"),
+        ),
+        cost=Money(Decimal("1000.00"), Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
     )
-    FundingAssignment.objects.create(
-        position=position,
-        funding_source=institution_source,
-        amount=Decimal("1000.00"),
+    position.assign_funding(institution_source, Decimal("1000.00"))
+
+    invoice = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=[position]
     )
+    invoice.id = invoice_service.save(invoice)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
@@ -356,37 +343,24 @@ def test__funding_request_with_multiple_invoices__export_to_csv__creates_multipl
     funding_request.request_date = date(2026, 5, 1)
     funding_request.save()
 
-    invoice1 = modelfactory.invoice()
-    invoice1.number = "INV-003"
-    invoice1.date = date(2026, 5, 1)
-    invoice1.save()
+    creditor_id = CreditorId(modelfactory.creditor().pk)
+    publication_id = PublicationId(funding_request.publication.id)
 
-    Position.objects.create(
-        invoice=invoice1,
-        publication=funding_request.publication,
-        description="First invoice charge",
-        cost_amount=Decimal("1000.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),  # 19% as fraction
-        external_position_id="POS-003",
+    position1 = invoice_positions.create(
+        item=PublicationItem(publication_id, cost_type=PublicationCostType("gold-oa")),
+        cost=Money(Decimal("1000.00"), Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
     )
+    invoice1 = domainfactory.invoice(creditor=creditor_id, positions=[position1])
+    invoice1.id = invoice_service.save(invoice1)
 
-    invoice2 = modelfactory.invoice()
-    invoice2.number = "INV-004"
-    invoice2.date = date(2026, 5, 10)
-    invoice2.save()
-
-    Position.objects.create(
-        invoice=invoice2,
-        publication=funding_request.publication,
-        description="Second invoice charge",
-        cost_amount=Decimal("500.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),  # 19% as fraction
-        external_position_id="POS-004",
+    position2 = invoice_positions.create(
+        item=PublicationItem(publication_id, cost_type=PublicationCostType("gold-oa")),
+        cost=Money(Decimal("500.00"), Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
     )
+    invoice2 = domainfactory.invoice(creditor=creditor_id, positions=[position2])
+    invoice2.id = invoice_service.save(invoice2)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
@@ -396,10 +370,10 @@ def test__funding_request_with_multiple_invoices__export_to_csv__creates_multipl
     assert df.height == 2
 
     assert df["publication_title"][0] == "Multi-Invoice Publication"
-    assert df["invoice_number"][0] == "INV-003"
+    assert df["invoice_number"][0] == str(invoice1.number)
 
     assert df["publication_title"][1] == "Multi-Invoice Publication"
-    assert df["invoice_number"][1] == "INV-004"
+    assert df["invoice_number"][1] == str(invoice2.number)
 
 
 @pytest.mark.django_db
@@ -417,21 +391,18 @@ def test__funding_request_with_review_result__export_to_csv__includes_review_res
         )
     )
 
-    invoice = modelfactory.invoice()
-    invoice.number = "INV-005"
-    invoice.date = date(2026, 5, 1)
-    invoice.save()
-
-    Position.objects.create(
-        invoice=invoice,
-        publication=funding_request.publication,
-        description="Publication charge",
-        cost_amount=Decimal("1500.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),  # 19% as fraction
-        external_position_id="POS-005",
+    position = invoice_positions.create(
+        item=PublicationItem(
+            PublicationId(funding_request.publication.id),
+            cost_type=PublicationCostType("gold-oa"),
+        ),
+        cost=Money(Decimal("1500.00"), Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
     )
+    invoice = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk), positions=[position]
+    )
+    invoice.id = invoice_service.save(invoice)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
@@ -453,44 +424,35 @@ def test__funding_request_with_invoice_filters_funding_source__export_to_csv__re
     funding_request.request_date = date(2026, 5, 1)
     funding_request.save()
 
-    invoice = modelfactory.invoice()
-    invoice.number = "INV-006"
-    invoice.date = date(2026, 5, 1)
-    invoice.creditor = modelfactory.creditor(name="Test Creditor")
-    invoice.status = "paid"
-    invoice.save()
+    funding_source = domainfactory.budget()
+    funding_source.id = funding_source_repository.create(funding_source)
 
-    position = Position.objects.create(
-        invoice=invoice,
-        publication=funding_request.publication,
-        description="Publication charge",
-        cost_amount=Decimal("1500.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),  # 19% as fraction
-        external_position_id="POS-006",
+    position = invoice_positions.create(
+        item=PublicationItem(
+            PublicationId(funding_request.publication.id),
+            cost_type=PublicationCostType("gold-oa"),
+        ),
+        cost=Money(Decimal("1500.00"), Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
     )
+    position.assign_funding(funding_source, position.cost.amount)
 
-    FundingAssignment.objects.create(
-        position=position,
-        funding_source=modelfactory.budget(name="Budget Name"),
-        amount=Decimal("1200.00"),
+    invoice = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor(name="Test Creditor").pk),
+        positions=[position],
     )
-
-    fa = FundingAssignment.objects.get(position=position)
-    fs = fa.funding_source
-    assert fs is not None
-    funding_source = FundingSourceId(fs.pk)
+    invoice.status = PaymentStatus.Paid
+    invoice.id = invoice_service.save(invoice)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
     requests_exports = export_fundingrequests_to_csv(
-        _make_params(period_start, period_end, funding_source=funding_source)
+        _make_params(period_start, period_end, funding_source=funding_source.id)
     )
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
     assert df.height == 1
-    assert df["funding_source_name"][0] == "Budget Name"
+    assert df["funding_source_name"][0] == funding_source.name
 
 
 @pytest.mark.django_db
@@ -574,28 +536,24 @@ def test__funding_request_with_combined_filters__export_to_csv__returns_correctl
         )
     )
 
-    invoice = modelfactory.invoice()
-    invoice.number = "INV-006"
-    invoice.date = date(2026, 5, 1)
-    invoice.creditor = modelfactory.creditor(name="Test Creditor")
-    invoice.status = "paid"
-    invoice.save()
+    budget_1 = Budget.new("Budget 1")
+    budget_1.id = funding_source_repository.create(budget_1)
+    budget_2 = Budget.new("Budget 2")
+    budget_2.id = funding_source_repository.create(budget_2)
+    creditor_id = CreditorId(modelfactory.creditor(name="Test Creditor").pk)
 
-    position = Position.objects.create(
-        invoice=invoice,
-        publication=funding_request.publication,
-        description="Publication charge",
-        cost_amount=Decimal("1500.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-006",
+    position = invoice_positions.create(
+        item=PublicationItem(
+            PublicationId(funding_request.publication.id),
+            cost_type=PublicationCostType("gold-oa"),
+        ),
+        cost=Money(Decimal("1500.00"), Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
     )
-    FundingAssignment.objects.create(
-        position=position,
-        funding_source=modelfactory.budget(name="Budget 1"),
-        amount=Decimal("1200.00"),
-    )
+    position.assign_funding(budget_1, position.cost.amount)
+    invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
+    invoice.status = PaymentStatus.Paid
+    invoice.id = invoice_service.save(invoice)
 
     funding_request_rejected = modelfactory.fundingrequest(title="Filtered Publication")
     funding_request_rejected.request_date = date(2026, 5, 1)
@@ -607,40 +565,27 @@ def test__funding_request_with_combined_filters__export_to_csv__returns_correctl
         )
     )
 
-    invoice = modelfactory.invoice()
-    invoice.number = "INV-006"
-    invoice.date = date(2026, 5, 1)
-    invoice.creditor = modelfactory.creditor(name="Test Creditor")
-    invoice.status = "paid"
-    invoice.save()
-
-    position2 = Position.objects.create(
-        invoice=invoice,
-        publication=funding_request_rejected.publication,
-        description="Publication charge",
-        cost_amount=Decimal("1500.00"),
-        cost_currency="EUR",
-        cost_type="gold-oa",
-        tax_rate=Decimal("0.19"),
-        external_position_id="POS-006",
+    position2 = invoice_positions.create(
+        item=PublicationItem(
+            PublicationId(funding_request_rejected.publication.id),
+            cost_type=PublicationCostType("gold-oa"),
+        ),
+        cost=Money(Decimal("1500.00"), Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
     )
-
-    FundingAssignment.objects.create(
-        position=position2,
-        funding_source=modelfactory.budget(name="Budget 2"),
-        amount=Decimal("1200.00"),
-    )
+    position2.assign_funding(budget_2, position2.cost.amount)
+    invoice = domainfactory.invoice(creditor=creditor_id, positions=[position2])
+    invoice.status = PaymentStatus.Paid
+    invoice.id = invoice_service.save(invoice)
 
     period_start = date(2026, 1, 1)
     period_end = date(2026, 12, 31)
-    fa = FundingAssignment.objects.get(position=position)
-    assert fa.funding_source is not None
     requests_exports = export_fundingrequests_to_csv(
         _make_params(
             period_start,
             period_end,
             review_results=[ReviewResult.Approved],
-            funding_source=FundingSourceId(fa.funding_source.pk),
+            funding_source=budget_1.id,
         )
     )
 
@@ -725,10 +670,7 @@ def test__funding_request_with_contract_filter__export_to_csv__returns_only_matc
 def test__shared_invoice_across_multiple_publications__export_to_csv__does_not_duplicate_rows() -> (
     None
 ):
-    shared_invoice = modelfactory.invoice()
-    shared_invoice.number = "W-2024-01147-B"
-    shared_invoice.date = date(2025, 2, 24)
-    shared_invoice.save()
+    creditor_id = CreditorId(modelfactory.creditor().pk)
 
     titles = [
         "Shared Invoice Pub 1",
@@ -737,20 +679,19 @@ def test__shared_invoice_across_multiple_publications__export_to_csv__does_not_d
         "Shared Invoice Pub 4",
     ]
 
+    positions = []
     for idx, title in enumerate(titles, start=1):
         fr = modelfactory.fundingrequest(title=title)
         fr.request_date = date(2025, 2, idx)
         fr.save()
 
-        Position.objects.create(
-            invoice=shared_invoice,
-            publication=fr.publication,
-            description=f"Position {idx}",
-            cost_amount=Decimal("100.00"),
-            cost_currency="EUR",
-            cost_type="gold-oa",
-            tax_rate=Decimal("0.19"),
+        position = domainfactory.publication_position(
+            PublicationId(fr.publication.id), currency=Currency.EUR
         )
+        positions.append(position)
+
+    shared_invoice = domainfactory.invoice(creditor=creditor_id, positions=positions)
+    shared_invoice.id = invoice_service.save(shared_invoice)
 
     requests_exports = export_fundingrequests_to_csv(
         _make_params(
@@ -760,7 +701,7 @@ def test__shared_invoice_across_multiple_publications__export_to_csv__does_not_d
     )
 
     df = pl.read_csv(StringIO(requests_exports), separator=";")
-    shared_invoice_rows = df.filter(pl.col("invoice_number") == "W-2024-01147-B")
+    shared_invoice_rows = df.filter(pl.col("invoice_number") == str(shared_invoice.number))
 
     assert shared_invoice_rows.height == 4
 
