@@ -1,16 +1,11 @@
 {% load getlist %}
-<details class="dropdown">
-    <summary>Publication State</summary>
-    <ul class="undecorated">
-        {% for value, label in publication_states %}
-            <li>
-                <input type="checkbox"
-                       id="publication-state-{{ value }}"
-                       name="publication_states"
-                       value="{{ value }}"
-                       {% if value in request.GET|getlist:"publication_states" %}checked{% endif %}>
-                <label for="publication-state-{{ value }}">{{ label }}</label>
-            </li>
-        {% endfor %}
-    </ul>
-</details>
+<div class="form-row">
+    <label for="id_publication_states">Publication State</label>
+    <search-select-multi name="publication_states" class="w-100" id="id_publication_states">
+    {% for value, label in publication_states %}
+        <option slot="options"
+                value="{{ value }}"
+                {% if value in request.GET|getlist:"publication_states" %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+    </search-select-multi>
+</div>

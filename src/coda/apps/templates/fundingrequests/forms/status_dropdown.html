@@ -1,16 +1,11 @@
 {% load getlist %}
-<details class="dropdown">
-    <summary>Processing Status</summary>
-    <ul class="undecorated">
-        {% for status in processing_states %}
-            <li>
-                <input type="checkbox"
-                       id="status-{{ status }}"
-                       name="processing_status"
-                       value="{{ status }}"
-                       {% if status in request.GET|getlist:"processing_status" %}checked{% endif %}>
-                <label for="status-{{ status }}">{{ status }}</label>
-            </li>
-        {% endfor %}
-    </ul>
-</details>
+<div class="form-row">
+    <label for="id_processing_status">Processing Status</label>
+    <search-select-multi name="processing_status" class="w-100" id="id_processing_status">
+    {% for status in processing_states %}
+        <option slot="options"
+                value="{{ status }}"
+                {% if status in request.GET|getlist:"processing_status" %}selected{% endif %}>{{ status }}</option>
+    {% endfor %}
+    </search-select-multi>
+</div>
