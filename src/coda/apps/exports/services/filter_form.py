@@ -8,9 +8,9 @@ from django.http import QueryDict
 
 from coda.apps.contracts.models import Contract
 from coda.apps.exports.services.filter_display import (
-    FIELD_LABELS,
     MULTI_VALUE_FILTER_FIELDS,
     SINGLE_VALUE_FILTER_FIELDS,
+    filter_field_label,
     publication_state_choices,
 )
 from coda.apps.fundingrequests.models import Label
@@ -21,6 +21,7 @@ from coda.apps.fundingrequests.fundingrequest_query import (
 )
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import DecimalSeparator
 from coda.domain.publication import OpenAccessType
 
 
@@ -34,8 +35,10 @@ class FundingRequestFilterForm(forms.Form):
     title = forms.CharField(required=False, max_length=255)
     period_start = forms.DateField(input_formats=("%Y-%m-%d",))
     period_end = forms.DateField(input_formats=("%Y-%m-%d",))
-    decimal_separator = forms.ChoiceField(
-        choices=[(".", ". (English/ISO)"), (",", ", (e.g. German)")],
+    decimal_separator = forms.TypedChoiceField(
+        coerce=DecimalSeparator,
+        choices=[(member.value, member.display) for member in DecimalSeparator],
+        empty_value=None,
         required=False,
     )
     search_term = forms.CharField(required=False)
@@ -87,7 +90,7 @@ class FilterCleanedData(TypedDict):
     title: str
     period_start: date
     period_end: date
-    decimal_separator: str
+    decimal_separator: DecimalSeparator | None
     search_term: str
     processing_status: list[ReviewResult]
     payment_status: list[FundingRequestPaymentStatus]
@@ -99,53 +102,6 @@ class FilterCleanedData(TypedDict):
     exclude_labels: QuerySet[Label]
     funding_source: FundingSource | None
     contract_name: Contract | None
-
-
-def _put_multi(filters: dict[str, str], key: str, values: list[str]) -> None:
-    if values:
-        filters[key] = ",".join(values)
-
-
-def build_filters_from_cleaned_data(data: FilterCleanedData) -> dict[str, str]:
-    """Serialize form cleaned_data into the persisted raw filter dict format.
-
-    Keeps the historical format: ISO date strings, comma-joined multi values,
-    optional keys omitted when empty.
-    """
-    filters: dict[str, str] = {
-        "period_start": data["period_start"].isoformat(),
-        "period_end": data["period_end"].isoformat(),
-    }
-
-    search_term = data["search_term"]
-    if search_term:
-        filters["search_term"] = search_term
-
-    decimal_separator = data["decimal_separator"]
-    if decimal_separator:
-        filters["decimal_separator"] = decimal_separator
-
-    publication_type = data["publication_type"]
-    if publication_type:
-        filters["publication_type"] = publication_type
-
-    contract = data["contract_name"]
-    if contract:
-        filters["contract_name"] = str(contract.pk)
-
-    funding_source = data["funding_source"]
-    if funding_source:
-        filters["funding_source"] = str(funding_source.pk)
-
-    _put_multi(filters, "processing_status", [m.value for m in data["processing_status"]])
-    _put_multi(filters, "payment_status", [m.value for m in data["payment_status"]])
-    _put_multi(filters, "payment_methods", [m.value for m in data["payment_methods"]])
-    _put_multi(filters, "open_access_type", [m.value for m in data["open_access_type"]])
-    _put_multi(filters, "publication_states", list(data["publication_states"]))
-    _put_multi(filters, "labels", [str(label.pk) for label in data["labels"]])
-    _put_multi(filters, "exclude_labels", [str(label.pk) for label in data["exclude_labels"]])
-
-    return filters
 
 
 def current_filters_from_post(post: QueryDict) -> dict[str, str | list[str]]:
@@ -171,7 +127,7 @@ class FormFieldErrors:
 def form_error_lines(form: forms.Form) -> list[FormFieldErrors]:
     return [
         FormFieldErrors(
-            label=FIELD_LABELS.get(field, field),
+            label=filter_field_label(field),
             errors=[str(error) for error in errors],
         )
         for field, errors in form.errors.items()

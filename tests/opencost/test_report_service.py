@@ -59,8 +59,8 @@ def test__filters_provided__generate_report__persists_filters_on_report() -> Non
     report = generate_report(title="Test Report Filters", filters=filters)
 
     saved_report = OpenCostReport.objects.get(pk=report.pk)
-    assert saved_report.filters["payment_status"] == "paid,unpaid"
-    assert saved_report.filters["contract_name"] == "1"
+    assert saved_report.filters["payment_status"] == ["paid", "unpaid"]
+    assert saved_report.filters["contract_name"] == 1
 
 
 @pytest.mark.django_db

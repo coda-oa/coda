@@ -8,8 +8,8 @@ from coda.apps.exports.services.filter_display import build_applied_filters
     ("filters", "label"),
     [
         ({"processing_status": "approved"}, "Processing Status"),
-        ({"payment_methods": "grant"}, "Payment Methods"),
-        ({"open_access_type": "gold"}, "Open Access Type"),
+        ({"payment_methods": "direct"}, "Payment Methods"),
+        ({"open_access_type": "Gold"}, "Open Access Type"),
         ({"publication_states": "Published"}, "Publication States"),
         ({"labels": "999999"}, "Labels"),
         ({"exclude_labels": "999999"}, "Excluded Labels"),

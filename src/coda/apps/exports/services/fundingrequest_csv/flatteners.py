@@ -29,7 +29,6 @@ def flatten_detailed(dto: FundingRequestExportDto) -> list[dict[str, str]]:
 
     for invoice in dto.invoices:
         for position in invoice.positions:
-
             if not position.funding_assignments:
                 rows.append(
                     _create_row(
@@ -58,7 +57,6 @@ def flatten_detailed(dto: FundingRequestExportDto) -> list[dict[str, str]]:
 def _create_base_row(
     funding_request: FundingRequestImportDto,
 ) -> dict[str, str]:
-
     pub = funding_request.publication
     cost = funding_request.estimated_cost
     review = funding_request.review
@@ -116,7 +114,6 @@ def _create_row(
     assignment: FundingAssignmentImportDto | None = None,
     funded_amount: Decimal | None = None,
 ) -> dict[str, str]:
-
     row = _create_base_row(funding_request)
 
     row.update(

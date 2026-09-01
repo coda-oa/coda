@@ -180,7 +180,6 @@ def create_invoice_with_currency_conversion(
 
 
 def create_invoice_with_mixed_positions(funding_request: FundingRequest) -> "Invoice":
-
     publication_position = domainfactory.publication_position(
         PublicationId(funding_request.publication.id)
     )

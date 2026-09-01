@@ -244,9 +244,9 @@ def test__query_with_prefetch__accessing_related_objects__does_not_trigger_addit
     # 7. Prefetch funding_assignments.funding_source
     # Should be around 7-10 queries total, NOT 3 * 2 * N separate queries
     query_count = len(context.captured_queries)
-    assert (
-        query_count < 25
-    ), f"Too many queries: {query_count}. Prefetch may not be working correctly."
+    assert query_count < 25, (
+        f"Too many queries: {query_count}. Prefetch may not be working correctly."
+    )
 
 
 @pytest.mark.django_db
@@ -280,15 +280,15 @@ def test__funding_request_with_orphaned_concept__get_concept_id_lookup__omits_un
 
 def _create_three_fundingrequests_for_performance_check() -> None:
     for i in range(3):
-        fr = modelfactory.fundingrequest(title=f"FR {i+1}")
+        fr = modelfactory.fundingrequest(title=f"FR {i + 1}")
         fr.request_date = date(2026, 3, 5 + i)
         fr.save()
-        creditor = modelfactory.creditor(name=f"Creditor {i+1}")
+        creditor = modelfactory.creditor(name=f"Creditor {i + 1}")
 
         positions = []
         for j in range(2):
             position = domainfactory.publication_position(PublicationId(fr.publication.id))
-            budget_model = modelfactory.budget(name=f"Budget {i+1}-{j+1}")
+            budget_model = modelfactory.budget(name=f"Budget {i + 1}-{j + 1}")
             funding_source = domainfactory.budget(FundingSourceId(budget_model.pk))
             position.assign_remaining(funding_source)
             positions.append(position)

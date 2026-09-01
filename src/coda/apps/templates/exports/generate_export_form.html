@@ -50,14 +50,12 @@
                 <div class="form-row">
                     <label for="decimal_separator">Money decimal separator (Excel)</label>
                     <select id="decimal_separator" name="decimal_separator">
-                        <option value="."
-                                {% if current_filters.decimal_separator == "," %}{% else %} selected{% endif %}>
-                            . (English/ISO)
-                        </option>
-                        <option value=","
-                                {% if current_filters.decimal_separator == "," %}selected{% endif %}>
-                            , (e.g. German)
-                        </option>
+                        {% for value, label in decimal_separator_choices %}
+                            <option value="{{ value }}"
+                                    {% if current_filters.decimal_separator == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
                     </select>
                 </div>
             {% endif %}

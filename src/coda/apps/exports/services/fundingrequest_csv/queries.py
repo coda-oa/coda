@@ -14,7 +14,6 @@ type LabelId = int
 def get_funding_requests_for_export(
     params: fundingrequest_query.FundingRequestSearchParams,
 ) -> QuerySet[FundingRequest]:
-
     criteria = fundingrequest_query.build_criteria(params)
     qs = fundingrequest_query.search(*criteria)
 

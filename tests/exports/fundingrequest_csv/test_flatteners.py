@@ -25,18 +25,18 @@ def assert_all_rows_have_same_value(
     rows: list[dict[str, str]], field: str, expected_value: str
 ) -> None:
     actual_values = [row[field] for row in rows]
-    assert actual_values == [expected_value] * len(
-        rows
-    ), f"Expected all rows to have {field}={expected_value}, but got: {actual_values}"
+    assert actual_values == [expected_value] * len(rows), (
+        f"Expected all rows to have {field}={expected_value}, but got: {actual_values}"
+    )
 
 
 def assert_all_rows_have_same_decimal_value(
     rows: list[dict[str, str]], field: str, expected_value: Decimal
 ) -> None:
     actual_values = [Decimal(row[field]) for row in rows]
-    assert actual_values == [expected_value] * len(
-        rows
-    ), f"Expected all rows to have {field}={expected_value}, but got: {actual_values}"
+    assert actual_values == [expected_value] * len(rows), (
+        f"Expected all rows to have {field}={expected_value}, but got: {actual_values}"
+    )
 
 
 @pytest.mark.django_db

@@ -5,19 +5,20 @@ from typing import cast
 from coda.apps.exports.services.filter_form import (
     FilterCleanedData,
     FundingRequestFilterForm,
-    build_filters_from_cleaned_data,
     form_error_lines,
 )
 from coda.apps.fundingrequests.fundingrequest_query import (
     PaymentStatus as FundingRequestPaymentStatus,
 )
 from coda.apps.invoices import funding_source_repository
+from coda.contexts.exports.dto.filters import ExportFiltersDto
 from coda.contexts.fundingrequest.services.labels import label_create
 from coda.domain.author import InstitutionId
 from coda.domain.color import Color
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import DecimalSeparator
 from coda.domain.publication import OpenAccessType
 from tests import domainfactory, modelfactory
 
@@ -51,10 +52,17 @@ def test__invalid_decimal_separator__validating__is_invalid() -> None:
     assert "decimal_separator" in form.errors
 
 
-def test__post_without_decimal_separator__validating__cleans_to_empty_string() -> None:
+def test__post_without_decimal_separator__validating__cleans_to_none() -> None:
     form = FundingRequestFilterForm(_valid_base())
     assert form.is_valid()
-    assert form.cleaned_data["decimal_separator"] == ""
+    assert form.cleaned_data["decimal_separator"] is None
+
+
+def test__valid_decimal_separator__validating__coerces_to_enum() -> None:
+    data = {**_valid_base(), "decimal_separator": ","}
+    form = FundingRequestFilterForm(data)
+    assert form.is_valid()
+    assert form.cleaned_data["decimal_separator"] is DecimalSeparator.German
 
 
 def test__post_with_search_term__validating__keeps_search_term_in_cleaned_data() -> None:
@@ -234,21 +242,25 @@ def test__fully_filled_valid_form__serializing__matches_persisted_filter_format(
         }
     )
     assert form.is_valid()
-    assert build_filters_from_cleaned_data(cast(FilterCleanedData, form.cleaned_data)) == {
+    assert ExportFiltersDto.from_form_data(
+        cast(FilterCleanedData, form.cleaned_data)
+    ).to_storage() == {
         "period_start": "2026-01-01",
         "period_end": "2026-03-31",
         "decimal_separator": ",",
         "search_term": "hello",
-        "processing_status": f"{ReviewResult.Approved.value},{ReviewResult.Rejected.value}",
-        "labels": str(label.pk),
-        "contract_name": str(contract.pk),
+        "processing_status": [ReviewResult.Approved.value, ReviewResult.Rejected.value],
+        "labels": [label.pk],
+        "contract_name": contract.pk,
     }
 
 
 def test__valid_form_with_only_period_dates__serializing__omits_empty_optionals() -> None:
     form = FundingRequestFilterForm(_valid_base())
     assert form.is_valid()
-    assert build_filters_from_cleaned_data(cast(FilterCleanedData, form.cleaned_data)) == {
+    assert ExportFiltersDto.from_form_data(
+        cast(FilterCleanedData, form.cleaned_data)
+    ).to_storage() == {
         "period_start": "2026-01-01",
         "period_end": "2026-01-31",
     }

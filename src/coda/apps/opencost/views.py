@@ -36,10 +36,10 @@ from coda.apps.exports.services.filter_form import (
     FilterCleanedData,
     FormFieldErrors,
     FundingRequestFilterForm,
-    build_filters_from_cleaned_data,
     current_filters_from_post,
     form_error_lines,
 )
+from coda.contexts.exports.dto.filters import ExportFiltersDto
 from coda.apps.opencost.validation import validate_report
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.views import SimpleSearchEntityListView
@@ -217,12 +217,12 @@ def generate_report(request: HttpRequest) -> HttpResponse:
 
     cleaned = cast(FilterCleanedData, form.cleaned_data)
     title = cleaned["title"].strip() or "OpenCost Report"
-    filters = build_filters_from_cleaned_data(cleaned)
+    dto = ExportFiltersDto.from_form_data(cleaned)
 
     try:
         report = generate_report_service(
             title=title,
-            filters=filters,
+            filters=dto.to_storage(),
         )
     except Exception as e:
         messages.error(request, f"Error generating report: {str(e)}")
