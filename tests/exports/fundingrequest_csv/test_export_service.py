@@ -366,25 +366,11 @@ def test__funding_request_with_affiliated_corresponding_author__export_to_csv__i
     funding_request.request_date = date(2026, 5, 1)
     funding_request.save()
 
-    position = invoice_positions.create(
-        item=PublicationItem(
-            PublicationId(funding_request.publication.id),
-            cost_type=PublicationCostType("gold-oa"),
-        ),
-        cost=Money(Decimal("1500.00"), Currency.EUR),
-        tax_rate=TaxRate.from_percentage(19),
-    )
+    create_invoice_with_publication_position(funding_request)
 
-    invoice = domainfactory.invoice(
-        creditor=CreditorId(modelfactory.creditor().pk), positions=[position]
-    )
-    invoice.id = invoice_service.save(invoice)
+    csv_content = export_fundingrequests_to_csv(_make_params(date(2026, 1, 1), date(2026, 12, 31)))
 
-    period_start = date(2026, 1, 1)
-    period_end = date(2026, 12, 31)
-    requests_exports = export_fundingrequests_to_csv(_make_params(period_start, period_end))
-
-    df = pl.read_csv(StringIO(requests_exports), separator=";")
+    df = pl.read_csv(StringIO(csv_content), separator=";")
     assert df.height == 1
     assert df["publication_title"][0] == funding_request.publication.title
     assert df["corresponding_author"][0] == corresponding.name
@@ -447,24 +433,11 @@ def test__funding_request_with_review_result__export_to_csv__includes_review_res
         )
     )
 
-    position = invoice_positions.create(
-        item=PublicationItem(
-            PublicationId(funding_request.publication.id),
-            cost_type=PublicationCostType("gold-oa"),
-        ),
-        cost=Money(Decimal("1500.00"), Currency.EUR),
-        tax_rate=TaxRate.from_percentage(19),
-    )
-    invoice = domainfactory.invoice(
-        creditor=CreditorId(modelfactory.creditor().pk), positions=[position]
-    )
-    invoice.id = invoice_service.save(invoice)
+    create_invoice_with_publication_position(funding_request)
 
-    period_start = date(2026, 1, 1)
-    period_end = date(2026, 12, 31)
-    requests_exports = export_fundingrequests_to_csv(_make_params(period_start, period_end))
+    csv_content = export_fundingrequests_to_csv(_make_params(date(2026, 1, 1), date(2026, 12, 31)))
 
-    df = pl.read_csv(StringIO(requests_exports), separator=";")
+    df = pl.read_csv(StringIO(csv_content), separator=";")
     assert df.height == 1
 
     assert df["publication_title"][0] == "Reviewed Publication"
