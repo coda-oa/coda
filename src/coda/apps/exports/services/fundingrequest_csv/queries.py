@@ -31,6 +31,7 @@ def get_funding_requests_for_export(
                 queryset=Invoice.objects.select_related("creditor").prefetch_related(
                     "currency_conversions",
                     "positions__funding_assignments__funding_source",
+                    "positions__funding_assignments__funding_source__institution",
                     "positions__publication",
                     "positions__contract",
                 ),
@@ -40,6 +41,7 @@ def get_funding_requests_for_export(
             "publication__position_set__invoice__positions",
             "publication__position_set__invoice__positions__funding_assignments",
             "publication__position_set__invoice__positions__funding_assignments__funding_source",
+            "publication__position_set__invoice__positions__funding_assignments__funding_source__institution",
             "publication__relevant_authors",
             "publication__relevant_authors__identifier",
             "publication__relevant_authors__affiliation",

@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from coda.apps.exports.services.fundingrequest_csv.dtos import FundingRequestExportDto
 
 from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.invoices.models import Invoice, Position, FundingAssignment
+from coda.apps.invoices.models import Invoice, Position, FundingAssignment, FundingSource
 from coda.contexts.fundingrequest.dto.import_dtos import (
     AuthorImportDto,
     ContractImportDto,
@@ -327,9 +327,18 @@ def _map_funding_assignment_to_dto(assignment: FundingAssignment) -> FundingAssi
 
     return FundingAssignmentImportDto(
         type=funding_source.type if funding_source else "budget",
-        name=funding_source.name if funding_source else "",
+        name=_funding_source_display_name(funding_source),
         amount=assignment.amount,
     )
+
+
+def _funding_source_display_name(funding_source: FundingSource | None) -> str:
+    if funding_source is None:
+        return ""
+    institution = funding_source.institution
+    if funding_source.type == "institution" and institution is not None:
+        return institution.name
+    return funding_source.name
 
 
 def map_funding_request_to_export_dto(
@@ -340,21 +349,8 @@ def map_funding_request_to_export_dto(
 
     funding_request_dto = map_funding_request_to_dto(funding_request, concept_ids)
 
-    invoices = get_invoices_for_request(funding_request)
-
-    if funding_source:
-        invoices = [
-            i
-            for i in invoices
-            if any(
-                fa.funding_source_id == funding_source
-                for p in i.positions.all()
-                for fa in p.funding_assignments.all()
-            )
-        ]
-
     invoice_dtos = []
-    for invoice in invoices:
+    for invoice in get_invoices_for_request(funding_request):
         # Scope positions to the current funding request publication to avoid
         # cross-product duplication when one invoice references multiple publications.
         scoped_positions = [
@@ -362,11 +358,23 @@ def map_funding_request_to_export_dto(
             for pos in invoice.positions.all()
             if pos.publication_id == funding_request.publication_id
         ]
+        if not _has_funding_source(scoped_positions, funding_source):
+            continue
         invoice_dtos.append(map_invoice_to_dto(invoice, funding_request, scoped_positions))
 
     return FundingRequestExportDto(
         funding_request=funding_request_dto,
         invoices=invoice_dtos,
+    )
+
+
+def _has_funding_source(positions: list[Position], funding_source: FundingSourceId | None) -> bool:
+    if funding_source is None:
+        return True
+    return any(
+        assignment.funding_source_id == funding_source
+        for position in positions
+        for assignment in position.funding_assignments.all()
     )
 
 

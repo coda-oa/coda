@@ -8,7 +8,7 @@ import polars as pl
 from coda.apps.exports.services.fundingrequest_csv.export_service import (
     export_fundingrequests_to_csv,
 )
-from coda.apps.invoices.models import FundingAssignment, Position
+from coda.apps.invoices.models import FundingAssignment, FundingSource, Position
 from coda.apps.publications.models import AttachedContract
 from coda.domain.finance.invoice import FundingSourceId
 from tests import modelfactory
@@ -299,6 +299,51 @@ def test__funding_request_with_invoice_position_with_multiple_funding_assignment
     assert df["invoice_number"][1] == "INV-002"
     assert Decimal(df["funded_amount"][1]) == Decimal("800.00")
     assert df["funding_source_name"][1] == "Budget 2"
+
+
+@pytest.mark.django_db
+def test__funding_request_with_institution_funding_source__export_to_csv__institution_name_is_used() -> (
+    None
+):
+    # ARRANGE
+    funding_request = modelfactory.fundingrequest(title="Institution Split Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+
+    invoice = modelfactory.invoice()
+    invoice.number = "INV-007"
+    invoice.date = date(2026, 5, 1)
+    invoice.save()
+
+    position = Position.objects.create(
+        invoice=invoice,
+        publication=funding_request.publication,
+        description="Publication charge",
+        cost_amount=Decimal("1000.00"),
+        cost_currency="EUR",
+        cost_type="gold-oa",
+        tax_rate=Decimal("0.19"),
+        external_position_id="POS-007",
+    )
+
+    institution = modelfactory.institution()
+    institution_source = FundingSource.objects.create(
+        type="institution", name="", institution=institution
+    )
+    FundingAssignment.objects.create(
+        position=position,
+        funding_source=institution_source,
+        amount=Decimal("1000.00"),
+    )
+
+    period_start = date(2026, 1, 1)
+    period_end = date(2026, 12, 31)
+    requests_exports = export_fundingrequests_to_csv(_make_params(period_start, period_end))
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+    assert df.height == 1
+    assert df["funding_source_type"][0] == "institution"
+    assert df["funding_source_name"][0] == institution.name
 
 
 @pytest.mark.django_db
