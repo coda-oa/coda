@@ -66,7 +66,6 @@ def _create_base_row(
     pub_state = _get_publishing_state_dates(pub.publishing_state)
     review_info = _get_review_info(review)
     cost_info = _get_cost_info(cost)
-    funding_info = _get_research_funding(funding_request.research_funding)
     identifiers = _get_identifiers(pub.links)
 
     return {
@@ -98,9 +97,7 @@ def _create_base_row(
         "decided_funding_amount": review_info.decided_amount,
         "decided_funding_currency": review_info.decided_currency,
         "labels": "; ".join(funding_request.labels),
-        "project_id": funding_info.project_id,
-        "project_name": funding_info.project_name,
-        "funding_organization": funding_info.funder,
+        "external_funding": _format_external_funding(funding_request.research_funding),
         "contract_name": _format_contract_names(funding_request),
         "contract_year": _format_contract_years(funding_request),
         "request_id": funding_request.request_id or "",
@@ -257,23 +254,35 @@ def _get_cost_info(estimated_cost: CostEstimateImportDto) -> CostInfo:
     return CostInfo(amount=amount_str, currency=currency, payment_method=payment_str)
 
 
-@dataclass(frozen=True)
-class ResearchFundingInfo:
-    project_id: str
-    project_name: str
-    funder: str
+def _format_external_funding(research_funding: list[ResearchFundingImportDto]) -> str:
+    """Flatten all external funding entries into one string.
 
-
-def _get_research_funding(research_funding: list[ResearchFundingImportDto]) -> ResearchFundingInfo:
-    """Return ResearchFundingInfo from first research funding entry."""
-    if not research_funding:
-        return ResearchFundingInfo(project_id="", project_name="", funder="")
-    rf = research_funding[0]
-    return ResearchFundingInfo(
-        project_id=getattr(rf, "project_id", "") or "",
-        project_name=getattr(rf, "project_name", "") or "",
-        funder=getattr(rf, "funder", "") or "",
+    Entries are expected in query order (org name, project id, project name),
+    see get_funding_requests_for_export.
+    Example: 'BMBF (456 – Cancer Research) | DFG (123 – Awesome Project)'
+    """
+    return " | ".join(
+        _format_funding_entry(rf)
+        for rf in research_funding
+        if (
+            getattr(rf, "funder", "")
+            or getattr(rf, "project_id", "")
+            or getattr(rf, "project_name", "")
+        )
     )
+
+
+def _format_funding_entry(rf: ResearchFundingImportDto) -> str:
+    funder = getattr(rf, "funder", "") or ""
+    details = [
+        part
+        for part in (getattr(rf, "project_id", "") or "", getattr(rf, "project_name", "") or "")
+        if part
+    ]
+    if not details:
+        return funder
+    detail = " – ".join(details)
+    return f"{funder} ({detail})" if funder else f"({detail})"
 
 
 @dataclass(frozen=True)

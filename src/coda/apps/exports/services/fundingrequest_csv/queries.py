@@ -2,9 +2,10 @@ import uuid
 from collections.abc import Iterable
 
 from django.db.models import Prefetch, QuerySet
+from django.db.models.functions import Lower
 
 from coda.apps.fundingrequests import fundingrequest_query
-from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.fundingrequests.models import ExternalFunding, FundingRequest
 from coda.apps.invoices.models import FundingAssignment, Invoice
 from coda.apps.publications.models import Concept
 
@@ -51,8 +52,12 @@ def get_funding_requests_for_export(
             "publication__publication_type",
             "publication__publication_type__vocabulary",
             "labels",
-            "external_funding",
-            "external_funding__organization",
+            Prefetch(
+                "external_funding",
+                queryset=ExternalFunding.objects.select_related("organization").order_by(
+                    Lower("organization__name"), "project_id", "project_name"
+                ),
+            ),
             Prefetch(
                 "publication__position_set__funding_assignments",
                 queryset=FundingAssignment.objects.select_related("funding_source"),

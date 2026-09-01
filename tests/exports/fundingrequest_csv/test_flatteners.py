@@ -1,8 +1,10 @@
 # tests/exports/fundingrequest_csv/test_flatteners.py
 
 import pytest
+from datetime import date
 from decimal import Decimal
 
+from coda.apps.exports.services.fundingrequest_csv import queries
 from coda.apps.exports.services.fundingrequest_csv.flatteners import flatten_detailed
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_funding_request_to_export_dto
 from coda.contexts.finance.services import invoice_service
@@ -16,6 +18,7 @@ from coda.domain.money import Currency, Money
 from coda.domain.publication.publication import PublicationId
 from tests import domainfactory, modelfactory
 from tests.exports.fundingrequest_csv.helpers import (
+    _make_params,
     create_funding_request,
     create_invoice_with_publication_position,
 )
@@ -152,11 +155,42 @@ def test__missing_optional_fields__flatten_to_csv__handles_none_values() -> None
     row = rows[0]
 
     assert row["labels"] == ""
-    assert row["project_id"] == ""
-    assert row["project_name"] == ""
-    assert row["funding_organization"] == ""
+    assert row["external_funding"] == ""
     assert row["funding_source_name"] == ""
     assert row["funding_source_type"] == ""
 
     assert row["publication_title"] == "Minimal Publication"
     assert Decimal(row["position_amount"]) == invoice_position.cost.amount
+
+
+@pytest.mark.django_db
+def test__funding_request_with_multiple_external_fundings__flatten_to_csv__flattens_all_fundings_sorted() -> (
+    None
+):
+    funding_request = create_funding_request(title="Multi-Funder Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+    funding_request.external_funding.all().delete()
+
+    dfg = modelfactory.funding_organization(name="DFG")
+    bmbf = modelfactory.funding_organization(name="BMBF")
+
+    dfg_funding = modelfactory.external_funding(dfg.pk)
+    bmbf_funding = modelfactory.external_funding(bmbf.pk)
+    for external_funding in (dfg_funding, bmbf_funding):
+        external_funding.funding_request = funding_request
+        external_funding.save()
+
+    exported_requests = queries.get_funding_requests_for_export(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31))
+    )
+    request_for_export = next(r for r in exported_requests if r.id == funding_request.id)
+
+    export_dto = map_funding_request_to_export_dto(request_for_export)
+    rows = flatten_detailed(export_dto)
+
+    expected = (
+        f"BMBF ({bmbf_funding.project_id} – {bmbf_funding.project_name})"
+        f" | DFG ({dfg_funding.project_id} – {dfg_funding.project_name})"
+    )
+    assert_all_rows_have_same_value(rows, "external_funding", expected)
