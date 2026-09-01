@@ -8,10 +8,13 @@ import polars as pl
 from coda.apps.exports.services.fundingrequest_csv.export_service import (
     export_fundingrequests_to_csv,
 )
+from coda.apps.invoices import funding_source_repository
 from coda.apps.invoices.models import FundingAssignment, FundingSource, Position
 from coda.apps.publications.models import AttachedContract
-from coda.domain.finance.invoice import FundingSourceId
-from tests import modelfactory
+from coda.contexts.finance.services import invoice_service
+from coda.domain.finance.invoice import CreditorId, FundingSourceId
+from coda.domain.publication.publication import PublicationId
+from tests import domainfactory, modelfactory
 from coda.domain.fundingrequest.review import ReviewResult, Review
 from coda.domain.money import Money, Currency
 from coda.domain.fundingrequest import FundingRequestId
@@ -488,6 +491,73 @@ def test__funding_request_with_invoice_filters_funding_source__export_to_csv__re
     df = pl.read_csv(StringIO(requests_exports), separator=";")
     assert df.height == 1
     assert df["funding_source_name"][0] == "Budget Name"
+
+
+@pytest.mark.django_db
+def test__shared_invoice_filtering_by_funding_source__export_to_csv__only_considers_own_publication_positions() -> (
+    None
+):
+    # ARRANGE
+    # Request B finances its own position with source X (passes the criteria filter).
+    # The shared invoice carries X only on publication C's position, not on B's or A's.
+    funding_request_b = modelfactory.fundingrequest(title="Filter B Own Publication")
+    funding_request_b.request_date = date(2026, 5, 1)
+    funding_request_b.save()
+
+    funding_request_a = modelfactory.fundingrequest(title="Filter A Unfunded Publication")
+    funding_request_a.request_date = date(2026, 5, 1)
+    funding_request_a.save()
+
+    funding_request_c = modelfactory.fundingrequest(title="Filter C Shared Publication")
+    funding_request_c.request_date = date(2026, 5, 1)
+    funding_request_c.save()
+
+    funding_source_x = domainfactory.budget()
+    funding_source_x.id = funding_source_repository.create(funding_source_x)
+    creditor_id = CreditorId(modelfactory.creditor().pk)
+
+    position_a = domainfactory.publication_position(
+        PublicationId(funding_request_a.publication.id), currency=Currency.EUR
+    )
+    position_c = domainfactory.publication_position(
+        PublicationId(funding_request_c.publication.id), currency=Currency.EUR
+    )
+    position_c.assign_funding(funding_source_x, position_c.cost.amount)
+    shared_invoice = domainfactory.invoice(
+        creditor=creditor_id,
+        positions=[position_a, position_c],
+    )
+    shared_invoice.id = invoice_service.save(shared_invoice)
+
+    position_b = domainfactory.publication_position(
+        PublicationId(funding_request_b.publication.id), currency=Currency.EUR
+    )
+    position_b.assign_funding(funding_source_x, position_b.cost.amount)
+    private_invoice = domainfactory.invoice(
+        creditor=creditor_id,
+        positions=[position_b],
+    )
+    private_invoice.id = invoice_service.save(private_invoice)
+
+    period_start = date(2026, 1, 1)
+    period_end = date(2026, 12, 31)
+    requests_exports = export_fundingrequests_to_csv(
+        _make_params(period_start, period_end, funding_source=funding_source_x.id)
+    )
+
+    df = pl.read_csv(StringIO(requests_exports), separator=";")
+
+    rows = set(zip(df["publication_title"], df["invoice_number"]))
+
+    # B's own invoice and C's own invoice are exported...
+    assert ("Filter B Own Publication", str(private_invoice.number)) in rows
+    assert ("Filter C Shared Publication", str(shared_invoice.number)) in rows
+    # ...but the shared invoice must not be exported for B just because a
+    # foreign publication's position on it carries the filtered funding source.
+    assert ("Filter B Own Publication", str(shared_invoice.number)) not in rows
+    # A is filtered out entirely: none of its own positions carry source X.
+    assert ("Filter A Unfunded Publication", str(shared_invoice.number)) not in rows
+    assert df.height == 2
 
 
 @pytest.mark.django_db

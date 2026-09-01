@@ -3,7 +3,13 @@ import datetime
 
 from coda.apps.exports.services.fundingrequest_csv.mappers import (
     map_funding_request_to_dto,
+    map_funding_request_to_export_dto,
 )
+from coda.apps.invoices import funding_source_repository
+from coda.contexts.finance.services import invoice_service
+from coda.domain.finance.invoice import CreditorId
+from coda.domain.money import Currency
+from coda.domain.publication.publication import PublicationId
 
 from tests import domainfactory, modelfactory
 
@@ -308,3 +314,52 @@ def test__funding_request_with_license_and_publishing_state__maps_to_dto__all_fi
     assert dto.publication.publishing_state.state == "published"
     assert dto.publication.publishing_state.online_date == datetime.date(2024, 6, 15)
     assert dto.publication.publishing_state.print_date == datetime.date(2024, 7, 1)
+
+
+@pytest.mark.django_db
+def test__funding_source_display_names__mapped_to_export_dto__institution_and_budget_names_are_used() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(title="Funding Source Display Publication")
+
+    institution = modelfactory.institution()
+    institution.name = "Test University"
+    institution.save()
+    institution_source = domainfactory.split_source(
+        InstitutionId(institution.pk), "Test University"
+    )
+    budget_source = domainfactory.budget()
+    institution_source.id = funding_source_repository.create(institution_source)
+    budget_source.id = funding_source_repository.create(budget_source)
+
+    budget_position = domainfactory.publication_position(
+        PublicationId(funding_request.publication.id), currency=Currency.EUR
+    )
+    budget_position.assign_funding(budget_source, budget_position.cost.amount)
+
+    institution_position = domainfactory.publication_position(
+        PublicationId(funding_request.publication.id), currency=Currency.EUR
+    )
+    institution_position.assign_funding(institution_source, institution_position.cost.amount)
+
+    unfunded_position = domainfactory.publication_position(
+        PublicationId(funding_request.publication.id), currency=Currency.EUR
+    )
+    unfunded_position.assign_funding(None, unfunded_position.cost.amount)
+
+    invoice = domainfactory.invoice(
+        creditor=CreditorId(modelfactory.creditor().pk),
+        positions=[budget_position, institution_position, unfunded_position],
+    )
+    invoice.id = invoice_service.save(invoice)
+
+    dto = map_funding_request_to_export_dto(funding_request)
+
+    names = [
+        assignment.name
+        for invoice_dto in dto.invoices
+        for position in invoice_dto.positions
+        for assignment in position.funding_assignments
+    ]
+
+    assert sorted(names) == sorted([budget_source.name, institution.name, ""])
