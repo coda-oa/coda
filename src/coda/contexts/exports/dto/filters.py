@@ -82,6 +82,7 @@ class ExportFiltersDto(CodaBaseDto):
         title="Contracts",
         validation_alias=AliasChoices("contract_name", "contract"),
     )
+    contract_year: int | None = Field(default=None, title="Contract Year")
     funding_source: FundingSourceId | None = Field(default=None, title="Funding Source")
     decimal_separator: DecimalSeparator | None = Field(default=None, title="Decimal Separator")
     search_term: str | None = Field(default=None, title="Search Term")
@@ -110,6 +111,7 @@ class ExportFiltersDto(CodaBaseDto):
                 FundingSourceId(funding_source.pk) if funding_source is not None else None
             ),
             contract_name=contract.pk if contract is not None else None,
+            contract_year=data["contract_year"],
             decimal_separator=data["decimal_separator"],
             search_term=data["search_term"] or None,
         )
@@ -143,5 +145,6 @@ class ExportFiltersDto(CodaBaseDto):
             search_term=self.search_term or "",
             contract_id=self.contract_name,
             funding_source=self.funding_source,
+            contract_year=self.contract_year,
             decimal_separator=self.decimal_separator.value if self.decimal_separator else ".",
         )

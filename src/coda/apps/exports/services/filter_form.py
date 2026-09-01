@@ -77,6 +77,7 @@ class FundingRequestFilterForm(forms.Form):
         queryset=FundingSource.objects.filter(type="budget"), required=False
     )
     contract_name = forms.ModelChoiceField(queryset=Contract.objects.all(), required=False)
+    contract_year = forms.IntegerField(required=False)
 
 
 class FilterCleanedData(TypedDict):
@@ -102,6 +103,7 @@ class FilterCleanedData(TypedDict):
     exclude_labels: QuerySet[Label]
     funding_source: FundingSource | None
     contract_name: Contract | None
+    contract_year: int | None
 
 
 def current_filters_from_post(post: QueryDict) -> dict[str, str | list[str]]:

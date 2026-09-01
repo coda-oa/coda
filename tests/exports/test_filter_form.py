@@ -193,6 +193,18 @@ def test__valid_contract_id__validating__coerces_to_contract_model() -> None:
     assert form.cleaned_data["contract_name"].pk == contract.pk
 
 
+def test__contract_year__validating__cleans_to_int() -> None:
+    form = FundingRequestFilterForm({**_valid_base(), "contract_year": "2024"})
+    assert form.is_valid()
+    assert form.cleaned_data["contract_year"] == 2024
+
+
+def test__non_numeric_contract_year__validating__is_invalid() -> None:
+    form = FundingRequestFilterForm({**_valid_base(), "contract_year": "abc"})
+    assert not form.is_valid()
+    assert "contract_year" in form.errors
+
+
 @pytest.mark.django_db
 def test__invalid_funding_source_id__validating__is_invalid() -> None:
     data = {**_valid_base(), "funding_source": "999999"}

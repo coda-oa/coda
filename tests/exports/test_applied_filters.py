@@ -18,6 +18,7 @@ from coda.apps.exports.services.filter_display import build_applied_filters
         ({"contract_name": "999999"}, "Contracts"),
         ({"funding_source": "999999"}, "Funding Source"),
         ({"decimal_separator": ","}, "Decimal Separator"),
+        ({"contract_year": "2024"}, "Contract Year"),
         ({"period_start": "2024-01-01", "period_end": "2024-12-31"}, "Period"),
     ],
 )

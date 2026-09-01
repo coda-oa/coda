@@ -150,7 +150,10 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
 
 def map_or_none[T](map_fn: Callable[[str], T], value: str | None) -> T | None:
     if value:
-        return map_fn(value)
+        try:
+            return map_fn(value)
+        except ValueError:
+            return None
 
     return None
 

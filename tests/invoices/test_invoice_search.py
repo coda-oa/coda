@@ -503,3 +503,14 @@ def test__fundingsource_list_view__multi_word_search__each_word_matches_independ
 
     assert response.status_code == 200
     assert "Alpha Beta Gamma" in response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize("contract_year", ["abc", "20.5"])
+def test__invoice_list_view__bad_contract_year_param__is_ignored_instead_of_500(
+    client: Client, contract_year: str
+) -> None:
+    response = client.get("/invoices/list/", {"contract_year": contract_year})
+
+    assert response.status_code == 200
