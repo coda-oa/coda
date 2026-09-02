@@ -162,6 +162,7 @@ class SearchSelect extends HTMLElement {
       } else if (e.key === "Enter") {
         this.searchBox.focus()
         this.searchResults.classList.remove("visible")
+        this.dispatchChangeEvent()
       } else if (e.key === "Escape") {
         this.searchBox.blur()
       } else {
@@ -176,6 +177,7 @@ class SearchSelect extends HTMLElement {
         this.setActiveElement(e.target, this.visibleItems.indexOf(e.target))
         this.setValueToActiveElementOrFirstMatch()
         this.searchResults.classList.remove("visible")
+        this.dispatchChangeEvent()
       }
     })
 
@@ -192,8 +194,13 @@ class SearchSelect extends HTMLElement {
     this.searchBox.addEventListener("change", () => {
       this.setValueToActiveElementOrFirstMatch()
       this.filterListItems()
+      this.dispatchChangeEvent()
     })
 
+  }
+
+  dispatchChangeEvent() {
+    this.dispatchEvent(new Event("change", { bubbles: true, composed: true }))
   }
 
   resetFilter() {

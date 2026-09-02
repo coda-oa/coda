@@ -180,6 +180,7 @@ class SearchSelectMulti extends HTMLElement {
             this.updateFormValue();
             this.clearSearchInput();
             this.hideDropdown();
+            this.dispatchChangeEvent();
         }
     }
 
@@ -188,6 +189,7 @@ class SearchSelectMulti extends HTMLElement {
         this.updateSelectedOptions();
         this.updateOriginalOptionElement(optionValue, false);
         this.updateFormValue();
+        this.dispatchChangeEvent();
     }
 
     updateOriginalOptionElement(optionValue, isSelected) {
@@ -285,6 +287,10 @@ class SearchSelectMulti extends HTMLElement {
         if (e.target.classList.contains('option')) {
             this.selectOption(e.target.textContent);
         }
+    }
+
+    dispatchChangeEvent() {
+        this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
     }
 
     updateFormValue() {
