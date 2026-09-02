@@ -1,7 +1,10 @@
-<div class="coda-label-pills" hx-boost="true">
+<div class="coda-label-pills">
     {% for pill in label_pills %}
         <a class="label pill label-filter-pill {{ pill.state }}"
            href="{{ pill.toggle_url }}"
+           hx-get="{{ pill.toggle_url }}"
+           hx-target="#fundingrequest-list"
+           hx-push-url="true"
            title="Toggle label filter"
            style="--label-bg-color: {{ pill.color }};
                   --label-border-color: {{ pill.color }}">{{ pill.name }}</a>
