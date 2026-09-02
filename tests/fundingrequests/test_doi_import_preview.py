@@ -324,6 +324,26 @@ def test_load_article_form_journal_search_requests_stripped_row_template(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test_load_monograph_form_publisher_search_requests_stripped_row_template(
+    client: Client, scenario: ArticleScenario
+) -> None:
+    """Publisher search must send the DOI row-template override.
+
+    Without it the search endpoint replies with wizard publisher rows whose
+    clear_publisher_error HTMX targets #publisher-error, which does not exist
+    in the DOI type-change modal.
+    """
+    response = submit_for_preview(client, scenario.doi.value())
+    session_key = get_session_key(response)
+
+    form_response = load_type_form(client, session_key, "monograph")
+
+    content = form_response.content.decode()
+    assert "fundingrequests/partials/doi_publisher_row.html" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test_load_monograph_form_shows_prefilled_publisher(
     client: Client, scenario: ArticleScenario
 ) -> None:
