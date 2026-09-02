@@ -392,12 +392,13 @@ def test_submit_type_change_article_without_journal_shows_inline_error(
     response = submit_for_preview(client, doi_str)
     session_key = get_session_key(response)
 
-    change_response = submit_type_change(client, session_key, "article")
+    change_response = submit_type_change(client, session_key, "article", journal_title="Nature")
 
     assert change_response.status_code == 200
     assert "HX-Redirect" not in change_response
     content = change_response.content.decode()
     assert "Please select a journal before applying." in content
+    assert 'value="Nature"' in content
     session_data = client.session[session_key]
     assert "journal_id" not in session_data
 
