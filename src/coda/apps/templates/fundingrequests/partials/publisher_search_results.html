@@ -1,17 +1,17 @@
-{# Context: publishers, search_term, row_template #}
+{# Context: publishers, search_term #}
 <div id="publisher-search-results" class="scroll-container max-h-30">
     {% if publishers %}
         <table>
             <thead>
-            <tr>
-                <th>Name</th>
-                <th>Select</th>
-            </tr>
+                <tr>
+                    <th>Name</th>
+                    <th>Select</th>
+                </tr>
             </thead>
             <tbody>
-            {% for publisher in publishers %}
-                {% include row_template|default:"fundingrequests/partials/publisher_row.html" %}
-            {% endfor %}
+                {% for publisher in publishers %}
+                    {% include "fundingrequests/partials/publisher_row.html" %}
+                {% endfor %}
             </tbody>
         </table>
     {% elif search_term %}
@@ -21,8 +21,7 @@
         <button type="button"
                 hx-get="{% url 'publishing:publishers:create_modal' %}"
                 hx-target="#entity-creation-modal-wrapper"
-                class="secondary">New Publisher
-        </button>
+                class="secondary">New Publisher</button>
     </div>
     <div id="entity-creation-modal-wrapper"></div>
 </div>

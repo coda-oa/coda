@@ -1,18 +1,18 @@
-{# Context: journals, search_term, row_template #}
+{# Context: journals, search_term #}
 <div id="journal-search-results" class="scroll-container max-h-30">
     {% if journals %}
         <table>
             <thead>
-            <tr>
-                <th>Title</th>
-                <th>Publisher</th>
-                <th>Select</th>
-            </tr>
+                <tr>
+                    <th>Title</th>
+                    <th>Publisher</th>
+                    <th>Select</th>
+                </tr>
             </thead>
             <tbody>
-            {% for journal in journals %}
-                {% include row_template|default:"fundingrequests/partials/journal_row.html" %}
-            {% endfor %}
+                {% for journal in journals %}
+                    {% include "fundingrequests/partials/journal_row.html" %}
+                {% endfor %}
             </tbody>
         </table>
     {% elif search_term %}
@@ -22,8 +22,7 @@
         <button type="button"
                 hx-get="{% url 'publishing:journals:create_modal' %}"
                 hx-target="#entity-creation-modal-wrapper"
-                class="secondary">New Journal
-        </button>
+                class="secondary">New Journal</button>
     </div>
     <div id="entity-creation-modal-wrapper"></div>
 </div>
