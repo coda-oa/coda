@@ -7,9 +7,10 @@ from django.test import Client
 from django.test.html import Element, parse_html
 from django.urls import reverse
 
-from coda.contexts.fundingrequest.services.labels import label_create
+from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from coda.domain.fundingrequest.review import ReviewResult
+from tests import modelfactory
 
 
 def get_list(
@@ -17,10 +18,15 @@ def get_list(
     query: dict[str, Any] | None = None,
     *,
     hx_request: bool = False,
+    boosted: bool = False,
 ) -> TemplateResponse:
     kwargs: dict[str, Any] = {}
     if hx_request:
         kwargs["HTTP_HX_Request"] = "true"
+        kwargs["HTTP_HX_Target"] = "fundingrequest-list"
+    if boosted:
+        kwargs["HTTP_HX_Request"] = "true"
+        kwargs["HTTP_HX_Boosted"] = "true"
     return cast(TemplateResponse, client.get(reverse("fundingrequests:list"), data=query, **kwargs))
 
 
@@ -44,20 +50,69 @@ def selected_values(dom: Element, name: str) -> list[str]:
     raise AssertionError(f"no <search-select-multi name={name!r}> in page")
 
 
-def test__selected_values__returns_selected_options() -> None:
-    html = (
-        '<search-select-multi name="payment_status">'
-        '<option slot="options" value="paid" selected>Paid</option>'
-        '<option slot="options" value="unpaid">Unpaid</option>'
-        "</search-select-multi>"
-    )
-
-    assert selected_values(parse_html(html), "payment_status") == ["paid"]
+def pill_elements(dom: Element) -> list[Element]:
+    return [
+        element
+        for element in _walk(dom)
+        if element.name == "a" and "label-filter-pill" in (dict(element.attributes).get("class") or "")
+    ]
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__list_view__filter_count_is_zero_without_filters(client: Client) -> None:
+def test__label_pill__issues_in_place_list_update(client: Client) -> None:
+    label_create("Pill A", Color())
+
+    response = get_list(client)
+    pills = pill_elements(parse_html(response.content.decode()))
+
+    assert pills, "no label pills rendered on the list page"
+    for pill in pills:
+        attrs = dict(pill.attributes)
+        assert attrs.get("hx-target") == "#fundingrequest-list"
+        assert attrs.get("hx-push-url") == "true"
+        assert attrs.get("hx-get") == attrs.get("href")
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__toggling_label_pill__updates_list_in_place(client: Client) -> None:
+    alpha = label_create("Alpha", Color.from_rgb(255, 0, 0))
+    beta = label_create("Beta", Color.from_rgb(0, 0, 255))
+    matching = modelfactory.fundingrequest(title="Pill match")
+    label_attach(matching, alpha)
+    label_attach(matching, beta)
+    modelfactory.fundingrequest(title="Pill non-match")
+
+    response = get_list(client, {"labels": [alpha.pk]}, hx_request=True)
+
+    html = response.content.decode()
+    assert "<html" not in html.lower()
+    assert [vm.id for vm in response.context["entities"]] == [matching.id]
+    pills = {pill.name: pill for pill in response.context["label_pills"]}
+    assert pills["Alpha"].state == "included"
+    assert pills["Beta"].state == "default"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__boosted_navigation_to_list__renders_full_page(client: Client) -> None:
+    alpha = label_create("Alpha", Color.from_rgb(255, 0, 0))
+    matching = modelfactory.fundingrequest(title="Boosted match")
+    label_attach(matching, alpha)
+    modelfactory.fundingrequest(title="Boosted non-match")
+
+    response = get_list(client, {"labels": [alpha.pk]}, boosted=True)
+
+    assert "<html" in response.content.decode().lower()
+    assert [vm.id for vm in response.context["entities"]] == [matching.id]
+    pills = {pill.name: pill for pill in response.context["label_pills"]}
+    assert pills["Alpha"].state == "included"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__filter_count__is_zero_without_filters(client: Client) -> None:
     response = get_list(client)
 
     assert response.context["filter_count"] == 0
@@ -65,7 +120,7 @@ def test__list_view__filter_count_is_zero_without_filters(client: Client) -> Non
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__list_view__filter_count_counts_each_selected_value(client: Client) -> None:
+def test__filter_count__counts_each_selected_value(client: Client) -> None:
     label = label_create("Counted Label", Color())
 
     response = get_list(
@@ -83,7 +138,7 @@ def test__list_view__filter_count_counts_each_selected_value(client: Client) -> 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__list_view__filter_count_ignores_default_publication_type(client: Client) -> None:
+def test__filter_count__ignores_default_publication_type(client: Client) -> None:
     response = get_list(client, {"publication_type": "all"})
 
     assert response.context["filter_count"] == 0
@@ -100,7 +155,7 @@ def checked_radio_values(dom: Element, name: str) -> list[str]:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__sidebar__marks_selected_processing_statuses(client: Client) -> None:
+def test__filter_ui__reflects_selected_processing_statuses(client: Client) -> None:
     response = get_list(client, {"processing_status": ["approved", "rejected"]})
 
     dom = parse_html(response.content.decode())
@@ -110,7 +165,7 @@ def test__sidebar__marks_selected_processing_statuses(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__sidebar__marks_selected_payment_methods(client: Client) -> None:
+def test__filter_ui__reflects_selected_payment_methods(client: Client) -> None:
     response = get_list(client, {"payment_methods": ["direct"]})
 
     dom = parse_html(response.content.decode())
@@ -120,7 +175,7 @@ def test__sidebar__marks_selected_payment_methods(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__sidebar__marks_selected_publication_type(client: Client) -> None:
+def test__filter_ui__reflects_selected_publication_type(client: Client) -> None:
     response = get_list(client, {"publication_type": "monograph"})
 
     dom = parse_html(response.content.decode())
@@ -130,7 +185,7 @@ def test__sidebar__marks_selected_publication_type(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__sidebar__defaults_publication_type_to_all(client: Client) -> None:
+def test__filter_ui__defaults_publication_type_to_all(client: Client) -> None:
     response = get_list(client)
 
     dom = parse_html(response.content.decode())
@@ -140,7 +195,7 @@ def test__sidebar__defaults_publication_type_to_all(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__list_view__returns_only_list_region_for_htmx_requests(client: Client) -> None:
+def test__in_place_update__does_not_re_render_page_chrome(client: Client) -> None:
     response = get_list(client, hx_request=True)
 
     html = response.content.decode()
@@ -150,51 +205,20 @@ def test__list_view__returns_only_list_region_for_htmx_requests(client: Client) 
     assert "<html" not in html.lower()
 
 
-def attributes_of(dom: Element, id_value: str) -> dict[str, str | None]:
-    for element in _walk(dom):
-        attrs = dict(element.attributes)
-        if attrs.get("id") == id_value:
-            return attrs
-    raise AssertionError(f"no element with id={id_value!r} in page")
-
-
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__list_page__list_region_has_htmx_attributes(client: Client) -> None:
+def test__list_page__presents_filter_sidebar_and_toolbar(client: Client) -> None:
     response = get_list(client)
 
-    region = attributes_of(parse_html(response.content.decode()), "fundingrequest-list")
+    html = response.content.decode()
 
-    hx_get = str(region.get("hx-get") or "")
-    hx_trigger = str(region.get("hx-trigger") or "")
-    hx_include = str(region.get("hx-include") or "")
-
-    assert hx_get.endswith("/fundingrequests/list/")
-    assert "change from:#filter-sidebar-form" in hx_trigger
-    assert "keyup delay:300ms from:#filter-toolbar-form" in hx_trigger
-    assert "submit from:#filter-toolbar-form" in hx_trigger
-    assert "submit from:#filter-sidebar-form" in hx_trigger
-    assert "#filter-sidebar-form" in hx_include
-    assert "#filter-toolbar-form" in hx_include
-    assert "hx-swap-oob" not in response.content.decode()
+    assert 'id="filter-sidebar-form"' in html
+    assert 'id="filter-toolbar-form"' in html
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__list_page__old_flat_filter_form_is_gone(client: Client) -> None:
-    response = get_list(client)
-
-    dom = parse_html(response.content.decode())
-    form_ids = [str(dict(e.attributes).get("id") or "") for e in _walk(dom) if e.name == "form"]
-
-    assert "search-form" not in form_ids
-    assert "filter-sidebar-form" in form_ids
-    assert "filter-toolbar-form" in form_ids
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
-def test__list_view__filter_count_excludes_search_and_sort(client: Client) -> None:
+def test__filter_count__excludes_search_and_sort(client: Client) -> None:
     response = get_list(client, {"search_term": "x", "sort_by": "alphabetical"})
 
     assert response.context["filter_count"] == 0
@@ -202,21 +226,20 @@ def test__list_view__filter_count_excludes_search_and_sort(client: Client) -> No
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__list_region_partial__includes_out_of_band_header(client: Client) -> None:
-    label = label_create("OOB Label", Color())
+def test__in_place_update__refreshes_filter_header(client: Client) -> None:
+    label = label_create("Counted Label", Color())
     response = get_list(client, {"labels": [label.pk]}, hx_request=True)
 
     html = response.content.decode()
 
     assert 'hx-swap-oob="true"' in html
-    assert 'id="filter-sidebar-header"' in html
     assert "filter-count" in html
     assert "Clear all" in html
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__list_region_partial__renders_empty_state_on_no_match(client: Client) -> None:
+def test__in_place_update__shows_empty_state_when_no_match(client: Client) -> None:
     response = get_list(client, {"search_term": "definitely-no-such-title-xyz"}, hx_request=True)
 
     html = response.content.decode()

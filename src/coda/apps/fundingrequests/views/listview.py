@@ -86,8 +86,11 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             bulk_converter=list_query.get_list_items,
         )
 
+    def _is_list_region_request(self) -> bool:
+        return self.request.headers.get("HX-Target") == "fundingrequest-list"
+
     def render_to_response(self, context: dict[str, Any], **response_kwargs: Any) -> HttpResponse:
-        if self.request.headers.get("HX-Request"):
+        if self._is_list_region_request():
             return TemplateResponse(
                 request=self.request,
                 template="fundingrequests/partials/fundingrequest_list_region.html",
@@ -116,7 +119,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             "payment_methods": payment_methods,
             "publication_states": _publication_state_choices,
             "filter_count": filter_count(self.request),
-            "is_hx_request": self.request.headers.get("HX-Request") == "true",
+            "is_hx_request": self._is_list_region_request(),
         }
 
 
