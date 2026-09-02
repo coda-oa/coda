@@ -1,9 +1,12 @@
 {# Context: publisher, selected_publisher #}
 {# Stripped-down row for DOI preview context — no wizard clear_publisher_error HTMX #}
 <tr>
-    <td>{{ publisher.name }}</td>
+    <td>
+        <label for="publisher-{{ publisher.pk }}">{{ publisher.name }}</label>
+    </td>
     <td>
         <input type="radio"
+               id="publisher-{{ publisher.pk }}"
                name="publisher"
                value="{{ publisher.pk }}"
                {% if publisher.pk == selected_publisher.pk %}checked{% endif %}>
