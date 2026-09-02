@@ -1,8 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
     {% include "fundingrequests/fundingrequest_list_title_bar.html" with entity_name="Funding Requests" entity_create_url="fundingrequests:create_wizard" entity_secondary_create_url="fundingrequests:create_monograph" %}
-    <div class="my-2">{% include "fundingrequests/forms/fundingrequest_filter.html" %}</div>
-    {% include "partials/pagination_nav.html" %}
-    {% include "entity_list.html" with list_item_template="fundingrequests/fundingrequest_list_item.html" %}
-    {% include "partials/pagination_nav.html" %}
+    <div class="filter-layout">
+        <div class="filter-main">
+            <form method="get" id="filter-toolbar-form">
+                {% include "fundingrequests/fundingrequest_filter_toolbar.html" %}
+            </form>
+            <div id="fundingrequest-list"
+                 class="filter-list"
+                 hx-get="{% url 'fundingrequests:list' %}"
+                 hx-include="#filter-sidebar-form, #filter-toolbar-form"
+                 hx-trigger="change from:#filter-sidebar-form, change from:#filter-toolbar-form, keyup delay:300ms from:#filter-toolbar-form, submit from:#filter-toolbar-form, submit from:#filter-sidebar-form">
+                {% include "fundingrequests/partials/fundingrequest_list_region.html" %}
+            </div>
+        </div>
+        {% include "fundingrequests/fundingrequest_filter_drawer.html" %}
+    </div>
 {% endblock content %}
