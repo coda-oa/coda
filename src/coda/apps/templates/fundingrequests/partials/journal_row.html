@@ -1,9 +1,12 @@
 {# Context: journal, selected_journal #}
 <tr>
-    <td>{{ journal.title }}</td>
+    <td>
+        <label for="journal-{{ journal.pk }}">{{ journal.title }}</label>
+    </td>
     <td>{{ journal.publisher.name }}</td>
     <td>
         <input type="radio"
+               id="journal-{{ journal.pk }}"
                name="journal"
                hx-target="#journal-error"
                hx-swap="outerHTML"
