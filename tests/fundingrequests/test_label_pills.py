@@ -61,7 +61,7 @@ def test__label_pills__render_state_and_toggle_url_per_label(client: Client) -> 
     html = response.content.decode()
     assert "label-filter-pill included" in html
     assert "label-filter-pill default" in html
-    assert response.context["expand_advanced_search"] is False
+    assert response.context["filter_count"] == 1
 
 
 @pytest.mark.django_db
@@ -83,11 +83,11 @@ def test__labels_and_exclude_labels__filter_results_and_keep_dropdown_in_sync(
 
     ids = [viewmodel.id for viewmodel in response.context["entities"]]
     assert ids == [matching.id]
-    assert response.context["expand_advanced_search"] is True
+    assert response.context["filter_count"] == 2
 
     html = response.content.decode()
-    assert re.search(rf'value="{beta.pk}"\s+selected', html)
-    assert not re.search(rf'value="{alpha.pk}"\s+selected', html)
+    assert re.search(rf'value="{beta.pk}"[^>]*selected', html)
+    assert not re.search(rf'value="{alpha.pk}"[^>]*selected', html)
 
 
 @pytest.mark.django_db

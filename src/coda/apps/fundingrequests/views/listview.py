@@ -5,7 +5,8 @@ from typing import Any, Literal
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
+from django.template.response import TemplateResponse
 from django.urls import reverse
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -22,20 +23,6 @@ from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
 from coda.domain.publication.publication import UnpublishedState
-
-_advanced_search_fields = [
-    "exclude_labels",
-    "processing_status",
-    "open_access_type",
-    "payment_status",
-    "start_date",
-    "end_date",
-    "publication_type",
-    "contract_name",
-    "contract_year",
-    "publication_states",
-    "payment_methods",
-]
 
 _payment_status_map = {
     "paid": fq.PaymentStatus.Paid,
@@ -58,6 +45,32 @@ _publication_state_choices = [
 
 _default_choices = {"publication_type": "all"}
 
+_multi_value_fields = (
+    "labels",
+    "exclude_labels",
+    "processing_status",
+    "open_access_type",
+    "payment_status",
+    "payment_methods",
+    "publication_states",
+)
+
+_single_value_fields = (
+    "start_date",
+    "end_date",
+    "contract_name",
+    "contract_year",
+    "invalid_contract_years",
+)
+
+
+def filter_count(request: HttpRequest) -> int:
+    count = sum(len(request.GET.getlist(key)) for key in _multi_value_fields)
+    count += sum(1 for key in _single_value_fields if request.GET.get(key))
+    if request.GET.get("publication_type") not in (None, _default_choices["publication_type"]):
+        count += 1
+    return count
+
 
 @breadcrumb("Funding Requests", parent_url_name="fundingrequests:home")
 class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestListItem]):
@@ -65,7 +78,6 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
     entity_name = "Funding Requests"
     entity_create_url = "fundingrequests:create_wizard"
     entity_list_item_template = "fundingrequests/fundingrequest_list_item.html"
-    entity_filter_template = "fundingrequests/forms/fundingrequest_filter.html"
 
     def get_entities(self, request: HttpRequest) -> Sequence[FundingRequestListItem]:
         django_queryset = query(request)
@@ -74,18 +86,21 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             bulk_converter=list_query.get_list_items,
         )
 
+    def render_to_response(self, context: dict[str, Any], **response_kwargs: Any) -> HttpResponse:
+        if self.request.headers.get("HX-Request"):
+            return TemplateResponse(
+                request=self.request,
+                template="fundingrequests/partials/fundingrequest_list_region.html",
+                context=context,
+            )
+        return super().render_to_response(context, **response_kwargs)
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
         ctx.update(get_contract_list_context())
 
-        expand_advanced_search = any(
-            self.request.GET.get(key)
-            for key in _advanced_search_fields
-            if self.request.GET.get(key) and self.request.GET.get(key) != _default_choices.get(key)
-        )
-
         labels = list(Label.objects.all().order_by("name"))
-        publication_types = [(et.value, et.value) for et in fq.PublicationEntityType]
+        publication_types = [(et.value, et.value.title()) for et in fq.PublicationEntityType]
         selected_publication_types = self.request.GET.get("publication_type")
 
         payment_methods = [(pm.value, pm.value) for pm in PaymentMethod]
@@ -95,12 +110,13 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             "label_pills": build_label_pills(self.request, labels),
             "processing_states": [rr.value for rr in ReviewResult],
             "open_access_types": [oat.value for oat in OpenAccessType],
-            "expand_advanced_search": expand_advanced_search,
             "payment_status_choices": _payment_status_choices,
             "publication_types": publication_types,
             "selected_publication_types": selected_publication_types,
             "payment_methods": payment_methods,
             "publication_states": _publication_state_choices,
+            "filter_count": filter_count(self.request),
+            "is_hx_request": self.request.headers.get("HX-Request") == "true",
         }
 
 
