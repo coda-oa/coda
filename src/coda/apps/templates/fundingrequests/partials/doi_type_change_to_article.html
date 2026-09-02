@@ -11,7 +11,6 @@
           hx-post="{% url 'fundingrequests:wizard_find_journal' %}"
           hx-target="#journal-search-results"
           hx-include="#journal_title"
-          hx-vals='{"row_template": "fundingrequests/partials/doi_journal_row.html"}'
           hx-swap="outerHTML"
           hx-trigger="keydown[key=='Enter'] from:#journal_title, click from:#journal_search_button">
     <input type="search"

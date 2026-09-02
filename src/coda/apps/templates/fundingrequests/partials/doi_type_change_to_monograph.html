@@ -12,7 +12,6 @@
           hx-post="{% url 'fundingrequests:wizard_find_publisher' %}"
           hx-target="#publisher-search-results"
           hx-include="#publisher_name"
-          hx-vals='{"row_template": "fundingrequests/partials/doi_publisher_row.html"}'
           hx-swap="outerHTML"
           hx-trigger="keydown[key=='Enter'] from:#publisher_name, click from:#publisher_search_button">
     <input type="search"

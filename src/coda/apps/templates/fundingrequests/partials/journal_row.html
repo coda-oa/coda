@@ -8,9 +8,6 @@
         <input type="radio"
                id="journal-{{ journal.pk }}"
                name="journal"
-               hx-target="#journal-error"
-               hx-swap="outerHTML"
-               hx-post="{% url 'fundingrequests:clear_journal_error' %}"
                value="{{ journal.pk }}"
                {% if journal.pk == selected_journal.pk %}checked{% endif %}>
     </td>

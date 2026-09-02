@@ -57,15 +57,10 @@ from coda.apps.fundingrequests.views.listview import fundingrequest_list
 from coda.apps.fundingrequests.views.requestimport import import_fundingrequests
 from coda.apps.fundingrequests.views.wizard.create_article import ArticleRequestWizard
 from coda.apps.fundingrequests.views.wizard.create_monograph import MonographRequestWizard
-from coda.apps.fundingrequests.views.wizard.steps.journal_step import (
-    clear_journal_error,
-    find_journal,
-)
+from coda.apps.fundingrequests.views.wizard.steps._search_views import clear_validation_error
+from coda.apps.fundingrequests.views.wizard.steps.journal_step import find_journal
 from coda.apps.fundingrequests.views.wizard.steps.publication_step import add_linkrow, parse_authors
-from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
-    clear_publisher_error,
-    find_publisher,
-)
+from coda.apps.fundingrequests.views.wizard.steps.publisher_step import find_publisher
 from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdateExtraInformationView,
     UpdateFundingView,
@@ -226,6 +221,5 @@ urlpatterns = [
     path("partial/search-publisher/", find_publisher, name="wizard_find_publisher"),
     path("partial/search-journal/", find_journal, name="wizard_find_journal"),
     path("contract/inactive", include_inactive_contracts, name="include_inactive_contracts"),
-    path("clear-journal-error/", clear_journal_error, name="clear_journal_error"),
-    path("clear-publisher-error/", clear_publisher_error, name="clear_publisher_error"),
+    path("clear-validation-error/", clear_validation_error, name="clear_validation_error"),
 ]
