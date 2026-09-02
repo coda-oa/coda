@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from typing import Any, Generic, TypeVar, cast
 
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -25,6 +26,8 @@ EntityType = TypeVar("EntityType")
 
 @require_GET
 def check_update(request: HttpRequest) -> HttpResponse:
+    if not request.user.is_authenticated:
+        raise PermissionDenied  # 403, not a login redirect: htmx fragment target
     branch = get_branch()
     commit_sha = get_commit_sha()
     tag = get_version_tag()

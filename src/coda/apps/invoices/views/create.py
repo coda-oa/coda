@@ -20,6 +20,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 
 @login_required
+@require_POST
 @breadcrumb("Create Invoice", parent_url_name="invoices:list", preserve_filters=True)
 def create_invoice(request: HttpRequest) -> HttpResponse:
     home_currency = GlobalPreferences.get_home_currency()
