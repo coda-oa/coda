@@ -1,6 +1,7 @@
 from decimal import Decimal
+from typing import Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ._types import NonEmptyString, Currency, DateFormat, ContractCostType, PublicationCostType
 
@@ -21,6 +22,12 @@ class Dates(BaseModel):
     invoice: DateFormat | None = None
     paid: DateFormat | None = None
 
+    @model_validator(mode="after")
+    def _at_least_one_date(self) -> Self:
+        if self.invoice is None and self.paid is None:
+            raise ValueError("at least one of 'invoice' or 'paid' must be set")
+        return self
+
 
 class PublicationInvoiceType(BaseModel):
     amount_invoice: AmountInvoice | None = None
@@ -28,6 +35,12 @@ class PublicationInvoiceType(BaseModel):
     amounts_paid: list[PublicationAmountPaidType]
     dates: Dates
     creditor: NonEmptyString | None = None
+
+    @model_validator(mode="after")
+    def _at_least_one_amount_paid(self) -> Self:
+        if not self.amounts_paid:
+            raise ValueError("at least one 'amount_paid' must be set")
+        return self
 
 
 class ContractAmountPaidType(BaseModel):
@@ -44,6 +57,12 @@ class ContractInvoiceType(BaseModel):
     dates: Dates
     amounts_paid: list[ContractAmountPaidType]
 
+    @model_validator(mode="after")
+    def _at_least_one_amount_paid(self) -> Self:
+        if not self.amounts_paid:
+            raise ValueError("at least one 'amount_paid' must be set")
+        return self
+
 
 class ContractInvoicePeriodType(BaseModel):
     from_: DateFormat = Field(..., alias="from")
@@ -51,10 +70,16 @@ class ContractInvoicePeriodType(BaseModel):
 
 
 class ContractInvoiceGroupType(BaseModel):
-    group_id: NonEmptyString | None = None
-    invoices_period: ContractInvoicePeriodType | None = None
+    group_id: NonEmptyString
+    invoices_period: ContractInvoicePeriodType
     invoice: list[ContractInvoiceType] | None = None
 
 
 class ContractCostDataType(BaseModel):
     invoice_group: list[ContractInvoiceGroupType]
+
+    @model_validator(mode="after")
+    def _at_least_one_invoice_group(self) -> Self:
+        if not self.invoice_group:
+            raise ValueError("at least one 'invoice_group' must be set")
+        return self

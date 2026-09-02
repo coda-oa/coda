@@ -306,6 +306,13 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
 
         xml_string = generate_xml(report, publications_list, contracts_list)
 
+        if not xml_string:
+            messages.warning(
+                request,
+                "No data to export — all items were excluded due to missing required fields.",
+            )
+            return redirect(OPENCOST_LIST_URL)
+
         response = HttpResponse(xml_string, content_type="application/xml")
 
         filename = f"{report.title}_{report.id}_{report.generated_at.strftime('%Y%m%d')}.xml"

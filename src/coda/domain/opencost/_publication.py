@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from ._types import NonEmptyString
 from ._institution import InstitutionType
@@ -103,6 +104,15 @@ class CoarPublicationType(Enum):
     working_paper = "working paper"
     trademark = "trademark"
     workflow = "workflow"
+    archival_collection = "archival collection"
+    artistic_work = "artistic work"
+    collection = "collection"
+    court_documents = "court documents"
+    knowledge_organization_system = "knowledge organization system"
+    knowledge_synthesis_protocol = "knowledge synthesis protocol"
+    magazine_article = "magazine article"
+    physical_sample = "physical sample"
+    research_instrument = "research instrument"
 
 
 class PublicationSecondaryIdTypeEnum(Enum):
@@ -125,6 +135,12 @@ class PublicationSecondaryIdType(BaseModel):
 class PublicationSecondaryIdentifiers(BaseModel):
     id: list[PublicationSecondaryIdType]
 
+    @model_validator(mode="after")
+    def _at_least_one_id(self) -> Self:
+        if not self.id:
+            raise ValueError("at least one 'id' must be set")
+        return self
+
 
 class BibliographicInformation(BaseModel):
     Title: NonEmptyString
@@ -136,6 +152,14 @@ class PublicationPrimaryIdentifier(BaseModel):
     doi: NonEmptyString | None = None
     bibliographic_information: BibliographicInformation | None = None
 
+    @model_validator(mode="after")
+    def _exactly_one_of_doi_or_bibliographic_information(self) -> Self:
+        if (self.doi is not None) == (self.bibliographic_information is not None):
+            raise ValueError(
+                "exactly one of 'doi' or 'bibliographic_information' must be set"
+            )
+        return self
+
 
 class PartOfContractType(BaseModel):
     group_id: NonEmptyString | None = None
@@ -145,6 +169,14 @@ class PartOfContractType(BaseModel):
 class PublicationCostDataType(BaseModel):
     invoice: list[PublicationInvoiceType] | None = None
     part_of_contract: PartOfContractType | None = None
+
+    @model_validator(mode="after")
+    def _at_least_one_invoice_or_part_of_contract(self) -> Self:
+        if not self.invoice and self.part_of_contract is None:
+            raise ValueError(
+                "at least one of 'invoice' or 'part_of_contract' must be set"
+            )
+        return self
 
 
 class PublicationType(BaseModel):
