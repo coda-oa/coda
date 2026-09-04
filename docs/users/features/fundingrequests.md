@@ -496,7 +496,7 @@ For system administrators, CODA provides a command-line import tool:
 
 ```bash
 # Using the shell script
-./commands/import_requests.sh --local /path/to/requests.json
+./commands/import.sh import_fundingrequests --local /path/to/requests.json
 
 # Or directly via Django management command
 pdm run manage.py import_fundingrequests /path/to/requests.json
