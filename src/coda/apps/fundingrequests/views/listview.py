@@ -106,6 +106,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             "payment_methods": payment_methods,
             "publication_states": _publication_state_choices,
             "filter_count": filter_count(self.request),
+            "label_state": sorted(_label_ids(self.request.GET.getlist("labels"))),
         }
 
 
