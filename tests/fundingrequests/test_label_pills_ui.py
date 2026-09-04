@@ -3,6 +3,7 @@ import pytest
 from playwright.sync_api import Page
 from pytest_django.live_server_helper import LiveServer
 
+from coda.apps.publications.models import LinkType
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from tests import modelfactory
@@ -11,6 +12,9 @@ from tests import modelfactory
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
 def test__label_pill__click_updates_list_in_place(coda_page: Page, live_server: LiveServer) -> None:
+    LinkType.objects.get_or_create(name="DOI")
+    LinkType.objects.get_or_create(name="ISBN")
+
     alpha = label_create("E2E Alpha", Color.from_rgb(255, 0, 0))
     matching = modelfactory.fundingrequest(title="E2E pill match")
     label_attach(matching, alpha)
