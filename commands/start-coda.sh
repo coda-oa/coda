@@ -1,7 +1,9 @@
 #!/bin/bash
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
-source ${script_dir}/common.sh "$@"
+source "${script_dir}/common.sh"
+parse_environment_args "$@"
+init_environment
 
 _get_repo() {
 	local remote

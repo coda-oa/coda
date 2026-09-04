@@ -83,8 +83,10 @@ parse_update_args() {
 # Parse arguments before sourcing common.sh
 parse_update_args "$@"
 
-# Source common.sh for environment setup
-source "${script_dir}/common.sh" "$@"
+# Source common.sh for environment setup (pure library: define only)
+source "${script_dir}/common.sh"
+parse_environment_args "$@"
+init_environment
 
 has_uncommitted_changes() {
   if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then

@@ -99,8 +99,9 @@ init_environment() {
     echo "Using environment: $CODA_ENV (compose file: $COMPOSE_FILE)"
 }
 
-# Main execution when sourced with arguments (for simple scripts)
-if [ $# -gt 0 ]; then
+# Standalone execution: resolve and report the environment.
+# When sourced (BASH_SOURCE != $0) this file only defines functions.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     parse_environment_args "$@"
     init_environment
 fi
