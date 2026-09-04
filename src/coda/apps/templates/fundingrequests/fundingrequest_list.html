@@ -8,7 +8,7 @@
             </form>
             <div id="fundingrequest-list"
                  class="filter-list"
-                 hx-get="{% url 'fundingrequests:list' %}"
+                 hx-get="{% url 'fundingrequests:list_region' %}"
                  hx-include="#filter-sidebar-form, #filter-toolbar-form"
                  hx-trigger="change from:#filter-sidebar-form, change from:#filter-toolbar-form, keyup delay:300ms from:#filter-toolbar-form, submit from:#filter-toolbar-form, submit from:#filter-sidebar-form">
                 {% include "fundingrequests/partials/fundingrequest_list_region.html" %}

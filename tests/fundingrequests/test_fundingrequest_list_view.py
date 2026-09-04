@@ -16,18 +16,15 @@ from tests import modelfactory
 def get_list(
     client: Client,
     query: dict[str, Any] | None = None,
-    *,
-    hx_request: bool = False,
-    boosted: bool = False,
 ) -> TemplateResponse:
-    kwargs: dict[str, Any] = {}
-    if hx_request:
-        kwargs["HTTP_HX_Request"] = "true"
-        kwargs["HTTP_HX_Target"] = "fundingrequest-list"
-    if boosted:
-        kwargs["HTTP_HX_Request"] = "true"
-        kwargs["HTTP_HX_Boosted"] = "true"
-    return cast(TemplateResponse, client.get(reverse("fundingrequests:list"), data=query, **kwargs))
+    return cast(TemplateResponse, client.get(reverse("fundingrequests:list"), data=query))
+
+
+def get_list_region(
+    client: Client,
+    query: dict[str, Any] | None = None,
+) -> TemplateResponse:
+    return cast(TemplateResponse, client.get(reverse("fundingrequests:list_region"), data=query))
 
 
 def _walk(element: Element) -> Iterator[Element]:
@@ -58,20 +55,33 @@ def pill_elements(dom: Element) -> list[Element]:
     ]
 
 
+def document_ids(dom: Element) -> set[str]:
+    return {
+        str(attrs.get("id"))
+        for element in _walk(dom)
+        if (attrs := dict(element.attributes)).get("id")
+    }
+
+
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__label_pill__issues_in_place_list_update(client: Client) -> None:
     label_create("Pill A", Color())
 
     response = get_list(client)
-    pills = pill_elements(parse_html(response.content.decode()))
+    dom = parse_html(response.content.decode())
+    ids = document_ids(dom)
+    pills = pill_elements(dom)
 
     assert pills, "no label pills rendered on the list page"
     for pill in pills:
         attrs = dict(pill.attributes)
-        assert attrs.get("hx-target") == "#fundingrequest-list"
-        assert attrs.get("hx-push-url") == "true"
-        assert attrs.get("hx-get") == attrs.get("href")
+        hx_get = attrs.get("hx-get") or ""
+        href = attrs.get("href") or ""
+        assert hx_get.startswith(reverse("fundingrequests:list_region"))
+        assert attrs.get("hx-push-url") == href
+        assert (attrs.get("hx-target") or "").lstrip("#") in ids
+        assert hx_get.split("?", 1)[-1] == href.split("?", 1)[-1]
 
 
 @pytest.mark.django_db
@@ -84,7 +94,7 @@ def test__toggling_label_pill__updates_list_in_place(client: Client) -> None:
     label_attach(matching, beta)
     modelfactory.fundingrequest(title="Pill non-match")
 
-    response = get_list(client, {"labels": [alpha.pk]}, hx_request=True)
+    response = get_list_region(client, {"labels": [alpha.pk]})
 
     html = response.content.decode()
     assert "<html" not in html.lower()
@@ -92,22 +102,6 @@ def test__toggling_label_pill__updates_list_in_place(client: Client) -> None:
     pills = {pill.name: pill for pill in response.context["label_pills"]}
     assert pills["Alpha"].state == "included"
     assert pills["Beta"].state == "default"
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
-def test__boosted_navigation_to_list__renders_full_page(client: Client) -> None:
-    alpha = label_create("Alpha", Color.from_rgb(255, 0, 0))
-    matching = modelfactory.fundingrequest(title="Boosted match")
-    label_attach(matching, alpha)
-    modelfactory.fundingrequest(title="Boosted non-match")
-
-    response = get_list(client, {"labels": [alpha.pk]}, boosted=True)
-
-    assert "<html" in response.content.decode().lower()
-    assert [vm.id for vm in response.context["entities"]] == [matching.id]
-    pills = {pill.name: pill for pill in response.context["label_pills"]}
-    assert pills["Alpha"].state == "included"
 
 
 @pytest.mark.django_db
@@ -195,8 +189,8 @@ def test__filter_ui__defaults_publication_type_to_all(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__in_place_update__does_not_re_render_page_chrome(client: Client) -> None:
-    response = get_list(client, hx_request=True)
+def test__list_region__returns_fragment_without_page_chrome(client: Client) -> None:
+    response = get_list_region(client)
 
     html = response.content.decode()
 
@@ -228,7 +222,7 @@ def test__filter_count__excludes_search_and_sort(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test__in_place_update__refreshes_filter_header(client: Client) -> None:
     label = label_create("Counted Label", Color())
-    response = get_list(client, {"labels": [label.pk]}, hx_request=True)
+    response = get_list_region(client, {"labels": [label.pk]})
 
     html = response.content.decode()
 
@@ -240,7 +234,7 @@ def test__in_place_update__refreshes_filter_header(client: Client) -> None:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__in_place_update__shows_empty_state_when_no_match(client: Client) -> None:
-    response = get_list(client, {"search_term": "definitely-no-such-title-xyz"}, hx_request=True)
+    response = get_list_region(client, {"search_term": "definitely-no-such-title-xyz"})
 
     html = response.content.decode()
 

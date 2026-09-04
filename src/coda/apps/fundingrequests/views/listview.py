@@ -5,8 +5,7 @@ from typing import Any, Literal
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
-from django.http import HttpRequest, HttpResponse
-from django.template.response import TemplateResponse
+from django.http import HttpRequest
 from django.urls import reverse
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -86,18 +85,6 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             bulk_converter=list_query.get_list_items,
         )
 
-    def _is_list_region_request(self) -> bool:
-        return self.request.headers.get("HX-Target") == "fundingrequest-list"
-
-    def render_to_response(self, context: dict[str, Any], **response_kwargs: Any) -> HttpResponse:
-        if self._is_list_region_request():
-            return TemplateResponse(
-                request=self.request,
-                template="fundingrequests/partials/fundingrequest_list_region.html",
-                context=context,
-            )
-        return super().render_to_response(context, **response_kwargs)
-
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
         ctx.update(get_contract_list_context())
@@ -119,11 +106,15 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             "payment_methods": payment_methods,
             "publication_states": _publication_state_choices,
             "filter_count": filter_count(self.request),
-            "is_hx_request": self._is_list_region_request(),
         }
 
 
+class FundingRequestListRegionView(FundingRequestListView):
+    template_name = "fundingrequests/fundingrequest_list_region.html"
+
+
 fundingrequest_list = FundingRequestListView.as_view()
+fundingrequest_list_region = FundingRequestListRegionView.as_view()
 
 
 def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
@@ -184,6 +175,7 @@ class LabelPill:
     color: str
     state: Literal["default", "included"]
     toggle_url: str
+    toggle_fragment_url: str
 
 
 def _label_ids(values: list[str]) -> set[int]:
@@ -197,6 +189,17 @@ def _label_ids(values: list[str]) -> set[int]:
     return ids
 
 
+def _pill_url(request: HttpRequest, url_name: str, *, labels: set[int]) -> str:
+    params = request.GET.copy()
+    params.pop("labels", None)
+    params.pop("page", None)
+    if labels:
+        params.setlist("labels", [str(x) for x in sorted(labels)])
+    encoded = params.urlencode()
+    path = reverse(url_name)
+    return f"{path}?{encoded}" if encoded else path
+
+
 def label_pill_url(request: HttpRequest, *, labels: set[int]) -> str:
     """Build the list URL for a given label filter state.
 
@@ -204,14 +207,12 @@ def label_pill_url(request: HttpRequest, *, labels: set[int]) -> str:
     the new label list. An empty list is omitted. ``exclude_labels`` is
     managed by the advanced-search.
     """
-    params = request.GET.copy()
-    params.pop("labels", None)
-    params.pop("page", None)
-    if labels:
-        params.setlist("labels", [str(x) for x in sorted(labels)])
-    encoded = params.urlencode()
-    path = reverse("fundingrequests:list")
-    return f"{path}?{encoded}" if encoded else path
+    return _pill_url(request, "fundingrequests:list", labels=labels)
+
+
+def label_pill_fragment_url(request: HttpRequest, *, labels: set[int]) -> str:
+    """List-region variant of `label_pill_url` for in-place list updates."""
+    return _pill_url(request, "fundingrequests:list_region", labels=labels)
 
 
 def build_label_pills(request: HttpRequest, labels: Sequence[Label]) -> list[LabelPill]:
@@ -228,6 +229,7 @@ def build_label_pills(request: HttpRequest, labels: Sequence[Label]) -> list[Lab
             color=label.hexcolor,
             state="included" if label.pk in included else "default",
             toggle_url=label_pill_url(request, labels=included ^ {label.pk}),
+            toggle_fragment_url=label_pill_fragment_url(request, labels=included ^ {label.pk}),
         )
         for label in labels
     ]

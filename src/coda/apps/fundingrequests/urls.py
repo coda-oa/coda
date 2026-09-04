@@ -53,7 +53,10 @@ from coda.apps.fundingrequests.views.labels import (
     label_list_view,
     label_update_view,
 )
-from coda.apps.fundingrequests.views.listview import fundingrequest_list
+from coda.apps.fundingrequests.views.listview import (
+    fundingrequest_list,
+    fundingrequest_list_region,
+)
 from coda.apps.fundingrequests.views.requestimport import import_fundingrequests
 from coda.apps.fundingrequests.views.wizard.create_article import ArticleRequestWizard
 from coda.apps.fundingrequests.views.wizard.create_monograph import MonographRequestWizard
@@ -81,6 +84,7 @@ funding_formset = ExternalFundingFormset.get_management_view()
 urlpatterns = [
     path("", fundingrequest_home, name="home"),
     path("list/", fundingrequest_list, name="list"),
+    path("list/region/", fundingrequest_list_region, name="list_region"),
     path("import/", import_fundingrequests, name="import"),
     path("doi-import/", DOIImportInputView.as_view(), name="doi_import_input"),
     path("doi-import/mass/", MassDOIImportInputView.as_view(), name="mass_doi_import_input"),
