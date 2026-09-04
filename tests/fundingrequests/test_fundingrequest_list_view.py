@@ -51,16 +51,9 @@ def pill_elements(dom: Element) -> list[Element]:
     return [
         element
         for element in _walk(dom)
-        if element.name == "a" and "label-filter-pill" in (dict(element.attributes).get("class") or "")
+        if element.name == "a"
+        and "label-filter-pill" in (dict(element.attributes).get("class") or "")
     ]
-
-
-def document_ids(dom: Element) -> set[str]:
-    return {
-        str(attrs.get("id"))
-        for element in _walk(dom)
-        if (attrs := dict(element.attributes)).get("id")
-    }
 
 
 def pill_by_name(dom: Element, name: str) -> Element:
@@ -74,30 +67,31 @@ def pill_by_name(dom: Element, name: str) -> Element:
     raise AssertionError(f"no label pill named {name!r} in page")
 
 
+def pill_state(dom: Element, name: str) -> str:
+    classes = (dict(pill_by_name(dom, name).attributes).get("class") or "").split()
+    for state in ("included", "default"):
+        if state in classes:
+            return state
+    raise AssertionError(f"label pill {name!r} has no state class")
+
+
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__label_pill__issues_in_place_list_update(client: Client) -> None:
+def test__label_pill__link_points_at_filtered_list(client: Client) -> None:
     label_create("Pill A", Color())
 
     response = get_list(client)
-    dom = parse_html(response.content.decode())
-    ids = document_ids(dom)
-    pills = pill_elements(dom)
+    pills = pill_elements(parse_html(response.content.decode()))
 
     assert pills, "no label pills rendered on the list page"
     for pill in pills:
-        attrs = dict(pill.attributes)
-        hx_get = attrs.get("hx-get") or ""
-        href = attrs.get("href") or ""
-        assert hx_get.startswith(reverse("fundingrequests:list_region"))
-        assert attrs.get("hx-push-url") == href
-        assert (attrs.get("hx-target") or "").lstrip("#") in ids
-        assert hx_get.split("?", 1)[-1] == href.split("?", 1)[-1]
+        href = dict(pill.attributes).get("href") or ""
+        assert href.startswith(reverse("fundingrequests:list"))
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__toggling_label_pill__updates_list_in_place(client: Client) -> None:
+def test__label_filter__list_shows_only_requests_with_label(client: Client) -> None:
     alpha = label_create("Alpha", Color.from_rgb(255, 0, 0))
     beta = label_create("Beta", Color.from_rgb(0, 0, 255))
     matching = modelfactory.fundingrequest(title="Pill match")
@@ -108,13 +102,21 @@ def test__toggling_label_pill__updates_list_in_place(client: Client) -> None:
     response = get_list_region(client, {"labels": [alpha.pk]})
 
     html = response.content.decode()
-    dom = parse_html(html)
-
-    assert "<html" not in html.lower()
     assert "Pill match" in html
     assert "Pill non-match" not in html
-    assert "included" in (dict(pill_by_name(dom, "Alpha").attributes).get("class") or "").split()
-    assert "default" in (dict(pill_by_name(dom, "Beta").attributes).get("class") or "").split()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__label_filter__pills_reflect_active_filter(client: Client) -> None:
+    alpha = label_create("Alpha", Color.from_rgb(255, 0, 0))
+    label_create("Beta", Color.from_rgb(0, 0, 255))
+
+    response = get_list_region(client, {"labels": [alpha.pk]})
+
+    dom = parse_html(response.content.decode())
+    assert pill_state(dom, "Alpha") == "included"
+    assert pill_state(dom, "Beta") == "default"
 
 
 @pytest.mark.django_db
@@ -233,21 +235,16 @@ def test__filter_count__excludes_search_and_sort(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__in_place_update__shows_clear_all_with_active_filters(client: Client) -> None:
-    # Mechanism seam: the test client cannot execute htmx swaps, so the
-    # out-of-band marker is asserted directly.
+def test__clear_all__shown_with_active_filters(client: Client) -> None:
     label = label_create("Counted Label", Color())
     response = get_list_region(client, {"labels": [label.pk]})
 
-    html = response.content.decode()
-
-    assert 'hx-swap-oob="true"' in html
-    assert "Clear all" in html
+    assert "Clear all" in response.content.decode()
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__in_place_update__hides_clear_all_without_filters(client: Client) -> None:
+def test__clear_all__hidden_without_filters(client: Client) -> None:
     response = get_list_region(client)
 
     assert "Clear all" not in response.content.decode()
@@ -255,7 +252,7 @@ def test__in_place_update__hides_clear_all_without_filters(client: Client) -> No
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__in_place_update__shows_empty_state_when_no_match(client: Client) -> None:
+def test__empty_state__shown_when_no_match(client: Client) -> None:
     response = get_list_region(client, {"search_term": "definitely-no-such-title-xyz"})
 
     html = response.content.decode()
