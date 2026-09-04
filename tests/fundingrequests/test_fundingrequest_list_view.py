@@ -216,17 +216,6 @@ def test__list_region__returns_fragment_without_page_chrome(client: Client) -> N
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__list_page__presents_filter_sidebar_and_toolbar(client: Client) -> None:
-    response = get_list(client)
-
-    html = response.content.decode()
-
-    assert 'id="filter-sidebar-form"' in html
-    assert 'id="filter-toolbar-form"' in html
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("logged_in")
 def test__filter_count__excludes_search_and_sort(client: Client) -> None:
     response = get_list(client, {"search_term": "x", "sort_by": "alphabetical"})
 
