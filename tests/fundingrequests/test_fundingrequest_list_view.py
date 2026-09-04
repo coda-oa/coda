@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterator
 from typing import Any, cast
 
@@ -237,6 +238,39 @@ def test__clear_all__hidden_without_filters(client: Client) -> None:
     response = get_list_region(client)
 
     assert "Clear all" not in response.content.decode()
+
+
+def _hidden_label_inputs(html: str) -> list[str]:
+    return re.findall(r'<input type="hidden" name="labels" value="(\d+)">', html)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__list_page__carries_label_state_for_form_submission(client: Client) -> None:
+    alpha = label_create("Alpha", Color())
+    beta = label_create("Beta", Color())
+
+    response = get_list(client, {"labels": [beta.pk, alpha.pk]})
+
+    assert _hidden_label_inputs(response.content.decode()) == [str(alpha.pk), str(beta.pk)]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__list_region__carries_label_state_for_form_submission(client: Client) -> None:
+    alpha = label_create("Alpha", Color())
+    response = get_list_region(client, {"labels": [alpha.pk]})
+
+    assert _hidden_label_inputs(response.content.decode()) == [str(alpha.pk)]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__list_region__omits_label_state_without_label_filter(client: Client) -> None:
+    label_create("Alpha", Color())
+    response = get_list_region(client)
+
+    assert _hidden_label_inputs(response.content.decode()) == []
 
 
 @pytest.mark.django_db
