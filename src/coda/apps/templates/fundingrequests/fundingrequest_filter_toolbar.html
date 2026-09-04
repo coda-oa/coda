@@ -1,20 +1,20 @@
-<div class="filter-toolbar">
+<div class="filter-toolbar align-top">
     <input type="search"
            name="search_term"
            value="{{ request.GET.search_term }}"
            placeholder="Search by title, author, journal, publisher or ID"
            class="filter-search">
-    <label class="filter-sort-label" for="sort_by">
-        Sort
-        <select name="sort_by" id="sort_by" class="filter-sort">
-            <option value="date_desc"
-                    {% if request.GET.sort_by == "date_desc" %}selected{% endif %}>Date descending</option>
-            <option value="date_asc"
-                    {% if request.GET.sort_by == "date_asc" %}selected{% endif %}>Date ascending</option>
-            <option value="alphabetical"
-                    {% if request.GET.sort_by == "alphabetical" %}selected{% endif %}>Alphabet</option>
-        </select>
-    </label>
+    <div class="form-row">
+      <label for="sort_by">Sort</label>
+      <select name="sort_by" id="sort_by">
+          <option value="date_desc"
+                  {% if request.GET.sort_by == "date_desc" %}selected{% endif %}>Date descending</option>
+          <option value="date_asc"
+                  {% if request.GET.sort_by == "date_asc" %}selected{% endif %}>Date ascending</option>
+          <option value="alphabetical"
+                  {% if request.GET.sort_by == "alphabetical" %}selected{% endif %}>Alphabet</option>
+      </select>
+    </div>
     <button type="button"
             id="filter-drawer-toggle"
             class="filter-drawer-toggle"
@@ -23,4 +23,5 @@
         Filters
         {% if filter_count %}<span class="filter-count">{{ filter_count }}</span>{% endif %}
     </button>
+    {% include "fundingrequests/forms/label_pills.html" %}
 </div>

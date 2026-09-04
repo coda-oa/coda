@@ -194,20 +194,25 @@ details.dropdown > ul:has(.label) > li {
     min-width: 0;
 }
 
-.filter-list {
-    margin-top: 0.5rem;
-}
-
 /* Toolbar */
 .filter-toolbar {
     display: flex;
     gap: 0.5rem;
-    align-items: center;
-    margin-bottom: 0.5rem;
+    align-items: top;
+    margin-bottom: var(--coda-form-element-spacing-vertical);
+
+    & > :is(label, input, select, button) {
+      margin-block: 0;
+    }
 }
 
 .filter-search {
     flex: 1;
+}
+
+.filter-toolbar .coda-label-pills {
+    flex-basis: 100%;
+    padding: 0;
 }
 
 .filter-sort {
@@ -365,12 +370,12 @@ details.dropdown > ul:has(.label) > li {
         align-items: center;
         gap: 0.4rem;
         padding: var(--coda-form-element-spacing-vertical) var(--coda-form-element-spacing-horizontal);
-        font-size: 0.85rem;
         border: var(--coda-border-width) solid var(--coda-border-color);
         border-radius: var(--coda-border-radius);
         background: var(--coda-form-element-background-color);
         color: var(--coda-color);
         cursor: pointer;
+        height: 100%;
     }
 }
 
