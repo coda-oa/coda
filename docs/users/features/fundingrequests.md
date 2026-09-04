@@ -35,7 +35,7 @@ The left side displays complete information about the request:
 - **Publication metadata**: Title, authors, DOI, license, publication type, subject area, publication state and date(s)
 - **Journal information**: Journal name, publisher, E-ISSN, with links to detailed pages
 - **Contract coverage**: Whether the publication is covered by an existing [contract](contracts.md)
-- **Cost details**: Estimated publication costs and currency
+- **Cost details**: Estimated publication costs and currency, supported by verified APC price estimates
 - **Payment method**: Direct payment, Reimbursement, or Unknown
 - **External funding**: Details about third-party funding sources (DFG, BMBF, etc.)
 - **Request submitter**: Contact information, ORCID, affiliation, and role
@@ -136,6 +136,13 @@ The Publication Type and Subject Area fields are based on predefined vocabularie
 ### Step 3: Costs & Funding
 
 In this step you can collect financial information:
+
+**APC Price Estimates:**
+When a journal is selected, CODA automatically fetches pricing data from the [Project Panter PriceMonitor](https://projekt-panter.de/). This panel provides a baseline to help you determine the accurate estimated cost for the request.
+
+- **Verified Metadata**: Confirms the journal and publisher information with direct links to the ISSN portal.
+- **Article Processing Charges**: A detailed breakdown of fees based on article type and category, including indicators for per-page or per-figure charges.
+- **Discounts & Waivers**: A list of available reductions, showing the type (percentage, fixed, or full waiver), the eligibility mechanism (e.g., membership, country-based), and a description of the requirements.
 
 **Estimated Costs:**
 - **Amount**: Estimated publication costs
