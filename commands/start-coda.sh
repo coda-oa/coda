@@ -1,6 +1,7 @@
 #!/bin/bash
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source-path=SCRIPTDIR
 source "${script_dir}/common.sh"
 parse_environment_args "$@"
 init_environment
@@ -16,7 +17,7 @@ _gh_repo() {
 
 _get_repo() {
 	local remote url
-	remote=$(git rev-parse --abbrev-ref @{upstream} 2>/dev/null | cut -d/ -f1)
+	remote=$(git rev-parse --abbrev-ref "@{upstream}" 2>/dev/null | cut -d/ -f1)
 	if [[ -n "$remote" ]]; then
 		url=$(git remote get-url "$remote" 2>/dev/null) && _gh_repo "$url" && return
 	fi

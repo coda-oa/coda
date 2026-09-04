@@ -3,7 +3,8 @@
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 
 # Parse arguments using common.sh function, but handle postgres-version specially
-source ${script_dir}/common.sh
+# shellcheck source-path=SCRIPTDIR
+source "${script_dir}/common.sh"
 
 postgres_version=""
 filtered_args=()
@@ -32,6 +33,7 @@ init_environment
 
 # Load postgres environment variables
 POSTGRES_ENV_FILE="$ENV_DIR/postgres.env"
+# shellcheck source=/dev/null
 . "$POSTGRES_ENV_FILE"
 
 # Override POSTGRES_VERSION if provided via command line
@@ -72,7 +74,7 @@ echo ""
 echo "# Creating backup of PostgreSQL data volume ${POSTGRES_DATA_VOLUME}..."
 echo ""
 
-$PWD/commands/backups.sh create --${CODA_ENV}
+"$PWD"/commands/backups.sh create --"$CODA_ENV"
 
 echo "Shutting down CODA before PostgreSQL upgrade"
 $COMPOSE_BASE_CMD down

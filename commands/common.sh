@@ -2,7 +2,7 @@
 
 # Function to show usage information
 show_usage() {
-    local script_name="${1:-$0}"
+    local script_name="$0"
     echo "Usage: $script_name [OPTIONS] [COMMAND_ARGS...]"
     echo ""
     echo "Environment Options:"

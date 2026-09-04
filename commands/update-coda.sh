@@ -103,6 +103,7 @@ parse_update_args() {
 parse_update_args "$@"
 
 # Source common.sh for environment setup (pure library: define only)
+# shellcheck source-path=SCRIPTDIR
 source "${script_dir}/common.sh"
 parse_environment_args "$@"
 init_environment
