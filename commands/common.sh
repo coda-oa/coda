@@ -85,12 +85,10 @@ init_environment() {
         export COMPOSE_FILE="compose.local.yml"
         export ENV_DIR="$PWD/.envs/.local"
         export COMPOSE_BASE_CMD="docker compose -f $COMPOSE_FILE --env-file $ENV_DIR/django.env --env-file $ENV_DIR/postgres.env"
-        export POSTGRES_DATA_VOLUME="$(basename $PWD)_coda_local_postgres_data"
     else
         export COMPOSE_FILE="compose.production.yml"
         export ENV_DIR="$PWD/.envs/.production"
         export COMPOSE_BASE_CMD="docker compose -f $COMPOSE_FILE --env-file $ENV_DIR/coda.env --env-file $ENV_DIR/postgres.env"
-        export POSTGRES_DATA_VOLUME="$(basename $PWD)_production_postgres_data"
     fi
 
     echo "Using environment: $CODA_ENV (compose file: $COMPOSE_FILE)"

@@ -43,6 +43,20 @@ if [ -z "$POSTGRES_VERSION" ]; then
 	exit 1
 fi
 
+# Resolve the real compose-managed volume: key from the compose file itself,
+# actual name from Docker's labels (immune to project/checkout renames).
+VOLUME_KEYS="$($COMPOSE_BASE_CMD config --volumes | grep -E '_postgres_data$')"
+if [ "$(printf '%s\n' "$VOLUME_KEYS" | wc -l)" -ne 1 ]; then
+	echo "Error: expected exactly one *_postgres_data volume in $COMPOSE_FILE, got:" >&2
+	echo "$VOLUME_KEYS" >&2
+	exit 1
+fi
+POSTGRES_DATA_VOLUME="$(docker volume ls -q --filter "label=com.docker.compose.volume=${VOLUME_KEYS}" | head -1)"
+if [ -z "$POSTGRES_DATA_VOLUME" ]; then
+	echo "Error: no compose-managed volume '${VOLUME_KEYS}' found. Aborting before any destructive step." >&2
+	exit 1
+fi
+
 echo "########################################################"
 echo "# Upgrading PostgreSQL Version"
 echo "# Environment: ${CODA_ENV}"
