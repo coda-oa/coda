@@ -4,9 +4,16 @@ script_dir="$(cd "$(dirname "$0")" && pwd)"
 
 # Shared state between step functions
 STASH_REF=""
+STASH_MSG="update-coda pre-update"
 ROLLBACK_ON_EXIT=false
 CODA_STOPPED=false
 CODA_RESTARTED=false
+
+# True only while the slot STASH_REF still holds this run's tagged entry.
+# Guards against another stash landing on top of ours between push and pop.
+_stash_is_mine() {
+  [[ -n "$STASH_REF" ]] && [[ "$(git stash list -1 --format=%s "$STASH_REF" 2>/dev/null)" == *"$STASH_MSG"* ]]
+}
 
 # Cleanup: restart CODA if it was stopped but not restarted
 cleanup() {
@@ -15,7 +22,11 @@ cleanup() {
     echo "Rolling back to the previous branch and restoring stashed changes..." >&2
     git checkout - 2>/dev/null || true
     if [[ -n "$STASH_REF" ]]; then
-      git stash pop "$STASH_REF" 2>/dev/null || true
+      if _stash_is_mine; then
+        git stash pop "$STASH_REF" 2>/dev/null || true
+      else
+        echo "Stash queue changed; your changes remain under '$STASH_MSG' in 'git stash list'." >&2
+      fi
     fi
   fi
   if [[ "$CODA_STOPPED" == true && "$CODA_RESTARTED" == false ]]; then
@@ -159,7 +170,7 @@ step_fetch_and_switch() {
   echo "Step 3/5: Fetching and switching to branch '$BRANCH'..."
   if has_uncommitted_changes; then
     echo "Stashing uncommitted changes..."
-    git stash push --include-untracked
+    git stash push --include-untracked -m "$STASH_MSG"
     STASH_REF="stash@{0}"
   fi
   if ! git fetch origin "$BRANCH"; then
@@ -182,11 +193,18 @@ step_pull_and_restore() {
     ROLLBACK_ON_EXIT=true
     return 1
   fi
- 
+
   # Restore stashed changes if we created one in this run
-  if [[ -n "$STASH_REF" ]] && ! git stash pop "$STASH_REF" 2>&1; then
-    echo "Warning: Stash restore had conflicts." >&2
-    echo "Your local changes may need manual conflict resolution." >&2
+  if [[ -n "$STASH_REF" ]]; then
+    if _stash_is_mine; then
+      if ! git stash pop "$STASH_REF" 2>&1; then
+        echo "Warning: Stash restore had conflicts." >&2
+        echo "Your local changes may need manual conflict resolution." >&2
+      fi
+    else
+      echo "Warning: The stash queue changed during the update." >&2
+      echo "Your changes are safe under '$STASH_MSG' — see 'git stash list'." >&2
+    fi
   fi
   echo ""
 }
