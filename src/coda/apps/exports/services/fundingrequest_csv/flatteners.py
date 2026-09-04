@@ -66,8 +66,8 @@ def _create_base_row(
     pub_state = _get_publishing_state_dates(pub.publishing_state)
     review_info = _get_review_info(review)
     cost_info = _get_cost_info(cost)
-    funding_info = _get_research_funding(funding_request.research_funding)
     identifiers = _get_identifiers(pub.links)
+    corresponding_author = _get_corresponding_author(pub.authors)
 
     return {
         "legacy_request_id": funding_request.legacy_request_id or "",
@@ -80,6 +80,9 @@ def _create_base_row(
         "license": pub.license.value,
         "open_access_type": pub.open_access_type.value,
         "authors": _format_authors(pub.authors),
+        "corresponding_author": corresponding_author.name,
+        "corresponding_author_affiliation": corresponding_author.affiliation,
+        "corresponding_author_affiliation_internal_id": corresponding_author.affiliation_internal_id,
         "doi": identifiers.doi,
         "isbn": identifiers.isbn,
         "handle": identifiers.handle,
@@ -98,9 +101,7 @@ def _create_base_row(
         "decided_funding_amount": review_info.decided_amount,
         "decided_funding_currency": review_info.decided_currency,
         "labels": "; ".join(funding_request.labels),
-        "project_id": funding_info.project_id,
-        "project_name": funding_info.project_name,
-        "funding_organization": funding_info.funder,
+        "external_funding": _format_external_funding(funding_request.research_funding),
         "contract_name": _format_contract_names(funding_request),
         "contract_year": _format_contract_years(funding_request),
         "request_id": funding_request.request_id or "",
@@ -155,6 +156,30 @@ def _format_authors(
     authors: list[AuthorImportDto],
 ) -> str:
     return "; ".join(author.name for author in authors if author.name)
+
+
+@dataclass(frozen=True)
+class CorrespondingAuthorInfo:
+    name: str
+    affiliation: str
+    affiliation_internal_id: str
+
+
+def _get_corresponding_author(authors: list[AuthorImportDto]) -> CorrespondingAuthorInfo:
+    """Build the corresponding-author columns from the author DTOs.
+
+    The three columns are positional: segment i of affiliation and
+    affiliation_internal_id belongs to author i of name. Missing values are
+    rendered as an empty segment in their own position to keep the columns aligned.
+    """
+    corresponding = [author for author in authors if author.role.is_corresponding_role()]
+    return CorrespondingAuthorInfo(
+        name="; ".join(author.name for author in corresponding),
+        affiliation="; ".join(author.affiliation or "" for author in corresponding),
+        affiliation_internal_id="; ".join(
+            author.affiliation_internal_id or "" for author in corresponding
+        ),
+    )
 
 
 def _get_position_specific_fields(
@@ -212,10 +237,10 @@ class PublishingStateInfo:
 
 def _get_publishing_state_dates(publishing_state: PublishingStateImportDto) -> PublishingStateInfo:
     """Return PublishingStateInfo from a publishing state DTO."""
-    state = getattr(publishing_state, "state", None) or ""
-    online = getattr(publishing_state, "online_date", None)
+    state = publishing_state.state
+    online = publishing_state.online_date
     online_str = online.isoformat() if online else ""
-    print_d = getattr(publishing_state, "print_date", None)
+    print_d = publishing_state.print_date
     print_str = print_d.isoformat() if print_d else ""
     return PublishingStateInfo(state=state, online_date=online_str, print_date=print_str)
 
@@ -230,12 +255,11 @@ class ReviewInfo:
 
 def _get_review_info(review: ReviewImportDto) -> ReviewInfo:
     """Return ReviewInfo from a review DTO."""
-    result = getattr(review, "result", None)
-    result_str = result.value if result else ""
-    remarks = getattr(review, "remarks", None) or ""
-    funding = getattr(review, "funding", None)
-    amount = str(funding.amount) if funding else ""
-    currency = funding.currency if funding else ""
+    result_str = review.result.value
+    remarks = review.remarks
+    funding = review.funding
+    amount = str(funding.amount)
+    currency = funding.currency
     return ReviewInfo(
         result=result_str, remarks=remarks, decided_amount=amount, decided_currency=currency
     )
@@ -250,30 +274,39 @@ class CostInfo:
 
 def _get_cost_info(estimated_cost: CostEstimateImportDto) -> CostInfo:
     """Return CostInfo from an estimated cost DTO."""
-    amount_str = str(getattr(estimated_cost, "amount", ""))
-    currency = getattr(estimated_cost, "currency", "") or ""
-    payment = getattr(estimated_cost, "payment_method", None)
-    payment_str = payment.value if payment else ""
+    amount_str = str(estimated_cost.amount)
+    currency = estimated_cost.currency
+    payment_str = estimated_cost.payment_method.value
     return CostInfo(amount=amount_str, currency=currency, payment_method=payment_str)
 
 
-@dataclass(frozen=True)
-class ResearchFundingInfo:
-    project_id: str
-    project_name: str
-    funder: str
+def _format_external_funding(research_funding: list[ResearchFundingImportDto]) -> str:
+    """Flatten all external funding entries into one string.
 
-
-def _get_research_funding(research_funding: list[ResearchFundingImportDto]) -> ResearchFundingInfo:
-    """Return ResearchFundingInfo from first research funding entry."""
-    if not research_funding:
-        return ResearchFundingInfo(project_id="", project_name="", funder="")
-    rf = research_funding[0]
-    return ResearchFundingInfo(
-        project_id=getattr(rf, "project_id", "") or "",
-        project_name=getattr(rf, "project_name", "") or "",
-        funder=getattr(rf, "funder", "") or "",
+    Entries are sorted by (funder, project id, project name).
+    Example: 'BMBF (456 – Cancer Research) | DFG (123 – Awesome Project)'
+    """
+    ordered = sorted(
+        research_funding, key=lambda rf: (rf.funder.lower(), rf.project_id, rf.project_name)
     )
+    return " | ".join(
+        _format_funding_entry(rf) for rf in ordered if rf.funder or rf.project_id or rf.project_name
+    )
+
+
+def _format_funding_entry(rf: ResearchFundingImportDto) -> str:
+    """Format one funding entry as 'Funder (Project ID – Project Name)'.
+
+    Missing parts are dropped: 'Funder (ID – Name)', 'Funder (ID)', 'Funder (Name)', 'Funder'.
+    A missing funder is not expected (the organization is a required, non-archived FK) but
+    is rendered as '(Project ID – Project Name)' if it ever occurs.
+    """
+    funder = rf.funder
+    details = [part for part in (rf.project_id, rf.project_name) if part]
+    if not details:
+        return funder
+    detail = " – ".join(details)
+    return f"{funder} ({detail})" if funder else f"({detail})"
 
 
 @dataclass(frozen=True)

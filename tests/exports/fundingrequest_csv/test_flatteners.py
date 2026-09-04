@@ -1,8 +1,10 @@
 # tests/exports/fundingrequest_csv/test_flatteners.py
 
 import pytest
+from datetime import date
 from decimal import Decimal
 
+from coda.apps.exports.services.fundingrequest_csv import queries
 from coda.apps.exports.services.fundingrequest_csv.flatteners import flatten_detailed
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_funding_request_to_export_dto
 from coda.contexts.finance.services import invoice_service
@@ -12,10 +14,12 @@ from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import CreditorId, FundingSourceId
 from coda.domain.finance.invoice_positions import PublicationItem
 from coda.domain.finance.taxrate import TaxRate
+from coda.domain.author import InstitutionId, Role
 from coda.domain.money import Currency, Money
-from coda.domain.publication.publication import PublicationId
+from coda.domain.publication.publication import Authors, PublicationId
 from tests import domainfactory, modelfactory
 from tests.exports.fundingrequest_csv.helpers import (
+    _make_params,
     create_funding_request,
     create_invoice_with_publication_position,
 )
@@ -152,11 +156,209 @@ def test__missing_optional_fields__flatten_to_csv__handles_none_values() -> None
     row = rows[0]
 
     assert row["labels"] == ""
-    assert row["project_id"] == ""
-    assert row["project_name"] == ""
-    assert row["funding_organization"] == ""
+    assert row["external_funding"] == ""
     assert row["funding_source_name"] == ""
     assert row["funding_source_type"] == ""
 
     assert row["publication_title"] == "Minimal Publication"
     assert Decimal(row["position_amount"]) == invoice_position.cost.amount
+
+
+@pytest.mark.django_db
+def test__funding_request_with_multiple_external_fundings__flatten_to_csv__flattens_all_fundings_sorted() -> (
+    None
+):
+    funding_request = create_funding_request(title="Multi-Funder Publication")
+    funding_request.request_date = date(2026, 5, 1)
+    funding_request.save()
+    funding_request.external_funding.all().delete()
+
+    dfg = modelfactory.funding_organization(name="DFG")
+    bmbf = modelfactory.funding_organization(name="BMBF")
+
+    dfg_funding = modelfactory.external_funding(dfg.pk)
+    bmbf_funding = modelfactory.external_funding(bmbf.pk)
+    for external_funding in (dfg_funding, bmbf_funding):
+        external_funding.funding_request = funding_request
+        external_funding.save()
+
+    exported_requests = queries.get_funding_requests_for_export(
+        _make_params(date(2026, 1, 1), date(2026, 12, 31))
+    )
+    request_for_export = next(r for r in exported_requests if r.id == funding_request.id)
+
+    export_dto = map_funding_request_to_export_dto(request_for_export)
+    rows = flatten_detailed(export_dto)
+
+    expected = (
+        f"BMBF ({bmbf_funding.project_id} – {bmbf_funding.project_name})"
+        f" | DFG ({dfg_funding.project_id} – {dfg_funding.project_name})"
+    )
+    assert_all_rows_have_same_value(rows, "external_funding", expected)
+
+
+@pytest.mark.django_db
+def test__funding_request_with_affiliated_corresponding_author__flatten_to_csv__corresponding_author_columns_are_set() -> (
+    None
+):
+    institution = modelfactory.institution()
+    institution.internal_id = "TU-001"
+    institution.save()
+    corresponding = domainfactory.author(
+        affiliation=InstitutionId(institution.pk), role=Role.CORRESPONDING_AUTHOR
+    )
+    co_author = domainfactory.author(affiliation=None, role=Role.CO_AUTHOR)
+    funding_request = modelfactory.fundingrequest(
+        title="Corresponding Author Publication",
+        authors=Authors([corresponding, co_author]),
+    )
+
+    export_dto = map_funding_request_to_export_dto(funding_request)
+    rows = flatten_detailed(export_dto)
+
+    assert_all_rows_have_same_value(rows, "corresponding_author", corresponding.name)
+    assert_all_rows_have_same_value(rows, "corresponding_author_affiliation", institution.name)
+    assert_all_rows_have_same_value(
+        rows, "corresponding_author_affiliation_internal_id", institution.internal_id
+    )
+
+
+@pytest.mark.django_db
+def test__funding_request_with_only_co_authors__flatten_to_csv__corresponding_author_columns_are_empty() -> (
+    None
+):
+    funding_request = modelfactory.fundingrequest(
+        title="No Corresponding Author",
+        authors=Authors(
+            [
+                domainfactory.author(affiliation=None, role=Role.CO_AUTHOR),
+                domainfactory.author(affiliation=None, role=Role.SUBMITTER),
+            ]
+        ),
+    )
+
+    export_dto = map_funding_request_to_export_dto(funding_request)
+    rows = flatten_detailed(export_dto)
+
+    assert_all_rows_have_same_value(rows, "corresponding_author", "")
+    assert_all_rows_have_same_value(rows, "corresponding_author_affiliation", "")
+    assert_all_rows_have_same_value(rows, "corresponding_author_affiliation_internal_id", "")
+
+
+@pytest.mark.django_db
+def test__funding_request_with_unaffiliated_corresponding_author__flatten_to_csv__name_is_set_and_affiliation_columns_are_empty() -> (
+    None
+):
+    corresponding = domainfactory.author(affiliation=None, role=Role.CORRESPONDING_AUTHOR)
+    funding_request = modelfactory.fundingrequest(
+        title="Unaffiliated Corresponding Author",
+        authors=Authors([corresponding]),
+    )
+
+    export_dto = map_funding_request_to_export_dto(funding_request)
+    rows = flatten_detailed(export_dto)
+
+    assert_all_rows_have_same_value(rows, "corresponding_author", corresponding.name)
+    assert_all_rows_have_same_value(rows, "corresponding_author_affiliation", "")
+    assert_all_rows_have_same_value(rows, "corresponding_author_affiliation_internal_id", "")
+
+
+@pytest.mark.django_db
+def test__funding_request_with_submitting_corresponding_author__flatten_to_csv__counts_as_corresponding_author() -> (
+    None
+):
+    institution = modelfactory.institution()
+    institution.internal_id = "TU-100"
+    institution.save()
+    corresponding = domainfactory.author(
+        affiliation=InstitutionId(institution.pk), role=Role.SUBMITTING_CORRESPONDING_AUTHOR
+    )
+    funding_request = modelfactory.fundingrequest(
+        title="Submitting Corresponding Author",
+        authors=Authors([corresponding]),
+    )
+
+    export_dto = map_funding_request_to_export_dto(funding_request)
+    rows = flatten_detailed(export_dto)
+
+    assert_all_rows_have_same_value(rows, "corresponding_author", corresponding.name)
+    assert_all_rows_have_same_value(rows, "corresponding_author_affiliation", institution.name)
+    assert_all_rows_have_same_value(
+        rows, "corresponding_author_affiliation_internal_id", institution.internal_id
+    )
+
+
+@pytest.mark.django_db
+def test__funding_request_with_two_corresponding_authors__flatten_to_csv__joins_all_three_columns() -> (
+    None
+):
+    inst_1 = modelfactory.institution()
+    inst_1.internal_id = "TU-001"
+    inst_1.save()
+    inst_2 = modelfactory.institution()
+    inst_2.internal_id = "TU-002"
+    inst_2.save()
+    corresponding_1 = domainfactory.author(
+        affiliation=InstitutionId(inst_1.pk), role=Role.CORRESPONDING_AUTHOR
+    )
+    corresponding_2 = domainfactory.author(
+        affiliation=InstitutionId(inst_2.pk), role=Role.CORRESPONDING_AUTHOR
+    )
+    funding_request = modelfactory.fundingrequest(
+        title="Two Corresponding Authors",
+        authors=Authors([corresponding_1, corresponding_2]),
+    )
+
+    export_dto = map_funding_request_to_export_dto(funding_request)
+    rows = flatten_detailed(export_dto)
+
+    expected_names = f"{corresponding_1.name}; {corresponding_2.name}"
+    assert_all_rows_have_same_value(rows, "corresponding_author", expected_names)
+    assert_all_rows_have_same_value(
+        rows, "corresponding_author_affiliation", f"{inst_1.name}; {inst_2.name}"
+    )
+    assert_all_rows_have_same_value(
+        rows,
+        "corresponding_author_affiliation_internal_id",
+        f"{inst_1.internal_id}; {inst_2.internal_id}",
+    )
+
+
+@pytest.mark.django_db
+def test__funding_request_with_corresponding_author_without_affiliation__flatten_to_csv__affiliation_columns_keep_positional_alignment() -> (
+    None
+):
+    inst_1 = modelfactory.institution()
+    inst_1.internal_id = "TU-001"
+    inst_1.save()
+    inst_3 = modelfactory.institution()
+    inst_3.internal_id = "TU-003"
+    inst_3.save()
+    author_a = domainfactory.author(
+        affiliation=InstitutionId(inst_1.pk), role=Role.CORRESPONDING_AUTHOR
+    )
+    author_b = domainfactory.author(affiliation=None, role=Role.CORRESPONDING_AUTHOR)
+    author_c = domainfactory.author(
+        affiliation=InstitutionId(inst_3.pk), role=Role.CORRESPONDING_AUTHOR
+    )
+    funding_request = modelfactory.fundingrequest(
+        title="Unaffiliated Corresponding Author in the Middle",
+        authors=Authors([author_a, author_b, author_c]),
+    )
+
+    export_dto = map_funding_request_to_export_dto(funding_request)
+    rows = flatten_detailed(export_dto)
+
+    assert_all_rows_have_same_value(
+        rows,
+        "corresponding_author",
+        f"{author_a.name}; {author_b.name}; {author_c.name}",
+    )
+    assert_all_rows_have_same_value(
+        rows, "corresponding_author_affiliation", f"{inst_1.name}; ; {inst_3.name}"
+    )
+    assert_all_rows_have_same_value(
+        rows,
+        "corresponding_author_affiliation_internal_id",
+        f"{inst_1.internal_id}; ; {inst_3.internal_id}",
+    )
