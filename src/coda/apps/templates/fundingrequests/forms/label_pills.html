@@ -2,9 +2,9 @@
     {% for pill in label_pills %}
         <a class="label pill label-filter-pill {{ pill.state }}"
            href="{{ pill.toggle_url }}"
-           hx-get="{{ pill.toggle_url }}"
+           hx-get="{{ pill.toggle_fragment_url }}"
            hx-target="#fundingrequest-list"
-           hx-push-url="true"
+           hx-push-url="{{ pill.toggle_url }}"
            title="Toggle label filter"
            style="--label-bg-color: {{ pill.color }};
                   --label-border-color: {{ pill.color }}">{{ pill.name }}</a>
