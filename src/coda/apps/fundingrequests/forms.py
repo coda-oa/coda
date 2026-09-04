@@ -134,7 +134,7 @@ class PaymentForm(CodaFormBase):
 
     def to_dto(self) -> PaymentDto:
         return PaymentDto(
-            amount=float(self.cleaned_data["amount"]),
+            amount=self.cleaned_data["amount"],
             currency=self.cleaned_data["currency"],
             method=self.cleaned_data["method"],
             external_costsplitting=self.cleaned_data["external_costsplitting"],
