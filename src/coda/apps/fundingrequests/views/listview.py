@@ -5,7 +5,7 @@ from typing import Any, Literal
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 from django.urls import reverse
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -111,6 +111,18 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
 
 class FundingRequestListRegionView(FundingRequestListView):
     template_name = "fundingrequests/fundingrequest_list_region.html"
+
+    def render_to_response(self, context: dict[str, Any], **response_kwargs: Any) -> HttpResponse:
+        response = super().render_to_response(context, **response_kwargs)
+        if self.request.headers.get("HX-Request") == "true":
+            response["HX-Push-Url"] = self._push_url()
+        return response
+
+    def _push_url(self) -> str:
+        path = reverse("fundingrequests:list")
+        if self.request.GET:
+            return f"{path}?{self.request.GET.urlencode()}"
+        return path
 
 
 fundingrequest_list = FundingRequestListView.as_view()
