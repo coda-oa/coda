@@ -1,3 +1,5 @@
+from typing import cast
+
 from django.contrib.auth.decorators import login_required
 from django.db.models import Prefetch, Count
 from django.http import HttpRequest, HttpResponse
@@ -27,10 +29,17 @@ from coda.apps.opencost.report_service import (
 from coda.apps.exports.services.filter_display import (
     build_applied_filters,
     build_filter_form_context,
-    build_filters_from_request,
     create_redo_url,
     parse_current_filters_to_context,
 )
+from coda.apps.exports.services.filter_form import (
+    FilterCleanedData,
+    FormFieldErrors,
+    FundingRequestFilterForm,
+    current_filters_from_post,
+    form_error_lines,
+)
+from coda.contexts.exports.dto.filters import ExportFiltersDto
 from coda.apps.opencost.validation import validate_report
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.views import SimpleSearchEntityListView
@@ -155,23 +164,11 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
 @require_GET
 @breadcrumb("Generate New Report", parent_url_name=OPENCOST_LIST_URL)
 def generate_report_form(request: HttpRequest) -> HttpResponse:
-    context = _get_report_form_context()
-    context["expand_advanced_search"] = bool(request.GET)
-    context["current_filters"] = parse_current_filters_to_context(request)
-    context.update(
-        {
-            "page_title": "Generate New openCost Report",
-            "form_action_url": reverse("opencost:generate_submit"),
-            "parameters_title": "Report Parameters",
-            "title_label": "Report Title",
-            "title_placeholder": "Enter a title for the report",
-            "cancel_url": reverse(OPENCOST_LIST_URL),
-            "submit_button_text": "Generate Report",
-            "include_payment_status": False,
-            "include_decimal_separator": False,
-        }
+    return render(
+        request,
+        "exports/generate_export_form.html",
+        _report_form_context(request, FundingRequestFilterForm()),
     )
-    return render(request, "exports/generate_export_form.html", context)
 
 
 def _build_issue_message(report: OpenCostReport, detail_url: str) -> str:
@@ -205,43 +202,69 @@ def _build_success_message(report: OpenCostReport) -> str:
 @login_required
 @require_POST
 def generate_report(request: HttpRequest) -> HttpResponse:
-    title = request.POST.get("title", "OpenCost Report")
-
-    try:
-        period_start_str = request.POST.get("period_start")
-        period_end_str = request.POST.get("period_end")
-
-        if not period_start_str or not period_end_str:
-            messages.error(request, "Both start and end dates are required.")
-            return redirect("opencost:generate")
-
-        filters = build_filters_from_request(request)
-
-        report = generate_report_service(
-            title=title,
-            filters=filters,
+    form = FundingRequestFilterForm(request.POST)
+    if not form.is_valid():
+        return render(
+            request,
+            "exports/generate_export_form.html",
+            _report_form_context(
+                request,
+                form,
+                form_errors=form_error_lines(form),
+                current_filters=current_filters_from_post(request.POST),
+            ),
         )
 
-        if report.has_issues():
-            detail_url = reverse("opencost:detail", args=[report.id])
-            message = _build_issue_message(report, detail_url)
-            messages.warning(request, message)
-        else:
-            message = _build_success_message(report)
-            messages.success(request, message)
+    cleaned = cast(FilterCleanedData, form.cleaned_data)
+    title = cleaned["title"].strip() or "OpenCost Report"
+    dto = ExportFiltersDto.from_form_data(cleaned)
 
-        return redirect(OPENCOST_LIST_URL)
-
-    except ValueError as e:
-        messages.error(request, f"Invalid date format: {str(e)}")
-        return redirect("opencost:generate")
+    try:
+        report = generate_report_service(
+            title=title,
+            filters=dto.to_storage(),
+        )
     except Exception as e:
         messages.error(request, f"Error generating report: {str(e)}")
         return redirect("opencost:generate")
 
+    if report.has_issues():
+        detail_url = reverse("opencost:detail", args=[report.id])
+        message = _build_issue_message(report, detail_url)
+        messages.warning(request, message)
+    else:
+        message = _build_success_message(report)
+        messages.success(request, message)
 
-def _get_report_form_context() -> dict[str, object]:
-    return build_filter_form_context()
+    return redirect(OPENCOST_LIST_URL)
+
+
+def _report_form_context(
+    request: HttpRequest,
+    form: FundingRequestFilterForm,
+    form_errors: list[FormFieldErrors] | None = None,
+    current_filters: dict[str, str | list[str]] | None = None,
+) -> dict[str, object]:
+    context = build_filter_form_context()
+    context["form"] = form
+    context["expand_advanced_search"] = bool(request.GET) or form_errors is not None
+    context["current_filters"] = current_filters or parse_current_filters_to_context(request)
+    context.update(
+        {
+            "page_title": "Generate New openCost Report",
+            "form_action_url": reverse("opencost:generate_submit"),
+            "parameters_title": "Report Parameters",
+            "title_label": "Report Title",
+            "title_placeholder": "Enter a title for the report",
+            "cancel_url": reverse(OPENCOST_LIST_URL),
+            "submit_button_text": "Generate Report",
+            "include_payment_status": False,
+            "include_decimal_separator": False,
+        }
+    )
+    if form_errors is not None:
+        context["form_errors"] = form_errors
+    return context
 
 
 @login_required

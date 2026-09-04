@@ -72,8 +72,10 @@ def get_publications_for_period(
 
     links_with_types = Link.objects.select_related("type")
     institution_links_with_types = InstitutionLink.objects.select_related("type")
-    authors_with_affiliation = Author.objects.select_related("affiliation").prefetch_related(
-        Prefetch("affiliation__links", queryset=institution_links_with_types)
+    authors_with_affiliation = (
+        Author.objects.select_related("affiliation")
+        .prefetch_related(Prefetch("affiliation__links", queryset=institution_links_with_types))
+        .order_by("id")
     )
 
     return (
@@ -172,7 +174,7 @@ def _collect_institution_ids_from_authors(publications: QuerySet[Publication]) -
     """Extract institution IDs from corresponding authors (no database query)."""
     institution_ids: set[int] = set()
     for publication in publications:
-        for author in sorted(publication.relevant_authors.all(), key=lambda author: author.id):
+        for author in publication.relevant_authors.all():
             if author.roles and "CORRESPONDING_AUTHOR" in author.roles:
                 if author.affiliation_id:
                     institution_ids.add(author.affiliation_id)

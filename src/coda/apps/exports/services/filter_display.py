@@ -1,46 +1,51 @@
-from datetime import datetime
+"""Display helpers for the filters persisted on export/report rows.
+
+Raw ``filters`` JSON is read through :class:`ExportFiltersDto`, which
+validates and decodes it (including the legacy comma-joined formats), so the
+projection below only deals with typed values.
+"""
 
 from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Callable, get_args, get_origin
 from urllib.parse import urlencode
 
 from django.http import HttpRequest
 from django.urls import reverse
 
-from coda.apps.fundingrequests.models import Label
 from coda.apps.contracts.models import Contract
-from coda.apps.invoices.models import FundingSource
+from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.fundingrequest_query import (
     PaymentStatus as FundingRequestPaymentStatus,
-    FundingRequestSearchParams,
-    PublicationEntityType,
 )
-from coda.domain.date import DateRange
-from coda.domain.finance.invoice import FundingSourceId
+from coda.apps.fundingrequests.fundingrequest_query import PublicationEntityType
+from coda.apps.invoices.models import FundingSource
+from coda.contexts.exports.dto.filters import ExportFiltersDto
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import DecimalSeparator
 from coda.domain.publication import OpenAccessType
 from coda.domain.publication.publication import UnpublishedState
 
+
+def _is_multi_value(annotation: Any) -> bool:
+    return any(get_origin(arg) is list for arg in get_args(annotation))
+
+
 MULTI_VALUE_FILTER_FIELDS = {
-    "open_access_type",
-    "labels",
-    "exclude_labels",
-    "payment_status",
-    "processing_status",
-    "payment_methods",
-    "publication_states",
+    name
+    for name, field in ExportFiltersDto.model_fields.items()
+    if _is_multi_value(field.annotation)
 }
+SINGLE_VALUE_FILTER_FIELDS = set(ExportFiltersDto.model_fields) - MULTI_VALUE_FILTER_FIELDS
 
 
-SINGLE_VALUE_FILTER_FIELDS = {
-    "publication_type",
-    "funding_source",
-    "contract_name",
-    "period_start",
-    "period_end",
-    "search_term",
-    "decimal_separator",
-}
+def filter_field_label(field_name: str) -> str:
+    """Human-readable label for a filter field, falling back to its name."""
+    model_field = ExportFiltersDto.model_fields.get(field_name)
+    if model_field is not None and model_field.title:
+        return str(model_field.title)
+    return field_name
 
 
 def parse_current_filters_to_context(request: HttpRequest) -> dict[str, str | list[str]]:
@@ -69,102 +74,6 @@ payment_status_choices: list[tuple[str, str]] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Shared filter keys that are common to both CSV exports and openCost reports.
-# ---------------------------------------------------------------------------
-
-_COMMON_OPTIONAL_FILTER_FIELDS: list[str] = list(
-    MULTI_VALUE_FILTER_FIELDS | SINGLE_VALUE_FILTER_FIELDS
-)
-
-
-def build_filters_from_request(
-    request: HttpRequest,
-    extra_optional_fields: list[str] | None = None,
-) -> dict[str, str]:
-    """Build the raw filter dict from a POST request.
-
-    Both CSV exports and openCost reports share the same set of base optional
-    filter fields.  Pass ``extra_optional_fields`` to include additional fields
-    (e.g. invoice date fields used only in the CSV flow).
-    """
-    filters: dict[str, str] = {
-        "period_start": request.POST["period_start"],
-        "period_end": request.POST["period_end"],
-    }
-
-    for field in _COMMON_OPTIONAL_FILTER_FIELDS + (extra_optional_fields or []):
-        values = [v for v in request.POST.getlist(field) if v]
-        if values:
-            filters[field] = ",".join(values)
-
-    return filters
-
-
-def parse_common_filter_fields(filters: dict[str, str]) -> FundingRequestSearchParams:
-    """Parse filter fields into a FundingRequestSearchParams object."""
-    review_results = [
-        ReviewResult(rr) for rr in filters.get("processing_status", "").split(",") if rr
-    ]
-    payment_statuses = [
-        FundingRequestPaymentStatus(ps) for ps in filters.get("payment_status", "").split(",") if ps
-    ]
-    labels = [int(_id) for _id in filters.get("labels", "").split(",") if _id]
-    exclude_labels = [int(_id) for _id in filters.get("exclude_labels", "").split(",") if _id]
-    payment_methods = [
-        PaymentMethod(pm) for pm in filters.get("payment_methods", "").split(",") if pm
-    ]
-    open_access_types = [
-        OpenAccessType(oat) for oat in filters.get("open_access_type", "").split(",") if oat
-    ]
-    publication_states = [ps for ps in filters.get("publication_states", "").split(",") if ps]
-
-    entity_type_raw = filters.get("publication_type") or filters.get("entity_type")
-    entity_type = (
-        PublicationEntityType(entity_type_raw) if entity_type_raw else PublicationEntityType.All
-    )
-
-    funding_source_raw = filters.get("funding_source")
-    funding_source = FundingSourceId(int(funding_source_raw)) if funding_source_raw else None
-
-    contract_raw = filters.get("contract_name") or filters.get("contract")
-    contract_id = int(contract_raw) if contract_raw else None
-
-    # Parse date range
-    start_str = filters.get("period_start")
-    end_str = filters.get("period_end")
-    date_range = None
-    if start_str and end_str:
-        try:
-            start = datetime.strptime(start_str, "%Y-%m-%d").date()
-            end = datetime.strptime(end_str, "%Y-%m-%d").date()
-            date_range = DateRange(start, end)
-        except ValueError:
-            pass
-
-    search_term = filters.get("search_term", "")
-
-    decimal_separator = filters.get("decimal_separator", ".")
-    if decimal_separator not in {".", ","}:
-        decimal_separator = "."
-
-    return FundingRequestSearchParams(
-        date_range=date_range,
-        review_results=review_results,
-        payment_statuses=payment_statuses,
-        labels=labels,
-        exclude_labels=exclude_labels,
-        payment_methods=payment_methods,
-        open_access_types=open_access_types,
-        publication_states=publication_states,
-        entity_type=entity_type,
-        search_term=search_term,
-        contract_id=contract_id,
-        funding_source=funding_source,
-        decimal_separator=decimal_separator,
-    )
-
-
 def build_filter_form_context() -> dict[str, object]:
     """Return the template context dict needed to render any filter form.
 
@@ -181,18 +90,16 @@ def build_filter_form_context() -> dict[str, object]:
         "publication_types": [(et.value, et.value) for et in PublicationEntityType],
         "contract_list": Contract.objects.all(),
         "payment_status_choices": payment_status_choices,
+        "decimal_separator_choices": [
+            (member.value, member.display) for member in DecimalSeparator
+        ],
     }
 
 
-def create_redo_url(filters: dict[str, str], url_name: str) -> str:
-    redo_params: dict[str, str | list[str]] = {}
-    all_multi_value = MULTI_VALUE_FILTER_FIELDS | SINGLE_VALUE_FILTER_FIELDS
-    for key, value in filters.items():
-        if key in all_multi_value and key != "decimal_separator":
-            redo_params[key] = value.split(",")
-        else:
-            redo_params[key] = value
-    return reverse(url_name) + "?" + urlencode(redo_params, doseq=True)
+def create_redo_url(filters: dict[str, Any], url_name: str) -> str:
+    """Rebuild the filter form URL for 'reuse filters', keys normalized via the DTO."""
+    params = ExportFiltersDto.model_validate(filters).to_storage()
+    return reverse(url_name) + "?" + urlencode(params, doseq=True)
 
 
 @dataclass
@@ -201,124 +108,62 @@ class AppliedFilter:
     value: str
 
 
-def build_applied_filters(filters: dict[str, str]) -> list[AppliedFilter]:
-    applied_filters = (
-        _period_filter(filters),
-        _processing_status_filter(filters),
-        _payment_methods_filter(filters),
-        _open_access_type_filter(filters),
-        _publication_states_filter(filters),
-        _labels_filter(filters),
-        _exclude_labels_filter(filters),
-        _payment_status_filter(filters),
-        _publication_type_filter(filters),
-        _contract_filter(filters),
-        _funding_source_filter(filters),
-        _decimal_separator_filter(filters),
-    )
-    return [f for f in applied_filters if f is not None]
+_PERIOD_LABEL = "Period"
+_PERIOD_DATE_FORMAT = "%B %-d, %Y"
 
 
-def _decimal_separator_filter(filters: dict[str, str]) -> AppliedFilter | None:
-    if "decimal_separator" not in filters:
-        return None
-    value = ", (e.g. German)" if filters["decimal_separator"] == "," else ". (English/ISO)"
-    return AppliedFilter(label="Decimal Separator", value=value)
+def _values_text(value: Any) -> str:
+    items = value if isinstance(value, list) else [value]
+    return ", ".join(item.value if isinstance(item, Enum) else str(item) for item in items)
 
 
-def _period_filter(filters: dict[str, str]) -> AppliedFilter | None:
-    if "period_start" not in filters or "period_end" not in filters:
-        return None
-    start = datetime.strptime(filters["period_start"], "%Y-%m-%d").strftime("%B %-d, %Y")
-    end = datetime.strptime(filters["period_end"], "%Y-%m-%d").strftime("%B %-d, %Y")
-    return AppliedFilter(label="Period", value=f"{start} to {end}")
+def _names(names: Any) -> str:
+    return ", ".join(names)
 
 
-def _processing_status_filter(filters: dict[str, str]) -> AppliedFilter | None:
-    if "processing_status" not in filters:
-        return None
-    statuses = [s.strip() for s in filters["processing_status"].split(",") if s]
-    return AppliedFilter(label="Processing Status", value=", ".join(statuses))
+_FORMATTERS: dict[str, Callable[[Any], str]] = {
+    "payment_status": lambda statuses: ", ".join(
+        status.value.replace("_", " ").title() for status in statuses
+    ),
+    "decimal_separator": lambda separator: separator.display,
+    "labels": lambda ids: _names(
+        Label.objects.filter(id__in=list(ids)).values_list("name", flat=True)
+    ),
+    "exclude_labels": lambda ids: _names(
+        Label.objects.filter(id__in=list(ids)).values_list("name", flat=True)
+    ),
+    "contract_name": lambda pk: _names(
+        Contract.objects.filter(pk=pk).values_list("name", flat=True)
+    ),
+    "funding_source": lambda pk: _names(
+        FundingSource.objects.filter(pk=pk).values_list("name", flat=True)
+    ),
+}
+
+# ``period_start`` renders the combined Period row; ``period_end`` is covered by it.
+_NOT_DISPLAYED = {"period_end"}
 
 
-def _payment_methods_filter(filters: dict[str, str]) -> AppliedFilter | None:
-    if "payment_methods" not in filters:
-        return None
-    methods = [m.strip() for m in filters["payment_methods"].split(",") if m]
-    return AppliedFilter(label="Payment Methods", value=", ".join(methods))
+def build_applied_filters(filters: dict[str, Any]) -> list[AppliedFilter]:
+    """Project a persisted filter dict into ordered, human-readable rows.
 
-
-def _open_access_type_filter(filters: dict[str, str]) -> AppliedFilter | None:
-    if "open_access_type" not in filters:
-        return None
-    types = [t.strip() for t in filters["open_access_type"].split(",") if t]
-    return AppliedFilter(label="Open Access Type", value=", ".join(types))
-
-
-def _publication_states_filter(filters: dict[str, str]) -> AppliedFilter | None:
-    if "publication_states" not in filters:
-        return None
-    states = [s.strip() for s in filters["publication_states"].split(",") if s]
-    return AppliedFilter(label="Publication States", value=", ".join(states))
-
-
-def _labels_filter(filters: dict[str, str]) -> AppliedFilter | None:
-    if "labels" not in filters:
-        return None
-    label_ids = [int(_id) for _id in filters["labels"].split(",") if _id]
-    labels = Label.objects.filter(id__in=label_ids)
-    return AppliedFilter(
-        label="Labels",
-        value=", ".join(label.name for label in labels),
-    )
-
-
-def _exclude_labels_filter(filters: dict[str, str]) -> AppliedFilter | None:
-    if "exclude_labels" not in filters:
-        return None
-    exclude_label_ids = [int(_id) for _id in filters["exclude_labels"].split(",") if _id]
-    exclude_labels = Label.objects.filter(id__in=exclude_label_ids)
-    return AppliedFilter(
-        label="Excluded Labels",
-        value=", ".join(label.name for label in exclude_labels),
-    )
-
-
-def _payment_status_filter(filters: dict[str, str]) -> AppliedFilter | None:
-    if "payment_status" not in filters:
-        return None
-    statuses = [
-        FundingRequestPaymentStatus(s.strip()).value.replace("_", " ").title()
-        for s in filters["payment_status"].split(",")
-        if s
-    ]
-    return AppliedFilter(label="Payment Status", value=", ".join(statuses))
-
-
-def _publication_type_filter(filters: dict[str, str]) -> AppliedFilter | None:
-    if "publication_type" not in filters:
-        return None
-    types = [t.strip() for t in filters["publication_type"].split(",") if t]
-    return AppliedFilter(label="Publication Type", value=", ".join(types))
-
-
-def _contract_filter(filters: dict[str, str]) -> AppliedFilter | None:
-    if "contract_name" not in filters:
-        return None
-    contract_ids = [int(_id) for _id in filters["contract_name"].split(",") if _id]
-    contracts = Contract.objects.filter(id__in=contract_ids)
-    return AppliedFilter(
-        label="Contracts",
-        value=", ".join(contract.name for contract in contracts),
-    )
-
-
-def _funding_source_filter(filters: dict[str, str]) -> AppliedFilter | None:
-    if "funding_source" not in filters:
-        return None
-    funding_source_ids = [int(_id) for _id in filters["funding_source"].split(",") if _id]
-    funding_sources = FundingSource.objects.filter(id__in=funding_source_ids)
-    return AppliedFilter(
-        label="Funding Source",
-        value=", ".join(source.name for source in funding_sources),
-    )
+    A row is emitted per applied criterion (unset criteria are skipped);
+    unknown keys in the raw dict are ignored. Field declaration order of
+    ``ExportFiltersDto`` determines the display order.
+    """
+    dto = ExportFiltersDto.model_validate(filters)
+    applied: list[AppliedFilter] = []
+    for name in ExportFiltersDto.model_fields:
+        value = getattr(dto, name)
+        if name in _NOT_DISPLAYED or not value:
+            continue
+        if name == "period_start":
+            if dto.period_end is None:  # pragma: no cover -- persisted rows always store both
+                continue
+            start = dto.period_start.strftime(_PERIOD_DATE_FORMAT)  # type: ignore[union-attr]
+            end = dto.period_end.strftime(_PERIOD_DATE_FORMAT)
+            applied.append(AppliedFilter(label=_PERIOD_LABEL, value=f"{start} to {end}"))
+            continue
+        formatter = _FORMATTERS.get(name, _values_text)
+        applied.append(AppliedFilter(label=filter_field_label(name), value=formatter(value)))
+    return applied

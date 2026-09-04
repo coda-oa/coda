@@ -6,6 +6,7 @@ Function-based query service following CQRS-lite pattern:
 - Returns FundingRequestDetail view model (no domain objects in template context)
 """
 
+from collections.abc import Iterable
 from typing import Any
 
 from coda.apps.authors.models import Author as AuthorModel
@@ -39,9 +40,7 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
     """
     fr_model = FundingRequestDetailMapper.prefetch(FundingRequestModel.objects.all()).get(pk=fr_id)
 
-    affiliation_names = _fetch_affiliation_names(
-        sorted(fr_model.publication.relevant_authors.all(), key=lambda author: author.id)
-    )
+    affiliation_names = _fetch_affiliation_names(fr_model.publication.relevant_authors.all())
     payment_status = publication_service.get_payment_status(PublicationId(fr_model.publication_id))
     payment_details = PaymentDetailMapper.map(payment_status, fr_model.request_id)
 
@@ -62,7 +61,7 @@ def get_detail_context(fr_id: FundingRequestId) -> dict[str, Any]:
     }
 
 
-def _fetch_affiliation_names(authors: list[AuthorModel]) -> dict[InstitutionId, str]:
+def _fetch_affiliation_names(authors: Iterable[AuthorModel]) -> dict[InstitutionId, str]:
     """Bulk-fetch institution names for a set of authors (single query)."""
     affiliation_ids = {a.affiliation_id for a in authors if a.affiliation_id is not None}
     if not affiliation_ids:

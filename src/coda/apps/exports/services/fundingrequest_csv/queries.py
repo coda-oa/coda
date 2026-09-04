@@ -14,7 +14,6 @@ type LabelId = int
 def get_funding_requests_for_export(
     params: fundingrequest_query.FundingRequestSearchParams,
 ) -> QuerySet[FundingRequest]:
-
     criteria = fundingrequest_query.build_criteria(params)
     qs = fundingrequest_query.search(*criteria)
 
@@ -39,9 +38,6 @@ def get_funding_requests_for_export(
             "publication__position_set__invoice__positions",
             "publication__position_set__invoice__positions__funding_assignments",
             "publication__position_set__invoice__positions__funding_assignments__funding_source",
-            "publication__relevant_authors",
-            "publication__relevant_authors__identifier",
-            "publication__relevant_authors__affiliation",
             "publication__links",
             "publication__links__type",
             "publication__attached_contracts",
@@ -75,7 +71,6 @@ def get_concept_id_lookup(
         if attached is not None
     }
 
-    return {
-        concept.entity_id: concept.concept_id
-        for concept in Concept.objects.filter(entity_id__in=entity_ids)
-    }
+    return dict(
+        Concept.objects.filter(entity_id__in=entity_ids).values_list("entity_id", "concept_id")
+    )

@@ -59,8 +59,8 @@ def test__filters_provided__generate_report__persists_filters_on_report() -> Non
     report = generate_report(title="Test Report Filters", filters=filters)
 
     saved_report = OpenCostReport.objects.get(pk=report.pk)
-    assert saved_report.filters["payment_status"] == "paid,unpaid"
-    assert saved_report.filters["contract_name"] == "1"
+    assert saved_report.filters["payment_status"] == ["paid", "unpaid"]
+    assert saved_report.filters["contract_name"] == 1
 
 
 @pytest.mark.django_db
@@ -409,6 +409,56 @@ def test__publication_with_institution_identifiers__generate_report__identifier_
     assert identifier_snapshots.filter(
         identifier_type="isni", value="https://isni.org/isni/0000000121032683"
     ).exists()
+
+
+@pytest.mark.django_db
+def test__publication_with_duplicate_corresponding_authors__generate_report__uses_institution_of_lowest_id_author() -> (
+    None
+):
+    first_institution = create_institution_with_identifiers(
+        name="First Author Department",
+        ror="https://ror.org/firstauthor",
+    )
+    second_institution = create_institution_with_identifiers(
+        name="Second Author Department",
+        ror="https://ror.org/secondauthor",
+    )
+
+    fr = modelfactory.fundingrequest(title="Test Publication")
+    fr.publication.relevant_authors.all().delete()
+    first_author = create_corresponding_author(
+        publication=fr.publication,
+        name="First Author",
+        email="first@example.com",
+        affiliation=first_institution,
+    )
+    second_author = create_corresponding_author(
+        publication=fr.publication,
+        name="Second Author",
+        email="second@example.com",
+        affiliation=second_institution,
+    )
+    low_id_author = min((first_author, second_author), key=lambda author: author.pk)
+    if low_id_author.pk == first_author.pk:
+        expected_ror, other_ror = "https://ror.org/firstauthor", "https://ror.org/secondauthor"
+    else:
+        expected_ror, other_ror = "https://ror.org/secondauthor", "https://ror.org/firstauthor"
+
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 15),
+        invoice_number="INV-2024-001",
+    )
+
+    report = create_opencost_report()
+
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    assert low_id_author.affiliation is not None
+    assert report_publication.institution_name == low_id_author.affiliation.name
+    identifiers = report_publication.institution_identifiers
+    assert identifiers.filter(identifier_type="ror", value=expected_ror).exists()
+    assert not identifiers.filter(identifier_type="ror", value=other_ror).exists()
 
 
 @pytest.mark.django_db

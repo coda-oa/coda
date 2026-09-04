@@ -27,7 +27,6 @@ PREVIEW_COLUMNS = [
 def test__fundingrequest_csv_empty_export_detail_page__is_opened__context_contains_export_details(
     client: Client,
 ) -> None:
-
     csv_content = "request_id;publication_title;doi;contract_name;invoice_number;position_amount\n"
     csv_file = ContentFile(csv_content, name="empty.csv")
 
@@ -57,7 +56,6 @@ def test__fundingrequest_csv_empty_export_detail_page__is_opened__context_contai
 def test__fundingrequest_csv_export_detail_page_with_data__is_opened__context_contains_export_details_and_preview_data(
     client: Client,
 ) -> None:
-
     export = FundingRequestCSVExport.objects.create(
         name="Test Export with Data",
         filters={
@@ -91,7 +89,6 @@ def test__fundingrequest_csv_export_detail_page_with_data__is_opened__context_co
 def test_fundingrequest_csv_export_create_view__is_opened__creates_export_and_redirects_to_detail_page(
     client: Client,
 ) -> None:
-
     fundingrequest = modelfactory.fundingrequest(title="Export Creation Test Publication")
     fundingrequest.request_date = date(2024, 3, 5)
     fundingrequest.save()
@@ -127,7 +124,6 @@ def test_fundingrequest_csv_export_create_view__is_opened__creates_export_and_re
 def test_fundingrequest_csv_export_create_view__is_opened__form_offers_decimal_separator_choices(
     client: Client,
 ) -> None:
-
     response = client.get(reverse("exports:fundingrequests_csv_create"))
 
     assert response.status_code == 200
@@ -142,7 +138,6 @@ def test_fundingrequest_csv_export_create_view__is_opened__form_offers_decimal_s
 def test_fundingrequest_csv_export_create_view__decimal_separator_comma__is_stored_in_export_filters(
     client: Client,
 ) -> None:
-
     response = client.post(
         reverse("exports:fundingrequests_csv_create"),
         data={
@@ -163,7 +158,6 @@ def test_fundingrequest_csv_export_create_view__decimal_separator_comma__is_stor
 def test_fundingrequest_csv_export_create_view__saved_file__starts_with_utf8_bom(
     client: Client,
 ) -> None:
-
     response = client.post(
         reverse("exports:fundingrequests_csv_create"),
         data={
@@ -187,7 +181,6 @@ def test_fundingrequest_csv_export_create_view__saved_file__starts_with_utf8_bom
 def test_fundingrequest_csv_export_delete_view__is_called__deletes_export_and_returns_success_response(
     client: Client,
 ) -> None:
-
     export = FundingRequestCSVExport.objects.create(
         name="Export to Delete",
         filters={
@@ -254,7 +247,6 @@ def test__fundingrequest_csv_detail_page__renders_preview_from_stored_csv_snapsh
 def test_fundingrequest_csv_export_create_view__publication_type_filter__is_stored(
     client: Client,
 ) -> None:
-
     title = "Funding Request Export With Publication Type"
 
     response = client.post(
@@ -292,7 +284,7 @@ def test_fundingrequest_csv_export_create_view__contract_filter__is_stored(
 
     assert response.status_code == 302
     export = FundingRequestCSVExport.objects.get(name=title)
-    assert export.filters["contract_name"] == str(contract.id)
+    assert export.filters["contract_name"] == contract.id
 
 
 @pytest.mark.django_db
@@ -449,3 +441,78 @@ def test__export_list__is_ordered_by_created_at_descending(client: Client) -> No
 
     assert response.status_code == 200
     assert [e.name for e in response.context["entities"]] == ["b_new.csv", "a_old.csv"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invalid_processing_status_post__creating_export__re_renders_without_creating(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "title": "Bad Export",
+            "processing_status": ["bogus"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert "form_errors" in response.context
+    assert response.context["current_filters"]["processing_status"] == ["bogus"]
+    assert FundingRequestCSVExport.objects.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__malformed_date_in_create_post__creating_export__re_renders_without_creating(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={
+            "period_start": "01.01.2024",
+            "period_end": "2024-12-31",
+            "title": "Bad Date Export",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "form_errors" in response.context
+    assert FundingRequestCSVExport.objects.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__malformed_date_in_create_post__creating_export__preserves_entered_title_and_dates(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={
+            "period_start": "01.01.2024",
+            "period_end": "2024-12-31",
+            "title": "Keep Me",
+        },
+    )
+
+    content = response.content.decode()
+    assert 'value="Keep Me"' in content
+    assert 'value="01.01.2024"' in content
+    assert 'value="2024-12-31"' in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__missing_period_end_in_create_post__creating_export__re_renders_without_creating(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:fundingrequests_csv_create"),
+        data={"period_start": "2024-01-01", "title": "No End Date"},
+    )
+
+    assert response.status_code == 200
+    assert "form_errors" in response.context
+    assert FundingRequestCSVExport.objects.count() == 0

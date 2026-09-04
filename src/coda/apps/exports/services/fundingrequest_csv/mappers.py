@@ -101,10 +101,7 @@ def _map_authors_to_dto(funding_request: FundingRequest) -> list[AuthorImportDto
             affiliation=author.affiliation.name if author.affiliation else None,
             role=Role[author.roles] if author.roles else Role.CO_AUTHOR,
         )
-        for author in sorted(
-            funding_request.publication.relevant_authors.all(),
-            key=lambda author: author.id,
-        )
+        for author in funding_request.publication.relevant_authors.all()
     ]
 
 
@@ -180,7 +177,6 @@ def _map_external_funding_to_dto(funding_request: FundingRequest) -> list[Resear
 def _map_review_to_dto(funding_request: FundingRequest) -> ReviewImportDto:
     review_model = getattr(funding_request, "review", None)
     if review_model:
-
         decided_funding = DecidedFundingImportDto(
             amount=(
                 review_model.decided_funding_amount if review_model.decided_funding_amount else 0
@@ -200,7 +196,6 @@ def _map_review_to_dto(funding_request: FundingRequest) -> ReviewImportDto:
 
 
 def _map_estimated_cost_to_dto(funding_request: FundingRequest) -> CostEstimateImportDto:
-
     # PaymentMethod values are stored in lowercase in DB, but enum names are capitalized
     payment_method_str = (
         funding_request.payment_method.capitalize() if funding_request.payment_method else "Unknown"
@@ -337,7 +332,6 @@ def map_funding_request_to_export_dto(
     funding_source: FundingSourceId | None = None,
     concept_ids: Mapping[uuid.UUID, str] | None = None,
 ) -> FundingRequestExportDto:
-
     funding_request_dto = map_funding_request_to_dto(funding_request, concept_ids)
 
     invoices = get_invoices_for_request(funding_request)

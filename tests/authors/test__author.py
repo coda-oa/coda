@@ -28,6 +28,12 @@ JOSIAHS_DATA = Author.new(
 )
 
 
+def test__author_domain_mapper__prefetch__orders_authors_by_id() -> None:
+    qs = AuthorDomainMapper.prefetch(AuthorModel.objects.all())
+
+    assert qs.query.order_by == ("id",)
+
+
 @pytest.mark.django_db
 def test__can_create_author_with_empty_orcid() -> None:
     no_orcid = Author.new(JOSIAHS_DATA.name, JOSIAHS_DATA.email, orcid=None)
