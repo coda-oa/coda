@@ -13,9 +13,10 @@ init_environment
 
 usage() {
     echo "Usage: $0 [--local|--production] <manage-command> <file>" >&2
+    return 0
 }
 
-if [ ${#remaining_args[@]} -ne 2 ]; then
+if [[ ${#remaining_args[@]} -ne 2 ]]; then
     usage
     exit 1
 fi

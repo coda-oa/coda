@@ -13,7 +13,7 @@ filtered_args=()
 while [[ $# -gt 0 ]]; do
 	case $1 in
 	--postgres-version)
-		if [ -z "${2:-}" ]; then
+		if [[ -z "${2:-}" ]]; then
 			echo "Error: --postgres-version requires a value." >&2
 			exit 1
 		fi
@@ -37,13 +37,13 @@ POSTGRES_ENV_FILE="$ENV_DIR/postgres.env"
 . "$POSTGRES_ENV_FILE"
 
 # Override POSTGRES_VERSION if provided via command line
-if [ -n "$postgres_version" ]; then
+if [[ -n "$postgres_version" ]]; then
 	POSTGRES_VERSION="$postgres_version"
 	echo "Overriding PostgreSQL version with command line value: $POSTGRES_VERSION"
 fi
 
 # Validate that POSTGRES_VERSION is set
-if [ -z "$POSTGRES_VERSION" ]; then
+if [[ -z "$POSTGRES_VERSION" ]]; then
 	echo "Error: PostgreSQL version not specified. Please set POSTGRES_VERSION in $POSTGRES_ENV_FILE or use --postgres-version flag."
 	echo "Usage: $0 [--local|--production] [--postgres-version VERSION]"
 	exit 1
@@ -52,13 +52,13 @@ fi
 # Resolve the real compose-managed volume: key from the compose file itself,
 # actual name from Docker's labels (immune to project/checkout renames).
 VOLUME_KEYS="$($COMPOSE_BASE_CMD config --volumes | grep -E '_postgres_data$')"
-if [ "$(printf '%s\n' "$VOLUME_KEYS" | wc -l)" -ne 1 ]; then
+if [[ "$(printf '%s\n' "$VOLUME_KEYS" | wc -l)" -ne 1 ]]; then
 	echo "Error: expected exactly one *_postgres_data volume in $COMPOSE_FILE, got:" >&2
 	echo "$VOLUME_KEYS" >&2
 	exit 1
 fi
 POSTGRES_DATA_VOLUME="$(docker volume ls -q --filter "label=com.docker.compose.volume=${VOLUME_KEYS}" | head -1)"
-if [ -z "$POSTGRES_DATA_VOLUME" ]; then
+if [[ -z "$POSTGRES_DATA_VOLUME" ]]; then
 	echo "Error: no compose-managed volume '${VOLUME_KEYS}' found. Aborting before any destructive step." >&2
 	exit 1
 fi

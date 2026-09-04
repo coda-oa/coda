@@ -9,10 +9,11 @@ init_environment
 # echo owner/repo for GitHub URLs of any scheme (scp-style, ssh://, https://);
 # nonzero for anything that doesn't parse, so _get_repo falls through.
 _gh_repo() {
-	local r
-	r=$(printf '%s' "$1" | sed 's/.*github.com[:\/]//;s/\.git$//')
-	[[ "$r" == */* && "$r" != *:* ]] || return 1
-	echo "$r"
+	local remote_url="$1"
+	local repo_slug
+	repo_slug=$(printf '%s' "$remote_url" | sed 's/.*github.com[:\/]//;s/\.git$//')
+	[[ "$repo_slug" == */* && "$repo_slug" != *:* ]] || return 1
+	echo "$repo_slug"
 }
 
 _get_repo() {

@@ -12,6 +12,7 @@ show_usage() {
     echo "  --help, -h           Show this help message"
     echo ""
     echo "If no environment is specified, auto-detection will be used based on available .envs directories."
+    return 0
 }
 
 # Function to parse environment arguments and return remaining arguments
@@ -32,7 +33,7 @@ parse_environment_args() {
                 shift
                 ;;
             --env)
-                if [ -z "${2:-}" ]; then
+                if [[ -z "${2:-}" ]]; then
                     echo "Error: --env requires a value." >&2
                     show_usage >&2
                     exit 1
@@ -59,15 +60,15 @@ parse_environment_args() {
 # Function to initialize the environment after parsing
 init_environment() {
     # Skip if already initialized
-    if [ -n "$COMPOSE_BASE_CMD" ]; then
+    if [[ -n "$COMPOSE_BASE_CMD" ]]; then
         return 0
     fi
 
     # Auto-detect environment if not specified
-    if [ -z "$CODA_ENV" ]; then
-        if [ -d "$PWD/.envs/.local" ]; then
+    if [[ -z "$CODA_ENV" ]]; then
+        if [[ -d "$PWD/.envs/.local" ]]; then
             CODA_ENV="local"
-        elif [ -d "$PWD/.envs/.production" ]; then
+        elif [[ -d "$PWD/.envs/.production" ]]; then
             CODA_ENV="production"
         else
             echo "Error: Cannot determine environment. Please specify --local or --production, or ensure environment files exist."
@@ -78,7 +79,7 @@ init_environment() {
     fi
 
     # Validate environment
-    if [ "$CODA_ENV" != "local" ] && [ "$CODA_ENV" != "production" ]; then
+    if [[ "$CODA_ENV" != "local" && "$CODA_ENV" != "production" ]]; then
         echo "Error: Environment must be 'local' or 'production'. Current value: $CODA_ENV"
         echo ""
         show_usage
@@ -86,7 +87,7 @@ init_environment() {
     fi
 
     # Set up compose command based on environment
-    if [ "$CODA_ENV" = "local" ]; then
+    if [[ "$CODA_ENV" == "local" ]]; then
         export COMPOSE_FILE="compose.local.yml"
         export ENV_DIR="$PWD/.envs/.local"
         export COMPOSE_BASE_CMD="docker compose -f $COMPOSE_FILE --env-file $ENV_DIR/django.env --env-file $ENV_DIR/postgres.env"

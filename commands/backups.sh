@@ -9,7 +9,7 @@ parse_environment_args "$@"
 init_environment
 
 # Parse backup command from remaining arguments
-if [ ${#remaining_args[@]} -eq 0 ]; then
+if [[ ${#remaining_args[@]} -eq 0 ]]; then
     echo "Error: Please provide a backup command."
     echo "Usage: $0 [--local|--production] <create|list|restore> [backup_name]"
     exit 1
@@ -22,7 +22,7 @@ if [[ $BACKUP_CMD = "create" ]]; then
 elif [[ $BACKUP_CMD = "list" ]]; then
     cmd="backups"
 elif [[ $BACKUP_CMD = "restore" ]]; then
-    if [ ${#remaining_args[@]} -lt 2 ]; then
+    if [[ ${#remaining_args[@]} -lt 2 ]]; then
         echo "Error: Please provide backup name for restore."
         echo "Usage: $0 [--local|--production] restore <backup_name>"
         exit 1
