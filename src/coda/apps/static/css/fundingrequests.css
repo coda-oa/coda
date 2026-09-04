@@ -197,6 +197,7 @@ details.dropdown > ul:has(.label) > li {
 /* Toolbar */
 .filter-toolbar {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     align-items: top;
     margin-bottom: var(--coda-form-element-spacing-vertical);
@@ -211,8 +212,7 @@ details.dropdown > ul:has(.label) > li {
 }
 
 .filter-toolbar .coda-label-pills {
-    flex-basis: 100%;
-    padding: 0;
+    flex: 0 0 100%;
 }
 
 .filter-sort {
