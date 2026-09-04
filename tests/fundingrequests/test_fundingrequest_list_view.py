@@ -63,6 +63,17 @@ def document_ids(dom: Element) -> set[str]:
     }
 
 
+def pill_by_name(dom: Element, name: str) -> Element:
+    for element in _walk(dom):
+        if element.name != "a":
+            continue
+        attrs = dict(element.attributes)
+        text = "".join(child for child in element.children if isinstance(child, str)).strip()
+        if "label-filter-pill" in (attrs.get("class") or "") and text == name:
+            return element
+    raise AssertionError(f"no label pill named {name!r} in page")
+
+
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__label_pill__issues_in_place_list_update(client: Client) -> None:
@@ -97,11 +108,13 @@ def test__toggling_label_pill__updates_list_in_place(client: Client) -> None:
     response = get_list_region(client, {"labels": [alpha.pk]})
 
     html = response.content.decode()
+    dom = parse_html(html)
+
     assert "<html" not in html.lower()
-    assert [vm.id for vm in response.context["entities"]] == [matching.id]
-    pills = {pill.name: pill for pill in response.context["label_pills"]}
-    assert pills["Alpha"].state == "included"
-    assert pills["Beta"].state == "default"
+    assert "Pill match" in html
+    assert "Pill non-match" not in html
+    assert "included" in (dict(pill_by_name(dom, "Alpha").attributes).get("class") or "").split()
+    assert "default" in (dict(pill_by_name(dom, "Beta").attributes).get("class") or "").split()
 
 
 @pytest.mark.django_db
@@ -220,15 +233,24 @@ def test__filter_count__excludes_search_and_sort(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__in_place_update__refreshes_filter_header(client: Client) -> None:
+def test__in_place_update__shows_clear_all_with_active_filters(client: Client) -> None:
+    # Mechanism seam: the test client cannot execute htmx swaps, so the
+    # out-of-band marker is asserted directly.
     label = label_create("Counted Label", Color())
     response = get_list_region(client, {"labels": [label.pk]})
 
     html = response.content.decode()
 
     assert 'hx-swap-oob="true"' in html
-    assert "filter-count" in html
     assert "Clear all" in html
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__in_place_update__hides_clear_all_without_filters(client: Client) -> None:
+    response = get_list_region(client)
+
+    assert "Clear all" not in response.content.decode()
 
 
 @pytest.mark.django_db
