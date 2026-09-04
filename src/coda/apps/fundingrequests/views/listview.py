@@ -111,7 +111,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
 
 
 class FundingRequestListRegionView(FundingRequestListView):
-    template_name = "fundingrequests/fundingrequest_list_region.html"
+    template_name = "fundingrequests/fundingrequest_filtered_list.html"
 
     def render_to_response(self, context: dict[str, Any], **response_kwargs: Any) -> HttpResponse:
         response = super().render_to_response(context, **response_kwargs)
