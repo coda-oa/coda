@@ -322,3 +322,43 @@ def test__funding_request_with_two_corresponding_authors__flatten_to_csv__joins_
         "corresponding_author_affiliation_internal_id",
         f"{inst_1.internal_id}; {inst_2.internal_id}",
     )
+
+
+@pytest.mark.django_db
+def test__funding_request_with_corresponding_author_without_affiliation__flatten_to_csv__affiliation_columns_keep_positional_alignment() -> (
+    None
+):
+    inst_1 = modelfactory.institution()
+    inst_1.internal_id = "TU-001"
+    inst_1.save()
+    inst_3 = modelfactory.institution()
+    inst_3.internal_id = "TU-003"
+    inst_3.save()
+    author_a = domainfactory.author(
+        affiliation=InstitutionId(inst_1.pk), role=Role.CORRESPONDING_AUTHOR
+    )
+    author_b = domainfactory.author(affiliation=None, role=Role.CORRESPONDING_AUTHOR)
+    author_c = domainfactory.author(
+        affiliation=InstitutionId(inst_3.pk), role=Role.CORRESPONDING_AUTHOR
+    )
+    funding_request = modelfactory.fundingrequest(
+        title="Unaffiliated Corresponding Author in the Middle",
+        authors=Authors([author_a, author_b, author_c]),
+    )
+
+    export_dto = map_funding_request_to_export_dto(funding_request)
+    rows = flatten_detailed(export_dto)
+
+    assert_all_rows_have_same_value(
+        rows,
+        "corresponding_author",
+        f"{author_a.name}; {author_b.name}; {author_c.name}",
+    )
+    assert_all_rows_have_same_value(
+        rows, "corresponding_author_affiliation", f"{inst_1.name}; ; {inst_3.name}"
+    )
+    assert_all_rows_have_same_value(
+        rows,
+        "corresponding_author_affiliation_internal_id",
+        f"{inst_1.internal_id}; ; {inst_3.internal_id}",
+    )

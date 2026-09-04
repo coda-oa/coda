@@ -4,7 +4,8 @@ from collections.abc import Mapping
 from coda.apps.exports.services.fundingrequest_csv.dtos import FundingRequestExportDto
 
 from coda.apps.fundingrequests.models import FundingRequest
-from coda.apps.invoices.models import Invoice, Position, FundingAssignment, FundingSource
+from coda.apps.invoices.mappers import FundingSourceDomainMapper
+from coda.apps.invoices.models import Invoice, Position, FundingAssignment
 from coda.contexts.fundingrequest.dto.import_dtos import (
     AuthorImportDto,
     ContractImportDto,
@@ -324,22 +325,17 @@ def _map_position_to_dto(
 
 
 def _map_funding_assignment_to_dto(assignment: FundingAssignment) -> FundingAssignmentImportDto:
-    funding_source = assignment.funding_source
-
-    return FundingAssignmentImportDto(
-        type=funding_source.type if funding_source else "budget",
-        name=_funding_source_display_name(funding_source),
-        amount=assignment.amount,
+    domain_source = (
+        FundingSourceDomainMapper.map(assignment.funding_source)
+        if assignment.funding_source
+        else None
     )
 
-
-def _funding_source_display_name(funding_source: FundingSource | None) -> str:
-    if funding_source is None:
-        return ""
-    institution = funding_source.institution
-    if funding_source.type == "institution" and institution is not None:
-        return institution.name
-    return funding_source.name
+    return FundingAssignmentImportDto(
+        type=domain_source.kind() if domain_source else "budget",
+        name=domain_source.name if domain_source else "",
+        amount=assignment.amount,
+    )
 
 
 def map_funding_request_to_export_dto(

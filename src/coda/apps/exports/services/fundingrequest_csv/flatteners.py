@@ -166,14 +166,18 @@ class CorrespondingAuthorInfo:
 
 
 def _get_corresponding_author(authors: list[AuthorImportDto]) -> CorrespondingAuthorInfo:
+    """Build the corresponding-author columns from the author DTOs.
+
+    The three columns are positional: segment i of affiliation and
+    affiliation_internal_id belongs to author i of name. Missing values are
+    rendered as an empty segment in their own position to keep the columns aligned.
+    """
     corresponding = [author for author in authors if author.role.is_corresponding_role()]
     return CorrespondingAuthorInfo(
         name="; ".join(author.name for author in corresponding),
-        affiliation="; ".join(author.affiliation for author in corresponding if author.affiliation),
+        affiliation="; ".join(author.affiliation or "" for author in corresponding),
         affiliation_internal_id="; ".join(
-            author.affiliation_internal_id
-            for author in corresponding
-            if author.affiliation_internal_id
+            author.affiliation_internal_id or "" for author in corresponding
         ),
     )
 
@@ -233,10 +237,10 @@ class PublishingStateInfo:
 
 def _get_publishing_state_dates(publishing_state: PublishingStateImportDto) -> PublishingStateInfo:
     """Return PublishingStateInfo from a publishing state DTO."""
-    state = getattr(publishing_state, "state", None) or ""
-    online = getattr(publishing_state, "online_date", None)
+    state = publishing_state.state
+    online = publishing_state.online_date
     online_str = online.isoformat() if online else ""
-    print_d = getattr(publishing_state, "print_date", None)
+    print_d = publishing_state.print_date
     print_str = print_d.isoformat() if print_d else ""
     return PublishingStateInfo(state=state, online_date=online_str, print_date=print_str)
 
@@ -251,12 +255,11 @@ class ReviewInfo:
 
 def _get_review_info(review: ReviewImportDto) -> ReviewInfo:
     """Return ReviewInfo from a review DTO."""
-    result = getattr(review, "result", None)
-    result_str = result.value if result else ""
-    remarks = getattr(review, "remarks", None) or ""
-    funding = getattr(review, "funding", None)
-    amount = str(funding.amount) if funding else ""
-    currency = funding.currency if funding else ""
+    result_str = review.result.value
+    remarks = review.remarks
+    funding = review.funding
+    amount = str(funding.amount)
+    currency = funding.currency
     return ReviewInfo(
         result=result_str, remarks=remarks, decided_amount=amount, decided_currency=currency
     )
@@ -271,38 +274,35 @@ class CostInfo:
 
 def _get_cost_info(estimated_cost: CostEstimateImportDto) -> CostInfo:
     """Return CostInfo from an estimated cost DTO."""
-    amount_str = str(getattr(estimated_cost, "amount", ""))
-    currency = getattr(estimated_cost, "currency", "") or ""
-    payment = getattr(estimated_cost, "payment_method", None)
-    payment_str = payment.value if payment else ""
+    amount_str = str(estimated_cost.amount)
+    currency = estimated_cost.currency
+    payment_str = estimated_cost.payment_method.value
     return CostInfo(amount=amount_str, currency=currency, payment_method=payment_str)
 
 
 def _format_external_funding(research_funding: list[ResearchFundingImportDto]) -> str:
     """Flatten all external funding entries into one string.
 
-    Entries are expected in query order (org name, project id, project name),
-    see get_funding_requests_for_export.
+    Entries are sorted by (funder, project id, project name).
     Example: 'BMBF (456 – Cancer Research) | DFG (123 – Awesome Project)'
     """
+    ordered = sorted(
+        research_funding, key=lambda rf: (rf.funder.lower(), rf.project_id, rf.project_name)
+    )
     return " | ".join(
-        _format_funding_entry(rf)
-        for rf in research_funding
-        if (
-            getattr(rf, "funder", "")
-            or getattr(rf, "project_id", "")
-            or getattr(rf, "project_name", "")
-        )
+        _format_funding_entry(rf) for rf in ordered if rf.funder or rf.project_id or rf.project_name
     )
 
 
 def _format_funding_entry(rf: ResearchFundingImportDto) -> str:
-    funder = getattr(rf, "funder", "") or ""
-    details = [
-        part
-        for part in (getattr(rf, "project_id", "") or "", getattr(rf, "project_name", "") or "")
-        if part
-    ]
+    """Format one funding entry as 'Funder (Project ID – Project Name)'.
+
+    Missing parts are dropped: 'Funder (ID – Name)', 'Funder (ID)', 'Funder (Name)', 'Funder'.
+    A missing funder is not expected (the organization is a required, non-archived FK) but
+    is rendered as '(Project ID – Project Name)' if it ever occurs.
+    """
+    funder = rf.funder
+    details = [part for part in (rf.project_id, rf.project_name) if part]
     if not details:
         return funder
     detail = " – ".join(details)

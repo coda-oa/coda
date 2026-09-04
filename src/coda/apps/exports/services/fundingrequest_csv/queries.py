@@ -2,7 +2,6 @@ import uuid
 from collections.abc import Iterable
 
 from django.db.models import Prefetch, QuerySet
-from django.db.models.functions import Lower
 
 from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.fundingrequests.models import ExternalFunding, FundingRequest
@@ -56,9 +55,7 @@ def get_funding_requests_for_export(
             "labels",
             Prefetch(
                 "external_funding",
-                queryset=ExternalFunding.objects.select_related("organization").order_by(
-                    Lower("organization__name"), "project_id", "project_name"
-                ),
+                queryset=ExternalFunding.objects.select_related("organization"),
             ),
             Prefetch(
                 "publication__position_set__funding_assignments",
