@@ -1,20 +1,28 @@
 #!/bin/bash
-
+set -euo pipefail
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 
 # Shared state between step functions
 STASH_REF=""
+ROLLBACK_ON_EXIT=false
 CODA_STOPPED=false
 CODA_RESTARTED=false
 
 # Cleanup: restart CODA if it was stopped but not restarted
 cleanup() {
+  local status=$?
+  if [[ "$ROLLBACK_ON_EXIT" == true ]]; then
+    echo "Rolling back to the previous branch and restoring stashed changes..." >&2
+    git checkout - 2>/dev/null || true
+    if [[ -n "$STASH_REF" ]]; then
+      git stash pop "$STASH_REF" 2>/dev/null || true
+    fi
+  fi
   if [[ "$CODA_STOPPED" == true && "$CODA_RESTARTED" == false ]]; then
     echo "Warning: CODA was stopped but the update failed. Restarting..." >&2
-    ${script_dir}/start-coda.sh --${CODA_ENV} || true
+    "${script_dir}/start-coda.sh" --"$CODA_ENV" || true
   fi
-
-  return 0
+  return "$status"
 }
 trap cleanup EXIT
 
@@ -50,7 +58,7 @@ parse_update_args() {
     local arg="$1"
     case "$arg" in
     --branch)
-      local branch_value="$2"
+      local branch_value="${2:-}"
       if [[ -z "$branch_value" || "$branch_value" == --* ]]; then
         echo "Error: --branch requires a value" >&2
         exit 1
@@ -126,8 +134,7 @@ preflight_checks() {
 step_create_backup() {
   if [[ "$CREATE_BACKUP" == true ]]; then
     echo "Step 1/5: Creating backup..."
-    ${script_dir}/backups.sh --${CODA_ENV} create
-    if [[ $? -ne 0 ]]; then
+    if ! "${script_dir}/backups.sh" --"$CODA_ENV" create; then
       echo "Error: Backup failed. Aborting update." >&2
       return 1
     fi
@@ -136,19 +143,16 @@ step_create_backup() {
     echo "Step 1/5: Skipping backup (use --backup to create one)"
     echo ""
   fi
-  return 0
 }
 
 step_stop_coda() {
   echo "Step 2/5: Stopping CODA..."
-  ${script_dir}/stop-coda.sh --${CODA_ENV}
-  if [[ $? -ne 0 ]]; then
+  if ! "${script_dir}/stop-coda.sh" --"$CODA_ENV"; then
     echo "Error: Failed to stop CODA. Aborting update." >&2
     return 1
   fi
   CODA_STOPPED=true
   echo ""
-  return 0
 }
 
 step_fetch_and_switch() {
@@ -158,46 +162,43 @@ step_fetch_and_switch() {
     git stash push --include-untracked
     STASH_REF="stash@{0}"
   fi
-  git fetch origin "$BRANCH"
-  if ! git checkout "$BRANCH" 2>/dev/null; then
+  if ! git fetch origin "$BRANCH"; then
+    echo "Error: Fetching '$BRANCH' from origin failed. Aborting update." >&2
+    return 1
+  fi
+  if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    git checkout "$BRANCH"
+  else
     echo "Branch '$BRANCH' not found locally, creating it from remote..."
     git checkout -b "$BRANCH" "origin/$BRANCH"
   fi
   echo ""
-  return 0
 }
 
 step_pull_and_restore() {
   echo "Step 4/5: Pulling latest changes and restoring stashed changes..."
-  git pull origin "$BRANCH"
-  if [[ $? -ne 0 ]]; then
-    echo "Error: Git pull failed. Restoring original branch..." >&2
-    git checkout - 2>/dev/null || true
-    if [[ -n "${STASH_REF:-}" ]]; then
-      git stash pop "$STASH_REF" 2>/dev/null || true
-    fi
+  if ! git pull origin "$BRANCH"; then
+    echo "Error: Git pull failed. Original branch and local changes will be restored." >&2
+    ROLLBACK_ON_EXIT=true
     return 1
   fi
-
+ 
   # Restore stashed changes if we created one in this run
-  if [[ -n "${STASH_REF:-}" ]] && ! git stash pop "$STASH_REF" 2>&1; then
+  if [[ -n "$STASH_REF" ]] && ! git stash pop "$STASH_REF" 2>&1; then
     echo "Warning: Stash restore had conflicts." >&2
     echo "Your local changes may need manual conflict resolution." >&2
   fi
   echo ""
-  return 0
 }
 
 step_start_coda() {
   echo "Step 5/5: Starting CODA (this will rebuild containers and run migrations)..."
-  ${script_dir}/start-coda.sh --${CODA_ENV}
-  if [[ $? -ne 0 ]]; then
+  if ! "${script_dir}/start-coda.sh" --"$CODA_ENV"; then
     echo "Error: Failed to start CODA." >&2
     return 1
   fi
   CODA_RESTARTED=true
   echo ""
-  return 0
 }
 
 update_coda() {
@@ -217,11 +218,11 @@ update_coda() {
   echo "Backup: $([[ "$CREATE_BACKUP" == true ]] && echo "Yes" || echo "No")"
   echo ""
 
-  step_create_backup || exit 1
-  step_stop_coda || exit 1
-  step_fetch_and_switch || exit 1
-  step_pull_and_restore || exit 1
-  step_start_coda || exit 1
+  step_create_backup
+  step_stop_coda
+  step_fetch_and_switch
+  step_pull_and_restore
+  step_start_coda
 
   echo "Update completed successfully!"
   echo ""
