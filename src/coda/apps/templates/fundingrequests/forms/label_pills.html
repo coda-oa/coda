@@ -1,4 +1,4 @@
-<div class="coda-label-pills">
+<div class="coda-label-pills" id="label-pills" hx-swap-oob="true">
     {% for pill in label_pills %}
         <a class="label pill label-filter-pill {{ pill.state }}"
            href="{{ pill.toggle_url }}"
