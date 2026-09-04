@@ -39,6 +39,7 @@ urlpatterns = [
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
+    from debug_toolbar.toolbar import debug_toolbar_urls
     # This allows the error pages to be debugged during development, just visit
     # these url in browser to see how these error pages look like.
     demo_formset_view = DemoFormset.get_management_view()
@@ -74,4 +75,4 @@ if settings.DEBUG:
         ),
         path("demo/htmx/", demo_formset_view.as_view(), name=demo_formset_view.name),
         path("silk/", include("silk.urls", namespace="silk")),
-    ]
+    ] + debug_toolbar_urls()
