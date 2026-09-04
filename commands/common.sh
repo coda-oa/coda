@@ -32,6 +32,11 @@ parse_environment_args() {
                 shift
                 ;;
             --env)
+                if [ -z "${2:-}" ]; then
+                    echo "Error: --env requires a value." >&2
+                    show_usage >&2
+                    exit 1
+                fi
                 temp_env="$2"
                 shift 2
                 ;;

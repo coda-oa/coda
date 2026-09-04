@@ -12,6 +12,10 @@ filtered_args=()
 while [[ $# -gt 0 ]]; do
 	case $1 in
 	--postgres-version)
+		if [ -z "${2:-}" ]; then
+			echo "Error: --postgres-version requires a value." >&2
+			exit 1
+		fi
 		postgres_version="$2"
 		shift 2
 		;;
