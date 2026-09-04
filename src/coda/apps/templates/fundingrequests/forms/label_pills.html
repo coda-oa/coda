@@ -1,4 +1,5 @@
 <div class="coda-label-pills" id="label-pills" hx-swap-oob="true">
+    {% for label_id in label_state %}<input type="hidden" name="labels" value="{{ label_id }}">{% endfor %}
     {% for pill in label_pills %}
         <a class="label pill label-filter-pill {{ pill.state }}"
            href="{{ pill.toggle_url }}"
