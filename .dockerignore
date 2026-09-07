@@ -1,3 +1,31 @@
+# VCS (28 MB per build; nothing in the build reads git metadata — version is static)
+.git
+.gitignore
+.gitattributes
+
+# Python
+**/__pycache__/
+*.py[cod]
 .pdm-python
 .pdm-build
 .venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Tooling / editor
+.idea/
+.vscode/
+*.swp
+
+# Local-only artifacts
+.envs
+playwright-report/
+test-results/
+*.log
+.DS_Store

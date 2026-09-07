@@ -1,6 +1,4 @@
-FROM python:3.13-slim-bookworm as python
-
-FROM python as python-run-stage
+FROM python:3.13-slim-bookworm
 
 # Install required system dependencies
 RUN apt-get update && apt-get install --no-install-recommends -y \
@@ -9,37 +7,37 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   libpq-dev \
   # Translations dependencies
   gettext \
-  # cleaning up unused files
-  && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+  # devcontainer dependencies and utils
+  sudo git bash-completion nano ssh curl \
   && rm -rf /var/lib/apt/lists/*
-
-# devcontainer dependencies and utils
-RUN apt-get update && apt-get install --no-install-recommends -y \
-  sudo git bash-completion nano ssh curl
 
 # Create devcontainer user and add it to sudoers
 RUN groupadd --gid 1000 dev-user \
   && useradd --uid 1000 --gid dev-user --shell /bin/bash --create-home dev-user \
   && echo dev-user ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/dev-user \
-  && chmod 0440 /etc/sudoers.d/dev-user
+  && chmod 0440 /etc/sudoers.d/dev-user \
+  && mkdir -p /app && chown dev-user:dev-user /app
 
-COPY --chown=1000:1000 . /app/
-COPY dockerfiles/local/entrypoint /entrypoint
-RUN sed -i 's/\r$//g' /entrypoint
-RUN chmod +x /entrypoint
-
-COPY dockerfiles/local/start /start
-RUN sed -i 's/\r$//g' /start
-RUN chmod +x /start
+COPY dockerfiles/local/entrypoint dockerfiles/local/start /
+RUN chmod +x /entrypoint /start && sed -i 's/\r$//g' /entrypoint /start
 
 WORKDIR /app
 USER dev-user
 
 ENV PATH="/home/dev-user/.local/bin:${PATH}"
 
+# Dependency layers: keyed on the dependency manifests only, so code changes
+# don't rebuild the venv or re-download playwright's chromium.
+# --no-self skips installing the project itself (needs src/, done after full COPY).
+COPY pyproject.toml pdm.lock ./
 RUN pip install --upgrade pip && \
-  pip install -U pdm  && \
+  pip install -U pdm && \
   pdm venv create -n dev && \
   pdm use --venv dev && \
-  pdm install --dev && \
+  pdm install --dev --frozen-lockfile --no-self && \
   pdm run playwright install --with-deps chromium
+
+# Source layers: change constantly, cheap to rebuild. The editable self-install
+# re-runs here; dependencies are already satisfied and stay cached.
+COPY --chown=1000:1000 . /app/
+RUN pdm install --dev --frozen-lockfile
