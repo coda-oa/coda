@@ -1,10 +1,15 @@
 from typing import cast, Any
 from datetime import date
 from decimal import Decimal
+from functools import lru_cache
+from pathlib import Path
 
 from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
+import xmlschema
+
+import coda.domain.opencost
 
 from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
@@ -370,3 +375,30 @@ def assert_current_filters(response: HttpResponse, **expected: Any) -> None:
 
 def get_opencost_generate_response(client: Client, **filters: str | list[str]) -> HttpResponse:
     return cast(HttpResponse, client.get(reverse("opencost:generate"), filters))
+
+
+@lru_cache(maxsize=1)
+def _opencost_schema() -> xmlschema.XMLSchema:
+    """Build the XSD resource once per test session (schema build ~1s).
+
+    XMLSchema() resolves the <xs:include schemaLocation="opencost_types.xsd"/>
+    relative to opencost.xsd's location inside the domain package.
+    """
+    schema_path = Path(coda.domain.opencost.__file__).parent / "opencost.xsd"
+    return xmlschema.XMLSchema(str(schema_path))
+
+
+def assert_valid_opencost_xml(xml_string: str) -> None:
+    """Assert generated XML validates against the official OpenCost XSD.
+
+    The pydantic models in coda.domain.opencost are a hand-maintained copy of
+    opencost.xsd; this checks the emitted document itself against the schema,
+    so model/validator drift, element-name regressions (e.g. a field rename
+    without a wire alias) and scalar-format mistakes (xs:boolean, two-decimal
+    amounts) fail here even when model-level assertions pass. A wrong schema
+    path raises during schema build, so this cannot fail silently.
+    """
+    errors = list(_opencost_schema().iter_errors(xml_string))
+    if errors:
+        details = "\n".join(f"{error.path}: {error.message}" for error in errors)
+        raise AssertionError(f"XML fails opencost.xsd:\n{details}\n\n{xml_string}")

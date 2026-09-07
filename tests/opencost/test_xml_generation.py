@@ -13,6 +13,7 @@ from tests.opencost.helpers import (
     create_position,
     create_publication_with_invoice,
     create_opencost_report,
+    assert_valid_opencost_xml,
 )
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.publications.models import LinkType, Link
@@ -40,6 +41,7 @@ def test__publication_with_all_info_and_invoice__generate_xml__creates_valid_ope
     report = create_opencost_report()
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     assert xml_string is not None
     assert len(xml_string) > 0
@@ -141,6 +143,7 @@ def test__publication_with_invoice_multiple_positions__generate_xml__opencost_xm
     report = create_opencost_report()
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     assert xml_string is not None
     assert len(xml_string) > 0
@@ -187,6 +190,7 @@ def test__publication_with_multiple_invoices__generate_xml__creates_valid_openco
     report = create_opencost_report()
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     assert xml_string is not None
     assert len(xml_string) > 0
@@ -244,6 +248,7 @@ def test__publication_with_linked_contract__generate_xml__part_of_contract_is_in
     report = create_opencost_report()
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     assert xml_string is not None
     assert len(xml_string) > 0
@@ -350,6 +355,7 @@ def test__report_with_standalone_contract_with_institution__generate_xml__create
     report = create_opencost_report(period_start=date(2024, 1, 1), period_end=date(2024, 12, 31))
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     assert xml_string is not None
     assert len(xml_string) > 0
@@ -438,6 +444,7 @@ def test__report_publication_with_external_costsplitting__generate_xml__includes
     report = create_opencost_report()
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     assert xml_string is not None
     assert len(xml_string) > 0
@@ -474,6 +481,7 @@ def test__report_publication_without_external_costsplitting__generate_xml__costs
     report = create_opencost_report()
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     root = ET.fromstring(xml_string)
     ns = {"oc": "https://opencost.de"}
