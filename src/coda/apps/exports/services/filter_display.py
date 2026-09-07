@@ -7,7 +7,8 @@ projection below only deals with typed values.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, get_args, get_origin
+from typing import Any, get_args, get_origin
+from collections.abc import Callable
 from urllib.parse import urlencode
 
 from django.http import HttpRequest
@@ -110,6 +111,7 @@ class AppliedFilter:
 
 _PERIOD_LABEL = "Period"
 _PERIOD_DATE_FORMAT = "%B %-d, %Y"
+_PERIOD_FIELDS = {"period_start", "period_end"}
 
 
 def _values_text(value: Any) -> str:
@@ -140,9 +142,6 @@ _FORMATTERS: dict[str, Callable[[Any], str]] = {
     ),
 }
 
-# ``period_start`` renders the combined Period row; ``period_end`` is covered by it.
-_NOT_DISPLAYED = {"period_end"}
-
 
 def build_applied_filters(filters: dict[str, Any]) -> list[AppliedFilter]:
     """Project a persisted filter dict into ordered, human-readable rows.
@@ -152,18 +151,33 @@ def build_applied_filters(filters: dict[str, Any]) -> list[AppliedFilter]:
     ``ExportFiltersDto`` determines the display order.
     """
     dto = ExportFiltersDto.model_validate(filters)
+    values = dto.model_dump()
     applied: list[AppliedFilter] = []
-    for name in ExportFiltersDto.model_fields:
-        value = getattr(dto, name)
-        if name in _NOT_DISPLAYED or not value:
-            continue
-        if name == "period_start":
-            if dto.period_end is None:  # pragma: no cover -- persisted rows always store both
-                continue
-            start = dto.period_start.strftime(_PERIOD_DATE_FORMAT)  # type: ignore[union-attr]
-            end = dto.period_end.strftime(_PERIOD_DATE_FORMAT)
-            applied.append(AppliedFilter(label=_PERIOD_LABEL, value=f"{start} to {end}"))
-            continue
-        formatter = _FORMATTERS.get(name, _values_text)
-        applied.append(AppliedFilter(label=filter_field_label(name), value=formatter(value)))
+    for name, value in values.items():
+        if name in _PERIOD_FIELDS:
+            row = _period_row(values) if name == "period_start" else None
+        else:
+            row = _row_for(name, value)
+
+        if row is not None:
+            applied.append(row)
     return applied
+
+
+def _row_for(name: str, value: Any) -> AppliedFilter | None:
+    """Build the display row for a single-field criterion, or ``None`` if unset."""
+    if not value:
+        return None
+    formatter = _FORMATTERS.get(name, _values_text)
+    return AppliedFilter(label=filter_field_label(name), value=formatter(value))
+
+
+def _period_row(values: dict[str, Any]) -> AppliedFilter | None:
+    """Build the one ``Period`` row from the two date fields, or ``None`` if incomplete."""
+    start, end = values["period_start"], values["period_end"]
+    if start is None or end is None:
+        return None
+    return AppliedFilter(
+        label=_PERIOD_LABEL,
+        value=f"{start.strftime(_PERIOD_DATE_FORMAT)} to {end.strftime(_PERIOD_DATE_FORMAT)}",
+    )
