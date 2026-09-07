@@ -44,15 +44,24 @@ _advanced_search_fields = [
     "contract_year",
 ]
 
-_query_params_to_criteria: dict[str, Callable[[str, HttpRequest], iq.InvoiceSearchCriterion]] = {
+
+def _contract_year_criterion(param: str, request: HttpRequest) -> iq.InvoiceSearchCriterion | None:
+    try:
+        year = int(param)
+    except ValueError:
+        return None
+    return iq.ContractYearCriterion(year, request.GET.get("contract_positions_only") == "true")
+
+
+_query_params_to_criteria: dict[
+    str, Callable[[str, HttpRequest], iq.InvoiceSearchCriterion | None]
+] = {
     "search_term": lambda param, _: iq.GenericSearchCriterion(param),
     "funding_source": lambda param, _: iq.FundingSourceCriterion(FundingSourceId(int(param))),
     "contract_name": lambda param, request: iq.ContractCriterion(
         param, request.GET.get("contract_positions_only") == "true"
     ),
-    "contract_year": lambda param, request: iq.ContractYearCriterion(
-        param, request.GET.get("contract_positions_only") == "true"
-    ),
+    "contract_year": _contract_year_criterion,
     "has_external_id": lambda *_: iq.MissingExternalIdCriterion(),
     "has_foreign_currency": lambda *_: iq.MissingCurrencyConversionCriterion(
         GlobalPreferences.get_home_currency()
@@ -66,7 +75,9 @@ def build_query(request: HttpRequest) -> list[iq.InvoiceSearchCriterion]:
     query = []
     for param_name, get_query in _query_params_to_criteria.items():
         if param := request.GET.get(param_name):
-            query.append(get_query(param, request))
+            criterion = get_query(param, request)
+            if criterion is not None:
+                query.append(criterion)
 
     try:
         if "date_start" in request.GET or "date_end" in request.GET:

@@ -11,6 +11,7 @@ from coda.apps.contracts.models import Contract
 from coda.apps.fundingrequests import fundingrequest_query as fq
 from coda.apps.fundingrequests import repository as fr_repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel, Label
+from coda.apps.fundingrequests.mappers import FundingRequestListMapper
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import CoveredByContractDetail, FundingRequestListItem
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
@@ -119,6 +120,25 @@ def test__get_list_items__authors_are_strings() -> None:
     assert isinstance(items[0].authors, list)
     assert all(isinstance(author, str) for author in items[0].authors)
     assert len(items[0].authors) > 0
+
+
+@pytest.mark.django_db
+def test__get_list_items__multiple_authors__authors_listed_in_id_order() -> None:
+    """Author names in list items follow the database id order of the authors."""
+    fr = modelfactory.fundingrequest()
+    fr.publication.relevant_authors.all().delete()
+    authors_in_id_order = sorted(
+        (modelfactory.author() for _ in range(3)), key=lambda author: author.pk
+    )
+    for author in authors_in_id_order:
+        author.publication = fr.publication
+        author.save()
+    expected_names = [author.name for author in authors_in_id_order]
+
+    queryset = FundingRequestListMapper.prefetch(FundingRequestModel.objects.filter(id=fr.pk))
+    items = list_query.get_list_items(queryset)
+
+    assert items[0].authors == expected_names
 
 
 @pytest.mark.django_db

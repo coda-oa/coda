@@ -13,7 +13,9 @@ from coda.domain.string import NonEmptyStr
 class AuthorDomainMapper:
     @staticmethod
     def prefetch(qs: QuerySet[AuthorModel], prefix: str = "") -> QuerySet[AuthorModel]:
-        return qs.select_related(prefixed(prefix, "identifier"), prefixed(prefix, "affiliation"))
+        return qs.select_related(
+            prefixed(prefix, "identifier"), prefixed(prefix, "affiliation")
+        ).order_by("id")
 
     @staticmethod
     def map(model: AuthorModel) -> Author:

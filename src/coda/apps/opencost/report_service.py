@@ -2,7 +2,7 @@ import logging
 import uuid
 from datetime import date
 from decimal import Decimal
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from django.db.models import Prefetch
 from coda.apps.contracts.models import Contract
@@ -31,7 +31,7 @@ from coda.apps.opencost.models import (
 from coda.apps.opencost.validation import validate_report
 from coda.apps.publications.models import Publication
 from coda.apps.preferences.models import GlobalPreferences
-from coda.apps.exports.services.filter_display import parse_common_filter_fields
+from coda.contexts.exports.dto.filters import ExportFiltersDto
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +145,7 @@ logger = logging.getLogger(__name__)
 
 def generate_report(
     title: str,
-    filters: dict[str, str],
+    filters: dict[str, Any],
 ) -> OpenCostReport:
     """
     Generate OpenCost report using bulk operations for maximum performance.
@@ -159,7 +159,8 @@ def generate_report(
 
     Performance: ~50-80 queries regardless of dataset size
     """
-    params = parse_common_filter_fields(filters)
+    dto = ExportFiltersDto.model_validate(filters)
+    params = dto.to_params()
 
     if params.date_range is None:
         raise ValueError("date_range is required for generate_report")
@@ -173,7 +174,7 @@ def generate_report(
         title=title,
         period_start=start_date,
         period_end=end_date,
-        filters=filters,
+        filters=dto.to_storage(),
     )
     logger.debug(f"Created report record: {report.id}")
 
@@ -991,7 +992,7 @@ def _get_institution_data(
     corresponding_author = next(
         (
             author
-            for author in sorted(publication.relevant_authors.all(), key=lambda author: author.id)
+            for author in publication.relevant_authors.all()
             if author.roles and "CORRESPONDING_AUTHOR" in author.roles
         ),
         None,
