@@ -59,8 +59,7 @@ parse_environment_args() {
 
 # Function to initialize the environment after parsing
 init_environment() {
-    # Skip if already initialized
-    if [[ -n "$COMPOSE_BASE_CMD" ]]; then
+    if [[ -n "${COMPOSE_BASE_CMD:-}" ]]; then
         return 0
     fi
 

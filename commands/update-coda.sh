@@ -12,7 +12,7 @@ CODA_RESTARTED=false
 # True only while the slot STASH_REF still holds this run's tagged entry.
 # Guards against another stash landing on top of ours between push and pop.
 _stash_is_mine() {
-  [[ -n "$STASH_REF" ]] && [[ "$(git stash list -1 --format=%s "$STASH_REF" 2>/dev/null)" == *"$STASH_MSG"* ]]
+  [[ -n "$STASH_REF" ]] && [[ "$(git log -1 --format=%s "$STASH_REF" 2>/dev/null)" == *"$STASH_MSG"* ]]
 }
 
 # Cleanup: restart CODA if it was stopped but not restarted
@@ -169,6 +169,10 @@ step_stop_coda() {
 
 step_fetch_and_switch() {
   echo "Step 3/5: Fetching and switching to branch '$BRANCH'..."
+  # From here on the repo is in a half-updated state (stashed changes, about
+  # to switch branches): a failure at ANY later step must restore it, so the
+  # EXIT trap now rolls back branch and stash. Cleared only on success.
+  ROLLBACK_ON_EXIT=true
   if has_uncommitted_changes; then
     echo "Stashing uncommitted changes..."
     git stash push --include-untracked -m "$STASH_MSG"
@@ -191,7 +195,6 @@ step_pull_and_restore() {
   echo "Step 4/5: Pulling latest changes and restoring stashed changes..."
   if ! git pull origin "$BRANCH"; then
     echo "Error: Git pull failed. Original branch and local changes will be restored." >&2
-    ROLLBACK_ON_EXIT=true
     return 1
   fi
 
@@ -201,6 +204,8 @@ step_pull_and_restore() {
       if ! git stash pop "$STASH_REF" 2>&1; then
         echo "Warning: Stash restore had conflicts." >&2
         echo "Your local changes may need manual conflict resolution." >&2
+      else
+        STASH_REF=""
       fi
     else
       echo "Warning: The stash queue changed during the update." >&2
@@ -242,6 +247,7 @@ update_coda() {
   step_fetch_and_switch
   step_pull_and_restore
   step_start_coda
+  ROLLBACK_ON_EXIT=false
 
   echo "Update completed successfully!"
   echo ""

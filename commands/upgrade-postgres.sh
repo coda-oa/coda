@@ -51,12 +51,12 @@ fi
 
 # Resolve the real compose-managed volume: key from the compose file itself,
 # actual name from Docker's labels (immune to project/checkout renames).
-VOLUME_KEYS="$($COMPOSE_BASE_CMD config --volumes | grep -E '_postgres_data$')"
-if [[ "$(printf '%s\n' "$VOLUME_KEYS" | wc -l)" -ne 1 ]]; then
-	echo "Error: expected exactly one *_postgres_data volume in $COMPOSE_FILE, got:" >&2
-	echo "$VOLUME_KEYS" >&2
+mapfile -t VOLUME_KEY_ARRAY < <($COMPOSE_BASE_CMD config --volumes | grep -E '_postgres_data$')
+if [[ ${#VOLUME_KEY_ARRAY[@]} -ne 1 ]]; then
+	echo "Error: expected exactly one *_postgres_data volume in $COMPOSE_FILE, got ${#VOLUME_KEY_ARRAY[@]}." >&2
 	exit 1
 fi
+VOLUME_KEYS="${VOLUME_KEY_ARRAY[0]}"
 POSTGRES_DATA_VOLUME="$(docker volume ls -q --filter "label=com.docker.compose.volume=${VOLUME_KEYS}" | head -1)"
 if [[ -z "$POSTGRES_DATA_VOLUME" ]]; then
 	echo "Error: no compose-managed volume '${VOLUME_KEYS}' found. Aborting before any destructive step." >&2
@@ -74,7 +74,10 @@ echo ""
 echo "# Creating backup of PostgreSQL data volume ${POSTGRES_DATA_VOLUME}..."
 echo ""
 
-"$PWD"/commands/backups.sh create --"$CODA_ENV"
+if ! "$PWD"/commands/backups.sh create --"$CODA_ENV"; then
+	echo "Error: Backup failed. Aborting before the destructive upgrade." >&2
+	exit 1
+fi
 
 echo "Shutting down CODA before PostgreSQL upgrade"
 $COMPOSE_BASE_CMD down
