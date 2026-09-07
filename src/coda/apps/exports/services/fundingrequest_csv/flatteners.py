@@ -302,9 +302,10 @@ def _format_funding_entry(rf: ResearchFundingImportDto) -> str:
     is rendered as '(Project ID – Project Name)' if it ever occurs.
     """
     funder = rf.funder
-    details = [part for part in (rf.project_id, rf.project_name) if part]
-    if not details:
+    if not rf.project_id and not rf.project_name:
         return funder
+
+    details = [part for part in (rf.project_id, rf.project_name) if part]
     detail = " – ".join(details)
     return f"{funder} ({detail})" if funder else f"({detail})"
 
