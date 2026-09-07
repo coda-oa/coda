@@ -24,11 +24,13 @@ from coda.domain.opencost._institution import (
 from coda.domain.opencost._invoice import (
     AmountInvoice,
     ContractAmountPaidType,
+    ContractAmountsPaid,
     ContractCostDataType,
     ContractInvoiceGroupType,
     ContractInvoiceType,
     Dates,
     PublicationAmountPaidType,
+    PublicationAmountsPaid,
     PublicationInvoiceType,
     ContractInvoicePeriodType,
 )
@@ -177,7 +179,7 @@ def _get_invoice_data(report_pub: OpenCostReportPublication) -> list[Publication
             PublicationInvoiceType(
                 invoice_number=report_invoice.invoice_number,
                 creditor=report_invoice.creditor,
-                amounts_paid=amounts_paid,
+                amounts_paid=PublicationAmountsPaid(amount_paid=amounts_paid),
                 dates=dates,
                 amount_invoice=amount_invoice,
             )
@@ -351,7 +353,7 @@ def _get_contract_cost_data(report_contract: OpenCostReportContract) -> Contract
             ContractInvoiceType(
                 invoice_number=report_invoice.invoice_number,
                 creditor=report_invoice.creditor,
-                amounts_paid=amounts_paid,
+                amounts_paid=ContractAmountsPaid(amount_paid=amounts_paid),
                 dates=dates,
                 amount_invoice=amount_invoice,
             )

@@ -100,7 +100,6 @@ def test__report_monograph_publication__transforming_to_opencost__returns_valid_
 def test__report_publication_with_doi__transforming_to_opencost__doi_is_included_in_primary_identifier() -> (
     None
 ):
-
     fr = modelfactory.fundingrequest(title="Test Publication with DOI")
 
     create_publication_with_invoice(
@@ -252,8 +251,8 @@ def test__report_publication_with_invoice__transforming_to_opencost__cost_data_i
     assert invoice_data.amount_invoice.amount == Decimal("1500.00")
     assert invoice_data.amount_invoice.currency == "EUR"
 
-    assert len(invoice_data.amounts_paid) == 1
-    amount_paid = invoice_data.amounts_paid[0]
+    assert len(invoice_data.amounts_paid.amount_paid) == 1
+    amount_paid = invoice_data.amounts_paid.amount_paid[0]
     assert amount_paid.amount == Decimal("1500.00")
     assert amount_paid.currency == "EUR"
     assert amount_paid.cost_type == PublicationCostType.gold_oa
@@ -295,8 +294,8 @@ def test__report_publication_with_invoice_multiple_positions__transforming_to_op
     assert invoice_data.amount_invoice.amount == Decimal("1500.00")  # 1000 + 500
     assert invoice_data.amount_invoice.currency == "EUR"
 
-    assert len(invoice_data.amounts_paid) == 2
-    amounts = sorted(invoice_data.amounts_paid, key=lambda x: x.amount)
+    assert len(invoice_data.amounts_paid.amount_paid) == 2
+    amounts = sorted(invoice_data.amounts_paid.amount_paid, key=lambda x: x.amount)
     assert amounts[0].amount == Decimal("500.00")
     assert amounts[1].amount == Decimal("1000.00")
 
@@ -373,8 +372,16 @@ def test__report_standalone_contract_with_institution_data__transforming_to_open
     )
 
     creditor = create_creditor("Test Creditor")
-    invoice = create_invoice(creditor=creditor, invoice_date=date(2024, 7, 1), number="INV-CONTRACT-001")
-    create_position(invoice=invoice, contract=contract, description="Service Fee", cost_amount=Decimal("1200.00"), cost_type="publish")
+    invoice = create_invoice(
+        creditor=creditor, invoice_date=date(2024, 7, 1), number="INV-CONTRACT-001"
+    )
+    create_position(
+        invoice=invoice,
+        contract=contract,
+        description="Service Fee",
+        cost_amount=Decimal("1200.00"),
+        cost_type="publish",
+    )
     report_invoice = OpenCostReportContractInvoice.objects.create(
         report_contract=report_contract,
         invoice=invoice,
@@ -385,15 +392,18 @@ def test__report_standalone_contract_with_institution_data__transforming_to_open
         amount_invoice_currency="EUR",
         group_id="test-group-id",
     )
+    position = invoice.positions.first()
+    assert position is not None
     OpenCostReportContractInvoicePosition.objects.create(
         report_contract_invoice=report_invoice,
-        position=invoice.positions.first(),
+        position=position,
         amount=Decimal("1200.00"),
         currency="EUR",
         cost_type="publish",
     )
 
     opencost_data = to_opencost(report)
+    assert opencost_data is not None
 
     assert opencost_data.contract is not None
     assert len(opencost_data.contract) == 1
@@ -497,8 +507,8 @@ def test__report_standalone_contract_with_invoice_multiple_positions__transformi
     assert opencost_invoice.invoice[0].amount_invoice.amount == Decimal("1200.00")  # 700 + 500
     assert opencost_invoice.invoice[0].amount_invoice.currency == "EUR"
 
-    assert len(opencost_invoice.invoice[0].amounts_paid) == 2
-    amounts = sorted(opencost_invoice.invoice[0].amounts_paid, key=lambda x: x.amount)
+    assert len(opencost_invoice.invoice[0].amounts_paid.amount_paid) == 2
+    amounts = sorted(opencost_invoice.invoice[0].amounts_paid.amount_paid, key=lambda x: x.amount)
     assert amounts[0].amount == Decimal("500.00")
     assert amounts[1].amount == Decimal("700.00")
 
@@ -533,6 +543,7 @@ def test__report_standalone_contract_with_esac_id__transforming_to_opencost__pri
 
     report = create_opencost_report(title="Test Report with Contract ESAC ID 2024")
     opencost_data = to_opencost(report)
+    assert opencost_data is not None
 
     assert opencost_data.contract is not None
     contract_data = opencost_data.contract[0]
@@ -571,6 +582,7 @@ def test__report_standalone_contract_with_secondary_identifiers__transforming_to
 
     report = create_opencost_report(title="Test Report with Contract Secondary IDs 2024")
     opencost_data = to_opencost(report)
+    assert opencost_data is not None
 
     assert opencost_data.contract is not None
     assert len(opencost_data.contract) == 1
@@ -620,6 +632,7 @@ def test__publication_with_linked_contract__transforming_to_opencost__attached_c
 
     report = create_opencost_report()
     opencost_data = to_opencost(report)
+    assert opencost_data is not None
 
     assert opencost_data.publication is not None
     assert len(opencost_data.publication) == 1

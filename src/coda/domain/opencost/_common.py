@@ -13,7 +13,5 @@ class Data(BaseModel):
     @model_validator(mode="after")
     def _at_least_one_publication_or_contract(self) -> Self:
         if not self.publication and not self.contract:
-            raise ValueError(
-                "at least one of 'publication' or 'contract' must be set"
-            )
+            raise ValueError("at least one of 'publication' or 'contract' must be set")
         return self

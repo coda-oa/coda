@@ -155,9 +155,7 @@ class PublicationPrimaryIdentifier(BaseModel):
     @model_validator(mode="after")
     def _exactly_one_of_doi_or_bibliographic_information(self) -> Self:
         if (self.doi is not None) == (self.bibliographic_information is not None):
-            raise ValueError(
-                "exactly one of 'doi' or 'bibliographic_information' must be set"
-            )
+            raise ValueError("exactly one of 'doi' or 'bibliographic_information' must be set")
         return self
 
 
@@ -173,9 +171,7 @@ class PublicationCostDataType(BaseModel):
     @model_validator(mode="after")
     def _at_least_one_invoice_or_part_of_contract(self) -> Self:
         if not self.invoice and self.part_of_contract is None:
-            raise ValueError(
-                "at least one of 'invoice' or 'part_of_contract' must be set"
-            )
+            raise ValueError("at least one of 'invoice' or 'part_of_contract' must be set")
         return self
 
 

@@ -38,7 +38,6 @@ def test_validate_report_empty_report() -> None:
 
 @pytest.mark.django_db
 def test_validate_report_contract_missing_esac_id() -> None:
-
     contract = modelfactory.contract()
     contract.name = "Contract Without ESAC"
     contract.start_date = date(2024, 1, 1)
@@ -76,7 +75,6 @@ def test_validate_report_contract_missing_esac_id() -> None:
 
 @pytest.mark.django_db
 def test_validate_report_publication_missing_doi() -> None:
-
     fr = modelfactory.fundingrequest(title="Publication Without DOI")
     fr.publication.links.filter(type__name="DOI").delete()
 
@@ -136,7 +134,6 @@ def test_validation_caching_consistency() -> None:
 
 @pytest.mark.django_db
 def test_has_issues_returns_false_for_clean_report() -> None:
-
     home_institution = create_institution_with_identifiers(
         name="Test University",
         ror="https://ror.org/test123",
@@ -177,7 +174,6 @@ def test_has_issues_returns_false_for_clean_report() -> None:
 
 @pytest.mark.django_db
 def test_get_issue_counts_separates_errors_and_warnings() -> None:
-
     # Create publications without DOI (warning)
     for i in range(3):
         fr = modelfactory.fundingrequest(title=f"Pub {i}")

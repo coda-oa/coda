@@ -1,4 +1,5 @@
 """Basic type definitions for OpenCost domain models."""
+
 from enum import Enum
 from typing import Annotated
 from pydantic import StringConstraints
@@ -11,6 +12,7 @@ DateFormat = Annotated[str, StringConstraints(pattern=r"[0-9]{4}(-[0-9]{2}){0,2}
 
 class ContractCostType(Enum):
     """OpenCost contract_cost_type"""
+
     publish = "publish"
     read = "read"
     publish_and_read = "publish and read"
@@ -20,6 +22,7 @@ class ContractCostType(Enum):
 
 class PublicationCostType(Enum):
     """OpenCost publication_cost_type"""
+
     gold_oa = "gold-oa"
     vat = "vat"
     colour_charge = "colour charge"

@@ -126,7 +126,9 @@ def transform_first_publication_to_pydantic() -> PublicationType:
     report = create_opencost_report()
     report_publication = report.publications.first()
     assert report_publication is not None
-    return report_publication_to_pydantic(report_publication)
+    publication = report_publication_to_pydantic(report_publication)
+    assert publication is not None
+    return publication
 
 
 def create_institution_with_identifiers(
@@ -179,7 +181,6 @@ def create_contract_with_identifiers(
     ezb: str | None = None,
     local: str | None = None,
 ) -> Contract:
-
     contract = modelfactory.contract()
     contract.name = name
     contract.start_date = start_date
@@ -275,7 +276,9 @@ def generate_opencost_report_from_contract() -> Data:
         title="Test Report 2024",
         filters=filters,
     )
-    return to_opencost(report)
+    data = to_opencost(report)
+    assert data is not None
+    return data
 
 
 def create_realistic_report_data(
@@ -351,13 +354,12 @@ def assert_current_filter(response: HttpResponse, field: str, expected: Any) -> 
     context = cast(Any, response).context
     current_filters = context.get("current_filters", {})
     assert field in current_filters, (
-        f"Field '{field}' not found in current_filters. "
-        f"Available: {list(current_filters.keys())}"
+        f"Field '{field}' not found in current_filters. Available: {list(current_filters.keys())}"
     )
     actual = current_filters[field]
-    assert (
-        actual == expected
-    ), f"Field '{field}' mismatch.\n Expected: {expected!r}\n Got: {actual!r}"
+    assert actual == expected, (
+        f"Field '{field}' mismatch.\n Expected: {expected!r}\n Got: {actual!r}"
+    )
 
 
 def assert_current_filters(response: HttpResponse, **expected: Any) -> None:

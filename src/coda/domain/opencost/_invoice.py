@@ -13,6 +13,16 @@ class PublicationAmountPaidType(BaseModel):
     vat: Decimal | None = None
 
 
+class PublicationAmountsPaid(BaseModel):
+    amount_paid: list[PublicationAmountPaidType]
+
+    @model_validator(mode="after")
+    def _at_least_one_amount_paid(self) -> Self:
+        if not self.amount_paid:
+            raise ValueError("at least one 'amount_paid' must be set")
+        return self
+
+
 class AmountInvoice(BaseModel):
     currency: Currency
     amount: Decimal
@@ -32,15 +42,9 @@ class Dates(BaseModel):
 class PublicationInvoiceType(BaseModel):
     amount_invoice: AmountInvoice | None = None
     invoice_number: NonEmptyString | None = None
-    amounts_paid: list[PublicationAmountPaidType]
+    amounts_paid: PublicationAmountsPaid
     dates: Dates
     creditor: NonEmptyString | None = None
-
-    @model_validator(mode="after")
-    def _at_least_one_amount_paid(self) -> Self:
-        if not self.amounts_paid:
-            raise ValueError("at least one 'amount_paid' must be set")
-        return self
 
 
 class ContractAmountPaidType(BaseModel):
@@ -50,18 +54,22 @@ class ContractAmountPaidType(BaseModel):
     vat: Decimal | None = None
 
 
+class ContractAmountsPaid(BaseModel):
+    amount_paid: list[ContractAmountPaidType]
+
+    @model_validator(mode="after")
+    def _at_least_one_amount_paid(self) -> Self:
+        if not self.amount_paid:
+            raise ValueError("at least one 'amount_paid' must be set")
+        return self
+
+
 class ContractInvoiceType(BaseModel):
     amount_invoice: AmountInvoice | None = None
     invoice_number: NonEmptyString | None = None
     creditor: NonEmptyString | None = None
     dates: Dates
-    amounts_paid: list[ContractAmountPaidType]
-
-    @model_validator(mode="after")
-    def _at_least_one_amount_paid(self) -> Self:
-        if not self.amounts_paid:
-            raise ValueError("at least one 'amount_paid' must be set")
-        return self
+    amounts_paid: ContractAmountsPaid
 
 
 class ContractInvoicePeriodType(BaseModel):
