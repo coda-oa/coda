@@ -44,6 +44,7 @@ class AuthorImportDto(pydantic.BaseModel):
     email: str
     orcid: Orcid | None = None
     affiliation: str | None = None
+    affiliation_internal_id: str | None = None
     role: Role = Role.CO_AUTHOR
 
 
