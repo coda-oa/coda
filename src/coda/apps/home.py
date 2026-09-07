@@ -1,3 +1,4 @@
+from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.contrib import messages
 from django.http import HttpRequest, HttpResponse
@@ -8,6 +9,7 @@ from coda.apps.fundingrequests.models import FundingRequest
 from coda.domain.fundingrequest.review import ReviewResult
 
 
+@login_required
 def view(request: HttpRequest) -> HttpResponse:
     open_requests = fq.search(fq.ReviewResultCriteria([ReviewResult.Open]))
     rejected_requests = fq.search(fq.ReviewResultCriteria([ReviewResult.Rejected]))

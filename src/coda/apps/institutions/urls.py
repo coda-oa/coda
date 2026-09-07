@@ -6,9 +6,9 @@ app_name = "institutions"
 
 urlpatterns = [
     path("", views.institution_list_view, name="list"),
-    path("create/", views.create_institution_view, name="create"),
+    path("create/", views.CreateInstitutionView.as_view(), name="create"),
     path("<int:pk>/", views.institution_detail, name="detail"),
-    path("<int:pk>/edit/", views.update_institution_view, name="edit"),
+    path("<int:pk>/edit/", views.UpdateInstitutionView.as_view(), name="edit"),
     path(
         "<int:pk>/request-set-successor/", views.request_set_successor, name="request_set_successor"
     ),

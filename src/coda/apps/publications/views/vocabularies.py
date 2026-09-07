@@ -305,6 +305,7 @@ def move_to_allowed(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+@require_POST
 def request_delete(request: HttpRequest, pk: int) -> HttpResponse:
     vocabulary = vocabulary_repository.get_by_id(VocabularyId(pk))
     usage = vocabularies.get_usage(VocabularyId(pk))

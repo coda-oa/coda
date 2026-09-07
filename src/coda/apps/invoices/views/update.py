@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
 
 from coda import formdata
 from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
@@ -37,6 +37,7 @@ invoice_breadcrumb_title = generate_dynamic_title(
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 @breadcrumb(invoice_breadcrumb_title, parent_url_name="invoices:detail", preserve_filters=True)
 def update_invoice(request: HttpRequest, pk: int) -> HttpResponse:
     invoice = repository.get_by_id(InvoiceId(pk))

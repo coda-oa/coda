@@ -130,8 +130,6 @@ class CreateInstitutionView(
         return reverse("institutions:list")
 
 
-create_institution_view = CreateInstitutionView.as_view()
-
 
 @breadcrumb("Edit Institution", parent_url_name="institutions:list")
 class UpdateInstitutionView(
@@ -182,7 +180,6 @@ class UpdateInstitutionView(
         return reverse("institutions:list")
 
 
-update_institution_view = UpdateInstitutionView.as_view()
 
 
 @login_required
