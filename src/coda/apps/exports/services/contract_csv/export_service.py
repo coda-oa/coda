@@ -1,9 +1,6 @@
-from io import StringIO
-import polars as pl
-
 from coda.apps.exports.services.contract_csv.flatteners import flatten_contract_data
 from coda.apps.exports.services.contract_csv.mappers import map_contract_to_export_dto
-from coda.apps.exports.services.csv_values import format_money_value, single_line
+from coda.apps.exports.services.csv_writer import build_csv_from_rows
 from coda.apps.invoices.invoice_query import InvoiceSearchParams
 from coda.apps.exports.services.contract_csv import queries
 
@@ -42,26 +39,6 @@ def export_contract_to_csv(
 
     export_dtos = [map_contract_to_export_dto(contract) for contract in contracts]
 
-    all_rows = []
-    for dto in export_dtos:
-        rows = flatten_contract_data(dto)
-        for row in rows:
-            all_rows.append(
-                {
-                    key: format_money_value(
-                        single_line(value), key, params.decimal_separator, MONEY_COLUMNS
-                    )
-                    for key, value in row.items()
-                }
-            )
+    all_rows = [row for dto in export_dtos for row in flatten_contract_data(dto)]
 
-    if not all_rows:
-        schema = {column: pl.String for column in CSV_COLUMNS}
-        df = pl.DataFrame(schema=schema)
-    else:
-        df = pl.DataFrame(all_rows)
-
-    buffer = StringIO()
-    df.write_csv(buffer, separator=";")
-
-    return buffer.getvalue()
+    return build_csv_from_rows(all_rows, CSV_COLUMNS, MONEY_COLUMNS, params.decimal_separator)
