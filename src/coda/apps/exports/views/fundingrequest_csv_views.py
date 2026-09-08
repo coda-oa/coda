@@ -37,7 +37,7 @@ from coda.apps.exports.services.filter_form import (
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
 FUNDINGREQUESTS_CSV_CREATE_URL = "exports:fundingrequests_csv_create"
-FUNDINGREQUESTS_CSV_LIST_URL = FUNDINGREQUESTS_CSV_LIST_URL
+FUNDINGREQUESTS_CSV_LIST_URL = "exports:fundingrequests_csv_list"
 CSV_ENCODING = "utf-8-sig"
 
 
