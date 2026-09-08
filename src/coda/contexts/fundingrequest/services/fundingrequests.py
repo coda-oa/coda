@@ -359,7 +359,7 @@ def update_review(fundingrequest_id: FundingRequestId, review: UpdateReviewDto) 
     review_ = Review(
         fundingrequest_id,
         Money(
-            Decimal(review.decided_funding_amount),
+            review.decided_funding_amount,
             Currency.from_code(review.decided_funding_currency),
         ),
         remarks=review.reviewer_remarks,

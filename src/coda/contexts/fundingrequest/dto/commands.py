@@ -7,6 +7,7 @@ test data builders and domain object conversion.
 
 import datetime
 from collections.abc import Iterable
+from decimal import Decimal
 from typing import Annotated
 
 from pydantic import Field
@@ -37,13 +38,13 @@ class PaymentDto(CodaBaseDto):
     A serializable representation of a Payment object.
 
     Attributes:
-        estimated_cost (float): The estimated cost of the payment.
+        estimated_cost (Decimal): The estimated cost of the payment.
         currency_code: str
         method (str): The method of payment.
         external_costsplitting (bool | None): Whether external cost splitting occurred.
     """
 
-    amount: float
+    amount: Decimal
     currency: str
     method: str
     external_costsplitting: OptionalFromStr[bool] = None
@@ -51,7 +52,7 @@ class PaymentDto(CodaBaseDto):
     @classmethod
     def empty(cls) -> "PaymentDto":
         return PaymentDto(
-            amount=0,
+            amount=Decimal("0"),
             currency=Currency.EUR.code,
             method=PaymentMethod.Unknown.value,
         )
@@ -60,7 +61,7 @@ class PaymentDto(CodaBaseDto):
     def from_payment(cls, payment: Payment) -> "PaymentDto":
         """Creates a CostDto instance from a Payment object."""
         return cls(
-            amount=float(payment.amount.amount),
+            amount=payment.amount.amount,
             currency=payment.amount.currency.code,
             method=payment.method.value,
             external_costsplitting=payment.external_costsplitting,
@@ -140,7 +141,7 @@ class ExtraInformationDto(CodaBaseDto):
 
 
 class UpdateReviewDto(CodaBaseDto):
-    decided_funding_amount: float
+    decided_funding_amount: Decimal
     decided_funding_currency: str
     reviewer_remarks: str
     result: str
