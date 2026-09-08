@@ -1,9 +1,9 @@
 from enum import Enum
-from typing import Self
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 
 from ._types import NonEmptyString
+from ._validators import EitherFieldMixin
 
 
 class InstitutionIdType(Enum):
@@ -27,12 +27,7 @@ class InstitutionName(BaseModel):
     type: InstitutionNameType
 
 
-class InstitutionType(BaseModel):
+class InstitutionType(EitherFieldMixin):
+    either_fields = ("name", "id")
     name: list[InstitutionName] | None = None
     id: list[InstitutionId] | None = None
-
-    @model_validator(mode="after")
-    def _at_least_one_name_or_id(self) -> Self:
-        if not (self.name or self.id):
-            raise ValueError("at least one of 'name' or 'id' must be set")
-        return self

@@ -1,11 +1,11 @@
 from enum import Enum
-from typing import Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
-from ._types import NonEmptyString, DateFormat
 from ._institution import InstitutionType
 from ._invoice import ContractCostDataType
+from ._types import DateFormat, NonEmptyString
+from ._validators import RequiredList
 
 
 class ContractPrimaryIdentifierType(Enum):
@@ -29,13 +29,7 @@ class ContractSecondaryIdType(BaseModel):
 
 
 class ContractSecondaryIdentifiersType(BaseModel):
-    id: list[ContractSecondaryIdType]
-
-    @model_validator(mode="after")
-    def _at_least_one_id(self) -> Self:
-        if not self.id:
-            raise ValueError("at least one 'id' must be set")
-        return self
+    id: RequiredList[ContractSecondaryIdType]
 
 
 class ParticipationType(BaseModel):

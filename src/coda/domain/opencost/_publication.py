@@ -5,9 +5,11 @@ from typing import Self
 
 from pydantic import BaseModel, model_validator
 
-from ._types import NonEmptyString
+from ._contract import ContractPrimaryIdentifier
 from ._institution import InstitutionType
 from ._invoice import PublicationInvoiceType
+from ._types import NonEmptyString
+from ._validators import EitherFieldMixin, RequiredList
 
 
 class CoarPublicationType(Enum):
@@ -133,13 +135,7 @@ class PublicationSecondaryIdType(BaseModel):
 
 
 class PublicationSecondaryIdentifiers(BaseModel):
-    id: list[PublicationSecondaryIdType]
-
-    @model_validator(mode="after")
-    def _at_least_one_id(self) -> Self:
-        if not self.id:
-            raise ValueError("at least one 'id' must be set")
-        return self
+    id: RequiredList[PublicationSecondaryIdType]
 
 
 class BibliographicInformation(BaseModel):
@@ -164,15 +160,10 @@ class PartOfContractType(BaseModel):
     primary_identifier: ContractPrimaryIdentifier
 
 
-class PublicationCostDataType(BaseModel):
+class PublicationCostDataType(EitherFieldMixin):
+    either_fields = ("invoice", "part_of_contract")
     invoice: list[PublicationInvoiceType] | None = None
     part_of_contract: PartOfContractType | None = None
-
-    @model_validator(mode="after")
-    def _at_least_one_invoice_or_part_of_contract(self) -> Self:
-        if not self.invoice and self.part_of_contract is None:
-            raise ValueError("at least one of 'invoice' or 'part_of_contract' must be set")
-        return self
 
 
 class PublicationType(BaseModel):
@@ -182,12 +173,3 @@ class PublicationType(BaseModel):
     publication_type: CoarPublicationType
     external_costsplitting: bool | None = None
     cost_data: PublicationCostDataType
-
-
-# Import after all models are defined to avoid circular import during module loading
-# Then rebuild models that have forward references
-from ._contract import ContractPrimaryIdentifier  # noqa: E402
-
-PartOfContractType.model_rebuild()
-PublicationCostDataType.model_rebuild()
-PublicationType.model_rebuild()

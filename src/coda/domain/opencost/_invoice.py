@@ -1,9 +1,9 @@
 from decimal import Decimal
-from typing import Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
-from ._types import NonEmptyString, Currency, DateFormat, ContractCostType, PublicationCostType
+from ._types import ContractCostType, Currency, DateFormat, NonEmptyString, PublicationCostType
+from ._validators import EitherFieldMixin, RequiredList
 
 
 class PublicationAmountPaidType(BaseModel):
@@ -14,13 +14,7 @@ class PublicationAmountPaidType(BaseModel):
 
 
 class PublicationAmountsPaid(BaseModel):
-    amount_paid: list[PublicationAmountPaidType]
-
-    @model_validator(mode="after")
-    def _at_least_one_amount_paid(self) -> Self:
-        if not self.amount_paid:
-            raise ValueError("at least one 'amount_paid' must be set")
-        return self
+    amount_paid: RequiredList[PublicationAmountPaidType]
 
 
 class AmountInvoice(BaseModel):
@@ -28,15 +22,11 @@ class AmountInvoice(BaseModel):
     amount: Decimal
 
 
-class Dates(BaseModel):
+class Dates(EitherFieldMixin):
+    either_fields = ("invoice", "paid")
+
     invoice: DateFormat | None = None
     paid: DateFormat | None = None
-
-    @model_validator(mode="after")
-    def _at_least_one_date(self) -> Self:
-        if self.invoice is None and self.paid is None:
-            raise ValueError("at least one of 'invoice' or 'paid' must be set")
-        return self
 
 
 class PublicationInvoiceType(BaseModel):
@@ -55,13 +45,7 @@ class ContractAmountPaidType(BaseModel):
 
 
 class ContractAmountsPaid(BaseModel):
-    amount_paid: list[ContractAmountPaidType]
-
-    @model_validator(mode="after")
-    def _at_least_one_amount_paid(self) -> Self:
-        if not self.amount_paid:
-            raise ValueError("at least one 'amount_paid' must be set")
-        return self
+    amount_paid: RequiredList[ContractAmountPaidType]
 
 
 class ContractInvoiceType(BaseModel):
@@ -84,10 +68,4 @@ class ContractInvoiceGroupType(BaseModel):
 
 
 class ContractCostDataType(BaseModel):
-    invoice_group: list[ContractInvoiceGroupType]
-
-    @model_validator(mode="after")
-    def _at_least_one_invoice_group(self) -> Self:
-        if not self.invoice_group:
-            raise ValueError("at least one 'invoice_group' must be set")
-        return self
+    invoice_group: RequiredList[ContractInvoiceGroupType]
