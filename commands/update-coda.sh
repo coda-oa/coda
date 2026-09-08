@@ -6,6 +6,7 @@ script_dir="$(cd "$(dirname "$0")" && pwd)"
 STASH_REF=""
 STASH_MSG="update-coda pre-update"
 ROLLBACK_ON_EXIT=false
+PREV_BRANCH=""
 CODA_STOPPED=false
 CODA_RESTARTED=false
 
@@ -18,9 +19,17 @@ _stash_is_mine() {
 # Cleanup: restart CODA if it was stopped but not restarted
 cleanup() {
   local status=$?
+  local current_branch
   if [[ "$ROLLBACK_ON_EXIT" == true ]]; then
-    echo "Rolling back to the previous branch and restoring stashed changes..." >&2
-    git checkout - 2>/dev/null || true
+    # Only restore the branch if we actually switched: a failure before the
+    # checkout (e.g. fetch) must not move the user off their current branch.
+    current_branch="$(git branch --show-current 2>/dev/null || true)"
+    if [[ -n "${PREV_BRANCH:-}" && "$current_branch" != "$PREV_BRANCH" ]]; then
+      echo "Rolling back to branch '$PREV_BRANCH' and restoring stashed changes..." >&2
+      git checkout "$PREV_BRANCH" 2>/dev/null || true
+    else
+      echo "Restoring stashed changes..." >&2
+    fi
     if [[ -n "$STASH_REF" ]]; then
       if _stash_is_mine; then
         git stash pop "$STASH_REF" 2>/dev/null || true
@@ -173,6 +182,7 @@ step_fetch_and_switch() {
   # to switch branches): a failure at ANY later step must restore it, so the
   # EXIT trap now rolls back branch and stash. Cleared only on success.
   ROLLBACK_ON_EXIT=true
+  PREV_BRANCH="$(git branch --show-current 2>/dev/null || true)"
   if has_uncommitted_changes; then
     echo "Stashing uncommitted changes..."
     git stash push --include-untracked -m "$STASH_MSG"
