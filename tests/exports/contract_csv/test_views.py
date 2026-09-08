@@ -207,6 +207,40 @@ def test__contract_csv_detail_page__renders_preview_from_stored_csv_snapshot(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__contract_csv_detail_page__stored_csv_with_utf8_bom__preview_columns_stay_correct(
+    client: Client,
+) -> None:
+    export = ContractCSVExport.objects.create(
+        name="BOM Snapshot Export",
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
+        record_count=1,
+    )
+    export.csv_file.save(
+        "bom.csv",
+        ContentFile(
+            (
+                b"\xef\xbb\xbfcontract_name;invoice_number;position_amount;funded_amount;"
+                b"funding_source_name\n"
+                b"Bom Contract;INV-BOM;123.45;123.45;Budget\n"
+            ),
+            name="bom.csv",
+        ),
+        save=True,
+    )
+
+    response = client.get(reverse("exports:contracts_csv_detail", args=[export.id]))
+
+    assert response.status_code == 200
+    assert response.context["preview_columns"] == PREVIEW_COLUMNS
+    assert response.context["preview_rows"][0][0] == "Bom Contract"
+    assert response.context["preview_rows"][0][2] == pytest.approx(123.45)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test_contract_csv_export_create_view__payment_status_filter__is_stored(
     client: Client,
 ) -> None:

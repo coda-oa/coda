@@ -4,19 +4,15 @@ from coda.apps.contracts.models import Contract
 from coda.apps.invoices import invoice_query
 from coda.apps.invoices.models import (
     FundingAssignment,
-    Invoice as InvoiceModel,
     Position as PositionModel,
 )
-from coda.domain.finance.invoice import InvoiceId
 
 
 def get_contracts_for_export(
     params: invoice_query.InvoiceSearchParams,
-) -> tuple[QuerySet[Contract], set[InvoiceId]]:
+) -> QuerySet[Contract]:
     criteria = invoice_query.build_criteria(params)
     matching_invoices = invoice_query.search(*criteria)
-
-    matching_invoice_ids = {InvoiceId(pk) for pk in matching_invoices.values_list("pk", flat=True)}
 
     has_matching_position = Exists(
         PositionModel.objects.filter(
@@ -32,13 +28,14 @@ def get_contracts_for_export(
             "journals",
             "links",
             "links__type",
+            # Scoped to matching invoices in SQL. Must come before the other
+            # position_set lookups: Django caches the first position_set fetch
+            # per contract and silently skips later ones.
             Prefetch(
-                "position_set__invoice",
-                queryset=InvoiceModel.objects.select_related("creditor").prefetch_related(
-                    "currency_conversions",
-                    "positions__funding_assignments__funding_source",
-                    "positions__contract",
-                ),
+                "position_set",
+                queryset=PositionModel.objects.filter(invoice__in=matching_invoices)
+                .select_related("invoice__creditor")
+                .prefetch_related("invoice__currency_conversions"),
             ),
             Prefetch(
                 "position_set__funding_assignments",
@@ -48,4 +45,4 @@ def get_contracts_for_export(
         .distinct()
     )
 
-    return contracts, matching_invoice_ids
+    return contracts

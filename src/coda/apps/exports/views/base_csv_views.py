@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from io import StringIO
-from typing import Any, Protocol, cast
+from typing import Any, BinaryIO, Protocol, cast
 
 import polars as pl
 from django.contrib import messages
@@ -44,9 +44,9 @@ def csv_detail_page(
     export = get_object_or_404(model, pk=pk)
     export_ = cast(_CSVExportInstance, export)
 
-    preview_df = _create_preview_dataframe(
-        export_.csv_file.open("rb").read().decode(CSV_ENCODING), preview_columns
-    )
+    csv_file = cast(BinaryIO, export_.csv_file.open("rb"))
+    with csv_file:
+        preview_df = _create_preview_dataframe(csv_file, preview_columns)
 
     return render(
         request,
@@ -124,5 +124,5 @@ def create_csv_export(
     return redirect(detail_url_name, pk=export.pk)
 
 
-def _create_preview_dataframe(csv_content: str, preview_columns: list[str]) -> pl.DataFrame:
-    return pl.read_csv(StringIO(csv_content), separator=";").select(preview_columns).head(50)
+def _create_preview_dataframe(csv_file: BinaryIO, preview_columns: list[str]) -> pl.DataFrame:
+    return pl.read_csv(csv_file, separator=";", n_rows=50).select(preview_columns)

@@ -39,7 +39,7 @@ def test__contracts_with_positions__query_for_export_without_filters__returns_al
     create_invoice_with_contract_position(contract_year)
 
     params = InvoiceSearchParams()
-    contracts, _ = get_contracts_for_export(params)
+    contracts = get_contracts_for_export(params)
 
     assert len(contracts) == 1
     assert contracts[0].pk == int(contract.id)
@@ -51,7 +51,7 @@ def test__contract_without_positions__query_for_export__is_excluded() -> None:
     contract.id = contract_repository.create(contract)
 
     params = InvoiceSearchParams()
-    contracts, _ = get_contracts_for_export(params)
+    contracts = get_contracts_for_export(params)
 
     assert len(contracts) == 0
 
@@ -68,7 +68,7 @@ def test__contracts_with_invoices_outside_date_range__query_with_date_range_filt
     params = InvoiceSearchParams(
         date_range=DateRange(start=date(2020, 1, 1), end=date(2020, 12, 31))
     )
-    contracts, _ = get_contracts_for_export(params)
+    contracts = get_contracts_for_export(params)
 
     assert len(contracts) == 0
 
@@ -83,7 +83,7 @@ def test__contracts_with_paid_invoices__query_with_payment_status_filter__return
     _create_invoice_with_status(contract_year, PaymentStatus.Paid)
 
     params = InvoiceSearchParams(payment_status=PaymentStatus.Paid)
-    contracts, _ = get_contracts_for_export(params)
+    contracts = get_contracts_for_export(params)
 
     assert len(contracts) == 1
     assert contracts[0].pk == int(contract.id)
@@ -97,7 +97,7 @@ def test__contracts_with_unpaid_invoices__query_with_rejected_filter__excludes_c
     _create_invoice_with_status(contract_year, PaymentStatus.Unpaid)
 
     params = InvoiceSearchParams(payment_status=PaymentStatus.Rejected)
-    contracts, _ = get_contracts_for_export(params)
+    contracts = get_contracts_for_export(params)
 
     assert len(contracts) == 0
 
@@ -115,7 +115,7 @@ def test__multiple_contracts_with_invoices__query_for_export__returns_all_contra
     create_invoice_with_contract_position(contract_year2)
 
     params = InvoiceSearchParams()
-    contracts, _ = get_contracts_for_export(params)
+    contracts = get_contracts_for_export(params)
 
     assert len(contracts) == 2
 
@@ -137,7 +137,7 @@ def test__contract_with_invoice_on_date_range_start_boundary__query_with_date_fi
     params = InvoiceSearchParams(
         date_range=DateRange(start=date(2024, 6, 1), end=date(2024, 12, 31))
     )
-    contracts, _ = get_contracts_for_export(params)
+    contracts = get_contracts_for_export(params)
 
     assert len(contracts) == 1
 
@@ -159,7 +159,7 @@ def test__contract_with_invoice_on_date_range_end_boundary__query_with_date_filt
     params = InvoiceSearchParams(
         date_range=DateRange(start=date(2024, 1, 1), end=date(2024, 12, 31))
     )
-    contracts, _ = get_contracts_for_export(params)
+    contracts = get_contracts_for_export(params)
 
     assert len(contracts) == 1
 
@@ -167,6 +167,6 @@ def test__contract_with_invoice_on_date_range_end_boundary__query_with_date_filt
 @pytest.mark.django_db
 def test__no_invoices_in_system__query_for_export__returns_no_contracts() -> None:
     params = InvoiceSearchParams()
-    contracts, _ = get_contracts_for_export(params)
+    contracts = get_contracts_for_export(params)
 
     assert len(contracts) == 0

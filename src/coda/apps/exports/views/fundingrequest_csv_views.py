@@ -1,5 +1,5 @@
 from io import StringIO
-from typing import Any, cast
+from typing import Any, BinaryIO, cast
 
 from django.contrib import messages
 
@@ -93,7 +93,9 @@ def fundingrequest_csv_detail_page(
             },
         )
 
-    preview_df = _create_preview_dataframe(export.csv_file.open("rb").read().decode(CSV_ENCODING))
+    csv_file = cast(BinaryIO, export.csv_file.open("rb"))
+    with csv_file:
+        preview_df = _create_preview_dataframe(csv_file)
 
     return render(
         request,
@@ -253,9 +255,7 @@ def _save_csv_file(export: FundingRequestCSVExport, csv_content: str) -> None:
     export.save(update_fields=["csv_file", "record_count"])
 
 
-def _create_preview_dataframe(
-    csv_content: str,
-) -> pl.DataFrame:
+def _create_preview_dataframe(csv_file: BinaryIO) -> pl.DataFrame:
     preview_columns = [
         "request_id",
         "publication_title",
@@ -265,14 +265,7 @@ def _create_preview_dataframe(
         "position_amount",
     ]
 
-    return (
-        pl.read_csv(
-            StringIO(csv_content),
-            separator=";",
-        )
-        .select(preview_columns)
-        .head(50)
-    )
+    return pl.read_csv(csv_file, separator=";", n_rows=50).select(preview_columns)
 
 
 def _generate_csv_from_filters(filters: dict[str, Any]) -> str:

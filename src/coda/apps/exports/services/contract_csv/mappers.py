@@ -5,26 +5,18 @@ from coda.apps.exports.services.contract_csv.dtos import (
     ContractLinkDto,
 )
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_invoice_to_dto
-from coda.apps.invoices.models import Invoice
-from coda.contexts.finance.dto.import_dtos import InvoiceImportDto
-from coda.domain.finance.invoice import InvoiceId
+from coda.apps.invoices.models import Invoice, Position
 
 
-def map_contract_to_export_dto(
-    contract: Contract, matching_invoice_ids: set[InvoiceId] | None = None
-) -> ContractCSVExportDto:
+def map_contract_to_export_dto(contract: Contract) -> ContractCSVExportDto:
     contract_dto = map_contract_to_dto(contract)
 
-    invoices = get_relevant_invoices_for_contract(contract, matching_invoice_ids)
+    positions_by_invoice = _positions_by_invoice_of(contract)
 
-    invoice_dtos: list[InvoiceImportDto] = []
-    for invoice in invoices:
-        scoped_positions = [
-            pos for pos in contract.position_set.all() if pos.invoice_id == invoice.pk
-        ]
-        invoice_dtos.append(
-            map_invoice_to_dto(invoice, invoice_positions=scoped_positions, funding_request=None)
-        )
+    invoice_dtos = [
+        map_invoice_to_dto(invoice, invoice_positions=positions, funding_request=None)
+        for invoice, positions in positions_by_invoice.items()
+    ]
 
     return ContractCSVExportDto(
         contract=contract_dto,
@@ -49,10 +41,9 @@ def map_contract_to_dto(contract_model: Contract) -> ContractDetailsDto:
     )
 
 
-def get_relevant_invoices_for_contract(
-    contract: Contract, matching_invoice_ids: set[InvoiceId] | None = None
-) -> list[Invoice]:
-    invoices = {pos.invoice for pos in contract.position_set.all() if pos.invoice is not None}
-    if matching_invoice_ids is not None:
-        invoices = {inv for inv in invoices if inv.pk in matching_invoice_ids}
-    return list(invoices)
+def _positions_by_invoice_of(contract: Contract) -> dict[Invoice, list[Position]]:
+    grouped: dict[Invoice, list[Position]] = {}
+    for position in contract.position_set.select_related("invoice"):
+        if position.invoice is not None:
+            grouped.setdefault(position.invoice, []).append(position)
+    return grouped
