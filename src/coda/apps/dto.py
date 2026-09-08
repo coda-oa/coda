@@ -23,7 +23,7 @@ def to_post_data(
 ) -> dict[str, Any]:
     return {
         _build_key(k, prefix, underscores_to_dash): _to_json(v)
-        for k, v in model.model_dump(mode="python", exclude=exclude).items()
+        for k, v in model.model_dump(mode="json", exclude=exclude).items()
     }
 
 
