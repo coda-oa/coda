@@ -27,7 +27,7 @@ from coda.contexts.finance.dto.edit_position_dtos import (
     RelatedFundingRequest,
 )
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
-from coda.contexts.finance.services import invoice_parser
+from coda.contexts.finance.services.invoice_import import position_to_dto
 from coda.domain.contract import Contract, ContractId, ContractYear
 from coda.domain.finance.costtypes import ContractCostType, PublicationCostType
 from coda.domain.finance.invoice import CreditorId, PaymentStatus
@@ -156,7 +156,7 @@ def test__posting_position_data__includes_positions_in_context___position_list(
 
     position_list = PositionList(
         positions=[
-            invoice_parser.position_to_dto(p)
+            position_to_dto(p)
             for p in (publication_position, contract_position, free_position)
         ]
     )
@@ -172,8 +172,8 @@ def test__two_positions_added__removing_position__removed_from_response_context_
 ) -> None:
     p1 = domainfactory.free_position()
     p2 = domainfactory.free_position()
-    first = invoice_parser.position_to_dto(p1)
-    second = invoice_parser.position_to_dto(p2)
+    first = position_to_dto(p1)
+    second = position_to_dto(p2)
 
     position_list = PositionList(positions=[first, second])
     response = client.post(
@@ -205,7 +205,7 @@ def test__given_positions__create__saves_new_invoice__position_list(client: Clie
     )
 
     position_list = PositionList(
-        positions=[invoice_parser.position_to_dto(p) for p in expected.positions]
+        positions=[position_to_dto(p) for p in expected.positions]
     )
 
     invoice_head = InvoiceHeadDto(
@@ -317,7 +317,7 @@ def test__invoice_with_unassigned_costs__save_as_paid__shows_error(client: Clien
         currency=Currency.JPY,
         status=PaymentStatus.Paid,
     )
-    position_dto = invoice_parser.position_to_dto(position)
+    position_dto = position_to_dto(position)
     position_list = PositionList(positions=[position_dto])
 
     response = client.post(

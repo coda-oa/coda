@@ -12,7 +12,7 @@ from coda.apps.fundingrequests import repository as fundingrequest_repository
 from coda.apps.invoices import funding_source_repository
 from coda.apps.invoices import invoice_query as iq
 from coda.apps.publications.dto import PublicationDto
-from coda.contexts.finance.services import invoice_service
+from coda.contexts.finance.services.invoice_import import save
 from coda.contexts.fundingrequest.dto.commands import (
     CreateFundingRequestDto,
     ExtraInformationDto,
@@ -61,7 +61,7 @@ def invoice_matching_number() -> MatchingQueryConfig:
     creditor = modelfactory.creditor()
     creditor_id = CreditorId(creditor.pk)
     invoice = domainfactory.invoice(creditor=creditor_id, positions=())
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
     return MatchingQueryConfig(invoice, creditor.name, query_str=invoice.number)
 
 
@@ -69,7 +69,7 @@ def invoice_matching_creditor() -> MatchingQueryConfig:
     creditor = modelfactory.creditor()
     creditor_id = CreditorId(creditor.pk)
     invoice = domainfactory.invoice(creditor=creditor_id, positions=())
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
     return MatchingQueryConfig(invoice, creditor.name, query_str=creditor.name)
 
 
@@ -90,7 +90,7 @@ def invoice_matching_request_id(creditor_name: str = "") -> MatchingQueryConfig:
 
     position = domainfactory.publication_position(saved_request.publication.id)
     invoice = domainfactory.invoice(creditor=creditor_id, positions=[position])
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
     return MatchingQueryConfig(invoice, creditor.name, query_str=str(saved_request.request_id))
 
 
@@ -98,7 +98,7 @@ def invoice_matching_external_invoice_id() -> MatchingQueryConfig:
     creditor = modelfactory.creditor()
     creditor_id = CreditorId(creditor.pk)
     invoice = domainfactory.invoice(creditor=creditor_id, positions=())
-    invoice.id = invoice_service.save(invoice)
+    invoice.id = save(invoice)
     return MatchingQueryConfig(invoice, creditor.name, query_str=invoice.external_invoice_id)
 
 
@@ -116,7 +116,7 @@ def create_non_matching_invoice() -> Invoice:
     no_match_creditor = modelfactory.creditor(name="NO_MATCH")
     non_matching = domainfactory.invoice(creditor=CreditorId(no_match_creditor.pk), positions=())
     non_matching.number = "NO_MATCH"
-    non_matching.id = invoice_service.save(non_matching)
+    non_matching.id = save(non_matching)
     return non_matching
 
 
@@ -159,11 +159,11 @@ def test__searching_by_payment_status_finds_matching_invoices(
     creditor = modelfactory.creditor()
     matching_invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=())
     apply_matching_status(matching_invoice)
-    matching_invoice.id = invoice_service.save(matching_invoice)
+    matching_invoice.id = save(matching_invoice)
 
     non_matching_invoice = create_non_matching_invoice()
     apply_non_matching_status(non_matching_invoice)
-    non_matching_invoice.id = invoice_service.save(non_matching_invoice)
+    non_matching_invoice.id = save(non_matching_invoice)
 
     actual = iq.search_to_list_items(iq.PaymentStatusCriterion(matching_invoice.status))
 
@@ -177,11 +177,11 @@ def test__searching_by_date_range_finds_matching_invoices() -> None:
 
     matching_invoice = domainfactory.invoice(creditor=creditor_id, positions=())
     matching_invoice.date = date(2024, 6, 15)
-    matching_invoice.id = invoice_service.save(matching_invoice)
+    matching_invoice.id = save(matching_invoice)
 
     non_matching_invoice = domainfactory.invoice(creditor=creditor_id, positions=())
     non_matching_invoice.date = date(2023, 1, 1)
-    non_matching_invoice.id = invoice_service.save(non_matching_invoice)
+    non_matching_invoice.id = save(non_matching_invoice)
 
     date_range = DateRange(start=date(2024, 1, 1), end=date(2024, 12, 31))
 
@@ -208,7 +208,7 @@ def test__searching_by_funding_source_finds_matching_invoices() -> None:
         creditor=creditor_id,
         positions=[matching_position],
     )
-    matching_invoice.id = invoice_service.save(matching_invoice)
+    matching_invoice.id = save(matching_invoice)
 
     non_matching_position = domainfactory.free_position()
     non_matching_position.assign_funding(
@@ -219,7 +219,7 @@ def test__searching_by_funding_source_finds_matching_invoices() -> None:
         creditor=creditor_id,
         positions=[non_matching_position],
     )
-    non_matching_invoice.id = invoice_service.save(non_matching_invoice)
+    non_matching_invoice.id = save(non_matching_invoice)
 
     actual = iq.search_to_list_items(iq.FundingSourceCriterion(matching_budget_id))
 
@@ -233,11 +233,11 @@ def test__searching_by_missing_external_id__finds_invoices_without_external_id()
 
     matching_invoice = domainfactory.invoice(creditor=creditor_id, positions=())
     matching_invoice.external_invoice_id = ""
-    matching_invoice.id = invoice_service.save(matching_invoice)
+    matching_invoice.id = save(matching_invoice)
 
     non_matching_invoice = domainfactory.invoice(creditor=creditor_id, positions=())
     non_matching_invoice.external_invoice_id = "EXT-456"
-    non_matching_invoice.id = invoice_service.save(non_matching_invoice)
+    non_matching_invoice.id = save(non_matching_invoice)
 
     actual = iq.search_to_list_items(iq.MissingExternalIdCriterion())
 
@@ -255,7 +255,7 @@ def test__searching_by_contract__finds_invoices_with_matching_contract() -> None
     )
 
     matching_invoice = domainfactory.invoice(creditor=creditor_id, positions=[matching_position])
-    matching_invoice.id = invoice_service.save(matching_invoice)
+    matching_invoice.id = save(matching_invoice)
 
     other_contract = create_contract_with_period(DateRange.year(2023))
     other_position = domainfactory.contract_position(domainfactory.contract_year(other_contract))
@@ -264,7 +264,7 @@ def test__searching_by_contract__finds_invoices_with_matching_contract() -> None
         creditor=creditor_id,
         positions=[other_position],
     )
-    non_matching_invoice.id = invoice_service.save(non_matching_invoice)
+    non_matching_invoice.id = save(non_matching_invoice)
 
     actual = iq.search_to_list_items(iq.ContractCriterion(cast(ContractId, matching_contract.id)))
 
@@ -281,7 +281,7 @@ def test__searching_by_contract_year__finds_invoices_with_matching_contract_year
     matching_position = domainfactory.contract_position(contract_year)
 
     matching_invoice = domainfactory.invoice(creditor=creditor_id, positions=[matching_position])
-    matching_invoice.id = invoice_service.save(matching_invoice)
+    matching_invoice.id = save(matching_invoice)
 
     other_contract = create_contract_with_period(DateRange.year(2023))
     other_position = domainfactory.contract_position(domainfactory.contract_year(other_contract))
@@ -290,7 +290,7 @@ def test__searching_by_contract_year__finds_invoices_with_matching_contract_year
         creditor=creditor_id,
         positions=[other_position],
     )
-    non_matching_invoice.id = invoice_service.save(non_matching_invoice)
+    non_matching_invoice.id = save(non_matching_invoice)
 
     actual = iq.search_to_list_items(iq.ContractYearCriterion(contract_year.year))
 
@@ -314,7 +314,7 @@ def test__searching_by_has_errors__finds_invoices_with_invalid_contract_years() 
         creditor=creditor_id,
         positions=[matching_position],
     )
-    matching_invoice.id = invoice_service.save(matching_invoice)
+    matching_invoice.id = save(matching_invoice)
 
     valid_contract = domainfactory.contract(
         period=DateRange(start=date(2024, 1, 1), end=date(2024, 12, 31))
@@ -326,7 +326,7 @@ def test__searching_by_has_errors__finds_invoices_with_invalid_contract_years() 
         creditor=creditor_id,
         positions=[valid_position],
     )
-    non_matching_invoice.id = invoice_service.save(non_matching_invoice)
+    non_matching_invoice.id = save(non_matching_invoice)
 
     actual = iq.search_to_list_items(iq.HasErrorsCriterion())
 
@@ -353,14 +353,14 @@ def test__searching_by_foreign_currency__finds_invoices_with_foreign_currency_no
         creditor=creditor_id,
         positions=[matching_position],
     )
-    matching_invoice.id = invoice_service.save(matching_invoice)
+    matching_invoice.id = save(matching_invoice)
 
     non_matching_position = domainfactory.free_position(currency=home_currency)
     non_matching_invoice = domainfactory.invoice(
         creditor=creditor_id,
         positions=[non_matching_position],
     )
-    non_matching_invoice.id = invoice_service.save(non_matching_invoice)
+    non_matching_invoice.id = save(non_matching_invoice)
 
     actual = iq.search_to_list_items(iq.MissingCurrencyConversionCriterion(home_currency))
 
@@ -380,10 +380,10 @@ def test__searching_by_missing_currency_conversion__excludes_invoices_without_po
         creditor=creditor_id,
         positions=[matching_position],
     )
-    matching_invoice.id = invoice_service.save(matching_invoice)
+    matching_invoice.id = save(matching_invoice)
 
     invoice_without_positions = domainfactory.invoice(creditor=creditor_id, positions=())
-    invoice_without_positions.id = invoice_service.save(invoice_without_positions)
+    invoice_without_positions.id = save(invoice_without_positions)
 
     actual = iq.search_to_list_items(iq.MissingCurrencyConversionCriterion(home_currency))
 
@@ -400,11 +400,11 @@ def test__invoice_list_view__searching_by_payment_status_via_http_request__finds
 
     unpaid_invoice = domainfactory.invoice(creditor=creditor_id, positions=())
     unpaid_invoice.reset_payment()
-    unpaid_invoice.id = invoice_service.save(unpaid_invoice)
+    unpaid_invoice.id = save(unpaid_invoice)
 
     paid_invoice = domainfactory.invoice(creditor=creditor_id, positions=())
     paid_invoice.pay()
-    paid_invoice.id = invoice_service.save(paid_invoice)
+    paid_invoice.id = save(paid_invoice)
 
     response = client.get("/invoices/list/", {"payment_status": "unpaid"})
 

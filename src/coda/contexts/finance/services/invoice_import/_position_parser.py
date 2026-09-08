@@ -1,38 +1,51 @@
-import datetime
-from dataclasses import dataclass
-from decimal import Decimal
-from typing import Any, Literal, Protocol
+"""Position parsing for both manual and import entry paths.
 
-from typing import TypeIs
+Shared position construction with singledispatch on DTO type.
+functools.partial binds context (lookups, parse_safe) at each call site.
+"""
+
+from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal
+from functools import singledispatch
+from typing import Any, Literal, TypeIs, cast
 
 from coda.contexts.finance.dto.edit_position_dtos import (
     FundingAssignmentDto,
     ItemDto,
     PositionDto,
 )
+from coda.contexts.finance.dto.import_dtos import (
+    CommonPositionImportDto,
+    ContractPositionImportDto,
+    FreePositionImportDto,
+    PublicationPositionImportDto,
+)
 from coda.contexts.finance.dto.invoice_head_dto import InvoiceHeadDto
+from coda.contexts.finance.services.invoice_import.types import (
+    ImportLookups,
+    PositionParser,
+)
 from coda.domain import errors
 from coda.domain.author import InstitutionId
 from coda.domain.contract import ContractYear
 from coda.domain.finance import invoice_positions
 from coda.domain.finance.funding_sources import Budget, FundingSource, SplitSource
 from coda.domain.finance.invoice import CreditorId, FundingSourceId, Invoice
-from coda.domain.finance.invoice_positions import ItemType, Position, PositionItemType
+from coda.domain.finance.invoice_positions import (
+    ContractItem,
+    FreeItem,
+    ItemType,
+    PartialAssignment,
+    Position,
+    PublicationItem,
+)
 from coda.domain.finance.taxable_money import CostBasis
 from coda.domain.finance.taxrate import TaxRate
 from coda.domain.money._currency import Currency
 from coda.domain.money._money import Money
 from coda.domain.publication.publication import PublicationId
-
 from . import _contract, _free, _publication
-
-
-class PositionParser(Protocol):
-    def to_itemdto(self, position: Position) -> ItemDto: ...
-
-    def parse_item_from(
-        self, position: PositionDto, *, parse_safe: bool = False
-    ) -> PositionItemType: ...
 
 
 def parse_invoice(invoice_head: InvoiceHeadDto, positions: list[PositionDto]) -> Invoice:
@@ -62,7 +75,7 @@ class InvoiceTotal:
 
 def invoice_total(positions: list[PositionDto], currency: Currency) -> InvoiceTotal:
     parsed = [to_position(p, currency, parse_safe=True) for p in positions]
-    invoice = Invoice.new("", datetime.date.today(), CreditorId(0), parsed)
+    invoice = Invoice.new("", date.today(), CreditorId(0), parsed)
 
     return InvoiceTotal(
         net=invoice.net().amount,
@@ -71,24 +84,43 @@ def invoice_total(positions: list[PositionDto], currency: Currency) -> InvoiceTo
     )
 
 
-def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool = False) -> Position:
-    parser = _dto_parser_registry[position.type]
+@singledispatch
+def to_position(
+    dto: PositionDto | CommonPositionImportDto,
+    /,
+    currency: Currency,
+    *,
+    lookups: ImportLookups | None = None,
+    parse_safe: bool = False,
+) -> Position:
+    raise NotImplementedError(f"No parser registered for {type(dto)}")
+
+
+@to_position.register
+def _(
+    dto: PositionDto,
+    currency: Currency,
+    *,
+    lookups: ImportLookups | None = None,
+    parse_safe: bool = False,
+) -> Position:
+    parser = _dto_parser_registry[dto.type]
 
     try:
         _position = invoice_positions.create(
-            item=parser.parse_item_from(position, parse_safe=parse_safe),
-            cost=Money(position.cost_amount, currency),
-            tax_rate=TaxRate.from_percentage(position.tax_rate),
-            external_position_id=position.external_position_id,
+            item=parser.parse_item_from(dto, parse_safe=parse_safe),
+            cost=Money(dto.cost_amount, currency),
+            tax_rate=TaxRate.from_percentage(dto.tax_rate),
+            external_position_id=dto.external_position_id,
         )
     except errors.DomainError as e:
-        raise PositionParseError(e, position)
+        raise PositionParseError(e, dto)
 
-    for f in position.funding_assignments:
+    for f in dto.funding_assignments:
         if f.funding_source is None and f.amount == 0:
             continue
 
-        amount = position.cost_amount if _is_all_amount(f.amount) else f.amount
+        amount = dto.cost_amount if _is_all_amount(f.amount) else f.amount
 
         fs: FundingSource | None
         match f:
@@ -108,13 +140,77 @@ def to_position(position: PositionDto, currency: Currency, *, parse_safe: bool =
                 fs = None
 
         if fs is not None or not _is_all_amount(f.amount):
-            _position.assign_funding(fs, amount, position.cost_basis_mode)
+            _position.assign_funding(fs, amount, dto.cost_basis_mode)
 
     return _position
 
 
-def _is_all_amount(amount: Literal["all"] | Decimal) -> TypeIs[Literal["all"]]:
-    return amount == "all"
+@to_position.register
+def _(
+    dto: CommonPositionImportDto,
+    currency: Currency,
+    *,
+    lookups: ImportLookups | None = None,
+    parse_safe: bool = False,
+) -> Position:
+    lookups = cast(ImportLookups, lookups)
+    cost = Money(dto.amount, currency)
+    tax_rate = TaxRate.from_percentage(dto.tax_rate)
+    funding_source_id = (
+        lookups.funding_sources_lookup[dto.funding_source] if dto.funding_source else None
+    )
+    external_id = dto.external_id
+
+    position: Position
+    match dto:
+        case PublicationPositionImportDto():
+            id_type = str(dto.request_id or dto.legacy_request_id)
+            position = invoice_positions.create(
+                item=PublicationItem(
+                    lookups.request_id_lookup[id_type],
+                    cost_type=dto.cost_type,
+                ),
+                cost=cost,
+                tax_rate=tax_rate,
+                external_position_id=external_id,
+            )
+        case ContractPositionImportDto():
+            position = invoice_positions.create(
+                item=ContractItem(
+                    lookups.contract_lookup[dto.contract_name].in_year(dto.contract_year),
+                    cost_type=dto.cost_type,
+                ),
+                cost=cost,
+                tax_rate=tax_rate,
+                external_position_id=external_id,
+            )
+        case FreePositionImportDto():
+            position = invoice_positions.create(
+                item=FreeItem(
+                    dto.description,
+                    cost_type=dto.cost_type,
+                ),
+                cost=cost,
+                tax_rate=tax_rate,
+                external_position_id=external_id,
+            )
+        case _:
+            raise ValueError(f"Unknown position type: {type(dto)}.\n{dto}")
+
+    if dto.funding_source:
+        position.assign_remaining(Budget(funding_source_id, dto.funding_source))
+    else:
+        position.assign_many(
+            [
+                PartialAssignment(
+                    lookups.funding_assignments_lookup[fa.name],
+                    fa.amount,
+                )
+                for fa in dto.funding_assignments
+            ]
+        )
+
+    return position
 
 
 def position_to_dto(position: Position, cost_basis: CostBasis = CostBasis.net) -> PositionDto:
@@ -155,6 +251,10 @@ _position_converters: dict[type[ItemType], PositionParser] = {
     ContractYear: _contract.parser,
     str: _free.parser,
 }
+
+
+def _is_all_amount(amount: Literal["all"] | Decimal) -> TypeIs[Literal["all"]]:
+    return amount == "all"
 
 
 class PositionParseError(ValueError):
