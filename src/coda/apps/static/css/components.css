@@ -24,32 +24,43 @@ search-select:not(:defined) {
 
 .pagination {
   display: flex;
+  /* Pico's list margin would offset the pager against the jump form in this row */
+  margin: 0;
   padding-left: 0;
 }
 
 .pagination li {
   list-style-type: none;
+  margin: 0;
   border: 1px solid var(--coda-muted-border-color);
   border-width: 1px 0;
   display: flex;
 }
 
 .pagination li:first-child,
-.pagination li:first-child a:hover {
+.pagination li:first-child a:hover,
+.pagination li:first-child span:hover {
   border-radius: var(--coda-border-radius) 0 0 var(--coda-border-radius);
   border-width: 1px 0 1px 1px;
 }
 
 
 .pagination li:last-child,
-.pagination li:last-child a:hover {
+.pagination li:last-child a:hover,
+.pagination li:last-child span:hover {
   border-radius: 0 var(--coda-border-radius) var(--coda-border-radius) 0;
-  border-width: 1px 1px 1px 0px;
+  border-width: 1px 1px 1px 0;
 }
 
-.pagination li a {
+.pagination li a,
+.pagination li span {
   text-decoration: none;
   padding: var(--pico-form-element-spacing-vertical) var(--pico-form-element-spacing-horizontal);
+}
+
+.pagination li span {
+  /* spans get same color as links */
+  color: var(--pico-primary-hover);
 }
 
 .pagination li a:hover {
@@ -64,13 +75,57 @@ search-select:not(:defined) {
   font-weight: bold;
 }
 
+/* the jump-to-page control sits outside the pager, directly to its right */
+.pagination__jump {
+  margin: 0;
+}
+
+/* Pico stretches role=group over the whole row and pads its button with 2rem:
+   here it must hug a small input plus a compact Go button */
+.pagination__jump [role="group"] {
+  width: auto;
+  margin-bottom: 0;
+  --pico-form-element-spacing-horizontal: 0.75rem;
+}
+
+.pagination__jump input[type="number"] {
+  flex: 0 0 auto;
+  width: 6ch;
+  margin: 0;
+  text-align: center;
+  appearance: textfield;
+}
+
+.pagination__jump input[type="number"]::-webkit-outer-spin-button,
+.pagination__jump input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pagination__jump [role="group"] button {
+  flex: 0 0 auto;
+  margin: 0;
+  /* Pico re-widens group buttons on the element itself; undo that */
+  --pico-form-element-spacing-horizontal: 0.75rem;
+}
+
 .pagination__disabled {
   text-decoration: none;
 }
 
-.pagination-container .form-row label {
-  border: none;
+/* the children are flush (no list/paragraph margins): the row carries the space below it */
+.pagination-container {
+  margin-block-end: var(--pico-spacing);
 }
+
+.pagination__count {
+  color: var(--pico-muted-color);
+  /* unbreakable, so a narrow viewport pushes the whole range to the next row */
+  white-space: nowrap;
+  /* the pager and the jump form stay grouped on the left; the range takes the right end */
+  margin: 0 0 0 auto;
+}
+
 
 .messages {
   max-width: var(--messages-max-width, 100%);

@@ -1,0 +1,27 @@
+{% comment %}
+Jump to page: a small number input with a Go button, rendered directly right of the pager.
+hx-get is required here because htmx only intercepts a form's submit when the form carries
+a request attribute; the plain page links carry their own hx-get instead.
+The swap target and its hx-* settings live in partials/entity_list_region.html.
+Without JavaScript the plain GET form submits the same URL.
+Deliberately id-less (no <label for>): the pager is rendered twice per page and the
+accessible name comes from aria-label, so the two instances cannot collide.
+{% endcomment %}
+<form class="pagination__jump"
+      method="get"
+      action="{{ request.path }}"
+      hx-get="{{ request.path }}">
+    {% for key, value in request.GET.items %}
+        {% if key != "page" %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}
+    {% endfor %}
+    <fieldset role="group">
+        <input type="number"
+               name="page"
+               value="{{ page_obj.number }}"
+               min="1"
+               max="{{ page_obj.paginator.num_pages }}"
+               aria-label="Jump to page"
+               title="Jump to page">
+        <button type="submit">Go</button>
+    </fieldset>
+</form>
