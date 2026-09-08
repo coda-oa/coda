@@ -1,15 +1,29 @@
 #!/bin/bash
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
-source ${script_dir}/common.sh "$@"
+# shellcheck source-path=SCRIPTDIR
+source "${script_dir}/common.sh"
+parse_environment_args "$@"
+init_environment
+
+# echo owner/repo for GitHub URLs of any scheme (scp-style, ssh://, https://);
+# nonzero for anything that doesn't parse, so _get_repo falls through.
+_gh_repo() {
+	local remote_url="$1"
+	local repo_slug
+	repo_slug=$(printf '%s' "$remote_url" | sed 's/.*github.com[:\/]//;s/\.git$//')
+	[[ "$repo_slug" == */* && "$repo_slug" != *:* ]] || return 1
+	echo "$repo_slug"
+}
 
 _get_repo() {
-	local remote
-	remote=$(git rev-parse --abbrev-ref @{upstream} 2>/dev/null | cut -d/ -f1)
+	local remote url
+	remote=$(git rev-parse --abbrev-ref "@{upstream}" 2>/dev/null | cut -d/ -f1)
 	if [[ -n "$remote" ]]; then
-		git remote get-url "$remote" 2>/dev/null | sed 's/.*github.com[:\/]//' | sed 's/\.git$//' && return
+		url=$(git remote get-url "$remote" 2>/dev/null) && _gh_repo "$url" && return
 	fi
-	git remote get-url origin 2>/dev/null | sed 's/.*github.com[:\/]//' | sed 's/\.git$//' || echo "coda-oa/coda"
+	url=$(git remote get-url origin 2>/dev/null) && _gh_repo "$url" && return
+	echo "coda-oa/coda"
 }
 
 start_coda() {

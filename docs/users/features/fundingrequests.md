@@ -1,6 +1,6 @@
 # Funding Requests
 
-Funding Requests are the core of CODA's workflow, allowing you to process publication funding and enabling your institution to review and approve those requests systematically. You can access the funding requests over the **Request Center** navigation item. 
+Funding Requests are the core of CODA's workflow, allowing you to process publication funding and enabling your institution to review and approve those requests systematically. You can access the funding requests over the **Request Center** navigation item.
 
 ## Overview
 
@@ -73,14 +73,13 @@ Search and select a journal from CODA's database of over 26,000 entries:
 
 For monograph requests, you'll select a publisher instead of a journal.
 
-You can also add a contract to the funding request. 
+You can also add a contract to the funding request.
 
 ![](/_static/img/fundingrequests_journal_step.png)
 
-
 ### Step 2: Publication Details
 
-In the second step author information, publication meta data and links (e.g. DOI, ISBN, PMC and more) can be added to the funding request. 
+In the second step author information, publication meta data and links (e.g. DOI, ISBN, PMC and more) can be added to the funding request.
 
 **Authors:**
 
@@ -92,26 +91,27 @@ Collect information about the authors submitting the request:
 - **Affiliation**: Institutional affiliation
 - **Role**: The submitter's role in the publication (e.g., Corresponding Author or Submitter)
 
-You can add one row per author and give the different roles. 
+You can add one row per author and give the different roles.
 
 ```{admonition} Tip
-You can copy author information  and paste it into the text area and let CODA parse the copied text to structured author data. This feature keeps author information that is not relevant for your process, for instance when many authors contributed, but only the corresponding author is interesting for you.  
+You can copy author information  and paste it into the text area and let CODA parse the copied text to structured author data. This feature keeps author information that is not relevant for your process, for instance when many authors contributed, but only the corresponding author is interesting for you.
 ```
 
 ![](/_static/img/fundingrequests_authors.png)
-
 
 **Publication Metadata:**
 
 Record comprehensive metadata about the publication:
 
 **Basic Information:**
+
 - **Title**: Publication title
 - **License**: Open access license (CC BY, CC BY-SA, etc.)
 - **Publication Type**: Default is based on [COAR Resource Types Vocabulary 3.1](https://vocabularies.coar-repositories.org/resource_types/3.1/); can be edited in the [vocabularies](vocabularies.md).
 - **Subject Area**: Default is based on [DFG Subject Classification](https://www.dfg.de/resource/blob/331950/85717c3edb9ea8bd453d5110849865d3/fachsystematik-2024-2028-en-data.pdf); can be edited in the [vocabularies](vocabularies.md).
 
 **Publication Status:**
+
 - Unknown
 - Submitted
 - Accepted
@@ -119,13 +119,12 @@ Record comprehensive metadata about the publication:
 - Published
 
 **Dates:**
+
 - Online publication date
 - print publication date
 
-
 **Additional References/Links:**
-You ca add different kinds of identifiers and links related to the publication. For instance DOI, PMC, ISBN, Handle etc. The UI will validate most of the available link types to ensure correct data. 
-
+You ca add different kinds of identifiers and links related to the publication. For instance DOI, PMC, ISBN, Handle etc. The UI will validate most of the available link types to ensure correct data.
 
 ```{admonition} Configurable Vocabularies
 The Publication Type and Subject Area fields are based on predefined vocabularies that can be configured by your institution in the [vocabularies](vocabularies.md) section. They are then set in the [Preferences](preferences.md). By default, CODA uses COAR Resource Types 3.1 and DFG Subject Classification.
@@ -138,10 +137,11 @@ The Publication Type and Subject Area fields are based on predefined vocabularie
 In this step you can collect financial information:
 
 **Estimated Costs:**
+
 - **Amount**: Estimated publication costs
 - **Currency**: Select the currency
 - **Payment Method**: Direct, Reimbursement, or Unknown
-- **External cost splitting**: Tick this box to show that you shared costs with an external partner institute. This information is relevant for an [openCost report](reporting.md). 
+- **External cost splitting**: Tick this box to show that you shared costs with an external partner institute. This information is relevant for an [openCost report](reporting.md).
 
 **External Research Funding:**
 
@@ -160,10 +160,9 @@ As the final costs of a publication are not always known when a funding request 
 
 ![](/_static/img/fundingrequests_funding.png)
 
-
 ### Step 4: Additional contact information
 
-In this final step you can provide additional contact information regarding the funding request besides the authors information. You can also add notes and remarks. 
+In this final step you can provide additional contact information regarding the funding request besides the authors information. You can also add notes and remarks.
 
 ![](/_static/img/fundingrequests_contact.png)
 
@@ -182,12 +181,11 @@ CODA runs automated checks against institutional policies to help guide your dec
 - **DOAJ Check**: Verifies if the journal is listed in the Directory of Open Access Journals
   - **Success** (green): Journal found in DOAJ with link to entry
   - **Failed** (red): Journal not listed in DOAJ
-  
+
 - **Blocklist Check**: Checks if the journal or publisher is on your institution's [blocklist](blocklist.md)
   - **Success** (green): Journal and publisher are not blocked
   - **Warning** (yellow): Journal is blocked but needs review (6+ months old)
   - **Failed** (red): Journal or publisher is actively blocked
-  
 
 Check results provide immediate feedback on potential policy violations, but final approval decisions remain with reviewers. They are displayed in the detail's page right column.
 
@@ -200,11 +198,13 @@ From the funding request detail page, click **Submit Review** to open the dedica
 It allows you to:
 
 **Set Decided Funding Amount:**
+
 - Enter the approved funding amount
 - Select the currency
 - This can differ from the estimated cost if negotiation occurred
 
 **Add Reviewer Remarks:**
+
 - Record notes about the review decision
 - Document special circumstances or exceptions
 
@@ -230,6 +230,7 @@ Labels are custom tags you can attach to funding requests for:
 - Reporting and filtering (e.g., "Special Funds", "Research Initiative")
 
 Each label has:
+
 - **Name**: Descriptive text
 - **Color**: You can select the color by using a color picker.
 
@@ -253,7 +254,6 @@ From the funding request detail page:
 3. The label appears on the request
 
 Labels are visible on both the detail page and the overview list.
-
 
 ## Importing Funding Requests
 
@@ -351,7 +351,7 @@ Funding requests are imported using JSON files that follow a specific schema. Th
         }
       },
       "estimated_cost": {
-        "amount": 2000.00,
+        "amount": 2000.0,
         "currency": "EUR",
         "payment_method": "direct"
       },
@@ -365,7 +365,7 @@ Funding requests are imported using JSON files that follow a specific schema. Th
       "review": {
         "result": "approved",
         "decided_funding": {
-          "amount": 1800.00,
+          "amount": 1800.0,
           "currency": "EUR"
         },
         "remarks": "Approved with negotiated discount"
@@ -385,12 +385,14 @@ Funding requests are imported using JSON files that follow a specific schema. Th
 The complete JSON schema is available for download [here](/_static/downloads/fundingrequest_import_schema.json). Key fields include:
 
 **Request Level:**
+
 - `request_date` (required): Date in YYYY-MM-DD format
 - `legacy_request_id`: Identifier from your old system
 - `request_remarks`: Notes or comments about the request
 - `labels`: Array of label names (labels are auto-created if they don't exist)
 
 **Publication:**
+
 - `title` (required): Publication title
 - `kind` (required): Either "article" or "monograph"
 - `license`: CC-BY, CC-BY-SA, CC-BY-NC, CC-BY-NC-SA, CC-BY-NC-ND, CC-BY-ND, CC0, Unknown, Proprietary, None
@@ -406,16 +408,19 @@ The complete JSON schema is available for download [here](/_static/downloads/fun
 - `subject_area`: DFG classification or custom vocabulary
 
 **Estimated Cost:**
+
 - `amount`: Numeric value (can be string or number)
 - `currency`: Three-letter currency code (EUR, USD, GBP, etc.)
 - `payment_method`: "direct", "reimbursement", or "unknown"
 
 **Research Funding:**
+
 - `organization_name`: Funder name (auto-creates if doesn't exist)
 - `project_id`: Grant or project identifier
 - `project_name`: Full project name
 
 **Review:**
+
 - `result`: "open", "approved", "rejected", "waived", or "closed"
 - `decided_funding`: Amount and currency
 - `remarks`: Reviewer notes
@@ -426,7 +431,6 @@ The complete JSON schema is available for download [here](/_static/downloads/fun
 2. Navigate to the **Import** page from the funding requests section
 3. Upload your JSON file
 4. Click **Save** to start the import
-
 
 ### Import Behavior
 
@@ -444,6 +448,7 @@ CODA automatically creates missing related entities during import:
 **Review Status:**
 
 Imported requests can have any review status:
+
 - Import historical **approved** or **rejected** requests with their decisions
 - Import **open** requests for ongoing review
 - Include decided funding amounts and reviewer remarks
@@ -451,6 +456,7 @@ Imported requests can have any review status:
 **Validation:**
 
 The import validates all data against the schema:
+
 - Required fields must be present
 - Dates must be in YYYY-MM-DD format
 - Currencies must be valid three-letter codes
@@ -466,11 +472,13 @@ Imported requests bypass automated checks (DOAJ, Blocklist). This allows importi
 After import, you'll see:
 
 **Success Message:**
+
 ```
 Successfully imported 5 funding request(s).
 ```
 
 **Partial Success with Errors:**
+
 ```
 Successfully imported 3 funding request(s).
 2 request(s) failed to import. See details below.
@@ -486,9 +494,9 @@ OLD-ID-456: Contract with name 'Unknown Contract' and year 2025 not found
 ```
 
 Each error references either:
+
 - The `legacy_request_id` if provided
 - The publication `title` if no legacy ID exists
-
 
 ### Command-Line Import
 
@@ -496,7 +504,10 @@ For system administrators, CODA provides a command-line import tool:
 
 ```bash
 # Using the shell script
-./commands/import_requests.sh --local /path/to/requests.json
+./commands/import.sh --production import_fundingrequests /path/to/requests.json
+
+# Or for local environments
+./commands/import.sh --local import_fundingrequests /path/to/requests.json
 
 # Or directly via Django management command
 pdm run manage.py import_fundingrequests /path/to/requests.json
@@ -505,4 +516,3 @@ pdm run manage.py import_fundingrequests /path/to/requests.json
 This is useful for large batch imports that might timeout in the browser
 
 The command-line import provides the same validation and error reporting as the web interface.
-
