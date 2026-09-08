@@ -34,11 +34,11 @@ from coda.apps.exports.services.filter_form import (
     current_filters_from_post,
     form_error_lines,
 )
+from coda.apps.exports.views.base_csv_views import CSV_ENCODING
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
 FUNDINGREQUESTS_CSV_CREATE_URL = "exports:fundingrequests_csv_create"
 FUNDINGREQUESTS_CSV_LIST_URL = "exports:fundingrequests_csv_list"
-CSV_ENCODING = "utf-8-sig"
 
 
 @breadcrumb("Funding Request CSV Export", parent_url_name="exports:export_home")
@@ -178,16 +178,16 @@ def _export_form_context(
             "include_payment_status": True,
             "include_decimal_separator": True,
             "show_filters": [
-                    "publication_type",
-                    "contract",
-                    "status",
-                    "payment_method",
-                    "open_access_type",
-                    "publication_state",
-                    "labels",
-                    "payment_status",
-                    "funding_source",
-                ],
+                "publication_type",
+                "contract",
+                "status",
+                "payment_method",
+                "open_access_type",
+                "publication_state",
+                "labels",
+                "payment_status",
+                "funding_source",
+            ],
         }
     )
     if form_errors is not None:

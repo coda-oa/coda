@@ -136,6 +136,7 @@ def parse_invoice_payment_status(filters: dict[str, str]) -> InvoicePaymentStatu
     statuses = [s.strip() for s in raw.split(",") if s]
     return InvoicePaymentStatus(statuses[0]) if statuses else None
 
+
 def build_filter_form_context() -> dict[str, object]:
     """Return the template context dict needed to render any filter form.
 
@@ -251,6 +252,13 @@ def build_applied_filters_for_contract(filters: dict[str, Any]) -> list[AppliedF
             FundingSource.objects.filter(pk=funding_source_id).values_list("name", flat=True)
         )
         applied.append(AppliedFilter(label=filter_field_label("funding_source"), value=names))
+    if separator := filters.get("decimal_separator"):
+        applied.append(
+            AppliedFilter(
+                label=filter_field_label("decimal_separator"),
+                value=DecimalSeparator(separator).display,
+            )
+        )
     return applied
 
 

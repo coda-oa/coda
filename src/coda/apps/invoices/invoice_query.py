@@ -203,6 +203,7 @@ class InvoiceSearchParams:
     contract_year: str | int | None = None
     contract_year_positions_only: bool = False
     has_external_id: bool | None = None
+    decimal_separator: str = "."
     has_foreign_currency: bool = False
     home_currency: Currency | None = None
     has_errors: bool = False

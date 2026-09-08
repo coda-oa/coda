@@ -3,6 +3,7 @@ import polars as pl
 
 from coda.apps.exports.services.contract_csv.flatteners import flatten_contract_data
 from coda.apps.exports.services.contract_csv.mappers import map_contract_to_export_dto
+from coda.apps.exports.services.csv_values import format_money_value, single_line
 from coda.apps.invoices.invoice_query import InvoiceSearchParams
 from coda.apps.exports.services.contract_csv import queries
 
@@ -31,6 +32,9 @@ CSV_COLUMNS = [
 ]
 
 
+MONEY_COLUMNS = frozenset({"position_amount", "tax_rate", "funded_amount"})
+
+
 def export_contract_to_csv(
     params: InvoiceSearchParams,
 ) -> str:
@@ -44,7 +48,15 @@ def export_contract_to_csv(
     all_rows = []
     for dto in export_dtos:
         rows = flatten_contract_data(dto)
-        all_rows.extend(rows)
+        for row in rows:
+            all_rows.append(
+                {
+                    key: format_money_value(
+                        single_line(value), key, params.decimal_separator, MONEY_COLUMNS
+                    )
+                    for key, value in row.items()
+                }
+            )
 
     if not all_rows:
         schema = {column: pl.String for column in CSV_COLUMNS}

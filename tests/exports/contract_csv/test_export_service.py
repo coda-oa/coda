@@ -14,6 +14,7 @@ from tests.exports.helpers import (
     create_contract_and_year,
     create_invoice_with_contract_position,
     create_invoice_with_funded_position,
+    create_invoice_with_fractional_position,
     create_invoices_with_positions,
 )
 
@@ -103,3 +104,66 @@ def test__contract_with_mixed_paid_and_unpaid_invoices__export_with_paid_filter_
 
     assert df.height == 1
     assert df["invoice_number"][0] == paid_invoice.number
+
+
+@pytest.mark.django_db
+def test__contract_with_comma_decimal_separator__export_to_csv__formats_money_columns_with_comma() -> (
+    None
+):
+    contract, _, contract_year = create_contract_and_year()
+
+    create_invoice_with_fractional_position(contract_year)
+
+    export = export_contract_to_csv(InvoiceSearchParams(decimal_separator=","))
+
+    df = pl.read_csv(StringIO(export), separator=";")
+
+    assert df["position_amount"].to_list() == ["1000,5000"]
+    assert df["tax_rate"].to_list() == ["19,0000"]
+    assert df["funded_amount"].to_list() == ["1000,5000"]
+
+
+@pytest.mark.django_db
+def test__contract__export_to_csv__keeps_dot_decimal_separator_by_default() -> None:
+    contract, _, contract_year = create_contract_and_year()
+
+    create_invoice_with_fractional_position(contract_year)
+
+    export = export_contract_to_csv(InvoiceSearchParams())
+
+    assert "1000.5000" in export
+    assert "1000,5000" not in export
+
+
+@pytest.mark.django_db
+def test__invoice_comment_with_newlines__export_to_csv__replaces_them_with_spaces() -> None:
+    contract, _, contract_year = create_contract_and_year()
+
+    create_invoice_with_fractional_position(
+        contract_year, comment="line one\nline two\r\nline three"
+    )
+
+    export = export_contract_to_csv(InvoiceSearchParams())
+
+    df = pl.read_csv(StringIO(export), separator=";")
+
+    assert df["invoice_comment"][0] == "line one line two line three"
+
+
+@pytest.mark.django_db
+def test__invoice_comment_with_unicode_line_separators__export_to_csv__replaces_them_with_spaces() -> (
+    None
+):
+    contract, _, contract_year = create_contract_and_year()
+
+    create_invoice_with_fractional_position(
+        contract_year, comment="line one\u2028line two\u2029line three"
+    )
+
+    export = export_contract_to_csv(InvoiceSearchParams())
+
+    df = pl.read_csv(StringIO(export), separator=";")
+
+    assert df["invoice_comment"][0] == "line one line two line three"
+    assert "\u2028" not in export
+    assert "\u2029" not in export

@@ -3,6 +3,7 @@ from io import StringIO
 import polars as pl
 
 from coda.apps.exports.services.fundingrequest_csv import queries
+from coda.apps.exports.services.csv_values import format_money_value, single_line
 from coda.apps.exports.services.fundingrequest_csv.flatteners import flatten_detailed
 from coda.apps.exports.services.fundingrequest_csv.mappers import map_funding_request_to_export_dto
 from coda.apps.fundingrequests.fundingrequest_query import FundingRequestSearchParams
@@ -62,30 +63,15 @@ CSV_COLUMNS = [
 ]
 
 
-MONEY_COLUMNS = {
-    "estimated_amount",
-    "decided_funding_amount",
-    "position_amount",
-    "tax_rate",
-    "funded_amount",
-}
-
-
-def _format_money_value(value: str, key: str, decimal_separator: str) -> str:
-    if decimal_separator == "," and key in MONEY_COLUMNS:
-        return value.replace(".", ",")
-    return value
-
-
-def _single_line(value: str) -> str:
-    return (
-        value.replace("\r\n", " ")
-        .replace("\n", " ")
-        .replace("\r", " ")
-        .replace("\u2028", " ")
-        .replace("\u2029", " ")
-        .replace("\ufeff", "")
-    )
+MONEY_COLUMNS = frozenset(
+    {
+        "estimated_amount",
+        "decided_funding_amount",
+        "position_amount",
+        "tax_rate",
+        "funded_amount",
+    }
+)
 
 
 def export_fundingrequests_to_csv(
@@ -114,7 +100,9 @@ def export_fundingrequests_to_csv(
         for row in rows:
             all_rows.append(
                 {
-                    key: _format_money_value(_single_line(value), key, params.decimal_separator)
+                    key: format_money_value(
+                        single_line(value), key, params.decimal_separator, MONEY_COLUMNS
+                    )
                     for key, value in row.items()
                 }
             )

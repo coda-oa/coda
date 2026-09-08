@@ -207,6 +207,24 @@ def create_invoice_with_funded_position(contract_year: ContractYear) -> None:
     invoice_service.save(invoice)
 
 
+def create_invoice_with_fractional_position(
+    contract_year: ContractYear, comment: str | None = None
+) -> Invoice:
+    """An invoice whose position amount and tax rate contain fractional parts."""
+    position = invoice_positions.create(
+        item=ContractItem(contract_year, cost_type=ContractCostType.Publish),
+        cost=Money(Decimal("1000.50"), Currency.EUR),
+        tax_rate=TaxRate.from_percentage(19),
+        external_position_id="POS-001",
+    )
+    creditor = modelfactory.creditor()
+    invoice = domainfactory.invoice(creditor=CreditorId(creditor.pk), positions=[position])
+    if comment is not None:
+        invoice.comment = comment
+    invoice.id = invoice_service.save(invoice)
+    return invoice
+
+
 def create_invoices_with_positions(
     contract_year: ContractYear,
 ) -> tuple[Invoice, Invoice]:

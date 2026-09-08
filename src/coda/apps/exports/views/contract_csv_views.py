@@ -14,10 +14,12 @@ from coda.apps.exports.services.filter_display import (
     build_filter_form_context,
     build_filters_from_request,
     create_contract_redo_url,
+    parse_current_filters_to_context,
     parse_date_range,
     parse_funding_source,
     parse_invoice_payment_status,
 )
+from coda.apps.exports.services.filter_form import current_filters_from_post
 from coda.apps.exports.views.base_csv_views import (
     create_csv_export,
     csv_delete_view,
@@ -86,7 +88,8 @@ def contract_csv_export_create_view(request: HttpRequest) -> HttpResponse:
             request,
             ContractCSVExport,
             build_filters=lambda req: build_filters_from_request(
-                req, optional_fields=["payment_status", "funding_source"]
+                req,
+                optional_fields=["payment_status", "funding_source", "decimal_separator"],
             ),
             generate_csv=_generate_csv_from_filters,
             detail_url_name="exports:contracts_csv_detail",
@@ -109,9 +112,15 @@ def _render_create_form(request: HttpRequest, status: int = 200) -> HttpResponse
             "cancel_url": reverse(CONTRACTS_CSV_LIST_URL),
             "submit_button_text": "Generate CSV Export",
             "show_filters": ["payment_status", "funding_source"],
+            "include_decimal_separator": True,
             "payment_status_filter_template": "invoices/partials/payment_status_filter.html",
             "payment_statuses": [s.value for s in PaymentStatus],
         }
+    )
+    context["current_filters"] = (
+        current_filters_from_post(request.POST)
+        if request.method == "POST"
+        else parse_current_filters_to_context(request)
     )
     return render(request, "exports/generate_export_form.html", context=context, status=status)
 
@@ -140,6 +149,7 @@ def _parse_contract_filter_dict(filters: dict[str, str]) -> InvoiceSearchParams:
         date_range=date_range,
         payment_status=parse_invoice_payment_status(filters),
         funding_source=parse_funding_source(filters),
+        decimal_separator=filters.get("decimal_separator", "."),
     )
 
 

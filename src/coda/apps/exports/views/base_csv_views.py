@@ -14,6 +14,8 @@ from django.utils.text import slugify
 
 from coda.apps.exports.services.filter_display import AppliedFilter, create_redo_url
 
+CSV_ENCODING = "utf-8-sig"
+
 
 class _CSVExportInstance(Protocol):
     """Common interface of FundingRequestCSVExport and ContractCSVExport."""
@@ -43,7 +45,7 @@ def csv_detail_page(
     export_ = cast(_CSVExportInstance, export)
 
     preview_df = _create_preview_dataframe(
-        export_.csv_file.open("rb").read().decode("utf-8"), preview_columns
+        export_.csv_file.open("rb").read().decode(CSV_ENCODING), preview_columns
     )
 
     return render(
@@ -116,7 +118,7 @@ def create_csv_export(
 
     export_.csv_file.save(
         filename,
-        ContentFile(csv_content.encode("utf-8")),
+        ContentFile(csv_content.encode(CSV_ENCODING)),
     )
 
     return redirect(detail_url_name, pk=export.pk)

@@ -252,6 +252,49 @@ def test_contract_csv_export_create_view__funding_source_filter__is_stored(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test_contract_csv_export_create_view__decimal_separator__is_stored(client: Client) -> None:
+    title = "Contract Export With Decimal Separator"
+
+    response = client.post(
+        reverse("exports:contracts_csv_create"),
+        data={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "title": title,
+            "decimal_separator": ",",
+        },
+    )
+
+    assert response.status_code == 302
+    export = ContractCSVExport.objects.get(name=title)
+    assert export.filters["decimal_separator"] == ","
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_contract_csv_export_create_view__saved_file__starts_with_utf8_bom(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:contracts_csv_create"),
+        data={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "title": "Contract Encoding Test Export",
+        },
+    )
+
+    assert response.status_code == 302
+    export = ContractCSVExport.objects.get(name="Contract Encoding Test Export")
+    with export.csv_file.open("rb") as f:
+        # b"\xef\xbb\xbf" is the UTF-8 byte order mark (BOM). Excel needs it to
+        # detect the file as UTF-8; without it Excel assumes Windows-1252 and
+        # garbles umlauts (ä -> Ã¤).
+        assert f.read(3) == b"\xef\xbb\xbf"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test_contract_csv_export_create_view__invalid_date_format__returns_error_and_does_not_create_export(
     client: Client,
 ) -> None:
