@@ -1,16 +1,15 @@
-from typing import cast, Any
 from datetime import date
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
+from typing import Any, cast
 
+import xmlschema
 from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
-import xmlschema
 
 import coda.domain.opencost
-
 from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
@@ -20,10 +19,8 @@ from coda.apps.opencost.report_service import generate_report
 from coda.apps.opencost.transformers import report_publication_to_pydantic, to_opencost
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import Publication
-from coda.domain.opencost import Data
-from coda.domain.opencost._publication import PublicationType
 from coda.apps.publications.models._attachedentities import AttachedContract
-
+from coda.domain.opencost import Data, PublicationType
 from tests import modelfactory
 
 
@@ -358,13 +355,13 @@ def assert_current_filter(response: HttpResponse, field: str, expected: Any) -> 
     """Assert that a filter value in the template context matches expected."""
     context = cast(Any, response).context
     current_filters = context.get("current_filters", {})
-    assert field in current_filters, (
-        f"Field '{field}' not found in current_filters. Available: {list(current_filters.keys())}"
-    )
+    assert (
+        field in current_filters
+    ), f"Field '{field}' not found in current_filters. Available: {list(current_filters.keys())}"
     actual = current_filters[field]
-    assert actual == expected, (
-        f"Field '{field}' mismatch.\n Expected: {expected!r}\n Got: {actual!r}"
-    )
+    assert (
+        actual == expected
+    ), f"Field '{field}' mismatch.\n Expected: {expected!r}\n Got: {actual!r}"
 
 
 def assert_current_filters(response: HttpResponse, **expected: Any) -> None:

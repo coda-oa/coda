@@ -12,12 +12,16 @@ from coda.apps.opencost.models import (
 from coda.apps.opencost.transformers import to_opencost
 from coda.apps.publications.models._attachedentities import PublicationAttachedConcept
 from coda.apps.publications.models._vocabulary import Vocabulary
-from coda.domain.opencost._contract import (
+from coda.domain.opencost import (
+    CoarPublicationType,
     ContractPrimaryIdentifierType,
     ContractSecondaryIdTypeEnum,
+    InstitutionIdType,
+    InstitutionNameType,
+    PublicationCostType,
+    PublicationSecondaryIdTypeEnum,
+    PublicationType,
 )
-from coda.domain.opencost._publication import PublicationSecondaryIdTypeEnum, PublicationType
-from coda.domain.opencost._types import PublicationCostType
 from tests import modelfactory
 from tests.opencost.helpers import (
     create_creditor,
@@ -33,9 +37,6 @@ from tests.opencost.helpers import (
     generate_opencost_report_from_contract,
 )
 from coda.apps.publications.models import LinkType, Link
-from coda.domain.opencost import CoarPublicationType
-
-from coda.domain.opencost._institution import InstitutionIdType, InstitutionNameType
 
 from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
 from coda.domain.contract import PublicationBilling

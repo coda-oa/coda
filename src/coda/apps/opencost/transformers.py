@@ -4,41 +4,35 @@ from coda.apps.opencost.models import (
     OpenCostReportContract,
     OpenCostReportPublication,
 )
-from coda.domain.opencost import Data
-from coda.domain.opencost._contract import (
+from coda.domain.opencost import (
+    AmountInvoice,
+    BibliographicInformation,
+    CoarPublicationType,
+    ContractAmountPaidType,
+    ContractAmountsPaid,
+    ContractCostDataType,
+    ContractInvoiceGroupType,
+    ContractInvoicePeriodType,
+    ContractInvoiceType,
     ContractPrimaryIdentifier,
     ContractPrimaryIdentifierType,
-    ContractSecondaryIdentifiersType,
     ContractSecondaryIdType,
     ContractSecondaryIdTypeEnum,
+    ContractSecondaryIdentifiersType,
     ContractType,
-    ParticipationType,
-)
-from coda.domain.opencost._institution import (
+    Data,
+    Dates,
     InstitutionId,
     InstitutionIdType,
     InstitutionName,
     InstitutionNameType,
     InstitutionType,
-)
-from coda.domain.opencost._invoice import (
-    AmountInvoice,
-    ContractAmountPaidType,
-    ContractAmountsPaid,
-    ContractCostDataType,
-    ContractInvoiceGroupType,
-    ContractInvoiceType,
-    Dates,
+    PartOfContractType,
+    ParticipationType,
     PublicationAmountPaidType,
     PublicationAmountsPaid,
-    PublicationInvoiceType,
-    ContractInvoicePeriodType,
-)
-from coda.domain.opencost._publication import (
-    BibliographicInformation,
-    CoarPublicationType,
-    PartOfContractType,
     PublicationCostDataType,
+    PublicationInvoiceType,
     PublicationPrimaryIdentifier,
     PublicationSecondaryIdType,
     PublicationSecondaryIdTypeEnum,
@@ -256,12 +250,14 @@ def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> Cont
 
     participation = ParticipationType(
         **{
-            "from": str(report_contract.participation_from)
-            if report_contract.participation_from
-            else None,
-            "to": str(report_contract.participation_to)
-            if report_contract.participation_to
-            else None,
+            "from": (
+                str(report_contract.participation_from)
+                if report_contract.participation_from
+                else None
+            ),
+            "to": (
+                str(report_contract.participation_to) if report_contract.participation_to else None
+            ),
         }
     )
 
