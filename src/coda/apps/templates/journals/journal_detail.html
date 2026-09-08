@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-    <div class="flex justify-between align-center">
-        <h1 class="my-2">Journal</h1>
+    <div class="flex justify-between align-center my-2">
+        <h1>Journal</h1>
         <div>
             {% if is_blocked %}
                 <button class="outline success"
@@ -25,6 +25,43 @@
             <h2 class="my-0">{{ journal.title }}</h2>
         </header>
         <p>E-ISSN: {{ journal.eissn }}</p>
-        <p class="mb-0">Publisher: {{ journal.publisher.name }}</p>
+        <p class="mb-0">
+            Publisher:
+            <a href="{{ journal.publisher.get_absolute_url }}">{{ journal.publisher.name }}</a>
+        </p>
+    </article>
+    <article>
+        <header>
+            <h2 class="mb-0">
+                Related Funding Requests
+                {% if funding_requests %}({{ funding_requests|length }}){% endif %}
+            </h2>
+        </header>
+        {% if funding_requests %}
+            <div class="scroll-container max-h-30">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Request ID</th>
+                            <th>Publication Title</th>
+                            <th>Request Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request in funding_requests %}
+                            <tr>
+                                <td>
+                                    <a href="{% url "fundingrequests:detail" pk=request.pk %}">{{ request.request_id }}</a>
+                                </td>
+                                <td>{{ request.publication.title }}</td>
+                                <td>{{ request.request_date }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>No related funding requests.</p>
+        {% endif %}
     </article>
 {% endblock content %}

@@ -12,6 +12,7 @@ from django.views.generic import CreateView, DetailView, UpdateView
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.blocklist.models import BlockList
+from coda.apps.fundingrequests.models import FundingRequest
 from coda.apps.journals.forms import JournalForm
 from coda.apps.journals.models import Journal
 from coda.apps.views import SimpleSearchEntityListView
@@ -28,6 +29,11 @@ class JournalDetailView(LoginRequiredMixin, DetailView[Journal]):
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
         ctx["is_blocked"] = BlockList.objects.get().is_journal_blocked(self.object)
+        ctx["funding_requests"] = (
+            FundingRequest.objects.filter(publication__article_journal=self.object)
+            .select_related("publication")
+            .order_by("-request_date")
+        )
         return ctx
 
 
