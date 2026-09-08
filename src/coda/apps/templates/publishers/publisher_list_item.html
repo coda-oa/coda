@@ -1,5 +1,7 @@
 <article class="flex justify-between align-center">
-    <p class="my-0">{{ entity.name }}</p>
+    <p class="my-0">
+        <a href="{% url 'publishing:publishers:detail' pk=entity.id %}">{{ entity.name }}</a>
+    </p>
     <div>
         {% if entity.is_blocked %}
             <button type="button"

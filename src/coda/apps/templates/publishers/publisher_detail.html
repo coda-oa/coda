@@ -1,4 +1,41 @@
 {% extends "base.html" %}
 {% block content %}
-    <h1>{{ publisher.name }}</h1>
+    <div class="flex justify-between align-center my-2">
+        <h1>Publisher</h1>
+        <div>
+            {% if is_blocked %}
+                <button class="outline success"
+                        hx-post="{% url "blocklist:unblock_publisher" pk=publisher.pk %}"
+                        hx-vals='{"redirect_url": "{% url "publishing:publishers:detail" pk=publisher.pk %}" }'>
+                    Unblock
+                </button>
+            {% else %}
+                <button class="outline danger"
+                        hx-get="{% url "blocklist:request_block_publisher" pk=publisher.pk %}"
+                        hx-target="body"
+                        hx-swap="beforeend">Block
+                </button>
+            {% endif %}
+            <a href="{% url "publishing:publishers:update" pk=publisher.pk %}"
+               role="button"
+               class="secondary">Edit</a>
+        </div>
+    </div>
+
+    <article>
+        <header>
+            <h2 class="my-0">{{ publisher.name }}</h2>
+        </header>
+        <h3>Corresponding journals</h3>
+        <ul>
+            {% for journal in journals %}
+                <li>
+                    <a href="{{ journal.get_absolute_url }}">{{ journal.title }}</a>
+                </li>
+            {% empty %}
+                <li>No journals to display.</li>
+            {% endfor %}
+        </ul>
+    </article>
+
 {% endblock content %}

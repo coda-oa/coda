@@ -9,7 +9,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse, reverse_lazy
 from django.views.decorators.http import require_GET, require_POST
-from django.views.generic import CreateView, UpdateView
+from django.views.generic import CreateView, DetailView, UpdateView
 
 from coda.apps.blocklist.models import BlockList
 from coda.apps.domainqueryset import DomainModelProtocol, DomainQuerySet
@@ -54,6 +54,20 @@ class PublisherListView(LoginRequiredMixin, EntityListView[PublisherViewModel]):
 
     def is_publisher_blocked(self, publisher: Publisher) -> bool:
         return self.blocklist.is_publisher_blocked(publisher)
+
+
+@breadcrumb("Publisher Detail", parent_url_name="publishing:publishers:list", preserve_filters=True)
+class PublisherDetailView(LoginRequiredMixin, DetailView[Publisher]):
+    model = Publisher
+    template_name = "publishers/publisher_detail.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        ctx["journals"] = self.object.journals.only("title", "eissn", "publisher_id").order_by(
+            "title"
+        )
+        ctx["is_blocked"] = BlockList.objects.get().is_publisher_blocked(self.object)
+        return ctx
 
 
 class PublisherForm(forms.ModelForm[Publisher]):
