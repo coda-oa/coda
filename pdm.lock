@@ -5,7 +5,7 @@
 groups = ["default", "dev", "docs"]
 strategy = []
 lock_version = "4.5.1"
-content_hash = "sha256:a7544cdd17c407b8f98a47f1f1e470b2b82ef61000ed825baf383384efd6c3ce"
+content_hash = "sha256:993a7eedcf6513696dad2a830813c550ece2006161f4a857f115ec9e885d15c6"
 
 [[metadata.targets]]
 requires_python = ">=3.12"
@@ -710,6 +710,16 @@ summary = "EditorConfig File Locator and Interpreter for Python"
 files = [
     {file = "EditorConfig-0.17.0-py3-none-any.whl", hash = "sha256:fe491719c5f65959ec00b167d07740e7ffec9a3f362038c72b289330b9991dfc"},
     {file = "editorconfig-0.17.0.tar.gz", hash = "sha256:8739052279699840065d3a9f5c125d7d5a98daeefe53b0e5274261d77cb49aa2"},
+]
+
+[[package]]
+name = "elementpath"
+version = "5.1.4"
+requires_python = ">=3.10"
+summary = "XPath 1.0/2.0/3.0/3.1 parsers and selectors for ElementTree and lxml"
+files = [
+    {file = "elementpath-5.1.4-py3-none-any.whl", hash = "sha256:5ec8d7bb44b16c98414a6a95e20cb150f3cbfc3cac65edc14773288c7a937376"},
+    {file = "elementpath-5.1.4.tar.gz", hash = "sha256:3c912a9c41311ac5244c038867670d7c0b0fec0e444813608e5b846dbb3428ac"},
 ]
 
 [[package]]
@@ -2308,4 +2318,17 @@ summary = "xlsx to csv converter"
 files = [
     {file = "xlsx2csv-0.8.4-py3-none-any.whl", hash = "sha256:52ab873fc7b2f2ca75d14aee8bd1985a9f5c1bcb3cc7b80df7a5d57a40a67473"},
     {file = "xlsx2csv-0.8.4.tar.gz", hash = "sha256:2aa809888826f6af5b26c77fc7f613f2bbeada0d8cc09e5a58e0f59684bb6911"},
+]
+
+[[package]]
+name = "xmlschema"
+version = "4.3.2"
+requires_python = ">=3.10"
+summary = "An XML Schema validator and decoder"
+dependencies = [
+    "elementpath<6.0.0,>=5.1.3",
+]
+files = [
+    {file = "xmlschema-4.3.2-py3-none-any.whl", hash = "sha256:cf5c970a30f6ebcb3da35260e694704cc0b6794d8ace46125bb2a95e38ed9307"},
+    {file = "xmlschema-4.3.2.tar.gz", hash = "sha256:f3b33a21a2b2cdc404ddc3fb599d8bc1dee90b155d547370672e6e684746b8d6"},
 ]

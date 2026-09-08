@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
-from ._types import NonEmptyString
+from ._contract import ContractPrimaryIdentifier
 from ._institution import InstitutionType
 from ._invoice import PublicationInvoiceType
+from ._types import NonEmptyString
+from ._validators import EitherFieldMixin, RequiredList
 
 
 class CoarPublicationType(Enum):
@@ -103,6 +106,15 @@ class CoarPublicationType(Enum):
     working_paper = "working paper"
     trademark = "trademark"
     workflow = "workflow"
+    archival_collection = "archival collection"
+    artistic_work = "artistic work"
+    collection = "collection"
+    court_documents = "court documents"
+    knowledge_organization_system = "knowledge organization system"
+    knowledge_synthesis_protocol = "knowledge synthesis protocol"
+    magazine_article = "magazine article"
+    physical_sample = "physical sample"
+    research_instrument = "research instrument"
 
 
 class PublicationSecondaryIdTypeEnum(Enum):
@@ -123,7 +135,7 @@ class PublicationSecondaryIdType(BaseModel):
 
 
 class PublicationSecondaryIdentifiers(BaseModel):
-    id: list[PublicationSecondaryIdType]
+    id: RequiredList[PublicationSecondaryIdType]
 
 
 class BibliographicInformation(BaseModel):
@@ -136,13 +148,20 @@ class PublicationPrimaryIdentifier(BaseModel):
     doi: NonEmptyString | None = None
     bibliographic_information: BibliographicInformation | None = None
 
+    @model_validator(mode="after")
+    def _exactly_one_of_doi_or_bibliographic_information(self) -> Self:
+        if (self.doi is not None) == (self.bibliographic_information is not None):
+            raise ValueError("exactly one of 'doi' or 'bibliographic_information' must be set")
+        return self
+
 
 class PartOfContractType(BaseModel):
     group_id: NonEmptyString | None = None
     primary_identifier: ContractPrimaryIdentifier
 
 
-class PublicationCostDataType(BaseModel):
+class PublicationCostDataType(EitherFieldMixin):
+    either_fields = ("invoice", "part_of_contract")
     invoice: list[PublicationInvoiceType] | None = None
     part_of_contract: PartOfContractType | None = None
 
@@ -154,12 +173,3 @@ class PublicationType(BaseModel):
     publication_type: CoarPublicationType
     external_costsplitting: bool | None = None
     cost_data: PublicationCostDataType
-
-
-# Import after all models are defined to avoid circular import during module loading
-# Then rebuild models that have forward references
-from ._contract import ContractPrimaryIdentifier  # noqa: E402
-
-PartOfContractType.model_rebuild()
-PublicationCostDataType.model_rebuild()
-PublicationType.model_rebuild()

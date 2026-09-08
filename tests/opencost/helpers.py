@@ -1,11 +1,15 @@
-from typing import cast, Any
 from datetime import date
 from decimal import Decimal
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, cast
 
+import xmlschema
 from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
 
+import coda.domain.opencost
 from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
@@ -13,11 +17,10 @@ from coda.apps.invoices.models import Creditor, Invoice, Position
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.report_service import generate_report
 from coda.apps.opencost.transformers import report_publication_to_pydantic, to_opencost
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import Publication
-from coda.domain.opencost import Data
-from coda.domain.opencost._publication import PublicationType
 from coda.apps.publications.models._attachedentities import AttachedContract
-
+from coda.domain.opencost import Data, PublicationType
 from tests import modelfactory
 
 
@@ -98,6 +101,8 @@ def create_opencost_report(
     period_start: date = date(2024, 1, 1),
     period_end: date = date(2024, 12, 31),
 ) -> OpenCostReport:
+    _ensure_home_institution()
+
     filters = {
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
@@ -123,7 +128,9 @@ def transform_first_publication_to_pydantic() -> PublicationType:
     report = create_opencost_report()
     report_publication = report.publications.first()
     assert report_publication is not None
-    return report_publication_to_pydantic(report_publication)
+    publication = report_publication_to_pydantic(report_publication)
+    assert publication is not None
+    return publication
 
 
 def create_institution_with_identifiers(
@@ -176,7 +183,6 @@ def create_contract_with_identifiers(
     ezb: str | None = None,
     local: str | None = None,
 ) -> Contract:
-
     contract = modelfactory.contract()
     contract.name = name
     contract.start_date = start_date
@@ -245,6 +251,13 @@ def create_contract_with_invoice(
     return invoice, positions
 
 
+def _ensure_home_institution() -> None:
+    prefs, _ = GlobalPreferences.objects.get_or_create()
+    if not prefs.home_institution_id:
+        prefs.home_institution = modelfactory.institution()
+        prefs.save()
+
+
 def generate_opencost_report_from_contract() -> Data:
     """
     Helper to generate an OpenCost report and transform to OpenCostData.
@@ -256,6 +269,7 @@ def generate_opencost_report_from_contract() -> Data:
 
     Returns the transformed Data for assertions.
     """
+    _ensure_home_institution()
     filters = {
         "period_start": date(2024, 1, 1).isoformat(),
         "period_end": date(2024, 12, 31).isoformat(),
@@ -264,7 +278,9 @@ def generate_opencost_report_from_contract() -> Data:
         title="Test Report 2024",
         filters=filters,
     )
-    return to_opencost(report)
+    data = to_opencost(report)
+    assert data is not None
+    return data
 
 
 def create_realistic_report_data(
@@ -339,10 +355,9 @@ def assert_current_filter(response: HttpResponse, field: str, expected: Any) -> 
     """Assert that a filter value in the template context matches expected."""
     context = cast(Any, response).context
     current_filters = context.get("current_filters", {})
-    assert field in current_filters, (
-        f"Field '{field}' not found in current_filters. "
-        f"Available: {list(current_filters.keys())}"
-    )
+    assert (
+        field in current_filters
+    ), f"Field '{field}' not found in current_filters. Available: {list(current_filters.keys())}"
     actual = current_filters[field]
     assert (
         actual == expected
@@ -357,3 +372,30 @@ def assert_current_filters(response: HttpResponse, **expected: Any) -> None:
 
 def get_opencost_generate_response(client: Client, **filters: str | list[str]) -> HttpResponse:
     return cast(HttpResponse, client.get(reverse("opencost:generate"), filters))
+
+
+@lru_cache(maxsize=1)
+def _opencost_schema() -> xmlschema.XMLSchema:
+    """Build the XSD resource once per test session (schema build ~1s).
+
+    XMLSchema() resolves the <xs:include schemaLocation="opencost_types.xsd"/>
+    relative to opencost.xsd's location inside the domain package.
+    """
+    schema_path = Path(coda.domain.opencost.__file__).parent / "opencost.xsd"
+    return xmlschema.XMLSchema(str(schema_path))
+
+
+def assert_valid_opencost_xml(xml_string: str) -> None:
+    """Assert generated XML validates against the official OpenCost XSD.
+
+    The pydantic models in coda.domain.opencost are a hand-maintained copy of
+    opencost.xsd; this checks the emitted document itself against the schema,
+    so model/validator drift, element-name regressions (e.g. a field rename
+    without a wire alias) and scalar-format mistakes (xs:boolean, two-decimal
+    amounts) fail here even when model-level assertions pass. A wrong schema
+    path raises during schema build, so this cannot fail silently.
+    """
+    errors = list(_opencost_schema().iter_errors(xml_string))
+    if errors:
+        details = "\n".join(f"{error.path}: {error.message}" for error in errors)
+        raise AssertionError(f"XML fails opencost.xsd:\n{details}\n\n{xml_string}")

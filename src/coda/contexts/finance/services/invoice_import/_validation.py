@@ -54,7 +54,12 @@ def _extract_invoice_numbers(raw_invoices: list[dict[str, Any]]) -> list[str]:
 def _format_validation_error(error: Exception) -> list[str]:
     """Format validation errors into a consistent list of string messages."""
     if isinstance(error, pydantic.ValidationError):
-        return [str(err) for err in error.errors()]
+        messages = []
+        for err in error.errors():
+            location = ".".join(str(part) for part in err["loc"])
+            message = err["msg"]
+            messages.append(f"{location}: {message}" if location else message)
+        return messages
     else:
         # Handle other validation-related exceptions
         return [str(error)]

@@ -59,7 +59,7 @@ def validate_report(
             warnings.append(
                 ValidationWarning(
                     level="error",
-                    message="Missing institution name. Set home institution in preferences.",
+                    message="Missing institution name - contract will be excluded from XML. Set home institution in preferences.",
                     entity_type="global",
                     entity_id=contract.contract.id,
                     entity_name=contract.contract_name,
@@ -86,7 +86,7 @@ def validate_report(
             warnings.append(
                 ValidationWarning(
                     level="error",
-                    message="Missing institution name. Set home institution in preferences.",
+                    message="Missing institution name - publication will be excluded from XML. Set home institution in preferences.",
                     entity_type="global",
                     entity_id=pub.publication.id,
                     entity_name=pub.title,

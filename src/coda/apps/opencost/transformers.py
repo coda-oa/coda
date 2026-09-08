@@ -4,39 +4,35 @@ from coda.apps.opencost.models import (
     OpenCostReportContract,
     OpenCostReportPublication,
 )
-from coda.domain.opencost import Data
-from coda.domain.opencost._contract import (
+from coda.domain.opencost import (
+    AmountInvoice,
+    BibliographicInformation,
+    CoarPublicationType,
+    ContractAmountPaidType,
+    ContractAmountsPaid,
+    ContractCostDataType,
+    ContractInvoiceGroupType,
+    ContractInvoicePeriodType,
+    ContractInvoiceType,
     ContractPrimaryIdentifier,
     ContractPrimaryIdentifierType,
-    ContractSecondaryIdentifiersType,
     ContractSecondaryIdType,
     ContractSecondaryIdTypeEnum,
+    ContractSecondaryIdentifiersType,
     ContractType,
-    ParticipationType,
-)
-from coda.domain.opencost._institution import (
+    Data,
+    Dates,
     InstitutionId,
     InstitutionIdType,
     InstitutionName,
     InstitutionNameType,
     InstitutionType,
-)
-from coda.domain.opencost._invoice import (
-    AmountInvoice,
-    ContractAmountPaidType,
-    ContractCostDataType,
-    ContractInvoiceGroupType,
-    ContractInvoiceType,
-    Dates,
-    PublicationAmountPaidType,
-    PublicationInvoiceType,
-    ContractInvoicePeriodType,
-)
-from coda.domain.opencost._publication import (
-    BibliographicInformation,
-    CoarPublicationType,
     PartOfContractType,
+    ParticipationType,
+    PublicationAmountPaidType,
+    PublicationAmountsPaid,
     PublicationCostDataType,
+    PublicationInvoiceType,
     PublicationPrimaryIdentifier,
     PublicationSecondaryIdType,
     PublicationSecondaryIdTypeEnum,
@@ -45,7 +41,13 @@ from coda.domain.opencost._publication import (
 )
 
 
-def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> PublicationType:
+def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> PublicationType | None:
+    institution = _get_institution(report_pub)
+    if institution is None:
+        # XSD requires institution to have at least one name or id.
+        # Without institution data we cannot produce a valid record.
+        return None
+
     if report_pub.doi:
         primary_identifier = PublicationPrimaryIdentifier(doi=report_pub.doi)
     else:
@@ -58,17 +60,20 @@ def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> Pub
 
     secondary_identifiers = _get_secondary_identifiers(report_pub)
 
-    institution = _get_institution(report_pub)
-
     publication_type = _get_publication_type(report_pub)
 
     invoice_data = _get_invoice_data(report_pub)
 
     part_of_contract = _get_part_of_contract(report_pub)
 
+    if invoice_data is None and part_of_contract is None:
+        # XSD requires at least one of invoice or part_of_contract.
+        # Without cost data we cannot produce a valid record.
+        return None
+
     cost_data = PublicationCostDataType(invoice=invoice_data, part_of_contract=part_of_contract)
 
-    publication = PublicationType(
+    return PublicationType(
         primary_identifier=primary_identifier,
         secondary_identifiers=secondary_identifiers,
         institution=institution,
@@ -76,8 +81,6 @@ def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> Pub
         external_costsplitting=report_pub.external_costsplitting,
         cost_data=cost_data,
     )
-
-    return publication
 
 
 def _get_publication_type(report_pub: OpenCostReportPublication) -> CoarPublicationType:
@@ -170,7 +173,7 @@ def _get_invoice_data(report_pub: OpenCostReportPublication) -> list[Publication
             PublicationInvoiceType(
                 invoice_number=report_invoice.invoice_number,
                 creditor=report_invoice.creditor,
-                amounts_paid=amounts_paid,
+                amounts_paid=PublicationAmountsPaid(amount_paid=amounts_paid),
                 dates=dates,
                 amount_invoice=amount_invoice,
             )
@@ -179,7 +182,7 @@ def _get_invoice_data(report_pub: OpenCostReportPublication) -> list[Publication
     return invoice_list if invoice_list else None
 
 
-def _get_institution(report_pub: OpenCostReportPublication) -> InstitutionType:
+def _get_institution(report_pub: OpenCostReportPublication) -> InstitutionType | None:
     names = []
     if report_pub.institution_name:
         names.append(
@@ -194,6 +197,11 @@ def _get_institution(report_pub: OpenCostReportPublication) -> InstitutionType:
         except ValueError:
             continue
 
+    # XSD requires at least one name or id (minOccurs=1 on choice).
+    # Return None when unavailable so the caller can skip this entity.
+    if not names and not identifiers:
+        return None
+
     return InstitutionType(
         name=names if names else None,
         id=identifiers if identifiers else None,
@@ -204,16 +212,28 @@ def to_opencost(
     report: OpenCostReport,
     publications_list: list[OpenCostReportPublication] | None = None,
     contracts_list: list[OpenCostReportContract] | None = None,
-) -> Data:
+) -> Data | None:
     # Use pre-loaded data if provided, otherwise fetch (backwards compatible)
     if publications_list is None:
         publications_list = list(report.publications.all())
     if contracts_list is None:
         contracts_list = list(report.contracts.all())
 
-    publications = [report_publication_to_pydantic(report_pub) for report_pub in publications_list]
+    publications = [
+        pub
+        for report_pub in publications_list
+        if (pub := report_publication_to_pydantic(report_pub)) is not None
+    ]
 
-    contracts = [report_contract_to_pydantic(report_contract) for report_contract in contracts_list]
+    contracts = [
+        contract
+        for report_contract in contracts_list
+        if (contract := report_contract_to_pydantic(report_contract)) is not None
+    ]
+
+    if not publications and not contracts:
+        # OpenCost requires at least one publication or contract
+        return None
 
     return Data(
         publication=publications if publications else None,
@@ -221,17 +241,23 @@ def to_opencost(
     )
 
 
-def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> ContractType:
+def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> ContractType | None:
     institution = _get_contract_institution(report_contract)
+    if institution is None:
+        # XSD requires institution to have at least one name or id.
+        # Without institution data we cannot produce a valid record.
+        return None
 
     participation = ParticipationType(
         **{
-            "from": str(report_contract.participation_from)
-            if report_contract.participation_from
-            else None,
-            "to": str(report_contract.participation_to)
-            if report_contract.participation_to
-            else None,
+            "from": (
+                str(report_contract.participation_from)
+                if report_contract.participation_from
+                else None
+            ),
+            "to": (
+                str(report_contract.participation_to) if report_contract.participation_to else None
+            ),
         }
     )
 
@@ -243,6 +269,10 @@ def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> Cont
     contract_secondary_identifiers = _get_contract_secondary_identifiers(report_contract)
 
     cost_data = _get_contract_cost_data(report_contract)
+    if cost_data is None:
+        # XSD requires at least one invoice_group — without cost data
+        # we cannot produce a valid record.
+        return None
 
     return ContractType(
         contract_name=report_contract.contract_name,
@@ -254,7 +284,7 @@ def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> Cont
     )
 
 
-def _get_contract_institution(report_contract: OpenCostReportContract) -> InstitutionType:
+def _get_contract_institution(report_contract: OpenCostReportContract) -> InstitutionType | None:
     names = []
     if report_contract.institution_name:
         names.append(
@@ -269,17 +299,23 @@ def _get_contract_institution(report_contract: OpenCostReportContract) -> Instit
         except ValueError:
             continue
 
+    # XSD requires at least one name or id (minOccurs=1 on choice).
+    # Return None when unavailable so the caller can skip this entity.
+    if not names and not identifiers:
+        return None
+
     return InstitutionType(
         name=names if names else None,
         id=identifiers if identifiers else None,
     )
 
 
-def _get_contract_cost_data(report_contract: OpenCostReportContract) -> ContractCostDataType:
+def _get_contract_cost_data(report_contract: OpenCostReportContract) -> ContractCostDataType | None:
     report_invoices = report_contract.invoices.all()
 
     if not report_invoices:
-        return ContractCostDataType(invoice_group=[])
+        # XSD requires at least one invoice_group — nothing to produce.
+        return None
 
     invoice_list = []
     for report_invoice in report_invoices:
@@ -313,30 +349,33 @@ def _get_contract_cost_data(report_contract: OpenCostReportContract) -> Contract
             ContractInvoiceType(
                 invoice_number=report_invoice.invoice_number,
                 creditor=report_invoice.creditor,
-                amounts_paid=amounts_paid,
+                amounts_paid=ContractAmountsPaid(amount_paid=amounts_paid),
                 dates=dates,
                 amount_invoice=amount_invoice,
             )
         )
 
-    group_id = None
-    if invoice_list and report_invoices:
-        first_invoice = report_invoices[0]
-        group_id = first_invoice.group_id if first_invoice.group_id else None
+    if not invoice_list:
+        # XSD requires at least one invoice_group — nothing to produce.
+        return None
 
-    invoices_period = None
-    if report_contract.report:
-        invoices_period = ContractInvoicePeriodType(
-            **{
-                "from": str(report_contract.report.period_start),
-                "to": str(report_contract.report.period_end),
-            }
-        )
+    first_invoice = report_invoices[0]
+
+    if not first_invoice.group_id or not report_contract.report:
+        # XSD requires group_id and invoices_period — nothing to produce.
+        return None
+
+    invoices_period = ContractInvoicePeriodType(
+        **{
+            "from": str(report_contract.report.period_start),
+            "to": str(report_contract.report.period_end),
+        }
+    )
 
     invoice_group = ContractInvoiceGroupType(
-        group_id=group_id,
+        group_id=first_invoice.group_id,
         invoices_period=invoices_period,
-        invoice=invoice_list if invoice_list else None,
+        invoice=invoice_list,
     )
 
     return ContractCostDataType(invoice_group=[invoice_group])

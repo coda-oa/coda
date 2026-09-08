@@ -1,7 +1,9 @@
 from enum import Enum
+
 from pydantic import BaseModel
 
 from ._types import NonEmptyString
+from ._validators import EitherFieldMixin
 
 
 class InstitutionIdType(Enum):
@@ -25,6 +27,7 @@ class InstitutionName(BaseModel):
     type: InstitutionNameType
 
 
-class InstitutionType(BaseModel):
+class InstitutionType(EitherFieldMixin):
+    either_fields = ("name", "id")
     name: list[InstitutionName] | None = None
     id: list[InstitutionId] | None = None

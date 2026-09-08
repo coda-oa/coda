@@ -2,7 +2,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
-from ._types import NonEmptyString, Currency, DateFormat, ContractCostType, PublicationCostType
+from ._types import ContractCostType, Currency, DateFormat, NonEmptyString, PublicationCostType
+from ._validators import EitherFieldMixin, RequiredList
 
 
 class PublicationAmountPaidType(BaseModel):
@@ -12,12 +13,18 @@ class PublicationAmountPaidType(BaseModel):
     vat: Decimal | None = None
 
 
+class PublicationAmountsPaid(BaseModel):
+    amount_paid: RequiredList[PublicationAmountPaidType]
+
+
 class AmountInvoice(BaseModel):
     currency: Currency
     amount: Decimal
 
 
-class Dates(BaseModel):
+class Dates(EitherFieldMixin):
+    either_fields = ("invoice", "paid")
+
     invoice: DateFormat | None = None
     paid: DateFormat | None = None
 
@@ -25,7 +32,7 @@ class Dates(BaseModel):
 class PublicationInvoiceType(BaseModel):
     amount_invoice: AmountInvoice | None = None
     invoice_number: NonEmptyString | None = None
-    amounts_paid: list[PublicationAmountPaidType]
+    amounts_paid: PublicationAmountsPaid
     dates: Dates
     creditor: NonEmptyString | None = None
 
@@ -37,12 +44,16 @@ class ContractAmountPaidType(BaseModel):
     vat: Decimal | None = None
 
 
+class ContractAmountsPaid(BaseModel):
+    amount_paid: RequiredList[ContractAmountPaidType]
+
+
 class ContractInvoiceType(BaseModel):
     amount_invoice: AmountInvoice | None = None
     invoice_number: NonEmptyString | None = None
     creditor: NonEmptyString | None = None
     dates: Dates
-    amounts_paid: list[ContractAmountPaidType]
+    amounts_paid: ContractAmountsPaid
 
 
 class ContractInvoicePeriodType(BaseModel):
@@ -51,10 +62,10 @@ class ContractInvoicePeriodType(BaseModel):
 
 
 class ContractInvoiceGroupType(BaseModel):
-    group_id: NonEmptyString | None = None
-    invoices_period: ContractInvoicePeriodType | None = None
+    group_id: NonEmptyString
+    invoices_period: ContractInvoicePeriodType
     invoice: list[ContractInvoiceType] | None = None
 
 
 class ContractCostDataType(BaseModel):
-    invoice_group: list[ContractInvoiceGroupType]
+    invoice_group: RequiredList[ContractInvoiceGroupType]

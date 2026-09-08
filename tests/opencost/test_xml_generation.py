@@ -4,8 +4,6 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
-from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
-from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from tests import modelfactory
 from tests.opencost.helpers import (
     create_creditor,
@@ -13,6 +11,10 @@ from tests.opencost.helpers import (
     create_position,
     create_publication_with_invoice,
     create_opencost_report,
+    create_institution_with_identifiers,
+    create_contract_with_identifiers,
+    create_contract_with_invoice,
+    assert_valid_opencost_xml,
 )
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.publications.models import LinkType, Link
@@ -40,6 +42,7 @@ def test__publication_with_all_info_and_invoice__generate_xml__creates_valid_ope
     report = create_opencost_report()
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     assert xml_string is not None
     assert len(xml_string) > 0
@@ -141,6 +144,7 @@ def test__publication_with_invoice_multiple_positions__generate_xml__opencost_xm
     report = create_opencost_report()
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     assert xml_string is not None
     assert len(xml_string) > 0
@@ -187,6 +191,7 @@ def test__publication_with_multiple_invoices__generate_xml__creates_valid_openco
     report = create_opencost_report()
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     assert xml_string is not None
     assert len(xml_string) > 0
@@ -210,22 +215,19 @@ def test__publication_with_multiple_invoices__generate_xml__creates_valid_openco
 @pytest.mark.django_db
 def test__publication_with_linked_contract__generate_xml__part_of_contract_is_included() -> None:
     # Create contract with ESAC identifier and invoice
-    contract = modelfactory.contract()
-    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
-    ContractLink.objects.create(
-        contract=contract, type=esac_type, value="https://esac.org/id/test-contract-999"
+    contract = create_contract_with_identifiers(
+        name="Linked Contract for XML Test",
+        esac="https://esac.org/id/test-contract-999",
     )
 
     # Add invoice to contract (needed for contract to be included)
-    creditor = create_creditor(name="Contract Creditor")
-    contract_invoice = create_invoice(
-        creditor=creditor, invoice_date=date(2024, 5, 1), number="INV-CONTRACT-999"
-    )
-    create_position(
-        contract_invoice,
-        contract=contract,
-        description="Contract service fee",
-        cost_amount=Decimal("5000.00"),
+    create_contract_with_invoice(
+        contract,
+        creditor_name="Contract Creditor",
+        invoice_date=date(2024, 5, 1),
+        invoice_number="INV-CONTRACT-999",
+        position_descriptions=["Contract service fee"],
+        position_amounts=[Decimal("5000.00")],
         cost_type="read",
     )
 
@@ -241,9 +243,15 @@ def test__publication_with_linked_contract__generate_xml__part_of_contract_is_in
         cost_amount=Decimal("1500.00"),
     )
 
+    # A second publication attached to the same contract without its own
+    # invoice: its cost data consists solely of the contract link
+    fr_attached_only = modelfactory.fundingrequest(title="Attached Only Publication")
+    fr_attached_only.publication.attached_contracts.create(contract=contract, contract_year=2024)
+
     report = create_opencost_report()
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     assert xml_string is not None
     assert len(xml_string) > 0
@@ -255,9 +263,9 @@ def test__publication_with_linked_contract__generate_xml__part_of_contract_is_in
     ns = {"oc": "https://opencost.de"}
 
     publications = root.findall("oc:publication", ns)
-    assert len(publications) == 1
+    assert len(publications) == 2
 
-    pub = publications[0]
+    pub = next(p for p in publications if p.find("oc:cost_data/oc:invoice", ns) is not None)
     cost_data = pub.find("oc:cost_data", ns)
     assert cost_data is not None
 
@@ -282,6 +290,13 @@ def test__publication_with_linked_contract__generate_xml__part_of_contract_is_in
     assert part_of_contract_group_id is not None
     assert part_of_contract_group_id.text is not None
     assert len(part_of_contract_group_id.text) == 36
+
+    attached_only = next(p for p in publications if p is not pub)
+    attached_cost_data = attached_only.find("oc:cost_data", ns)
+    assert attached_cost_data is not None
+    # included without its own invoice: cost data is part_of_contract only
+    assert attached_cost_data.findall("oc:invoice", ns) == []
+    assert attached_cost_data.find("oc:part_of_contract", ns) is not None
 
     contracts = root.findall("oc:contract", ns)
     assert len(contracts) == 1
@@ -309,47 +324,38 @@ def test__publication_with_linked_contract__generate_xml__part_of_contract_is_in
 def test__report_with_standalone_contract_with_institution__generate_xml__creates_valid_opencost_xml() -> (
     None
 ):
-    home_institution = Institution.objects.create(name="Contract Test University")
-    ror_type, _ = InstitutionLinkType.objects.get_or_create(name="ROR")
-    InstitutionLink.objects.create(
-        institution=home_institution, type=ror_type, value="https://ror.org/contract123"
+    home_institution = create_institution_with_identifiers(
+        name="Contract Test University",
+        ror="https://ror.org/contract123",
+        isni="https://isni.org/contract123",
+        ringold="RING-CONTRACT-123",
     )
 
     prefs, _ = GlobalPreferences.objects.get_or_create()
     prefs.home_institution = home_institution
     prefs.save()
 
-    contract = Contract.objects.create(
+    contract = create_contract_with_identifiers(
         name="Standalone Contract for XML Test",
-        start_date=date(2024, 1, 1),
-        end_date=date(2024, 12, 31),
-    )
-    esac_type, _ = ContractLinkType.objects.get_or_create(name="ESAC")
-    ContractLink.objects.create(
-        contract=contract, type=esac_type, value="https://esac.org/id/123456"
-    )
-    oai_type, _ = ContractLinkType.objects.get_or_create(name="OAI")
-    ContractLink.objects.create(contract=contract, type=oai_type, value="https://oai.org/id/123456")
-    local_type, _ = ContractLinkType.objects.get_or_create(name="Local")
-    ContractLink.objects.create(
-        contract=contract, type=local_type, value="https://local.org/id/123456"
+        esac="https://esac.org/id/123456",
+        oai="https://oai.org/id/123456",
+        local="https://local.org/id/123456",
     )
 
-    creditor = create_creditor(name="Invoice Creditor")
-    invoice = create_invoice(
-        creditor=creditor, invoice_date=date(2024, 6, 1), number="INV-2024-002"
-    )
-    _contract_position = create_position(
-        invoice,
-        contract=contract,
-        description="Service fee for contract",
-        cost_amount=Decimal("2000.00"),
+    create_contract_with_invoice(
+        contract,
+        creditor_name="Invoice Creditor",
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-2024-002",
+        position_descriptions=["Service fee for contract"],
+        position_amounts=[Decimal("2000.00")],
         cost_type="publish",
     )
 
     report = create_opencost_report(period_start=date(2024, 1, 1), period_end=date(2024, 12, 31))
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     assert xml_string is not None
     assert len(xml_string) > 0
@@ -379,15 +385,18 @@ def test__report_with_standalone_contract_with_institution__generate_xml__create
     assert institution_name is not None
     assert institution_name.text == "Contract Test University"
 
-    institution_ids = institution.findall("oc:id", ns)
-    assert len(institution_ids) == 1
-
-    id_type = institution_ids[0].find("oc:type", ns)
-    id_value = institution_ids[0].find("oc:value", ns)
-    assert id_type is not None
-    assert id_value is not None
-    assert id_type.text == "ror"
-    assert id_value.text == "https://ror.org/contract123"
+    ids = set()
+    for id_elem in institution.findall("oc:id", ns):
+        id_type = id_elem.find("oc:type", ns)
+        id_value = id_elem.find("oc:value", ns)
+        assert id_type is not None
+        assert id_value is not None
+        ids.add((id_type.text, id_value.text))
+    assert ids == {
+        ("ror", "https://ror.org/contract123"),
+        ("isni", "https://isni.org/contract123"),
+        ("ringold", "RING-CONTRACT-123"),
+    }
 
     primary_id = xml_contract.find("oc:primary_identifier", ns)
     primary_id_type = primary_id.find("oc:type", ns) if primary_id is not None else None
@@ -438,6 +447,7 @@ def test__report_publication_with_external_costsplitting__generate_xml__includes
     report = create_opencost_report()
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     assert xml_string is not None
     assert len(xml_string) > 0
@@ -474,6 +484,7 @@ def test__report_publication_without_external_costsplitting__generate_xml__costs
     report = create_opencost_report()
 
     xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
 
     root = ET.fromstring(xml_string)
     ns = {"oc": "https://opencost.de"}
@@ -483,3 +494,46 @@ def test__report_publication_without_external_costsplitting__generate_xml__costs
     pub_without_cost_splitting = publications[0]
     external_costsplitting_elem = pub_without_cost_splitting.find("oc:external_costsplitting", ns)
     assert external_costsplitting_elem is None
+
+
+@pytest.mark.django_db
+def test__report_publication_without_doi__generate_xml__emits_bibliographic_information() -> None:
+    fr = modelfactory.fundingrequest(title="Monograph Without DOI")
+    # domainfactory always seeds a DOI link; removing it takes the
+    # bibliographic_information branch of the primary_identifier choice
+    fr.publication.links.filter(type__name="DOI").delete()
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 7, 1),
+        invoice_number="INV-NO-DOI-001",
+        creditor_name="No DOI Creditor",
+        cost_amount=Decimal("900.00"),
+    )
+
+    report = create_opencost_report()
+
+    xml_string = generate_xml(report)
+    assert_valid_opencost_xml(xml_string)
+
+    root = ET.fromstring(xml_string)
+    ns = {"oc": "https://opencost.de"}
+
+    publications = root.findall("oc:publication", ns)
+    assert len(publications) == 1
+    primary_id = publications[0].find("oc:primary_identifier", ns)
+    assert primary_id is not None
+    assert primary_id.find("oc:doi", ns) is None
+
+    bib_info = primary_id.find("oc:bibliographic_information", ns)
+    assert bib_info is not None
+    title_elem = bib_info.find("oc:Title", ns)
+    publisher_elem = bib_info.find("oc:Publisher", ns)
+    is_part_of_elem = bib_info.find("oc:isPartOf", ns)
+    assert title_elem is not None
+    assert publisher_elem is not None
+    assert is_part_of_elem is not None
+    journal = fr.publication.article_journal
+    assert journal is not None
+    assert title_elem.text == "Monograph Without DOI"
+    assert publisher_elem.text == journal.publisher.name
+    assert is_part_of_elem.text == journal.title
