@@ -12,7 +12,7 @@ from coda.apps.opencost.models import (
 from coda.apps.opencost.transformers import to_opencost
 from coda.apps.publications.models._attachedentities import PublicationAttachedConcept
 from coda.apps.publications.models._vocabulary import Vocabulary
-from coda.domain.opencost import (
+from opencost import (
     CoarPublicationType,
     ContractPrimaryIdentifierType,
     ContractSecondaryIdTypeEnum,

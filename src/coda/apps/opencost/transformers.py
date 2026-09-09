@@ -1,10 +1,11 @@
 from decimal import Decimal
+
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
     OpenCostReportPublication,
 )
-from coda.domain.opencost import (
+from opencost import (
     AmountInvoice,
     BibliographicInformation,
     CoarPublicationType,
@@ -16,9 +17,9 @@ from coda.domain.opencost import (
     ContractInvoiceType,
     ContractPrimaryIdentifier,
     ContractPrimaryIdentifierType,
+    ContractSecondaryIdentifiersType,
     ContractSecondaryIdType,
     ContractSecondaryIdTypeEnum,
-    ContractSecondaryIdentifiersType,
     ContractType,
     Data,
     Dates,
@@ -27,16 +28,16 @@ from coda.domain.opencost import (
     InstitutionName,
     InstitutionNameType,
     InstitutionType,
-    PartOfContractType,
     ParticipationType,
+    PartOfContractType,
     PublicationAmountPaidType,
     PublicationAmountsPaid,
     PublicationCostDataType,
     PublicationInvoiceType,
     PublicationPrimaryIdentifier,
+    PublicationSecondaryIdentifiers,
     PublicationSecondaryIdType,
     PublicationSecondaryIdTypeEnum,
-    PublicationSecondaryIdentifiers,
     PublicationType,
 )
 

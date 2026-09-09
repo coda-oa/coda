@@ -1,6 +1,6 @@
-from dataclasses import dataclass
-from typing import Literal, TYPE_CHECKING
 from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal
 
 from django.urls import reverse
 
