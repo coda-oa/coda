@@ -5,13 +5,14 @@ from io import StringIO
 import polars as pl
 
 from coda.apps.exports.services.csv_values import format_money_value, single_line
+from coda.domain.money import DecimalSeparator
 
 
 def build_csv_from_rows(
     rows: list[dict[str, str]],
     csv_columns: list[str],
     money_columns: frozenset[str],
-    decimal_separator: str,
+    decimal_separator: DecimalSeparator,
 ) -> str:
     """Format the values of *rows* and serialize them as a CSV string."""
     formatted_rows = [

@@ -34,6 +34,7 @@ from coda.apps.exports.views.base_csv_views import (
 from coda.apps.invoices.invoice_query import InvoiceSearchParams
 from coda.apps.views import SimpleSearchEntityListView
 from coda.domain.finance.invoice import PaymentStatus
+from coda.domain.money import DecimalSeparator
 
 CONTRACTS_CSV_CREATE_URL = "exports:contracts_csv_create"
 CONTRACTS_CSV_LIST_URL = "exports:contracts_csv_list"
@@ -162,12 +163,16 @@ def _parse_contract_filter_dict(filters: dict[str, str]) -> InvoiceSearchParams:
         date_range = parse_date_range(filters)
     except ValueError:
         raise ValueError("Invalid date format. Please enter dates in YYYY-MM-DD format.")
+    try:
+        decimal_separator = DecimalSeparator(filters.get("decimal_separator", "."))
+    except ValueError:
+        raise ValueError("Invalid decimal separator. Please use '.' (English) or ',' (German).")
 
     return InvoiceSearchParams(
         date_range=date_range,
         payment_status=parse_invoice_payment_status(filters),
         funding_source=parse_funding_source(filters),
-        decimal_separator=filters.get("decimal_separator", "."),
+        decimal_separator=decimal_separator,
     )
 
 

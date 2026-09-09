@@ -8,6 +8,7 @@ import pytest
 from coda.apps.exports.services.contract_csv.export_service import export_contract_to_csv
 from coda.apps.invoices.invoice_query import InvoiceSearchParams
 from coda.domain.finance.invoice import CreditorId, PaymentStatus
+from coda.domain.money import DecimalSeparator
 from coda.contexts.finance.services import invoice_service
 from tests import domainfactory, modelfactory
 from tests.exports.helpers import (
@@ -114,7 +115,7 @@ def test__contract_with_comma_decimal_separator__export_to_csv__formats_money_co
 
     create_invoice_with_fractional_position(contract_year)
 
-    export = export_contract_to_csv(InvoiceSearchParams(decimal_separator=","))
+    export = export_contract_to_csv(InvoiceSearchParams(decimal_separator=DecimalSeparator.German))
 
     df = pl.read_csv(StringIO(export), separator=";")
 
