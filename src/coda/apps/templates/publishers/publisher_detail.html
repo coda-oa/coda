@@ -13,21 +13,19 @@
                 <button class="outline danger"
                         hx-get="{% url "blocklist:request_block_publisher" pk=publisher.pk %}"
                         hx-target="body"
-                        hx-swap="beforeend">Block
-                </button>
+                        hx-swap="beforeend">Block</button>
             {% endif %}
             <a href="{% url "publishing:publishers:update" pk=publisher.pk %}"
                role="button"
                class="secondary">Edit</a>
         </div>
     </div>
-
     <article>
         <header>
             <h2 class="my-0">{{ publisher.name }}</h2>
         </header>
         <h3>Corresponding journals</h3>
-        <ul>
+        <ul class="scroll-container max-h-30">
             {% for journal in journals %}
                 <li>
                     <a href="{{ journal.get_absolute_url }}">{{ journal.title }}</a>
@@ -37,5 +35,5 @@
             {% endfor %}
         </ul>
     </article>
-
+    {% include "partials/related_funding_requests.html" %}
 {% endblock content %}
