@@ -1,30 +1,18 @@
-from io import StringIO
-from typing import Any, BinaryIO, cast
+from typing import Any, cast
 
-from django.contrib import messages
-
-from django.urls import reverse
-import polars as pl
-from django.core.files.base import ContentFile
 from django.http import FileResponse, HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.text import slugify
-import os
+from django.shortcuts import redirect, render
+from django.urls import reverse
 
-from coda.apps.exports.models import FundingRequestCSVExport
-from coda.apps.exports.services.fundingrequest_csv.export_service import (
-    export_fundingrequests_to_csv,
-)
-from coda.apps.views import SimpleSearchEntityListView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
+from coda.apps.exports.models import FundingRequestCSVExport
 from coda.apps.exports.services.filter_display import (
     build_applied_filters,
     build_filter_form_context,
-    create_redo_url,
     parse_current_filters_to_context,
 )
 from coda.apps.exports.services.filter_form import (
@@ -34,11 +22,30 @@ from coda.apps.exports.services.filter_form import (
     current_filters_from_post,
     form_error_lines,
 )
-from coda.apps.exports.views.base_csv_views import CSV_ENCODING
+from coda.apps.exports.services.fundingrequest_csv.export_service import (
+    export_fundingrequests_to_csv,
+)
+from coda.apps.exports.views.base_csv_views import (
+    csv_delete_view,
+    csv_detail_page,
+    csv_download_view,
+    csv_regen_view,
+    save_export_csv_file,
+)
+from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
 FUNDINGREQUESTS_CSV_CREATE_URL = "exports:fundingrequests_csv_create"
 FUNDINGREQUESTS_CSV_LIST_URL = "exports:fundingrequests_csv_list"
+
+PREVIEW_COLUMNS = [
+    "request_id",
+    "publication_title",
+    "doi",
+    "contract_name",
+    "invoice_number",
+    "position_amount",
+]
 
 
 @breadcrumb("Funding Request CSV Export", parent_url_name="exports:export_home")
@@ -71,43 +78,15 @@ def fundingrequest_csv_detail_page(
     request: HttpRequest,
     pk: int,
 ) -> HttpResponse:
-    export = get_object_or_404(
-        FundingRequestCSVExport,
-        pk=pk,
-    )
-
-    applied_filters = build_applied_filters(export.filters)
-    redo_url = create_redo_url(export.filters, "exports:fundingrequests_csv_create")
-
-    file_missing = not export.csv_file or not os.path.exists(export.csv_file.path)
-    if file_missing:
-        return render(
-            request,
-            "export/fundingrequest_csv_detail.html",
-            {
-                "export": export,
-                "file_missing": True,
-                "regen_url": reverse("exports:fundingrequests_csv_regen", args=[export.pk]),
-                "applied_filters": applied_filters,
-                "redo_url": redo_url,
-            },
-        )
-
-    csv_file = cast(BinaryIO, export.csv_file.open("rb"))
-    with csv_file:
-        preview_df = _create_preview_dataframe(csv_file)
-
-    return render(
+    return csv_detail_page(
         request,
-        "export/fundingrequest_csv_detail.html",
-        {
-            "export": export,
-            "file_missing": False,
-            "preview_columns": preview_df.columns,
-            "preview_rows": preview_df.rows(),
-            "applied_filters": applied_filters,
-            "redo_url": redo_url,
-        },
+        pk,
+        model=FundingRequestCSVExport,
+        template_name="export/fundingrequest_csv_detail.html",
+        preview_columns=PREVIEW_COLUMNS,
+        applied_filters_builder=build_applied_filters,
+        create_url_name=FUNDINGREQUESTS_CSV_CREATE_URL,
+        regen_url_name="exports:fundingrequests_csv_regen",
     )
 
 
@@ -144,7 +123,7 @@ def fundingrequest_csv_export_create_view(
             filters=dto.to_storage(),
             record_count=0,
         )
-        _save_csv_file(export, csv_content)
+        save_export_csv_file(export, csv_content)
 
         return redirect(
             "exports:fundingrequests_csv_detail",
@@ -200,14 +179,9 @@ def _export_form_context(
 @login_required
 @require_POST
 def fundingrequest_csv_delete_view(request: HttpRequest, pk: int) -> HttpResponse:
-    export = get_object_or_404(FundingRequestCSVExport, pk=pk)
-    export_title = export.name
-    export.delete()
-    messages.success(request, f"CSV export '{export_title}' deleted successfully.")
-
-    response = HttpResponse(status=200)
-    response["HX-Redirect"] = reverse(FUNDINGREQUESTS_CSV_LIST_URL)
-    return response
+    return csv_delete_view(
+        request, pk, model=FundingRequestCSVExport, list_url_name=FUNDINGREQUESTS_CSV_LIST_URL
+    )
 
 
 @login_required
@@ -216,15 +190,7 @@ def fundingrequest_download_csv(
     request: HttpRequest,
     pk: int,
 ) -> FileResponse | HttpResponse:
-    export = get_object_or_404(
-        FundingRequestCSVExport,
-        pk=pk,
-    )
-
-    if not export.csv_file or not os.path.exists(export.csv_file.path):
-        return HttpResponse(status=404)
-
-    return FileResponse(export.csv_file.open("rb"))
+    return csv_download_view(pk, model=FundingRequestCSVExport)
 
 
 @login_required
@@ -233,39 +199,13 @@ def fundingrequest_csv_regen_view(
     request: HttpRequest,
     pk: int,
 ) -> HttpResponse:
-    export = get_object_or_404(
-        FundingRequestCSVExport,
-        pk=pk,
+    return csv_regen_view(
+        request,
+        pk,
+        model=FundingRequestCSVExport,
+        generate_csv=_generate_csv_from_filters,
+        detail_url_name="exports:fundingrequests_csv_detail",
     )
-
-    csv_content = _generate_csv_from_filters(export.filters)
-    _save_csv_file(export, csv_content)
-
-    return redirect(
-        "exports:fundingrequests_csv_detail",
-        pk=export.pk,
-    )
-
-
-def _save_csv_file(export: FundingRequestCSVExport, csv_content: str) -> None:
-    row_count = pl.read_csv(StringIO(csv_content), separator=";").height
-    filename = f"{slugify(export.name) or 'export'}-{export.id}.csv"
-    export.csv_file.save(filename, ContentFile(csv_content.encode(CSV_ENCODING)), save=False)
-    export.record_count = row_count
-    export.save(update_fields=["csv_file", "record_count"])
-
-
-def _create_preview_dataframe(csv_file: BinaryIO) -> pl.DataFrame:
-    preview_columns = [
-        "request_id",
-        "publication_title",
-        "doi",
-        "contract_name",
-        "invoice_number",
-        "position_amount",
-    ]
-
-    return pl.read_csv(csv_file, separator=";", n_rows=50).select(preview_columns)
 
 
 def _generate_csv_from_filters(filters: dict[str, Any]) -> str:

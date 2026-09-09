@@ -1,5 +1,5 @@
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from io import StringIO
 from typing import Any, BinaryIO, Protocol, cast
 
@@ -27,9 +27,18 @@ class _CSVExportInstance(Protocol):
     record_count: int
     pk: int
 
-    def delete(self) -> None: ...
+    def delete(
+        self, using: str | None = None, keep_parents: bool = False
+    ) -> tuple[int, dict[str, int]]: ...
 
-    def save(self, update_fields: list[str] | None = None) -> None: ...
+    def save(
+        self,
+        *,
+        force_insert: bool = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None: ...
 
 
 def csv_detail_page(
@@ -101,6 +110,22 @@ def csv_delete_view(
     return response
 
 
+def save_export_csv_file(export: _CSVExportInstance, csv_content: str) -> int:
+    """Store *csv_content* on *export* and return the CSV row count."""
+    row_count = pl.read_csv(StringIO(csv_content), separator=";").height
+    filename = f"{slugify(export.name) or 'export'}-{export.pk}.csv"
+
+    export.csv_file.save(
+        filename,
+        ContentFile(csv_content.encode(CSV_ENCODING)),
+        save=False,
+    )
+    export.record_count = row_count
+    export.save(update_fields=["csv_file", "record_count"])
+
+    return row_count
+
+
 def csv_regen_view(
     request: HttpRequest,
     pk: int,
@@ -112,17 +137,7 @@ def csv_regen_view(
     export = get_object_or_404(model, pk=pk)
     export_ = cast(_CSVExportInstance, export)
 
-    csv_content = generate_csv(export_.filters)
-    row_count = pl.read_csv(StringIO(csv_content), separator=";").height
-    filename = f"{slugify(export_.name) or 'export'}-{export_.pk}.csv"
-
-    export_.csv_file.save(
-        filename,
-        ContentFile(csv_content.encode(CSV_ENCODING)),
-        save=False,
-    )
-    export_.record_count = row_count
-    export_.save(update_fields=["csv_file", "record_count"])
+    save_export_csv_file(export_, generate_csv(export_.filters))
 
     return redirect(detail_url_name, pk=export_.pk)
 
@@ -155,21 +170,15 @@ def create_csv_export(
 
     filters = build_filters(request)
     csv_content = generate_csv(filters)
-    row_count = pl.read_csv(StringIO(csv_content), separator=";").height
 
     export = model._default_manager.create(
         name=title,
         filters=filters,
-        record_count=row_count,
+        record_count=0,
     )
     export_ = cast(_CSVExportInstance, export)
 
-    filename = f"{slugify(title) or 'export'}-{export.pk}.csv"
-
-    export_.csv_file.save(
-        filename,
-        ContentFile(csv_content.encode(CSV_ENCODING)),
-    )
+    save_export_csv_file(export_, csv_content)
 
     return redirect(detail_url_name, pk=export.pk)
 
