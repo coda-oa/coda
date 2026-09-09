@@ -30,38 +30,5 @@
             <a href="{{ journal.publisher.get_absolute_url }}">{{ journal.publisher.name }}</a>
         </p>
     </article>
-    <article>
-        <header>
-            <h2 class="mb-0">
-                Related Funding Requests
-                {% if funding_requests %}({{ funding_requests|length }}){% endif %}
-            </h2>
-        </header>
-        {% if funding_requests %}
-            <div class="scroll-container max-h-30">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Request ID</th>
-                            <th>Publication Title</th>
-                            <th>Request Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for request in funding_requests %}
-                            <tr>
-                                <td>
-                                    <a href="{% url "fundingrequests:detail" pk=request.pk %}">{{ request.request_id }}</a>
-                                </td>
-                                <td>{{ request.publication.title }}</td>
-                                <td>{{ request.request_date }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <p>No related funding requests.</p>
-        {% endif %}
-    </article>
+    {% include "partials/related_funding_requests.html" %}
 {% endblock content %}
