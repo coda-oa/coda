@@ -4,7 +4,10 @@
             <a href="{{ entity.get_absolute_url }}">{{ entity.title }}</a>
         </p>
         <p>EISSN: {{ entity.eissn }}</p>
-        <p>Publisher: {{ entity.publisher.name }}</p>
+        <p>
+            Publisher:
+            <a href="{{ entity.publisher.get_absolute_url }}">{{ entity.publisher.name }}</a>
+        </p>
     </div>
     <div>
         <a href="{% url "publishing:journals:update" eissn=entity.eissn %}"
