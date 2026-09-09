@@ -5,6 +5,7 @@ from coda.apps.exports.views.contract_csv_views import (
     contract_csv_detail_page,
     contract_csv_export_create_view,
     contract_csv_export_list_view,
+    contract_csv_regen_view,
     contract_download_csv,
 )
 from coda.apps.exports.views.fundingrequest_csv_views import (
@@ -75,5 +76,10 @@ urlpatterns = [
         "contracts-csv/<int:pk>/delete/",
         view=contract_csv_delete_view,
         name="contracts_csv_delete",
+    ),
+    path(
+        "contracts-csv/<int:pk>/regen/",
+        view=contract_csv_regen_view,
+        name="contracts_csv_regen",
     ),
 ]

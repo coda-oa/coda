@@ -4,7 +4,11 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import (
+    require_GET,
+    require_POST,
+    require_http_methods,
+)
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.exports.models import ContractCSVExport
@@ -25,6 +29,7 @@ from coda.apps.exports.views.base_csv_views import (
     csv_delete_view,
     csv_detail_page,
     csv_download_view,
+    csv_regen_view,
 )
 from coda.apps.invoices.invoice_query import InvoiceSearchParams
 from coda.apps.views import SimpleSearchEntityListView
@@ -73,30 +78,43 @@ def contract_csv_detail_page(request: HttpRequest, pk: int) -> HttpResponse:
         applied_filters_builder=build_applied_filters_for_contract,
         create_url_name="exports:contracts_csv_create",
         redo_url_builder=create_contract_redo_url,
+        regen_url_name="exports:contracts_csv_regen",
     )
 
 
 @login_required
+@require_POST
+def contract_csv_regen_view(request: HttpRequest, pk: int) -> HttpResponse:
+    return csv_regen_view(
+        request,
+        pk,
+        model=ContractCSVExport,
+        generate_csv=_generate_csv_from_filters,
+        detail_url_name="exports:contracts_csv_detail",
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
 @breadcrumb("Generate New CSV Export", parent_url_name=CONTRACTS_CSV_LIST_URL)
 def contract_csv_export_create_view(request: HttpRequest) -> HttpResponse:
+    if request.method == "POST":
+        try:
+            return create_csv_export(
+                request,
+                ContractCSVExport,
+                build_filters=lambda req: build_filters_from_request(
+                    req,
+                    optional_fields=["payment_status", "funding_source", "decimal_separator"],
+                ),
+                generate_csv=_generate_csv_from_filters,
+                detail_url_name="exports:contracts_csv_detail",
+            )
+        except ValueError as e:
+            messages.error(request, str(e))
+            return _render_create_form(request, status=400)
 
-    if request.method == "GET":
-        return _render_create_form(request)
-
-    try:
-        return create_csv_export(
-            request,
-            ContractCSVExport,
-            build_filters=lambda req: build_filters_from_request(
-                req,
-                optional_fields=["payment_status", "funding_source", "decimal_separator"],
-            ),
-            generate_csv=_generate_csv_from_filters,
-            detail_url_name="exports:contracts_csv_detail",
-        )
-    except ValueError as e:
-        messages.error(request, str(e))
-        return _render_create_form(request, status=400)
+    return _render_create_form(request)
 
 
 def _render_create_form(request: HttpRequest, status: int = 200) -> HttpResponse:
@@ -135,7 +153,7 @@ def contract_csv_delete_view(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 @require_GET
-def contract_download_csv(request: HttpRequest, pk: int) -> FileResponse:
+def contract_download_csv(request: HttpRequest, pk: int) -> FileResponse | HttpResponse:
     return csv_download_view(pk, model=ContractCSVExport)
 
 

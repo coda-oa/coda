@@ -141,6 +141,17 @@ def test_contract_csv_export_create_view__is_opened__creates_export_and_redirect
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test_contract_csv_export_create_view__head_request__is_rejected_without_side_effects(
+    client: Client,
+) -> None:
+    response = client.head(reverse("exports:contracts_csv_create"))
+
+    assert response.status_code == 405
+    assert ContractCSVExport.objects.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test_contract_csv_export_delete_view__is_called__deletes_export_and_returns_success_response(
     client: Client,
 ) -> None:
@@ -237,6 +248,69 @@ def test__contract_csv_detail_page__stored_csv_with_utf8_bom__preview_columns_st
     assert response.context["preview_columns"] == PREVIEW_COLUMNS
     assert response.context["preview_rows"][0][0] == "Bom Contract"
     assert response.context["preview_rows"][0][2] == pytest.approx(123.45)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__contract_csv_detail_page__csv_file_missing__shows_notice_instead_of_crashing(
+    client: Client,
+) -> None:
+    export = ContractCSVExport.objects.create(
+        name="Missing File Export",
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
+        record_count=0,
+    )
+
+    response = client.get(reverse("exports:contracts_csv_detail", args=[export.id]))
+
+    assert response.status_code == 200
+    assert response.context is not None
+    assert response.context["file_missing"] is True
+    assert response.context["preview_rows"] == []
+    assert response.context["regen_url"] == reverse("exports:contracts_csv_regen", args=[export.id])
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__contract_csv_download_view__csv_file_missing__returns_404(client: Client) -> None:
+    export = ContractCSVExport.objects.create(
+        name="Missing File Download Export",
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
+        record_count=0,
+    )
+
+    response = client.get(reverse("exports:contracts_csv_download", args=[export.id]))
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__contract_csv_regen_view__csv_file_missing__recreates_file_and_redirects(
+    client: Client,
+) -> None:
+    export = ContractCSVExport.objects.create(
+        name="Regen Export",
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
+        record_count=0,
+    )
+
+    response = client.post(reverse("exports:contracts_csv_regen", args=[export.id]))
+
+    assert response.status_code == 302
+    assert response.headers["Location"] == reverse("exports:contracts_csv_detail", args=[export.id])
+    export.refresh_from_db()
+    assert bool(export.csv_file)
+    assert export.csv_file.read().startswith(b"\xef\xbb\xbf")
 
 
 @pytest.mark.django_db

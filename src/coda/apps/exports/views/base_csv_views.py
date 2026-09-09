@@ -1,3 +1,4 @@
+import os
 from collections.abc import Callable
 from io import StringIO
 from typing import Any, BinaryIO, Protocol, cast
@@ -28,6 +29,8 @@ class _CSVExportInstance(Protocol):
 
     def delete(self) -> None: ...
 
+    def save(self, update_fields: list[str] | None = None) -> None: ...
+
 
 def csv_detail_page(
     request: HttpRequest,
@@ -39,10 +42,26 @@ def csv_detail_page(
     applied_filters_builder: Callable[[dict[str, str]], list[AppliedFilter]],
     create_url_name: str,
     redo_url_builder: Callable[[dict[str, Any], str], str] = create_redo_url,
+    regen_url_name: str | None = None,
 ) -> HttpResponse:
 
     export = get_object_or_404(model, pk=pk)
     export_ = cast(_CSVExportInstance, export)
+
+    if not export_.csv_file or not os.path.exists(export_.csv_file.path):
+        return render(
+            request,
+            template_name,
+            {
+                "export": export,
+                "file_missing": True,
+                "preview_columns": preview_columns,
+                "preview_rows": [],
+                "applied_filters": applied_filters_builder(export_.filters),
+                "redo_url": redo_url_builder(export_.filters, create_url_name),
+                "regen_url": (reverse(regen_url_name, args=[pk]) if regen_url_name else None),
+            },
+        )
 
     csv_file = cast(BinaryIO, export_.csv_file.open("rb"))
     with csv_file:
@@ -53,6 +72,7 @@ def csv_detail_page(
         template_name,
         {
             "export": export,
+            "file_missing": False,
             "preview_columns": preview_df.columns,
             "preview_rows": preview_df.rows(),
             "applied_filters": applied_filters_builder(export_.filters),
@@ -81,14 +101,44 @@ def csv_delete_view(
     return response
 
 
+def csv_regen_view(
+    request: HttpRequest,
+    pk: int,
+    *,
+    model: type[Model],
+    generate_csv: Callable[[dict[str, str]], str],
+    detail_url_name: str,
+) -> HttpResponse:
+    export = get_object_or_404(model, pk=pk)
+    export_ = cast(_CSVExportInstance, export)
+
+    csv_content = generate_csv(export_.filters)
+    row_count = pl.read_csv(StringIO(csv_content), separator=";").height
+    filename = f"{slugify(export_.name) or 'export'}-{export_.pk}.csv"
+
+    export_.csv_file.save(
+        filename,
+        ContentFile(csv_content.encode(CSV_ENCODING)),
+        save=False,
+    )
+    export_.record_count = row_count
+    export_.save(update_fields=["csv_file", "record_count"])
+
+    return redirect(detail_url_name, pk=export_.pk)
+
+
 def csv_download_view(
     pk: int,
     *,
     model: type[Model],
-) -> FileResponse:
+) -> FileResponse | HttpResponse:
 
     export = get_object_or_404(model, pk=pk)
     export_ = cast(_CSVExportInstance, export)
+
+    if not export_.csv_file or not os.path.exists(export_.csv_file.path):
+        return HttpResponse(status=404)
+
     return FileResponse(export_.csv_file.open("rb"))
 
 
