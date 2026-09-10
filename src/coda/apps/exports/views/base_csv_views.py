@@ -127,7 +127,6 @@ def save_export_csv_file(export: _CSVExportInstance, csv_content: str) -> int:
 
 
 def csv_regen_view(
-    request: HttpRequest,
     pk: int,
     *,
     model: type[Model],

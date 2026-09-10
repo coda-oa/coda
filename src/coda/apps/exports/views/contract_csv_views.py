@@ -93,7 +93,6 @@ def contract_csv_detail_page(request: HttpRequest, pk: int) -> HttpResponse:
 @require_POST
 def contract_csv_regen_view(request: HttpRequest, pk: int) -> HttpResponse:
     return csv_regen_view(
-        request,
         pk,
         model=ContractCSVExport,
         generate_csv=_generate_csv_from_filters,

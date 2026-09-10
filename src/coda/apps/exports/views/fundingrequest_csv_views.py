@@ -200,7 +200,6 @@ def fundingrequest_csv_regen_view(
     pk: int,
 ) -> HttpResponse:
     return csv_regen_view(
-        request,
         pk,
         model=FundingRequestCSVExport,
         generate_csv=_generate_csv_from_filters,
