@@ -869,3 +869,195 @@ def test__publication_with_linked_contract__transforming_to_opencost__attached_c
         publication_data.cost_data.part_of_contract.primary_identifier.value
         == "https://esac.org/id/test-contract-123"
     )
+
+
+@pytest.mark.django_db
+def test__report_invoice_without_date__transforming_to_opencost__invoice_is_excluded() -> None:
+    fr = modelfactory.fundingrequest(title="Publication with undated invoice")
+
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-UNDATED-001",
+    )
+    invoice2 = create_invoice(
+        creditor=create_creditor("Second Creditor"),
+        invoice_date=date(2024, 6, 20),
+        number="INV-UNDATED-002",
+    )
+    create_position(
+        invoice2,
+        fr.publication,
+        description="APC for second invoice",
+        cost_amount=Decimal("700.00"),
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+
+    undated = report_publication.invoices.order_by("invoice_number").first()
+    assert undated is not None
+    undated.invoice_date = None
+    undated.save()
+
+    # openCost needs an invoice or payment date per invoice block, so the dated
+    # invoice is reported and the undated one left out
+    oc_publication = report_publication_to_pydantic(report_publication)
+    assert oc_publication is not None
+    assert oc_publication.cost_data.invoice is not None
+
+    assert [invoice.invoice_number for invoice in oc_publication.cost_data.invoice] == [
+        "INV-UNDATED-002"
+    ]
+
+
+@pytest.mark.django_db
+def test__report_contract_without_participation_dates__transforming_to_opencost__contract_is_excluded() -> (
+    None
+):
+    contract = create_contract_with_identifiers(name="Undated Agreement")
+    create_contract_with_invoice(contract)
+
+    report = create_opencost_report()
+    report_contract = report.contracts.first()
+    assert report_contract is not None
+    report_contract.participation_from = None
+    report_contract.participation_to = None
+    report_contract.save()
+
+    # openCost requires both participation dates and the participation block
+    # itself, so the contract cannot be reported at all
+    assert to_opencost(report) is None
+
+
+@pytest.mark.django_db
+def test__report_contract_invoice_without_total__transforming_to_opencost__amount_invoice_is_omitted() -> (
+    None
+):
+    contract = create_contract_with_identifiers(name="Totalless Agreement")
+    create_contract_with_invoice(contract)
+
+    report = create_opencost_report()
+    report_contract = report.contracts.first()
+    assert report_contract is not None
+    report_invoice = report_contract.invoices.first()
+    assert report_invoice is not None
+    report_invoice.amount_invoice = None
+    report_invoice.amount_invoice_currency = ""
+    report_invoice.save()
+
+    opencost_data = to_opencost(report)
+    assert opencost_data is not None
+    assert opencost_data.contract is not None
+
+    invoice_group = opencost_data.contract[0].cost_data.invoice_group[0]
+    assert invoice_group.invoice is not None
+
+    invoice = invoice_group.invoice[0]
+    assert invoice.invoice_number == "INV-CONTRACT-001"
+    assert invoice.amount_invoice is None
+
+
+@pytest.mark.django_db
+def test__report_invoice_with_blank_text_fields__transforming_to_opencost__fields_are_omitted() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication with blank invoice fields")
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-BLANK-001",
+        creditor_name="Blank Creditor",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    report_invoice = report_publication.invoices.first()
+    assert report_invoice is not None
+    report_invoice.invoice_number = ""
+    report_invoice.creditor = ""
+    report_invoice.save()
+
+    oc_publication = report_publication_to_pydantic(report_publication)
+    assert oc_publication is not None
+    assert oc_publication.cost_data.invoice is not None
+
+    invoice = oc_publication.cost_data.invoice[0]
+    assert invoice.invoice_number is None
+    assert invoice.creditor is None
+    assert invoice.amounts_paid.amount_paid[0].amount == Decimal("1500.00")
+
+
+@pytest.mark.django_db
+def test__report_invoice_position_with_unknown_cost_type__transforming_to_opencost__position_is_excluded() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication with unmappable cost type")
+    invoice = create_invoice(
+        creditor=create_creditor("Cost Type Creditor"),
+        invoice_date=date(2024, 6, 1),
+        number="INV-COST-TYPE-001",
+    )
+    create_position(
+        invoice,
+        fr.publication,
+        description="APC",
+        cost_amount=Decimal("1000.00"),
+        cost_type="gold-oa",
+    )
+    create_position(
+        invoice,
+        fr.publication,
+        description="Surcharge",
+        cost_amount=Decimal("200.00"),
+        cost_type="other",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    report_invoice = report_publication.invoices.first()
+    assert report_invoice is not None
+
+    positions = sorted(report_invoice.positions.all(), key=lambda position: position.amount)
+    assert len(positions) == 2
+    positions[0].cost_type = "apc"
+    positions[0].save()
+
+    oc_publication = report_publication_to_pydantic(report_publication)
+    assert oc_publication is not None
+    assert oc_publication.cost_data.invoice is not None
+
+    amounts_paid = oc_publication.cost_data.invoice[0].amounts_paid.amount_paid
+    assert len(amounts_paid) == 1
+    assert amounts_paid[0].cost_type == PublicationCostType.gold_oa
+    assert amounts_paid[0].amount == Decimal("1000.00")
+
+
+@pytest.mark.django_db
+def test__report_invoice_without_usable_positions__transforming_to_opencost__invoice_is_excluded() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication with only unmappable positions")
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-COST-TYPE-002",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    report_invoice = report_publication.invoices.first()
+    assert report_invoice is not None
+
+    position = report_invoice.positions.first()
+    assert position is not None
+    position.cost_type = "apc"
+    position.save()
+
+    # without a single reported amount the invoice block is empty, which openCost
+    # forbids, and the publication then has no cost data at all
+    assert report_publication_to_pydantic(report_publication) is None

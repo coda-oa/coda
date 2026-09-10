@@ -1,11 +1,14 @@
+from datetime import date
 from decimal import Decimal
 
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
     OpenCostReportContractInstitutionIdentifier,
+    OpenCostReportContractInvoicePosition,
     OpenCostReportContractSecondaryIdentifier,
     OpenCostReportInstitutionIdentifier,
+    OpenCostReportInvoicePosition,
     OpenCostReportPublication,
     OpenCostReportPublicationLink,
 )
@@ -17,6 +20,7 @@ from opencost import (
     ContractAmountPaidType,
     ContractAmountsPaid,
     ContractCostDataType,
+    ContractCostType,
     ContractInvoiceGroupType,
     ContractInvoicePeriodType,
     ContractInvoiceType,
@@ -38,6 +42,7 @@ from opencost import (
     PublicationAmountPaidType,
     PublicationAmountsPaid,
     PublicationCostDataType,
+    PublicationCostType,
     PublicationInvoiceType,
     PublicationPrimaryIdentifier,
     PublicationSecondaryIdentifiers,
@@ -146,50 +151,83 @@ def _get_part_of_contract(report_pub: OpenCostReportPublication) -> PartOfContra
     )
 
 
-def _get_invoice_data(report_pub: OpenCostReportPublication) -> list[PublicationInvoiceType] | None:
-    report_invoices = report_pub.invoices.all()
+def _text_or_none(value: str) -> str | None:
+    """Blank snapshot text is reported as an absent element, not an empty one."""
+    return value or None
 
-    if not report_invoices:
+
+def _invoice_dates(invoice_date: date | None) -> Dates | None:
+    """Return the dates block, or ``None`` when openCost would have no date at all."""
+    if invoice_date is None:
         return None
 
+    return Dates(invoice=str(invoice_date))
+
+
+def _amount_invoice(amount: Decimal | None, currency: str) -> AmountInvoice | None:
+    """Return the invoice total, or ``None`` when amount or currency is unusable."""
+    return map_or_none(
+        lambda currency_code: AmountInvoice(amount=amount, currency=currency_code),
+        currency,
+    )
+
+
+def _get_invoice_data(report_pub: OpenCostReportPublication) -> list[PublicationInvoiceType] | None:
     invoice_list = []
-    for report_invoice in report_invoices:
+    for report_invoice in report_pub.invoices.all():
         report_positions = report_invoice.positions.all()
 
-        if not report_positions:
+        amounts_paid = [
+            amount_paid
+            for position in report_positions
+            if (amount_paid := _publication_amount_paid(position)) is not None
+        ]
+
+        if not amounts_paid:
+            # XSD requires at least one amount_paid per invoice.
             continue
 
-        amounts_paid = []
-        for report_position in report_positions:
-            amounts_paid.append(
-                PublicationAmountPaidType(
-                    amount=report_position.amount,
-                    currency=report_position.currency,
-                    cost_type=report_position.cost_type,
-                    vat=report_position.vat or Decimal("0"),
-                )
-            )
+        dates = _invoice_dates(report_invoice.invoice_date)
+        if dates is None:
+            # XSD requires an invoice or payment date.
+            continue
 
-        dates = Dates(
-            invoice=str(report_invoice.invoice_date) if report_invoice.invoice_date else None,
-            paid=None,
-        )
-
-        total_amount = sum(pos.amount for pos in report_positions)
-        currency = report_positions[0].currency if report_positions else None
-        amount_invoice = AmountInvoice(amount=total_amount, currency=currency)
+        # FIXME: The total amount on the invoice is not necessarily the sum of the positions,
+        # because some positions may have a cost type that openCost does not know about.
+        # Further, currency may differ between positions, so we cannot sum them up.
+        # For now, we will sum the positions and use that as the total amount, but this is not ideal.
+        total_amount = sum((position.amount for position in report_positions), Decimal(0))
 
         invoice_list.append(
             PublicationInvoiceType(
-                invoice_number=report_invoice.invoice_number,
-                creditor=report_invoice.creditor,
+                invoice_number=_text_or_none(report_invoice.invoice_number),
+                creditor=_text_or_none(report_invoice.creditor),
                 amounts_paid=PublicationAmountsPaid(amount_paid=amounts_paid),
                 dates=dates,
-                amount_invoice=amount_invoice,
+                # the total as stated on the invoice, which still counts positions
+                # whose cost type openCost does not know
+                amount_invoice=_amount_invoice(
+                    amount=total_amount,
+                    currency=report_positions[0].currency,
+                ),
             )
         )
 
-    return invoice_list if invoice_list else None
+    return invoice_list or None
+
+
+def _publication_amount_paid(
+    position: OpenCostReportInvoicePosition,
+) -> PublicationAmountPaidType | None:
+    return map_or_none(
+        lambda cost_type: PublicationAmountPaidType(
+            amount=position.amount,
+            currency=position.currency,
+            cost_type=PublicationCostType(cost_type),
+            vat=position.vat or Decimal(0),
+        ),
+        position.cost_type,
+    )
 
 
 def _get_institution(
@@ -269,18 +307,10 @@ def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> Cont
         # Without institution data we cannot produce a valid record.
         return None
 
-    participation = ParticipationType(
-        **{
-            "from": (
-                str(report_contract.participation_from)
-                if report_contract.participation_from
-                else None
-            ),
-            "to": (
-                str(report_contract.participation_to) if report_contract.participation_to else None
-            ),
-        }
-    )
+    participation = _participation(report_contract)
+    if participation is None:
+        # XSD requires the participation block with both dates.
+        return None
 
     primary_identifier = ContractPrimaryIdentifier(
         value=report_contract.primary_identifier_value or "UNKNOWN",
@@ -305,48 +335,46 @@ def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> Cont
     )
 
 
+def _participation(report_contract: OpenCostReportContract) -> ParticipationType | None:
+    if not report_contract.participation_from or not report_contract.participation_to:
+        return None
+
+    return ParticipationType(
+        from_=str(report_contract.participation_from),
+        to=str(report_contract.participation_to),
+    )
+
+
 def _get_contract_cost_data(report_contract: OpenCostReportContract) -> ContractCostDataType | None:
     report_invoices = report_contract.invoices.all()
 
-    if not report_invoices:
-        # XSD requires at least one invoice_group — nothing to produce.
-        return None
-
     invoice_list = []
     for report_invoice in report_invoices:
-        report_positions = report_invoice.positions.all()
+        amounts_paid = [
+            amount_paid
+            for position in report_invoice.positions.all()
+            if (amount_paid := _contract_amount_paid(position)) is not None
+        ]
 
-        if not report_positions:
+        if not amounts_paid:
+            # XSD requires at least one amount_paid per invoice.
             continue
 
-        amounts_paid = []
-        for report_position in report_positions:
-            amounts_paid.append(
-                ContractAmountPaidType(
-                    amount=report_position.amount,
-                    currency=report_position.currency,
-                    cost_type=report_position.cost_type,
-                    vat=report_position.vat or Decimal("0"),
-                )
-            )
-
-        dates = Dates(
-            invoice=str(report_invoice.invoice_date) if report_invoice.invoice_date else None,
-            paid=None,
-        )
-
-        amount_invoice = AmountInvoice(
-            amount=report_invoice.amount_invoice,
-            currency=report_invoice.amount_invoice_currency,
-        )
+        dates = _invoice_dates(report_invoice.invoice_date)
+        if dates is None:
+            # XSD requires an invoice or payment date.
+            continue
 
         invoice_list.append(
             ContractInvoiceType(
-                invoice_number=report_invoice.invoice_number,
-                creditor=report_invoice.creditor,
+                invoice_number=_text_or_none(report_invoice.invoice_number),
+                creditor=_text_or_none(report_invoice.creditor),
                 amounts_paid=ContractAmountsPaid(amount_paid=amounts_paid),
                 dates=dates,
-                amount_invoice=amount_invoice,
+                amount_invoice=_amount_invoice(
+                    amount=report_invoice.amount_invoice,
+                    currency=report_invoice.amount_invoice_currency,
+                ),
             )
         )
 
@@ -361,10 +389,8 @@ def _get_contract_cost_data(report_contract: OpenCostReportContract) -> Contract
         return None
 
     invoices_period = ContractInvoicePeriodType(
-        **{
-            "from": str(report_contract.report.period_start),
-            "to": str(report_contract.report.period_end),
-        }
+        from_=str(report_contract.report.period_start),
+        to=str(report_contract.report.period_end),
     )
 
     invoice_group = ContractInvoiceGroupType(
@@ -374,6 +400,20 @@ def _get_contract_cost_data(report_contract: OpenCostReportContract) -> Contract
     )
 
     return ContractCostDataType(invoice_group=[invoice_group])
+
+
+def _contract_amount_paid(
+    position: OpenCostReportContractInvoicePosition,
+) -> ContractAmountPaidType | None:
+    return map_or_none(
+        lambda cost_type: ContractAmountPaidType(
+            amount=position.amount,
+            currency=position.currency,
+            cost_type=ContractCostType(cost_type),
+            vat=position.vat or Decimal(0),
+        ),
+        position.cost_type,
+    )
 
 
 def _get_contract_secondary_identifiers(
