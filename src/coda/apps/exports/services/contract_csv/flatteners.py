@@ -1,6 +1,10 @@
 from decimal import Decimal
 
-from coda.apps.exports.services.contract_csv.dtos import ContractCSVExportDto, ContractDetailsDto
+from coda.apps.exports.services.contract_csv.dtos import (
+    ContractCSVExportDto,
+    ContractDetailsDto,
+    ContractLinkDto,
+)
 from coda.contexts.finance.dto.import_dtos import (
     ContractPositionImportDto,
     FundingAssignmentImportDto,
@@ -34,6 +38,13 @@ def flatten_contract_data(dto: ContractCSVExportDto) -> list[dict[str, str]]:
     return rows
 
 
+def _link_columns_by_type(links: list[ContractLinkDto]) -> dict[str, str]:
+    values: dict[str, list[str]] = {}
+    for link in links:
+        values.setdefault(link.type.lower(), []).append(link.value)
+    return {link_type: ", ".join(link_values) for link_type, link_values in values.items()}
+
+
 def _create_row(
     contract: ContractDetailsDto,
     invoice: InvoiceImportDto,
@@ -41,7 +52,6 @@ def _create_row(
     assignment: FundingAssignmentImportDto | None = None,
     funded_amount: Decimal | None = None,
 ) -> dict[str, str]:
-    link_columns = {link.type.lower(): link.value for link in contract.links}
     return {
         "contract_name": contract.name,
         "start_date": str(contract.start_date) if contract.start_date else "",
@@ -50,7 +60,7 @@ def _create_row(
         "journals": ", ".join(contract.journals),
         "publication_billing": contract.publication_billing,
         "active_status": str(contract.active),
-        **link_columns,
+        **_link_columns_by_type(contract.links),
         "invoice_number": invoice.number,
         "invoice_date": invoice.date.isoformat(),
         "creditor": invoice.creditor,

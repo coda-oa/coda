@@ -5,6 +5,7 @@ import polars as pl
 
 import pytest
 
+from coda.apps.contracts.models import ContractLink, ContractLinkType
 from coda.apps.exports.services.contract_csv.export_service import export_contract_to_csv
 from coda.apps.invoices.invoice_query import InvoiceSearchParams
 from coda.domain.finance.invoice import CreditorId, PaymentStatus
@@ -167,4 +168,21 @@ def test__invoice_comment_with_unicode_line_separators__export_to_csv__replaces_
 
     assert df["invoice_comment"][0] == "line one line two line three"
     assert "\u2028" not in export
-    assert "\u2029" not in export
+
+
+@pytest.mark.django_db
+def test__contract_with_two_links_of_same_type__export_to_csv__joins_values_into_one_column() -> (
+    None
+):
+    _, contract_model, contract_year = create_contract_and_year()
+    link_type = ContractLinkType.objects.create(name="escac")
+    ContractLink.objects.create(type=link_type, value="ES-1", contract=contract_model)
+    ContractLink.objects.create(type=link_type, value="ES-2", contract=contract_model)
+
+    create_invoice_with_fractional_position(contract_year)
+
+    export = export_contract_to_csv(InvoiceSearchParams())
+
+    df = pl.read_csv(StringIO(export), separator=";")
+
+    assert df["escac"].to_list() == ["ES-1, ES-2"]

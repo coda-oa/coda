@@ -86,7 +86,7 @@ def test__funding_request_with_author_affiliation_and_identifier__query_for_expo
     extra_author.affiliation = institution
     extra_author.save()
 
-    with django_assert_num_queries(13):
+    with django_assert_num_queries(12):
         results = get_funding_requests_for_export(_make_params(date(2026, 3, 1), date(2026, 3, 31)))
         for funding_request in results:
             for author in funding_request.publication.relevant_authors.all():
@@ -244,9 +244,9 @@ def test__query_with_prefetch__accessing_related_objects__does_not_trigger_addit
     # 7. Prefetch funding_assignments.funding_source
     # Should be around 7-10 queries total, NOT 3 * 2 * N separate queries
     query_count = len(context.captured_queries)
-    assert query_count < 25, (
-        f"Too many queries: {query_count}. Prefetch may not be working correctly."
-    )
+    assert (
+        query_count < 25
+    ), f"Too many queries: {query_count}. Prefetch may not be working correctly."
 
 
 @pytest.mark.django_db
