@@ -8,6 +8,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from coda.apps.opencost.models import OpenCostReport
+from coda.apps.preferences.models import GlobalPreferences
 from tests import modelfactory
 from tests.opencost.helpers import (
     create_contract_with_identifiers,
@@ -41,6 +42,10 @@ def test__invalid_open_access_type__generating_report__re_renders_without_creati
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__valid_minimal_generate_post__generating_report__creates_report(client: Client) -> None:
+    prefs, _ = GlobalPreferences.objects.get_or_create()
+    prefs.home_institution = modelfactory.institution()
+    prefs.save()
+
     response = client.post(
         reverse("opencost:generate_submit"),
         data={
@@ -76,6 +81,52 @@ def test__invalid_open_access_type__generating_report__preserves_entered_title_a
     assert 'value="Keep Me"' in content
     assert 'value="2024-01-01"' in content
     assert 'value="2024-01-31"' in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__generate_without_home_institution__fails_without_creating_a_report(
+    client: Client,
+) -> None:
+    GlobalPreferences.objects.all().delete()
+
+    response = client.post(
+        reverse("opencost:generate_submit"),
+        data={
+            "title": "No Institution Report",
+            "period_start": "2024-01-01",
+            "period_end": "2024-01-31",
+        },
+    )
+
+    assert response.status_code == 302
+    assert OpenCostReport.objects.count() == 0
+    flashes = [str(m) for m in get_messages(response.wsgi_request)]
+    assert any("No home institution is set" in m for m in flashes)
+    assert any("was not generated" in m for m in flashes)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__generate_with_home_institution__warns_only_about_actual_issues(
+    client: Client,
+) -> None:
+    prefs, _ = GlobalPreferences.objects.get_or_create()
+    prefs.home_institution = modelfactory.institution()
+    prefs.save()
+
+    response = client.post(
+        reverse("opencost:generate_submit"),
+        data={
+            "title": "Institution Report",
+            "period_start": "2024-01-01",
+            "period_end": "2024-01-31",
+        },
+    )
+
+    assert response.status_code == 302
+    flashes = [str(m) for m in get_messages(response.wsgi_request)]
+    assert not any("No home institution is set" in m for m in flashes)
 
 
 @pytest.mark.django_db
