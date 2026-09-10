@@ -3,8 +3,13 @@ from decimal import Decimal
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
+    OpenCostReportContractInstitutionIdentifier,
+    OpenCostReportContractSecondaryIdentifier,
+    OpenCostReportInstitutionIdentifier,
     OpenCostReportPublication,
+    OpenCostReportPublicationLink,
 )
+from coda.coda_itertools import map_or_none
 from opencost import (
     AmountInvoice,
     BibliographicInformation,
@@ -85,30 +90,34 @@ def report_publication_to_pydantic(report_pub: OpenCostReportPublication) -> Pub
 
 
 def _get_publication_type(report_pub: OpenCostReportPublication) -> CoarPublicationType:
-    if report_pub.publication_type:
-        try:
-            return CoarPublicationType(report_pub.publication_type)
-        except ValueError:
-            pass
-    return CoarPublicationType.other
+    publication_type = map_or_none(CoarPublicationType, report_pub.publication_type)
+    return publication_type or CoarPublicationType.other
 
 
 def _get_secondary_identifiers(
     report_pub: OpenCostReportPublication,
 ) -> PublicationSecondaryIdentifiers | None:
-    secondary_ids: list[PublicationSecondaryIdType] = []
-
-    for link in report_pub.links.all():
-        try:
-            id_type = PublicationSecondaryIdTypeEnum(link.link_type)
-            secondary_ids.append(PublicationSecondaryIdType(value=link.value, type=id_type))
-        except ValueError:
-            continue
+    secondary_ids = [
+        secondary_id
+        for link in report_pub.links.all()
+        if (secondary_id := _publication_secondary_id(link)) is not None
+    ]
 
     if not secondary_ids:
         return None
 
     return PublicationSecondaryIdentifiers(id=secondary_ids)
+
+
+def _publication_secondary_id(
+    link: OpenCostReportPublicationLink,
+) -> PublicationSecondaryIdType | None:
+    return map_or_none(
+        lambda link_type: PublicationSecondaryIdType(
+            value=link.value, type=PublicationSecondaryIdTypeEnum(link_type)
+        ),
+        link.link_type,
+    )
 
 
 def _get_part_of_contract(report_pub: OpenCostReportPublication) -> PartOfContractType | None:
@@ -192,13 +201,11 @@ def _get_institution(
             InstitutionName(value=report_obj.institution_name, type=InstitutionNameType.full)
         )
 
-    identifiers = []
-    for inst_id in report_obj.institution_identifiers.all():
-        try:
-            id_type = InstitutionIdType(inst_id.identifier_type)
-            identifiers.append(InstitutionId(value=inst_id.value, type=id_type))
-        except ValueError:
-            continue
+    identifiers = [
+        identifier
+        for inst_id in report_obj.institution_identifiers.all()
+        if (identifier := _institution_identifier(inst_id)) is not None
+    ]
 
     # XSD requires at least one name or id (minOccurs=1 on choice).
     # Return None when unavailable so the caller can skip this entity.
@@ -208,6 +215,17 @@ def _get_institution(
     return InstitutionType(
         name=names if names else None,
         id=identifiers if identifiers else None,
+    )
+
+
+def _institution_identifier(
+    inst_id: OpenCostReportInstitutionIdentifier | OpenCostReportContractInstitutionIdentifier,
+) -> InstitutionId | None:
+    return map_or_none(
+        lambda identifier_type: InstitutionId(
+            value=inst_id.value, type=InstitutionIdType(identifier_type)
+        ),
+        inst_id.identifier_type,
     )
 
 
@@ -361,16 +379,24 @@ def _get_contract_cost_data(report_contract: OpenCostReportContract) -> Contract
 def _get_contract_secondary_identifiers(
     report_contract: OpenCostReportContract,
 ) -> ContractSecondaryIdentifiersType | None:
-    secondary_ids: list[ContractSecondaryIdType] = []
-
-    for identifier in report_contract.secondary_identifiers.all():
-        try:
-            id_type = ContractSecondaryIdTypeEnum(identifier.identifier_type)
-            secondary_ids.append(ContractSecondaryIdType(value=identifier.value, type=id_type))
-        except ValueError:
-            continue
+    secondary_ids = [
+        secondary_id
+        for identifier in report_contract.secondary_identifiers.all()
+        if (secondary_id := _contract_secondary_id(identifier)) is not None
+    ]
 
     if not secondary_ids:
         return None
 
     return ContractSecondaryIdentifiersType(id=secondary_ids)
+
+
+def _contract_secondary_id(
+    identifier: OpenCostReportContractSecondaryIdentifier,
+) -> ContractSecondaryIdType | None:
+    return map_or_none(
+        lambda identifier_type: ContractSecondaryIdType(
+            value=identifier.value, type=ContractSecondaryIdTypeEnum(identifier_type)
+        ),
+        identifier.identifier_type,
+    )
