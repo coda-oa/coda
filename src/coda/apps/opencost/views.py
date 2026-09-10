@@ -12,7 +12,6 @@ from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from coda.apps.contracts.models import ContractLink
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.exports.services.filter_display import (
     build_applied_filters,
@@ -31,16 +30,13 @@ from coda.apps.opencost.issues import ValidationWarning
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
-    OpenCostReportContractInvoice,
-    OpenCostReportContractInvoicePosition,
-    OpenCostReportInvoice,
-    OpenCostReportInvoicePosition,
     OpenCostReportPublication,
     OpenCostReportPublicationContract,
 )
 from coda.apps.opencost.report_service import (
     generate_report as generate_report_service,
 )
+from coda.apps.opencost.services.queries import transform_ready_reports
 from coda.apps.opencost.validation import validate_report
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.views import SimpleSearchEntityListView
@@ -289,57 +285,7 @@ def _report_form_context(
 @login_required
 @require_GET
 def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
-    # Prefetch all related data upfront to avoid N+1 queries during XML generation
-    report = get_object_or_404(
-        OpenCostReport.objects.prefetch_related(
-            Prefetch(
-                "publications",
-                queryset=OpenCostReportPublication.objects.prefetch_related(
-                    "institution_identifiers",
-                    "links",
-                    Prefetch(
-                        "linked_contracts",
-                        queryset=OpenCostReportPublicationContract.objects.select_related(
-                            "contract",
-                        ).prefetch_related(
-                            Prefetch(
-                                "contract__links",
-                                queryset=ContractLink.objects.select_related("type"),
-                            ),
-                        ),
-                    ),
-                    Prefetch(
-                        "invoices",
-                        queryset=OpenCostReportInvoice.objects.prefetch_related(
-                            Prefetch(
-                                "positions",
-                                queryset=OpenCostReportInvoicePosition.objects.all(),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-            Prefetch(
-                "contracts",
-                queryset=OpenCostReportContract.objects.select_related(
-                    "report",
-                ).prefetch_related(
-                    "institution_identifiers",
-                    "secondary_identifiers",
-                    Prefetch(
-                        "invoices",
-                        queryset=OpenCostReportContractInvoice.objects.prefetch_related(
-                            Prefetch(
-                                "positions",
-                                queryset=OpenCostReportContractInvoicePosition.objects.all(),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-        pk=report_id,
-    )
+    report = get_object_or_404(transform_ready_reports(), pk=report_id)
 
     try:
         # Convert prefetched querysets to lists for transformer functions
