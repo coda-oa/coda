@@ -40,7 +40,7 @@ from coda.apps.opencost.models import (
 from coda.apps.opencost.report_service import (
     generate_report as generate_report_service,
 )
-from coda.apps.opencost.validation import validate_report
+from coda.apps.opencost.validation import validate_report, ValidationWarning
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
@@ -198,6 +198,25 @@ def _build_success_message(report: OpenCostReport) -> str:
     )
 
 
+def _exclusion_message(excluded: list[ValidationWarning]) -> str:
+    """Summarise what the transformer had to leave out of the generated XML."""
+    count = f"{len(excluded)} record" if len(excluded) == 1 else f"{len(excluded)} records"
+    details = "; ".join(f"{warning.entity_name}: {warning.message}" for warning in excluded[:5])
+
+    hidden = len(excluded) - 5
+    if hidden > 0:
+        details += f" (and {hidden} more)"
+
+    return f"The openCost XML leaves out {count}: {details}"
+
+
+def _no_data_message(excluded: list[ValidationWarning]) -> str:
+    if not excluded:
+        return "No data to export — the report has no publications or contracts to transform."
+
+    return f"No data to export. {_exclusion_message(excluded)}"
+
+
 @login_required
 @require_POST
 def generate_report(request: HttpRequest) -> HttpResponse:
@@ -326,13 +345,11 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
         publications_list = list(report.publications.all())
         contracts_list = list(report.contracts.all())
 
-        xml_string = generate_xml(report, publications_list, contracts_list)
+        excluded: list[ValidationWarning] = []
+        xml_string = generate_xml(report, publications_list, contracts_list, excluded)
 
         if not xml_string:
-            messages.warning(
-                request,
-                "No data to export — all items were excluded due to missing required fields.",
-            )
+            messages.warning(request, _no_data_message(excluded))
             return redirect(OPENCOST_LIST_URL)
 
         response = HttpResponse(xml_string, content_type="application/xml")
@@ -340,6 +357,9 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
         filename = f"{report.title}_{report.id}_{report.generated_at.strftime('%Y%m%d')}.xml"
 
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+        if excluded:
+            messages.warning(request, _exclusion_message(excluded))
 
         return response
 

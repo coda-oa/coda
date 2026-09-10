@@ -4,6 +4,7 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
+from coda.apps.opencost.validation import ValidationWarning
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import Link, LinkType
@@ -528,3 +529,32 @@ def test__report_publication_without_doi__generate_xml__emits_bibliographic_info
     assert title_elem.text == "Monograph Without DOI"
     assert publisher_elem.text == journal.publisher.name
     assert is_part_of_elem.text == journal.title
+
+
+@pytest.mark.django_db
+def test__generate_xml_with_unreportable_contract__collects_exclusion_reasons() -> None:
+    publication = modelfactory.publication(title="Publication For Partial Export")
+    doi_type, _ = LinkType.objects.get_or_create(name="DOI")
+    Link.objects.create(publication=publication, type=doi_type, value="10.1234/partial.doi")
+    create_publication_with_invoice(
+        publication,
+        invoice_date=date(2024, 6, 20),
+        invoice_number="INV-XML-EXCL-001",
+    )
+    contract = create_contract_with_identifiers(name="Undated Agreement")
+    create_contract_with_invoice(contract)
+
+    report = create_opencost_report()
+    report_contract = report.contracts.first()
+    assert report_contract is not None
+    report_contract.participation_to = None
+    report_contract.save()
+
+    excluded: list[ValidationWarning] = []
+
+    xml_string = generate_xml(report, excluded=excluded)
+
+    assert xml_string != ""
+    assert "Undated Agreement" not in xml_string
+    assert len(excluded) == 1
+    assert excluded[0].entity_name == "Undated Agreement"

@@ -67,6 +67,21 @@ def validate_report(
                 )
             )
 
+        if not contract.participation_from or not contract.participation_to:
+            warnings.append(
+                ValidationWarning(
+                    level="error",
+                    message=(
+                        "Missing participation dates - contract will be excluded from XML. "
+                        "Set the contract start and end date."
+                    ),
+                    entity_type="contract",
+                    entity_id=contract.contract.id,
+                    entity_name=contract.contract_name,
+                    fix_url=reverse("contracts:detail", kwargs={"pk": contract.contract.id}),
+                )
+            )
+
     for pub in publications:
         if not pub.doi:
             warnings.append(

@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from django.urls import reverse
 
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.report_service import generate_report
@@ -12,6 +13,8 @@ from coda.apps.publications.models._links import LinkType, Link
 from tests import modelfactory
 from tests.opencost.helpers import (
     create_contract_with_identifiers,
+    create_contract_with_invoice,
+    create_opencost_report,
     create_publication_with_invoice,
     create_institution_with_identifiers,
     create_creditor,
@@ -222,3 +225,27 @@ def test_get_issue_counts_separates_errors_and_warnings() -> None:
     assert counts["errors"] >= 2
     # Should have issues
     assert report.has_issues() is True
+
+
+@pytest.mark.django_db
+def test_validate_report_contract_without_participation_dates() -> None:
+    contract = create_contract_with_identifiers(name="Undated Agreement")
+    create_contract_with_invoice(contract)
+
+    report = create_opencost_report()
+    report_contract = report.contracts.first()
+    assert report_contract is not None
+    report_contract.participation_from = None
+    report_contract.save()
+
+    warnings = validate_report(report)
+
+    date_errors = [w for w in warnings if "participation" in w.message]
+    assert len(date_errors) == 1
+    assert date_errors[0].level == "error"
+    assert date_errors[0].entity_type == "contract"
+    assert date_errors[0].entity_name == "Undated Agreement"
+    assert date_errors[0].fix_url == reverse(
+        "contracts:detail", kwargs={"pk": report_contract.contract_id}
+    )
+    assert date_errors[0].message.endswith("Set the contract start and end date.")
