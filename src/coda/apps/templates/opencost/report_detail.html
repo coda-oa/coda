@@ -41,49 +41,11 @@
                     {% endif %}
                 </div>
             </section>
-            {% if has_issues %}
-                <article class="my-2">
-                    <header>
-                        <h2>Data Completeness Issues</h2>
-                    </header>
-                    {% if errors %}
-                        <article class="error">
-                            <h3>Errors ({{ errors|length }})</h3>
-                            <p>
-                                <em>These issues must be fixed for complete OpenCost data:</em>
-                            </p>
-                            <div class="scroll-container max-h-30">
-                                <ul>
-                                    {% for error in errors %}
-                                        <li>
-                                            <strong>{{ error.entity_name }}</strong>: {{ error.message }}
-                                            {% if error.fix_url %}— <a href="{{ error.fix_url }}">Fix this</a>{% endif %}
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                        </article>
-                    {% endif %}
-                    {% if warnings_only %}
-                        <article class="warning">
-                            <h3>Warnings ({{ warnings_only|length }})</h3>
-                            <p>
-                                <em>Recommended improvements for better data quality:</em>
-                            </p>
-                            <div class="scroll-container max-h-30">
-                                <ul>
-                                    {% for warning in warnings_only %}
-                                        <li>
-                                            <strong>{{ warning.entity_name }}</strong>: {{ warning.message }}
-                                            {% if warning.fix_url %}— <a href="{{ warning.fix_url }}">Fix this</a>{% endif %}
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                        </article>
-                    {% endif %}
-                </article>
-            {% endif %}
+            <div id="issues"
+                 aria-live="polite"
+                 hx-get="{% url 'opencost:issues' report.id %}"
+                 hx-trigger="load"
+                 hx-swap="innerHTML"></div>
             <article class="my-2">
                 <header>
                     <h2>Publications ({{ publications_count }})</h2>

@@ -1082,15 +1082,15 @@ def test__contract_without_participation_dates__transforming_to_opencost__exclus
     report_contract.participation_from = None
     report_contract.save()
 
-    excluded: list[ValidationWarning] = []
+    issues: list[ValidationWarning] = []
 
-    assert to_opencost(report, excluded=excluded) is None
+    assert to_opencost(report, issues=issues) is None
 
-    assert len(excluded) == 1
-    assert excluded[0].level == "error"
-    assert excluded[0].entity_type == "contract"
-    assert excluded[0].entity_name == "Undated Agreement"
-    assert "participation" in excluded[0].message
+    assert len(issues) == 1
+    assert issues[0].level == "error"
+    assert issues[0].entity_type == "contract"
+    assert issues[0].entity_name == "Undated Agreement"
+    assert "participation" in issues[0].message
 
 
 @pytest.mark.django_db
@@ -1106,15 +1106,15 @@ def test__contract_invoice_without_date__transforming_to_opencost__exclusion_is_
     report_invoice.invoice_date = None
     report_invoice.save()
 
-    excluded: list[ValidationWarning] = []
+    issues: list[ValidationWarning] = []
 
-    assert to_opencost(report, excluded=excluded) is None
+    assert to_opencost(report, issues=issues) is None
 
     # the invoice and the contract both go, but a single entry tells the whole story
-    assert len(excluded) == 1
-    assert excluded[0].entity_type == "contract"
-    assert "INV-NODATE-CONTRACT-001" in excluded[0].message
-    assert "excluded entirely" in excluded[0].message
+    assert len(issues) == 1
+    assert issues[0].entity_type == "contract"
+    assert "INV-NODATE-CONTRACT-001" in issues[0].message
+    assert "Excluded entirely" in issues[0].message
 
 
 @pytest.mark.django_db
@@ -1134,15 +1134,15 @@ def test__report_invoice_without_date__transforming_to_opencost__exclusion_is_co
     report_invoice.invoice_date = None
     report_invoice.save()
 
-    excluded: list[ValidationWarning] = []
+    issues: list[ValidationWarning] = []
 
-    assert report_publication_to_pydantic(report_publication, excluded=excluded) is None
+    assert report_publication_to_pydantic(report_publication, issues=issues) is None
 
-    assert len(excluded) == 1
-    assert excluded[0].entity_type == "publication"
-    assert excluded[0].entity_name == report_publication.title
-    assert "INV-NODATE-001" in excluded[0].message
-    assert "has no invoice date" in excluded[0].message
+    assert len(issues) == 1
+    assert issues[0].entity_type == "publication"
+    assert issues[0].entity_name == report_publication.title
+    assert "INV-NODATE-001" in issues[0].message
+    assert "has no invoice date" in issues[0].message
 
 
 @pytest.mark.django_db
@@ -1180,14 +1180,14 @@ def test__invoice_position_with_unknown_cost_type__transforming_to_opencost__exc
     positions[0].cost_type = "service fee"
     positions[0].save()
 
-    excluded: list[ValidationWarning] = []
+    issues: list[ValidationWarning] = []
 
-    assert report_publication_to_pydantic(report_publication, excluded=excluded) is not None
+    assert report_publication_to_pydantic(report_publication, issues=issues) is not None
 
-    assert len(excluded) == 1
-    assert excluded[0].entity_type == "publication"
-    assert "INV-COST-TYPE-003" in excluded[0].message
-    assert "service fee" in excluded[0].message
+    assert len(issues) == 1
+    assert issues[0].entity_type == "publication"
+    assert "INV-COST-TYPE-003" in issues[0].message
+    assert "service fee" in issues[0].message
 
 
 @pytest.mark.django_db
@@ -1212,12 +1212,12 @@ def test__report_invoice_without_usable_positions__transforming_to_opencost__sin
     position.cost_type = "service fee"
     position.save()
 
-    excluded: list[ValidationWarning] = []
+    issues: list[ValidationWarning] = []
 
-    assert report_publication_to_pydantic(report_publication, excluded=excluded) is None
+    assert report_publication_to_pydantic(report_publication, issues=issues) is None
 
-    assert len(excluded) == 1
-    assert "excluded entirely" in excluded[0].message
+    assert len(issues) == 1
+    assert "Excluded entirely" in issues[0].message
 
 
 @pytest.mark.django_db
@@ -1238,14 +1238,15 @@ def test__publication_without_institution__transforming_to_opencost__exclusion_i
     report_publication.save()
     report_publication.institution_identifiers.all().delete()
 
-    excluded: list[ValidationWarning] = []
+    issues: list[ValidationWarning] = []
 
-    assert report_publication_to_pydantic(report_publication, excluded=excluded) is None
+    assert report_publication_to_pydantic(report_publication, issues=issues) is None
 
-    assert len(excluded) == 1
-    assert excluded[0].entity_type == "publication"
-    assert excluded[0].entity_name == report_publication.title
-    assert "institution" in excluded[0].message
+    assert len(issues) == 1
+    assert issues[0].entity_type == "global"
+    assert issues[0].entity_name == report_publication.title
+    assert "institution" in issues[0].message
+    assert issues[0].fix_url == reverse("preferences:global_preferences")
 
 
 @pytest.mark.django_db
@@ -1260,14 +1261,15 @@ def test__contract_without_institution__transforming_to_opencost__exclusion_is_c
     report_contract.save()
     report_contract.institution_identifiers.all().delete()
 
-    excluded: list[ValidationWarning] = []
+    issues: list[ValidationWarning] = []
 
-    assert report_contract_to_pydantic(report_contract, excluded=excluded) is None
+    assert report_contract_to_pydantic(report_contract, issues=issues) is None
 
-    assert len(excluded) == 1
-    assert excluded[0].entity_type == "contract"
-    assert excluded[0].entity_name == report_contract.contract_name
-    assert "institution" in excluded[0].message
+    assert len(issues) == 1
+    assert issues[0].entity_type == "global"
+    assert issues[0].entity_name == report_contract.contract_name
+    assert "institution" in issues[0].message
+    assert issues[0].fix_url == reverse("preferences:global_preferences")
 
 
 @pytest.mark.django_db
@@ -1289,11 +1291,91 @@ def test__publication_exclusion__fix_url__links_to_the_funding_request() -> None
     report_invoice.invoice_date = None
     report_invoice.save()
 
-    excluded: list[ValidationWarning] = []
+    issues: list[ValidationWarning] = []
 
-    assert report_publication_to_pydantic(report_publication, excluded=excluded) is None
+    assert report_publication_to_pydantic(report_publication, issues=issues) is None
 
-    assert excluded[0].fix_url == reverse("fundingrequests:detail", kwargs={"pk": fr.pk})
-    assert excluded[0].fix_url != reverse(
+    assert issues[0].fix_url == reverse("fundingrequests:detail", kwargs={"pk": fr.pk})
+    assert issues[0].fix_url != reverse(
         "fundingrequests:detail", kwargs={"pk": report_publication.publication_id}
+    )
+
+
+@pytest.mark.django_db
+def test__contract_without_esac_identifier__transforming_to_opencost__substitution_is_collected() -> (
+    None
+):
+    contract = create_contract_with_identifiers(name="No ESAC Agreement")
+    create_contract_with_invoice(contract)
+
+    report = create_opencost_report()
+    report_contract = report.contracts.first()
+    assert report_contract is not None
+
+    issues: list[ValidationWarning] = []
+
+    assert to_opencost(report, issues=issues) is not None
+
+    assert len(issues) == 1
+    assert issues[0].level == "warning"
+    assert issues[0].entity_type == "contract"
+    assert issues[0].entity_name == "No ESAC Agreement"
+    assert issues[0].message == "No ESAC ID — the contract is exported with ESAC 'UNKNOWN'."
+
+
+@pytest.mark.django_db
+def test__publication_without_doi__transforming_to_opencost__substitution_is_collected() -> None:
+    fr = modelfactory.fundingrequest(title="Publication without DOI")
+    fr.publication.links.filter(type__name="DOI").delete()
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-NODOI-001",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+
+    issues: list[ValidationWarning] = []
+
+    assert report_publication_to_pydantic(report_publication, issues=issues) is not None
+
+    assert len(issues) == 1
+    assert issues[0].level == "warning"
+    assert issues[0].entity_type == "publication"
+    assert issues[0].message == (
+        "No DOI — the publication is exported with title and journal instead."
+    )
+
+
+@pytest.mark.django_db
+def test__publication_without_publisher__transforming_to_opencost__substitution_is_collected() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication without publisher")
+    fr.publication.links.filter(type__name="DOI").delete()
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-NOPUB-001",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    report_publication.publisher = ""
+    report_publication.save()
+
+    issues: list[ValidationWarning] = []
+
+    assert report_publication_to_pydantic(report_publication, issues=issues) is not None
+
+    assert len(issues) == 2  # the DOI and the publisher substitutions
+    assert issues[0].level == "warning"
+    assert issues[0].message == (
+        "No DOI — the publication is exported with title and journal instead."
+    )
+    assert (
+        issues[1].message == "No publisher — the publication is exported with 'Unknown Publisher'."
     )

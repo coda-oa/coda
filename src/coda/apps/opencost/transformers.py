@@ -2,6 +2,7 @@ import logging
 from collections.abc import Iterable
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
 from django.urls import reverse
 
@@ -63,24 +64,65 @@ logger = logging.getLogger(__name__)
 
 def report_publication_to_pydantic(
     report_pub: OpenCostReportPublication,
-    excluded: list[ValidationWarning] | None = None,
+    issues: list[ValidationWarning] | None = None,
 ) -> PublicationType | None:
     institution = _get_institution(report_pub)
     if institution is None:
         # XSD requires institution to have at least one name or id.
         # Without institution data we cannot produce a valid record.
-        _record_exclusion(
-            excluded,
+        _record_issue(
+            issues,
             _publication_warning(
                 report_pub,
-                _entity_exclusion(report_pub.title, ["it has no institution name or identifier"]),
+                _entity_exclusion(["it has no institution name or identifier"]),
+                fix_url=reverse("preferences:global_preferences"),
+                entity_type="global",
             ),
         )
         return None
 
+    invoice_exclusions: list[ValidationWarning] = []
+    invoice_data = _get_invoice_data(report_pub, invoice_exclusions)
+
+    part_of_contract = _get_part_of_contract(report_pub)
+
+    if invoice_data is None and part_of_contract is None:
+        # XSD requires at least one of invoice or part_of_contract.
+        # Without cost data we cannot produce a valid record.
+        _record_issue(
+            issues,
+            _publication_warning(
+                report_pub,
+                _entity_exclusion([w.message for w in invoice_exclusions]),
+            ),
+        )
+        return None
+
+    if issues is not None:
+        issues.extend(invoice_exclusions)
+
     if report_pub.doi:
         primary_identifier = PublicationPrimaryIdentifier(doi=report_pub.doi)
     else:
+        # BibliographicInformation is openCost's fallback for a DOI-less
+        # publication: it is exported with title and journal instead.
+        _record_issue(
+            issues,
+            _publication_warning(
+                report_pub,
+                "No DOI — the publication is exported with title and journal instead.",
+                level="warning",
+            ),
+        )
+        if not report_pub.publisher:
+            _record_issue(
+                issues,
+                _publication_warning(
+                    report_pub,
+                    "No publisher — the publication is exported with 'Unknown Publisher'.",
+                    level="warning",
+                ),
+            )
         bib_info = BibliographicInformation(
             Title=report_pub.title,
             Publisher=report_pub.publisher or "Unknown Publisher",
@@ -91,26 +133,6 @@ def report_publication_to_pydantic(
     secondary_identifiers = _get_secondary_identifiers(report_pub)
 
     publication_type = _get_publication_type(report_pub)
-
-    invoice_exclusions: list[ValidationWarning] = []
-    invoice_data = _get_invoice_data(report_pub, invoice_exclusions)
-
-    part_of_contract = _get_part_of_contract(report_pub)
-
-    if invoice_data is None and part_of_contract is None:
-        # XSD requires at least one of invoice or part_of_contract.
-        # Without cost data we cannot produce a valid record.
-        _record_exclusion(
-            excluded,
-            _publication_warning(
-                report_pub,
-                _entity_exclusion(report_pub.title, [w.message for w in invoice_exclusions]),
-            ),
-        )
-        return None
-
-    if excluded is not None:
-        excluded.extend(invoice_exclusions)
 
     cost_data = PublicationCostDataType(invoice=invoice_data, part_of_contract=part_of_contract)
     return PublicationType(
@@ -203,55 +225,75 @@ def _amount_invoice(amount: Decimal | None, currency: str) -> AmountInvoice | No
 
 def _invoice_label(report_invoice: OpenCostReportInvoice | OpenCostReportContractInvoice) -> str:
     """Identify an invoice to a human reader."""
-    return report_invoice.invoice_number or "(unnumbered)"
+    return report_invoice.invoice_number or "Unnumbered invoice"
 
 
 def _quoted_values(values: Iterable[str]) -> str:
     return ", ".join(sorted(f"'{value}'" for value in set(values)))
 
 
-def _entity_exclusion(entity_name: str, reasons: list[str]) -> str:
+def _entity_exclusion(reasons: list[str]) -> str:
     """Collapse the reasons lower-level records were dropped into a single message."""
-    reason = "; ".join(reasons) if reasons else "no reportable invoice data was available"
+    reason = (
+        "; ".join(r.rstrip(".") for r in reasons)
+        if reasons
+        else "no reportable invoice data was available"
+    )
 
-    return f"{entity_name} was excluded entirely: {reason}."
+    return f"Excluded entirely: {reason}."
 
 
-def _record_exclusion(excluded: list[ValidationWarning] | None, warning: ValidationWarning) -> None:
+def _record_issue(issues: list[ValidationWarning] | None, warning: ValidationWarning) -> None:
     """Record why snapshot data is missing from the generated XML."""
-    logger.warning("%s: %s", warning.entity_name, warning.message)
+    if warning.level == "error":
+        logger.warning("%s: %s", warning.entity_name, warning.message)
+    else:
+        logger.info("%s: %s", warning.entity_name, warning.message)
 
-    if excluded is not None:
-        excluded.append(warning)
+    if issues is not None:
+        issues.append(warning)
 
 
-def _publication_warning(report_pub: OpenCostReportPublication, message: str) -> ValidationWarning:
+def _publication_warning(
+    report_pub: OpenCostReportPublication,
+    message: str,
+    level: Literal["error", "warning"] = "error",
+    fix_url: str | None = None,
+    entity_type: Literal["publication", "contract", "global"] | None = None,
+) -> ValidationWarning:
     return ValidationWarning(
-        level="error",
+        level=level,
         message=message,
-        entity_type="publication",
+        entity_type=entity_type or "publication",
         entity_id=report_pub.publication_id,
         entity_name=report_pub.title,
-        fix_url=reverse(
+        fix_url=fix_url
+        or reverse(
             "fundingrequests:detail", kwargs={"pk": report_pub.publication.fundingrequest.id}
         ),
     )
 
 
-def _contract_warning(report_contract: OpenCostReportContract, message: str) -> ValidationWarning:
+def _contract_warning(
+    report_contract: OpenCostReportContract,
+    message: str,
+    level: Literal["error", "warning"] = "error",
+    fix_url: str | None = None,
+    entity_type: Literal["publication", "contract", "global"] | None = None,
+) -> ValidationWarning:
     return ValidationWarning(
-        level="error",
+        level=level,
         message=message,
-        entity_type="contract",
+        entity_type=entity_type or "contract",
         entity_id=report_contract.contract_id,
         entity_name=report_contract.contract_name,
-        fix_url=reverse("contracts:detail", kwargs={"pk": report_contract.contract_id}),
+        fix_url=fix_url or reverse("contracts:detail", kwargs={"pk": report_contract.contract_id}),
     )
 
 
 def _get_invoice_data(
     report_pub: OpenCostReportPublication,
-    excluded: list[ValidationWarning] | None,
+    issues: list[ValidationWarning] | None,
 ) -> list[PublicationInvoiceType] | None:
     invoice_list = []
     for report_invoice in report_pub.invoices.all():
@@ -261,8 +303,8 @@ def _get_invoice_data(
 
         if not amounts_paid:
             # XSD requires at least one amount_paid per invoice.
-            _record_exclusion(
-                excluded,
+            _record_issue(
+                issues,
                 _publication_warning(report_pub, _unusable_positions_message(label, unmappable)),
             )
             continue
@@ -270,8 +312,8 @@ def _get_invoice_data(
         dates = _invoice_dates(report_invoice.invoice_date)
         if dates is None:
             # XSD requires an invoice or payment date.
-            _record_exclusion(
-                excluded,
+            _record_issue(
+                issues,
                 _publication_warning(
                     report_pub, f"Invoice {label} has no invoice date and was excluded."
                 ),
@@ -279,13 +321,14 @@ def _get_invoice_data(
             continue
 
         if unmappable:
-            _record_exclusion(
-                excluded,
+            _record_issue(
+                issues,
                 _publication_warning(
                     report_pub,
                     f"Invoice {label}: {len(unmappable)} of {len(report_positions)} positions "
                     f"with a cost type or currency openCost does not accept "
-                    f"({_quoted_values(unmappable)}) were excluded.",
+                    f"({_quoted_values(unmappable)}) were excluded. "
+                    f"The invoice in the XML covers only its remaining positions.",
                 ),
             )
 
@@ -392,7 +435,7 @@ def to_opencost(
     report: OpenCostReport,
     publications_list: list[OpenCostReportPublication] | None = None,
     contracts_list: list[OpenCostReportContract] | None = None,
-    excluded: list[ValidationWarning] | None = None,
+    issues: list[ValidationWarning] | None = None,
 ) -> Data | None:
     # Use pre-loaded data if provided, otherwise fetch (backwards compatible)
     if publications_list is None:
@@ -403,13 +446,13 @@ def to_opencost(
     publications = [
         pub
         for report_pub in publications_list
-        if (pub := report_publication_to_pydantic(report_pub, excluded)) is not None
+        if (pub := report_publication_to_pydantic(report_pub, issues)) is not None
     ]
 
     contracts = [
         contract
         for report_contract in contracts_list
-        if (contract := report_contract_to_pydantic(report_contract, excluded)) is not None
+        if (contract := report_contract_to_pydantic(report_contract, issues)) is not None
     ]
 
     if not publications and not contracts:
@@ -424,17 +467,19 @@ def to_opencost(
 
 def report_contract_to_pydantic(
     report_contract: OpenCostReportContract,
-    excluded: list[ValidationWarning] | None = None,
+    issues: list[ValidationWarning] | None = None,
 ) -> ContractType | None:
     institution = _get_institution(report_contract)
     if institution is None:
         # XSD requires institution to have at least one name or id.
         # Without institution data we cannot produce a valid record.
-        _record_exclusion(
-            excluded,
+        _record_issue(
+            issues,
             _contract_warning(
                 report_contract,
                 "Contract was excluded entirely: it has no institution name or identifier.",
+                fix_url=reverse("preferences:global_preferences"),
+                entity_type="global",
             ),
         )
         return None
@@ -442,19 +487,14 @@ def report_contract_to_pydantic(
     participation = _participation(report_contract)
     if participation is None:
         # XSD requires the participation block with both dates.
-        _record_exclusion(
-            excluded,
+        _record_issue(
+            issues,
             _contract_warning(
                 report_contract,
                 "Contract was excluded entirely: it has no participation start and end date.",
             ),
         )
         return None
-
-    primary_identifier = ContractPrimaryIdentifier(
-        value=report_contract.primary_identifier_value or "UNKNOWN",
-        type=ContractPrimaryIdentifierType.ESAC,
-    )
 
     contract_secondary_identifiers = _get_contract_secondary_identifiers(report_contract)
 
@@ -463,19 +503,34 @@ def report_contract_to_pydantic(
     if cost_data is None:
         # XSD requires at least one invoice_group — without cost data
         # we cannot produce a valid record.
-        _record_exclusion(
-            excluded,
+        _record_issue(
+            issues,
             _contract_warning(
                 report_contract,
-                _entity_exclusion(
-                    report_contract.contract_name, [w.message for w in invoice_exclusions]
-                ),
+                _entity_exclusion([w.message for w in invoice_exclusions]),
             ),
         )
         return None
 
-    if excluded is not None:
-        excluded.extend(invoice_exclusions)
+    if issues is not None:
+        issues.extend(invoice_exclusions)
+
+    if not report_contract.primary_identifier_value:
+        # ESAC is mandatory in the schema, so the contract is exported
+        # with the placeholder value instead of a real identifier.
+        _record_issue(
+            issues,
+            _contract_warning(
+                report_contract,
+                "No ESAC ID — the contract is exported with ESAC 'UNKNOWN'.",
+                level="warning",
+            ),
+        )
+
+    primary_identifier = ContractPrimaryIdentifier(
+        value=report_contract.primary_identifier_value or "UNKNOWN",
+        type=ContractPrimaryIdentifierType.ESAC,
+    )
 
     return ContractType(
         contract_name=report_contract.contract_name,
@@ -499,7 +554,7 @@ def _participation(report_contract: OpenCostReportContract) -> ParticipationType
 
 def _get_contract_cost_data(
     report_contract: OpenCostReportContract,
-    excluded: list[ValidationWarning] | None,
+    issues: list[ValidationWarning] | None,
 ) -> ContractCostDataType | None:
     report_invoices = report_contract.invoices.all()
 
@@ -511,8 +566,8 @@ def _get_contract_cost_data(
 
         if not amounts_paid:
             # XSD requires at least one amount_paid per invoice.
-            _record_exclusion(
-                excluded,
+            _record_issue(
+                issues,
                 _contract_warning(report_contract, _unusable_positions_message(label, unmappable)),
             )
             continue
@@ -520,8 +575,8 @@ def _get_contract_cost_data(
         dates = _invoice_dates(report_invoice.invoice_date)
         if dates is None:
             # XSD requires an invoice or payment date.
-            _record_exclusion(
-                excluded,
+            _record_issue(
+                issues,
                 _contract_warning(
                     report_contract, f"Invoice {label} has no invoice date and was excluded."
                 ),
@@ -529,13 +584,14 @@ def _get_contract_cost_data(
             continue
 
         if unmappable:
-            _record_exclusion(
-                excluded,
+            _record_issue(
+                issues,
                 _contract_warning(
                     report_contract,
                     f"Invoice {label}: {len(unmappable)} of {len(report_positions)} positions "
                     f"with a cost type or currency openCost does not accept "
-                    f"({_quoted_values(unmappable)}) were excluded.",
+                    f"({_quoted_values(unmappable)}) were excluded. "
+                    f"The invoice in the XML covers only its remaining positions.",
                 ),
             )
 

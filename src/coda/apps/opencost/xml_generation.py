@@ -18,9 +18,9 @@ def generate_xml(
     report: OpenCostReport,
     publications: list[OpenCostReportPublication] | None = None,
     contracts: list[OpenCostReportContract] | None = None,
-    excluded: list[ValidationWarning] | None = None,
+    issues: list[ValidationWarning] | None = None,
 ) -> str:
-    data = to_opencost(report, publications, contracts, excluded)
+    data = to_opencost(report, publications, contracts, issues)
     if data is None:
         return ""
     return opencost.to_xml(data)

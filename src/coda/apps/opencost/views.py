@@ -4,7 +4,9 @@ from typing import cast
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Prefetch, Q
+from django.db.transaction import non_atomic_requests
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -36,8 +38,8 @@ from coda.apps.opencost.models import (
 from coda.apps.opencost.report_service import (
     generate_report as generate_report_service,
 )
+from coda.apps.opencost.services.issues import collect_issues
 from coda.apps.opencost.services.queries import transform_ready_reports
-from coda.apps.opencost.validation import validate_report
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
@@ -132,10 +134,6 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
         contract_invoices_list = list(contract.invoices.all())
         setattr(contract, "invoices_count", len(contract_invoices_list))
 
-    # Pass pre-loaded data to validation to avoid duplicate queries
-    warnings = validate_report(report, contracts=contracts_list, publications=publications_list)
-    errors = [w for w in warnings if w.level == "error"]
-    warnings_only = [w for w in warnings if w.level == "warning"]
     applied_filters = build_applied_filters(report.filters)
     redo_url = create_redo_url(report.filters, "opencost:generate")
 
@@ -145,15 +143,30 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
         "publications_count": len(publications_list),
         "contracts": contracts_list,
         "contracts_count": len(contracts_list),
-        "warnings": warnings,
-        "errors": errors,
-        "warnings_only": warnings_only,
-        "has_issues": len(warnings) > 0,
         "applied_filters": applied_filters,
         "redo_url": redo_url,
     }
 
     return render(request, "opencost/report_detail.html", context)
+
+
+@require_GET
+@non_atomic_requests  # read-only, ~0.1 s, no txn held
+def report_issues(request: HttpRequest, report_id: int) -> HttpResponse:
+    if not request.user.is_authenticated:
+        raise PermissionDenied  # 403: a fragment target cannot use a login page
+    report = get_object_or_404(transform_ready_reports(), pk=report_id)
+    issues = collect_issues(report)
+    return render(
+        request,
+        "opencost/partials/report_issues.html",
+        {
+            "report": report,
+            "failed": issues is None,
+            "errors": [w for w in issues or () if w.level == "error"],
+            "warnings_only": [w for w in issues or () if w.level == "warning"],
+        },
+    )
 
 
 @login_required
@@ -292,11 +305,12 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
         publications_list = list(report.publications.all())
         contracts_list = list(report.contracts.all())
 
-        excluded: list[ValidationWarning] = []
-        xml_string = generate_xml(report, publications_list, contracts_list, excluded)
+        issues: list[ValidationWarning] = []
+        xml_string = generate_xml(report, publications_list, contracts_list, issues)
 
         if not xml_string:
-            messages.warning(request, _no_data_message(excluded))
+            errors = [w for w in issues if w.level == "error"]
+            messages.warning(request, _no_data_message(errors))
             return redirect(OPENCOST_LIST_URL)
 
         response = HttpResponse(xml_string, content_type="application/xml")
@@ -305,8 +319,9 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
 
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
 
-        if excluded:
-            messages.warning(request, _exclusion_message(excluded))
+        errors = [w for w in issues if w.level == "error"]
+        if errors:
+            messages.warning(request, _exclusion_message(errors))
 
         return response
 

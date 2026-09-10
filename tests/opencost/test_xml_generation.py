@@ -550,11 +550,11 @@ def test__generate_xml_with_unreportable_contract__collects_exclusion_reasons() 
     report_contract.participation_to = None
     report_contract.save()
 
-    excluded: list[ValidationWarning] = []
+    issues: list[ValidationWarning] = []
 
-    xml_string = generate_xml(report, excluded=excluded)
+    xml_string = generate_xml(report, issues=issues)
 
     assert xml_string != ""
     assert "Undated Agreement" not in xml_string
-    assert len(excluded) == 1
-    assert excluded[0].entity_name == "Undated Agreement"
+    assert len(issues) == 1
+    assert issues[0].entity_name == "Undated Agreement"
