@@ -354,7 +354,7 @@ def test_contract_csv_export_create_view__funding_source_filter__is_stored(
 
     assert response.status_code == 302
     export = ContractCSVExport.objects.get(name=title)
-    assert export.filters["funding_source"] == str(budget.id)
+    assert export.filters["funding_source"] == budget.id
 
 
 @pytest.mark.django_db

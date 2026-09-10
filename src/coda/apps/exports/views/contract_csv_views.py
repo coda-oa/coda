@@ -1,5 +1,3 @@
-from typing import cast
-
 from django.http import FileResponse, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -19,13 +17,10 @@ from coda.apps.exports.services.filter_display import (
     build_filter_form_context,
     create_contract_redo_url,
     parse_current_filters_to_context,
-    parse_date_range,
-    parse_funding_source,
-    parse_invoice_payment_status,
 )
 from coda.apps.exports.services.filter_form import (
-    ContractFilterCleanedData,
-    ContractFilterForm,
+    ContractExportConfigForm,
+    ContractExportFilters,
     FormFieldErrors,
     current_filters_from_post,
     form_error_lines,
@@ -39,8 +34,8 @@ from coda.apps.exports.views.base_csv_views import (
 )
 from coda.apps.invoices.invoice_query import InvoiceSearchParams
 from coda.apps.views import SimpleSearchEntityListView
+from coda.domain.date import DateRange
 from coda.domain.finance.invoice import PaymentStatus
-from coda.domain.money import DecimalSeparator
 
 CONTRACTS_CSV_CREATE_URL = "exports:contracts_csv_create"
 CONTRACTS_CSV_LIST_URL = "exports:contracts_csv_list"
@@ -95,9 +90,16 @@ def contract_csv_regen_view(request: HttpRequest, pk: int) -> HttpResponse:
     return csv_regen_view(
         pk,
         model=ContractCSVExport,
-        generate_csv=_generate_csv_from_filters,
+        generate_csv=_wrapped_generate_csv_from_filters,
         detail_url_name="exports:contracts_csv_detail",
     )
+
+
+def _wrapped_generate_csv_from_filters(json: dict[str, str]) -> str:
+    # TODO: this is a workaround due to the newly introduced pydantic based filters.
+    # unify filter approaches later
+    filters = ContractExportFilters.model_validate(json)
+    return _generate_csv_from_filters(filters)
 
 
 @login_required
@@ -105,30 +107,18 @@ def contract_csv_regen_view(request: HttpRequest, pk: int) -> HttpResponse:
 @breadcrumb("Generate New CSV Export", parent_url_name=CONTRACTS_CSV_LIST_URL)
 def contract_csv_export_create_view(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
-        form = ContractFilterForm(request.POST)
+        form = ContractExportConfigForm(request.POST)
         if not form.is_valid():
             return _render_create_form(
                 request, form, form_errors=form_error_lines(form), status=400
             )
 
-        cleaned = cast(ContractFilterCleanedData, form.cleaned_data)
-        title = cleaned["title"].strip() or "Unnamed CSV Export"
-        filters: dict[str, str] = {
-            "period_start": cleaned["period_start"].isoformat(),
-            "period_end": cleaned["period_end"].isoformat(),
-        }
-        if cleaned["payment_status"]:
-            filters["payment_status"] = cleaned["payment_status"]
-        if cleaned["funding_source"] is not None:
-            filters["funding_source"] = str(cleaned["funding_source"].pk)
-        if cleaned["decimal_separator"] is not None:
-            filters["decimal_separator"] = cleaned["decimal_separator"].value
-
+        filters = form.get_filters()
         csv_content = _generate_csv_from_filters(filters)
 
         export = ContractCSVExport.objects.create(
-            name=title,
-            filters=filters,
+            name=form.get_title(),
+            filters=filters.model_dump(mode="json"),
             record_count=0,
         )
         save_export_csv_file(export, csv_content)
@@ -140,12 +130,12 @@ def contract_csv_export_create_view(request: HttpRequest) -> HttpResponse:
 
 def _render_create_form(
     request: HttpRequest,
-    form: ContractFilterForm | None = None,
+    form: ContractExportConfigForm | None = None,
     form_errors: list[FormFieldErrors] | None = None,
     status: int = 200,
 ) -> HttpResponse:
     if form is None:
-        form = ContractFilterForm()
+        form = ContractExportConfigForm()
     context = build_filter_form_context()
     context["form"] = form
     context["expand_advanced_search"] = bool(request.GET) or form_errors is not None
@@ -169,8 +159,10 @@ def _render_create_form(
         if request.method == "POST"
         else parse_current_filters_to_context(request)
     )
+
     if form_errors is not None:
         context["form_errors"] = form_errors
+
     return render(request, "exports/generate_export_form.html", context=context, status=status)
 
 
@@ -188,24 +180,12 @@ def contract_download_csv(request: HttpRequest, pk: int) -> FileResponse | HttpR
     return csv_download_view(pk, model=ContractCSVExport)
 
 
-def _parse_contract_filter_dict(filters: dict[str, str]) -> InvoiceSearchParams:
-    try:
-        date_range = parse_date_range(filters)
-    except ValueError:
-        raise ValueError("Invalid date format. Please enter dates in YYYY-MM-DD format.")
-    try:
-        decimal_separator = DecimalSeparator(filters.get("decimal_separator", "."))
-    except ValueError:
-        raise ValueError("Invalid decimal separator. Please use '.' (English) or ',' (German).")
-
-    return InvoiceSearchParams(
+def _generate_csv_from_filters(filters: ContractExportFilters) -> str:
+    date_range = DateRange.create(start=filters.period_start, end=filters.period_end)
+    params = InvoiceSearchParams(
         date_range=date_range,
-        payment_status=parse_invoice_payment_status(filters),
-        funding_source=parse_funding_source(filters),
-        decimal_separator=decimal_separator,
+        payment_status=filters.payment_status,
+        funding_source=filters.funding_source,
+        decimal_separator=filters.decimal_separator,
     )
-
-
-def _generate_csv_from_filters(filters: dict[str, str]) -> str:
-    params = _parse_contract_filter_dict(filters)
     return export_contract_to_csv(params)

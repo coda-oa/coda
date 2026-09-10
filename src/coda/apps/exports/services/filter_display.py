@@ -6,7 +6,7 @@ projection below only deals with typed values.
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from enum import Enum
 from typing import Any, get_args, get_origin
 from collections.abc import Callable
@@ -23,8 +23,7 @@ from coda.apps.fundingrequests.fundingrequest_query import (
 from coda.apps.fundingrequests.fundingrequest_query import PublicationEntityType
 from coda.apps.invoices.models import FundingSource
 from coda.contexts.exports.dto.filters import ExportFiltersDto
-from coda.domain.date import DateRange
-from coda.domain.finance.invoice import FundingSourceId, PaymentStatus as InvoicePaymentStatus
+from coda.domain.finance.invoice import PaymentStatus as InvoicePaymentStatus
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import DecimalSeparator
@@ -112,29 +111,6 @@ def build_filters_from_request(
             filters[field] = ",".join(values)
 
     return filters
-
-
-def parse_date_range(filters: dict[str, str]) -> DateRange | None:
-    start_str = filters.get("period_start")
-    end_str = filters.get("period_end")
-    if start_str and end_str:
-        start = datetime.strptime(start_str, "%Y-%m-%d").date()
-        end = datetime.strptime(end_str, "%Y-%m-%d").date()
-        return DateRange(start, end)
-    return None
-
-
-def parse_funding_source(filters: dict[str, str]) -> FundingSourceId | None:
-    raw = filters.get("funding_source")
-    return FundingSourceId(int(raw)) if raw else None
-
-
-def parse_invoice_payment_status(filters: dict[str, str]) -> InvoicePaymentStatus | None:
-    raw = filters.get("payment_status", "")
-    if not raw:
-        return None
-    statuses = [s.strip() for s in raw.split(",") if s]
-    return InvoicePaymentStatus(statuses[0]) if statuses else None
 
 
 def build_filter_form_context() -> dict[str, object]:

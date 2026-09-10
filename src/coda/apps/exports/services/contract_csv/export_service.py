@@ -36,9 +36,6 @@ def export_contract_to_csv(
     params: InvoiceSearchParams,
 ) -> str:
     contracts = queries.get_contracts_for_export(params)
-
     export_dtos = [map_contract_to_export_dto(contract) for contract in contracts]
-
     all_rows = [row for dto in export_dtos for row in flatten_contract_data(dto)]
-
     return build_csv_from_rows(all_rows, CSV_COLUMNS, MONEY_COLUMNS, params.decimal_separator)
