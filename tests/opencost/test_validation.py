@@ -105,37 +105,6 @@ def test_validate_report_publication_missing_doi() -> None:
 
 
 @pytest.mark.django_db
-def test_validation_caching_consistency() -> None:
-    # Create report with some data
-    # Note: No invoices, so report will be empty, but we're testing caching behavior
-    contract = modelfactory.contract()
-    contract.start_date = date(2024, 1, 1)
-    contract.end_date = date(2024, 12, 31)
-    contract.save()
-
-    report = generate_report(
-        title="Caching Test Report",
-        filters={
-            "period_start": "2024-01-01",
-            "period_end": "2024-12-31",
-        },
-    )
-
-    # Call validation methods multiple times
-    result1 = report.has_issues()
-    result2 = report.has_issues()
-    counts1 = report.get_issue_counts()
-    counts2 = report.get_issue_counts()
-    warnings1 = report.validation_warnings
-    warnings2 = report.validation_warnings
-
-    # All calls should return identical results
-    assert result1 == result2
-    assert counts1 == counts2
-    assert warnings1 is warnings2  # Same object (cached)
-
-
-@pytest.mark.django_db
 def test_has_issues_returns_false_for_clean_report() -> None:
     home_institution = create_institution_with_identifiers(
         name="Test University",

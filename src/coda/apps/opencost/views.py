@@ -27,6 +27,7 @@ from coda.apps.exports.services.filter_form import (
     current_filters_from_post,
     form_error_lines,
 )
+from coda.apps.opencost.issues import ValidationWarning
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
@@ -40,7 +41,7 @@ from coda.apps.opencost.models import (
 from coda.apps.opencost.report_service import (
     generate_report as generate_report_service,
 )
-from coda.apps.opencost.validation import validate_report, ValidationWarning
+from coda.apps.opencost.validation import validate_report
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto

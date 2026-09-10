@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from django.urls import reverse
 
+from coda.apps.opencost.issues import ValidationWarning
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
@@ -18,7 +19,6 @@ from coda.apps.opencost.models import (
     OpenCostReportPublication,
     OpenCostReportPublicationLink,
 )
-from coda.apps.opencost.validation import ValidationWarning
 from coda.coda_itertools import map_or_none
 from opencost import (
     AmountInvoice,

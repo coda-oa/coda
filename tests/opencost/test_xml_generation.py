@@ -4,7 +4,7 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
-from coda.apps.opencost.validation import ValidationWarning
+from coda.apps.opencost.issues import ValidationWarning
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import Link, LinkType

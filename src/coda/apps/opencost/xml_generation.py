@@ -6,12 +6,12 @@ import opencost
 from coda.apps.opencost.transformers import to_opencost
 
 if TYPE_CHECKING:
+    from coda.apps.opencost.issues import ValidationWarning
     from coda.apps.opencost.models import (
         OpenCostReport,
         OpenCostReportContract,
         OpenCostReportPublication,
     )
-    from coda.apps.opencost.validation import ValidationWarning
 
 
 def generate_xml(

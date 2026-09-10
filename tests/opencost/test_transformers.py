@@ -5,6 +5,7 @@ import pytest
 from django.urls import reverse
 
 from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
+from coda.apps.opencost.issues import ValidationWarning
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
@@ -19,7 +20,6 @@ from coda.apps.opencost.transformers import (
     report_publication_to_pydantic,
     to_opencost,
 )
-from coda.apps.opencost.validation import ValidationWarning
 from coda.apps.publications.models import Link, LinkType
 from coda.apps.publications.models._attachedentities import PublicationAttachedConcept
 from coda.apps.publications.models._vocabulary import Vocabulary

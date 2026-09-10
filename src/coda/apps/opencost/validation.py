@@ -1,21 +1,12 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from django.urls import reverse
 
+from coda.apps.opencost.issues import ValidationWarning
+
 if TYPE_CHECKING:
     from .models import OpenCostReport, OpenCostReportContract, OpenCostReportPublication
-
-
-@dataclass
-class ValidationWarning:
-    level: Literal["error", "warning"]
-    message: str
-    entity_type: Literal["contract", "publication", "global"]
-    entity_id: int | None = None
-    entity_name: str | None = None
-    fix_url: str | None = None
 
 
 def validate_report(
