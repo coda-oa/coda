@@ -183,15 +183,17 @@ def _get_invoice_data(report_pub: OpenCostReportPublication) -> list[Publication
     return invoice_list if invoice_list else None
 
 
-def _get_institution(report_pub: OpenCostReportPublication) -> InstitutionType | None:
+def _get_institution(
+    report_obj: OpenCostReportPublication | OpenCostReportContract,
+) -> InstitutionType | None:
     names = []
-    if report_pub.institution_name:
+    if report_obj.institution_name:
         names.append(
-            InstitutionName(value=report_pub.institution_name, type=InstitutionNameType.full)
+            InstitutionName(value=report_obj.institution_name, type=InstitutionNameType.full)
         )
 
     identifiers = []
-    for inst_id in report_pub.institution_identifiers.all():
+    for inst_id in report_obj.institution_identifiers.all():
         try:
             id_type = InstitutionIdType(inst_id.identifier_type)
             identifiers.append(InstitutionId(value=inst_id.value, type=id_type))
@@ -243,7 +245,7 @@ def to_opencost(
 
 
 def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> ContractType | None:
-    institution = _get_contract_institution(report_contract)
+    institution = _get_institution(report_contract)
     if institution is None:
         # XSD requires institution to have at least one name or id.
         # Without institution data we cannot produce a valid record.
@@ -282,32 +284,6 @@ def report_contract_to_pydantic(report_contract: OpenCostReportContract) -> Cont
         primary_identifier=primary_identifier,
         secondary_identifiers=contract_secondary_identifiers,
         cost_data=cost_data,
-    )
-
-
-def _get_contract_institution(report_contract: OpenCostReportContract) -> InstitutionType | None:
-    names = []
-    if report_contract.institution_name:
-        names.append(
-            InstitutionName(value=report_contract.institution_name, type=InstitutionNameType.full)
-        )
-
-    identifiers = []
-    for inst_id in report_contract.institution_identifiers.all():
-        try:
-            id_type = InstitutionIdType(inst_id.identifier_type)
-            identifiers.append(InstitutionId(value=inst_id.value, type=id_type))
-        except ValueError:
-            continue
-
-    # XSD requires at least one name or id (minOccurs=1 on choice).
-    # Return None when unavailable so the caller can skip this entity.
-    if not names and not identifiers:
-        return None
-
-    return InstitutionType(
-        name=names if names else None,
-        id=identifiers if identifiers else None,
     )
 
 
