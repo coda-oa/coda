@@ -1,9 +1,9 @@
 """Test doubles for version module tests."""
 
-from coda.apps.version import UpdateCheckResult
+from coda.apps.version import UpdateCheckResult, VersionInfoProvider
 
 
-class InMemoryVersionInfoProvider:
+class InMemoryVersionInfoProvider(VersionInfoProvider):
     """In-memory implementation of VersionInfoProvider for testing."""
 
     def __init__(self) -> None:
@@ -31,3 +31,28 @@ class InMemoryVersionInfoProvider:
 
     def check_update(self, branch: str, current_commit: str) -> UpdateCheckResult:
         return self.update_info
+
+
+class RecordingCache:
+    """Cache double that also records the timeout each key was stored with."""
+
+    def __init__(self, values: dict[str, str] | None = None) -> None:
+        self.values: dict[str, str] = dict(values or {})
+        self.timeouts: dict[str, int] = {}
+
+    def get(self, key: str, default: object = None) -> object:
+        return self.values.get(key, default)
+
+    def set(self, key: str, value: str, timeout: int | None = None) -> None:
+        self.values[key] = value
+        self.timeouts[key] = int(timeout) if timeout is not None else 0
+
+
+class BrokenCache:
+    """Cache double that fails the way an unreachable backend does."""
+
+    def get(self, key: str, default: object = None) -> object:
+        raise RuntimeError("cache backend is down")
+
+    def set(self, key: str, value: str, timeout: int | None = None) -> None:
+        raise RuntimeError("cache backend is down")
