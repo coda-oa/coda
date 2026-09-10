@@ -157,31 +157,5 @@ def csv_download_view(
     return FileResponse(export_.csv_file.open("rb"))
 
 
-def create_csv_export(
-    request: HttpRequest,
-    model: type[Model],
-    *,
-    build_filters: Callable[[HttpRequest], dict[str, str]],
-    generate_csv: Callable[[dict[str, str]], str],
-    detail_url_name: str,
-) -> HttpResponse:
-
-    title = request.POST.get("title", "").strip() or "Unnamed CSV Export"
-
-    filters = build_filters(request)
-    csv_content = generate_csv(filters)
-
-    export = model._default_manager.create(
-        name=title,
-        filters=filters,
-        record_count=0,
-    )
-    export_ = cast(_CSVExportInstance, export)
-
-    save_export_csv_file(export_, csv_content)
-
-    return redirect(detail_url_name, pk=export.pk)
-
-
 def _create_preview_dataframe(csv_file: BinaryIO, preview_columns: list[str]) -> pl.DataFrame:
     return pl.read_csv(csv_file, separator=";", n_rows=50).select(preview_columns)

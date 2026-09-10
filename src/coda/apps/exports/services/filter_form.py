@@ -11,6 +11,7 @@ from coda.apps.exports.services.filter_display import (
     MULTI_VALUE_FILTER_FIELDS,
     SINGLE_VALUE_FILTER_FIELDS,
     filter_field_label,
+    invoice_payment_status_choices,
     publication_state_choices,
 )
 from coda.apps.fundingrequests.models import Label
@@ -104,6 +105,45 @@ class FilterCleanedData(TypedDict):
     funding_source: FundingSource | None
     contract_name: Contract | None
     contract_year: int | None
+
+
+class ContractFilterForm(forms.Form):
+    """Validation-only form for the contract export filter widgets.
+
+    Mirrors :class:`FundingRequestFilterForm` with the contract (invoice-side)
+    payment statuses; rendered markup stays in generate_export_form.html.
+    """
+
+    title = forms.CharField(required=False, max_length=255)
+    period_start = forms.DateField(
+        input_formats=("%Y-%m-%d",),
+        error_messages={"invalid": "Invalid date format. Please enter dates in YYYY-MM-DD format."},
+    )
+    period_end = forms.DateField(
+        input_formats=("%Y-%m-%d",),
+        error_messages={"invalid": "Invalid date format. Please enter dates in YYYY-MM-DD format."},
+    )
+    decimal_separator = forms.TypedChoiceField(
+        coerce=DecimalSeparator,
+        choices=[(member.value, member.display) for member in DecimalSeparator],
+        empty_value=None,
+        required=False,
+    )
+    payment_status = forms.ChoiceField(choices=invoice_payment_status_choices, required=False)
+    funding_source = forms.ModelChoiceField(
+        queryset=FundingSource.objects.filter(type="budget"), required=False
+    )
+
+
+class ContractFilterCleanedData(TypedDict):
+    """Exact shape of ``ContractFilterForm.cleaned_data`` (see :class:`FilterCleanedData`)."""
+
+    title: str
+    period_start: date
+    period_end: date
+    decimal_separator: DecimalSeparator | None
+    payment_status: str
+    funding_source: FundingSource | None
 
 
 def current_filters_from_post(post: QueryDict) -> dict[str, str | list[str]]:

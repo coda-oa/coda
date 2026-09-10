@@ -4,7 +4,6 @@ from decimal import Decimal
 import pytest
 from django.test import Client
 from django.urls import reverse
-from django.contrib.messages import get_messages
 from django.core.files.base import ContentFile
 
 from coda.apps.contracts import repository as contract_repository
@@ -417,5 +416,47 @@ def test_contract_csv_export_create_view__invalid_date_format__returns_error_and
 
     assert response.status_code == 400
     assert ContractCSVExport.objects.count() == 0
-    messages = list(get_messages(response.wsgi_request))
-    assert any("Invalid date format" in str(m) for m in messages)
+    form_errors = response.context["form_errors"]
+    assert any(
+        "Invalid date format" in error
+        for field_errors in form_errors
+        for error in field_errors.errors
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_contract_csv_export_create_view__invalid_payment_status__returns_form_error_and_does_not_create_export(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:contracts_csv_create"),
+        data={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "title": "Bad Status Export",
+            "payment_status": "not-a-status",
+        },
+    )
+
+    assert response.status_code == 400
+    assert ContractCSVExport.objects.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test_contract_csv_export_create_view__invalid_decimal_separator__returns_form_error_and_does_not_create_export(
+    client: Client,
+) -> None:
+    response = client.post(
+        reverse("exports:contracts_csv_create"),
+        data={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+            "title": "Bad Separator Export",
+            "decimal_separator": "x",
+        },
+    )
+
+    assert response.status_code == 400
+    assert ContractCSVExport.objects.count() == 0

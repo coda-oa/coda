@@ -1,6 +1,7 @@
-from django.contrib import messages
+from typing import cast
+
 from django.http import FileResponse, HttpRequest, HttpResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -16,20 +17,25 @@ from coda.apps.exports.services.contract_csv.export_service import export_contra
 from coda.apps.exports.services.filter_display import (
     build_applied_filters_for_contract,
     build_filter_form_context,
-    build_filters_from_request,
     create_contract_redo_url,
     parse_current_filters_to_context,
     parse_date_range,
     parse_funding_source,
     parse_invoice_payment_status,
 )
-from coda.apps.exports.services.filter_form import current_filters_from_post
+from coda.apps.exports.services.filter_form import (
+    ContractFilterCleanedData,
+    ContractFilterForm,
+    FormFieldErrors,
+    current_filters_from_post,
+    form_error_lines,
+)
 from coda.apps.exports.views.base_csv_views import (
-    create_csv_export,
     csv_delete_view,
     csv_detail_page,
     csv_download_view,
     csv_regen_view,
+    save_export_csv_file,
 )
 from coda.apps.invoices.invoice_query import InvoiceSearchParams
 from coda.apps.views import SimpleSearchEntityListView
@@ -100,27 +106,50 @@ def contract_csv_regen_view(request: HttpRequest, pk: int) -> HttpResponse:
 @breadcrumb("Generate New CSV Export", parent_url_name=CONTRACTS_CSV_LIST_URL)
 def contract_csv_export_create_view(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
-        try:
-            return create_csv_export(
-                request,
-                ContractCSVExport,
-                build_filters=lambda req: build_filters_from_request(
-                    req,
-                    optional_fields=["payment_status", "funding_source", "decimal_separator"],
-                ),
-                generate_csv=_generate_csv_from_filters,
-                detail_url_name="exports:contracts_csv_detail",
+        form = ContractFilterForm(request.POST)
+        if not form.is_valid():
+            return _render_create_form(
+                request, form, form_errors=form_error_lines(form), status=400
             )
-        except ValueError as e:
-            messages.error(request, str(e))
-            return _render_create_form(request, status=400)
+
+        cleaned = cast(ContractFilterCleanedData, form.cleaned_data)
+        title = cleaned["title"].strip() or "Unnamed CSV Export"
+        filters: dict[str, str] = {
+            "period_start": cleaned["period_start"].isoformat(),
+            "period_end": cleaned["period_end"].isoformat(),
+        }
+        if cleaned["payment_status"]:
+            filters["payment_status"] = cleaned["payment_status"]
+        if cleaned["funding_source"] is not None:
+            filters["funding_source"] = str(cleaned["funding_source"].pk)
+        if cleaned["decimal_separator"] is not None:
+            filters["decimal_separator"] = cleaned["decimal_separator"].value
+
+        csv_content = _generate_csv_from_filters(filters)
+
+        export = ContractCSVExport.objects.create(
+            name=title,
+            filters=filters,
+            record_count=0,
+        )
+        save_export_csv_file(export, csv_content)
+
+        return redirect("exports:contracts_csv_detail", pk=export.pk)
 
     return _render_create_form(request)
 
 
-def _render_create_form(request: HttpRequest, status: int = 200) -> HttpResponse:
+def _render_create_form(
+    request: HttpRequest,
+    form: ContractFilterForm | None = None,
+    form_errors: list[FormFieldErrors] | None = None,
+    status: int = 200,
+) -> HttpResponse:
+    if form is None:
+        form = ContractFilterForm()
     context = build_filter_form_context()
-    context["expand_advanced_search"] = bool(request.GET)
+    context["form"] = form
+    context["expand_advanced_search"] = bool(request.GET) or form_errors is not None
     context.update(
         {
             "page_title": "Generate Contract CSV Export",
@@ -141,6 +170,8 @@ def _render_create_form(request: HttpRequest, status: int = 200) -> HttpResponse
         if request.method == "POST"
         else parse_current_filters_to_context(request)
     )
+    if form_errors is not None:
+        context["form_errors"] = form_errors
     return render(request, "exports/generate_export_form.html", context=context, status=status)
 
 
