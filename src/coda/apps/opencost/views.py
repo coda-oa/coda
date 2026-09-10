@@ -10,6 +10,7 @@ from django.db.transaction import non_atomic_requests
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_GET, require_POST
 
@@ -195,9 +196,9 @@ def _build_issue_message(report: OpenCostReport, detail_url: str) -> str:
     issue_text = " and ".join(issue_parts)
 
     return mark_safe(
-        f"Report '{report.title}' generated with {report.publications.count()} publications "
+        f"Report '{escape(report.title)}' generated with {report.publications.count()} publications "
         f"and {report.contracts.count()} contracts, but has {issue_text}. "
-        f"<a href='{detail_url}'>View details</a>"
+        f"<a href='{detail_url}'>Review what the XML leaves out</a>"
     )
 
 
@@ -224,7 +225,16 @@ def _no_data_message(excluded: list[ValidationWarning]) -> str:
     if not excluded:
         return "No data to export — the report has no publications or contracts to transform."
 
-    return f"No data to export. {_exclusion_message(excluded)}"
+    details = "; ".join(f"{warning.entity_name}: {warning.message}" for warning in excluded[:5])
+
+    hidden = len(excluded) - 5
+    if hidden > 0:
+        details += f" (and {hidden} more)"
+
+    return (
+        "No file was downloaded: nothing in this report could be transformed into openCost XML. "
+        f"Reasons: {details}"
+    )
 
 
 @login_required
