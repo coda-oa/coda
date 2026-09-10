@@ -1,4 +1,8 @@
+{% load getlist %}
 <form method="get" id="search-form">
+    {% for label_id in request.GET|getlist:"labels" %}
+    <input type="hidden" name="labels" value="{{ label_id }}">
+    {% endfor %}
     <input type="search"
            name="search_term"
            value="{{ request.GET.search_term }}"
@@ -31,7 +35,7 @@
             {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
             {% include "fundingrequests/forms/publication_state.html" %}
             {% include "fundingrequests/forms/payment_status.html" %}
-            {% include "fundingrequests/forms/label_dropdown.html" %}
+            {% include "fundingrequests/forms/label_dropdown.html" with exclude=True %}
         </p>
     </details>
     <label class="my-1">
