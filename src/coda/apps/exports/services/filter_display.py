@@ -233,33 +233,34 @@ def build_applied_filters(filters: dict[str, Any]) -> list[AppliedFilter]:
 
 def build_applied_filters_for_contract(filters: dict[str, Any]) -> list[AppliedFilter]:
     """Applied-filter rows for contract exports, which persist invoice payment statuses."""
-    applied: list[AppliedFilter] = []
+    values: dict[str, Any] = {
+        "payment_status": (
+            [
+                InvoicePaymentStatus(v.strip())
+                for v in filters["payment_status"].split(",")
+                if v.strip()
+            ]
+            if filters.get("payment_status")
+            else None
+        ),
+        "funding_source": filters.get("funding_source") or None,
+        "decimal_separator": (
+            DecimalSeparator(filters["decimal_separator"])
+            if filters.get("decimal_separator")
+            else None
+        ),
+    }
+    rows: list[AppliedFilter] = []
     period = _period_row_from_strings(filters.get("period_start"), filters.get("period_end"))
     if period is not None:
-        applied.append(period)
-    if payment_status_raw := filters.get("payment_status"):
-        statuses = ", ".join(
-            status.value.replace("_", " ").title()
-            for status in (
-                InvoicePaymentStatus(value.strip())
-                for value in payment_status_raw.split(",")
-                if value.strip()
-            )
-        )
-        applied.append(AppliedFilter(label=filter_field_label("payment_status"), value=statuses))
-    if funding_source_id := filters.get("funding_source"):
-        names = _names(
-            FundingSource.objects.filter(pk=funding_source_id).values_list("name", flat=True)
-        )
-        applied.append(AppliedFilter(label=filter_field_label("funding_source"), value=names))
-    if separator := filters.get("decimal_separator"):
-        applied.append(
-            AppliedFilter(
-                label=filter_field_label("decimal_separator"),
-                value=DecimalSeparator(separator).display,
-            )
-        )
-    return applied
+        rows.append(period)
+    rows.extend(_rows_for(values))
+    return rows
+
+
+def _rows_for(values: dict[str, Any]) -> list[AppliedFilter]:
+    """Build display rows for the set fields, in the given insertion order."""
+    return [row for name, value in values.items() if (row := _row_for(name, value)) is not None]
 
 
 def _row_for(name: str, value: Any) -> AppliedFilter | None:
