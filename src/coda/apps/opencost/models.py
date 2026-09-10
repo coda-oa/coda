@@ -15,8 +15,6 @@ class OpenCostReport(models.Model):
         default=timezone.now, help_text="When this report was generated"
     )
 
-    xml_content = models.TextField(blank=True, help_text="Generated OpenCost XML")
-
     # Validation summary (computed at generation time to avoid N+1 queries)
     errors_count = models.IntegerField(
         default=0, help_text="Number of validation errors in this report"
