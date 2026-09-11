@@ -1,31 +1,19 @@
+from collections.abc import Sequence
 from typing import cast
 
-from django.contrib.auth.decorators import login_required
-from django.db.models import Prefetch, Count
-from django.http import HttpRequest, HttpResponse
-from django.views.decorators.http import require_POST, require_GET
-from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count, Prefetch, Q
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from django.db.models import Q
-from collections.abc import Sequence
+from django.views.decorators.http import require_GET, require_POST
 
-from coda.apps.opencost.models import (
-    OpenCostReport,
-    OpenCostReportInvoice,
-    OpenCostReportInvoicePosition,
-    OpenCostReportContractInvoice,
-    OpenCostReportContractInvoicePosition,
-    OpenCostReportPublication,
-    OpenCostReportContract,
-    OpenCostReportPublicationContract,
-)
+from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.contracts.models import ContractLink
-from coda.apps.opencost.report_service import (
-    generate_report as generate_report_service,
-)
+from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.exports.services.filter_display import (
     build_applied_filters,
     build_filter_form_context,
@@ -39,12 +27,23 @@ from coda.apps.exports.services.filter_form import (
     current_filters_from_post,
     form_error_lines,
 )
-from coda.contexts.exports.dto.filters import ExportFiltersDto
+from coda.apps.opencost.models import (
+    OpenCostReport,
+    OpenCostReportContract,
+    OpenCostReportContractInvoice,
+    OpenCostReportContractInvoicePosition,
+    OpenCostReportInvoice,
+    OpenCostReportInvoicePosition,
+    OpenCostReportPublication,
+    OpenCostReportPublicationContract,
+)
+from coda.apps.opencost.report_service import (
+    generate_report as generate_report_service,
+)
 from coda.apps.opencost.validation import validate_report
 from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.views import SimpleSearchEntityListView
-from coda.apps.domainqueryset import DomainQuerySet
-from coda.apps.breadcrumbs.decorators import breadcrumb
+from coda.contexts.exports.dto.filters import ExportFiltersDto
 
 OPENCOST_LIST_URL = "opencost:list"
 

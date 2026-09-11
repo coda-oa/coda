@@ -1,6 +1,6 @@
 import pytest
 
-from coda.domain.opencost import (
+from opencost import (
     ContractAmountsPaid,
     ContractCostDataType,
     ContractSecondaryIdentifiersType,

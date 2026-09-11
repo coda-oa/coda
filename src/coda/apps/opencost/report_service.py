@@ -5,14 +5,15 @@ from decimal import Decimal
 from typing import Any, NamedTuple
 
 from django.db.models import Prefetch
+
 from coda.apps.contracts.models import Contract
 from coda.apps.institutions.models import Institution
 from coda.apps.invoices.models import Position
 from coda.apps.opencost.data_aggregation import (
-    get_publications_for_period,
+    build_institution_hierarchy_cache,
     get_contracts_for_period,
     get_invoices_for_period,
-    build_institution_hierarchy_cache,
+    get_publications_for_period,
 )
 from coda.apps.opencost.models import (
     OpenCostReport,
@@ -22,15 +23,15 @@ from coda.apps.opencost.models import (
     OpenCostReportContractInvoicePosition,
     OpenCostReportContractSecondaryIdentifier,
     OpenCostReportInstitutionIdentifier,
+    OpenCostReportInvoice,
     OpenCostReportInvoicePosition,
     OpenCostReportPublication,
     OpenCostReportPublicationContract,
-    OpenCostReportInvoice,
     OpenCostReportPublicationLink,
 )
 from coda.apps.opencost.validation import validate_report
-from coda.apps.publications.models import Publication
 from coda.apps.preferences.models import GlobalPreferences
+from coda.apps.publications.models import Publication
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
 logger = logging.getLogger(__name__)
