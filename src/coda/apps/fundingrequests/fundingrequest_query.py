@@ -13,6 +13,7 @@ from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
+from coda.domain.money import DecimalSeparator
 from coda.domain.publication.publication import OpenAccessType
 
 type LabelId = int
@@ -293,7 +294,7 @@ class FundingRequestSearchParams:
     contract_year: int | None = None
     show_invalid_contract_years: bool = False
     funding_source: FundingSourceId | None = None
-    decimal_separator: str = "."
+    decimal_separator: DecimalSeparator = DecimalSeparator.English
 
     def without_date_range(self) -> "FundingRequestSearchParams":
         return FundingRequestSearchParams(

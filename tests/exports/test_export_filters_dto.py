@@ -1,9 +1,11 @@
 from datetime import date
 
-from coda.apps.fundingrequests.fundingrequest_query import PublicationEntityType, ReviewResult
+from coda.apps.fundingrequests.fundingrequest_query import PublicationEntityType
 from coda.contexts.exports.dto.filters import ExportFiltersDto
+from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId
+from coda.domain.money import DecimalSeparator
 
 
 def test__legacy_row__validating__decodes_comma_strings_and_legacy_keys() -> None:
@@ -25,7 +27,7 @@ def test__legacy_row__validating__decodes_comma_strings_and_legacy_keys() -> Non
     assert params.labels == [1, 2]
     assert params.contract_id == 5
     assert params.entity_type == PublicationEntityType.Article
-    assert params.decimal_separator == ","
+    assert params.decimal_separator == DecimalSeparator.German
 
 
 def test__storage_round_trip__revalidating__is_stable() -> None:

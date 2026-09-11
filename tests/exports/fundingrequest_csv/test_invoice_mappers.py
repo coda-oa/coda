@@ -14,7 +14,7 @@ from coda.apps.exports.services.fundingrequest_csv.mappers import (
 
 from coda.domain.finance.invoice_positions import ContractItem
 from tests import modelfactory
-from tests.exports.fundingrequest_csv.helpers import (
+from tests.exports.helpers import (
     create_funding_request,
     create_invoice_with_funding_assignments,
     create_invoice_with_currency_conversion,
@@ -79,7 +79,7 @@ def test__publication_position__maps_to_dto__all_fields_are_mapped_correctly() -
     assert isinstance(position_dto, PublicationPositionImportDto)
     assert position_dto.type == "publication"
     assert position_dto.amount == invoice_position.cost.amount
-    assert position_dto.tax_rate == invoice_position.tax_rate * 100
+    assert position_dto.tax_rate == invoice_position.tax_rate.percentage()
     assert position_dto.cost_type.value == invoice_position.item.cost_type.value
     assert position_dto.external_id == invoice_position.external_position_id
 
@@ -104,7 +104,7 @@ def test__contract_position__maps_to_dto__all_fields_are_mapped_correctly() -> N
     assert isinstance(position_dto, ContractPositionImportDto)
     assert position_dto.type == "contract"
     assert position_dto.amount == invoice_position.cost.amount
-    assert position_dto.tax_rate == invoice_position.tax_rate * 100
+    assert position_dto.tax_rate == invoice_position.tax_rate.percentage()
     assert position_dto.cost_type == invoice_position.item.cost_type
     assert position_dto.external_id == invoice_position.external_position_id
     assert position_dto.contract_name == contract.name
@@ -129,7 +129,7 @@ def test__free_position__maps_to_dto__all_fields_are_mapped_correctly() -> None:
     assert isinstance(position_dto, FreePositionImportDto)
     assert position_dto.type == "free"
     assert position_dto.amount == invoice_position.cost.amount
-    assert position_dto.tax_rate == invoice_position.tax_rate * 100
+    assert position_dto.tax_rate == invoice_position.tax_rate.percentage()
     assert position_dto.cost_type.value == invoice_position.item.cost_type.value
     assert position_dto.external_id == invoice_position.external_position_id
     assert position_dto.description == invoice_position.item.item

@@ -5,12 +5,14 @@ from typing import TypedDict
 from django import forms
 from django.db.models import QuerySet
 from django.http import QueryDict
+import pydantic
 
 from coda.apps.contracts.models import Contract
 from coda.apps.exports.services.filter_display import (
     MULTI_VALUE_FILTER_FIELDS,
     SINGLE_VALUE_FILTER_FIELDS,
     filter_field_label,
+    invoice_payment_status_choices,
     publication_state_choices,
 )
 from coda.apps.fundingrequests.models import Label
@@ -19,6 +21,7 @@ from coda.apps.fundingrequests.fundingrequest_query import (
     PaymentStatus as FundingRequestPaymentStatus,
     PublicationEntityType,
 )
+from coda.domain.finance.invoice import FundingSourceId, PaymentStatus
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import DecimalSeparator
@@ -104,6 +107,69 @@ class FilterCleanedData(TypedDict):
     funding_source: FundingSource | None
     contract_name: Contract | None
     contract_year: int | None
+
+
+class ContractExportConfigForm(forms.Form):
+    """Validation-only form for the contract export filter widgets.
+
+    Mirrors :class:`FundingRequestFilterForm` with the contract (invoice-side)
+    payment statuses; rendered markup stays in generate_export_form.html.
+    """
+
+    title = forms.CharField(required=False, max_length=255)
+    period_start = forms.DateField(
+        input_formats=("%Y-%m-%d",),
+        error_messages={"invalid": "Invalid date format. Please enter dates in YYYY-MM-DD format."},
+    )
+    period_end = forms.DateField(
+        input_formats=("%Y-%m-%d",),
+        error_messages={"invalid": "Invalid date format. Please enter dates in YYYY-MM-DD format."},
+    )
+    decimal_separator = forms.TypedChoiceField(
+        coerce=DecimalSeparator,
+        choices=[(member.value, member.display) for member in DecimalSeparator],
+        initial=DecimalSeparator.English.value,
+        required=False,
+    )
+    payment_status = forms.TypedChoiceField(
+        coerce=PaymentStatus,
+        choices=invoice_payment_status_choices,
+        initial=None,
+        required=False,
+    )
+    funding_source = forms.ModelChoiceField(
+        queryset=FundingSource.objects.filter(type="budget"), required=False
+    )
+
+    def get_title(self) -> str:
+        return self.cleaned_data["title"].strip() or "Unnamed CSV Export"
+
+    def get_filters(self) -> "ContractExportFilters":
+        cleaned = self.cleaned_data
+
+        filters = ContractExportFilters(
+            period_start=cleaned["period_start"],
+            period_end=cleaned["period_end"],
+            payment_status=cleaned["payment_status"] or None,
+            funding_source=(
+                FundingSourceId(cleaned["funding_source"].pk)
+                if cleaned.get("funding_source") is not None
+                else None
+            ),
+            decimal_separator=cleaned.get("decimal_separator") or DecimalSeparator.English,
+        )
+
+        return filters
+
+
+class ContractExportFilters(pydantic.BaseModel):
+    """Exact shape of ``ContractFilterForm.cleaned_data`` (see :class:`FilterCleanedData`)."""
+
+    period_start: date
+    period_end: date
+    decimal_separator: DecimalSeparator = DecimalSeparator.English
+    payment_status: PaymentStatus | None = None
+    funding_source: FundingSourceId | None = None
 
 
 def current_filters_from_post(post: QueryDict) -> dict[str, str | list[str]]:

@@ -146,5 +146,5 @@ class ExportFiltersDto(CodaBaseDto):
             contract_id=self.contract_name,
             funding_source=self.funding_source,
             contract_year=self.contract_year,
-            decimal_separator=self.decimal_separator.value if self.decimal_separator else ".",
+            decimal_separator=self.decimal_separator or DecimalSeparator.English,
         )

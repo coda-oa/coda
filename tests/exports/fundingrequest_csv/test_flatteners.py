@@ -18,7 +18,7 @@ from coda.domain.author import InstitutionId, Role
 from coda.domain.money import Currency, Money
 from coda.domain.publication.publication import Authors, PublicationId
 from tests import domainfactory, modelfactory
-from tests.exports.fundingrequest_csv.helpers import (
+from tests.exports.helpers import (
     _make_params,
     create_funding_request,
     create_invoice_with_publication_position,
