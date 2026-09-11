@@ -1,21 +1,39 @@
 {% extends "forms/wizardform.html" %}
 {% block wizard_step %}
-    <div class="my-2">
-        <h2>Estimated Publication Cost</h2>
+    <article>
+        <header class="flex justify-between align-center">
+            <h2 class="fundingrequest__detail-title">Estimated Publication Cost</h2>
+        </header>
         <table>
             <tbody>
-                {{ cost_form.as_table }}
+            {{ cost_form.as_table }}
             </tbody>
         </table>
-    </div>
-    <div class="flex justify-between align-center mb-2">
-        <h2>External Research Funding</h2>
+    </article>
+    {% if funding_request_pk or journal_pk %}
+        <div hx-get="
+                {% if funding_request_pk %}
+                {% url 'fundingrequests:apc_panel' pk=funding_request_pk %}
+                {% elif journal_pk %}
+                {% url 'fundingrequests:apc_panel_by_journal' pk=journal_pk %}
+                {% endif %}"
+             hx-trigger="load"
+             hx-swap="outerHTML">
+            <span aria-busy="true">Loading APC data…</span>
+        </div>
+    {% endif %}
+    <article>
+        <header class="flex justify-between align-center">
+            <h2 class="fundingrequest__detail-title">External Research Funding</h2>
+        </header>
         <button class="secondary"
                 hx-get="{% url 'fundingrequests:funders_create_modal' %}"
                 hx-target="#entity-creation-modal-wrapper"
                 hx-swap="innerHTML"
-                hx-include="#wizard-form">Create New Funding Organization</button>
-    </div>
-    <div id="entity-creation-modal-wrapper"></div>
-    <div id="funding-formset">{{ funding_formset.as_inline }}</div>
+                hx-include="#wizard-form">Create New Funding Organization
+        </button>
+        <div id="entity-creation-modal-wrapper"></div>
+        <div id="funding-formset">{{ funding_formset.as_inline }}</div>
+    </article>
+
 {% endblock wizard_step %}
