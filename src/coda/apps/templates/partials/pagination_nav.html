@@ -1,119 +1,96 @@
 {% load param_replace %}
-{% if page_obj.paginator.num_pages > 1 %}
-    <div class="flex justify-between pagination-container">
-        <ul class="pagination" aria-label="Pagination Navigation">
-            {% comment %} << {% endcomment %}
-            {% if page_obj.number > 1 %}
-                <li>
-                    <a href="?{% param_replace page=1 %}">«</a>
-                </li>
-            {% else %}
-                <li>
-                    <a class="pagination__disabled" disabled>«</a>
-                </li>
-            {% endif %}
-            {% comment %} < {% endcomment %}
-            {% if page_obj.has_previous %}
-                <li>
-                    <a href="?{% param_replace page=page_obj.previous_page_number %}">‹</a>
-                </li>
-            {% else %}
-                <li>
-                    <a class="pagination__disabled" disabled>‹</a>
-                </li>
-            {% endif %}
-            {% comment %} page 1 {% endcomment %}
-            {% if page_obj.number != 1 %}
-                <li>
-                    <a href="?{% param_replace page=1 %}">1</a>
-                </li>
-            {% else %}
-                <li class="pagination__current">
-                    <a class="pagination__disabled" disabled><span class="pagination__current">1</span></a>
-                </li>
-            {% endif %}
-            {% comment %} dots {% endcomment %}
-            {% if page_obj.number > 3 %}
-                <li>
-                    <a class="pagination__disabled" disabled><span class="pagination__dots">…</span></a>
-                </li>
-            {% endif %}
-            {% comment %} page before current page {% endcomment %}
-            {% if page_obj.number|add:"-1" > 1 %}
-                <li>
-                    <a href="?{% param_replace page=page_obj.number|add:"-1" %}">{{ page_obj.number|add:"-1" }}</a>
-                </li>
-            {% endif %}
-            {% comment %} current page {% endcomment %}
-            {% if page_obj.number != 1 and page_obj.number != page_obj.paginator.num_pages %}
-                <li class="pagination__current">
-                    <a class="pagination__disabled" disabled><span class="pagination__current">{{ page_obj.number }}</span></a>
-                </li>
-            {% endif %}
-            {% comment %} page after current page {% endcomment %}
-            {% if page_obj.number|add:"1" < page_obj.paginator.num_pages %}
-                <li>
-                    <a href="?{% param_replace page=page_obj.number|add:"1" %}">{{ page_obj.number|add:"1" }}</a>
-                </li>
-            {% endif %}
-            {% comment %} dots {% endcomment %}
-            {% if page_obj.number < page_obj.paginator.num_pages|add:"-2" %}
-                <li>
-                    <a class="pagination__disabled" disabled><span class="pagination__dots">…</span></a>
-                </li>
-            {% endif %}
-            {% comment %} last page {% endcomment %}
-            {% if page_obj.number != page_obj.paginator.num_pages %}
-                <li>
-                    <a href="?{% param_replace page=page_obj.paginator.num_pages %}">{{ page_obj.paginator.num_pages }}</a>
-                </li>
-            {% else %}
-                <li class="pagination__current">
-                    <a class="pagination__disabled" disabled><span class="pagination__current">{{ page_obj.paginator.num_pages }}</span></a>
-                </li>
-            {% endif %}
-            {% comment %}  >  {% endcomment %}
-            {% if page_obj.has_next %}
-                <li>
-                    <a href="?{% param_replace page=page_obj.next_page_number %}">›</a>
-                </li>
-            {% else %}
-                <li>
-                    <a class="pagination__disabled" disabled>›</a>
-                </li>
-            {% endif %}
-            {% comment %}  >>  {% endcomment %}
-            {% if page_obj.number < page_obj.paginator.num_pages %}
-                <li>
-                    <a href="?{% param_replace page=page_obj.paginator.num_pages %}">»</a>
-                </li>
-            {% else %}
-                <li>
-                    <a class="pagination__disabled" disabled>»</a>
-                </li>
-            {% endif %}
-        </ul>
-        {% comment %} Jump to page {% endcomment %}
+{% if page_obj %}
+    <div class="flex align-center wrap pagination-container">
         {% if page_obj.paginator.num_pages > 1 %}
-            {% csrf_token %}
-            <form method="get">
-                {% for key, value in request.GET.items %}
-                    {% if key != "page" %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}
-                {% endfor %}
-                <div class="form-row">
-                    <label for="jump_to_page">Jump to page:</label>
-                    <fieldset role="group">
-                        <input type="number"
-                               id="jump_to_page"
-                               name="page"
-                               min="1"
-                               max="{{ page_obj.paginator.num_pages }}"
-                               value="{{ page_obj.number }}"
-                               class="pagination__jumpinput">
-                        <button type="submit" class="pagination__jumpbutton outline">Go</button>
-                    </fieldset>
-                </div>
-            </form>
+            <ul class="pagination" aria-label="Pagination Navigation">
+                {% comment %} < {% endcomment %}
+                {% if page_obj.has_previous %}
+                    <li>
+                        <a href="?{% param_replace page=page_obj.previous_page_number %}"
+                           hx-get="?{% param_replace page=page_obj.previous_page_number %}"
+                           aria-label="Previous page" title="Previous page">‹</a>
+                    </li>
+                {% else %}
+                    <li>
+                        <span>‹</span>
+                    </li>
+                {% endif %}
+                {% comment %} page 1 {% endcomment %}
+                {% if page_obj.number != 1 %}
+                    <li>
+                        <a href="?{% param_replace page=1 %}"
+                           hx-get="?{% param_replace page=1 %}"
+                           aria-label="Page 1">1</a>
+                    </li>
+                {% else %}
+                    {% include "partials/pagination_current_page.html" %}
+                {% endif %}
+                {% comment %} dots {% endcomment %}
+                {% if page_obj.number > 3 %}
+                    <li>
+                        <span class="pagination__dots">…</span>
+                    </li>
+                {% endif %}
+                {% comment %} page before current page {% endcomment %}
+                {% if page_obj.previous_page_number > 1 %}
+                    <li>
+                        <a href="?{% param_replace page=page_obj.previous_page_number %}"
+                           hx-get="?{% param_replace page=page_obj.previous_page_number %}">
+                            {{ page_obj.previous_page_number }}
+                        </a>
+                    </li>
+                {% endif %}
+                {% comment %} current page {% endcomment %}
+                {% if page_obj.number != 1 and page_obj.number != page_obj.paginator.num_pages %}
+                    {% include "partials/pagination_current_page.html" %}
+                {% endif %}
+                {% comment %} page after current page {% endcomment %}
+                {% if page_obj.next_page_number < page_obj.paginator.num_pages %}
+                    <li>
+                        <a href="?{% param_replace page=page_obj.next_page_number %}"
+                           hx-get="?{% param_replace page=page_obj.next_page_number %}">
+                            {{ page_obj.next_page_number }}
+                        </a>
+                    </li>
+                {% endif %}
+                {% comment %} dots {% endcomment %}
+                {% if page_obj.number < page_obj.paginator.num_pages|add:"-2" %}
+                    <li>
+                        <span class="pagination__dots">…</span>
+                    </li>
+                {% endif %}
+                {% comment %} last page {% endcomment %}
+                {% if page_obj.number != page_obj.paginator.num_pages %}
+                    <li>
+                        <a href="?{% param_replace page=page_obj.paginator.num_pages %}"
+                           hx-get="?{% param_replace page=page_obj.paginator.num_pages %}"
+                           aria-label="Page {{ page_obj.paginator.num_pages }} (last page)">{{ page_obj.paginator.num_pages }}</a>
+                    </li>
+                {% else %}
+                    {% include "partials/pagination_current_page.html" %}
+                {% endif %}
+                {% comment %}  > {% endcomment %}
+                {% if page_obj.has_next %}
+                    <li>
+                        <a href="?{% param_replace page=page_obj.next_page_number %}"
+                           hx-get="?{% param_replace page=page_obj.next_page_number %}"
+                           aria-label="Next page" title="Next page">›</a>
+                    </li>
+                {% else %}
+                    <li>
+                        <span>›</span>
+                    </li>
+                {% endif %}
+            </ul>
+            {% include "partials/pagination_jump_form.html" %}
+        {% endif %}
+        {% if page_obj.paginator.count %}
+            <p class="pagination__count">
+            {% if page_obj.paginator.num_pages >= 2 %}
+                {{ page_obj.start_index }} -
+            {% endif %}
+                {{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+            </p>
         {% endif %}
     </div>
 {% endif %}

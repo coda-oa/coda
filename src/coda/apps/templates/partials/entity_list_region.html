@@ -1,0 +1,14 @@
+{% comment %}
+Pager + list region that htmx swaps in place: the boosted page links and the jump form
+(partials/pagination_jump_form.html) all target this element, and
+hx-select picks the same region out of the full-page response. The id must stay in sync.
+{% endcomment %}
+<div id="entity-list-region"
+     hx-target="#entity-list-region"
+     hx-select="#entity-list-region"
+     hx-swap="outerHTML"
+     hx-push-url="true">
+    {% include "partials/pagination_nav.html" %}
+    {% include "entity_list.html" with list_item_template=entity_list_item_template list_layout_classes=entity_list_layout_classes %}
+    {% include "partials/pagination_nav.html" %}
+</div>
