@@ -1,4 +1,4 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -17,6 +17,7 @@ from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
 from coda.apps.views import EntityListView
+from coda.coda_itertools import map_or_none
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
@@ -146,16 +147,6 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
 
     criteria = fq.build_criteria(params)
     return fq.search(*criteria)
-
-
-def map_or_none[T](map_fn: Callable[[str], T], value: str | None) -> T | None:
-    if value:
-        try:
-            return map_fn(value)
-        except ValueError:
-            return None
-
-    return None
 
 
 def get_contract_list_context() -> dict[str, Any]:

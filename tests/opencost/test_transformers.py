@@ -1,17 +1,29 @@
 from datetime import date
 from decimal import Decimal
-import pytest
 
+import pytest
+from django.urls import reverse
+
+from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
+from coda.apps.opencost.issues import ValidationWarning
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
     OpenCostReportContractInstitutionIdentifier,
     OpenCostReportContractInvoice,
     OpenCostReportContractInvoicePosition,
+    OpenCostReportInstitutionIdentifier,
+    OpenCostReportPublicationLink,
 )
-from coda.apps.opencost.transformers import to_opencost
+from coda.apps.opencost.transformers import (
+    report_contract_to_pydantic,
+    report_publication_to_pydantic,
+    to_opencost,
+)
+from coda.apps.publications.models import Link, LinkType
 from coda.apps.publications.models._attachedentities import PublicationAttachedConcept
 from coda.apps.publications.models._vocabulary import Vocabulary
+from coda.domain.contract import PublicationBilling
 from opencost import (
     CoarPublicationType,
     ContractPrimaryIdentifierType,
@@ -24,22 +36,18 @@ from opencost import (
 )
 from tests import modelfactory
 from tests.opencost.helpers import (
+    create_contract_with_identifiers,
+    create_contract_with_invoice,
+    create_corresponding_author,
     create_creditor,
+    create_institution_with_identifiers,
     create_invoice,
+    create_opencost_report,
     create_position,
     create_publication_with_invoice,
-    create_opencost_report,
-    create_institution_with_identifiers,
-    create_corresponding_author,
-    create_contract_with_identifiers,
-    transform_first_publication_to_pydantic,
-    create_contract_with_invoice,
     generate_opencost_report_from_contract,
+    transform_first_publication_to_pydantic,
 )
-from coda.apps.publications.models import LinkType, Link
-
-from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
-from coda.domain.contract import PublicationBilling
 
 
 @pytest.mark.django_db
@@ -140,6 +148,32 @@ def test__report_publication_with_publication_type__transforming_to_opencost__pu
 
 
 @pytest.mark.django_db
+def test__report_publication_with_unmappable_publication_type__transforming_to_opencost__falls_back_to_other() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Test Publication with a non-COAR publication type")
+
+    vocabulary = Vocabulary.objects.create(name="Local", version="1.0")
+    unknown_concept = PublicationAttachedConcept.objects.create(
+        vocabulary=vocabulary, name="Unknown"
+    )
+    fr.publication.publication_type = unknown_concept
+    fr.publication.save()
+
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 5, 22),
+        invoice_number="INV-COAR-002",
+    )
+
+    oc_publication = transform_first_publication_to_pydantic()
+
+    # CODA stores free vocabulary concept names; a name outside COAR must not
+    # abort the export
+    assert oc_publication.publication_type == CoarPublicationType.other
+
+
+@pytest.mark.django_db
 def test__report_publication_with_secondary_identifiers__transforming_to_opencost__secondary_identifiers_are_included() -> (
     None
 ):
@@ -177,6 +211,111 @@ def test__report_publication_with_secondary_identifiers__transforming_to_opencos
     ]
     assert len(urn_ids) == 1
     assert urn_ids[0].value == "urn:nbn:de:1234-5678"
+
+
+@pytest.mark.django_db
+def test__report_publication_with_unmappable_link_type__transforming_to_opencost__link_is_excluded_from_secondary_identifiers() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication with Web Link")
+
+    url_type, _ = LinkType.objects.get_or_create(name="URL")
+    Link.objects.create(
+        publication=fr.publication,
+        type=url_type,
+        value="https://example.org/articles/4711",
+    )
+
+    handle_type, _ = LinkType.objects.get_or_create(name="Handle")
+    Link.objects.create(
+        publication=fr.publication,
+        type=handle_type,
+        value="hdl:12345/9876",
+    )
+
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 5, 20),
+        invoice_number="INV-UNMAPPABLE-001",
+    )
+
+    oc_publication = transform_first_publication_to_pydantic()
+
+    assert oc_publication.secondary_identifiers is not None
+    values = [secondary_id.value for secondary_id in oc_publication.secondary_identifiers.id]
+
+    assert "https://example.org/articles/4711" not in values
+    assert "hdl:12345/9876" in values
+    assert len(values) == 2  # ISBN (factory) + handle, the URL link is not an openCost type
+
+
+@pytest.mark.django_db
+def test__report_publication_with_only_unmappable_links__transforming_to_opencost__secondary_identifiers_are_omitted() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication With Unmappable Links Only")
+    fr.publication.links.exclude(type__name="DOI").delete()
+
+    url_type, _ = LinkType.objects.get_or_create(name="URL")
+    Link.objects.create(
+        publication=fr.publication,
+        type=url_type,
+        value="https://example.org/articles/4712",
+    )
+
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 5, 21),
+        invoice_number="INV-UNMAPPABLE-002",
+    )
+
+    oc_publication = transform_first_publication_to_pydantic()
+
+    # openCost forbids an empty secondary_identifiers element, so the transformer
+    # must omit it rather than emit id=[]
+    assert oc_publication.secondary_identifiers is None
+
+
+@pytest.mark.django_db
+def test__report_publication_link_with_empty_value__transforming_to_opencost__link_is_excluded() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication With Empty Link Value")
+
+    handle_type, _ = LinkType.objects.get_or_create(name="Handle")
+    Link.objects.create(
+        publication=fr.publication,
+        type=handle_type,
+        value="hdl:12345/9877",
+    )
+
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 5, 22),
+        invoice_number="INV-EMPTY-VALUE-001",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+
+    # A snapshot row whose value is empty: openCost rejects it (NonEmptyString),
+    # so the row must be dropped instead of failing the whole report
+    OpenCostReportPublicationLink.objects.create(
+        report_publication=report_publication,
+        link_type="handle",
+        value="",
+    )
+
+    oc_publication = report_publication_to_pydantic(report_publication)
+    assert oc_publication is not None
+
+    assert oc_publication.secondary_identifiers is not None
+    values = [secondary_id.value for secondary_id in oc_publication.secondary_identifiers.id]
+
+    assert "" not in values
+    assert "hdl:12345/9877" in values
+    assert len(values) == 2  # ISBN (factory) + handle, the empty row is dropped
 
 
 @pytest.mark.django_db
@@ -221,6 +360,88 @@ def test__report_publication_with_institution_data__transforming_to_opencost__in
     isni_ids = [i for i in oc_publication.institution.id if i.type == InstitutionIdType.isni]
     assert len(isni_ids) == 1
     assert isni_ids[0].value == "0000 0001 2345 6789"
+
+
+@pytest.mark.django_db
+def test__report_publication_with_unmappable_institution_identifier__transforming_to_opencost__identifier_is_excluded() -> (
+    None
+):
+    institution = create_institution_with_identifiers(
+        name="Test University",
+        ror="https://ror.org/guard123",
+    )
+
+    fr = modelfactory.fundingrequest(title="Publication with bad institution identifiers")
+    fr.publication.relevant_authors.all().delete()
+    create_corresponding_author(publication=fr.publication, affiliation=institution)
+
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 15),
+        invoice_number="INV-INSTITUTION-GUARD-001",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+
+    OpenCostReportInstitutionIdentifier.objects.create(
+        report_publication=report_publication,
+        identifier_type="otherid",
+        value="https://example.org/no-identifier-scheme",
+    )
+    OpenCostReportInstitutionIdentifier.objects.create(
+        report_publication=report_publication,
+        identifier_type="isni",
+        value="",
+    )
+
+    oc_publication = report_publication_to_pydantic(report_publication)
+    assert oc_publication is not None
+
+    assert oc_publication.institution.id is not None
+    assert [(i.type, i.value) for i in oc_publication.institution.id] == [
+        (InstitutionIdType.ror, "https://ror.org/guard123")
+    ]
+
+
+@pytest.mark.django_db
+def test__report_contract_with_unmappable_institution_identifier__transforming_to_opencost__identifier_is_excluded() -> (
+    None
+):
+    contract = create_contract_with_identifiers(name="Guard Agreement")
+    create_contract_with_invoice(contract)
+
+    report = create_opencost_report()
+    report_contract = report.contracts.first()
+    assert report_contract is not None
+
+    OpenCostReportContractInstitutionIdentifier.objects.create(
+        report_contract=report_contract,
+        identifier_type="ror",
+        value="https://ror.org/guard456",
+    )
+    OpenCostReportContractInstitutionIdentifier.objects.create(
+        report_contract=report_contract,
+        identifier_type="otherid",
+        value="https://example.org/no-identifier-scheme",
+    )
+    OpenCostReportContractInstitutionIdentifier.objects.create(
+        report_contract=report_contract,
+        identifier_type="isni",
+        value="",
+    )
+
+    opencost_data = to_opencost(report)
+    assert opencost_data is not None
+    assert opencost_data.contract is not None
+
+    contract_data = opencost_data.contract[0]
+
+    assert contract_data.institution.id is not None
+    assert [(i.type, i.value) for i in contract_data.institution.id] == [
+        (InstitutionIdType.ror, "https://ror.org/guard456")
+    ]
 
 
 @pytest.mark.django_db
@@ -653,4 +874,508 @@ def test__publication_with_linked_contract__transforming_to_opencost__attached_c
     assert (
         publication_data.cost_data.part_of_contract.primary_identifier.value
         == "https://esac.org/id/test-contract-123"
+    )
+
+
+@pytest.mark.django_db
+def test__report_invoice_without_date__transforming_to_opencost__invoice_is_excluded() -> None:
+    fr = modelfactory.fundingrequest(title="Publication with undated invoice")
+
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-UNDATED-001",
+    )
+    invoice2 = create_invoice(
+        creditor=create_creditor("Second Creditor"),
+        invoice_date=date(2024, 6, 20),
+        number="INV-UNDATED-002",
+    )
+    create_position(
+        invoice2,
+        fr.publication,
+        description="APC for second invoice",
+        cost_amount=Decimal("700.00"),
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+
+    undated = report_publication.invoices.order_by("invoice_number").first()
+    assert undated is not None
+    undated.invoice_date = None
+    undated.save()
+
+    # openCost needs an invoice or payment date per invoice block, so the dated
+    # invoice is reported and the undated one left out
+    oc_publication = report_publication_to_pydantic(report_publication)
+    assert oc_publication is not None
+    assert oc_publication.cost_data.invoice is not None
+
+    assert [invoice.invoice_number for invoice in oc_publication.cost_data.invoice] == [
+        "INV-UNDATED-002"
+    ]
+
+
+@pytest.mark.django_db
+def test__report_contract_without_participation_dates__transforming_to_opencost__contract_is_excluded() -> (
+    None
+):
+    contract = create_contract_with_identifiers(name="Undated Agreement")
+    create_contract_with_invoice(contract)
+
+    report = create_opencost_report()
+    report_contract = report.contracts.first()
+    assert report_contract is not None
+    report_contract.participation_from = None
+    report_contract.participation_to = None
+    report_contract.save()
+
+    # openCost requires both participation dates and the participation block
+    # itself, so the contract cannot be reported at all
+    assert to_opencost(report) is None
+
+
+@pytest.mark.django_db
+def test__report_contract_invoice_without_total__transforming_to_opencost__amount_invoice_is_omitted() -> (
+    None
+):
+    contract = create_contract_with_identifiers(name="Totalless Agreement")
+    create_contract_with_invoice(contract)
+
+    report = create_opencost_report()
+    report_contract = report.contracts.first()
+    assert report_contract is not None
+    report_invoice = report_contract.invoices.first()
+    assert report_invoice is not None
+    report_invoice.amount_invoice = None
+    report_invoice.amount_invoice_currency = ""
+    report_invoice.save()
+
+    opencost_data = to_opencost(report)
+    assert opencost_data is not None
+    assert opencost_data.contract is not None
+
+    invoice_group = opencost_data.contract[0].cost_data.invoice_group[0]
+    assert invoice_group.invoice is not None
+
+    invoice = invoice_group.invoice[0]
+    assert invoice.invoice_number == "INV-CONTRACT-001"
+    assert invoice.amount_invoice is None
+
+
+@pytest.mark.django_db
+def test__report_invoice_with_blank_text_fields__transforming_to_opencost__fields_are_omitted() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication with blank invoice fields")
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-BLANK-001",
+        creditor_name="Blank Creditor",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    report_invoice = report_publication.invoices.first()
+    assert report_invoice is not None
+    report_invoice.invoice_number = ""
+    report_invoice.creditor = ""
+    report_invoice.save()
+
+    oc_publication = report_publication_to_pydantic(report_publication)
+    assert oc_publication is not None
+    assert oc_publication.cost_data.invoice is not None
+
+    invoice = oc_publication.cost_data.invoice[0]
+    assert invoice.invoice_number is None
+    assert invoice.creditor is None
+    assert invoice.amounts_paid.amount_paid[0].amount == Decimal("1500.00")
+
+
+@pytest.mark.django_db
+def test__report_invoice_position_with_unknown_cost_type__transforming_to_opencost__position_is_excluded() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication with unmappable cost type")
+    invoice = create_invoice(
+        creditor=create_creditor("Cost Type Creditor"),
+        invoice_date=date(2024, 6, 1),
+        number="INV-COST-TYPE-001",
+    )
+    create_position(
+        invoice,
+        fr.publication,
+        description="APC",
+        cost_amount=Decimal("1000.00"),
+        cost_type="gold-oa",
+    )
+    create_position(
+        invoice,
+        fr.publication,
+        description="Surcharge",
+        cost_amount=Decimal("200.00"),
+        cost_type="other",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    report_invoice = report_publication.invoices.first()
+    assert report_invoice is not None
+
+    positions = sorted(report_invoice.positions.all(), key=lambda position: position.amount)
+    assert len(positions) == 2
+    positions[0].cost_type = "apc"
+    positions[0].save()
+
+    oc_publication = report_publication_to_pydantic(report_publication)
+    assert oc_publication is not None
+    assert oc_publication.cost_data.invoice is not None
+
+    amounts_paid = oc_publication.cost_data.invoice[0].amounts_paid.amount_paid
+    assert len(amounts_paid) == 1
+    assert amounts_paid[0].cost_type == PublicationCostType.gold_oa
+    assert amounts_paid[0].amount == Decimal("1000.00")
+
+
+@pytest.mark.django_db
+def test__report_invoice_without_usable_positions__transforming_to_opencost__publication_is_excluded() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication with only unmappable positions")
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-COST-TYPE-002",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    report_invoice = report_publication.invoices.first()
+    assert report_invoice is not None
+
+    position = report_invoice.positions.first()
+    assert position is not None
+    position.cost_type = "apc"
+    position.save()
+
+    # without a single reported amount the invoice block is empty, which openCost
+    # forbids, and the publication then has no cost data at all
+    assert report_publication_to_pydantic(report_publication) is None
+
+
+@pytest.mark.django_db
+def test__contract_without_participation_dates__transforming_to_opencost__exclusion_is_collected() -> (
+    None
+):
+    contract = create_contract_with_identifiers(name="Undated Agreement")
+    create_contract_with_invoice(contract)
+
+    report = create_opencost_report()
+    report_contract = report.contracts.first()
+    assert report_contract is not None
+    report_contract.participation_from = None
+    report_contract.save()
+
+    issues: list[ValidationWarning] = []
+
+    assert to_opencost(report, issues=issues) is None
+
+    assert len(issues) == 1
+    assert issues[0].level == "error"
+    assert issues[0].entity_type == "contract"
+    assert issues[0].entity_name == "Undated Agreement"
+    assert "participation" in issues[0].message
+
+
+@pytest.mark.django_db
+def test__contract_invoice_without_date__transforming_to_opencost__exclusion_is_collected() -> None:
+    contract = create_contract_with_identifiers(name="Undated Invoice Agreement")
+    create_contract_with_invoice(contract, invoice_number="INV-NODATE-CONTRACT-001")
+
+    report = create_opencost_report()
+    report_contract = report.contracts.first()
+    assert report_contract is not None
+    report_invoice = report_contract.invoices.first()
+    assert report_invoice is not None
+    report_invoice.invoice_date = None
+    report_invoice.save()
+
+    issues: list[ValidationWarning] = []
+
+    assert to_opencost(report, issues=issues) is None
+
+    # the invoice and the contract both go, but a single entry tells the whole story
+    assert len(issues) == 1
+    assert issues[0].entity_type == "contract"
+    assert "INV-NODATE-CONTRACT-001" in issues[0].message
+    assert "Excluded entirely" in issues[0].message
+
+
+@pytest.mark.django_db
+def test__report_invoice_without_date__transforming_to_opencost__exclusion_is_collected() -> None:
+    fr = modelfactory.fundingrequest(title="Publication with an undated invoice")
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-NODATE-001",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    report_invoice = report_publication.invoices.first()
+    assert report_invoice is not None
+    report_invoice.invoice_date = None
+    report_invoice.save()
+
+    issues: list[ValidationWarning] = []
+
+    assert report_publication_to_pydantic(report_publication, issues=issues) is None
+
+    assert len(issues) == 1
+    assert issues[0].entity_type == "publication"
+    assert issues[0].entity_name == report_publication.title
+    assert "INV-NODATE-001" in issues[0].message
+    assert "has no invoice date" in issues[0].message
+
+
+@pytest.mark.django_db
+def test__invoice_position_with_unknown_cost_type__transforming_to_opencost__exclusion_is_collected() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication with a partial invoice")
+    invoice = create_invoice(
+        creditor=create_creditor("Cost Type Creditor"),
+        invoice_date=date(2024, 6, 1),
+        number="INV-COST-TYPE-003",
+    )
+    create_position(
+        invoice,
+        fr.publication,
+        description="APC",
+        cost_amount=Decimal("1000.00"),
+        cost_type="gold-oa",
+    )
+    create_position(
+        invoice,
+        fr.publication,
+        description="Surcharge",
+        cost_amount=Decimal("200.00"),
+        cost_type="service fee",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    report_invoice = report_publication.invoices.first()
+    assert report_invoice is not None
+
+    positions = sorted(report_invoice.positions.all(), key=lambda position: position.amount)
+    positions[0].cost_type = "service fee"
+    positions[0].save()
+
+    issues: list[ValidationWarning] = []
+
+    assert report_publication_to_pydantic(report_publication, issues=issues) is not None
+
+    assert len(issues) == 1
+    assert issues[0].entity_type == "publication"
+    assert "INV-COST-TYPE-003" in issues[0].message
+    assert "service fee" in issues[0].message
+
+
+@pytest.mark.django_db
+def test__report_invoice_without_usable_positions__transforming_to_opencost__single_exclusion_is_collected() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication with no reportable positions")
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-COST-TYPE-004",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    report_invoice = report_publication.invoices.first()
+    assert report_invoice is not None
+
+    position = report_invoice.positions.first()
+    assert position is not None
+    position.cost_type = "service fee"
+    position.save()
+
+    issues: list[ValidationWarning] = []
+
+    assert report_publication_to_pydantic(report_publication, issues=issues) is None
+
+    assert len(issues) == 1
+    assert "Excluded entirely" in issues[0].message
+
+
+@pytest.mark.django_db
+def test__publication_without_institution__transforming_to_opencost__exclusion_is_collected() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication without institution data")
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-NOINST-PUB-001",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    report_publication.institution_name = ""
+    report_publication.save()
+    report_publication.institution_identifiers.all().delete()
+
+    issues: list[ValidationWarning] = []
+
+    assert report_publication_to_pydantic(report_publication, issues=issues) is None
+
+    assert len(issues) == 1
+    assert issues[0].entity_type == "global"
+    assert issues[0].entity_name == report_publication.title
+    assert "institution" in issues[0].message
+    assert issues[0].fix_url == reverse("preferences:global_preferences")
+
+
+@pytest.mark.django_db
+def test__contract_without_institution__transforming_to_opencost__exclusion_is_collected() -> None:
+    contract = create_contract_with_identifiers(name="Agreement without institution data")
+    create_contract_with_invoice(contract, invoice_number="INV-NOINST-CON-001")
+
+    report = create_opencost_report()
+    report_contract = report.contracts.first()
+    assert report_contract is not None
+    report_contract.institution_name = ""
+    report_contract.save()
+    report_contract.institution_identifiers.all().delete()
+
+    issues: list[ValidationWarning] = []
+
+    assert report_contract_to_pydantic(report_contract, issues=issues) is None
+
+    assert len(issues) == 1
+    assert issues[0].entity_type == "global"
+    assert issues[0].entity_name == report_contract.contract_name
+    assert "institution" in issues[0].message
+    assert issues[0].fix_url == reverse("preferences:global_preferences")
+
+
+@pytest.mark.django_db
+def test__publication_exclusion__fix_url__links_to_the_funding_request() -> None:
+    # A decoy publication first: the factories would otherwise allocate the publication and
+    # the funding request the same primary key, hiding a wrong-id fix URL.
+    modelfactory.publication(title="Decoy publication to desync identifiers")
+    fr = modelfactory.fundingrequest(title="Publication whose exclusion links home")
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-FIXURL-001",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.get(publication=fr.publication)
+    report_invoice = report_publication.invoices.first()
+    assert report_invoice is not None
+    report_invoice.invoice_date = None
+    report_invoice.save()
+
+    issues: list[ValidationWarning] = []
+
+    assert report_publication_to_pydantic(report_publication, issues=issues) is None
+
+    assert issues[0].fix_url == reverse("fundingrequests:detail", kwargs={"pk": fr.pk})
+    assert issues[0].fix_url != reverse(
+        "fundingrequests:detail", kwargs={"pk": report_publication.publication_id}
+    )
+
+
+@pytest.mark.django_db
+def test__contract_without_esac_identifier__transforming_to_opencost__substitution_is_collected() -> (
+    None
+):
+    contract = create_contract_with_identifiers(name="No ESAC Agreement")
+    create_contract_with_invoice(contract)
+
+    report = create_opencost_report()
+    report_contract = report.contracts.first()
+    assert report_contract is not None
+
+    issues: list[ValidationWarning] = []
+
+    assert to_opencost(report, issues=issues) is not None
+
+    assert len(issues) == 1
+    assert issues[0].level == "warning"
+    assert issues[0].entity_type == "contract"
+    assert issues[0].entity_name == "No ESAC Agreement"
+    assert issues[0].message == "No ESAC ID — the contract is exported with ESAC 'UNKNOWN'."
+
+
+@pytest.mark.django_db
+def test__publication_without_doi__transforming_to_opencost__substitution_is_collected() -> None:
+    fr = modelfactory.fundingrequest(title="Publication without DOI")
+    fr.publication.links.filter(type__name="DOI").delete()
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-NODOI-001",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+
+    issues: list[ValidationWarning] = []
+
+    assert report_publication_to_pydantic(report_publication, issues=issues) is not None
+
+    assert len(issues) == 1
+    assert issues[0].level == "warning"
+    assert issues[0].entity_type == "publication"
+    assert issues[0].message == (
+        "No DOI — the publication is exported with title and journal instead."
+    )
+
+
+@pytest.mark.django_db
+def test__publication_without_publisher__transforming_to_opencost__substitution_is_collected() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication without publisher")
+    fr.publication.links.filter(type__name="DOI").delete()
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-NOPUB-001",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+    report_publication.publisher = ""
+    report_publication.save()
+
+    issues: list[ValidationWarning] = []
+
+    assert report_publication_to_pydantic(report_publication, issues=issues) is not None
+
+    assert len(issues) == 2  # the DOI and the publisher substitutions
+    assert issues[0].level == "warning"
+    assert issues[0].message == (
+        "No DOI — the publication is exported with title and journal instead."
+    )
+    assert (
+        issues[1].message == "No publisher — the publication is exported with 'Unknown Publisher'."
     )
