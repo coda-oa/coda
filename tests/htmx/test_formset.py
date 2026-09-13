@@ -1,8 +1,9 @@
 import json
+
 import pytest
 from django.test.client import Client
 from django.utils.datastructures import MultiValueDict
-from pytest_django.fixtures import SettingsWrapper
+from pytest_django.fixtures import Settings
 
 from tests.htmx.views import (
     _AlwaysValidTestForm,
@@ -14,7 +15,7 @@ from tests.htmx.views import (
 
 
 @pytest.fixture(autouse=True)
-def add_form_url_to_django_settings(settings: SettingsWrapper) -> None:
+def add_form_url_to_django_settings(settings: Settings) -> None:
     settings.ROOT_URLCONF = "tests.htmx.urls"
 
 
