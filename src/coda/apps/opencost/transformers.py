@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import date
 from decimal import Decimal
 from typing import Literal
@@ -60,6 +60,27 @@ from opencost import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _no_positions_warning_message(label: str, unmappable: list[str]) -> str:
+    if not unmappable:
+        return f"Invoice {label} has no positions and was excluded."
+
+    return (
+        f"Invoice {label} has no positions with a cost type or currency openCost accepts "
+        f"({_quoted_values(unmappable)}) and was excluded."
+    )
+
+
+def _invalid_cost_type_warning_message(
+    label: str, unmappables: list[str], number_of_report_positions: int
+) -> str:
+    return (
+        f"Invoice {label}: {len(unmappables)} of {number_of_report_positions} positions "
+        + "with a cost type or currency openCost does not accept "
+        + f"({_quoted_values(unmappables)}) were excluded. "
+        + "The invoice in the XML covers only its remaining positions."
+    )
 
 
 def report_publication_to_pydantic(
@@ -291,21 +312,51 @@ def _contract_warning(
     )
 
 
-def _get_invoice_data(
-    report_pub: OpenCostReportPublication,
+def _publication_invoice(
+    report_invoice: OpenCostReportInvoice,
+    amounts_paid: list[PublicationAmountPaidType],
+    dates: Dates,
+) -> PublicationInvoiceType:
+    # FIXME: The total amount on the invoice is not necessarily the sum of the positions,
+    # because some positions may have a cost type that openCost does not know about.
+    # Further, currency may differ between positions, so we cannot sum them up.
+    # For now, we will sum the positions and use that as the total amount, but this is not ideal.
+    report_positions = report_invoice.positions.all()
+    total_amount = sum((position.amount for position in report_positions), Decimal(0))
+    return PublicationInvoiceType(
+        invoice_number=_text_or_none(report_invoice.invoice_number),
+        creditor=_text_or_none(report_invoice.creditor),
+        amounts_paid=PublicationAmountsPaid(amount_paid=amounts_paid),
+        dates=dates,
+        amount_invoice=_amount_invoice(
+            amount=total_amount,
+            currency=report_positions[0].currency,
+        ),
+    )
+
+
+type AnyOpenCostReportItem = OpenCostReportPublication | OpenCostReportContract
+
+
+def _collect_invoices[TPaid, TInvoice](
+    report_item: AnyOpenCostReportItem,
     issues: list[ValidationWarning] | None,
-) -> list[PublicationInvoiceType] | None:
-    invoice_list = []
-    for report_invoice in report_pub.invoices.all():
+    warn: Callable[..., ValidationWarning],
+    report_invoices: Iterable[OpenCostReportInvoice | OpenCostReportContractInvoice],
+    map_amount_paid: Callable[..., TPaid | None],
+    create_invoice: Callable[..., TInvoice],
+) -> list[TInvoice] | None:
+    invoice_list: list[TInvoice] = []
+    for report_invoice in report_invoices:
         report_positions = report_invoice.positions.all()
-        amounts_paid, unmappable = _publication_amounts_paid(report_positions)
+        amounts_paid, unmappable = _collect_paid_position_items(report_positions, map_amount_paid)
         label = _invoice_label(report_invoice)
 
         if not amounts_paid:
             # XSD requires at least one amount_paid per invoice.
             _record_issue(
                 issues,
-                _publication_warning(report_pub, _unusable_positions_message(label, unmappable)),
+                warn(report_item, _no_positions_warning_message(label, unmappable)),
             )
             continue
 
@@ -314,64 +365,52 @@ def _get_invoice_data(
             # XSD requires an invoice or payment date.
             _record_issue(
                 issues,
-                _publication_warning(
-                    report_pub, f"Invoice {label} has no invoice date and was excluded."
-                ),
+                warn(report_item, f"Invoice {label} has no invoice date and was excluded."),
             )
             continue
 
         if unmappable:
             _record_issue(
                 issues,
-                _publication_warning(
-                    report_pub,
-                    f"Invoice {label}: {len(unmappable)} of {len(report_positions)} positions "
-                    f"with a cost type or currency openCost does not accept "
-                    f"({_quoted_values(unmappable)}) were excluded. "
-                    f"The invoice in the XML covers only its remaining positions.",
+                warn(
+                    report_item,
+                    _invalid_cost_type_warning_message(label, unmappable, len(report_positions)),
                 ),
             )
 
-        # FIXME: The total amount on the invoice is not necessarily the sum of the positions,
-        # because some positions may have a cost type that openCost does not know about.
-        # Further, currency may differ between positions, so we cannot sum them up.
-        # For now, we will sum the positions and use that as the total amount, but this is not ideal.
-        total_amount = sum((position.amount for position in report_positions), Decimal(0))
-
-        invoice_list.append(
-            PublicationInvoiceType(
-                invoice_number=_text_or_none(report_invoice.invoice_number),
-                creditor=_text_or_none(report_invoice.creditor),
-                amounts_paid=PublicationAmountsPaid(amount_paid=amounts_paid),
-                dates=dates,
-                amount_invoice=_amount_invoice(
-                    amount=total_amount,
-                    currency=report_positions[0].currency,
-                ),
-            )
-        )
+        invoice_list.append(create_invoice(report_invoice, amounts_paid, dates))
 
     return invoice_list or None
 
 
-def _unusable_positions_message(label: str, unmappable: list[str]) -> str:
-    if not unmappable:
-        return f"Invoice {label} has no positions and was excluded."
-
-    return (
-        f"Invoice {label} has no positions with a cost type or currency openCost accepts "
-        f"({_quoted_values(unmappable)}) and was excluded."
+def _get_invoice_data(
+    report_item: OpenCostReportPublication,
+    issues: list[ValidationWarning] | None,
+) -> list[PublicationInvoiceType] | None:
+    return _collect_invoices(
+        report_item,
+        issues,
+        _publication_warning,
+        report_item.invoices.all(),
+        _publication_amount_paid,
+        _publication_invoice,
     )
 
 
-def _publication_amounts_paid(
-    positions: Iterable[OpenCostReportInvoicePosition],
-) -> tuple[list[PublicationAmountPaidType], list[str]]:
-    amounts_paid: list[PublicationAmountPaidType] = []
+type AnyOpenCostInvoicePosition = (
+    OpenCostReportInvoicePosition | OpenCostReportContractInvoicePosition
+)
+
+
+def _collect_paid_position_items[TPosition: AnyOpenCostInvoicePosition, PaidT](
+    positions: Iterable[TPosition],
+    map_amount_paid: Callable[[TPosition], PaidT | None],
+) -> tuple[list[PaidT], list[str]]:
+    amounts_paid: list[PaidT] = []
     unmappable: list[str] = []
 
     for position in positions:
-        amount_paid = _publication_amount_paid(position)
+        amount_paid = map_amount_paid(position)
         if amount_paid is None:
             unmappable.append(position.cost_type)
         else:
@@ -552,75 +591,51 @@ def _participation(report_contract: OpenCostReportContract) -> ParticipationType
     )
 
 
+def _contract_invoice(
+    report_invoice: OpenCostReportContractInvoice,
+    amounts_paid: list[ContractAmountPaidType],
+    dates: Dates,
+) -> ContractInvoiceType:
+    invoice_type = ContractInvoiceType(
+        invoice_number=_text_or_none(report_invoice.invoice_number),
+        creditor=_text_or_none(report_invoice.creditor),
+        amounts_paid=ContractAmountsPaid(amount_paid=amounts_paid),
+        dates=dates,
+        amount_invoice=_amount_invoice(
+            amount=report_invoice.amount_invoice,
+            currency=report_invoice.amount_invoice_currency,
+        ),
+    )
+
+    return invoice_type
+
+
 def _get_contract_cost_data(
-    report_contract: OpenCostReportContract,
+    report_item: OpenCostReportContract,
     issues: list[ValidationWarning] | None,
 ) -> ContractCostDataType | None:
-    report_invoices = report_contract.invoices.all()
-
-    invoice_list = []
-    for report_invoice in report_invoices:
-        report_positions = report_invoice.positions.all()
-        amounts_paid, unmappable = _contract_amounts_paid(report_positions)
-        label = _invoice_label(report_invoice)
-
-        if not amounts_paid:
-            # XSD requires at least one amount_paid per invoice.
-            _record_issue(
-                issues,
-                _contract_warning(report_contract, _unusable_positions_message(label, unmappable)),
-            )
-            continue
-
-        dates = _invoice_dates(report_invoice.invoice_date)
-        if dates is None:
-            # XSD requires an invoice or payment date.
-            _record_issue(
-                issues,
-                _contract_warning(
-                    report_contract, f"Invoice {label} has no invoice date and was excluded."
-                ),
-            )
-            continue
-
-        if unmappable:
-            _record_issue(
-                issues,
-                _contract_warning(
-                    report_contract,
-                    f"Invoice {label}: {len(unmappable)} of {len(report_positions)} positions "
-                    f"with a cost type or currency openCost does not accept "
-                    f"({_quoted_values(unmappable)}) were excluded. "
-                    f"The invoice in the XML covers only its remaining positions.",
-                ),
-            )
-
-        invoice_list.append(
-            ContractInvoiceType(
-                invoice_number=_text_or_none(report_invoice.invoice_number),
-                creditor=_text_or_none(report_invoice.creditor),
-                amounts_paid=ContractAmountsPaid(amount_paid=amounts_paid),
-                dates=dates,
-                amount_invoice=_amount_invoice(
-                    amount=report_invoice.amount_invoice,
-                    currency=report_invoice.amount_invoice_currency,
-                ),
-            )
-        )
-
-    if not invoice_list:
+    report_invoices = report_item.invoices.all()
+    invoice_list = _collect_invoices(
+        report_item,
+        issues,
+        _contract_warning,
+        report_invoices,
+        _contract_amount_paid,
+        _contract_invoice,
+    )
+    if invoice_list is None:
         # XSD requires at least one invoice_group — nothing to produce.
         return None
 
     first_invoice = report_invoices[0]
 
-    if not first_invoice.group_id or not report_contract.report:
+    if not first_invoice.group_id or not report_item.report:
         # XSD requires group_id and invoices_period — nothing to produce.
         return None
 
     invoices_period = ContractInvoicePeriodType(
-        from_=str(report_contract.report.period_start),
-        to=str(report_contract.report.period_end),
+        from_=str(report_item.report.period_start),
+        to=str(report_item.report.period_end),
     )
 
     invoice_group = ContractInvoiceGroupType(
@@ -630,22 +645,6 @@ def _get_contract_cost_data(
     )
 
     return ContractCostDataType(invoice_group=[invoice_group])
-
-
-def _contract_amounts_paid(
-    positions: Iterable[OpenCostReportContractInvoicePosition],
-) -> tuple[list[ContractAmountPaidType], list[str]]:
-    amounts_paid: list[ContractAmountPaidType] = []
-    unmappable: list[str] = []
-
-    for position in positions:
-        amount_paid = _contract_amount_paid(position)
-        if amount_paid is None:
-            unmappable.append(position.cost_type)
-        else:
-            amounts_paid.append(amount_paid)
-
-    return amounts_paid, unmappable
 
 
 def _contract_amount_paid(
