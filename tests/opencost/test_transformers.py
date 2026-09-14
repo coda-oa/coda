@@ -15,11 +15,9 @@ from coda.apps.opencost.models import (
     OpenCostReportInstitutionIdentifier,
     OpenCostReportPublicationLink,
 )
-from coda.apps.opencost.transformers import (
-    report_contract_to_pydantic,
-    report_publication_to_pydantic,
-    to_opencost,
-)
+from coda.apps.opencost.transformers import to_opencost
+from coda.apps.opencost.transformers.contract import report_contract_to_pydantic
+from coda.apps.opencost.transformers.publication import report_publication_to_pydantic
 from coda.apps.publications.models import Link, LinkType
 from coda.apps.publications.models._attachedentities import PublicationAttachedConcept
 from coda.apps.publications.models._vocabulary import Vocabulary
@@ -520,6 +518,78 @@ def test__report_publication_with_invoice_multiple_positions__transforming_to_op
     amounts = sorted(invoice_data.amounts_paid.amount_paid, key=lambda x: x.amount)
     assert amounts[0].amount == Decimal("500.00")
     assert amounts[1].amount == Decimal("1000.00")
+
+
+@pytest.mark.django_db
+def test__report_publication_with_invoice_mixed_currencies__transforming_to_opencost__amount_invoice_totals_every_row() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication with Invoice in Mixed Currencies")
+
+    creditor = create_creditor(name="Mixed Currency Creditor")
+    invoice = create_invoice(
+        creditor=creditor, invoice_date=date(2024, 6, 1), number="INV-2024-004"
+    )
+    create_position(
+        invoice,
+        fr.publication,
+        description="APC in euros",
+        cost_amount=Decimal("1000.00"),
+    )
+    create_position(
+        invoice,
+        fr.publication,
+        description="APC in dollars",
+        cost_amount=Decimal("500.00"),
+        cost_currency="USD",
+    )
+
+    oc_publication = transform_first_publication_to_pydantic()
+
+    assert oc_publication.cost_data is not None
+    assert oc_publication.cost_data.invoice is not None
+
+    invoice_data = oc_publication.cost_data.invoice[0]
+    # every snapshot row is part of the total, whatever its currency: this is the number
+    # stated on the invoice, and an invoice carries one currency in CODA
+    assert invoice_data.amount_invoice is not None
+    assert invoice_data.amount_invoice.amount == Decimal("1500.00")
+    assert invoice_data.amount_invoice.currency == "USD"
+
+    amounts = sorted(invoice_data.amounts_paid.amount_paid, key=lambda x: x.amount)
+    assert len(amounts) == 2
+    assert amounts[0].currency == "USD"
+    assert amounts[1].currency == "EUR"
+
+
+@pytest.mark.django_db
+def test__report_publication_with_sub_cent_amount__transforming_to_opencost__amount_is_not_re_rounded() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication with a Four Decimal Place Amount")
+
+    creditor = create_creditor(name="Precision Creditor")
+    invoice = create_invoice(
+        creditor=creditor, invoice_date=date(2024, 6, 1), number="INV-2024-PRECISION"
+    )
+    create_position(
+        invoice,
+        fr.publication,
+        description="APC with a half cent",
+        cost_amount=Decimal("1000.0050"),
+    )
+
+    oc_publication = transform_first_publication_to_pydantic()
+
+    assert oc_publication.cost_data is not None
+    assert oc_publication.cost_data.invoice is not None
+
+    invoice_data = oc_publication.cost_data.invoice[0]
+    # the exported numbers are the snapshotted ones; only the XML writer formats them
+    amount_paid = invoice_data.amounts_paid.amount_paid[0]
+    assert amount_paid.amount == Decimal("1000.0050")
+    assert invoice_data.amount_invoice is not None
+    assert invoice_data.amount_invoice.amount == Decimal("1000.0050")
 
 
 @pytest.mark.django_db
@@ -1041,6 +1111,11 @@ def test__report_invoice_position_with_unknown_cost_type__transforming_to_openco
     assert amounts_paid[0].cost_type == PublicationCostType.gold_oa
     assert amounts_paid[0].amount == Decimal("1000.00")
 
+    # the total is the price stated on the invoice, so the excluded position is still in it
+    amount_invoice = oc_publication.cost_data.invoice[0].amount_invoice
+    assert amount_invoice is not None
+    assert amount_invoice.amount == Decimal("1200.00")  # 1000 exported + the excluded 200
+
 
 @pytest.mark.django_db
 def test__report_invoice_without_usable_positions__transforming_to_opencost__publication_is_excluded() -> (
@@ -1067,6 +1142,39 @@ def test__report_invoice_without_usable_positions__transforming_to_opencost__pub
     # without a single reported amount the invoice block is empty, which openCost
     # forbids, and the publication then has no cost data at all
     assert report_publication_to_pydantic(report_publication) is None
+
+
+@pytest.mark.django_db
+def test__report_invoice_position_with_non_iso_currency__transforming_to_opencost__currency_is_exported_as_snapshotted() -> (
+    None
+):
+    fr = modelfactory.fundingrequest(title="Publication with non-ISO currency")
+    invoice = create_invoice(
+        creditor=create_creditor("Non ISO Currency Creditor"),
+        invoice_date=date(2024, 6, 1),
+        number="INV-COST-TYPE-003",
+    )
+    create_position(
+        invoice,
+        fr.publication,
+        description="APC",
+        cost_amount=Decimal("1000.00"),
+        # openCost pattern-checks three upper-case letters and accepts this; CODA's parse
+        # path is what guarantees ISO membership, so a snapshot row carrying anything else
+        # is exported as it stands rather than dropping the invoice that holds it
+        cost_currency="XYZ",
+    )
+
+    report = create_opencost_report()
+    report_publication = report.publications.first()
+    assert report_publication is not None
+
+    oc_publication = report_publication_to_pydantic(report_publication)
+    assert oc_publication is not None
+    assert oc_publication.cost_data is not None
+    assert oc_publication.cost_data.invoice is not None
+    amount_paid = oc_publication.cost_data.invoice[0].amounts_paid.amount_paid[0]
+    assert amount_paid.currency == "XYZ"
 
 
 @pytest.mark.django_db

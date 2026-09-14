@@ -12,7 +12,8 @@ from coda.apps.institutions.models import Institution, InstitutionLink, Institut
 from coda.apps.invoices.models import Creditor, Invoice, Position
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.report_service import generate_report
-from coda.apps.opencost.transformers import report_publication_to_pydantic, to_opencost
+from coda.apps.opencost.transformers import to_opencost
+from coda.apps.opencost.transformers.publication import report_publication_to_pydantic
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import Publication
 from coda.apps.publications.models._attachedentities import AttachedContract
