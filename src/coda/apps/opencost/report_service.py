@@ -12,7 +12,6 @@ request, so what a report shows and what downloading it produces cannot drift ap
 import logging
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict
-from decimal import Decimal
 from itertools import chain
 from typing import Any
 
@@ -124,10 +123,11 @@ def generate_report(
             institution_cache,
         )
 
+    counts = report.get_issue_counts()
     logger.info(
         f"Completed OpenCost report generation: {report.id} "
         f"({len(publication_rows)} publications, {len(contract_rows)} contracts) "
-        f"[{report.errors_count} errors, {report.warnings_count} warnings]"
+        f"[{counts['errors']} errors, {counts['warnings']} warnings]"
     )
 
     return report
@@ -238,15 +238,14 @@ def _create_contract_rows(
 ) -> list[OpenCostReportContract]:
     """One membership row per considered contract, in entity id order.
 
-    ``contract_name`` is what an excluded contract gets reported and displayed under, and an
-    excluded contract has no document entry to read a name from - so the row keeps the name. The
-    rest of a contract's exported content is read live on every run.
+    The row says only that this contract is one of the report's items: name, ESAC and dates
+    are read live on every run, and an excluded contract is reported and displayed under the
+    identity the issue log records for it.
     """
     rows = [
         OpenCostReportContract(
             report=report,
             contract_id=contract_id,
-            contract_name=live_contracts[contract_id].name,
         )
         for contract_id in sorted(live_contracts)
     ]
@@ -289,24 +288,12 @@ def _insert_missing_invoice_links(
             report_contract__in=report_contracts
         ).values_list("report_contract_id", "invoice_id")
     )
-    contract_links: list[OpenCostReportContractInvoice] = []
-    for row in report_contracts:
-        positions_by_invoice = _positions_by_invoice(live_contracts[row.contract_id])
-        for invoice_id in sorted(positions_by_invoice):
-            if (row.id, invoice_id) in existing_contract_links:
-                continue
-
-            positions = positions_by_invoice[invoice_id]
-            contract_links.append(
-                OpenCostReportContractInvoice(
-                    report_contract_id=row.id,
-                    invoice_id=invoice_id,
-                    amount_invoice=sum(
-                        (position.cost_amount for position in positions), Decimal(0)
-                    ),
-                    amount_invoice_currency=positions[0].cost_currency,
-                )
-            )
+    contract_links = [
+        OpenCostReportContractInvoice(report_contract_id=row.id, invoice_id=invoice_id)
+        for row in report_contracts
+        for invoice_id in sorted(_positions_by_invoice(live_contracts[row.contract_id]))
+        if (row.id, invoice_id) not in existing_contract_links
+    ]
     OpenCostReportContractInvoice.objects.bulk_create(contract_links)
 
 
@@ -380,15 +367,8 @@ def _write_artifact(
 
     report.xml_content = "" if transform.data is None else opencost.to_xml(transform.data)
     report.issues = [asdict(warning) for warning in transform.issues]
-    # The stored issue log is the counts' source for the read paths, so the two are written
-    # together: a run that clears the log must also clear the columns, or the union count
-    # properties - and every badge - keep answering from the run that produced the old log.
-    report.errors_count = sum(1 for w in transform.issues if w.level == "error")
-    report.warnings_count = sum(1 for w in transform.issues if w.level == "warning")
     report.generated_at = timezone.now()
-    report.save(
-        update_fields=["xml_content", "issues", "errors_count", "warnings_count", "generated_at"]
-    )
+    report.save(update_fields=["xml_content", "issues", "generated_at"])
 
     _store_publication_outcomes(report_publications, transform.publications)
     _store_contract_outcomes(report_contracts, transform.contracts)

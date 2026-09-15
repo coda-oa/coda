@@ -91,7 +91,7 @@ class ContractWarning(BaseWarning):
     def extract_entity_information(item: "AnyOpenCostReportItem") -> tuple[int, str]:
         if not isinstance(item, OpenCostReportContract):
             raise TypeError("Expected OpenCostReportContract")
-        return item.contract_id, item.contract_name
+        return item.contract_id, item.contract.name
 
 
 class GlobalWarning(BaseWarning):

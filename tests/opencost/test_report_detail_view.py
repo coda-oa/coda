@@ -69,17 +69,10 @@ def test__exported_publication_row__detail_page_shows_xml_values_and_seed_title_
     xml_type = element.publication_type.value
     assert xml_doi
 
-    # the snapshot columns the reader no longer consults for exported rows
-    row.doi = "STALE-SEED-DOI"
-    row.publication_type = "Unmapped Local Thesis"
-    row.save()
-
     content = _detail(client, report.id)
 
     assert xml_doi in content
-    assert "STALE-SEED-DOI" not in content
     assert f"<td>{xml_type}</td>" in content
-    assert "Unmapped Local Thesis" not in content
     # Title and Publisher have no other source: they come from the kept seed columns
     assert "Displayed Publication" in content
     assert row.publisher in content
@@ -94,15 +87,11 @@ def test__exported_contract_row__detail_page_shows_xml_normalized_values(client:
     create_contract_with_invoice(contract, invoice_number="INV-DISPLAY")
 
     report = create_opencost_report()
-    row = report.contracts.get(contract=contract)
-    row.primary_identifier_value = "STALE-SEED-ESAC"
-    row.save()
 
     content = _detail(client, report.id)
 
     # an ESAC-less contract displays the placeholder the XML actually carries
     assert "<td>UNKNOWN</td>" in content
-    assert "STALE-SEED-ESAC" not in content
     assert "Display Contract" in content
     assert "2024-01-01 - 2024-12-31" in content  # participation, from the parsed document
     assert "View Invoices (1)" in content
