@@ -8,6 +8,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from coda.apps.opencost.models import OpenCostReport
+from coda.apps.opencost.report_service import generate_report
 from coda.apps.preferences.models import GlobalPreferences
 from tests import modelfactory
 from tests.opencost.helpers import (
@@ -131,32 +132,143 @@ def test__generate_with_home_institution__warns_only_about_actual_issues(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__download_xml_with_unreportable_contract__warns_about_the_exclusion(
-    client: Client,
-) -> None:
+def test__download_xml__serves_the_stored_document_without_any_flash(client: Client) -> None:
     fr = modelfactory.fundingrequest(title="Publication For Download")
     create_publication_with_invoice(
         fr.publication,
         invoice_date=date(2024, 6, 1),
         invoice_number="INV-DL-001",
     )
-    contract = create_contract_with_identifiers(name="Undated Agreement")
+    contract = create_contract_with_identifiers(name="Undated Agreement", esac="ESAC-UNDATED")
+    contract.start_date = None
+    contract.end_date = None
+    contract.save()
     create_contract_with_invoice(contract)
 
     report = create_opencost_report()
-    report_contract = report.contracts.first()
-    assert report_contract is not None
-    report_contract.participation_from = None
-    report_contract.save()
 
     response = client.get(reverse("opencost:download", args=[report.id]))
 
     assert response.status_code == 200
+    stored = OpenCostReport.objects.get(pk=report.pk).xml_content
+    assert response.content.decode() == stored
+    assert response["Content-Disposition"] == (
+        f'attachment; filename="{report.title}_{report.id}_'
+        f'{report.generated_at.strftime("%Y%m%d")}.xml"'
+    )
+    # the undated contract stayed out of the document...
     assert b"Undated Agreement" not in response.content
+    # ...and its stored error-level issue no longer triggers a download-time flash
+    assert report.get_issue_counts()["errors"] == 1
+    flash = [str(message) for message in get_messages(response.wsgi_request)]
+    assert flash == []
 
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__download_empty_xml__redirects_with_reasons_from_the_stored_issues(
+    client: Client,
+) -> None:
+    GlobalPreferences.objects.all().delete()
+    fr = modelfactory.fundingrequest(title="Unexportable Publication")
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 6, 1),
+        invoice_number="INV-DL-EMPTY-001",
+    )
+
+    report = generate_report(
+        title="All Excluded Report",
+        filters={"period_start": "2024-01-01", "period_end": "2024-12-31"},
+    )
+    assert report.xml_content == ""
+
+    response = client.get(reverse("opencost:download", args=[report.id]))
+
+    assert response.status_code == 302
+    assert response.headers["Location"] == reverse("opencost:list")
     flash = [str(message) for message in get_messages(response.wsgi_request)]
     assert len(flash) == 1
-    assert "Undated Agreement" in flash[0]
+    assert "No file was downloaded" in flash[0]
+    assert "Unexportable Publication" in flash[0]
+    assert "it has no institution name or identifier" in flash[0]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__download_empty_xml_without_issues__says_there_is_nothing_to_export(
+    client: Client,
+) -> None:
+    report = OpenCostReport.objects.create(
+        title="Hollow Report",
+        period_start=date(2024, 1, 1),
+        period_end=date(2024, 12, 31),
+    )
+
+    response = client.get(reverse("opencost:download", args=[report.id]))
+
+    assert response.status_code == 302
+    flash = [str(message) for message in get_messages(response.wsgi_request)]
+    assert flash == [
+        "No data to export — the report has no publications or contracts to transform."
+    ]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__regenerate__GET__is_rejected(client: Client) -> None:
+    report = create_opencost_report(title="Readonly Regenerate Report")
+
+    response = client.get(reverse("opencost:regenerate", args=[report.id]))
+
+    assert response.status_code == 405
+
+
+@pytest.mark.django_db
+def test__regenerate__anonymous__redirects_to_login(client: Client) -> None:
+    report = create_opencost_report(title="Anonymous Regenerate Report")
+
+    response = client.post(reverse("opencost:regenerate", args=[report.id]))
+
+    assert response.status_code == 302
+    assert response.headers["Location"].startswith("/login/")
+    assert "next=/opencost/" in response.headers["Location"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__regenerate__flashes_the_new_issue_counts_and_redirects_to_detail(
+    client: Client,
+) -> None:
+    contract = create_contract_with_identifiers(name="Flash Count Agreement")
+    create_contract_with_invoice(contract)
+
+    report = create_opencost_report()
+
+    response = client.post(reverse("opencost:regenerate", args=[report.id]))
+
+    assert response.status_code == 302
+    assert response.headers["Location"] == reverse("opencost:detail", args=[report.id])
+    flash = [str(message) for message in get_messages(response.wsgi_request)]
+    assert len(flash) == 1
+    # the ESAC-less contract is one warning - the flash counts what the new run recorded
+    assert "regenerated" in flash[0]
+    assert "1 warning" in flash[0]
+    assert reverse("opencost:detail", args=[report.id]) in flash[0]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__report_list__defers_the_xml_artifact(client: Client) -> None:
+    create_opencost_report(title="Listed Report")
+
+    response = client.get(reverse("opencost:list"))
+
+    assert response.status_code == 200
+    entity = response.context["entities"][0]
+    assert "xml_content" in entity.get_deferred_fields()
+    # the issue log stays loaded - the badges read it row-locally
+    assert "issues" not in entity.get_deferred_fields()
 
 
 @pytest.mark.django_db

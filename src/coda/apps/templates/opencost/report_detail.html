@@ -7,6 +7,10 @@
             <div class="flex">
                 <a href="{% url 'opencost:download' report.id %}"
                    class="button secondary">Download XML</a>
+                <form method="post" action="{% url 'opencost:regenerate' report.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="button secondary">Regenerate</button>
+                </form>
                 <button hx-post="{% url "opencost:delete" report_id=report.id %}"
                         hx-confirm="Are you sure you want to delete this report?"
                         class="danger">Delete Report</button>
@@ -59,30 +63,26 @@
                                     <th>DOI</th>
                                     <th>Type</th>
                                     <th>Publisher</th>
-                                    <th>Contracts</th>
+                                    <th>Contract</th>
                                     <th>Cost Splitting</th>
                                     <th>Invoices</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for pub in publications %}
-                                    <tr>
+                                    <tr {% if pub.status == "excluded" %}class="text-muted"{% endif %}>
                                         <td>
-                                            <a href="{% url 'fundingrequests:detail' pub.publication.fundingrequest.id %}">{{ pub.title|truncatewords:10 }}</a>
+                                            {% if pub.fundingrequest_id %}
+                                                <a href="{% url 'fundingrequests:detail' pub.fundingrequest_id %}">{{ pub.title|truncatewords:10 }}</a>
+                                            {% else %}
+                                                {{ pub.title|truncatewords:10 }}
+                                            {% endif %}
                                         </td>
                                         <td>{{ pub.doi|default:"—" }}</td>
                                         <td>{{ pub.publication_type|default:"—" }}</td>
                                         <td>{{ pub.publisher|default:"—" }}</td>
-                                        <td>
-                                            {% if pub.linked_contracts_count > 0 %}
-                                                {% for link in pub.linked_contracts.all %}
-                                                    {{ link.contract.name }}
-                                                    {% if not forloop.last %},{% endif %}
-                                                {% endfor %}
-                                            {% else %}
-                                                —
-                                            {% endif %}
-                                        </td>
+                                        <td>{{ pub.contract_esac|default:"—" }}</td>
                                         <td>
                                             {% if pub.external_costsplitting %}
                                                 Yes
@@ -93,12 +93,22 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {% if pub.invoices_count > 0 %}
-                                                <a href="{% url 'invoices:list' %}?search_term={{ pub.publication.fundingrequest.request_id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}">View Invoices ({{ pub.invoices_count }})</a>
-                                            {% elif pub.linked_contracts_count > 0 %}
+                                            {% if pub.invoice_count > 0 %}
+                                                <a href="{% url 'invoices:list' %}?search_term={{ pub.seed.publication.fundingrequest.request_id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}">View Invoices ({{ pub.invoice_count }})</a>
+                                            {% elif pub.contract_esac %}
                                                 Covered by contract
                                             {% else %}
                                                 —
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if pub.status == "excluded" %}
+                                                <em>Not in XML{% if pub.reasons %}: {{ pub.reasons }}{% endif %}</em>
+                                            {% elif pub.status == "degraded" %}
+                                                <a href="#issues"
+                                                   data-tooltip="In the XML, but incomplete — see Data Completeness Issues">In XML, with issues</a>
+                                            {% else %}
+                                                In XML
                                             {% endif %}
                                         </td>
                                     </tr>
@@ -126,15 +136,16 @@
                                     <th>Institution</th>
                                     <th>Participation Period</th>
                                     <th>Invoices</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for contract in contracts %}
-                                    <tr>
+                                    <tr {% if contract.status == "excluded" %}class="text-muted"{% endif %}>
                                         <td>
-                                            <a href="{% url 'contracts:detail' contract.contract.id %}">{{ contract.contract_name }}</a>
+                                            <a href="{% url 'contracts:detail' contract.contract_id %}">{{ contract.name }}</a>
                                         </td>
-                                        <td>{{ contract.primary_identifier_value|default:"—" }}</td>
+                                        <td>{{ contract.esac|default:"—" }}</td>
                                         <td>{{ contract.institution_name|default:"—" }}</td>
                                         <td>
                                             {% if contract.participation_from and contract.participation_to %}
@@ -144,7 +155,21 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <a href="{% url 'invoices:list' %}?contract_name={{ contract.contract.id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}&amp;contract_positions_only=true">View Invoices ({{ contract.invoices_count }})</a>
+                                            {% if contract.invoice_count > 0 %}
+                                                <a href="{% url 'invoices:list' %}?contract_name={{ contract.contract_id }}&amp;date_start={{ report.period_start|date:"Y-m-d" }}&amp;date_end={{ report.period_end|date:"Y-m-d" }}&amp;contract_positions_only=true">View Invoices ({{ contract.invoice_count }})</a>
+                                            {% else %}
+                                                —
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if contract.status == "excluded" %}
+                                                <em>Not in XML{% if contract.reasons %}: {{ contract.reasons }}{% endif %}</em>
+                                            {% elif contract.status == "degraded" %}
+                                                <a href="#issues"
+                                                   data-tooltip="In the XML, but incomplete — see Data Completeness Issues">In XML, with issues</a>
+                                            {% else %}
+                                                In XML
+                                            {% endif %}
                                         </td>
                                     </tr>
                                 {% endfor %}
