@@ -4,6 +4,8 @@ from typing import Any
 import pytest
 from django_test_migrations.contrib.unittest_case import MigratorTestCase
 
+from coda.domain.finance.invoice import PaymentStatus
+
 
 @pytest.mark.django_db
 class TestMigrateFundingSourceToAssignmentsForward(MigratorTestCase):
@@ -23,7 +25,7 @@ class TestMigrateFundingSourceToAssignmentsForward(MigratorTestCase):
             number="INV-001",
             date="2025-01-01",
             creditor=creditor,
-            status="Unpaid",
+            status=PaymentStatus.Unpaid.value,
         )
 
         budget_a = FundingSource.objects.create(name="Budget A", type="budget")
@@ -209,7 +211,7 @@ class TestMigrateFundingSourceToAssignmentsReverse(MigratorTestCase):
             number="INV-REV-001",
             date="2025-01-01",
             creditor=creditor,
-            status="Unpaid",
+            status=PaymentStatus.Unpaid.value,
         )
 
         budget_x = FundingSource.objects.create(name="Budget X", type="budget")
