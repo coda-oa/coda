@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Collection, Iterable
 from datetime import date
-from typing import TYPE_CHECKING
+from typing import NamedTuple
 
 from django.db.models import Model, Prefetch, QuerySet
 from django.db.models.functions import Lower
@@ -12,13 +12,11 @@ from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.institutions.models import Institution, InstitutionLink
 from coda.apps.invoices import invoice_query
 from coda.apps.invoices.models import FundingAssignment, Invoice, Position
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import AttachedContract, Publication
 from coda.apps.publications.models._links import Link
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId, PaymentStatus
-
-if TYPE_CHECKING:
-    from coda.apps.opencost.report_service import InstitutionHierarchyCache
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +39,73 @@ def key_by_id[Entity: Model](entities: Iterable[Entity]) -> dict[int, Entity]:
     define no ``Meta.ordering``).
     """
     return {entity.pk: entity for entity in entities}
+
+
+class HomeInstitutionCache(NamedTuple):
+    """Cached home institution data to avoid repeated GlobalPreferences queries."""
+
+    institution_name: str
+    identifiers: list[tuple[str, str]]
+
+
+class InstitutionHierarchyCache:
+    """
+    In-memory cache of institution hierarchies to eliminate N+1 queries.
+
+    Stores all institutions and their links that will be accessed during
+    report generation, supporting arbitrary depth parent hierarchies.
+    """
+
+    def __init__(self) -> None:
+        self._institutions: dict[int, Institution] = {}
+        self._links: dict[int, list[tuple[str, str]]] = {}
+        self._parent_ids: dict[int, int | None] = {}
+
+    def add_institution(
+        self, institution: Institution, links: list[tuple[str, str]], parent_id: int | None
+    ) -> None:
+        """Add institution data to cache."""
+        self._institutions[institution.id] = institution
+        self._links[institution.id] = links
+        self._parent_ids[institution.id] = parent_id
+
+    def get_institution_with_identifiers(
+        self, institution_id: int
+    ) -> tuple[str, list[tuple[str, str]]] | None:
+        """
+        Get institution name and identifiers, walking up parent chain until identifiers found.
+
+        Returns (name, identifiers) or None if institution not in cache.
+        """
+        current_id: int | None = institution_id
+
+        while current_id is not None:
+            if current_id not in self._institutions:
+                return None
+
+            institution = self._institutions[current_id]
+            identifiers = self._links.get(current_id, [])
+
+            if identifiers:
+                return (institution.name, identifiers)
+
+            current_id = self._parent_ids.get(current_id)
+
+        # No identifiers found in entire chain
+        if institution_id in self._institutions:
+            return (self._institutions[institution_id].name, [])
+
+        return None
+
+    @property
+    def size(self) -> int:
+        """Return number of cached institutions (for logging)."""
+        return len(self._institutions)
+
+    @property
+    def total_links(self) -> int:
+        """Return total number of cached links (for logging)."""
+        return sum(len(links) for links in self._links.values())
 
 
 def select_publication_ids(
@@ -372,7 +437,7 @@ def _fetch_institution_links(all_institution_ids: set[int]) -> dict[int, list[tu
 
 
 def _populate_institution_cache(
-    cache: "InstitutionHierarchyCache",
+    cache: InstitutionHierarchyCache,
     institutions: dict[int, Institution],
     links_by_institution: dict[int, list[tuple[str, str]]],
 ) -> None:
@@ -385,7 +450,7 @@ def _populate_institution_cache(
 
 def build_institution_hierarchy_cache(
     publications: QuerySet[Publication],
-) -> "InstitutionHierarchyCache":
+) -> InstitutionHierarchyCache:
     """
     Build cache of all institutions and parent hierarchies needed for publications.
 
@@ -400,9 +465,6 @@ def build_institution_hierarchy_cache(
     Returns:
         InstitutionHierarchyCache with O(1) lookups for institution data
     """
-    # Late import to avoid circular dependency
-    from coda.apps.opencost.report_service import InstitutionHierarchyCache
-
     cache = InstitutionHierarchyCache()
 
     # Step 1: Collect initial institution IDs from corresponding authors (no query)
@@ -433,3 +495,74 @@ def build_institution_hierarchy_cache(
     )
 
     return cache
+
+
+def build_home_institution_cache() -> HomeInstitutionCache:
+    """
+    Build a cache of home institution data from GlobalPreferences.
+
+    This is queried once per report generation to avoid repeated database hits.
+    Returns empty values if no home institution is configured.
+    """
+    prefs = GlobalPreferences.objects.select_related("home_institution").first()
+    if not prefs or not prefs.home_institution:
+        return HomeInstitutionCache(institution_name="", identifiers=[])
+
+    institution = prefs.home_institution
+    institution_name = institution.name
+
+    identifiers = []
+    # Prefetch links with types in a single query, in the (type, value) order the
+    # report reads its institution identifiers back in.
+    links = (
+        institution.links.filter(type__name__in=["ROR", "ISNI", "Ringold"])
+        .select_related("type")
+        .order_by(Lower("type__name"), "value")
+    )
+    for link in links:
+        identifier_type = link.type.name.lower()
+        identifiers.append((identifier_type, link.value))
+
+    return HomeInstitutionCache(institution_name=institution_name, identifiers=identifiers)
+
+
+def get_institution_data(
+    publication: Publication,
+    home_institution_cache: HomeInstitutionCache,
+    institution_cache: InstitutionHierarchyCache,
+) -> tuple[str, list[tuple[str, str]]]:
+    """
+    Get institution name and identifiers for a publication's corresponding author.
+
+    Uses institution_cache for O(1) lookups with parent chain traversal - NO database queries.
+    Falls back to home_institution_cache if no corresponding author or institution found.
+
+    Args:
+        publication: Publication with prefetched relevant_authors
+        home_institution_cache: Fallback home institution data
+        institution_cache: Pre-built cache of all institutions and hierarchies
+
+    Returns:
+        Tuple of (institution_name, [(identifier_type, value), ...])
+    """
+    # Use prefetched authors, filter in Python to avoid new query
+    corresponding_author = next(
+        (
+            author
+            for author in publication.relevant_authors.all()
+            if author.roles and "CORRESPONDING_AUTHOR" in author.roles
+        ),
+        None,
+    )
+
+    if corresponding_author and corresponding_author.affiliation_id:
+        # Look up in cache (no database query!)
+        # Cache handles parent chain traversal internally
+        result = institution_cache.get_institution_with_identifiers(
+            corresponding_author.affiliation_id
+        )
+        if result and result[1]:  # Only use result if it has identifiers
+            return result
+
+    # Fall back to cached home institution data
+    return home_institution_cache.institution_name, home_institution_cache.identifiers

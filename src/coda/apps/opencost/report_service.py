@@ -1,19 +1,30 @@
 import logging
 import uuid
+from collections.abc import Mapping
+from dataclasses import asdict
 from datetime import date
 from decimal import Decimal
 from typing import Any, NamedTuple
 
-from django.db.models import Prefetch
+from django.db import transaction
+from django.db.models import Prefetch, QuerySet
 
+import opencost
 from coda.apps.contracts.models import Contract
-from coda.apps.institutions.models import Institution
-from coda.apps.invoices.models import Position
+from coda.apps.invoices.models import Invoice, Position
 from coda.apps.opencost.data_aggregation import (
+    HomeInstitutionCache,
+    InstitutionHierarchyCache,
+    build_home_institution_cache,
     build_institution_hierarchy_cache,
+    fetch_contracts_by_ids,
+    fetch_invoices_by_ids,
+    fetch_publications_by_ids,
     get_contracts_for_period,
+    get_institution_data,
     get_invoices_for_period,
     get_publications_for_period,
+    key_by_id,
 )
 from coda.apps.opencost.models import (
     OpenCostReport,
@@ -30,78 +41,19 @@ from coda.apps.opencost.models import (
     OpenCostReportPublicationLink,
 )
 from coda.apps.opencost.services.issues import collect_issues
-from coda.apps.preferences.models import GlobalPreferences
+from coda.apps.opencost.transformers.contract import (
+    get_contract_primary_identifier,
+    secondary_identifiers_from_links,
+)
+from coda.apps.opencost.transformers.live import (
+    InvoiceOutcome,
+    ItemOutcome,
+    transform_report,
+)
 from coda.apps.publications.models import Publication
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
 logger = logging.getLogger(__name__)
-
-
-class HomeInstitutionCache(NamedTuple):
-    """Cached home institution data to avoid repeated GlobalPreferences queries."""
-
-    institution_name: str
-    identifiers: list[tuple[str, str]]
-
-
-class InstitutionHierarchyCache:
-    """
-    In-memory cache of institution hierarchies to eliminate N+1 queries.
-
-    Stores all institutions and their links that will be accessed during
-    report generation, supporting arbitrary depth parent hierarchies.
-    """
-
-    def __init__(self) -> None:
-        self._institutions: dict[int, Institution] = {}
-        self._links: dict[int, list[tuple[str, str]]] = {}
-        self._parent_ids: dict[int, int | None] = {}
-
-    def add_institution(
-        self, institution: Institution, links: list[tuple[str, str]], parent_id: int | None
-    ) -> None:
-        """Add institution data to cache."""
-        self._institutions[institution.id] = institution
-        self._links[institution.id] = links
-        self._parent_ids[institution.id] = parent_id
-
-    def get_institution_with_identifiers(
-        self, institution_id: int
-    ) -> tuple[str, list[tuple[str, str]]] | None:
-        """
-        Get institution name and identifiers, walking up parent chain until identifiers found.
-
-        Returns (name, identifiers) or None if institution not in cache.
-        """
-        current_id: int | None = institution_id
-
-        while current_id is not None:
-            if current_id not in self._institutions:
-                return None
-
-            institution = self._institutions[current_id]
-            identifiers = self._links.get(current_id, [])
-
-            if identifiers:
-                return (institution.name, identifiers)
-
-            current_id = self._parent_ids.get(current_id)
-
-        # No identifiers found in entire chain
-        if institution_id in self._institutions:
-            return (self._institutions[institution_id].name, [])
-
-        return None
-
-    @property
-    def size(self) -> int:
-        """Return number of cached institutions (for logging)."""
-        return len(self._institutions)
-
-    @property
-    def total_links(self) -> int:
-        """Return total number of cached links (for logging)."""
-        return sum(len(links) for links in self._links.values())
 
 
 class PublicationSnapshotData(NamedTuple):
@@ -179,7 +131,7 @@ def generate_report(
     )
     logger.debug(f"Created report record: {report.id}")
 
-    home_institution_cache = _build_home_institution_cache()
+    home_institution_cache = build_home_institution_cache()
     invoices_in_period = get_invoices_for_period(
         start_date=start_date,
         end_date=end_date,
@@ -256,6 +208,11 @@ def generate_report(
             "OpenCost issue check failed for report %s; counts left unchanged", report.pk
         )
 
+    # ARTIFACT PHASE - the document itself, its issue log and how every row fared, built
+    # from the same live data the snapshot above was collected from.
+    logger.info("Storing openCost artifact...")
+    _store_artifact(report, invoices_in_period, home_institution_cache, institution_cache)
+
     logger.info(
         f"Completed OpenCost report generation: {report.id} "
         f"({report.publications.count()} publications, {report.contracts.count()} contracts) "
@@ -263,32 +220,6 @@ def generate_report(
     )
 
     return report
-
-
-def _build_home_institution_cache() -> HomeInstitutionCache:
-    """
-    Build a cache of home institution data from GlobalPreferences.
-
-    This is queried once per report generation to avoid repeated database hits.
-    Returns empty values if no home institution is configured.
-    """
-    prefs = GlobalPreferences.objects.select_related("home_institution").first()
-    if not prefs or not prefs.home_institution:
-        return HomeInstitutionCache(institution_name="", identifiers=[])
-
-    institution = prefs.home_institution
-    institution_name = institution.name
-
-    identifiers = []
-    # Prefetch links with types in a single query
-    links = institution.links.filter(type__name__in=["ROR", "ISNI", "Ringold"]).select_related(
-        "type"
-    )
-    for link in links:
-        identifier_type = link.type.name.lower()
-        identifiers.append((identifier_type, link.value))
-
-    return HomeInstitutionCache(institution_name=institution_name, identifiers=identifiers)
 
 
 def _collect_publication_snapshot_data(
@@ -331,7 +262,7 @@ def _collect_publication_snapshot_data(
     pub_type_name = publication.publication_type.name if publication.publication_type else ""
 
     # Get institution data (uses cache, no additional queries)
-    institution_name, institution_identifiers = _get_institution_data(
+    institution_name, institution_identifiers = get_institution_data(
         publication, home_institution_cache, institution_cache
     )
 
@@ -399,10 +330,10 @@ def _collect_contract_snapshot_data(
     institution_identifiers = home_institution_cache.identifiers
 
     # Get primary identifier (ESAC) - uses prefetched links
-    primary_id = _get_contract_primary_identifier(contract)
+    primary_id = get_contract_primary_identifier(contract)
 
     # Get secondary identifiers (OAI, EZB, Local) - uses prefetched links
-    secondary_identifiers = _get_contract_secondary_identifiers(contract)
+    secondary_identifiers = secondary_identifiers_from_links(contract)
 
     # Group positions by invoice (uses prefetched data)
     invoice_data: dict[int, list[Position]] = {}
@@ -974,71 +905,143 @@ def _update_publication_contract_group_ids(report: OpenCostReport) -> None:
         )
 
 
-def _get_institution_data(
-    publication: Publication,
+def _store_artifact(
+    report: OpenCostReport,
+    invoices_in_period: QuerySet[Invoice],
     home_institution_cache: HomeInstitutionCache,
     institution_cache: InstitutionHierarchyCache,
-) -> tuple[str, list[tuple[str, str]]]:
+) -> None:
+    """Store the openCost document, its issue log and the outcome of every report row.
+
+    While the snapshot tables are what the pages read, this second pass over the same data is
+    an extra, and an extra is allowed to fail: everything it writes belongs to one savepoint,
+    so a failure costs the artifact, says so in the log, and leaves generation - and the
+    snapshot the report is shown from - exactly as it was. A half-written artifact is the one
+    outcome worse than none, since its rows would claim a document that is not there.
     """
-    Get institution name and identifiers for a publication's corresponding author.
+    try:
+        with transaction.atomic():
+            _write_artifact(report, invoices_in_period, home_institution_cache, institution_cache)
+    except Exception:
+        logger.exception(
+            "openCost artifact could not be stored for report %s; nothing was written",
+            report.pk,
+        )
 
-    Uses institution_cache for O(1) lookups with parent chain traversal - NO database queries.
-    Falls back to home_institution_cache if no corresponding author or institution found.
 
-    Args:
-        publication: Publication with prefetched relevant_authors
-        home_institution_cache: Fallback home institution data
-        institution_cache: Pre-built cache of all institutions and hierarchies
+def _write_artifact(
+    report: OpenCostReport,
+    invoices_in_period: QuerySet[Invoice],
+    home_institution_cache: HomeInstitutionCache,
+    institution_cache: InstitutionHierarchyCache,
+) -> None:
+    """The report's own rows, transformed against live data and written back in one transaction."""
+    report_publications = list(report.publications.order_by("id").prefetch_related("invoices"))
+    report_contracts = list(report.contracts.order_by("id").prefetch_related("invoices"))
+    publication_invoices = [
+        report_invoice for row in report_publications for report_invoice in row.invoices.all()
+    ]
+    contract_invoices = [
+        report_invoice for row in report_contracts for report_invoice in row.invoices.all()
+    ]
+    invoice_ids = {report_invoice.invoice_id for report_invoice in publication_invoices} | {
+        report_invoice.invoice_id for report_invoice in contract_invoices
+    }
 
-    Returns:
-        Tuple of (institution_name, [(identifier_type, value), ...])
-    """
-    # Use prefetched authors, filter in Python to avoid new query
-    corresponding_author = next(
-        (
-            author
-            for author in publication.relevant_authors.all()
-            if author.roles and "CORRESPONDING_AUTHOR" in author.roles
-        ),
-        None,
+    # The same period-bound positions the report's data was collected from, refetched through
+    # the shared fetch so the artifact reads live values rather than the snapshot's copies.
+    positions_in_period = Position.objects.filter(invoice__in=invoices_in_period).select_related(
+        "invoice", "invoice__creditor"
+    )
+    live_publications = key_by_id(
+        fetch_publications_by_ids(
+            {row.publication_id for row in report_publications}, positions=positions_in_period
+        )
+    )
+    live_contracts = key_by_id(
+        fetch_contracts_by_ids(
+            {row.contract_id for row in report_contracts},
+            positions=positions_in_period.filter(contract__isnull=False),
+        )
+    )
+    live_invoices = key_by_id(fetch_invoices_by_ids(invoice_ids))
+
+    transform = transform_report(
+        report=report,
+        publications=report_publications,
+        contracts=report_contracts,
+        live_publications=live_publications,
+        live_contracts=live_contracts,
+        live_invoices=live_invoices,
+        home_institution=home_institution_cache,
+        institution_cache=institution_cache,
     )
 
-    if corresponding_author and corresponding_author.affiliation_id:
-        # Look up in cache (no database query!)
-        # Cache handles parent chain traversal internally
-        result = institution_cache.get_institution_with_identifiers(
-            corresponding_author.affiliation_id
-        )
-        if result and result[1]:  # Only use result if it has identifiers
-            return result
+    report.xml_content = "" if transform.data is None else opencost.to_xml(transform.data)
+    report.issues = [asdict(warning) for warning in transform.issues]
+    report.save(update_fields=["xml_content", "issues"])
 
-    # Fall back to cached home institution data
-    return home_institution_cache.institution_name, home_institution_cache.identifiers
+    _store_publication_outcomes(report_publications, transform.publications)
+    _store_contract_outcomes(report_contracts, transform.contracts)
+    _store_publication_invoice_outcomes(publication_invoices, transform.publication_invoices)
+    _store_contract_invoice_outcomes(contract_invoices, transform.contract_invoices)
 
 
-def _get_contract_primary_identifier(contract: Contract) -> str:
-    """
-    Get the ESAC identifier for a contract.
+def _store_publication_outcomes(
+    rows: list[OpenCostReportPublication], outcomes: Mapping[int, ItemOutcome]
+) -> None:
+    """Record on every publication row whether it reached the document, and where."""
+    for row in rows:
+        outcome = outcomes[row.publication_id]
+        row.exported = outcome.exported
+        row.had_errors = outcome.had_errors
+        row.xml_ordinal = outcome.xml_ordinal
 
-    Uses prefetched links to avoid additional queries.
-    """
-    # Use prefetched links, filter in Python
-    esac = next((link for link in contract.links.all() if link.type.name == "ESAC"), None)
-    if esac:
-        return esac.value
-    return ""
+    OpenCostReportPublication.objects.bulk_update(
+        rows, ["exported", "had_errors", "xml_ordinal"], batch_size=500
+    )
 
 
-def _get_contract_secondary_identifiers(contract: Contract) -> list[tuple[str, str]]:
-    """
-    Get secondary identifiers (OAI, EZB, Local) for a contract.
+def _store_contract_outcomes(
+    rows: list[OpenCostReportContract], outcomes: Mapping[int, ItemOutcome]
+) -> None:
+    """Record on every contract row whether it reached the document, and where."""
+    for row in rows:
+        outcome = outcomes[row.contract_id]
+        row.exported = outcome.exported
+        row.had_errors = outcome.had_errors
+        row.xml_ordinal = outcome.xml_ordinal
 
-    Uses prefetched links to avoid additional queries.
-    """
-    identifiers = []
-    # Use prefetched links, filter in Python
-    for link in contract.links.all():
-        if link.type.name in ["OAI", "EZB", "Local"]:
-            identifier_type = link.type.name.lower()
-            identifiers.append((identifier_type, link.value))
-    return identifiers
+    OpenCostReportContract.objects.bulk_update(
+        rows, ["exported", "had_errors", "xml_ordinal"], batch_size=500
+    )
+
+
+def _store_publication_invoice_outcomes(
+    rows: list[OpenCostReportInvoice], outcomes: Mapping[int, InvoiceOutcome]
+) -> None:
+    """Record on every publication invoice row whether it reached the document, and at which index."""
+    for row in rows:
+        outcome = outcomes[row.id]
+        row.exported = outcome.exported
+        row.had_errors = outcome.had_errors
+        row.xml_index = outcome.xml_index
+
+    OpenCostReportInvoice.objects.bulk_update(
+        rows, ["exported", "had_errors", "xml_index"], batch_size=500
+    )
+
+
+def _store_contract_invoice_outcomes(
+    rows: list[OpenCostReportContractInvoice], outcomes: Mapping[int, InvoiceOutcome]
+) -> None:
+    """Record on every contract invoice row whether it reached the document, and at which index."""
+    for row in rows:
+        outcome = outcomes[row.id]
+        row.exported = outcome.exported
+        row.had_errors = outcome.had_errors
+        row.xml_index = outcome.xml_index
+
+    OpenCostReportContractInvoice.objects.bulk_update(
+        rows, ["exported", "had_errors", "xml_index"], batch_size=500
+    )

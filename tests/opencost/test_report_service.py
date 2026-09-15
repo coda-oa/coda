@@ -1017,10 +1017,12 @@ def test__two_publications__generate_report__query_count_stays_bounded(
 
     Deliberately unmarked so it also runs under ``pdm run unittests``, which
     filters performance-marked tests out. Two publications with invoices
-    exercise the full path: bulk creates, the group id update, and the
-    collect_issues dry run. Measured 31 queries for this fixture (2
-    publications with invoices, home institution, no contracts); pinned at 45
-    to leave headroom for prefetch additions.
+    exercise the full path: bulk creates, the group id update, the collect_issues
+    dry run, and the pass that stores the openCost artifact - a second read of
+    the same items, which goes away with the snapshot pipeline it duplicates.
+    Measured 50 queries for this fixture (2 publications with invoices, home
+    institution, no contracts); pinned at 60 to leave headroom for prefetch
+    additions.
     """
     home_institution = create_institution_with_identifiers(
         name="Test University",
@@ -1038,7 +1040,7 @@ def test__two_publications__generate_report__query_count_stays_bounded(
             invoice_number=f"INV-QUERY-{i:03d}",
         )
 
-    with django_assert_max_num_queries(45):
+    with django_assert_max_num_queries(60):
         generate_report(
             title="Query Guard Report",
             filters={

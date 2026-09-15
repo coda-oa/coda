@@ -1,12 +1,20 @@
-"""One snapshotted publication as one openCost publication record."""
+"""One publication as one openCost publication record.
 
+The rules and the wording below are the report's own: the live-coda transform reaches for the
+mappers and the messages here rather than restating them, so an exclusion is said the same way
+however the publication's data was reached.
+"""
+
+from collections.abc import Iterable
+
+from coda.apps.contracts.models import Contract
 from coda.apps.opencost.issues import (
     GlobalWarning,
     ValidationWarning,
     create_warning,
     record_issue,
 )
-from coda.apps.opencost.models import OpenCostReportPublication, OpenCostReportPublicationLink
+from coda.apps.opencost.models import OpenCostReportPublication
 from coda.apps.opencost.transformers.entities import entity_exclusion, get_institution
 from coda.apps.opencost.transformers.invoices import publication_invoices
 from coda.coda_itertools import map_or_none
@@ -24,6 +32,11 @@ from opencost import (
     PublicationType,
 )
 
+NO_INSTITUTION_REASON = "it has no institution name or identifier"
+NO_DOI_MESSAGE = "No DOI — the publication is exported with title and journal instead."
+NO_PUBLISHER_MESSAGE = "No publisher — the publication is exported with 'Unknown Publisher'."
+UNKNOWN_PUBLISHER = "Unknown Publisher"
+
 
 def report_publication_to_pydantic(
     report_pub: OpenCostReportPublication,
@@ -35,9 +48,7 @@ def report_publication_to_pydantic(
         # Without institution data we cannot produce a valid record.
         record_issue(
             issues,
-            GlobalWarning.create(
-                report_pub, entity_exclusion(["it has no institution name or identifier"])
-            ),
+            GlobalWarning.create(report_pub, entity_exclusion([NO_INSTITUTION_REASON])),
         )
         return None
 
@@ -64,35 +75,15 @@ def report_publication_to_pydantic(
     if report_pub.doi:
         primary_identifier = PublicationPrimaryIdentifier(doi=report_pub.doi)
     else:
-        # BibliographicInformation is openCost's fallback for a DOI-less
-        # publication: it is exported with title and journal instead.
-        record_issue(
-            issues,
-            create_warning(
-                report_pub,
-                "No DOI — the publication is exported with title and journal instead.",
-                level="warning",
-            ),
+        primary_identifier = no_doi_primary_identifier(
+            report_pub, report_pub.title, report_pub.publisher, report_pub.journal, issues
         )
-        if not report_pub.publisher:
-            record_issue(
-                issues,
-                create_warning(
-                    report_pub,
-                    "No publisher — the publication is exported with 'Unknown Publisher'.",
-                    level="warning",
-                ),
-            )
-        bib_info = BibliographicInformation(
-            Title=report_pub.title,
-            Publisher=report_pub.publisher or "Unknown Publisher",
-            isPartOf=report_pub.journal if report_pub.journal else report_pub.title,
-        )
-        primary_identifier = PublicationPrimaryIdentifier(bibliographic_information=bib_info)
 
-    secondary_identifiers = _get_secondary_identifiers(report_pub)
+    secondary_identifiers = get_secondary_identifiers(
+        (link.link_type, link.value) for link in report_pub.links.all()
+    )
 
-    publication_type = _get_publication_type(report_pub)
+    publication_type = get_publication_type(report_pub.publication_type)
 
     cost_data = PublicationCostDataType(invoice=invoice_data, part_of_contract=part_of_contract)
     return PublicationType(
@@ -105,18 +96,41 @@ def report_publication_to_pydantic(
     )
 
 
-def _get_publication_type(report_pub: OpenCostReportPublication) -> CoarPublicationType:
-    publication_type = map_or_none(CoarPublicationType, report_pub.publication_type)
-    return publication_type or CoarPublicationType.other
+def no_doi_primary_identifier(
+    report_item: OpenCostReportPublication,
+    title: str,
+    publisher: str,
+    journal: str,
+    issues: list[ValidationWarning] | None,
+) -> PublicationPrimaryIdentifier:
+    """openCost's fallback for a DOI-less publication: exported with title and journal instead.
+
+    With no publisher either the export says so and names ``Unknown Publisher``.
+    """
+    record_issue(issues, create_warning(report_item, NO_DOI_MESSAGE, level="warning"))
+    if not publisher:
+        record_issue(issues, create_warning(report_item, NO_PUBLISHER_MESSAGE, level="warning"))
+
+    return PublicationPrimaryIdentifier(
+        bibliographic_information=BibliographicInformation(
+            Title=title,
+            Publisher=publisher or UNKNOWN_PUBLISHER,
+            isPartOf=journal if journal else title,
+        )
+    )
 
 
-def _get_secondary_identifiers(
-    report_pub: OpenCostReportPublication,
+def get_publication_type(publication_type: str) -> CoarPublicationType:
+    return map_or_none(CoarPublicationType, publication_type) or CoarPublicationType.other
+
+
+def get_secondary_identifiers(
+    links: Iterable[tuple[str, str]],
 ) -> PublicationSecondaryIdentifiers | None:
     secondary_ids = [
         secondary_id
-        for link in report_pub.links.all()
-        if (secondary_id := _publication_secondary_id(link)) is not None
+        for link_type, value in links
+        if (secondary_id := publication_secondary_id(link_type, value)) is not None
     ]
 
     if not secondary_ids:
@@ -125,14 +139,12 @@ def _get_secondary_identifiers(
     return PublicationSecondaryIdentifiers(id=secondary_ids)
 
 
-def _publication_secondary_id(
-    link: OpenCostReportPublicationLink,
-) -> PublicationSecondaryIdType | None:
+def publication_secondary_id(link_type: str, value: str) -> PublicationSecondaryIdType | None:
     return map_or_none(
-        lambda link_type: PublicationSecondaryIdType(
-            value=link.value, type=PublicationSecondaryIdTypeEnum(link_type)
+        lambda link_type_name: PublicationSecondaryIdType(
+            value=value, type=PublicationSecondaryIdTypeEnum(link_type_name)
         ),
-        link.link_type,
+        link_type,
     )
 
 
@@ -143,8 +155,16 @@ def _get_part_of_contract(report_pub: OpenCostReportPublication) -> PartOfContra
         return None
 
     linked_contract = linked_contracts[0]
-    contract = linked_contract.contract
 
+    return part_of_contract(linked_contract.contract, linked_contract.group_id or None)
+
+
+def part_of_contract(contract: Contract, group_id: str | None) -> PartOfContractType | None:
+    """The contract a publication is published under, named by its ESAC identifier.
+
+    ``group_id`` ties the element to the contract's own invoice group; it is absent for a
+    contract the report holds no invoices for.
+    """
     # Filter in Python to use prefetch cache instead of hitting database
     esac_link = next((link for link in contract.links.all() if link.type.name == "ESAC"), None)
 
@@ -158,5 +178,5 @@ def _get_part_of_contract(report_pub: OpenCostReportPublication) -> PartOfContra
 
     return PartOfContractType(
         primary_identifier=primary_identifier,
-        group_id=linked_contract.group_id if linked_contract.group_id else None,
+        group_id=group_id,
     )
