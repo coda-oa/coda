@@ -1,4 +1,3 @@
-import re
 from collections.abc import Iterator
 from typing import Any, cast
 
@@ -229,7 +228,7 @@ def test__clear_all__shown_with_active_filters(client: Client) -> None:
     label = label_create("Counted Label", Color())
     response = get_list_region(client, {"labels": [label.pk]})
 
-    assert "Clear all" in response.content.decode()
+    assert clear_all_text(response.content.decode()) == "Clear all"
 
 
 @pytest.mark.django_db
@@ -237,11 +236,27 @@ def test__clear_all__shown_with_active_filters(client: Client) -> None:
 def test__clear_all__hidden_without_filters(client: Client) -> None:
     response = get_list_region(client)
 
-    assert "Clear all" not in response.content.decode()
+    assert clear_all_text(response.content.decode()) is None
 
 
-def _hidden_label_inputs(html: str) -> list[str]:
-    return re.findall(r'<input type="hidden" name="labels" value="(\d+)">', html)
+def hidden_values(dom: Element, name: str) -> list[str]:
+    """Values of the hidden inputs named `name`, in DOM order."""
+    return [
+        str(dict(el.attributes).get("value", ""))
+        for el in _walk(dom)
+        if el.name == "input"
+        and dict(el.attributes).get("type") == "hidden"
+        and dict(el.attributes).get("name") == name
+    ]
+
+
+def clear_all_text(html: str) -> str | None:
+    """Text of the clear-all control, None when it isn't rendered."""
+    for el in _walk(parse_html(html)):
+        attrs = dict(el.attributes)
+        if el.name == "a" and "filter-clear" in (attrs.get("class") or "").split():
+            return "".join(c for c in el.children if isinstance(c, str)).strip()
+    return None
 
 
 @pytest.mark.django_db
@@ -252,7 +267,10 @@ def test__list_page__carries_label_state_for_form_submission(client: Client) -> 
 
     response = get_list(client, {"labels": [beta.pk, alpha.pk]})
 
-    assert _hidden_label_inputs(response.content.decode()) == [str(alpha.pk), str(beta.pk)]
+    assert hidden_values(parse_html(response.content.decode()), "labels") == [
+        str(alpha.pk),
+        str(beta.pk),
+    ]
 
 
 @pytest.mark.django_db
@@ -261,7 +279,7 @@ def test__list_region__carries_label_state_for_form_submission(client: Client) -
     alpha = label_create("Alpha", Color())
     response = get_list_region(client, {"labels": [alpha.pk]})
 
-    assert _hidden_label_inputs(response.content.decode()) == [str(alpha.pk)]
+    assert hidden_values(parse_html(response.content.decode()), "labels") == [str(alpha.pk)]
 
 
 @pytest.mark.django_db
@@ -270,7 +288,7 @@ def test__list_region__omits_label_state_without_label_filter(client: Client) ->
     label_create("Alpha", Color())
     response = get_list_region(client)
 
-    assert _hidden_label_inputs(response.content.decode()) == []
+    assert hidden_values(parse_html(response.content.decode()), "labels") == []
 
 
 @pytest.mark.django_db

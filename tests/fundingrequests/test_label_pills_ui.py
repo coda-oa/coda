@@ -1,41 +1,32 @@
-from django.urls import reverse
 import pytest
 from playwright.sync_api import Page
 from pytest_django.live_server_helper import LiveServer
 
-from coda.apps.publications.models import LinkType
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from tests import modelfactory
+from tests.page_objects.fundingrequest_list_page import FundingRequestListPage
 
 
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
-def test__label_pill__click_updates_list_in_place(coda_page: Page, live_server: LiveServer) -> None:
-    LinkType.objects.get_or_create(name="DOI")
-    LinkType.objects.get_or_create(name="ISBN")
-
+def test__label_pill__click_updates_list_in_place(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
     alpha = label_create("E2E Alpha", Color.from_rgb(255, 0, 0))
     matching = modelfactory.fundingrequest(title="E2E pill match")
     label_attach(matching, alpha)
     modelfactory.fundingrequest(title="E2E pill non-match")
 
-    coda_page.set_viewport_size({"width": 1440, "height": 900})
-    coda_page.goto(live_server.url + reverse("fundingrequests:list"))
-    coda_page.wait_for_function("() => typeof htmx !== 'undefined'")
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate()
 
-    assert "E2E pill match" in coda_page.inner_text("#fundingrequest-list")
-    assert "E2E pill non-match" in coda_page.inner_text("#fundingrequest-list")
+    list_page.should_show_request("E2E pill match")
+    list_page.should_show_request("E2E pill non-match")
 
-    coda_page.click(".label-filter-pill:has-text('E2E Alpha')")
-    coda_page.wait_for_function(
-        "() => !document.querySelector('#fundingrequest-list')?.textContent"
-        "?.includes('E2E pill non-match')"
-    )
+    list_page.click_label_pill("E2E Alpha")
+    list_page.should_not_show_request("E2E pill non-match")
+    list_page.should_show_request("E2E pill match")
 
-    region_text = coda_page.inner_text("#fundingrequest-list")
-    assert "E2E pill match" in region_text
-    assert "E2E pill non-match" not in region_text
-
-    assert "Clear all" in coda_page.inner_text("#filter-sidebar-header")
-    assert "labels=" in coda_page.url
+    list_page.should_show_clear_all()
+    list_page.should_have_url_query("labels=")
