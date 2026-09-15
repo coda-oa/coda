@@ -181,7 +181,7 @@ details.dropdown > ul:has(.label) > li {
 }
 
 .filter-sidebar {
-    width: 250px;
+    width: 280px;
     flex-shrink: 0;
     position: sticky;
     top: 1rem;
@@ -199,7 +199,7 @@ details.dropdown > ul:has(.label) > li {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    align-items: top;
+    align-items: flex-start;
     margin-bottom: var(--coda-form-element-spacing-vertical);
 
     & > :is(label, input, select, button) {
@@ -215,8 +215,13 @@ details.dropdown > ul:has(.label) > li {
     flex: 0 0 100%;
 }
 
+.coda-label-pills:not(:has(> a)) {
+    padding-block: 0;
+}
+
 .filter-sort {
     width: auto;
+    margin-block: 0;
 }
 
 .filter-sort-label {
@@ -266,14 +271,16 @@ details.dropdown > ul:has(.label) > li {
 }
 
 .filter-group-title {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     margin: 0 0 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    padding-block: 0.3rem 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 600;
     color: var(--coda-muted-color);
+    background: var(--coda-background-color);
     border-bottom: 1px solid var(--coda-muted-border-color);
-    padding-bottom: 0.25rem;
 }
 
 .filter-group .form-row {
@@ -313,7 +320,7 @@ details.dropdown > ul:has(.label) > li {
 
 /* Publication type segment */
 .segment {
-    display: inline-flex;
+    display: flex;
     border: var(--coda-border-width) solid var(--coda-border-color);
     border-radius: var(--coda-border-radius);
     overflow: hidden;
@@ -332,6 +339,7 @@ details.dropdown > ul:has(.label) > li {
     align-items: center;
     justify-content: center;
     margin: 0;
+    min-height: calc(1rem * var(--coda-line-height) + var(--coda-form-element-spacing-vertical) * 2);
     padding: var(--coda-form-element-spacing-vertical) var(--coda-form-element-spacing-horizontal);
     font-size: 0.85rem;
     cursor: pointer;

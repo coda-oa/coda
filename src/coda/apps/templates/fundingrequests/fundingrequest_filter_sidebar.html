@@ -4,7 +4,7 @@
     <h3 class="filter-group-title">Status</h3>
     <div class="form-row">
         <label for="processing_status">Processing Status</label>
-        <search-select-multi id="processing_status" name="processing_status" class="w-100">
+        <search-select-multi id="processing_status" name="processing_status" class="w-100" placeholder="Select statuses">
         {% for status in processing_states %}
             <option slot="options"
                     value="{{ status }}"
@@ -15,7 +15,7 @@
     {% include "fundingrequests/forms/payment_status.html" %}
     <div class="form-row">
         <label for="payment_methods">Payment Method</label>
-        <search-select-multi id="payment_methods" name="payment_methods" class="w-100">
+        <search-select-multi id="payment_methods" name="payment_methods" class="w-100" placeholder="Select payment methods">
         {% for value, label in payment_methods %}
             <option slot="options"
                     value="{{ value }}"
@@ -37,21 +37,19 @@
             <label for="publication_type_{{ type.0 }}">{{ type.1 }}</label>
         {% endfor %}
     </div>
-    <div class="grid">
-        <div class="form-row">
-            <label for="id_start_date" class="form-row-item-sm">Start Date</label>
-            <input type="date"
-                   id="id_start_date"
-                   name="start_date"
-                   value="{{ request.GET.start_date }}">
-        </div>
-        <div class="form-row">
-            <label for="id_end_date" class="form-row-item-sm">End Date</label>
-            <input type="date"
-                   id="id_end_date"
-                   name="end_date"
-                   value="{{ request.GET.end_date }}">
-        </div>
+    <div class="form-row">
+        <label for="id_start_date">Start Date</label>
+        <input type="date"
+               id="id_start_date"
+               name="start_date"
+               value="{{ request.GET.start_date }}">
+    </div>
+    <div class="form-row">
+        <label for="id_end_date">End Date</label>
+        <input type="date"
+               id="id_end_date"
+               name="end_date"
+               value="{{ request.GET.end_date }}">
     </div>
     {% include "fundingrequests/forms/publication_state.html" %}
 </div>
