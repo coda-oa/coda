@@ -1,145 +1,54 @@
+"""The report's own item list, and the openCost document that stands for it.
+
+Generation executes the filters once — their result becomes the report's permanent scope — and
+records every considered publication, contract and invoice as a membership row before transforming
+those rows into the document that gets stored. Regeneration re-runs the same transform over the
+stored membership against current CODA data, never consulting the filters again.
+
+The stored document and its issue log are what the read paths serve. Nothing is recomputed per
+request, so what a report shows and what downloading it produces cannot drift apart.
+"""
+
 import logging
-import uuid
-from datetime import date
-from decimal import Decimal
-from typing import Any, NamedTuple
+from collections.abc import Iterable, Mapping
+from dataclasses import asdict
+from itertools import chain
+from typing import Any
 
-from django.db.models import Prefetch
+from django.db import transaction
+from django.utils import timezone
 
+import opencost
 from coda.apps.contracts.models import Contract
-from coda.apps.institutions.models import Institution
-from coda.apps.invoices.models import Position
+from coda.apps.invoices.models import Invoice, Position
 from coda.apps.opencost.data_aggregation import (
+    HomeInstitutionCache,
+    InstitutionHierarchyCache,
+    build_home_institution_cache,
     build_institution_hierarchy_cache,
+    fetch_contracts_by_ids,
+    fetch_invoices_by_ids,
+    fetch_publications_by_ids,
     get_contracts_for_period,
     get_invoices_for_period,
     get_publications_for_period,
+    key_by_id,
 )
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
-    OpenCostReportContractInstitutionIdentifier,
     OpenCostReportContractInvoice,
-    OpenCostReportContractInvoicePosition,
-    OpenCostReportContractSecondaryIdentifier,
-    OpenCostReportInstitutionIdentifier,
     OpenCostReportInvoice,
-    OpenCostReportInvoicePosition,
     OpenCostReportPublication,
-    OpenCostReportPublicationContract,
-    OpenCostReportPublicationLink,
 )
-from coda.apps.opencost.services.issues import collect_issues
-from coda.apps.preferences.models import GlobalPreferences
+from coda.apps.opencost.transformers import (
+    InvoiceOutcome,
+    ItemOutcome,
+    get_publisher_and_journal,
+    transform_report,
+)
 from coda.apps.publications.models import Publication
 from coda.contexts.exports.dto.filters import ExportFiltersDto
-
-logger = logging.getLogger(__name__)
-
-
-class HomeInstitutionCache(NamedTuple):
-    """Cached home institution data to avoid repeated GlobalPreferences queries."""
-
-    institution_name: str
-    identifiers: list[tuple[str, str]]
-
-
-class InstitutionHierarchyCache:
-    """
-    In-memory cache of institution hierarchies to eliminate N+1 queries.
-
-    Stores all institutions and their links that will be accessed during
-    report generation, supporting arbitrary depth parent hierarchies.
-    """
-
-    def __init__(self) -> None:
-        self._institutions: dict[int, Institution] = {}
-        self._links: dict[int, list[tuple[str, str]]] = {}
-        self._parent_ids: dict[int, int | None] = {}
-
-    def add_institution(
-        self, institution: Institution, links: list[tuple[str, str]], parent_id: int | None
-    ) -> None:
-        """Add institution data to cache."""
-        self._institutions[institution.id] = institution
-        self._links[institution.id] = links
-        self._parent_ids[institution.id] = parent_id
-
-    def get_institution_with_identifiers(
-        self, institution_id: int
-    ) -> tuple[str, list[tuple[str, str]]] | None:
-        """
-        Get institution name and identifiers, walking up parent chain until identifiers found.
-
-        Returns (name, identifiers) or None if institution not in cache.
-        """
-        current_id: int | None = institution_id
-
-        while current_id is not None:
-            if current_id not in self._institutions:
-                return None
-
-            institution = self._institutions[current_id]
-            identifiers = self._links.get(current_id, [])
-
-            if identifiers:
-                return (institution.name, identifiers)
-
-            current_id = self._parent_ids.get(current_id)
-
-        # No identifiers found in entire chain
-        if institution_id in self._institutions:
-            return (self._institutions[institution_id].name, [])
-
-        return None
-
-    @property
-    def size(self) -> int:
-        """Return number of cached institutions (for logging)."""
-        return len(self._institutions)
-
-    @property
-    def total_links(self) -> int:
-        """Return total number of cached links (for logging)."""
-        return sum(len(links) for links in self._links.values())
-
-
-class PublicationSnapshotData(NamedTuple):
-    """Collected data for bulk-creating publication snapshots."""
-
-    # Core fields
-    publication: Publication
-    title: str
-    doi: str
-    publication_type: str
-    publisher: str
-    journal: str
-    external_costsplitting: bool | None
-    institution_name: str
-
-    # Child data (to be bulk-created)
-    identifiers: list[tuple[str, str]]  # [(type, value), ...]
-    links: list[tuple[str, str]]  # [(type, value), ...] (excluding DOI)
-    attached_contracts: list[tuple[Contract, int]]  # [(contract, year), ...]
-    invoice_data: dict[int, list[Position]]  # {invoice_id: [positions]}
-
-
-class ContractSnapshotData(NamedTuple):
-    """Collected data for bulk-creating contract snapshots."""
-
-    contract: Contract
-    contract_name: str
-    institution_name: str
-    participation_from: date | None
-    participation_to: date | None
-    primary_identifier_value: str
-    group_id: str  # UUID for invoice grouping
-
-    # Child data (to be bulk-created)
-    institution_identifiers: list[tuple[str, str]]
-    secondary_identifiers: list[tuple[str, str]]
-    invoice_data: dict[int, list[Position]]  # {invoice_id: [positions]}
-
 
 logger = logging.getLogger(__name__)
 
@@ -148,17 +57,14 @@ def generate_report(
     title: str,
     filters: dict[str, Any],
 ) -> OpenCostReport:
-    """
-    Generate OpenCost report using bulk operations for maximum performance.
+    """Create a report from ``filters``, which are executed here and nowhere else.
 
-    Architecture:
-    1. SETUP: Create report, build caches, fetch source data
-    2. COLLECT: Extract all snapshot data (NO DB writes)
-    3. BULK CREATE: Insert all primary records
-    4. BULK CREATE CHILDREN: Insert all child records
-    5. UPDATE: Link publications to contracts via group IDs
+    The publications, contracts and invoices the filters reach become the report's membership
+    rows — one per item at all three levels — and those rows, not the filters, are the item list
+    every later run transforms. How each row fared in this run is recorded beside it.
 
-    Performance: ~50-80 queries regardless of dataset size
+    An all-excluded report is a normal outcome rather than a failure: it holds no document and an
+    issue log that says why, and turns exportable through Regenerate once the data is corrected.
     """
     dto = ExportFiltersDto.model_validate(filters)
     params = dto.to_params()
@@ -170,7 +76,6 @@ def generate_report(
 
     logger.info(f"Starting OpenCost report generation: '{title}' ({start_date} to {end_date})")
 
-    # SETUP PHASE
     report = OpenCostReport.objects.create(
         title=title,
         period_start=start_date,
@@ -179,15 +84,13 @@ def generate_report(
     )
     logger.debug(f"Created report record: {report.id}")
 
-    home_institution_cache = _build_home_institution_cache()
+    logger.info("Fetching publications and contracts...")
+    home_institution = build_home_institution_cache()
     invoices_in_period = get_invoices_for_period(
         start_date=start_date,
         end_date=end_date,
         funding_source=params.funding_source,
     )
-
-    # DATA AGGREGATION PHASE
-    logger.info("Fetching publications and contracts...")
     publications = get_publications_for_period(
         params=params,
         invoices_in_period=invoices_in_period,
@@ -198,847 +101,336 @@ def generate_report(
         invoices_in_period=invoices_in_period,
         contract=params.contract_id,
     )
-    logger.debug(f"Fetched {len(publications)} publications, {len(contracts)} contracts")
-
-    # Build institution hierarchy cache (2-3 queries)
+    live_publications = key_by_id(publications)
+    live_contracts = key_by_id(contracts)
     institution_cache = build_institution_hierarchy_cache(publications)
+    logger.info(f"Fetched {len(live_publications)} publications, {len(live_contracts)} contracts")
 
-    # COLLECTION PHASE: Build snapshot data (NO database queries)
-    logger.info("Collecting snapshot data...")
-
-    pub_snapshots: list[PublicationSnapshotData] = []
-    for publication in publications:
-        snapshot_data = _collect_publication_snapshot_data(
-            publication, home_institution_cache, institution_cache
+    with transaction.atomic():
+        publication_rows = _create_publication_rows(report, live_publications)
+        contract_rows = _create_contract_rows(report, live_contracts)
+        _insert_missing_invoice_links(
+            publication_rows, live_publications, contract_rows, live_contracts
         )
-        pub_snapshots.append(snapshot_data)
-
-    contract_snapshots: list[ContractSnapshotData] = []
-    for contract_obj in contracts:
-        contract_snapshot_data = _collect_contract_snapshot_data(
-            contract_obj, home_institution_cache
-        )
-        contract_snapshots.append(contract_snapshot_data)
-
-    logger.debug(
-        f"Collected {len(pub_snapshots)} publication snapshots, "
-        f"{len(contract_snapshots)} contract snapshots"
-    )
-
-    # BULK CREATE PHASE
-    logger.info("Bulk creating report snapshots...")
-
-    report_publications = _bulk_create_report_publications(report, pub_snapshots)
-    report_contracts = _bulk_create_report_contracts(report, contract_snapshots)
-
-    _bulk_create_publication_children(pub_snapshots, report_publications)
-    _bulk_create_contract_children(contract_snapshots, report_contracts)
-
-    # GROUP ID UPDATE PHASE
-    logger.info("Updating publication-contract group IDs...")
-    _update_publication_contract_group_ids(report)
-
-    # ISSUE COUNTS PHASE - dry run the transform and persist the resulting counts.
-    # _update_publication_contract_group_ids(report) runs before this dry run
-    # because the transformer reads the persisted group ids (transformers.py
-    # _get_contract_cost_data - invoice group id - and _get_part_of_contract -
-    # link group id) while collecting issues.
-    logger.info("Computing issue counts...")
-
-    issues = collect_issues(report)
-    if issues is not None:
-        report.errors_count = sum(1 for w in issues if w.level == "error")
-        report.warnings_count = sum(1 for w in issues if w.level == "warning")
-        report.save(update_fields=["errors_count", "warnings_count"])
-    else:
-        # A broken check must not take generation down: leave the counts untouched.
-        logger.warning(
-            "OpenCost issue check failed for report %s; counts left unchanged", report.pk
+        _write_artifact(
+            report,
+            live_publications,
+            live_contracts,
+            key_by_id(
+                fetch_invoices_by_ids(_pinned_invoice_ids(live_publications, live_contracts))
+            ),
+            home_institution,
+            institution_cache,
         )
 
+    counts = report.get_issue_counts()
     logger.info(
         f"Completed OpenCost report generation: {report.id} "
-        f"({report.publications.count()} publications, {report.contracts.count()} contracts) "
-        f"[{report.errors_count} errors, {report.warnings_count} warnings]"
+        f"({len(publication_rows)} publications, {len(contract_rows)} contracts) "
+        f"[{counts['errors']} errors, {counts['warnings']} warnings]"
     )
 
     return report
 
 
-def _build_home_institution_cache() -> HomeInstitutionCache:
+def regenerate_report(report: OpenCostReport) -> OpenCostReport:
+    """Rebuild the report's document from current CODA data, over the stored membership.
+
+    The seed rows are the report's frozen item list: publications, contracts and invoices are
+    re-fetched by pinned id and the stored filters are never consulted, so nothing joins or
+    leaves the scope. Everything below the item level is live - titles, links, identifiers,
+    institution hierarchies, the home institution and the positions on pinned invoices - so a
+    corrected ESAC id, an amended invoice or a previously unset home institution flows through.
+    Positions newly found on a pinned invoice get their parent-invoice link row inserted, so a
+    live cost is never silently unexported.
+
+    Concurrent regenerates serialize on the report row. Unlike the generation pass, a failure
+    here is raised to the caller: with no fallback artifact in play, a broken regenerate must
+    be heard, not logged and swallowed.
     """
-    Build a cache of home institution data from GlobalPreferences.
+    logger.info(f"Regenerating openCost artifact for report {report.id}")
 
-    This is queried once per report generation to avoid repeated database hits.
-    Returns empty values if no home institution is configured.
-    """
-    prefs = GlobalPreferences.objects.select_related("home_institution").first()
-    if not prefs or not prefs.home_institution:
-        return HomeInstitutionCache(institution_name="", identifiers=[])
+    with transaction.atomic():
+        locked = OpenCostReport.objects.select_for_update().get(pk=report.pk)
+        _regenerate_artifact(locked)
 
-    institution = prefs.home_institution
-    institution_name = institution.name
-
-    identifiers = []
-    # Prefetch links with types in a single query
-    links = institution.links.filter(type__name__in=["ROR", "ISNI", "Ringold"]).select_related(
-        "type"
-    )
-    for link in links:
-        identifier_type = link.type.name.lower()
-        identifiers.append((identifier_type, link.value))
-
-    return HomeInstitutionCache(institution_name=institution_name, identifiers=identifiers)
+    report.refresh_from_db()
+    return report
 
 
-def _collect_publication_snapshot_data(
-    publication: Publication,
-    home_institution_cache: HomeInstitutionCache,
-    institution_cache: InstitutionHierarchyCache,
-) -> PublicationSnapshotData:
-    """
-    Collect all data needed for publication snapshot WITHOUT any DB writes.
+def _regenerate_artifact(report: OpenCostReport) -> None:
+    """The document re-run over the report's own rows, inside the locked transaction."""
+    report_publications = list(report.publications.order_by("id"))
+    report_contracts = list(report.contracts.order_by("id"))
 
-    Uses ONLY prefetched data and caches - NO additional queries.
-
-    Args:
-        publication: Publication with all relationships prefetched
-        home_institution_cache: Cached home institution data
-        institution_cache: Cached institution hierarchy data
-
-    Returns:
-        PublicationSnapshotData with all fields and child data ready for bulk creation
-    """
-    # Extract DOI (uses prefetched links)
-    doi_link = next(
-        (link for link in publication.links.all() if link.type.name == "DOI"),
-        None,
-    )
-    doi_value = doi_link.value if doi_link else ""
-
-    # Extract publisher and journal (uses prefetched relations)
-    if publication.article_journal:
-        publisher_name = publication.article_journal.publisher.name
-        journal_name = publication.article_journal.title
-    elif publication.monograph_publisher:
-        publisher_name = publication.monograph_publisher.name
-        journal_name = ""
-    else:
-        publisher_name = ""
-        journal_name = ""
-
-    # Extract publication type
-    pub_type_name = publication.publication_type.name if publication.publication_type else ""
-
-    # Get institution data (uses cache, no additional queries)
-    institution_name, institution_identifiers = _get_institution_data(
-        publication, home_institution_cache, institution_cache
+    invoice_ids = set(
+        OpenCostReportInvoice.objects.filter(
+            report_publication__in=report_publications
+        ).values_list("invoice_id", flat=True)
+    ) | set(
+        OpenCostReportContractInvoice.objects.filter(
+            report_contract__in=report_contracts
+        ).values_list("invoice_id", flat=True)
     )
 
-    # Collect links (exclude DOI, it's stored separately)
-    # Uses prefetched links - no additional queries
-    links = [
-        (link.type.name.lower(), link.value)
-        for link in publication.links.all()
-        if link.type.name.lower() != "doi"
-    ]
+    # Positions are re-read live, but only on pinned invoices: invoice membership stays frozen,
+    # so a cost on an invoice outside the report can never enter it here.
+    positions_on_pinned_invoices = Position.objects.filter(invoice__in=invoice_ids).select_related(
+        "invoice", "invoice__creditor"
+    )
+    live_publications_qs = fetch_publications_by_ids(
+        {row.publication_id for row in report_publications},
+        positions=positions_on_pinned_invoices,
+    )
+    live_publications = key_by_id(live_publications_qs)
+    live_contracts = key_by_id(
+        fetch_contracts_by_ids(
+            {row.contract_id for row in report_contracts},
+            positions=positions_on_pinned_invoices.filter(contract__isnull=False),
+        )
+    )
 
-    # Collect attached contracts (uses prefetched data)
-    attached_contracts = [
-        (attached.contract, attached.contract_year)
-        for attached in publication.attached_contracts.all()
-    ]
+    _insert_missing_invoice_links(
+        report_publications, live_publications, report_contracts, live_contracts
+    )
 
-    # Group positions by invoice (uses prefetched data)
-    invoice_data: dict[int, list[Position]] = {}
-    for position in publication.position_set.all():
-        invoice_id = position.invoice.id
-        if invoice_id not in invoice_data:
-            invoice_data[invoice_id] = []
-        invoice_data[invoice_id].append(position)
+    # The home institution is a CODA object like every other: read fresh, never stored.
+    home_institution = build_home_institution_cache()
+    institution_cache = build_institution_hierarchy_cache(live_publications_qs)
 
-    # Get external_costsplitting from funding request if it exists
-    external_costsplitting = None
-    if hasattr(publication, "fundingrequest") and publication.fundingrequest:
-        external_costsplitting = publication.fundingrequest.external_costsplitting
-
-    return PublicationSnapshotData(
-        publication=publication,
-        title=publication.title,
-        doi=doi_value,
-        publication_type=pub_type_name,
-        publisher=publisher_name,
-        journal=journal_name,
-        external_costsplitting=external_costsplitting,
-        institution_name=institution_name,
-        identifiers=institution_identifiers,
-        links=links,
-        attached_contracts=attached_contracts,
-        invoice_data=invoice_data,
+    _write_artifact(
+        report,
+        live_publications,
+        live_contracts,
+        key_by_id(fetch_invoices_by_ids(invoice_ids)),
+        home_institution,
+        institution_cache,
     )
 
 
-def _collect_contract_snapshot_data(
-    contract: Contract,
-    home_institution_cache: HomeInstitutionCache,
-) -> ContractSnapshotData:
+def _create_publication_rows(
+    report: OpenCostReport, live_publications: Mapping[int, Publication]
+) -> list[OpenCostReportPublication]:
+    """One membership row per considered publication, in entity id order.
+
+    ``title`` and ``publisher`` are the two values an exported publication's own document entry
+    cannot state - a DOI-bearing entry names neither - so they are kept here for the detail table.
+    Everything the document does state is read live on every run, so the row says only that this
+    publication is one of the report's items; how the run went is written once the document exists.
     """
-    Collect all data needed for contract snapshot WITHOUT any DB writes.
-
-    Uses ONLY prefetched data - NO additional queries.
-
-    Args:
-        contract: Contract with all relationships prefetched
-        home_institution_cache: Cached home institution data
-
-    Returns:
-        ContractSnapshotData with all fields and child data ready for bulk creation
-    """
-    # Get institution data from cache
-    institution_name = home_institution_cache.institution_name
-    institution_identifiers = home_institution_cache.identifiers
-
-    # Get primary identifier (ESAC) - uses prefetched links
-    primary_id = _get_contract_primary_identifier(contract)
-
-    # Get secondary identifiers (OAI, EZB, Local) - uses prefetched links
-    secondary_identifiers = _get_contract_secondary_identifiers(contract)
-
-    # Group positions by invoice (uses prefetched data)
-    invoice_data: dict[int, list[Position]] = {}
-    for position in contract.position_set.all():
-        invoice_id = position.invoice.id
-        if invoice_id not in invoice_data:
-            invoice_data[invoice_id] = []
-        invoice_data[invoice_id].append(position)
-
-    # Generate unique group ID for this contract's invoices
-    group_id = str(uuid.uuid4())
-
-    return ContractSnapshotData(
-        contract=contract,
-        contract_name=contract.name,
-        institution_name=institution_name,
-        participation_from=contract.start_date,
-        participation_to=contract.end_date,
-        primary_identifier_value=primary_id,
-        group_id=group_id,
-        institution_identifiers=institution_identifiers,
-        secondary_identifiers=secondary_identifiers,
-        invoice_data=invoice_data,
-    )
-
-
-def _bulk_create_report_publications(
-    report: OpenCostReport,
-    pub_snapshots: list[PublicationSnapshotData],
-) -> dict[int, OpenCostReportPublication]:
-    """
-    Bulk create all report publication records.
-
-    Args:
-        report: The report to attach publications to
-        pub_snapshots: List of collected publication data
-
-    Returns:
-        Dictionary mapping publication.id -> OpenCostReportPublication
-
-    Performance: 1 query regardless of number of publications
-    """
-    if not pub_snapshots:
-        logger.debug("No publications to create")
-        return {}
-
-    logger.info(f"Bulk creating {len(pub_snapshots)} report publications")
-
-    # Build all objects in memory
-    report_pubs_to_create = [
+    rows = [
         OpenCostReportPublication(
             report=report,
-            publication=snap.publication,
-            title=snap.title,
-            doi=snap.doi,
-            publication_type=snap.publication_type,
-            publisher=snap.publisher,
-            journal=snap.journal,
-            external_costsplitting=snap.external_costsplitting,
-            institution_name=snap.institution_name,
+            publication_id=publication_id,
+            title=live_publications[publication_id].title,
+            publisher=get_publisher_and_journal(live_publications[publication_id])[0],
         )
-        for snap in pub_snapshots
+        for publication_id in sorted(live_publications)
     ]
 
-    # Bulk create - Django automatically sets IDs
-    created_pubs = OpenCostReportPublication.objects.bulk_create(
-        report_pubs_to_create,
-        batch_size=1000,
-    )
-
-    # Build lookup dictionary for child record creation
-    pub_id_to_report_pub = {rp.publication_id: rp for rp in created_pubs}
-
-    logger.debug(f"Created {len(created_pubs)} report publications")
-    return pub_id_to_report_pub
+    created = OpenCostReportPublication.objects.bulk_create(rows, batch_size=1000)
+    logger.debug(f"Created {len(created)} report publications")
+    return created
 
 
-def _bulk_create_publication_children(
-    pub_snapshots: list[PublicationSnapshotData],
-    report_publications: dict[int, OpenCostReportPublication],
-) -> None:
+def _create_contract_rows(
+    report: OpenCostReport, live_contracts: Mapping[int, Contract]
+) -> list[OpenCostReportContract]:
+    """One membership row per considered contract, in entity id order.
+
+    The row says only that this contract is one of the report's items: name, ESAC and dates
+    are read live on every run, and an excluded contract is reported and displayed under the
+    identity the issue log records for it.
     """
-    Bulk create all child records for publications.
-
-    Creates:
-    - Institution identifiers
-    - Publication links
-    - Publication-contract attachments
-    - Invoices and positions (via helper)
-
-    Args:
-        pub_snapshots: List of collected publication data
-        report_publications: Mapping of publication_id -> OpenCostReportPublication
-
-    Performance: ~5 queries total regardless of dataset size
-    """
-    logger.info("Bulk creating publication child records")
-
-    # PHASE 1: Collect all identifiers
-    identifiers_to_create = []
-    for snap in pub_snapshots:
-        report_pub = report_publications[snap.publication.id]
-        for id_type, id_value in snap.identifiers:
-            identifiers_to_create.append(
-                OpenCostReportInstitutionIdentifier(
-                    report_publication=report_pub,
-                    identifier_type=id_type,
-                    value=id_value,
-                )
-            )
-
-    # PHASE 2: Collect all links
-    links_to_create = []
-    for snap in pub_snapshots:
-        report_pub = report_publications[snap.publication.id]
-        for link_type, link_value in snap.links:
-            links_to_create.append(
-                OpenCostReportPublicationLink(
-                    report_publication=report_pub,
-                    link_type=link_type,
-                    value=link_value,
-                )
-            )
-
-    # PHASE 3: Collect all contract attachments
-    attachments_to_create = []
-    for snap in pub_snapshots:
-        report_pub = report_publications[snap.publication.id]
-        for contract, year in snap.attached_contracts:
-            attachments_to_create.append(
-                OpenCostReportPublicationContract(
-                    report_publication=report_pub,
-                    contract=contract,
-                    contract_year=year,
-                    group_id="",  # Will be set in _update_publication_contract_group_ids
-                )
-            )
-
-    # PHASE 4: Bulk create all (3 queries)
-    if identifiers_to_create:
-        OpenCostReportInstitutionIdentifier.objects.bulk_create(
-            identifiers_to_create, batch_size=1000
-        )
-        logger.debug(f"Created {len(identifiers_to_create)} institution identifiers")
-
-    if links_to_create:
-        OpenCostReportPublicationLink.objects.bulk_create(links_to_create, batch_size=1000)
-        logger.debug(f"Created {len(links_to_create)} publication links")
-
-    if attachments_to_create:
-        OpenCostReportPublicationContract.objects.bulk_create(
-            attachments_to_create, batch_size=1000
-        )
-        logger.debug(f"Created {len(attachments_to_create)} contract attachments")
-
-    # PHASE 5: Create invoices and positions (2 queries)
-    _bulk_create_publication_invoices(pub_snapshots, report_publications)
-
-
-def _collect_publication_invoice_data(
-    pub_snapshots: list[PublicationSnapshotData],
-    report_publications: dict[int, OpenCostReportPublication],
-) -> tuple[list[OpenCostReportInvoice], list[tuple[int, int, list[Position]]]]:
-    """
-    Collect invoice objects ready for bulk creation and track metadata.
-
-    Returns:
-        Tuple of (invoices_to_create, invoice_metadata)
-        where invoice_metadata is [(snap_idx, invoice_id, positions), ...]
-    """
-    invoices_to_create = []
-    invoice_metadata = []
-
-    for snap_idx, snap in enumerate(pub_snapshots):
-        report_pub = report_publications[snap.publication.id]
-
-        for invoice_id, positions in snap.invoice_data.items():
-            if not positions:
-                continue
-
-            invoice = positions[0].invoice
-
-            invoices_to_create.append(
-                OpenCostReportInvoice(
-                    report_publication=report_pub,
-                    invoice=invoice,
-                    invoice_number=invoice.number or "",
-                    creditor=invoice.creditor.name if invoice.creditor else "",
-                    invoice_date=invoice.date,
-                )
-            )
-
-            # Track which positions belong to THIS invoice (by index in list)
-            invoice_metadata.append((snap_idx, invoice_id, positions))
-
-    return invoices_to_create, invoice_metadata
-
-
-def _create_publication_position_objects(
-    created_invoices: list[OpenCostReportInvoice],
-    invoice_metadata: list[tuple[int, int, list[Position]]],
-) -> list[OpenCostReportInvoicePosition]:
-    """
-    Create position objects using created invoice IDs.
-
-    Matches by index - created_invoices[i] corresponds to invoice_metadata[i].
-    """
-    positions_to_create = []
-
-    for invoice_idx, (snap_idx, invoice_id, positions) in enumerate(invoice_metadata):
-        # Match invoice by index (order preserved in bulk_create)
-        report_invoice = created_invoices[invoice_idx]
-
-        for position in positions:
-            positions_to_create.append(
-                OpenCostReportInvoicePosition(
-                    report_invoice=report_invoice,
-                    position=position,
-                    amount=position.cost_amount,
-                    currency=position.cost_currency,
-                    cost_type=position.cost_type,
-                    vat=Decimal(str(position.cost_amount))
-                    * (Decimal(str(position.tax_rate)) if position.tax_rate else Decimal("0")),
-                )
-            )
-
-    return positions_to_create
-
-
-def _bulk_create_publication_invoices(
-    pub_snapshots: list[PublicationSnapshotData],
-    report_publications: dict[int, OpenCostReportPublication],
-) -> None:
-    """
-    Bulk create invoice snapshots and positions for publications.
-
-    This is complex because positions need invoice IDs, but we only get those
-    after bulk_create. We use index tracking to match positions to invoices.
-
-    Args:
-        pub_snapshots: List of collected publication data
-        report_publications: Mapping of publication_id -> OpenCostReportPublication
-
-    Performance: 2 queries (1 for invoices, 1 for positions)
-    """
-    logger.debug("Bulk creating publication invoices and positions")
-
-    # Phase 1: Collect invoices and metadata
-    invoices_to_create, invoice_metadata = _collect_publication_invoice_data(
-        pub_snapshots, report_publications
-    )
-
-    if not invoices_to_create:
-        logger.debug("No publication invoices to create")
-        return
-
-    # Phase 2: Bulk create invoices
-    created_invoices = OpenCostReportInvoice.objects.bulk_create(
-        invoices_to_create, batch_size=1000
-    )
-    logger.debug(f"Created {len(created_invoices)} publication invoices")
-
-    # Phase 3: Create position objects
-    positions_to_create = _create_publication_position_objects(created_invoices, invoice_metadata)
-
-    # Phase 4: Bulk create positions
-    if positions_to_create:
-        OpenCostReportInvoicePosition.objects.bulk_create(positions_to_create, batch_size=1000)
-        logger.debug(f"Created {len(positions_to_create)} publication invoice positions")
-
-
-def _bulk_create_report_contracts(
-    report: OpenCostReport,
-    contract_snapshots: list[ContractSnapshotData],
-) -> dict[int, OpenCostReportContract]:
-    """
-    Bulk create all report contract records.
-
-    Args:
-        report: The report to attach contracts to
-        contract_snapshots: List of collected contract data
-
-    Returns:
-        Dictionary mapping contract.id -> OpenCostReportContract
-
-    Performance: 1 query regardless of number of contracts
-    """
-    if not contract_snapshots:
-        logger.debug("No contracts to create")
-        return {}
-
-    logger.info(f"Bulk creating {len(contract_snapshots)} report contracts")
-
-    # Build all objects in memory
-    report_contracts_to_create = [
+    rows = [
         OpenCostReportContract(
             report=report,
-            contract=snap.contract,
-            contract_name=snap.contract_name,
-            institution_name=snap.institution_name,
-            participation_from=snap.participation_from,
-            participation_to=snap.participation_to,
-            primary_identifier_value=snap.primary_identifier_value,
+            contract_id=contract_id,
         )
-        for snap in contract_snapshots
+        for contract_id in sorted(live_contracts)
     ]
 
-    # Bulk create - Django automatically sets IDs
-    created_contracts = OpenCostReportContract.objects.bulk_create(
-        report_contracts_to_create,
-        batch_size=1000,
-    )
-
-    # Build lookup dictionary for child record creation
-    contract_id_to_report_contract = {rc.contract_id: rc for rc in created_contracts}
-
-    logger.debug(f"Created {len(created_contracts)} report contracts")
-    return contract_id_to_report_contract
+    created = OpenCostReportContract.objects.bulk_create(rows, batch_size=1000)
+    logger.debug(f"Created {len(created)} report contracts")
+    return created
 
 
-def _bulk_create_contract_children(
-    contract_snapshots: list[ContractSnapshotData],
-    report_contracts: dict[int, OpenCostReportContract],
+def _insert_missing_invoice_links(
+    report_publications: list[OpenCostReportPublication],
+    live_publications: Mapping[int, Publication],
+    report_contracts: list[OpenCostReportContract],
+    live_contracts: Mapping[int, Contract],
 ) -> None:
+    """Create the parent-invoice link rows that live positions imply but the tables lack.
+
+    An invoice is one of the report's items when a position of the parent sits on it, which at
+    generation is the whole third level and on a later run is the link a fix inside a pinned
+    invoice created. Without the row the transform would never see that cost: it walks an item's
+    invoices through these rows and only reads the positions to say what an invoice is being
+    given. Item scope is untouched either way - both levels of every inserted row already exist -
+    and the unique pair keeps repeated passes idempotent.
     """
-    Bulk create all child records for contracts.
+    existing_publication_links = set(
+        OpenCostReportInvoice.objects.filter(
+            report_publication__in=report_publications
+        ).values_list("report_publication_id", "invoice_id")
+    )
+    publication_links = [
+        OpenCostReportInvoice(report_publication_id=row.id, invoice_id=invoice_id)
+        for row in report_publications
+        for invoice_id in sorted(_positions_by_invoice(live_publications[row.publication_id]))
+        if (row.id, invoice_id) not in existing_publication_links
+    ]
+    OpenCostReportInvoice.objects.bulk_create(publication_links)
 
-    Creates:
-    - Institution identifiers
-    - Secondary identifiers
-    - Invoices and positions (via helper)
+    existing_contract_links = set(
+        OpenCostReportContractInvoice.objects.filter(
+            report_contract__in=report_contracts
+        ).values_list("report_contract_id", "invoice_id")
+    )
+    contract_links = [
+        OpenCostReportContractInvoice(report_contract_id=row.id, invoice_id=invoice_id)
+        for row in report_contracts
+        for invoice_id in sorted(_positions_by_invoice(live_contracts[row.contract_id]))
+        if (row.id, invoice_id) not in existing_contract_links
+    ]
+    OpenCostReportContractInvoice.objects.bulk_create(contract_links)
 
-    Args:
-        contract_snapshots: List of collected contract data
-        report_contracts: Mapping of contract_id -> OpenCostReportContract
 
-    Performance: ~5 queries total regardless of dataset size
+def _positions_by_invoice(entity: Publication | Contract) -> dict[int, list[Position]]:
+    """The entity's live positions grouped by the invoice they sit on, in fetched order.
+
+    The groups' order is the order this item's invoices are recorded in, which is the order the
+    document lists them in - so the invoice order comes from the report's own rows rather than
+    from whatever order a query happens to answer in.
     """
-    logger.info("Bulk creating contract child records")
+    grouped: dict[int, list[Position]] = {}
+    for position in entity.position_set.all():
+        grouped.setdefault(position.invoice_id, []).append(position)
 
-    # PHASE 1: Collect all institution identifiers
-    institution_identifiers_to_create = []
-    for snap in contract_snapshots:
-        report_contract = report_contracts[snap.contract.id]
-        for id_type, id_value in snap.institution_identifiers:
-            institution_identifiers_to_create.append(
-                OpenCostReportContractInstitutionIdentifier(
-                    report_contract=report_contract,
-                    identifier_type=id_type,
-                    value=id_value,
-                )
-            )
-
-    # PHASE 2: Collect all secondary identifiers
-    secondary_identifiers_to_create = []
-    for snap in contract_snapshots:
-        report_contract = report_contracts[snap.contract.id]
-        for id_type, id_value in snap.secondary_identifiers:
-            secondary_identifiers_to_create.append(
-                OpenCostReportContractSecondaryIdentifier(
-                    report_contract=report_contract,
-                    identifier_type=id_type,
-                    value=id_value,
-                )
-            )
-
-    # PHASE 3: Bulk create all (2 queries)
-    if institution_identifiers_to_create:
-        OpenCostReportContractInstitutionIdentifier.objects.bulk_create(
-            institution_identifiers_to_create, batch_size=1000
-        )
-        logger.debug(
-            f"Created {len(institution_identifiers_to_create)} contract institution identifiers"
-        )
-
-    if secondary_identifiers_to_create:
-        OpenCostReportContractSecondaryIdentifier.objects.bulk_create(
-            secondary_identifiers_to_create, batch_size=1000
-        )
-        logger.debug(
-            f"Created {len(secondary_identifiers_to_create)} contract secondary identifiers"
-        )
-
-    # PHASE 4: Create invoices and positions (2 queries)
-    _bulk_create_contract_invoices(contract_snapshots, report_contracts)
+    return grouped
 
 
-def _collect_contract_invoice_data(
-    contract_snapshots: list[ContractSnapshotData],
-    report_contracts: dict[int, OpenCostReportContract],
-) -> tuple[list[OpenCostReportContractInvoice], list[tuple[int, int, list[Position]]]]:
+def _pinned_invoice_ids(
+    live_publications: Mapping[int, Publication],
+    live_contracts: Mapping[int, Contract],
+) -> set[int]:
+    """The invoices the fetched items hold a position on.
+
+    These are exactly the invoices the link rows name, since the rows are created from the same
+    positions - so the transform never meets a row pointing at an invoice it was not given.
     """
-    Collect contract invoice objects ready for bulk creation and track metadata.
-
-    Similar to publication invoices but includes group_id and amount_invoice fields.
-
-    Returns:
-        Tuple of (invoices_to_create, invoice_metadata)
-        where invoice_metadata is [(snap_idx, invoice_id, positions), ...]
-    """
-    invoices_to_create = []
-    invoice_metadata = []
-
-    for snap_idx, snap in enumerate(contract_snapshots):
-        report_contract = report_contracts[snap.contract.id]
-
-        for invoice_id, positions in snap.invoice_data.items():
-            if not positions:
-                continue
-
-            invoice = positions[0].invoice
-
-            # Calculate total amount for contract invoice
-            total_amount = sum(Decimal(str(p.cost_amount)) for p in positions)
-            currency = positions[0].cost_currency if positions else ""
-
-            invoices_to_create.append(
-                OpenCostReportContractInvoice(
-                    report_contract=report_contract,
-                    invoice=invoice,
-                    invoice_number=invoice.number or "",
-                    creditor=invoice.creditor.name if invoice.creditor else "",
-                    invoice_date=invoice.date,
-                    amount_invoice=total_amount,
-                    amount_invoice_currency=currency,
-                    group_id=snap.group_id,
-                )
-            )
-
-            # Track which positions belong to THIS invoice (by index in list)
-            invoice_metadata.append((snap_idx, invoice_id, positions))
-
-    return invoices_to_create, invoice_metadata
-
-
-def _create_contract_position_objects(
-    created_invoices: list[OpenCostReportContractInvoice],
-    invoice_metadata: list[tuple[int, int, list[Position]]],
-) -> list[OpenCostReportContractInvoicePosition]:
-    """
-    Create contract position objects using created invoice IDs.
-
-    Matches by index - created_invoices[i] corresponds to invoice_metadata[i].
-    """
-    positions_to_create = []
-
-    for invoice_idx, (snap_idx, invoice_id, positions) in enumerate(invoice_metadata):
-        # Match invoice by index (order preserved in bulk_create)
-        report_invoice = created_invoices[invoice_idx]
-
-        for position in positions:
-            positions_to_create.append(
-                OpenCostReportContractInvoicePosition(
-                    report_contract_invoice=report_invoice,
-                    position=position,
-                    amount=position.cost_amount,
-                    currency=position.cost_currency,
-                    cost_type=position.cost_type,
-                    vat=Decimal(str(position.cost_amount))
-                    * (Decimal(str(position.tax_rate)) if position.tax_rate else Decimal("0")),
-                )
-            )
-
-    return positions_to_create
-
-
-def _bulk_create_contract_invoices(
-    contract_snapshots: list[ContractSnapshotData],
-    report_contracts: dict[int, OpenCostReportContract],
-) -> None:
-    """
-    Bulk create invoice snapshots and positions for contracts.
-
-    Similar to publication invoices but includes group_id and amount_invoice fields.
-
-    Args:
-        contract_snapshots: List of collected contract data
-        report_contracts: Mapping of contract_id -> OpenCostReportContract
-
-    Performance: 2 queries (1 for invoices, 1 for positions)
-    """
-    logger.debug("Bulk creating contract invoices and positions")
-
-    # Phase 1: Collect invoices and metadata
-    invoices_to_create, invoice_metadata = _collect_contract_invoice_data(
-        contract_snapshots, report_contracts
+    publication_positions: Iterable[Position] = chain.from_iterable(
+        publication.position_set.all() for publication in live_publications.values()
+    )
+    contract_positions: Iterable[Position] = chain.from_iterable(
+        contract.position_set.all() for contract in live_contracts.values()
     )
 
-    if not invoices_to_create:
-        logger.debug("No contract invoices to create")
-        return
-
-    # Phase 2: Bulk create invoices
-    created_invoices = OpenCostReportContractInvoice.objects.bulk_create(
-        invoices_to_create, batch_size=1000
-    )
-    logger.debug(f"Created {len(created_invoices)} contract invoices")
-
-    # Phase 3: Create position objects
-    positions_to_create = _create_contract_position_objects(created_invoices, invoice_metadata)
-
-    # Phase 4: Bulk create positions
-    if positions_to_create:
-        OpenCostReportContractInvoicePosition.objects.bulk_create(
-            positions_to_create, batch_size=1000
-        )
-        logger.debug(f"Created {len(positions_to_create)} contract invoice positions")
+    return {position.invoice_id for position in chain(publication_positions, contract_positions)}
 
 
-def _update_publication_contract_group_ids(report: OpenCostReport) -> None:
-    """
-    Update group_id for publication-contract links based on contract invoices.
-
-    Optimized to use bulk queries and bulk_update to minimize database hits.
-
-    Performance: Uses ~4 queries regardless of dataset size:
-    - Query 1: Fetch all publication-contract links
-    - Query 2: Fetch all report contracts
-    - Query 3: Prefetch invoices (implicit via prefetch_related)
-    - Query 4: Bulk update group_ids
-    """
-    # Query 1: Fetch all publication-contract links for this report
-    pub_contract_links = list(
-        OpenCostReportPublicationContract.objects.filter(
-            report_publication__report=report
-        ).select_related("report_publication")
-    )
-
-    if not pub_contract_links:
-        return
-
-    # Query 2: Fetch all report contracts with their invoices prefetched
-    contract_ids = {link.contract_id for link in pub_contract_links}
-    report_contracts = OpenCostReportContract.objects.filter(
-        report=report, contract_id__in=contract_ids
-    ).prefetch_related(
-        Prefetch(
-            "invoices",
-            queryset=OpenCostReportContractInvoice.objects.order_by("invoice_date"),
-        )
-    )
-
-    # Query 3 (implicit): Prefetch evaluates when we access invoices
-
-    # Build lookup dictionary: contract_id -> first_invoice.group_id
-    contract_to_group_id: dict[int, str] = {}
-    for report_contract in report_contracts:
-        # Access prefetched invoices (no additional query)
-        invoices = list(report_contract.invoices.all())
-        if invoices:
-            first_invoice = invoices[0]  # Already ordered by invoice_date
-            if first_invoice.group_id:
-                contract_to_group_id[report_contract.contract_id] = first_invoice.group_id
-
-    # Update links in memory
-    links_to_update: list[OpenCostReportPublicationContract] = []
-    for link in pub_contract_links:
-        group_id = contract_to_group_id.get(link.contract_id)
-        if group_id:
-            link.group_id = group_id
-            links_to_update.append(link)
-
-    # Query 4: Single bulk update instead of N individual saves
-    if links_to_update:
-        OpenCostReportPublicationContract.objects.bulk_update(
-            links_to_update,
-            ["group_id"],
-            batch_size=500,  # Process in batches to avoid memory issues
-        )
-
-
-def _get_institution_data(
-    publication: Publication,
-    home_institution_cache: HomeInstitutionCache,
+def _write_artifact(
+    report: OpenCostReport,
+    live_publications: Mapping[int, Publication],
+    live_contracts: Mapping[int, Contract],
+    live_invoices: Mapping[int, Invoice],
+    home_institution: HomeInstitutionCache,
     institution_cache: InstitutionHierarchyCache,
-) -> tuple[str, list[tuple[str, str]]]:
+) -> None:
+    """The report's own rows, transformed against live data and written back in one save.
+
+    The rows are read here, after the link pass has run, so every item reaches the transform
+    holding each invoice a live position implies. Document, issue log and row outcomes are written
+    together inside the caller's transaction: a run that fails partway leaves no document that
+    only some of the rows claim.
     """
-    Get institution name and identifiers for a publication's corresponding author.
+    report_publications = list(report.publications.order_by("id").prefetch_related("invoices"))
+    report_contracts = list(report.contracts.order_by("id").prefetch_related("invoices"))
+    publication_invoices = [
+        report_invoice for row in report_publications for report_invoice in row.invoices.all()
+    ]
+    contract_invoices = [
+        report_invoice for row in report_contracts for report_invoice in row.invoices.all()
+    ]
 
-    Uses institution_cache for O(1) lookups with parent chain traversal - NO database queries.
-    Falls back to home_institution_cache if no corresponding author or institution found.
-
-    Args:
-        publication: Publication with prefetched relevant_authors
-        home_institution_cache: Fallback home institution data
-        institution_cache: Pre-built cache of all institutions and hierarchies
-
-    Returns:
-        Tuple of (institution_name, [(identifier_type, value), ...])
-    """
-    # Use prefetched authors, filter in Python to avoid new query
-    corresponding_author = next(
-        (
-            author
-            for author in publication.relevant_authors.all()
-            if author.roles and "CORRESPONDING_AUTHOR" in author.roles
-        ),
-        None,
+    transform = transform_report(
+        report=report,
+        publications=report_publications,
+        contracts=report_contracts,
+        live_publications=live_publications,
+        live_contracts=live_contracts,
+        live_invoices=live_invoices,
+        home_institution=home_institution,
+        institution_cache=institution_cache,
     )
 
-    if corresponding_author and corresponding_author.affiliation_id:
-        # Look up in cache (no database query!)
-        # Cache handles parent chain traversal internally
-        result = institution_cache.get_institution_with_identifiers(
-            corresponding_author.affiliation_id
-        )
-        if result and result[1]:  # Only use result if it has identifiers
-            return result
+    report.xml_content = "" if transform.data is None else opencost.to_xml(transform.data)
+    report.issues = [asdict(warning) for warning in transform.issues]
+    report.generated_at = timezone.now()
+    report.save(update_fields=["xml_content", "issues", "generated_at"])
 
-    # Fall back to cached home institution data
-    return home_institution_cache.institution_name, home_institution_cache.identifiers
+    _store_publication_outcomes(report_publications, transform.publications)
+    _store_contract_outcomes(report_contracts, transform.contracts)
+    _store_publication_invoice_outcomes(publication_invoices, transform.publication_invoices)
+    _store_contract_invoice_outcomes(contract_invoices, transform.contract_invoices)
 
 
-def _get_contract_primary_identifier(contract: Contract) -> str:
-    """
-    Get the ESAC identifier for a contract.
+def _store_publication_outcomes(
+    rows: list[OpenCostReportPublication], outcomes: Mapping[int, ItemOutcome]
+) -> None:
+    """Record on every publication row whether it reached the document, and where."""
+    for row in rows:
+        outcome = outcomes[row.publication_id]
+        row.exported = outcome.exported
+        row.had_errors = outcome.had_errors
+        row.xml_ordinal = outcome.xml_ordinal
 
-    Uses prefetched links to avoid additional queries.
-    """
-    # Use prefetched links, filter in Python
-    esac = next((link for link in contract.links.all() if link.type.name == "ESAC"), None)
-    if esac:
-        return esac.value
-    return ""
+    OpenCostReportPublication.objects.bulk_update(
+        rows, ["exported", "had_errors", "xml_ordinal"], batch_size=500
+    )
 
 
-def _get_contract_secondary_identifiers(contract: Contract) -> list[tuple[str, str]]:
-    """
-    Get secondary identifiers (OAI, EZB, Local) for a contract.
+def _store_contract_outcomes(
+    rows: list[OpenCostReportContract], outcomes: Mapping[int, ItemOutcome]
+) -> None:
+    """Record on every contract row whether it reached the document, and where."""
+    for row in rows:
+        outcome = outcomes[row.contract_id]
+        row.exported = outcome.exported
+        row.had_errors = outcome.had_errors
+        row.xml_ordinal = outcome.xml_ordinal
 
-    Uses prefetched links to avoid additional queries.
-    """
-    identifiers = []
-    # Use prefetched links, filter in Python
-    for link in contract.links.all():
-        if link.type.name in ["OAI", "EZB", "Local"]:
-            identifier_type = link.type.name.lower()
-            identifiers.append((identifier_type, link.value))
-    return identifiers
+    OpenCostReportContract.objects.bulk_update(
+        rows, ["exported", "had_errors", "xml_ordinal"], batch_size=500
+    )
+
+
+def _store_publication_invoice_outcomes(
+    rows: list[OpenCostReportInvoice], outcomes: Mapping[int, InvoiceOutcome]
+) -> None:
+    """Record on every publication invoice row whether it reached the document, and at which index."""
+    for row in rows:
+        outcome = outcomes[row.id]
+        row.exported = outcome.exported
+        row.had_errors = outcome.had_errors
+        row.xml_index = outcome.xml_index
+
+    OpenCostReportInvoice.objects.bulk_update(
+        rows, ["exported", "had_errors", "xml_index"], batch_size=500
+    )
+
+
+def _store_contract_invoice_outcomes(
+    rows: list[OpenCostReportContractInvoice], outcomes: Mapping[int, InvoiceOutcome]
+) -> None:
+    """Record on every contract invoice row whether it reached the document, and at which index."""
+    for row in rows:
+        outcome = outcomes[row.id]
+        row.exported = outcome.exported
+        row.had_errors = outcome.had_errors
+        row.xml_index = outcome.xml_index
+
+    OpenCostReportContractInvoice.objects.bulk_update(
+        rows, ["exported", "had_errors", "xml_index"], batch_size=500
+    )

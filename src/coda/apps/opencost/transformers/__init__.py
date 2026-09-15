@@ -1,63 +1,31 @@
-"""Turning a stored openCost report snapshot into an openCost document.
+"""Turning a report's items into an openCost document.
 
-``to_opencost`` is the only function of this package meant for outside callers: it walks the
-snapshot's publications and contracts and returns the document openCost accepts, or ``None``
-when the snapshot holds nothing openCost can express. What it left out on the way — entities,
-invoices, invoice rows — is collected into the caller's ``issues`` list rather than raised.
+``transform_report`` is the entry point: it walks the report's own item rows, reads the live
+CODA content behind them, and returns one run's whole result - the document openCost accepts
+(its ``data`` is ``None`` when the items hold nothing openCost can express), the issues naming
+everything left out, and how every item and invoice row fared. Data that cannot be exported is
+reported that way, never raised; the transform raises only ``MissingEntityError``, for a seed
+row whose CODA entity vanished since the row was written.
 
-The submodules hold one construction each: ``publication`` and ``contract`` for the two kinds
-of report item, ``invoices`` for the invoice elements within them, and ``entities`` for the
-institution and exclusion wording both of those need. Their per-item builders are reached
-directly by the tests that exercise one kind of item alone; nothing outside the tests does.
+The other modules hold what the transform is made of, not the transform: ``publication`` and
+``contract`` the rules, wording and identifier extraction of their kind of report item,
+``invoices`` the invoice elements built from a CODA invoice, and ``entities`` the institution
+and the exclusion wording both item kinds share. They are the package's internals; callers
+outside it import from here.
 """
 
-from coda.apps.opencost.issues import ValidationWarning
-from coda.apps.opencost.models import (
-    OpenCostReport,
-    OpenCostReportContract,
-    OpenCostReportPublication,
+from coda.apps.opencost.transformers.live import (
+    InvoiceOutcome,
+    ItemOutcome,
+    MissingEntityError,
+    get_publisher_and_journal,
+    transform_report,
 )
-from coda.apps.opencost.transformers.contract import report_contract_to_pydantic
-from coda.apps.opencost.transformers.publication import report_publication_to_pydantic
-from opencost import Data
 
-__all__ = ["to_opencost"]
-
-
-def to_opencost(
-    report: OpenCostReport,
-    publications_list: list[OpenCostReportPublication] | None = None,
-    contracts_list: list[OpenCostReportContract] | None = None,
-    issues: list[ValidationWarning] | None = None,
-) -> Data | None:
-    """The whole snapshot as one openCost document, plus what had to be left out.
-
-    Pass ``publications_list``/``contracts_list`` when the caller already holds the report
-    item tree, so the transform reads the prefetches instead of querying again.
-    """
-    # Use pre-loaded data if provided, otherwise fetch (backwards compatible)
-    if publications_list is None:
-        publications_list = list(report.publications.all())
-    if contracts_list is None:
-        contracts_list = list(report.contracts.all())
-
-    publications = [
-        pub
-        for report_pub in publications_list
-        if (pub := report_publication_to_pydantic(report_pub, issues)) is not None
-    ]
-
-    contracts = [
-        contract
-        for report_contract in contracts_list
-        if (contract := report_contract_to_pydantic(report_contract, issues)) is not None
-    ]
-
-    if not publications and not contracts:
-        # OpenCost requires at least one publication or contract
-        return None
-
-    return Data(
-        publication=publications if publications else None,
-        contract=contracts if contracts else None,
-    )
+__all__ = [
+    "InvoiceOutcome",
+    "ItemOutcome",
+    "MissingEntityError",
+    "get_publisher_and_journal",
+    "transform_report",
+]

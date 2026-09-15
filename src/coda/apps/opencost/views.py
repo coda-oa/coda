@@ -1,5 +1,6 @@
-from collections.abc import Sequence
-from typing import cast
+import logging
+from collections.abc import Mapping, Sequence
+from typing import Any, NamedTuple, cast
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -14,6 +15,7 @@ from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_GET, require_POST
 
+import opencost
 from coda.apps.breadcrumbs.decorators import breadcrumb
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.exports.services.filter_display import (
@@ -34,17 +36,18 @@ from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
     OpenCostReportPublication,
-    OpenCostReportPublicationContract,
 )
 from coda.apps.opencost.report_service import (
     generate_report as generate_report_service,
 )
-from coda.apps.opencost.services.issues import collect_issues
-from coda.apps.opencost.services.queries import transform_ready_reports
-from coda.apps.opencost.xml_generation import generate_xml
-from coda.apps.preferences.models import GlobalPreferences
+from coda.apps.opencost.report_service import (
+    regenerate_report as regenerate_report_service,
+)
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
+from opencost import Data
+
+logger = logging.getLogger(__name__)
 
 OPENCOST_LIST_URL = "opencost:list"
 
@@ -72,6 +75,10 @@ class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostRepo
                 query |= Q(**{f"{field}__icontains": search_term})
             queryset = queryset.filter(query)
 
+        # The badges read the issues JSON row-locally; the XML artifact is only ever needed
+        # one report at a time, so the list never carries it.
+        queryset = queryset.defer("xml_content")
+
         # Annotate with counts to avoid N+1 queries in the template
         queryset = queryset.annotate(
             publications_count=Count("publications", distinct=True),
@@ -85,12 +92,41 @@ class ReportListView(LoginRequiredMixin, SimpleSearchEntityListView[OpenCostRepo
 report_list_view = ReportListView.as_view()
 
 
+class DetailPublication(NamedTuple):
+    """One publication row of the detail table: seed columns joined onto the stored document."""
+
+    seed: OpenCostReportPublication
+    fundingrequest_id: int | None
+    title: str  # the seed column: a DOI-bearing publication names no title in the XML
+    publisher: str  # the seed column, same reason
+    doi: str
+    publication_type: str
+    contract_esac: str
+    external_costsplitting: bool | None
+    invoice_count: int
+    status: str  # "clean" | "degraded" | "excluded"
+    reasons: str  # error-level issue messages naming this entity
+
+
+class DetailContract(NamedTuple):
+    """One contract row of the detail table, joined the same way."""
+
+    seed: OpenCostReportContract
+    contract_id: int
+    name: str
+    esac: str
+    institution_name: str
+    participation_from: str
+    participation_to: str
+    invoice_count: int
+    status: str
+    reasons: str
+
+
 @login_required
 @require_GET
 @breadcrumb("Report Details", parent_url_name=OPENCOST_LIST_URL)
 def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
-    # Minimal prefetch - only data displayed on detail page
-    # identifiers/links/secondary_identifiers are only for XML generation
     report = get_object_or_404(
         OpenCostReport.objects.prefetch_related(
             Prefetch(
@@ -98,53 +134,46 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
                 queryset=OpenCostReportPublication.objects.select_related(
                     "publication__fundingrequest",  # For request_id in invoice link
                 ).prefetch_related(
-                    Prefetch(
-                        "linked_contracts",
-                        queryset=OpenCostReportPublicationContract.objects.select_related(
-                            "contract",  # For contract names in table
-                        ),
-                    ),
-                    "invoices",  # For counting only
-                ),
+                    "invoices"
+                ),  # For counting only
             ),
             Prefetch(
                 "contracts",
                 queryset=OpenCostReportContract.objects.select_related(
                     "contract",  # For contract.id in links
                 ).prefetch_related(
-                    "invoices",  # For counting only
-                ),
+                    "invoices"
+                ),  # For counting only
             ),
         ),
         pk=report_id,
     )
 
-    # Convert to lists to force evaluation
-    publications_list = list(report.publications.all())
-    contracts_list = list(report.contracts.all())
+    # The stored document is the row data's source; an all-excluded report legitimately has
+    # none, in which case the seed rows and the issue log are rendered without it.
+    document = _stored_document(report)
+    error_issues = _error_issues_by_entity(report)
 
-    # Compute counts from already-prefetched data (no additional queries)
-    # Access the prefetch cache directly by converting to list first
-    for pub in publications_list:
-        # Force evaluation of prefetch cache into a list to count
-        linked_contracts_list = list(pub.linked_contracts.all())
-        invoices_list = list(pub.invoices.all())
-        setattr(pub, "linked_contracts_count", len(linked_contracts_list))
-        setattr(pub, "invoices_count", len(invoices_list))
-
-    for contract in contracts_list:
-        contract_invoices_list = list(contract.invoices.all())
-        setattr(contract, "invoices_count", len(contract_invoices_list))
+    publications = [
+        _publication_detail(
+            row, document, _issues_for(error_issues, "publication", row.publication_id)
+        )
+        for row in report.publications.all()
+    ]
+    contracts = [
+        _contract_detail(row, document, _issues_for(error_issues, "contract", row.contract_id))
+        for row in report.contracts.all()
+    ]
 
     applied_filters = build_applied_filters(report.filters)
     redo_url = create_redo_url(report.filters, "opencost:generate")
 
     context = {
         "report": report,
-        "publications": publications_list,
-        "publications_count": len(publications_list),
-        "contracts": contracts_list,
-        "contracts_count": len(contracts_list),
+        "publications": publications,
+        "publications_count": len(publications),
+        "contracts": contracts,
+        "contracts_count": len(contracts),
         "applied_filters": applied_filters,
         "redo_url": redo_url,
     }
@@ -152,21 +181,172 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
     return render(request, "opencost/report_detail.html", context)
 
 
+def _stored_document(report: OpenCostReport) -> Data | None:
+    """The stored XML as models - None when there is none or it no longer parses.
+
+    Empty content is not a failure: a report whose every item was excluded has no document,
+    and from_xml would raise on the empty string. A document that cannot be parsed degrades
+    every exported row to its issue entry instead of failing the page.
+    """
+    if not report.xml_content:
+        return None
+    try:
+        return opencost.from_xml(report.xml_content)
+    except Exception:
+        logger.exception("Stored openCost XML of report %s could not be parsed", report.pk)
+        return None
+
+
+def _error_issues_by_entity(report: OpenCostReport) -> dict[int, list[dict[str, Any]]]:
+    """The stored issue log grouped by the entity each error names, for the detail-row join.
+
+    Grouping is on ``entity_id`` alone; whether an issue belongs to a given row is decided
+    per row by ``_issues_for``, since ids collide across CODA tables. ``global`` issues -
+    exclusions caused by the institution settings - keep the identity of the item they
+    were reported on, so they join onto that item's row too.
+    """
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    for issue in report.issues or []:
+        entity_id = issue.get("entity_id")
+        if issue.get("level") == "error" and entity_id is not None:
+            grouped.setdefault(int(entity_id), []).append(issue)
+    return grouped
+
+
+def _issues_for(
+    grouped: Mapping[int, list[dict[str, Any]]], entity_type: str, entity_id: int
+) -> list[dict[str, Any]]:
+    """The error issues naming one detail row.
+
+    Entity ids are only unique per CODA table, so the stored entity type must match too:
+    a publication and a contract can share an id, and one's exclusion reason must not
+    decorate the other's row. Global institution exclusions are reported under the
+    identity of the item they name - type "global", that item's own id - so they join
+    onto that row as well.
+    """
+    return [
+        issue
+        for issue in grouped.get(entity_id, [])
+        if issue.get("entity_type") in (entity_type, "global")
+    ]
+
+
+def _publication_detail(
+    row: OpenCostReportPublication,
+    document: Data | None,
+    issues: list[dict[str, Any]],
+) -> DetailPublication:
+    """The row as the table shows it: from the XML entry the ordinal names, else from issues."""
+    reasons = "; ".join(str(issue.get("message", "")) for issue in issues)
+    element = _entry_at(document.publication if document else None, row)
+    if element is None:
+        # Excluded - or exported by the flags yet named no entry the document holds; either
+        # way the row falls back to its issue log and the kept seed columns.
+        return DetailPublication(
+            seed=row,
+            fundingrequest_id=_fundingrequest_id(row),
+            title=row.title,
+            publisher=row.publisher,
+            doi="",
+            publication_type="",
+            contract_esac="",
+            external_costsplitting=None,
+            invoice_count=0,
+            status="excluded",
+            reasons=reasons,
+        )
+
+    part_of_contract = element.cost_data.part_of_contract
+    return DetailPublication(
+        seed=row,
+        fundingrequest_id=_fundingrequest_id(row),
+        title=row.title,
+        publisher=row.publisher,
+        doi=element.primary_identifier.doi or "",
+        publication_type=element.publication_type.value if element.publication_type else "",
+        contract_esac=(part_of_contract.primary_identifier.value if part_of_contract else ""),
+        external_costsplitting=element.external_costsplitting,
+        invoice_count=len(element.cost_data.invoice or []),
+        status="degraded" if row.had_errors else "clean",
+        reasons=reasons,
+    )
+
+
+def _contract_detail(
+    row: OpenCostReportContract,
+    document: Data | None,
+    issues: list[dict[str, Any]],
+) -> DetailContract:
+    """The row as the table shows it: from the XML entry the ordinal names, else from issues."""
+    reasons = "; ".join(str(issue.get("message", "")) for issue in issues)
+    element = _entry_at(document.contract if document else None, row)
+    if element is None:
+        name = str(issues[0].get("entity_name") or "") if issues else ""
+        return DetailContract(
+            seed=row,
+            contract_id=row.contract_id,
+            name=name or row.contract.name,
+            esac="",
+            institution_name="",
+            participation_from="",
+            participation_to="",
+            invoice_count=0,
+            status="excluded",
+            reasons=reasons,
+        )
+
+    names = element.institution.name if element.institution else None
+    invoice_groups = element.cost_data.invoice_group
+    return DetailContract(
+        seed=row,
+        contract_id=row.contract_id,
+        name=element.contract_name,
+        esac=element.primary_identifier.value,
+        institution_name=names[0].value if names else "",
+        participation_from=element.participation.from_ or "",
+        participation_to=element.participation.to or "",
+        invoice_count=len(invoice_groups[0].invoice or []) if invoice_groups else 0,
+        status="degraded" if row.had_errors else "clean",
+        reasons=reasons,
+    )
+
+
+def _entry_at[T](
+    entries: Sequence[T] | None, row: OpenCostReportPublication | OpenCostReportContract
+) -> T | None:
+    """The document entry a seed row's ordinal names; None when it names none.
+
+    Defensive by design: a regenerate racing between the report and the seed-row queries can
+    leave an ordinal the freshly parsed document does not have. That row degrades to its
+    issue entry; the page never fails over it.
+    """
+    if entries is None or not row.exported or row.xml_ordinal is None:
+        return None
+    if not 0 <= row.xml_ordinal < len(entries):
+        return None
+    return entries[row.xml_ordinal]
+
+
+def _fundingrequest_id(row: OpenCostReportPublication) -> int | None:
+    """The request the publication was filed under, when it was filed at all."""
+    fundingrequest = getattr(row.publication, "fundingrequest", None)
+    return None if fundingrequest is None else int(fundingrequest.id)
+
+
 @require_GET
-@non_atomic_requests  # read-only, ~0.1 s, no txn held
+@non_atomic_requests  # read-only, one row, no txn held
 def report_issues(request: HttpRequest, report_id: int) -> HttpResponse:
     if not request.user.is_authenticated:
         raise PermissionDenied  # 403: a fragment target cannot use a login page
-    report = get_object_or_404(transform_ready_reports(), pk=report_id)
-    issues = collect_issues(report)
+    report = get_object_or_404(OpenCostReport, pk=report_id)
+    issues = report.issues or []
     return render(
         request,
         "opencost/partials/report_issues.html",
         {
             "report": report,
-            "failed": issues is None,
-            "errors": [w for w in issues or () if w.level == "error"],
-            "warnings_only": [w for w in issues or () if w.level == "warning"],
+            "errors": [w for w in issues if w.get("level") == "error"],
+            "warnings_only": [w for w in issues if w.get("level") == "warning"],
         },
     )
 
@@ -182,7 +362,8 @@ def generate_report_form(request: HttpRequest) -> HttpResponse:
     )
 
 
-def _build_issue_message(report: OpenCostReport, detail_url: str) -> str:
+def _issue_summary(report: OpenCostReport) -> str:
+    """The report's stored issue counts as words, e.g. '2 errors and 1 warning'."""
     issue_counts = report.get_issue_counts()
     issue_parts = []
 
@@ -194,11 +375,13 @@ def _build_issue_message(report: OpenCostReport, detail_url: str) -> str:
         warning_text = "warning" if issue_counts["warnings"] == 1 else "warnings"
         issue_parts.append(f"{issue_counts['warnings']} {warning_text}")
 
-    issue_text = " and ".join(issue_parts)
+    return " and ".join(issue_parts)
 
+
+def _build_issue_message(report: OpenCostReport, detail_url: str) -> str:
     return mark_safe(
         f"Report '{escape(report.title)}' generated with {report.publications.count()} publications "
-        f"and {report.contracts.count()} contracts, but has {issue_text}. "
+        f"and {report.contracts.count()} contracts, but has {_issue_summary(report)}. "
         f"<a href='{detail_url}'>Review what the XML leaves out</a>"
     )
 
@@ -210,16 +393,19 @@ def _build_success_message(report: OpenCostReport) -> str:
     )
 
 
-def _exclusion_message(excluded: list[ValidationWarning]) -> str:
-    """Summarise what the transformer had to leave out of the generated XML."""
-    count = f"{len(excluded)} record" if len(excluded) == 1 else f"{len(excluded)} records"
-    details = "; ".join(f"{warning.entity_name}: {warning.message}" for warning in excluded[:5])
+def _build_regeneration_message(report: OpenCostReport, detail_url: str) -> str:
+    return mark_safe(
+        f"Report '{escape(report.title)}' regenerated with {report.publications.count()} "
+        f"publications and {report.contracts.count()} contracts, but has {_issue_summary(report)}. "
+        f"<a href='{detail_url}'>Review what the XML leaves out</a>"
+    )
 
-    hidden = len(excluded) - 5
-    if hidden > 0:
-        details += f" (and {hidden} more)"
 
-    return f"The openCost XML leaves out {count}: {details}"
+def _build_regeneration_success_message(report: OpenCostReport) -> str:
+    return (
+        f"Report '{report.title}' regenerated successfully with {report.publications.count()} "
+        f"publications and {report.contracts.count()} contracts."
+    )
 
 
 def _no_data_message(excluded: list[ValidationWarning]) -> str:
@@ -257,18 +443,6 @@ def generate_report(request: HttpRequest) -> HttpResponse:
     cleaned = cast(FilterCleanedData, form.cleaned_data)
     title = cleaned["title"].strip() or "OpenCost Report"
     dto = ExportFiltersDto.from_form_data(cleaned)
-
-    prefs = GlobalPreferences.objects.select_related("home_institution").first()
-    if prefs is None or prefs.home_institution_id is None:
-        # without a home institution no snapshot carries institution data, every record is
-        # excluded, and the resulting XML would be empty — so do not create the report
-        messages.error(
-            request,
-            "No home institution is set — the report was not generated, because none of its "
-            "records could be exported to openCost XML. Set the home institution in "
-            "preferences and generate again.",
-        )
-        return redirect("opencost:generate")
 
     try:
         report = generate_report_service(
@@ -321,36 +495,55 @@ def _report_form_context(
 @login_required
 @require_GET
 def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
-    report = get_object_or_404(transform_ready_reports(), pk=report_id)
+    report = get_object_or_404(OpenCostReport, pk=report_id)
+
+    if not report.xml_content:
+        # Nothing was exportable; the stored issue log says why, in the same message the
+        # download-time transform used to produce.
+        errors = [
+            ValidationWarning(**issue)
+            for issue in report.issues or []
+            if issue.get("level") == "error"
+        ]
+        messages.warning(request, _no_data_message(errors))
+        return redirect(OPENCOST_LIST_URL)
+
+    response = HttpResponse(report.xml_content, content_type="application/xml")
+
+    filename = f"{report.title}_{report.id}_{report.generated_at.strftime('%Y%m%d')}.xml"
+
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    return response
+
+
+@login_required
+@require_POST
+def regenerate_report(request: HttpRequest, report_id: int) -> HttpResponse:
+    """Rebuild the report's document over its stored membership, from current CODA data.
+
+    Answered like the delete view: the button posts through htmx, and the HX-Redirect sends
+    the browser on a full navigation to the detail page - the one way both the flash message
+    and the regenerated state it describes reach the user's eyes.
+    """
+    report = get_object_or_404(OpenCostReport, pk=report_id)
+    detail_url = reverse("opencost:detail", args=[report.id])
 
     try:
-        # Convert prefetched querysets to lists for transformer functions
-        publications_list = list(report.publications.all())
-        contracts_list = list(report.contracts.all())
-
-        issues: list[ValidationWarning] = []
-        xml_string = generate_xml(report, publications_list, contracts_list, issues)
-
-        if not xml_string:
-            errors = [w for w in issues if w.level == "error"]
-            messages.warning(request, _no_data_message(errors))
-            return redirect(OPENCOST_LIST_URL)
-
-        response = HttpResponse(xml_string, content_type="application/xml")
-
-        filename = f"{report.title}_{report.id}_{report.generated_at.strftime('%Y%m%d')}.xml"
-
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-        errors = [w for w in issues if w.level == "error"]
-        if errors:
-            messages.warning(request, _exclusion_message(errors))
-
-        return response
-
+        report = regenerate_report_service(report)
     except Exception as e:
-        messages.error(request, f"Error generating XML: {str(e)}")
-        return redirect(OPENCOST_LIST_URL)
+        # Only the run itself is guarded: its failure is data the user can fix, and the
+        # flash says so. A defect in building the flash is a bug, and bugs flash as 500s.
+        messages.error(request, f"Error regenerating report: {str(e)}")
+    else:
+        if report.has_issues():
+            messages.warning(request, _build_regeneration_message(report, detail_url))
+        else:
+            messages.success(request, _build_regeneration_success_message(report))
+
+    response = HttpResponse(status=200)
+    response["HX-Redirect"] = detail_url
+    return response
 
 
 @login_required

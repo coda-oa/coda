@@ -30,7 +30,7 @@ class BaseWarning(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def url(item: "AnyOpenCostReportItem") -> str: ...
+    def url(item: "AnyOpenCostReportItem") -> str | None: ...
 
     @staticmethod
     @abc.abstractmethod
@@ -59,10 +59,16 @@ class PublicationWarning(BaseWarning):
     entity_type: ClassVar[Literal["publication"]] = "publication"
 
     @staticmethod
-    def url(item: "AnyOpenCostReportItem") -> str:
+    def url(item: "AnyOpenCostReportItem") -> str | None:
+        """The request the publication was filed under, when it was filed under one at all."""
         if not isinstance(item, OpenCostReportPublication):
             raise TypeError("Expected OpenCostReportPublication")
-        return reverse("fundingrequests:detail", kwargs={"pk": item.publication.fundingrequest.id})
+        fundingrequest = getattr(item.publication, "fundingrequest", None)
+        return (
+            None
+            if fundingrequest is None
+            else reverse("fundingrequests:detail", kwargs={"pk": fundingrequest.id})
+        )
 
     @staticmethod
     def extract_entity_information(item: "AnyOpenCostReportItem") -> tuple[int, str]:
@@ -85,7 +91,7 @@ class ContractWarning(BaseWarning):
     def extract_entity_information(item: "AnyOpenCostReportItem") -> tuple[int, str]:
         if not isinstance(item, OpenCostReportContract):
             raise TypeError("Expected OpenCostReportContract")
-        return item.contract_id, item.contract_name
+        return item.contract_id, item.contract.name
 
 
 class GlobalWarning(BaseWarning):

@@ -1,14 +1,15 @@
-"""One snapshotted publication as one openCost publication record."""
+"""The rules, wording and identifier builders of one openCost publication record.
 
-from coda.apps.opencost.issues import (
-    GlobalWarning,
-    ValidationWarning,
-    create_warning,
-    record_issue,
-)
-from coda.apps.opencost.models import OpenCostReportPublication, OpenCostReportPublicationLink
-from coda.apps.opencost.transformers.entities import entity_exclusion, get_institution
-from coda.apps.opencost.transformers.invoices import publication_invoices
+These are the report's own rules: the transform reaches for the mappers and the messages here
+rather than restating them, so an exclusion is said the same way however the publication's data
+was reached.
+"""
+
+from collections.abc import Iterable
+
+from coda.apps.contracts.models import Contract
+from coda.apps.opencost.issues import ValidationWarning, create_warning, record_issue
+from coda.apps.opencost.models import OpenCostReportPublication
 from coda.coda_itertools import map_or_none
 from opencost import (
     BibliographicInformation,
@@ -16,107 +17,53 @@ from opencost import (
     ContractPrimaryIdentifier,
     ContractPrimaryIdentifierType,
     PartOfContractType,
-    PublicationCostDataType,
     PublicationPrimaryIdentifier,
     PublicationSecondaryIdentifiers,
     PublicationSecondaryIdType,
     PublicationSecondaryIdTypeEnum,
-    PublicationType,
 )
 
+NO_INSTITUTION_REASON = "it has no institution name or identifier"
+NO_DOI_MESSAGE = "No DOI — the publication is exported with title and journal instead."
+NO_PUBLISHER_MESSAGE = "No publisher — the publication is exported with 'Unknown Publisher'."
+UNKNOWN_PUBLISHER = "Unknown Publisher"
 
-def report_publication_to_pydantic(
-    report_pub: OpenCostReportPublication,
-    issues: list[ValidationWarning] | None = None,
-) -> PublicationType | None:
-    institution = get_institution(report_pub)
-    if institution is None:
-        # XSD requires institution to have at least one name or id.
-        # Without institution data we cannot produce a valid record.
-        record_issue(
-            issues,
-            GlobalWarning.create(
-                report_pub, entity_exclusion(["it has no institution name or identifier"])
-            ),
+
+def no_doi_primary_identifier(
+    report_item: OpenCostReportPublication,
+    title: str,
+    publisher: str,
+    journal: str,
+    issues: list[ValidationWarning] | None,
+) -> PublicationPrimaryIdentifier:
+    """openCost's fallback for a DOI-less publication: exported with title and journal instead.
+
+    With no publisher either the export says so and names ``Unknown Publisher``.
+    """
+    record_issue(issues, create_warning(report_item, NO_DOI_MESSAGE, level="warning"))
+    if not publisher:
+        record_issue(issues, create_warning(report_item, NO_PUBLISHER_MESSAGE, level="warning"))
+
+    return PublicationPrimaryIdentifier(
+        bibliographic_information=BibliographicInformation(
+            Title=title,
+            Publisher=publisher or UNKNOWN_PUBLISHER,
+            isPartOf=journal if journal else title,
         )
-        return None
-
-    invoice_exclusions: list[ValidationWarning] = []
-    invoice_data = publication_invoices(report_pub, invoice_exclusions)
-
-    part_of_contract = _get_part_of_contract(report_pub)
-
-    if invoice_data is None and part_of_contract is None:
-        # XSD requires at least one of invoice or part_of_contract.
-        # Without cost data we cannot produce a valid record.
-        record_issue(
-            issues,
-            create_warning(
-                report_pub,
-                entity_exclusion([w.message for w in invoice_exclusions]),
-            ),
-        )
-        return None
-
-    if issues is not None:
-        issues.extend(invoice_exclusions)
-
-    if report_pub.doi:
-        primary_identifier = PublicationPrimaryIdentifier(doi=report_pub.doi)
-    else:
-        # BibliographicInformation is openCost's fallback for a DOI-less
-        # publication: it is exported with title and journal instead.
-        record_issue(
-            issues,
-            create_warning(
-                report_pub,
-                "No DOI — the publication is exported with title and journal instead.",
-                level="warning",
-            ),
-        )
-        if not report_pub.publisher:
-            record_issue(
-                issues,
-                create_warning(
-                    report_pub,
-                    "No publisher — the publication is exported with 'Unknown Publisher'.",
-                    level="warning",
-                ),
-            )
-        bib_info = BibliographicInformation(
-            Title=report_pub.title,
-            Publisher=report_pub.publisher or "Unknown Publisher",
-            isPartOf=report_pub.journal if report_pub.journal else report_pub.title,
-        )
-        primary_identifier = PublicationPrimaryIdentifier(bibliographic_information=bib_info)
-
-    secondary_identifiers = _get_secondary_identifiers(report_pub)
-
-    publication_type = _get_publication_type(report_pub)
-
-    cost_data = PublicationCostDataType(invoice=invoice_data, part_of_contract=part_of_contract)
-    return PublicationType(
-        primary_identifier=primary_identifier,
-        secondary_identifiers=secondary_identifiers,
-        institution=institution,
-        publication_type=publication_type,
-        external_costsplitting=report_pub.external_costsplitting,
-        cost_data=cost_data,
     )
 
 
-def _get_publication_type(report_pub: OpenCostReportPublication) -> CoarPublicationType:
-    publication_type = map_or_none(CoarPublicationType, report_pub.publication_type)
-    return publication_type or CoarPublicationType.other
+def get_publication_type(publication_type: str) -> CoarPublicationType:
+    return map_or_none(CoarPublicationType, publication_type) or CoarPublicationType.other
 
 
-def _get_secondary_identifiers(
-    report_pub: OpenCostReportPublication,
+def get_secondary_identifiers(
+    links: Iterable[tuple[str, str]],
 ) -> PublicationSecondaryIdentifiers | None:
     secondary_ids = [
         secondary_id
-        for link in report_pub.links.all()
-        if (secondary_id := _publication_secondary_id(link)) is not None
+        for link_type, value in links
+        if (secondary_id := publication_secondary_id(link_type, value)) is not None
     ]
 
     if not secondary_ids:
@@ -125,26 +72,21 @@ def _get_secondary_identifiers(
     return PublicationSecondaryIdentifiers(id=secondary_ids)
 
 
-def _publication_secondary_id(
-    link: OpenCostReportPublicationLink,
-) -> PublicationSecondaryIdType | None:
+def publication_secondary_id(link_type: str, value: str) -> PublicationSecondaryIdType | None:
     return map_or_none(
-        lambda link_type: PublicationSecondaryIdType(
-            value=link.value, type=PublicationSecondaryIdTypeEnum(link_type)
+        lambda link_type_name: PublicationSecondaryIdType(
+            value=value, type=PublicationSecondaryIdTypeEnum(link_type_name)
         ),
-        link.link_type,
+        link_type,
     )
 
 
-def _get_part_of_contract(report_pub: OpenCostReportPublication) -> PartOfContractType | None:
-    linked_contracts = report_pub.linked_contracts.all()
+def part_of_contract(contract: Contract, group_id: str | None) -> PartOfContractType | None:
+    """The contract a publication is published under, named by its ESAC identifier.
 
-    if not linked_contracts:
-        return None
-
-    linked_contract = linked_contracts[0]
-    contract = linked_contract.contract
-
+    ``group_id`` ties the element to the contract's own invoice group; it is absent for a
+    contract the report holds no invoices for.
+    """
     # Filter in Python to use prefetch cache instead of hitting database
     esac_link = next((link for link in contract.links.all() if link.type.name == "ESAC"), None)
 
@@ -158,5 +100,5 @@ def _get_part_of_contract(report_pub: OpenCostReportPublication) -> PartOfContra
 
     return PartOfContractType(
         primary_identifier=primary_identifier,
-        group_id=linked_contract.group_id if linked_contract.group_id else None,
+        group_id=group_id,
     )

@@ -11,12 +11,15 @@ class OpenCostReport(models.Model):
         default=timezone.now, help_text="When this report was generated"
     )
 
-    # Validation summary (computed at generation time to avoid N+1 queries)
-    errors_count = models.IntegerField(
-        default=0, help_text="Number of validation errors in this report"
+    # Generated artifacts (written once per generation)
+    xml_content = models.TextField(
+        blank=True,
+        default="",
+        help_text="Generated openCost XML; empty string means nothing was exportable",
     )
-    warnings_count = models.IntegerField(
-        default=0, help_text="Number of validation warnings in this report"
+    issues = models.JSONField(
+        default=list,
+        help_text="Validation issues as list of serialized ValidationWarning dicts",
     )
 
     class Meta:
@@ -27,16 +30,26 @@ class OpenCostReport(models.Model):
     def __str__(self) -> str:
         return f"{self.title} ({self.period_start} to {self.period_end})"
 
+    def _issue_counts(self) -> dict[str, int]:
+        """Validation issue counts derived from the stored ``issues`` JSON.
+
+        The JSON loads with the row, so counting it costs no query; the counts
+        are exactly the log's contents, with nothing kept alongside to disagree.
+        """
+        issues = self.issues or []
+        return {
+            "errors": sum(1 for w in issues if w.get("level") == "error"),
+            "warnings": sum(1 for w in issues if w.get("level") == "warning"),
+        }
+
     def has_issues(self) -> bool:
-        """Check if report has any validation issues (uses cached counts)."""
-        return self.errors_count > 0 or self.warnings_count > 0
+        """Check if report has any validation issues."""
+        counts = self._issue_counts()
+        return counts["errors"] > 0 or counts["warnings"] > 0
 
     def get_issue_counts(self) -> dict[str, int]:
-        """Get validation issue counts (uses cached counts)."""
-        return {
-            "errors": self.errors_count,
-            "warnings": self.warnings_count,
-        }
+        """Get validation issue counts as ``{"errors": int, "warnings": int}``."""
+        return self._issue_counts()
 
 
 class OpenCostReportPublication(models.Model):
@@ -54,123 +67,31 @@ class OpenCostReportPublication(models.Model):
     )
 
     title = models.CharField(max_length=500, help_text="Publication title (snapshot)")
-    doi = models.CharField(max_length=255, blank=True, help_text="DOI (snapshot)")
-    publication_type = models.CharField(
-        max_length=100, help_text="COAR publication type (snapshot)"
-    )
     publisher = models.CharField(max_length=500, blank=True, help_text="Publisher name (snapshot)")
-    journal = models.CharField(max_length=500, blank=True, help_text="Journal name (snapshot)")
 
-    external_costsplitting = models.BooleanField(
-        null=True, blank=True, help_text="Whether publication has multi-institutional cost sharing"
+    exported = models.BooleanField(
+        default=False,
+        help_text="Whether this publication was included in the generated XML",
     )
-
-    institution_name = models.CharField(
-        max_length=500,
+    had_errors = models.BooleanField(
+        default=False,
+        help_text="Whether generation recorded an error-level issue for this publication",
+    )
+    xml_ordinal = models.IntegerField(
+        null=True,
         blank=True,
-        help_text="Institution name (snapshot)",
+        help_text="Index of this publication's entry in the generated XML; None when excluded",
     )
-
-    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        ordering = ["title"]
+        # Id order: deterministic iteration, independent of snapshot content.
+        ordering = ["id"]
         unique_together = ("report", "publication")
         verbose_name = "Report Publication"
         verbose_name_plural = "Report Publications"
 
     def __str__(self) -> str:
         return f"{self.title} (in {self.report.title})"
-
-
-class OpenCostReportInstitutionIdentifier(models.Model):
-    report_publication = models.ForeignKey(
-        OpenCostReportPublication,
-        on_delete=models.CASCADE,
-        related_name="institution_identifiers",
-        help_text="The report publication this institution identifier belongs to",
-    )
-
-    identifier_type = models.CharField(
-        max_length=50,
-        help_text="Type of identifier: ror, isni, or ringold (snapshot)",
-    )
-    value = models.CharField(
-        max_length=500,
-        help_text="Institution identifier value (snapshot)",
-    )
-
-    snapshot_date = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ["identifier_type", "value"]
-        verbose_name = "Report Institution Identifier"
-        verbose_name_plural = "Report Institution Identifiers"
-
-    def __str__(self) -> str:
-        return f"{self.identifier_type}: {self.value}"
-
-
-class OpenCostReportPublicationLink(models.Model):
-    report_publication = models.ForeignKey(
-        OpenCostReportPublication,
-        on_delete=models.CASCADE,
-        related_name="links",
-        help_text="The report publication this link belongs to",
-    )
-
-    link_type = models.CharField(
-        max_length=50, help_text="Link type (e.g., 'handle', 'urn') (snapshot)"
-    )
-    value = models.CharField(max_length=500, help_text="Link value/identifier (snapshot)")
-
-    snapshot_date = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ["link_type", "value"]
-        verbose_name = "Report Publication Link"
-        verbose_name_plural = "Report Publication Links"
-
-    def __str__(self) -> str:
-        return f"{self.link_type}: {self.value}"
-
-
-class OpenCostReportPublicationContract(models.Model):
-    """Snapshot of publication-contract relationship for part_of_contract in OpenCost."""
-
-    report_publication = models.ForeignKey(
-        OpenCostReportPublication,
-        on_delete=models.CASCADE,
-        related_name="linked_contracts",
-        help_text="The report publication this contract link belongs to",
-    )
-
-    contract = models.ForeignKey(
-        "contracts.Contract",
-        on_delete=models.CASCADE,
-        help_text="Contract this publication is part of",
-    )
-
-    contract_year = models.IntegerField(
-        help_text="Year of contract participation (snapshot from AttachedContract)"
-    )
-
-    group_id = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="Optional group ID for OpenCost part_of_contract",
-    )
-
-    snapshot_date = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ["contract_year"]
-        unique_together = ("report_publication", "contract")
-        verbose_name = "Report Publication Contract"
-        verbose_name_plural = "Report Publication Contracts"
-
-    def __str__(self) -> str:
-        return f"{self.report_publication.title} -> {self.contract.name} ({self.contract_year})"
 
 
 class OpenCostReportInvoice(models.Model):
@@ -187,60 +108,30 @@ class OpenCostReportInvoice(models.Model):
         help_text="Original CODA invoice (for navigation links)",
     )
 
-    invoice_number = models.CharField(
-        max_length=255, blank=True, help_text="Invoice number (snapshot)"
+    exported = models.BooleanField(
+        default=False,
+        help_text="Whether this invoice was included in the generated XML",
     )
-    creditor = models.CharField(
-        max_length=255, blank=True, help_text="Creditor/publisher name (snapshot)"
+    had_errors = models.BooleanField(
+        default=False,
+        help_text="Whether generation recorded an error-level issue for this invoice",
     )
-    invoice_date = models.DateField(null=True, blank=True, help_text="Invoice date (snapshot)")
-
-    snapshot_date = models.DateTimeField(default=timezone.now)
+    xml_index = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Index of this invoice within its parent's exported invoices in the XML; "
+        "None when excluded",
+    )
 
     class Meta:
-        ordering = ["invoice_number"]
+        # Id order: deterministic iteration, independent of snapshot content.
+        ordering = ["id"]
         unique_together = ("report_publication", "invoice")
         verbose_name = "Report Invoice"
         verbose_name_plural = "Report Invoices"
 
     def __str__(self) -> str:
-        return f"Invoice {self.invoice_number} for {self.report_publication.title}"
-
-
-class OpenCostReportInvoicePosition(models.Model):
-    report_invoice = models.ForeignKey(
-        OpenCostReportInvoice,
-        on_delete=models.CASCADE,
-        related_name="positions",
-        help_text="The report invoice this position belongs to",
-    )
-
-    position = models.ForeignKey(
-        "invoices.Position", on_delete=models.CASCADE, help_text="Original CODA position"
-    )
-
-    amount = models.DecimalField(
-        max_digits=20, decimal_places=4, help_text="Cost amount (snapshot)"
-    )
-    currency = models.CharField(max_length=3, help_text="Currency code (snapshot)")
-    cost_type = models.CharField(max_length=50, help_text="OpenCost cost type (snapshot)")
-    vat = models.DecimalField(
-        max_digits=10,
-        decimal_places=4,
-        null=True,
-        blank=True,
-        help_text="VAT/tax amount (snapshot)",
-    )
-
-    snapshot_date = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ["amount"]
-        verbose_name = "Report Invoice Position"
-        verbose_name_plural = "Report Invoice Positions"
-
-    def __str__(self) -> str:
-        return f"{self.amount} {self.currency} ({self.cost_type})"
+        return f"Invoice {self.invoice.number} for {self.report_publication.title}"
 
 
 class OpenCostReportContract(models.Model):
@@ -257,91 +148,29 @@ class OpenCostReportContract(models.Model):
         help_text="Original CODA contract (for navigation links)",
     )
 
-    contract_name = models.CharField(max_length=255, help_text="Contract name (snapshot)")
-
-    institution_name = models.CharField(
-        max_length=500,
+    exported = models.BooleanField(
+        default=False,
+        help_text="Whether this contract was included in the generated XML",
+    )
+    had_errors = models.BooleanField(
+        default=False,
+        help_text="Whether generation recorded an error-level issue for this contract",
+    )
+    xml_ordinal = models.IntegerField(
+        null=True,
         blank=True,
-        help_text="Institution name (snapshot)",
+        help_text="Index of this contract's entry in the generated XML; None when excluded",
     )
-
-    participation_from = models.DateField(
-        null=True, blank=True, help_text="Contract participation start date (snapshot)"
-    )
-    participation_to = models.DateField(
-        null=True, blank=True, help_text="Contract participation end date (snapshot)"
-    )
-
-    primary_identifier_value = models.CharField(
-        max_length=500, blank=True, help_text="Primary identifier value (ESAC ID) (snapshot)"
-    )
-
-    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        ordering = ["contract_name"]
+        # Id order: deterministic iteration, independent of snapshot content.
+        ordering = ["id"]
         unique_together = ("report", "contract")
         verbose_name = "Report Contract"
         verbose_name_plural = "Report Contracts"
 
     def __str__(self) -> str:
-        return f"{self.contract_name} (in {self.report.title})"
-
-
-class OpenCostReportContractInstitutionIdentifier(models.Model):
-    report_contract = models.ForeignKey(
-        OpenCostReportContract,
-        on_delete=models.CASCADE,
-        related_name="institution_identifiers",
-        help_text="The report contract this institution identifier belongs to",
-    )
-
-    identifier_type = models.CharField(
-        max_length=50,
-        help_text="Type of identifier: ror, isni, or ringold (snapshot)",
-    )
-    value = models.CharField(
-        max_length=500,
-        help_text="Institution identifier value (snapshot)",
-    )
-
-    snapshot_date = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ["identifier_type", "value"]
-        verbose_name = "Report Contract Institution Identifier"
-        verbose_name_plural = "Report Contract Institution Identifiers"
-
-    def __str__(self) -> str:
-        return f"{self.identifier_type}: {self.value}"
-
-
-class OpenCostReportContractSecondaryIdentifier(models.Model):
-    report_contract = models.ForeignKey(
-        OpenCostReportContract,
-        on_delete=models.CASCADE,
-        related_name="secondary_identifiers",
-        help_text="The report contract this secondary identifier belongs to",
-    )
-
-    identifier_type = models.CharField(
-        max_length=50,
-        help_text="Type of identifier: oai, ezb, or local (snapshot)",
-    )
-    value = models.CharField(
-        max_length=500,
-        help_text="Secondary identifier value (snapshot)",
-    )
-
-    snapshot_date = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ["identifier_type", "value"]
-        verbose_name = "Report Contract Secondary Identifier"
-        verbose_name_plural = "Report Contract Secondary Identifiers"
-
-    def __str__(self) -> str:
-        return f"{self.identifier_type}: {self.value}"
+        return f"{self.contract.name} (in {self.report.title})"
 
 
 class OpenCostReportContractInvoice(models.Model):
@@ -358,76 +187,27 @@ class OpenCostReportContractInvoice(models.Model):
         help_text="Original CODA invoice (for navigation links)",
     )
 
-    invoice_number = models.CharField(
-        max_length=255, blank=True, help_text="Invoice number (snapshot)"
+    exported = models.BooleanField(
+        default=False,
+        help_text="Whether this invoice was included in the generated XML",
     )
-    creditor = models.CharField(
-        max_length=255, blank=True, help_text="Creditor/publisher name (snapshot)"
+    had_errors = models.BooleanField(
+        default=False,
+        help_text="Whether generation recorded an error-level issue for this invoice",
     )
-    invoice_date = models.DateField(null=True, blank=True, help_text="Invoice date (snapshot)")
-
-    amount_invoice = models.DecimalField(
-        max_digits=20,
-        decimal_places=4,
+    xml_index = models.IntegerField(
         null=True,
         blank=True,
-        help_text="Total invoice amount (snapshot)",
+        help_text="Index of this invoice within its parent's exported invoices in the XML; "
+        "None when excluded",
     )
-    amount_invoice_currency = models.CharField(
-        max_length=3, blank=True, help_text="Invoice amount currency (snapshot)"
-    )
-
-    group_id = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="UUID4 to group invoices and link to publications (for part_of_contract)",
-    )
-
-    snapshot_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        ordering = ["invoice_number"]
+        # Id order: deterministic iteration, independent of snapshot content.
+        ordering = ["id"]
         unique_together = ("report_contract", "invoice")
         verbose_name = "Report Contract Invoice"
         verbose_name_plural = "Report Contract Invoices"
 
     def __str__(self) -> str:
-        return f"Invoice {self.invoice_number} for {self.report_contract.contract_name}"
-
-
-class OpenCostReportContractInvoicePosition(models.Model):
-    report_contract_invoice = models.ForeignKey(
-        OpenCostReportContractInvoice,
-        on_delete=models.CASCADE,
-        related_name="positions",
-        help_text="The report contract invoice this position belongs to",
-    )
-
-    position = models.ForeignKey(
-        "invoices.Position", on_delete=models.CASCADE, help_text="Original CODA position"
-    )
-
-    amount = models.DecimalField(
-        max_digits=20, decimal_places=4, help_text="Cost amount (snapshot)"
-    )
-    currency = models.CharField(max_length=3, help_text="Currency code (snapshot)")
-    cost_type = models.CharField(
-        max_length=50, help_text="OpenCost contract cost type (publish/read/vat) (snapshot)"
-    )
-    vat = models.DecimalField(
-        max_digits=10,
-        decimal_places=4,
-        null=True,
-        blank=True,
-        help_text="VAT/tax amount (snapshot)",
-    )
-
-    snapshot_date = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ["amount"]
-        verbose_name = "Report Contract Invoice Position"
-        verbose_name_plural = "Report Contract Invoice Positions"
-
-    def __str__(self) -> str:
-        return f"{self.amount} {self.currency} ({self.cost_type})"
+        return f"Invoice {self.invoice.number} for {self.report_contract.contract.name}"
