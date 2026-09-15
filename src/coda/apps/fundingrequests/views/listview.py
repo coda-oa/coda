@@ -108,6 +108,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             "publication_states": _publication_state_choices,
             "filter_count": filter_count(self.request),
             "label_state": sorted(_label_ids(self.request.GET.getlist("labels"))),
+            "active_filters": build_active_filters(self.request, labels, ctx["contract_list"]),
         }
 
 
@@ -240,3 +241,146 @@ def build_label_pills(request: HttpRequest, labels: Sequence[Label]) -> list[Lab
         )
         for label in labels
     ]
+
+
+@dataclass(frozen=True)
+class ActiveFilter:
+    text: str
+    remove_url: str
+    remove_fragment_url: str
+    source_id: str
+    kind: Literal["neutral", "label"]
+    label_color: str | None
+
+
+def _remove_value_url(request: HttpRequest, url_name: str, *, key: str, value: str | None) -> str:
+    """List URL without one value of ``key``; other params preserved, ``page`` dropped.
+
+    ``value=None`` removes the whole key (single-value fields). For multi-value
+    keys one occurrence is dropped and the remaining order preserved; an emptied
+    key is omitted entirely.
+    """
+    params = request.GET.copy()
+    params.pop("page", None)
+    if value is None:
+        params.pop(key, None)
+    else:
+        remaining = list(params.getlist(key))
+        if value in remaining:
+            remaining.remove(value)
+        if remaining:
+            params.setlist(key, remaining)
+        else:
+            params.pop(key, None)
+    encoded = params.urlencode()
+    path = reverse(url_name)
+    return f"{path}?{encoded}" if encoded else path
+
+
+def build_active_filters(
+    request: HttpRequest, labels: Sequence[Label], contracts: Sequence[Contract]
+) -> list[ActiveFilter]:
+    """One removable chip per active filter value, matching ``filter_count``.
+
+    Order mirrors the rail's group order. Text is the bare value except where
+    that would be ambiguous (dates, contract year, excluded labels, switch).
+    Unknown ids (stale URLs) fall back to the raw value.
+    """
+
+    def add(
+        key: str,
+        value: str | None,
+        text: str,
+        source_id: str,
+        kind: Literal["neutral", "label"] = "neutral",
+        label_color: str | None = None,
+    ) -> None:
+        chips.append(
+            ActiveFilter(
+                text=text,
+                remove_url=_remove_value_url(request, "fundingrequests:list", key=key, value=value),
+                remove_fragment_url=_remove_value_url(
+                    request, "fundingrequests:list_region", key=key, value=value
+                ),
+                source_id=source_id,
+                kind=kind,
+                label_color=label_color,
+            )
+        )
+
+    chips: list[ActiveFilter] = []
+
+    for value in request.GET.getlist("processing_status"):
+        add("processing_status", value, value, "processing_status")
+
+    payment_labels = dict(_payment_status_choices)
+    for value in request.GET.getlist("payment_status"):
+        add("payment_status", value, payment_labels.get(value, value), "id_payment_status")
+
+    for value in request.GET.getlist("payment_methods"):
+        add("payment_methods", value, value, "payment_methods")
+
+    for value in request.GET.getlist("open_access_type"):
+        add("open_access_type", value, value, "open_access_type")
+
+    publication_type = request.GET.get("publication_type")
+    if publication_type not in (None, _default_choices["publication_type"]):
+        add(
+            "publication_type",
+            publication_type,
+            publication_type.title(),
+            f"publication_type_{publication_type}",
+        )
+
+    publication_state_labels = dict(_publication_state_choices)
+    for value in request.GET.getlist("publication_states"):
+        add(
+            "publication_states",
+            value,
+            publication_state_labels.get(value, value),
+            f"publication-state-{value}",
+        )
+
+    start_date = request.GET.get("start_date")
+    if start_date:
+        add("start_date", start_date, f"From {start_date}", "id_start_date")
+
+    end_date = request.GET.get("end_date")
+    if end_date:
+        add("end_date", end_date, f"To {end_date}", "id_end_date")
+
+    contract_names = {str(contract.pk): contract.name for contract in contracts}
+    contract = request.GET.get("contract_name")
+    if contract:
+        add("contract_name", contract, contract_names.get(contract, contract), "contract_name")
+
+    contract_year = request.GET.get("contract_year")
+    if contract_year:
+        add("contract_year", contract_year, f"Year {contract_year}", "contract_year")
+
+    if request.GET.get("invalid_contract_years"):
+        add("invalid_contract_years", None, "Invalid years only", "invalid_contract_years")
+
+    label_index = {str(label.pk): label for label in labels}
+    for value in request.GET.getlist("labels"):
+        label = label_index.get(value)
+        add(
+            "labels",
+            value,
+            label.name if label else value,
+            "label-pills",
+            kind="label",
+            label_color=label.hexcolor if label else None,
+        )
+    for value in request.GET.getlist("exclude_labels"):
+        label = label_index.get(value)
+        add(
+            "exclude_labels",
+            value,
+            f"Not: {label.name}" if label else f"Not: {value}",
+            "exclude_labels",
+            kind="label",
+            label_color=label.hexcolor if label else None,
+        )
+
+    return chips
