@@ -86,8 +86,8 @@ def test__labels_and_exclude_labels__filter_results_and_keep_dropdown_in_sync(
     assert response.context["expand_advanced_search"] is True
 
     html = response.content.decode()
-    assert re.search(rf'value="{beta.pk}"\s+selected', html)
-    assert not re.search(rf'value="{alpha.pk}"\s+selected', html)
+    assert re.search(rf'value="{beta.pk}"[^>]*selected', html)
+    assert not re.search(rf'value="{alpha.pk}"[^>]*selected', html)
 
 
 @pytest.mark.django_db
@@ -97,3 +97,47 @@ def test__bad_label_param__is_ignored_instead_of_500(client: Client, param: str)
     response = client.get(reverse("fundingrequests:list"), {param: "abc"})
 
     assert response.status_code == 200
+
+
+def _filter_form_html(html: str) -> str:
+    return re.search(r'<form[^>]*id="search-form".*?</form>', html, re.S).group(0)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__filter_form__renders_hidden_inputs_for_selected_labels(client: Client) -> None:
+    alpha = label_create("Alpha", Color.from_rgb(255, 0, 0))
+    beta = label_create("Beta", Color.from_rgb(0, 0, 255))
+
+    response = client.get(reverse("fundingrequests:list"), {"labels": [alpha.pk, beta.pk]})
+
+    form_html = _filter_form_html(response.content.decode())
+    assert re.search(rf'<input type="hidden" name="labels" value="{alpha.pk}">', form_html)
+    assert re.search(rf'<input type="hidden" name="labels" value="{beta.pk}">', form_html)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__submitting_search_form__keeps_selected_labels(client: Client) -> None:
+    alpha = label_create("Alpha", Color.from_rgb(255, 0, 0))
+    beta = label_create("Beta", Color.from_rgb(0, 0, 255))
+    matching = modelfactory.fundingrequest()
+    label_attach(matching, alpha)
+    non_matching = modelfactory.fundingrequest()
+    label_attach(non_matching, beta)
+
+    initial = client.get(reverse("fundingrequests:list"), {"labels": [alpha.pk]})
+    hidden = re.findall(
+        r'<input type="hidden" name="labels" value="(\d+)"',
+        _filter_form_html(initial.content.decode()),
+    )
+    assert hidden == [str(alpha.pk)]
+
+    # Resubmit the form with the hidden inputs, as the browser would.
+    submitted = client.get(
+        reverse("fundingrequests:list"),
+        {"search_term": "", "sort_by": "alphabetical", "labels": hidden},
+    )
+
+    ids = [viewmodel.id for viewmodel in submitted.context["entities"]]
+    assert ids == [matching.id]

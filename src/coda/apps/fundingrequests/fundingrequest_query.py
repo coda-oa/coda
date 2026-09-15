@@ -2,13 +2,13 @@ import enum
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from django.db.models import F, Q, QuerySet
+from django.db.models import Exists, F, OuterRef, Q, QuerySet
 from django.db.models.functions import ExtractYear
 
 from coda.apps.search import words_icontains
 
 from coda.apps.fundingrequests.mappers import FundingRequestListMapper
-from coda.apps.fundingrequests.models import FundingRequest
+from coda.apps.fundingrequests.models import FundingRequest, Label
 from coda.domain.date import DateRange
 from coda.domain.finance.invoice import FundingSourceId
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
@@ -63,10 +63,14 @@ class LabelsSearchCriteria:
 
         if self.include_labels:
             q &= Q(labels__in=self.include_labels)
-            q &= Q(labels__isnull=False)
 
         if self.exclude_labels:
-            q &= ~Q(labels__in=self.exclude_labels)
+            # NOT EXISTS: a plain ~Q(labels__in=...) is evaluated against the
+            # m2m join rows, so a request carrying both an included and an
+            # excluded label still matched.
+            q &= ~Exists(
+                Label.objects.filter(requests=OuterRef("pk"), pk__in=self.exclude_labels)
+            )
 
         return q
 
