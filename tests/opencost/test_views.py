@@ -311,10 +311,6 @@ def test__report_detail__issues_panel_is_not_inlined_and_the_page_stays_cheap(
     create_contract_with_invoice(contract)
 
     report = create_opencost_report()
-    report_contract = report.contracts.first()
-    assert report_contract is not None
-    report_contract.participation_from = None
-    report_contract.save()
 
     with CaptureQueriesContext(connection) as ctx:
         response = client.get(reverse("opencost:detail", args=[report.id]))

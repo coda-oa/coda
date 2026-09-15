@@ -306,9 +306,9 @@ def test_generate_report_bulk_operations_performance() -> None:
 def test_reading_a_finished_report_issue_state_costs_no_queries() -> None:
     """Asking a generated report whether it has issues costs nothing.
 
-    The issue log and the counts standing next to it are written with the report, so neither
-    `has_issues()` nor `get_issue_counts()` has to look at a single item of a thousand-publication
-    report — and a second call has no more work to do than the first.
+    The issue log loads with the report row and the counts are derived from it in memory, so
+    neither `has_issues()` nor `get_issue_counts()` has to look at a single item of a
+    thousand-publication report — and a second call has no more work to do than the first.
     """
     create_performance_test_dataset(num_publications=1000, num_contracts=10)
 
@@ -333,7 +333,6 @@ def test_reading_a_finished_report_issue_state_costs_no_queries() -> None:
     assert isinstance(has_issues, bool)
     assert has_issues == has_issues_again
     assert issue_counts == issue_counts_again
-    assert issue_counts == {"errors": report.errors_count, "warnings": report.warnings_count}
 
     print(f"\n{'=' * 70}")
     print("Issue state of a finished report - SUCCESS")

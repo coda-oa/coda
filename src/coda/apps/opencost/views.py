@@ -281,7 +281,7 @@ def _contract_detail(
         return DetailContract(
             seed=row,
             contract_id=row.contract_id,
-            name=name or row.contract_name,
+            name=name or row.contract.name,
             esac="",
             institution_name="",
             participation_from="",

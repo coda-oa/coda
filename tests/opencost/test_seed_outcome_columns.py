@@ -11,6 +11,7 @@ from datetime import date
 
 import pytest
 
+from coda.apps.invoices.models import Invoice
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
@@ -29,12 +30,18 @@ def make_report() -> OpenCostReport:
     )
 
 
+def numbered_invoice(number: str) -> Invoice:
+    invoice = modelfactory.invoice()
+    invoice.number = number
+    invoice.save()
+    return invoice
+
+
 def seeded_publication(report: OpenCostReport, title: str) -> OpenCostReportPublication:
     return OpenCostReportPublication.objects.create(
         report=report,
         publication=modelfactory.publication(title=title),
         title=title,
-        publication_type="article",
     )
 
 
@@ -43,7 +50,8 @@ def seeded_contract(report: OpenCostReport, name: str) -> OpenCostReportContract
     contract.name = name
     contract.save()
     return OpenCostReportContract.objects.create(
-        report=report, contract=contract, contract_name=name
+        report=report,
+        contract=contract,
     )
 
 
@@ -63,7 +71,7 @@ def test_publication_invoice_queryset_iterates_in_id_order() -> None:
     parent = seeded_publication(report, "Umbrella publication")
     rows = [
         OpenCostReportInvoice.objects.create(
-            report_publication=parent, invoice=modelfactory.invoice(), invoice_number=number
+            report_publication=parent, invoice=numbered_invoice(number)
         )
         for number in ("INV-300", "INV-100", "INV-200")
     ]
@@ -87,7 +95,7 @@ def test_contract_invoice_queryset_iterates_in_id_order() -> None:
     parent = seeded_contract(report, "Umbrella contract")
     rows = [
         OpenCostReportContractInvoice.objects.create(
-            report_contract=parent, invoice=modelfactory.invoice(), invoice_number=number
+            report_contract=parent, invoice=numbered_invoice(number)
         )
         for number in ("INV-300", "INV-100", "INV-200")
     ]

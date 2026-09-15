@@ -619,12 +619,8 @@ def test__standalone_contract_with_invoice_positions__generate_report__states_th
 
     row = OpenCostReportContract.objects.get(report=report)
     assert row.contract == contract
-    assert row.contract_name == contract.name
     invoice_row = OpenCostReportContractInvoice.objects.get(report_contract=row)
     assert invoice_row.invoice == invoice
-    # The price stated on the invoice covers both positions, whatever cost type they carry.
-    assert invoice_row.amount_invoice == Decimal("8000.00")
-    assert invoice_row.amount_invoice_currency == "EUR"
 
     entry = _document_contract(report)
     assert entry.contract_name == contract.name
@@ -641,6 +637,7 @@ def test__standalone_contract_with_invoice_positions__generate_report__states_th
     }
     assert invoices[0].amount_invoice is not None
     assert invoices[0].amount_invoice.amount == Decimal("8000.00")
+    assert invoices[0].amount_invoice.currency == "EUR"
 
 
 @pytest.mark.django_db
