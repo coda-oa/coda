@@ -19,6 +19,17 @@ class OpenCostReport(models.Model):
         default=0, help_text="Number of validation warnings in this report"
     )
 
+    # Generated artifacts (written once per generation)
+    xml_content = models.TextField(
+        blank=True,
+        default="",
+        help_text="Generated openCost XML; empty string means nothing was exportable",
+    )
+    issues = models.JSONField(
+        default=list,
+        help_text="Validation issues as list of serialized ValidationWarning dicts",
+    )
+
     class Meta:
         ordering = ["-generated_at"]
         verbose_name = "OpenCost Report"
@@ -27,16 +38,31 @@ class OpenCostReport(models.Model):
     def __str__(self) -> str:
         return f"{self.title} ({self.period_start} to {self.period_end})"
 
-    def has_issues(self) -> bool:
-        """Check if report has any validation issues (uses cached counts)."""
-        return self.errors_count > 0 or self.warnings_count > 0
+    def _issue_counts(self) -> dict[str, int]:
+        """Union of the stored ``issues`` JSON and the legacy count columns.
 
-    def get_issue_counts(self) -> dict[str, int]:
-        """Get validation issue counts (uses cached counts)."""
+        While both sources exist (dual-write transition), the JSON is
+        authoritative when present; rows generated before the JSON existed
+        fall back to the ``errors_count``/``warnings_count`` columns.
+        """
+        if self.issues:
+            return {
+                "errors": sum(1 for w in self.issues if w.get("level") == "error"),
+                "warnings": sum(1 for w in self.issues if w.get("level") == "warning"),
+            }
         return {
             "errors": self.errors_count,
             "warnings": self.warnings_count,
         }
+
+    def has_issues(self) -> bool:
+        """Check if report has any validation issues."""
+        counts = self._issue_counts()
+        return counts["errors"] > 0 or counts["warnings"] > 0
+
+    def get_issue_counts(self) -> dict[str, int]:
+        """Get validation issue counts as ``{"errors": int, "warnings": int}``."""
+        return self._issue_counts()
 
 
 class OpenCostReportPublication(models.Model):
