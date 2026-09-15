@@ -133,13 +133,17 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
                 "publications",
                 queryset=OpenCostReportPublication.objects.select_related(
                     "publication__fundingrequest",  # For request_id in invoice link
-                ).prefetch_related("invoices"),  # For counting only
+                ).prefetch_related(
+                    "invoices"
+                ),  # For counting only
             ),
             Prefetch(
                 "contracts",
                 queryset=OpenCostReportContract.objects.select_related(
                     "contract",  # For contract.id in links
-                ).prefetch_related("invoices"),  # For counting only
+                ).prefetch_related(
+                    "invoices"
+                ),  # For counting only
             ),
         ),
         pk=report_id,

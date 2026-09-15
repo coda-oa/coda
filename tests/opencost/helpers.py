@@ -249,13 +249,13 @@ def assert_current_filter(response: HttpResponse, field: str, expected: Any) -> 
     """Assert that a filter value in the template context matches expected."""
     context = cast(Any, response).context
     current_filters = context.get("current_filters", {})
-    assert field in current_filters, (
-        f"Field '{field}' not found in current_filters. Available: {list(current_filters.keys())}"
-    )
+    assert (
+        field in current_filters
+    ), f"Field '{field}' not found in current_filters. Available: {list(current_filters.keys())}"
     actual = current_filters[field]
-    assert actual == expected, (
-        f"Field '{field}' mismatch.\n Expected: {expected!r}\n Got: {actual!r}"
-    )
+    assert (
+        actual == expected
+    ), f"Field '{field}' mismatch.\n Expected: {expected!r}\n Got: {actual!r}"
 
 
 def assert_current_filters(response: HttpResponse, **expected: Any) -> None:

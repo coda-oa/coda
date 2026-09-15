@@ -104,7 +104,9 @@
                                         </td>
                                         <td>
                                             {% if pub.status == "excluded" %}
-                                                <em>Not in XML{% if pub.reasons %}: {{ pub.reasons }}{% endif %}</em>
+                                                <em>Not in XML
+                                                    {% if pub.reasons %}: {{ pub.reasons }}{% endif %}
+                                                </em>
                                             {% elif pub.status == "degraded" %}
                                                 <a href="#issues"
                                                    data-tooltip="In the XML, but incomplete — see Data Completeness Issues">In XML, with issues</a>
@@ -164,7 +166,9 @@
                                         </td>
                                         <td>
                                             {% if contract.status == "excluded" %}
-                                                <em>Not in XML{% if contract.reasons %}: {{ contract.reasons }}{% endif %}</em>
+                                                <em>Not in XML
+                                                    {% if contract.reasons %}: {{ contract.reasons }}{% endif %}
+                                                </em>
                                             {% elif contract.status == "degraded" %}
                                                 <a href="#issues"
                                                    data-tooltip="In the XML, but incomplete — see Data Completeness Issues">In XML, with issues</a>
