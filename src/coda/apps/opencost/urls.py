@@ -5,6 +5,7 @@ from coda.apps.opencost.views import (
     download_xml,
     generate_report,
     generate_report_form,
+    regenerate_report,
     report_detail,
     report_issues,
     report_list_view,
@@ -20,4 +21,5 @@ urlpatterns = [
     path("<int:report_id>/issues/", report_issues, name="issues"),
     path("<int:report_id>/download/", download_xml, name="download"),
     path("<int:report_id>/delete/", delete_report, name="delete"),
+    path("<int:report_id>/regenerate/", regenerate_report, name="regenerate"),
 ]

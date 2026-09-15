@@ -8,6 +8,7 @@ from typing import Any, NamedTuple
 
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
+from django.utils import timezone
 
 import opencost
 from coda.apps.contracts.models import Contract
@@ -220,6 +221,160 @@ def generate_report(
     )
 
     return report
+
+
+def regenerate_report(report: OpenCostReport) -> OpenCostReport:
+    """Rebuild the report's document from current CODA data, over the stored membership.
+
+    The seed rows are the report's frozen item list: publications, contracts and invoices are
+    re-fetched by pinned id and the stored filters are never consulted, so nothing joins or
+    leaves the scope. Everything below the item level is live - titles, links, identifiers,
+    institution hierarchies, the home institution and the positions on pinned invoices - so a
+    corrected ESAC id, an amended invoice or a previously unset home institution flows through.
+    Positions newly found on a pinned invoice get their parent-invoice link row inserted, so a
+    live cost is never silently unexported.
+
+    Concurrent regenerates serialize on the report row. Unlike the generation pass, a failure
+    here is raised to the caller: with no fallback artifact in play, a broken regenerate must
+    be heard, not logged and swallowed.
+    """
+    logger.info(f"Regenerating openCost artifact for report {report.id}")
+
+    with transaction.atomic():
+        locked = OpenCostReport.objects.select_for_update().get(pk=report.pk)
+        _regenerate_artifact(locked)
+
+    report.refresh_from_db()
+    return report
+
+
+def _regenerate_artifact(report: OpenCostReport) -> None:
+    """The artifact pass re-run over the report's own rows, inside the locked transaction."""
+    report_publications = list(report.publications.order_by("id"))
+    report_contracts = list(report.contracts.order_by("id"))
+
+    invoice_ids = set(
+        OpenCostReportInvoice.objects.filter(
+            report_publication__in=report_publications
+        ).values_list("invoice_id", flat=True)
+    ) | set(
+        OpenCostReportContractInvoice.objects.filter(
+            report_contract__in=report_contracts
+        ).values_list("invoice_id", flat=True)
+    )
+
+    # Positions are re-read live, but only on pinned invoices: invoice membership stays frozen,
+    # so a cost on an invoice outside the report can never enter it here.
+    positions_on_pinned_invoices = Position.objects.filter(invoice__in=invoice_ids).select_related(
+        "invoice", "invoice__creditor"
+    )
+    live_publications_qs = fetch_publications_by_ids(
+        {row.publication_id for row in report_publications},
+        positions=positions_on_pinned_invoices,
+    )
+    live_publications = key_by_id(live_publications_qs)
+    live_contracts = key_by_id(
+        fetch_contracts_by_ids(
+            {row.contract_id for row in report_contracts},
+            positions=positions_on_pinned_invoices.filter(contract__isnull=False),
+        )
+    )
+    live_invoices = key_by_id(fetch_invoices_by_ids(invoice_ids))
+
+    _insert_missing_invoice_links(
+        report_publications, live_publications, report_contracts, live_contracts
+    )
+
+    # Read the (possibly extended) invoice rows after the link insertion, so the transform
+    # iterates and counts every invoice a parent now holds a position on.
+    report_publications = list(report.publications.order_by("id").prefetch_related("invoices"))
+    report_contracts = list(report.contracts.order_by("id").prefetch_related("invoices"))
+    publication_invoices = [
+        report_invoice for row in report_publications for report_invoice in row.invoices.all()
+    ]
+    contract_invoices = [
+        report_invoice for row in report_contracts for report_invoice in row.invoices.all()
+    ]
+
+    # The home institution is a CODA object like every other: read fresh, never stored.
+    home_institution_cache = build_home_institution_cache()
+    institution_cache = build_institution_hierarchy_cache(live_publications_qs)
+
+    transform = transform_report(
+        report=report,
+        publications=report_publications,
+        contracts=report_contracts,
+        live_publications=live_publications,
+        live_contracts=live_contracts,
+        live_invoices=live_invoices,
+        home_institution=home_institution_cache,
+        institution_cache=institution_cache,
+    )
+
+    report.xml_content = "" if transform.data is None else opencost.to_xml(transform.data)
+    report.issues = [asdict(warning) for warning in transform.issues]
+    # The stored issue log is the counts' source once read paths serve it, so the two
+    # are written together: a regeneration that clears the log must also clear the
+    # counts, or the union count properties - and every badge - keep answering from
+    # the columns of the run that produced the old log.
+    report.errors_count = sum(1 for w in transform.issues if w.level == "error")
+    report.warnings_count = sum(1 for w in transform.issues if w.level == "warning")
+    report.generated_at = timezone.now()
+    report.save(
+        update_fields=["xml_content", "issues", "errors_count", "warnings_count", "generated_at"]
+    )
+
+    _store_publication_outcomes(report_publications, transform.publications)
+    _store_contract_outcomes(report_contracts, transform.contracts)
+    _store_publication_invoice_outcomes(publication_invoices, transform.publication_invoices)
+    _store_contract_invoice_outcomes(contract_invoices, transform.contract_invoices)
+
+
+def _insert_missing_invoice_links(
+    report_publications: list[OpenCostReportPublication],
+    live_publications: Mapping[int, Publication],
+    report_contracts: list[OpenCostReportContract],
+    live_contracts: Mapping[int, Contract],
+) -> None:
+    """Create the parent-invoice link rows that live positions imply but the tables lack.
+
+    A fix inside a pinned invoice can give a parent a position on a pinned invoice it had none
+    on before; without the link row the transform would never see that cost. Item scope is
+    untouched - both levels of every inserted row already exist - and the unique_together keeps
+    repeated regenerations idempotent.
+    """
+    existing_publication_links = set(
+        OpenCostReportInvoice.objects.filter(
+            report_publication__in=report_publications
+        ).values_list("report_publication_id", "invoice_id")
+    )
+    publication_links = [
+        OpenCostReportInvoice(report_publication_id=row.id, invoice_id=invoice_id)
+        for row in report_publications
+        for invoice_id in sorted(
+            {
+                position.invoice_id
+                for position in live_publications[row.publication_id].position_set.all()
+            }
+        )
+        if (row.id, invoice_id) not in existing_publication_links
+    ]
+    OpenCostReportInvoice.objects.bulk_create(publication_links)
+
+    existing_contract_links = set(
+        OpenCostReportContractInvoice.objects.filter(
+            report_contract__in=report_contracts
+        ).values_list("report_contract_id", "invoice_id")
+    )
+    contract_links = [
+        OpenCostReportContractInvoice(report_contract_id=row.id, invoice_id=invoice_id)
+        for row in report_contracts
+        for invoice_id in sorted(
+            {position.invoice_id for position in live_contracts[row.contract_id].position_set.all()}
+        )
+        if (row.id, invoice_id) not in existing_contract_links
+    ]
+    OpenCostReportContractInvoice.objects.bulk_create(contract_links)
 
 
 def _collect_publication_snapshot_data(
@@ -979,7 +1134,11 @@ def _write_artifact(
 
     report.xml_content = "" if transform.data is None else opencost.to_xml(transform.data)
     report.issues = [asdict(warning) for warning in transform.issues]
-    report.save(update_fields=["xml_content", "issues"])
+    # The artifact's log is authoritative for the badge counts, so the columns mirror it
+    # in the same save: what the count columns claim is always the log that is stored.
+    report.errors_count = sum(1 for w in transform.issues if w.level == "error")
+    report.warnings_count = sum(1 for w in transform.issues if w.level == "warning")
+    report.save(update_fields=["xml_content", "issues", "errors_count", "warnings_count"])
 
     _store_publication_outcomes(report_publications, transform.publications)
     _store_contract_outcomes(report_contracts, transform.contracts)

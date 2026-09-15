@@ -17,6 +17,10 @@
   text-align: end;
 }
 
+.text-muted {
+  color: var(--coda-disabled-text-color);
+}
+
 .text-v-center {
     vertical-align: middle;
 }
