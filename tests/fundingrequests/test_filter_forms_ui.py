@@ -31,7 +31,9 @@ def _create_article_and_monograph_titles() -> tuple[str, str]:
 
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
-def test__filter_forms__values_are_sent_with_region_updates(coda_page: Page, live_server: LiveServer) -> None:
+def test__filter_forms__values_are_sent_with_region_updates(
+    coda_page: Page, live_server: LiveServer
+) -> None:
     article_title, monograph_title = _create_article_and_monograph_titles()
 
     coda_page.set_viewport_size({"width": 1440, "height": 900})
@@ -59,7 +61,9 @@ def test__filter_forms__values_are_sent_with_region_updates(coda_page: Page, liv
 
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
-def test__filter_forms__keep_label_filter_set_by_pills(coda_page: Page, live_server: LiveServer) -> None:
+def test__filter_forms__keep_label_filter_set_by_pills(
+    coda_page: Page, live_server: LiveServer
+) -> None:
     LinkType.objects.get_or_create(name="DOI")
     LinkType.objects.get_or_create(name="ISBN")
 
@@ -90,3 +94,41 @@ def test__filter_forms__keep_label_filter_set_by_pills(coda_page: Page, live_ser
     assert labeled_title in region_text
     assert unlabeled_title not in region_text
     assert f"labels={label.pk}" in coda_page.url
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__active_filter_chips__summary_shows_and_removes_in_place(
+    coda_page: Page, live_server: LiveServer
+) -> None:
+    LinkType.objects.get_or_create(name="DOI")
+    LinkType.objects.get_or_create(name="ISBN")
+
+    alpha = label_create("Alpha chip", Color.from_rgb(255, 0, 0))
+    beta = label_create("Beta chip", Color.from_rgb(0, 0, 255))
+    label_attach(modelfactory.fundingrequest(title="Alpha chip paper"), alpha)
+    label_attach(modelfactory.fundingrequest(title="Beta chip paper"), beta)
+
+    coda_page.set_viewport_size({"width": 1440, "height": 900})
+    coda_page.goto(
+        live_server.url + reverse("fundingrequests:list") + f"?labels={alpha.pk}&labels={beta.pk}"
+    )
+    coda_page.wait_for_function("() => typeof htmx !== 'undefined'")
+
+    assert "Alpha chip" in coda_page.inner_text("#active-filters")
+    assert "Beta chip" in coda_page.inner_text("#active-filters")
+    assert "2" in coda_page.inner_text("#filter-sidebar-header")
+    assert "Alpha chip paper" in coda_page.inner_text("#fundingrequest-list")
+
+    coda_page.click(".active-filter:has-text('Alpha chip') .active-filter-remove")
+    coda_page.wait_for_function(
+        "(title) => !document.querySelector('#fundingrequest-list')?.textContent?.includes(title)",
+        arg="Alpha chip paper",
+    )
+
+    assert coda_page.locator("#active-filters .active-filter").count() == 1
+    list_text = coda_page.inner_text("#fundingrequest-list")
+    assert "Beta chip paper" in list_text
+    assert "Alpha chip paper" not in list_text
+    assert f"labels={beta.pk}" in coda_page.url
+    assert f"labels={alpha.pk}" not in coda_page.url
