@@ -516,22 +516,30 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
 @login_required
 @require_POST
 def regenerate_report(request: HttpRequest, report_id: int) -> HttpResponse:
-    """Rebuild the report's document over its stored membership, from current CODA data."""
+    """Rebuild the report's document over its stored membership, from current CODA data.
+
+    Answered like the delete view: the button posts through htmx, and the HX-Redirect sends
+    the browser on a full navigation to the detail page - the one way both the flash message
+    and the regenerated state it describes reach the user's eyes.
+    """
     report = get_object_or_404(OpenCostReport, pk=report_id)
     detail_url = reverse("opencost:detail", args=[report.id])
 
     try:
         report = regenerate_report_service(report)
     except Exception as e:
+        # Only the run itself is guarded: its failure is data the user can fix, and the
+        # flash says so. A defect in building the flash is a bug, and bugs flash as 500s.
         messages.error(request, f"Error regenerating report: {str(e)}")
-        return redirect(detail_url)
-
-    if report.has_issues():
-        messages.warning(request, _build_regeneration_message(report, detail_url))
     else:
-        messages.success(request, _build_regeneration_success_message(report))
+        if report.has_issues():
+            messages.warning(request, _build_regeneration_message(report, detail_url))
+        else:
+            messages.success(request, _build_regeneration_success_message(report))
 
-    return redirect(detail_url)
+    response = HttpResponse(status=200)
+    response["HX-Redirect"] = detail_url
+    return response
 
 
 @login_required

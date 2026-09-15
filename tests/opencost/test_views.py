@@ -278,14 +278,37 @@ def test__regenerate__flashes_the_new_issue_counts_and_redirects_to_detail(
 
     response = client.post(reverse("opencost:regenerate", args=[report.id]))
 
-    assert response.status_code == 302
-    assert response.headers["Location"] == reverse("opencost:detail", args=[report.id])
+    # the htmx button posts and the browser navigates on the HX-Redirect header
+    assert response.status_code == 200
+    assert response.headers["HX-Redirect"] == reverse("opencost:detail", args=[report.id])
     flash = [str(message) for message in get_messages(response.wsgi_request)]
     assert len(flash) == 1
     # the ESAC-less contract is one warning - the flash counts what the new run recorded
     assert "regenerated" in flash[0]
     assert "1 warning" in flash[0]
     assert reverse("opencost:detail", args=[report.id]) in flash[0]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__regenerate__broken_run__flashes_the_error_and_still_navigates(
+    client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report = create_opencost_report(title="Unregenerable Report")
+
+    def explode(_report: OpenCostReport) -> OpenCostReport:
+        raise RuntimeError("transform died")
+
+    monkeypatch.setattr("coda.apps.opencost.views.regenerate_report_service", explode)
+
+    response = client.post(reverse("opencost:regenerate", args=[report.id]))
+
+    # the failed run must not strand the htmx button on a response with nowhere to go
+    assert response.status_code == 200
+    assert response.headers["HX-Redirect"] == reverse("opencost:detail", args=[report.id])
+    flash = [str(message) for message in get_messages(response.wsgi_request)]
+    assert len(flash) == 1
+    assert "Error regenerating report" in flash[0] and "transform died" in flash[0]
 
 
 @pytest.mark.django_db
