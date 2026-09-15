@@ -17,7 +17,7 @@
   text-align: end;
 }
 
-.text-muted {
+tr.opencost-excluded {
   color: var(--coda-disabled-text-color);
 }
 
