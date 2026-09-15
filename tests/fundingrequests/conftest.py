@@ -7,6 +7,7 @@ import pytest
 from coda.apps.fundingrequests.models import FundingOrganization
 from coda.apps.journals import services as journal_services
 from coda.apps.journals.models import Journal
+from coda.apps.publications.models import LinkType
 from coda.domain.contract import PublisherId
 from coda.domain.issn import Issn
 from coda.domain.string import NonEmptyStr
@@ -38,3 +39,10 @@ def funder() -> FundingOrganization:
 @pytest.fixture
 def archived_funder() -> FundingOrganization:
     return FundingOrganization.objects.create(name="Archived Funder", archived_at=timezone.now())
+
+
+@pytest.fixture
+def link_types() -> None:
+    """LinkTypes required to create article and monograph funding requests."""
+    LinkType.objects.get_or_create(name="DOI")
+    LinkType.objects.get_or_create(name="ISBN")

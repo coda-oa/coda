@@ -1,22 +1,18 @@
-from django.urls import reverse
 import pytest
 from playwright.sync_api import Page
 from pytest_django.live_server_helper import LiveServer
 
 from coda.apps.fundingrequests import repository
 from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
-from coda.apps.publications.models import LinkType
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequest
 from tests import domainfactory, modelfactory
+from tests.page_objects.fundingrequest_list_page import FundingRequestListPage
 
 
 def _create_article_and_monograph_titles() -> tuple[str, str]:
-    LinkType.objects.get_or_create(name="DOI")
-    LinkType.objects.get_or_create(name="ISBN")
-
     article = modelfactory.fundingrequest(title="E2E filter article")
     monograph_request_id = repository.create(
         FundingRequest.new(
@@ -26,109 +22,83 @@ def _create_article_and_monograph_titles() -> tuple[str, str]:
     )
     monograph = FundingRequestModel.objects.get(pk=monograph_request_id)
 
-    return str(article.publication.title), str(monograph.publication.title)
+    return article.publication.title, monograph.publication.title
 
 
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
 def test__filter_forms__values_are_sent_with_region_updates(
-    coda_page: Page, live_server: LiveServer
+    link_types: None, coda_page: Page, live_server: LiveServer
 ) -> None:
     article_title, monograph_title = _create_article_and_monograph_titles()
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate()
 
-    coda_page.set_viewport_size({"width": 1440, "height": 900})
-    coda_page.goto(live_server.url + reverse("fundingrequests:list"))
-    coda_page.wait_for_function("() => typeof htmx !== 'undefined'")
+    list_page.should_show_request(article_title)
+    list_page.should_show_request(monograph_title)
 
-    assert article_title in coda_page.inner_text("#fundingrequest-list")
-    assert monograph_title in coda_page.inner_text("#fundingrequest-list")
+    list_page.select_publication_type("article")
+    list_page.should_not_show_request(monograph_title)
+    list_page.should_show_request(article_title)
+    list_page.should_have_url_query("publication_type=article")
 
-    coda_page.click('label[for="publication_type_article"]')
-    coda_page.wait_for_function(
-        "(title) => !document.querySelector('#fundingrequest-list')?.textContent?.includes(title)",
-        arg=monograph_title,
-    )
-    assert article_title in coda_page.inner_text("#fundingrequest-list")
-    assert "publication_type=article" in coda_page.url
-
-    coda_page.type(".filter-search", "zzz-no-such-title", delay=50)
-    coda_page.wait_for_function(
-        "() => document.querySelector('#fundingrequest-list')?.textContent"
-        "?.includes('No funding requests match')"
-    )
-    assert article_title not in coda_page.inner_text("#fundingrequest-list")
+    list_page.type_search("zzz-no-such-title")
+    list_page.should_show_empty_state()
+    list_page.should_not_show_request(article_title)
 
 
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
 def test__filter_forms__keep_label_filter_set_by_pills(
-    coda_page: Page, live_server: LiveServer
+    link_types: None, coda_page: Page, live_server: LiveServer
 ) -> None:
-    LinkType.objects.get_or_create(name="DOI")
-    LinkType.objects.get_or_create(name="ISBN")
-
     label = label_create("E2E State", Color.from_rgb(0, 128, 0))
     labeled = modelfactory.fundingrequest(title="E2E state labeled")
     label_attach(labeled, label)
     unlabeled = modelfactory.fundingrequest(title="E2E state unlabeled")
-    labeled_title = str(labeled.publication.title)
-    unlabeled_title = str(unlabeled.publication.title)
+    labeled_title = labeled.publication.title
+    unlabeled_title = unlabeled.publication.title
 
-    coda_page.set_viewport_size({"width": 1440, "height": 900})
-    coda_page.goto(live_server.url + reverse("fundingrequests:list"))
-    coda_page.wait_for_function("() => typeof htmx !== 'undefined'")
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate()
 
-    assert labeled_title in coda_page.inner_text("#fundingrequest-list")
-    assert unlabeled_title in coda_page.inner_text("#fundingrequest-list")
+    list_page.should_show_request(labeled_title)
+    list_page.should_show_request(unlabeled_title)
 
-    coda_page.click(".label-filter-pill:has-text('E2E State')")
-    coda_page.wait_for_function(
-        "(title) => !document.querySelector('#fundingrequest-list')?.textContent?.includes(title)",
-        arg=unlabeled_title,
-    )
+    list_page.click_label_pill("E2E State")
+    list_page.should_not_show_request(unlabeled_title)
 
-    coda_page.click('label[for="publication_type_article"]')
-    coda_page.wait_for_function("() => location.search.includes('publication_type=article')")
+    list_page.select_publication_type("article")
+    list_page.should_have_url_query("publication_type=article")
 
-    region_text = coda_page.inner_text("#fundingrequest-list")
-    assert labeled_title in region_text
-    assert unlabeled_title not in region_text
-    assert f"labels={label.pk}" in coda_page.url
+    list_page.should_show_request(labeled_title)
+    list_page.should_not_show_request(unlabeled_title)
+    list_page.should_have_url_query(f"labels={label.pk}")
 
 
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
 def test__active_filter_chips__summary_shows_and_removes_in_place(
-    coda_page: Page, live_server: LiveServer
+    link_types: None, coda_page: Page, live_server: LiveServer
 ) -> None:
-    LinkType.objects.get_or_create(name="DOI")
-    LinkType.objects.get_or_create(name="ISBN")
-
     alpha = label_create("Alpha chip", Color.from_rgb(255, 0, 0))
     beta = label_create("Beta chip", Color.from_rgb(0, 0, 255))
     label_attach(modelfactory.fundingrequest(title="Alpha chip paper"), alpha)
     label_attach(modelfactory.fundingrequest(title="Beta chip paper"), beta)
 
-    coda_page.set_viewport_size({"width": 1440, "height": 900})
-    coda_page.goto(
-        live_server.url + reverse("fundingrequests:list") + f"?labels={alpha.pk}&labels={beta.pk}"
-    )
-    coda_page.wait_for_function("() => typeof htmx !== 'undefined'")
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate(label_ids=[alpha.pk, beta.pk])
 
-    assert "Alpha chip" in coda_page.inner_text("#active-filters")
-    assert "Beta chip" in coda_page.inner_text("#active-filters")
-    assert "2" in coda_page.inner_text("#filter-sidebar-header")
-    assert "Alpha chip paper" in coda_page.inner_text("#fundingrequest-list")
+    list_page.should_show_active_filter("Alpha chip")
+    list_page.should_show_active_filter("Beta chip")
+    list_page.should_have_filter_count(2)
+    list_page.should_show_request("Alpha chip paper")
 
-    coda_page.click(".active-filter:has-text('Alpha chip') .active-filter-remove")
-    coda_page.wait_for_function(
-        "(title) => !document.querySelector('#fundingrequest-list')?.textContent?.includes(title)",
-        arg="Alpha chip paper",
-    )
+    list_page.remove_active_filter("Alpha chip")
+    list_page.should_not_show_request("Alpha chip paper")
 
-    assert coda_page.locator("#active-filters .active-filter").count() == 1
-    list_text = coda_page.inner_text("#fundingrequest-list")
-    assert "Beta chip paper" in list_text
-    assert "Alpha chip paper" not in list_text
-    assert f"labels={beta.pk}" in coda_page.url
-    assert f"labels={alpha.pk}" not in coda_page.url
+    list_page.should_have_active_filter_count(1)
+    list_page.should_show_request("Beta chip paper")
+    list_page.should_not_show_request("Alpha chip paper")
+    list_page.should_have_url_query(f"labels={beta.pk}")
+    list_page.should_not_have_url_query(f"labels={alpha.pk}")
