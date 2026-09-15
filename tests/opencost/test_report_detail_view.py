@@ -164,7 +164,8 @@ def test__exported_row_with_out_of_range_ordinal__detail_page_degrades_it_instea
 
     report = create_opencost_report()
     row = report.publications.get(publication=fr.publication)
-    assert row.exported and row.xml_ordinal is not None
+    assert row.exported
+    assert row.xml_ordinal is not None
     # what a regenerate racing between the report and seed-row queries can leave behind
     row.xml_ordinal = 999
     row.save()

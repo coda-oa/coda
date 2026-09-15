@@ -420,7 +420,8 @@ def test__select_and_fetch_publications_by_ids__matches_get_publications_for_per
     positions = list(pub.position_set.all())
     with CaptureQueriesContext(connection) as ctx:
         assert positions[0].invoice.creditor.name is not None
-        assert pub.article_journal is not None and pub.article_journal.publisher is not None
+        assert pub.article_journal is not None
+        assert pub.article_journal.publisher is not None
         assert list(pub.links.all()) == []
         assert list(pub.relevant_authors.all()) == []
         assert len(list(pub.attached_contracts.all())) == 2

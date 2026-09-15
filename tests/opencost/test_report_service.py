@@ -625,7 +625,8 @@ def test__standalone_contract_with_invoice_positions__generate_report__states_th
 
     entry = _document_contract(report)
     assert entry.contract_name == contract.name
-    assert contract.start_date is not None and contract.end_date is not None
+    assert contract.start_date is not None
+    assert contract.end_date is not None
     assert (entry.participation.from_, entry.participation.to) == (
         contract.start_date.isoformat(),
         contract.end_date.isoformat(),

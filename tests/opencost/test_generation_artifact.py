@@ -425,7 +425,8 @@ def test_stored_document_holds_exactly_the_items_the_rows_call_exported(
     assert [row.xml_ordinal for row in exported_contracts] == list(range(len(exported_contracts)))
 
     if document is None:
-        assert not exported_publications and not exported_contracts
+        assert not exported_publications
+        assert not exported_contracts
         return
 
     entries: list[PublicationType | ContractType] = [
@@ -490,7 +491,8 @@ def test_part_of_contract_names_a_group_the_document_holds(
 
     report = _generate()
     document = _document(report)
-    assert document is not None and document.publication is not None
+    assert document is not None
+    assert document.publication is not None
 
     groups_by_esac = {
         contract.primary_identifier.value: contract.cost_data.invoice_group[0].group_id

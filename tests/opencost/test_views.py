@@ -308,7 +308,8 @@ def test__regenerate__broken_run__flashes_the_error_and_still_navigates(
     assert response.headers["HX-Redirect"] == reverse("opencost:detail", args=[report.id])
     flash = [str(message) for message in get_messages(response.wsgi_request)]
     assert len(flash) == 1
-    assert "Error regenerating report" in flash[0] and "transform died" in flash[0]
+    assert "Error regenerating report" in flash[0]
+    assert "transform died" in flash[0]
 
 
 @pytest.mark.django_db
