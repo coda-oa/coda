@@ -1,34 +1,21 @@
-"""One contract as one openCost contract record.
+"""The rules, wording and identifier extraction of one openCost contract record.
 
-The rules and the wording below are the report's own: the live-coda transform reaches for the
-mappers, the identifier extraction and the messages here rather than restating them, so an
-exclusion is said the same way however the contract's data was reached.
+These are the report's own rules: the transform reaches for the mappers, the identifier extraction
+and the messages here rather than restating them, so an exclusion is said the same way however the
+contract's data was reached.
 """
 
 from collections.abc import Iterable
 from datetime import date
 
 from coda.apps.contracts.models import Contract
-from coda.apps.opencost.issues import (
-    GlobalWarning,
-    ValidationWarning,
-    create_warning,
-    record_issue,
-)
-from coda.apps.opencost.models import OpenCostReport, OpenCostReportContract
-from coda.apps.opencost.transformers.entities import entity_exclusion, get_institution
-from coda.apps.opencost.transformers.invoices import contract_invoices
+from coda.apps.opencost.models import OpenCostReport
 from coda.coda_itertools import map_or_none
 from opencost import (
-    ContractCostDataType,
-    ContractInvoiceGroupType,
     ContractInvoicePeriodType,
-    ContractPrimaryIdentifier,
-    ContractPrimaryIdentifierType,
     ContractSecondaryIdentifiersType,
     ContractSecondaryIdType,
     ContractSecondaryIdTypeEnum,
-    ContractType,
     ParticipationType,
 )
 
@@ -39,70 +26,6 @@ NO_PARTICIPATION_MESSAGE = (
 NO_ESAC_MESSAGE = "No ESAC ID — the contract is exported with ESAC 'UNKNOWN'."
 UNKNOWN_ESAC = "UNKNOWN"
 SECONDARY_IDENTIFIER_TYPES = ["OAI", "EZB", "Local"]
-
-
-def report_contract_to_pydantic(
-    report_contract: OpenCostReportContract,
-    issues: list[ValidationWarning] | None = None,
-) -> ContractType | None:
-    institution = get_institution(report_contract)
-    if institution is None:
-        # XSD requires institution to have at least one name or id.
-        # Without institution data we cannot produce a valid record.
-        record_issue(issues, GlobalWarning.create(report_contract, NO_INSTITUTION_MESSAGE))
-        return None
-
-    participation = get_participation(
-        report_contract.participation_from, report_contract.participation_to
-    )
-    if participation is None:
-        # XSD requires the participation block with both dates.
-        record_issue(issues, create_warning(report_contract, NO_PARTICIPATION_MESSAGE))
-        return None
-
-    contract_secondary_identifiers = get_contract_secondary_identifiers(
-        (
-            identifier.identifier_type,
-            identifier.value,
-        )
-        for identifier in report_contract.secondary_identifiers.all()
-    )
-
-    invoice_exclusions: list[ValidationWarning] = []
-    cost_data = _get_contract_cost_data(report_contract, invoice_exclusions)
-    if cost_data is None:
-        # XSD requires at least one invoice_group — without cost data
-        # we cannot produce a valid record.
-        record_issue(
-            issues,
-            create_warning(
-                report_contract,
-                entity_exclusion([w.message for w in invoice_exclusions]),
-            ),
-        )
-        return None
-
-    if issues is not None:
-        issues.extend(invoice_exclusions)
-
-    if not report_contract.primary_identifier_value:
-        # ESAC is mandatory in the schema, so the contract is exported
-        # with the placeholder value instead of a real identifier.
-        record_issue(issues, create_warning(report_contract, NO_ESAC_MESSAGE, level="warning"))
-
-    primary_identifier = ContractPrimaryIdentifier(
-        value=report_contract.primary_identifier_value or UNKNOWN_ESAC,
-        type=ContractPrimaryIdentifierType.ESAC,
-    )
-
-    return ContractType(
-        contract_name=report_contract.contract_name,
-        institution=institution,
-        participation=participation,
-        primary_identifier=primary_identifier,
-        secondary_identifiers=contract_secondary_identifiers,
-        cost_data=cost_data,
-    )
 
 
 def get_participation(from_: date | None, to: date | None) -> ParticipationType | None:
@@ -160,33 +83,6 @@ def secondary_identifiers_from_links(contract: Contract) -> list[tuple[str, str]
             identifier_type = link.type.name.lower()
             identifiers.append((identifier_type, link.value))
     return identifiers
-
-
-def _get_contract_cost_data(
-    report_item: OpenCostReportContract,
-    issues: list[ValidationWarning] | None,
-) -> ContractCostDataType | None:
-    report_invoices = report_item.invoices.all()
-    invoice_list = contract_invoices(report_item, issues)
-    if invoice_list is None:
-        # XSD requires at least one invoice_group — nothing to produce.
-        return None
-
-    first_invoice = report_invoices[0]
-
-    if not first_invoice.group_id or not report_item.report:
-        # XSD requires group_id and invoices_period — nothing to produce.
-        return None
-
-    invoices_period = invoices_period_of(report_item.report)
-
-    invoice_group = ContractInvoiceGroupType(
-        group_id=first_invoice.group_id,
-        invoices_period=invoices_period,
-        invoice=invoice_list,
-    )
-
-    return ContractCostDataType(invoice_group=[invoice_group])
 
 
 def invoices_period_of(report: OpenCostReport) -> ContractInvoicePeriodType:

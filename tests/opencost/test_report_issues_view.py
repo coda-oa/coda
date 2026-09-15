@@ -5,13 +5,10 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.messages import get_messages
-from django.db import connection
 from django.test import Client
-from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from coda.apps.opencost.report_service import generate_report
-from coda.apps.opencost.services.issues import collect_issues
 from coda.apps.preferences.models import GlobalPreferences
 from tests import modelfactory
 from tests.opencost.helpers import (
@@ -287,26 +284,6 @@ def test__issues_fragment__shows_the_generation_stamp(client: Client) -> None:
         "Fixing a source record does not change this list: correct the data, "
         "then regenerate this report." in content
     )
-
-
-@pytest.mark.django_db
-def test__collect_issues_on_a_loaded_report__stays_within_the_query_budget() -> None:
-    fr = modelfactory.fundingrequest(title="Query Count Publication")
-    create_publication_with_invoice(
-        fr.publication,
-        invoice_date=date(2024, 6, 1),
-        invoice_number="INV-QUERY-001",
-    )
-    contract = create_contract_with_identifiers(name="Query Count Contract", esac="ESAC-QC")
-    create_contract_with_invoice(contract)
-
-    report = create_opencost_report()
-
-    with CaptureQueriesContext(connection) as ctx:
-        collect_issues(report)
-
-    # the transform itself must not query: everything it reads is prefetched
-    assert len(ctx.captured_queries) <= 20
 
 
 @pytest.mark.django_db

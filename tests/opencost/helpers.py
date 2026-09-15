@@ -6,18 +6,16 @@ from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
 
+import opencost
 from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract, ContractLink, ContractLinkType
 from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from coda.apps.invoices.models import Creditor, Invoice, Position
 from coda.apps.opencost.models import OpenCostReport
 from coda.apps.opencost.report_service import generate_report
-from coda.apps.opencost.transformers import to_opencost
-from coda.apps.opencost.transformers.publication import report_publication_to_pydantic
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import Publication
-from coda.apps.publications.models._attachedentities import AttachedContract
-from opencost import Data, PublicationType
+from opencost import Data
 from tests import modelfactory
 
 
@@ -98,6 +96,12 @@ def create_opencost_report(
     period_start: date = date(2024, 1, 1),
     period_end: date = date(2024, 12, 31),
 ) -> OpenCostReport:
+    """Generate the report the test's own CODA records make up.
+
+    Nothing is created here beyond the report itself: the items are whatever publications,
+    contracts and invoices the test has already put in the database, and the period fixes only
+    the report's dates and the ``invoices_period`` block of a contract's cost data.
+    """
     _ensure_home_institution()
 
     filters = {
@@ -110,24 +114,10 @@ def create_opencost_report(
     )
 
 
-def transform_first_publication_to_pydantic() -> PublicationType:
-    """
-    Helper to create an OpenCost report and transform its first publication to pydantic.
-
-    This eliminates the repeated pattern of:
-    - Creating a report
-    - Getting the first publication
-    - Asserting it's not None
-    - Transforming it to pydantic
-
-    Returns the transformed PublicationType for assertions.
-    """
-    report = create_opencost_report()
-    report_publication = report.publications.first()
-    assert report_publication is not None
-    publication = report_publication_to_pydantic(report_publication)
-    assert publication is not None
-    return publication
+def stored_document(report: OpenCostReport) -> Data:
+    """The report's stored document, read back through the parser the download serves."""
+    assert report.xml_content, "the report stored no document to read"
+    return opencost.from_xml(report.xml_content)
 
 
 def create_institution_with_identifiers(
@@ -255,110 +245,17 @@ def _ensure_home_institution() -> None:
         prefs.save()
 
 
-def generate_opencost_report_from_contract() -> Data:
-    """
-    Helper to generate an OpenCost report and transform to OpenCostData.
-
-    This eliminates the repeated pattern of:
-    - Generating a report with standard date range
-    - Transforming it to opencost format
-    - Initial contract assertions
-
-    Returns the transformed Data for assertions.
-    """
-    _ensure_home_institution()
-    filters = {
-        "period_start": date(2024, 1, 1).isoformat(),
-        "period_end": date(2024, 12, 31).isoformat(),
-    }
-    report = generate_report(
-        title="Test Report 2024",
-        filters=filters,
-    )
-    data = to_opencost(report)
-    assert data is not None
-    return data
-
-
-def create_realistic_report_data(
-    num_publications: int = 100,
-    num_contracts: int = 10,
-    period_start: date = date(2024, 1, 1),
-    period_end: date = date(2024, 12, 31),
-) -> OpenCostReport:
-    """
-    Create realistic test data for performance testing.
-
-    Args:
-        num_publications: Number of publications to create
-        num_contracts: Number of contracts to create
-        period_start: Start of reporting period
-        period_end: End of reporting period
-
-    Returns:
-        OpenCostReport with realistic data volumes
-    """
-
-    # Create contracts with invoices
-    contracts = []
-    for i in range(num_contracts):
-        contract = modelfactory.contract()
-        contract.name = f"Contract {i + 1}"
-        contract.save()
-        create_contract_with_invoice(
-            contract,
-            creditor_name=f"Contract Creditor {i + 1}",
-            invoice_date=date(2024, 6, (i % 28) + 1),
-            invoice_number=f"INV-CONTRACT-{i + 1:04d}",
-            position_amounts=[Decimal("5000.00"), Decimal("3000.00")],
-        )
-        contracts.append(contract)
-
-    # Create publications with invoices
-    publications = []
-    for i in range(num_publications):
-        publication = modelfactory.publication()
-        publication.title = f"Publication {i + 1}"
-        publication.save()
-        create_publication_with_invoice(
-            publication,
-            invoice_date=date(2024, 6, ((i * 7) % 28) + 1),
-            invoice_number=f"INV-PUB-{i + 1:04d}",
-            creditor_name=f"Publisher {(i % 20) + 1}",
-            cost_amount=Decimal("1500.00"),
-        )
-
-        # Link some publications to contracts (50% of publications)
-        if i % 2 == 0:
-            AttachedContract.objects.create(
-                contract=contracts[i % num_contracts],
-                publication=publication,
-                contract_year=2024,
-            )
-
-        publications.append(publication)
-
-    # Generate the report
-    return generate_report(
-        title=f"Performance Test Report ({num_publications} pubs, {num_contracts} contracts)",
-        filters={
-            "period_start": period_start.isoformat(),
-            "period_end": period_end.isoformat(),
-        },
-    )
-
-
 def assert_current_filter(response: HttpResponse, field: str, expected: Any) -> None:
     """Assert that a filter value in the template context matches expected."""
     context = cast(Any, response).context
     current_filters = context.get("current_filters", {})
-    assert (
-        field in current_filters
-    ), f"Field '{field}' not found in current_filters. Available: {list(current_filters.keys())}"
+    assert field in current_filters, (
+        f"Field '{field}' not found in current_filters. Available: {list(current_filters.keys())}"
+    )
     actual = current_filters[field]
-    assert (
-        actual == expected
-    ), f"Field '{field}' mismatch.\n Expected: {expected!r}\n Got: {actual!r}"
+    assert actual == expected, (
+        f"Field '{field}' mismatch.\n Expected: {expected!r}\n Got: {actual!r}"
+    )
 
 
 def assert_current_filters(response: HttpResponse, **expected: Any) -> None:

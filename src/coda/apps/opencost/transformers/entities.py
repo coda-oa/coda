@@ -1,11 +1,7 @@
-"""OpenCost entities that more than one kind of report item is built from."""
+"""The openCost institution and the exclusion wording every report item shares."""
 
 from collections.abc import Iterable
 
-from coda.apps.opencost.models import (
-    OpenCostReportContract,
-    OpenCostReportPublication,
-)
 from coda.coda_itertools import map_or_none
 from opencost import (
     InstitutionId,
@@ -27,24 +23,10 @@ def entity_exclusion(reasons: list[str]) -> str:
     return f"Excluded entirely: {reason}."
 
 
-def get_institution(
-    report_obj: OpenCostReportPublication | OpenCostReportContract,
-) -> InstitutionType | None:
-    """The institution a snapshot row recorded."""
-    return institution_from(
-        report_obj.institution_name,
-        (
-            (identifier.identifier_type, identifier.value)
-            for identifier in report_obj.institution_identifiers.all()
-        ),
-    )
-
-
 def institution_from(name: str, identifiers: Iterable[tuple[str, str]]) -> InstitutionType | None:
     """The institution behind a name and its ``(identifier type, value)`` pairs.
 
-    Both arrive as they were recorded for the report: the name may be blank and a pair whose
-    type openCost has no member for is dropped.
+    The name may be blank, and a pair whose type openCost has no member for is dropped.
     """
     names = []
     if name:

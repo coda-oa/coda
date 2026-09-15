@@ -1,9 +1,10 @@
 """Seed-table outcome columns and pk row ordering.
 
 Seed membership rows are read back in insertion (primary-key) order, so the row order
-observed through relation iteration never depends on snapshot content. Freshly created
-rows start neutral — not exported, error-free, no XML position — until a generation
-run records the actual outcome.
+observed through relation iteration never depends on what a row says about its item. Freshly
+created rows start neutral — not exported, error-free, no position in the document — which is
+how a row that has not been transformed yet reads, and what a row whose item was dropped is
+put back to by a regenerate that finds nothing reportable.
 """
 
 from datetime import date
@@ -18,7 +19,6 @@ from coda.apps.opencost.models import (
     OpenCostReportPublication,
 )
 from tests import modelfactory
-from tests.opencost.helpers import create_opencost_report, create_publication_with_invoice
 
 
 def make_report() -> OpenCostReport:
@@ -126,26 +126,3 @@ def test_freshly_created_seed_rows_have_neutral_outcome_defaults() -> None:
         contract_invoice.had_errors,
         contract_invoice.xml_index,
     ) == (False, False, None)
-
-
-@pytest.mark.django_db
-def test_generated_seed_rows_carry_neutral_defaults_through_the_legacy_write_path() -> None:
-    """Generation writes seed rows without touching the outcome columns — every new
-    column has a database-level default, so no insert hits a NOT NULL violation."""
-    publication = modelfactory.publication(title="Generated publication")
-    create_publication_with_invoice(publication, invoice_number="INV-GEN-0001")
-
-    report = create_opencost_report()
-
-    publications = list(report.publications.all())
-    assert len(publications) == 1
-    invoices = list(publications[0].invoices.all())
-    assert len(invoices) == 1
-    pub_row = publications[0]
-    invoice_row = invoices[0]
-    assert (pub_row.exported, pub_row.had_errors, pub_row.xml_ordinal) == (False, False, None)
-    assert (invoice_row.exported, invoice_row.had_errors, invoice_row.xml_index) == (
-        False,
-        False,
-        None,
-    )

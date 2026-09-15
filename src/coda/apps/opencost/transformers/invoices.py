@@ -1,4 +1,4 @@
-"""Building openCost invoice elements out of invoice rows.
+"""Building openCost invoice elements out of a CODA invoice.
 
 An invoice is built the same way whichever kind it is: every position becomes one amount-paid
 element when openCost accepts its cost type, currency and amount, while the invoice total is the
@@ -7,8 +7,8 @@ separately below; what they must agree on — when an invoice cannot be exported
 gets said about rows openCost could not be given an amount for — lives in
 ``_dates_if_exportable`` alone.
 
-Rows arrive either as the report's own invoice records or as the ``LiveInvoice`` /
-``LiveInvoicePosition`` views of a CODA invoice, so the same rules decide both.
+A CODA invoice and its positions arrive through the ``LiveInvoice`` / ``LiveInvoicePosition``
+views below, which carry exactly the fields these rules ask about.
 """
 
 from collections.abc import Iterable, Sequence
@@ -24,14 +24,6 @@ from coda.apps.opencost.issues import (
     create_warning,
     record_issue,
 )
-from coda.apps.opencost.models import (
-    OpenCostReportContract,
-    OpenCostReportContractInvoice,
-    OpenCostReportContractInvoicePosition,
-    OpenCostReportInvoice,
-    OpenCostReportInvoicePosition,
-    OpenCostReportPublication,
-)
 from coda.coda_itertools import map_or_none
 from opencost import (
     AmountInvoice,
@@ -46,18 +38,13 @@ from opencost import (
     PublicationInvoiceType,
 )
 
-type AnyOpenCostInvoice = OpenCostReportInvoice | OpenCostReportContractInvoice | LiveInvoice
-type AnyOpenCostInvoicePosition = (
-    OpenCostReportInvoicePosition | OpenCostReportContractInvoicePosition | LiveInvoicePosition
-)
-
 
 @dataclass(frozen=True)
 class LiveInvoice:
     """The invoice fields an openCost invoice element needs, read from a CODA invoice.
 
-    A report invoice row carries these on itself; a CODA invoice holds them on its own fields
-    and its creditor. Wrapping them keeps the invoice rules below indifferent to the source.
+    A CODA invoice holds them on its own fields and its creditor; wrapping them keeps the
+    invoice rules below indifferent to where an invoice came from.
     """
 
     invoice_number: str
@@ -67,7 +54,7 @@ class LiveInvoice:
 
 @dataclass(frozen=True)
 class LiveInvoicePosition:
-    """One CODA position in the shape a report invoice position row has."""
+    """The amount fields an openCost amount-paid element needs, read from a CODA position."""
 
     amount: Decimal
     currency: str
@@ -75,25 +62,10 @@ class LiveInvoicePosition:
     vat: Decimal | None
 
 
-def publication_invoices(
-    report_item: OpenCostReportPublication,
-    issues: list[ValidationWarning] | None,
-) -> list[PublicationInvoiceType] | None:
-    invoices = []
-    for report_invoice in report_item.invoices.all():
-        invoice = publication_invoice(
-            report_item, report_invoice, report_invoice.positions.all(), issues
-        )
-        if invoice is not None:
-            invoices.append(invoice)
-
-    return invoices or None
-
-
 def publication_invoice(
     report_item: AnyOpenCostReportItem,
-    report_invoice: AnyOpenCostInvoice,
-    positions: Iterable[AnyOpenCostInvoicePosition],
+    report_invoice: LiveInvoice,
+    positions: Iterable[LiveInvoicePosition],
     issues: list[ValidationWarning] | None,
 ) -> PublicationInvoiceType | None:
     """One invoice element, or ``None`` when openCost cannot be given this invoice at all."""
@@ -112,14 +84,14 @@ def publication_invoice(
     )
 
 
-def _publication_total(rows: Sequence[AnyOpenCostInvoicePosition]) -> AmountInvoice | None:
+def _publication_total(rows: Sequence[LiveInvoicePosition]) -> AmountInvoice | None:
     """Total over every position held for this invoice.
 
     Every row counts, including ones openCost was given no cost type for, so the total can
     exceed the sum of the exported amounts: openCost asks for the price as stated on the
-    invoice, not for the sum of its items. Currency comes from the first row, which both row
-    sources order by amount; CODA stamps one currency on every position of an invoice, so
-    which row is asked is moot for invoices CODA created.
+    invoice, not for the sum of its items. Currency comes from the first row, which the
+    report's positions are read in amount order; CODA stamps one currency on every position
+    of an invoice, so which row is asked is moot for invoices CODA created.
     """
     if not rows:
         return None
@@ -128,30 +100,10 @@ def _publication_total(rows: Sequence[AnyOpenCostInvoicePosition]) -> AmountInvo
     return _amount_invoice(total_amount, rows[0].currency)
 
 
-def contract_invoices(
-    report_item: OpenCostReportContract,
-    issues: list[ValidationWarning] | None,
-) -> list[ContractInvoiceType] | None:
-    invoices = []
-    for report_invoice in report_item.invoices.all():
-        invoice = contract_invoice(
-            report_item,
-            report_invoice,
-            report_invoice.positions.all(),
-            report_invoice.amount_invoice,
-            report_invoice.amount_invoice_currency,
-            issues,
-        )
-        if invoice is not None:
-            invoices.append(invoice)
-
-    return invoices or None
-
-
 def contract_invoice(
     report_item: AnyOpenCostReportItem,
-    report_invoice: AnyOpenCostInvoice,
-    positions: Iterable[AnyOpenCostInvoicePosition],
+    report_invoice: LiveInvoice,
+    positions: Iterable[LiveInvoicePosition],
     total_amount: Decimal | None,
     total_currency: str,
     issues: list[ValidationWarning] | None,
@@ -159,8 +111,8 @@ def contract_invoice(
     """One contract invoice element.
 
     ``total_amount``/``total_currency`` is the price stated on the invoice over all its
-    positions, rejected cost types included: the report's own invoice row holds the total
-    computed when it was collected, the live path recomputes it from the same positions.
+    positions, rejected cost types included — openCost is being told the invoice's price, not
+    the sum of the amounts it is also being given.
     """
     amounts = CONTRACT_COST_TYPES.amounts_for(positions)
     dates = _dates_if_exportable(report_item, report_invoice, issues, amounts)
@@ -204,7 +156,7 @@ class PaidFactory[TPaid, TCostEnum: Enum](Protocol):
 
 @dataclass(frozen=True)
 class AmountsPaid[TPaid]:
-    """What became of an invoice's snapshot rows: the amounts, and the rows that were not."""
+    """What became of an invoice's positions: the amounts, and the rows that were not."""
 
     items: list[TPaid]
     rejected_cost_types: list[str]
@@ -213,13 +165,13 @@ class AmountsPaid[TPaid]:
 
 @dataclass(frozen=True)
 class InvoiceCostTypes[TPaid, TCostEnum: Enum]:
-    """The openCost vocabulary one invoice kind maps snapshot positions onto."""
+    """The openCost vocabulary one invoice kind maps CODA positions onto."""
 
     paid_type: PaidFactory[TPaid, TCostEnum]
     cost_type: type[TCostEnum]
 
-    def amounts_for(self, positions: Iterable[AnyOpenCostInvoicePosition]) -> AmountsPaid[TPaid]:
-        """One amount per snapshot row that openCost can be given an amount for."""
+    def amounts_for(self, positions: Iterable[LiveInvoicePosition]) -> AmountsPaid[TPaid]:
+        """One amount per position that openCost can be given an amount for."""
         rows = list(positions)
         items: list[TPaid] = []
         rejected_cost_types: list[str] = []
@@ -235,11 +187,11 @@ class InvoiceCostTypes[TPaid, TCostEnum: Enum]:
 
         return AmountsPaid(items, rejected_cost_types, len(rows))
 
-    def _amount_paid(self, position: AnyOpenCostInvoicePosition) -> TPaid | None:
-        """One exported amount, or ``None`` when the snapshot row cannot be given one.
+    def _amount_paid(self, position: LiveInvoicePosition) -> TPaid | None:
+        """One exported amount, or ``None`` when the position cannot be given one.
 
-        Amounts go through at the precision the snapshot holds them at, so the exported
-        number is the snapshotted number and not a re-rounded copy of it.
+        Amounts go through at the precision they arrive at, so the exported number is the
+        number CODA holds and not a re-rounded copy of it.
         """
         return map_or_none(
             lambda raw_cost_type: self.paid_type(
@@ -265,7 +217,7 @@ CONTRACT_COST_TYPES = InvoiceCostTypes(
 
 def _dates_if_exportable[TPaid](
     report_item: AnyOpenCostReportItem,
-    report_invoice: AnyOpenCostInvoice,
+    report_invoice: LiveInvoice,
     issues: list[ValidationWarning] | None,
     amounts: AmountsPaid[TPaid],
 ) -> Dates | None:
@@ -311,7 +263,7 @@ def _dates_if_exportable[TPaid](
     return dates
 
 
-def _invoice_label(report_invoice: AnyOpenCostInvoice) -> str:
+def _invoice_label(report_invoice: LiveInvoice) -> str:
     """Identify an invoice to a human reader."""
     return report_invoice.invoice_number or "Unnumbered invoice"
 
@@ -350,7 +302,7 @@ def _excluded_positions_warning_message(
 
 
 def _text_or_none(value: str) -> str | None:
-    """Blank snapshot text is reported as an absent element, not an empty one."""
+    """Blank invoice text is reported as an absent element, not an empty one."""
     return value or None
 
 
