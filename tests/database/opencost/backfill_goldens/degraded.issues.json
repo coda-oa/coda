@@ -1,0 +1,10 @@
+[
+  {
+    "level": "error",
+    "message": "Invoice INV-FIX-G-001: 1 of 2 positions with a cost type or currency openCost does not accept ('bogus-service') were excluded. The invoice in the XML covers only its remaining positions.",
+    "entity_type": "contract",
+    "entity_id": 2,
+    "entity_name": "Fixture Contract Gamma",
+    "fix_url": "/contracts/2/"
+  }
+]
