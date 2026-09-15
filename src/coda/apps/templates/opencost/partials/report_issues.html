@@ -18,40 +18,60 @@
                         {% for error in errors|slice:":50" %}
                             <li>
                                 <strong>{{ error.entity_name }}</strong>: {{ error.message }}
-                                {% if error.fix_url %}— <a href="{{ error.fix_url }}">{% if error.entity_type == "publication" %}Open funding request{% elif error.entity_type == "contract" %}Open contract{% elif error.entity_type == "global" %}Open preferences{% endif %}</a>{% endif %}
-                            </li>
-                        {% endfor %}
-                        {% if errors|length > 50 %}
-                            <li>
-                                <em>… and {{ errors|length|add:"-50" }} more. The rows above repeat the same problem across this report — fix the data and regenerate to shrink this list.</em>
-                            </li>
+                                {% if error.fix_url %}
+                                    — <a href="{{ error.fix_url }}">
+                                    {% if error.entity_type == "publication" %}
+                                        Open funding request
+                                    {% elif error.entity_type == "contract" %}
+                                        Open contract
+                                    {% elif error.entity_type == "global" %}
+                                        Open preferences
+                                    {% endif %}
+                                </a>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                    {% if errors|length > 50 %}
+                        <li>
+                            <em>… and {{ errors|length|add:"-50" }} more. The rows above repeat the same problem across this report — fix the data and regenerate to shrink this list.</em>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </article>
+    {% endif %}
+    {% if warnings_only %}
+        <article class="warning">
+            <h3>Warnings ({{ warnings_only|length }})</h3>
+            <p>
+                <em>Data quality notes — these records are in the XML as they are:</em>
+            </p>
+            <div class="scroll-container max-h-30">
+                <ul>
+                    {% for warning in warnings_only|slice:":50" %}
+                        <li>
+                            <strong>{{ warning.entity_name }}</strong>: {{ warning.message }}
+                            {% if warning.fix_url %}
+                                — <a href="{{ warning.fix_url }}">
+                                {% if warning.entity_type == "publication" %}
+                                    Open funding request
+                                {% elif warning.entity_type == "contract" %}
+                                    Open contract
+                                {% elif warning.entity_type == "global" %}
+                                    Open preferences
+                                {% endif %}
+                            </a>
                         {% endif %}
-                    </ul>
-                </div>
-            </article>
-        {% endif %}
-        {% if warnings_only %}
-            <article class="warning">
-                <h3>Warnings ({{ warnings_only|length }})</h3>
-                <p>
-                    <em>Data quality notes — these records are in the XML as they are:</em>
-                </p>
-                <div class="scroll-container max-h-30">
-                    <ul>
-                        {% for warning in warnings_only|slice:":50" %}
-                            <li>
-                                <strong>{{ warning.entity_name }}</strong>: {{ warning.message }}
-                                {% if warning.fix_url %}— <a href="{{ warning.fix_url }}">{% if warning.entity_type == "publication" %}Open funding request{% elif warning.entity_type == "contract" %}Open contract{% elif warning.entity_type == "global" %}Open preferences{% endif %}</a>{% endif %}
-                            </li>
-                        {% endfor %}
-                        {% if warnings_only|length > 50 %}
-                            <li>
-                                <em>… and {{ warnings_only|length|add:"-50" }} more. The rows above repeat the same problem across this report — fix the data and regenerate to shrink this list.</em>
-                            </li>
-                        {% endif %}
-                    </ul>
-                </div>
-            </article>
-        {% endif %}
+                    </li>
+                {% endfor %}
+                {% if warnings_only|length > 50 %}
+                    <li>
+                        <em>… and {{ warnings_only|length|add:"-50" }} more. The rows above repeat the same problem across this report — fix the data and regenerate to shrink this list.</em>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
     </article>
+{% endif %}
+</article>
 {% endif %}
