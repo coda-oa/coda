@@ -1,25 +1,19 @@
-"""Generation's dual write: the stored document against the snapshot document.
+"""The document generation stores, for every shape of data a report can be made from.
 
-The report pages read the snapshot tables, and downloading a report turns those into openCost.
-Generation now also stores the document, built from the same live data by a second transform, so
-that the artifact and the row outcomes next to it are there before anyone asks for a download.
-These tests hold the two to each other: for every shape of data a report can be made from, the
-stored document must *be* the document the snapshot produces, and the outcomes written next to it
-must say how each of its pieces got there.
+The stored document is the report's exportable content, and the row outcomes written beside it say
+how each of its pieces got there. These tests hold the two to each other across a corpus of data
+shapes: what a report exports must be exactly what its rows claim it exported, down to the place
+each entry holds in the document and the group id that ties a publication to its contract.
 
-Comparison smooths only what a second transform is allowed to differ in: the group ids it invents
-for this run, the precision the writer already fixes at two decimals, and the order of two amount
-rows that carry the same amount.
+An item the XSD cannot be given is left out and reported instead, so a scenario may well export
+nothing at all — which is a result to check, not a reason to skip the test.
 """
 
-import logging
-import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict
 from datetime import date
 from decimal import Decimal
 from typing import Literal
-from xml.etree import ElementTree as ET
 
 import pytest
 
@@ -35,12 +29,11 @@ from coda.apps.opencost.models import (
     OpenCostReportPublication,
 )
 from coda.apps.opencost.report_service import generate_report
-from coda.apps.opencost.services.queries import load_transform_tree
-from coda.apps.opencost.xml_generation import generate_xml
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import Publication
 from coda.apps.publications.models._attachedentities import AttachedContract
 from coda.apps.publications.models._links import Link, LinkType
+from opencost import ContractType, Data, PublicationType
 from tests import modelfactory
 from tests.opencost.helpers import (
     create_contract_with_identifiers,
@@ -58,14 +51,11 @@ FILTERS = {
     "period_end": date(2024, 12, 31).isoformat(),
 }
 
-_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE)
-_DECIMAL_ELEMENTS = frozenset({"amount", "vat"})
 _UNSET = object()
 
 
 # ---------------------------------------------------------------------------------------------
-# Comparing the two documents
-# ---------------------------------------------------------------------------------------------
+# Reading back what generation wrote
 
 
 def _stored_document(report: OpenCostReport) -> str:
@@ -73,45 +63,20 @@ def _stored_document(report: OpenCostReport) -> str:
     return OpenCostReport.objects.get(pk=report.pk).xml_content
 
 
-def _snapshot_document(report: OpenCostReport) -> str:
-    """What downloading the report produces from its snapshot."""
-    publications, contracts = load_transform_tree(report)
-    return generate_xml(report, publications, contracts)
+def _document(report: OpenCostReport) -> Data | None:
+    """The stored document as models, or ``None`` when nothing was exportable."""
+    stored = _stored_document(report)
+    assert stored == report.xml_content, "the generated object and the row disagree"
+    return None if not stored else opencost.from_xml(stored)
 
 
-def _canonical(document: str) -> str:
-    """The document as text, freed of what a second transform may differ in.
-
-    ``group_id`` is a fresh uuid4 per contract per run, so what is compared is which entries share
-    a group, not the id. Amounts are compared at the two decimals the XML writer prints anyway.
-    And the amount rows of one invoice are put in a fixed order among themselves: positions were
-    read in amount order with no tie-breaker, so two rows of equal amount have no order to agree
-    on - rows of different amounts still have to come out in the same order.
-    """
-    if not document:
-        return ""
-
-    root = ET.fromstring(document)
-    groups: dict[str, str] = {}
-    for element in root.iter():
-        element.tag = element.tag.rpartition("}")[2]
-        if element.tag == "group_id" and element.text and _UUID.fullmatch(element.text):
-            element.text = groups.setdefault(element.text, f"group-{len(groups) + 1}")
-        elif element.tag in _DECIMAL_ELEMENTS and element.text:
-            element.text = f"{Decimal(element.text):.2f}"
-
-    for element in root.iter():
-        if element.tag == "amounts_paid":
-            element[:] = sorted(element, key=_amount_row_order)
-
-    ET.indent(root, space="  ")
-    return ET.tostring(root, encoding="unicode")
+type InvoiceRow = OpenCostReportInvoice | OpenCostReportContractInvoice
 
 
-def _amount_row_order(row: ET.Element) -> tuple[str, str]:
-    amount = row.findtext("amount") or ""
-    signature = "|".join(f"{child.tag}={child.text}" for child in row)
-    return amount, signature
+def _place(ordinal: int | None) -> int:
+    """The document entry an exported row names; an exported row always names one."""
+    assert ordinal is not None, "an exported row holds no place in the document"
+    return ordinal
 
 
 # ---------------------------------------------------------------------------------------------
@@ -136,7 +101,7 @@ def _home_institution(configure: bool = True) -> Institution:
     return institution
 
 
-def _generate(title: str = "Dual write report") -> OpenCostReport:
+def _generate(title: str = "Generated report") -> OpenCostReport:
     return generate_report(title=title, filters=FILTERS)
 
 
@@ -282,8 +247,7 @@ def _partly_unusable_invoice() -> None:
 
 
 def _equal_amount_positions() -> None:
-    """Two positions of the same amount: they have no order to agree on, and must not be swapped
-    with a third of a different amount."""
+    """Two positions of the same amount: their order is fixed by the fetch, not by chance."""
     publication = _publication("Article with two equal rows")
     invoice = create_invoice(
         creditor=create_creditor("Invoice Creditor"),
@@ -354,8 +318,8 @@ def _attachment_without_cost() -> None:
 def _same_year_attachment_without_cost() -> None:
     """Two contracts cover the same year: the tie is broken by the attachment itself.
 
-    The snapshot this has to match was read in contract-year order with no rule of its own for a
-    tie, so this is where the two ways of reading the same data could part.
+    Nothing below the year orders the two, so this is the shape that pins which one wins — the
+    attachment made first, here the one that carries no cost and so no group id.
     """
     unbilled = create_contract_with_identifiers(name="Unbilled Same Year", esac="ESAC-UNTIED")
     billed = create_contract_with_identifiers(name="Billed Same Year", esac="ESAC-BILLED")
@@ -415,29 +379,144 @@ SCENARIOS: list[Callable[[], None]] = [
     _everything_together,
 ]
 
+# The scenarios whose publications name a contract, and whether that contract is in the document
+# with invoices of its own — which is what a group id on the link means.
+LINKED_SCENARIOS: list[tuple[Callable[[], None], bool]] = [
+    (_publication_part_of_contract, True),
+    (_earliest_of_two_contracts, False),
+    (_attachment_without_cost, False),
+    (_same_year_attachment_without_cost, False),
+    (_same_year_attachment_with_cost, True),
+    (_everything_together, True),
+]
+
 
 # ---------------------------------------------------------------------------------------------
-# The stored document against the snapshot document
+# The stored document against the rows beside it
 # ---------------------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("build", SCENARIOS, ids=lambda build: build.__name__)
 @pytest.mark.django_db
-def test_stored_document_is_the_snapshot_document(build: Callable[[], None]) -> None:
-    """No shape of data may be exported differently by the transform that stores it."""
+def test_stored_document_holds_exactly_the_items_the_rows_call_exported(
+    build: Callable[[], None],
+) -> None:
+    """No row may claim a place the document does not hold, and no entry may go unclaimed.
+
+    The join is positional by design, so the ordinals and indexes the rows carry are the only
+    way back from a row to its entry — every exported row has to point at one, in range, and the
+    document may hold nothing beyond what the exported rows add up to.
+    """
     _home_institution()
     build()
 
     report = _generate()
 
-    stored = _canonical(_stored_document(report))
-    snapshot = _canonical(_snapshot_document(report))
-    assert stored == snapshot
+    document = _document(report)
+    publications = list(OpenCostReportPublication.objects.filter(report=report))
+    contracts = list(OpenCostReportContract.objects.filter(report=report))
+    exported_publications = [row for row in publications if row.exported]
+    exported_contracts = [row for row in contracts if row.exported]
+
+    # Order is the rows' own: the document lists items in the report's row order.
+    assert [row.xml_ordinal for row in exported_publications] == list(
+        range(len(exported_publications))
+    )
+    assert [row.xml_ordinal for row in exported_contracts] == list(range(len(exported_contracts)))
+
+    if document is None:
+        assert not exported_publications and not exported_contracts
+        return
+
+    entries: list[PublicationType | ContractType] = list(
+        (document.publication or []) + (document.contract or [])
+    )
+    assert all(entry.institution is not None for entry in entries)
+
+    assert len(document.publication or []) == len(exported_publications)
+    for row in exported_publications:
+        entry = (document.publication or [])[_place(row.xml_ordinal)]
+        assert isinstance(entry, PublicationType)
+        invoices = entry.cost_data.invoice or []
+        assert len(invoices) == row.invoices.filter(exported=True).count()
+        _assert_invoice_places(list(row.invoices.all()), len(invoices))
+
+    assert len(document.contract or []) == len(exported_contracts)
+    for row in exported_contracts:
+        entry = (document.contract or [])[_place(row.xml_ordinal)]
+        assert isinstance(entry, ContractType)
+        assert entry.contract_name == row.contract_name
+        groups = entry.cost_data.invoice_group or []
+        invoices = groups[0].invoice if groups else []
+        assert len(invoices or []) == row.invoices.filter(exported=True).count()
+        _assert_invoice_places(list(row.invoices.all()), len(invoices or []))
+
+    # Nothing that stayed out of the document can claim to have been exported cleanly.
+    assert not OpenCostReportInvoice.objects.filter(
+        report_publication__report=report, exported=False, had_errors=False
+    ).exists()
+    assert not OpenCostReportContractInvoice.objects.filter(
+        report_contract__report=report, exported=False, had_errors=False
+    ).exists()
+
+
+def _assert_invoice_places(rows: Sequence[InvoiceRow], number_of_exported_invoices: int) -> None:
+    """Every invoice row says where it stands, and only an exported one stands anywhere."""
+    exported = [row for row in rows if row.exported]
+    assert [row.xml_index for row in exported] == list(range(len(exported)))
+    assert len(exported) == number_of_exported_invoices
+    for row in rows:
+        assert (row.xml_index is not None) == row.exported
+
+
+@pytest.mark.parametrize(
+    "build, contract_in_document",
+    LINKED_SCENARIOS,
+    ids=[build.__name__ for build, _ in LINKED_SCENARIOS],
+)
+@pytest.mark.django_db
+def test_part_of_contract_names_a_group_the_document_holds(
+    build: Callable[[], None], contract_in_document: bool
+) -> None:
+    """A link to a contract is only worth publishing with that contract's own invoice group.
+
+    ``part_of_contract`` carries a group id, and an invoice group of the contract's cost block
+    carries the same one — a reader joins the publication to the money through it. A contract the
+    document holds no invoices for is named without one, since there is no group to share.
+    """
+    _home_institution()
+    build()
+
+    report = _generate()
+    document = _document(report)
+    assert document is not None and document.publication is not None
+
+    groups_by_esac = {
+        contract.primary_identifier.value: contract.cost_data.invoice_group[0].group_id
+        for contract in document.contract or []
+        if contract.cost_data.invoice_group
+    }
+    links = [
+        publication.cost_data.part_of_contract
+        for publication in document.publication
+        if publication.cost_data.part_of_contract is not None
+    ]
+    assert links, "the scenario exports no contract link to check"
+
+    for link in links:
+        assert link.primary_identifier is not None
+        esac = link.primary_identifier.value
+        if link.group_id is None:
+            assert esac not in groups_by_esac
+        else:
+            assert groups_by_esac[esac] == link.group_id
+
+    assert any(link.group_id is not None for link in links) is contract_in_document
 
 
 @pytest.mark.parametrize("build", SCENARIOS, ids=lambda build: build.__name__)
 @pytest.mark.django_db
-def test_stored_issue_log_costs_the_report_what_a_fresh_check_costs(
+def test_stored_issue_log_reads_issue_by_issue_and_matches_the_counts(
     build: Callable[[], None],
 ) -> None:
     """The stored log is readable issue by issue and agrees with the counts shown next to it."""
@@ -458,10 +537,10 @@ def test_stored_issue_log_costs_the_report_what_a_fresh_check_costs(
 
 
 @pytest.mark.django_db
-def test_an_artifact_that_cannot_be_written_leaves_the_report_generated(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+def test_a_document_that_cannot_be_built_fails_the_generation_it_was_run_for(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The pass that stores the document is allowed to fail; the report it ran for is not."""
+    """There is one transform and one artifact: a broken one is heard, not written around."""
 
     _clean_publication()
 
@@ -470,21 +549,13 @@ def test_an_artifact_that_cannot_be_written_leaves_the_report_generated(
 
     monkeypatch.setattr(report_service, "transform_report", broken)
 
-    with caplog.at_level(logging.ERROR):
-        report = _generate()
+    with pytest.raises(RuntimeError, match="cannot be built today"):
+        _generate()
 
-    assert "openCost artifact could not be stored" in caplog.text
-    assert "the artifact cannot be built today" in caplog.text
-
-    stored = OpenCostReport.objects.get(pk=report.pk)
-    assert (stored.xml_content, stored.issues) == ("", [])
-    # The counts the page shows come from the pass that did run.
-    assert stored.get_issue_counts() == {"errors": 0, "warnings": 0}
-    # The snapshot the pages read is whole, and still transforms on demand.
-    assert OpenCostReportPublication.objects.filter(report=report).count() == 1
-    assert _snapshot_document(report) != ""
-    row = OpenCostReportPublication.objects.get(report=report)
-    assert (row.exported, row.had_errors, row.xml_ordinal) == (False, False, None)
+    report = OpenCostReport.objects.get()
+    assert (report.xml_content, report.issues) == ("", [])
+    # The run left nothing behind for the document to be missing from, either.
+    assert not OpenCostReportPublication.objects.filter(report=report).exists()
 
 
 # ---------------------------------------------------------------------------------------------
@@ -506,6 +577,9 @@ def test_clean_export_records_a_row_of_the_document() -> None:
     )
     invoice = OpenCostReportInvoice.objects.get(report_publication=publication)
     assert (invoice.exported, invoice.had_errors, invoice.xml_index) == (True, False, 0)
+    # The two values the document cannot state for a publication of its own are the row's.
+    assert publication.title == "Clean article"
+    assert publication.publisher != ""
 
 
 @pytest.mark.parametrize(
@@ -605,57 +679,3 @@ def test_exported_contract_counts_its_invoices_from_the_document() -> None:
     assert (contract.exported, contract.had_errors, contract.xml_ordinal) == (True, False, 0)
     invoice = OpenCostReportContractInvoice.objects.get(report_contract=contract)
     assert (invoice.exported, invoice.had_errors, invoice.xml_index) == (True, False, 0)
-
-
-@pytest.mark.django_db
-def test_row_places_join_onto_the_stored_document() -> None:
-    """Every exported row points at the entry of the stored document its own data went into."""
-    _everything_together()
-
-    report = _generate()
-
-    data = opencost.from_xml(report.xml_content)
-    assert data.publication is not None
-    assert data.contract is not None
-
-    publications = list(OpenCostReportPublication.objects.filter(report=report, exported=True))
-    assert [row.xml_ordinal for row in publications] == list(range(len(publications)))
-    for publication_row in publications:
-        entry = data.publication[_place(publication_row.xml_ordinal)]
-        assert entry.institution is not None
-        assert entry.cost_data is not None
-
-    contracts = list(OpenCostReportContract.objects.filter(report=report, exported=True))
-    assert [row.xml_ordinal for row in contracts] == list(range(len(contracts)))
-    for contract_row in contracts:
-        contract_entry = data.contract[_place(contract_row.xml_ordinal)]
-        assert contract_entry.contract_name == contract_row.contract_name
-
-    for invoice_row in OpenCostReportInvoice.objects.filter(report_publication__report=report):
-        parent = invoice_row.report_publication
-        if not parent.exported:
-            assert (invoice_row.exported, invoice_row.xml_index) == (False, None)
-            continue
-        parent_entry = data.publication[_place(parent.xml_ordinal)]
-        assert parent_entry.cost_data is not None
-        invoices = parent_entry.cost_data.invoice or []
-        assert len(invoices) == parent.invoices.filter(exported=True).count()
-        number = invoice_row.invoice_number or None
-        if invoice_row.exported:
-            assert invoices[_place(invoice_row.xml_index)].invoice_number == number
-        else:
-            assert number not in [invoice.invoice_number for invoice in invoices]
-
-    # Nothing that stayed out of the document can claim to have been exported cleanly.
-    assert not OpenCostReportInvoice.objects.filter(
-        report_publication__report=report, exported=False, had_errors=False
-    ).exists()
-    assert not OpenCostReportContractInvoice.objects.filter(
-        report_contract__report=report, exported=False, had_errors=False
-    ).exists()
-
-
-def _place(ordinal: int | None) -> int:
-    """The document entry an exported row names; an exported row always names one."""
-    assert ordinal is not None, "an exported row holds no place in the document"
-    return ordinal

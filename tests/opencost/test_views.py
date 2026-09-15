@@ -14,6 +14,7 @@ from tests import modelfactory
 from tests.opencost.helpers import (
     create_contract_with_identifiers,
     create_contract_with_invoice,
+    create_institution_with_identifiers,
     create_opencost_report,
     create_publication_with_invoice,
 )
@@ -86,10 +87,22 @@ def test__invalid_open_access_type__generating_report__preserves_entered_title_a
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__generate_without_home_institution__fails_without_creating_a_report(
+def test__generate_without_home_institution__creates_a_report_that_exports_nothing(
     client: Client,
 ) -> None:
+    """A missing preference is an issue the report states, not a refusal to run.
+
+    Nothing can name an institution without it, so every item is considered and left out; the
+    reader is sent to the report to be told that, instead of back to a form that silently kept
+    the filters they had just typed.
+    """
     GlobalPreferences.objects.all().delete()
+    fr = modelfactory.fundingrequest(title="Publication with no institution to name")
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 1, 15),
+        invoice_number="INV-VIEW-NOINST",
+    )
 
     response = client.post(
         reverse("opencost:generate_submit"),
@@ -101,20 +114,34 @@ def test__generate_without_home_institution__fails_without_creating_a_report(
     )
 
     assert response.status_code == 302
-    assert OpenCostReport.objects.count() == 0
+    report = OpenCostReport.objects.get(title="No Institution Report")
+    assert report.publications.count() == 1
+    assert report.publications.get().exported is False
+    assert report.xml_content == ""
+    assert report.has_issues() is True
+
     flashes = [str(m) for m in get_messages(response.wsgi_request)]
-    assert any("No home institution is set" in m for m in flashes)
-    assert any("was not generated" in m for m in flashes)
+    assert any("has 1 error" in m for m in flashes)
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__generate_with_home_institution__warns_only_about_actual_issues(
+def test__generate_with_home_institution__exports_its_item_and_reports_no_issues(
     client: Client,
 ) -> None:
+    """The same run with a home institution configured exports what it covers, without warning."""
     prefs, _ = GlobalPreferences.objects.get_or_create()
-    prefs.home_institution = modelfactory.institution()
+    prefs.home_institution = create_institution_with_identifiers(
+        name="Reporting University",
+        ror="https://ror.org/view1",
+    )
     prefs.save()
+    fr = modelfactory.fundingrequest(title="Clean Publication")
+    create_publication_with_invoice(
+        fr.publication,
+        invoice_date=date(2024, 1, 15),
+        invoice_number="INV-VIEW-CLEAN",
+    )
 
     response = client.post(
         reverse("opencost:generate_submit"),
@@ -126,8 +153,12 @@ def test__generate_with_home_institution__warns_only_about_actual_issues(
     )
 
     assert response.status_code == 302
+    report = OpenCostReport.objects.get(title="Institution Report")
+    assert report.publications.get().exported is True
+    assert report.has_issues() is False
+
     flashes = [str(m) for m in get_messages(response.wsgi_request)]
-    assert not any("No home institution is set" in m for m in flashes)
+    assert any("generated successfully" in m for m in flashes)
 
 
 @pytest.mark.django_db

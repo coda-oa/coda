@@ -43,7 +43,6 @@ from coda.apps.opencost.report_service import (
 from coda.apps.opencost.report_service import (
     regenerate_report as regenerate_report_service,
 )
-from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 from opencost import Data
@@ -405,18 +404,6 @@ def _build_regeneration_success_message(report: OpenCostReport) -> str:
     )
 
 
-def _exclusion_message(excluded: list[ValidationWarning]) -> str:
-    """Summarise what the transformer had to leave out of the generated XML."""
-    count = f"{len(excluded)} record" if len(excluded) == 1 else f"{len(excluded)} records"
-    details = "; ".join(f"{warning.entity_name}: {warning.message}" for warning in excluded[:5])
-
-    hidden = len(excluded) - 5
-    if hidden > 0:
-        details += f" (and {hidden} more)"
-
-    return f"The openCost XML leaves out {count}: {details}"
-
-
 def _no_data_message(excluded: list[ValidationWarning]) -> str:
     if not excluded:
         return "No data to export — the report has no publications or contracts to transform."
@@ -452,18 +439,6 @@ def generate_report(request: HttpRequest) -> HttpResponse:
     cleaned = cast(FilterCleanedData, form.cleaned_data)
     title = cleaned["title"].strip() or "OpenCost Report"
     dto = ExportFiltersDto.from_form_data(cleaned)
-
-    prefs = GlobalPreferences.objects.select_related("home_institution").first()
-    if prefs is None or prefs.home_institution_id is None:
-        # without a home institution no snapshot carries institution data, every record is
-        # excluded, and the resulting XML would be empty — so do not create the report
-        messages.error(
-            request,
-            "No home institution is set — the report was not generated, because none of its "
-            "records could be exported to openCost XML. Set the home institution in "
-            "preferences and generate again.",
-        )
-        return redirect("opencost:generate")
 
     try:
         report = generate_report_service(
