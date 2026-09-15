@@ -380,6 +380,7 @@ def test__publication_with_links__generate_report__the_document_names_the_public
     report = _publication_report()
 
     entry = _document_publication(report)
+    assert entry.secondary_identifiers is not None
     values = {identifier.value for identifier in entry.secondary_identifiers.id or []}
     assert {"hdl:1234/original", "urn:nbn:de:original"} <= values
     assert len(values) == 3
@@ -624,6 +625,7 @@ def test__standalone_contract_with_invoice_positions__generate_report__states_th
 
     entry = _document_contract(report)
     assert entry.contract_name == contract.name
+    assert contract.start_date is not None and contract.end_date is not None
     assert (entry.participation.from_, entry.participation.to) == (
         contract.start_date.isoformat(),
         contract.end_date.isoformat(),
@@ -689,6 +691,7 @@ def test__contract_with_secondary_ids__generate_report__the_document_carries_the
     report = _publication_report(title="Test Report with Contract Secondary IDs 2024")
 
     entry = _document_contract(report)
+    assert entry.secondary_identifiers is not None
     assert {
         (identifier.type.value, identifier.value)
         for identifier in entry.secondary_identifiers.id or []

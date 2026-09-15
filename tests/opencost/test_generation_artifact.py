@@ -428,28 +428,29 @@ def test_stored_document_holds_exactly_the_items_the_rows_call_exported(
         assert not exported_publications and not exported_contracts
         return
 
-    entries: list[PublicationType | ContractType] = list(
-        (document.publication or []) + (document.contract or [])
-    )
+    entries: list[PublicationType | ContractType] = [
+        *(document.publication or []),
+        *(document.contract or []),
+    ]
     assert all(entry.institution is not None for entry in entries)
 
     assert len(document.publication or []) == len(exported_publications)
-    for row in exported_publications:
-        entry = (document.publication or [])[_place(row.xml_ordinal)]
-        assert isinstance(entry, PublicationType)
-        invoices = entry.cost_data.invoice or []
-        assert len(invoices) == row.invoices.filter(exported=True).count()
-        _assert_invoice_places(list(row.invoices.all()), len(invoices))
+    for pub_row in exported_publications:
+        pub_entry = (document.publication or [])[_place(pub_row.xml_ordinal)]
+        assert isinstance(pub_entry, PublicationType)
+        pub_invoices = pub_entry.cost_data.invoice or []
+        assert len(pub_invoices) == pub_row.invoices.filter(exported=True).count()
+        _assert_invoice_places(list(pub_row.invoices.all()), len(pub_invoices))
 
     assert len(document.contract or []) == len(exported_contracts)
-    for row in exported_contracts:
-        entry = (document.contract or [])[_place(row.xml_ordinal)]
-        assert isinstance(entry, ContractType)
-        assert entry.contract_name == row.contract.name
-        groups = entry.cost_data.invoice_group or []
-        invoices = groups[0].invoice if groups else []
-        assert len(invoices or []) == row.invoices.filter(exported=True).count()
-        _assert_invoice_places(list(row.invoices.all()), len(invoices or []))
+    for contract_row in exported_contracts:
+        contract_entry = (document.contract or [])[_place(contract_row.xml_ordinal)]
+        assert isinstance(contract_entry, ContractType)
+        assert contract_entry.contract_name == contract_row.contract.name
+        groups = contract_entry.cost_data.invoice_group or []
+        contract_invoices = groups[0].invoice if groups else []
+        assert len(contract_invoices or []) == contract_row.invoices.filter(exported=True).count()
+        _assert_invoice_places(list(contract_row.invoices.all()), len(contract_invoices or []))
 
     # Nothing that stayed out of the document can claim to have been exported cleanly.
     assert not OpenCostReportInvoice.objects.filter(

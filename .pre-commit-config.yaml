@@ -47,6 +47,7 @@ repos:
             'faker',
             'httpx',
             'psycopg',
+            'opencost>=0.1.1',
             'pytest',
             'pytest-django',
             'polars',
