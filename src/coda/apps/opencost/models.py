@@ -99,8 +99,23 @@ class OpenCostReportPublication(models.Model):
 
     snapshot_date = models.DateTimeField(default=timezone.now)
 
+    exported = models.BooleanField(
+        default=False,
+        help_text="Whether this publication was included in the generated XML",
+    )
+    had_errors = models.BooleanField(
+        default=False,
+        help_text="Whether generation recorded an error-level issue for this publication",
+    )
+    xml_ordinal = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Index of this publication's entry in the generated XML; None when excluded",
+    )
+
     class Meta:
-        ordering = ["title"]
+        # Id order: deterministic iteration, independent of snapshot content.
+        ordering = ["id"]
         unique_together = ("report", "publication")
         verbose_name = "Report Publication"
         verbose_name_plural = "Report Publications"
@@ -223,8 +238,24 @@ class OpenCostReportInvoice(models.Model):
 
     snapshot_date = models.DateTimeField(default=timezone.now)
 
+    exported = models.BooleanField(
+        default=False,
+        help_text="Whether this invoice was included in the generated XML",
+    )
+    had_errors = models.BooleanField(
+        default=False,
+        help_text="Whether generation recorded an error-level issue for this invoice",
+    )
+    xml_index = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Index of this invoice within its parent's exported invoices in the XML; "
+        "None when excluded",
+    )
+
     class Meta:
-        ordering = ["invoice_number"]
+        # Id order: deterministic iteration, independent of snapshot content.
+        ordering = ["id"]
         unique_together = ("report_publication", "invoice")
         verbose_name = "Report Invoice"
         verbose_name_plural = "Report Invoices"
@@ -304,8 +335,23 @@ class OpenCostReportContract(models.Model):
 
     snapshot_date = models.DateTimeField(default=timezone.now)
 
+    exported = models.BooleanField(
+        default=False,
+        help_text="Whether this contract was included in the generated XML",
+    )
+    had_errors = models.BooleanField(
+        default=False,
+        help_text="Whether generation recorded an error-level issue for this contract",
+    )
+    xml_ordinal = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Index of this contract's entry in the generated XML; None when excluded",
+    )
+
     class Meta:
-        ordering = ["contract_name"]
+        # Id order: deterministic iteration, independent of snapshot content.
+        ordering = ["id"]
         unique_together = ("report", "contract")
         verbose_name = "Report Contract"
         verbose_name_plural = "Report Contracts"
@@ -411,8 +457,24 @@ class OpenCostReportContractInvoice(models.Model):
 
     snapshot_date = models.DateTimeField(default=timezone.now)
 
+    exported = models.BooleanField(
+        default=False,
+        help_text="Whether this invoice was included in the generated XML",
+    )
+    had_errors = models.BooleanField(
+        default=False,
+        help_text="Whether generation recorded an error-level issue for this invoice",
+    )
+    xml_index = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Index of this invoice within its parent's exported invoices in the XML; "
+        "None when excluded",
+    )
+
     class Meta:
-        ordering = ["invoice_number"]
+        # Id order: deterministic iteration, independent of snapshot content.
+        ordering = ["id"]
         unique_together = ("report_contract", "invoice")
         verbose_name = "Report Contract Invoice"
         verbose_name_plural = "Report Contract Invoices"
