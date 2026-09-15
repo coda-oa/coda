@@ -1,4 +1,4 @@
-from collections.abc import Container, Iterable
+from collections.abc import Iterable
 
 from django.db.models import Case, IntegerField, QuerySet, When
 
@@ -14,7 +14,7 @@ def get_by_id(id: int) -> Institution:
     return Institution.all_objects.get(pk=id)
 
 
-def get_many_by_id(ids: Container[int]) -> Iterable[Institution]:
+def get_many_by_id(ids: Iterable[int]) -> Iterable[Institution]:
     return Institution.all_objects.filter(pk__in=ids).distinct()
 
 
