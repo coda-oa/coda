@@ -41,7 +41,7 @@ from coda.apps.opencost.models import (
     OpenCostReportInvoice,
     OpenCostReportPublication,
 )
-from coda.apps.opencost.transformers.live import (
+from coda.apps.opencost.transformers import (
     InvoiceOutcome,
     ItemOutcome,
     get_publisher_and_journal,
