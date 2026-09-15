@@ -1,9 +1,5 @@
-from functools import cached_property
-
 from django.db import models
 from django.utils import timezone
-
-from coda.apps.opencost.validation import validate_report, ValidationWarning
 
 
 class OpenCostReport(models.Model):
@@ -14,8 +10,6 @@ class OpenCostReport(models.Model):
     generated_at = models.DateTimeField(
         default=timezone.now, help_text="When this report was generated"
     )
-
-    xml_content = models.TextField(blank=True, help_text="Generated OpenCost XML")
 
     # Validation summary (computed at generation time to avoid N+1 queries)
     errors_count = models.IntegerField(
@@ -32,11 +26,6 @@ class OpenCostReport(models.Model):
 
     def __str__(self) -> str:
         return f"{self.title} ({self.period_start} to {self.period_end})"
-
-    @cached_property
-    def validation_warnings(self) -> list[ValidationWarning]:
-        """Cache validation results to avoid repeated calls."""
-        return validate_report(self)
 
     def has_issues(self) -> bool:
         """Check if report has any validation issues (uses cached counts)."""

@@ -1,0 +1,63 @@
+{% if failed or errors or warnings_only %}
+    <article class="my-2">
+        <header>
+            <h2>Data Completeness Issues</h2>
+        </header>
+        <p>
+            <small>Checked just now against this report's snapshot (generated {{ report.generated_at }}).
+            Fixing a source record does not change this list: correct the data, then generate a new report.</small>
+        </p>
+        {% if errors %}
+            <article class="error">
+                <h3>Errors ({{ errors|length }})</h3>
+                <p>
+                    <em>These records are missing from the XML:</em>
+                </p>
+                <div class="scroll-container max-h-30">
+                    <ul>
+                        {% for error in errors|slice:":50" %}
+                            <li>
+                                <strong>{{ error.entity_name }}</strong>: {{ error.message }}
+                                {% if error.fix_url %}— <a href="{{ error.fix_url }}">{% if error.entity_type == "publication" %}Open funding request{% elif error.entity_type == "contract" %}Open contract{% elif error.entity_type == "global" %}Open preferences{% endif %}</a>{% endif %}
+                            </li>
+                        {% endfor %}
+                        {% if errors|length > 50 %}
+                            <li>
+                                <em>… and {{ errors|length|add:"-50" }} more. The rows above repeat the same problem across this report — fix the data and generate a new report to shrink this list.</em>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </article>
+        {% endif %}
+        {% if warnings_only %}
+            <article class="warning">
+                <h3>Warnings ({{ warnings_only|length }})</h3>
+                <p>
+                    <em>Data quality notes — these records are in the XML as they are:</em>
+                </p>
+                <div class="scroll-container max-h-30">
+                    <ul>
+                        {% for warning in warnings_only|slice:":50" %}
+                            <li>
+                                <strong>{{ warning.entity_name }}</strong>: {{ warning.message }}
+                                {% if warning.fix_url %}— <a href="{{ warning.fix_url }}">{% if warning.entity_type == "publication" %}Open funding request{% elif warning.entity_type == "contract" %}Open contract{% elif warning.entity_type == "global" %}Open preferences{% endif %}</a>{% endif %}
+                            </li>
+                        {% endfor %}
+                        {% if warnings_only|length > 50 %}
+                            <li>
+                                <em>… and {{ warnings_only|length|add:"-50" }} more. The rows above repeat the same problem across this report — fix the data and generate a new report to shrink this list.</em>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </article>
+        {% endif %}
+        {% if failed %}
+            <article class="error">
+                <h3>Could not check this report</h3>
+                <p>The data completeness check failed. Try reloading the page. Any XML you download may still leave records out.</p>
+            </article>
+        {% endif %}
+    </article>
+{% endif %}

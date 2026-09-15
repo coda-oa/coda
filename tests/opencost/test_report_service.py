@@ -1,7 +1,10 @@
 from datetime import date
 from decimal import Decimal
-import pytest
 
+import pytest
+from pytest_django.fixtures import DjangoAssertNumQueries
+
+from coda.apps.institutions.models import Institution, InstitutionLink, InstitutionLinkType
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
@@ -10,8 +13,9 @@ from coda.apps.opencost.models import (
     OpenCostReportInvoicePosition,
     OpenCostReportPublication,
 )
-from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.opencost.report_service import generate_report
+from coda.apps.opencost.services.issues import collect_issues
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models._attachedentities import (
     AttachedContract,
     PublicationAttachedConcept,
@@ -20,16 +24,16 @@ from coda.apps.publications.models._links import Link, LinkType
 from coda.apps.publications.models._vocabulary import Vocabulary
 from tests import modelfactory
 from tests.opencost.helpers import (
+    create_contract_with_identifiers,
+    create_contract_with_invoice,
+    create_corresponding_author,
     create_creditor,
+    create_institution_with_identifiers,
     create_invoice,
+    create_opencost_report,
     create_position,
     create_publication_with_invoice,
-    create_opencost_report,
-    create_institution_with_identifiers,
-    create_corresponding_author,
-    create_contract_with_identifiers,
 )
-from coda.apps.institutions.models import Institution, InstitutionLinkType, InstitutionLink
 
 
 @pytest.mark.django_db
@@ -893,3 +897,152 @@ def test__publication_linked_to_contract_with_no_own_invoice_positions__generate
     assert linked_contract is not None
     assert linked_contract.group_id is not None
     assert linked_contract.group_id != ""
+
+
+@pytest.mark.django_db
+def test__clean_report_with_institution_doi_and_esac__generate_report__has_no_issues() -> None:
+    """A report whose publication and contract export cleanly reports no issues.
+
+    Home institution with identifiers, publication with DOI and invoice, contract
+    with ESAC, participation dates and an invoice: the dry run must find nothing.
+    """
+    home_institution = create_institution_with_identifiers(
+        name="Test University",
+        ror="https://ror.org/test123",
+    )
+    prefs, _ = GlobalPreferences.objects.get_or_create()
+    prefs.home_institution = home_institution
+    prefs.save()
+
+    doi_type, _ = LinkType.objects.get_or_create(name="DOI")
+    publication = modelfactory.publication(title="Valid Publication")
+    Link.objects.create(
+        publication=publication,
+        type=doi_type,
+        value="10.1234/test.123",
+    )
+    create_publication_with_invoice(publication)
+
+    contract = create_contract_with_identifiers(
+        name="Valid Contract",
+        esac="https://esac.org/id/123",
+    )
+    create_contract_with_invoice(contract)
+
+    report = generate_report(
+        title="Clean Report",
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
+    )
+
+    assert report.has_issues() is False
+    assert report.get_issue_counts() == {"errors": 0, "warnings": 0}
+
+
+@pytest.mark.django_db
+def test__missing_doi_esac_and_participation_dates__generate_report__counts_separate_errors_and_warnings() -> (
+    None
+):
+    """Substitutions warn (DOI, ESAC); exclusions error (no participation dates)."""
+    home_institution = create_institution_with_identifiers(
+        name="Test University",
+        ror="https://ror.org/test123",
+    )
+    prefs, _ = GlobalPreferences.objects.get_or_create()
+    prefs.home_institution = home_institution
+    prefs.save()
+
+    # 3 publications without DOI: exported with BibliographicInformation instead (warnings)
+    for i in range(3):
+        fr = modelfactory.fundingrequest(title=f"Publication Without DOI {i}")
+        fr.publication.links.filter(type__name="DOI").delete()
+        create_publication_with_invoice(
+            fr.publication,
+            invoice_date=date(2024, 6, 15),
+            invoice_number=f"INV-PUB-{i}",
+            cost_amount=Decimal("1500.00"),
+        )
+
+    # 2 contracts without ESAC: exported with ESAC 'UNKNOWN' instead (warnings)
+    for i in range(2):
+        contract = create_contract_with_identifiers(
+            name=f"Contract Without ESAC {i}",
+        )
+        create_contract_with_invoice(
+            contract,
+            invoice_date=date(2024, 6, 1),
+            invoice_number=f"INV-CONTRACT-{i}",
+        )
+
+    # 1 contract without participation dates: excluded entirely (error)
+    contract = modelfactory.contract()
+    contract.name = "Undated Agreement"
+    contract.start_date = None
+    contract.end_date = None
+    contract.save()
+    create_contract_with_invoice(contract, invoice_number="INV-UNDATED")
+
+    report = generate_report(
+        title="Mixed Issues Report",
+        filters={
+            "period_start": "2024-01-01",
+            "period_end": "2024-12-31",
+        },
+    )
+
+    issues = collect_issues(report)
+    assert issues is not None
+    doi_warnings = [w for w in issues if "DOI" in w.message and w.level == "warning"]
+    esac_warnings = [w for w in issues if "ESAC" in w.message and w.level == "warning"]
+    participation_errors = [
+        w for w in issues if "participation" in w.message and w.level == "error"
+    ]
+    assert len(doi_warnings) >= 3
+    assert len(esac_warnings) >= 2
+    assert len(participation_errors) >= 1
+
+    counts = report.get_issue_counts()
+    assert counts["warnings"] >= 5
+    assert counts["errors"] >= 1
+    assert report.has_issues() is True
+
+
+@pytest.mark.django_db
+def test__two_publications__generate_report__query_count_stays_bounded(
+    django_assert_max_num_queries: DjangoAssertNumQueries,
+) -> None:
+    """Guard the end-to-end query count without the performance marker.
+
+    Deliberately unmarked so it also runs under ``pdm run unittests``, which
+    filters performance-marked tests out. Two publications with invoices
+    exercise the full path: bulk creates, the group id update, and the
+    collect_issues dry run. Measured 31 queries for this fixture (2
+    publications with invoices, home institution, no contracts); pinned at 45
+    to leave headroom for prefetch additions.
+    """
+    home_institution = create_institution_with_identifiers(
+        name="Test University",
+        ror="https://ror.org/test123",
+    )
+    prefs, _ = GlobalPreferences.objects.get_or_create()
+    prefs.home_institution = home_institution
+    prefs.save()
+
+    for i in range(2):
+        fr = modelfactory.fundingrequest(title=f"Query Guard Publication {i}")
+        create_publication_with_invoice(
+            fr.publication,
+            invoice_date=date(2024, 6, 15),
+            invoice_number=f"INV-QUERY-{i:03d}",
+        )
+
+    with django_assert_max_num_queries(45):
+        generate_report(
+            title="Query Guard Report",
+            filters={
+                "period_start": "2024-01-01",
+                "period_end": "2024-12-31",
+            },
+        )

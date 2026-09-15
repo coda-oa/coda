@@ -9,16 +9,31 @@
                 {% if entity.has_issues %}
                     {% with counts=entity.get_issue_counts %}
                         {% if counts.errors > 0 and counts.warnings == 0 %}
-                            <a data-tooltip="This report has {{ counts.errors }} error{{ counts.errors|pluralize }}">
-                                <img src="{% static "assets/exclamation.svg" %}" alt="This report has {{ counts.errors }} error{{ counts.errors|pluralize }}" height="auto" width="auto" class="mb-1">
+                            <a data-tooltip="At generation: {{ counts.errors }} error{{ counts.errors|pluralize }}. The report page has the current list."
+                               href="{% url 'opencost:detail' entity.id %}">
+                                <img src="{% static "assets/exclamation.svg" %}"
+                                     alt="At generation: {{ counts.errors }} error{{ counts.errors|pluralize }}. The report page has the current list."
+                                     height="auto"
+                                     width="auto"
+                                     class="mb-1">
                             </a>
                         {% elif counts.warnings > 0 and counts.errors == 0 %}
-                            <a data-tooltip="This report has {{ counts.warnings }} warning{{ counts.warnings|pluralize }}">
-                                <img src="{% static "assets/exclamation.svg" %}" alt="This report has {{ counts.warnings }} warning{{ counts.warnings|pluralize }}" height="auto" width="auto" class="mb-1">
+                            <a data-tooltip="At generation: {{ counts.warnings }} warning{{ counts.warnings|pluralize }}. The report page has the current list."
+                               href="{% url 'opencost:detail' entity.id %}">
+                                <img src="{% static "assets/exclamation.svg" %}"
+                                     alt="At generation: {{ counts.warnings }} warning{{ counts.warnings|pluralize }}. The report page has the current list."
+                                     height="auto"
+                                     width="auto"
+                                     class="mb-1">
                             </a>
                         {% elif counts.errors > 0 and counts.warnings > 0 %}
-                            <a data-tooltip="This report has {{ counts.errors }} error{{ counts.errors|pluralize }} and {{ counts.warnings }} warning{{ counts.warnings|pluralize }}">
-                                <img src="{% static "assets/exclamation.svg" %}" alt="This report has {{ counts.errors }} error{{ counts.errors|pluralize }} and {{ counts.warnings }} warning{{ counts.warnings|pluralize }}" height="auto" width="auto" class="mb-1">
+                            <a data-tooltip="At generation: {{ counts.errors }} errors and {{ counts.warnings }} warnings. The report page has the current list."
+                               href="{% url 'opencost:detail' entity.id %}">
+                                <img src="{% static "assets/exclamation.svg" %}"
+                                     alt="At generation: {{ counts.errors }} errors and {{ counts.warnings }} warnings. The report page has the current list."
+                                     height="auto"
+                                     width="auto"
+                                     class="mb-1">
                             </a>
                         {% endif %}
                     {% endwith %}

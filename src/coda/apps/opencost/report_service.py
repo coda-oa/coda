@@ -29,7 +29,7 @@ from coda.apps.opencost.models import (
     OpenCostReportPublicationContract,
     OpenCostReportPublicationLink,
 )
-from coda.apps.opencost.validation import validate_report
+from coda.apps.opencost.services.issues import collect_issues
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.publications.models import Publication
 from coda.contexts.exports.dto.filters import ExportFiltersDto
@@ -238,19 +238,23 @@ def generate_report(
     logger.info("Updating publication-contract group IDs...")
     _update_publication_contract_group_ids(report)
 
-    # VALIDATION PHASE - Compute and cache validation counts
-    logger.info("Computing validation warnings...")
+    # ISSUE COUNTS PHASE - dry run the transform and persist the resulting counts.
+    # _update_publication_contract_group_ids(report) runs before this dry run
+    # because the transformer reads the persisted group ids (transformers.py
+    # _get_contract_cost_data - invoice group id - and _get_part_of_contract -
+    # link group id) while collecting issues.
+    logger.info("Computing issue counts...")
 
-    # Get already-created snapshots to avoid queries (extract values from dicts)
-    report_publications_list = list(report_publications.values())
-    report_contracts_list = list(report_contracts.values())
-
-    warnings = validate_report(
-        report, contracts=report_contracts_list, publications=report_publications_list
-    )
-    report.errors_count = sum(1 for w in warnings if w.level == "error")
-    report.warnings_count = sum(1 for w in warnings if w.level == "warning")
-    report.save(update_fields=["errors_count", "warnings_count"])
+    issues = collect_issues(report)
+    if issues is not None:
+        report.errors_count = sum(1 for w in issues if w.level == "error")
+        report.warnings_count = sum(1 for w in issues if w.level == "warning")
+        report.save(update_fields=["errors_count", "warnings_count"])
+    else:
+        # A broken check must not take generation down: leave the counts untouched.
+        logger.warning(
+            "OpenCost issue check failed for report %s; counts left unchanged", report.pk
+        )
 
     logger.info(
         f"Completed OpenCost report generation: {report.id} "

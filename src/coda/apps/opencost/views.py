@@ -4,15 +4,17 @@ from typing import cast
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Prefetch, Q
+from django.db.transaction import non_atomic_requests
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_GET, require_POST
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
-from coda.apps.contracts.models import ContractLink
 from coda.apps.domainqueryset import DomainQuerySet
 from coda.apps.exports.services.filter_display import (
     build_applied_filters,
@@ -27,21 +29,20 @@ from coda.apps.exports.services.filter_form import (
     current_filters_from_post,
     form_error_lines,
 )
+from coda.apps.opencost.issues import ValidationWarning
 from coda.apps.opencost.models import (
     OpenCostReport,
     OpenCostReportContract,
-    OpenCostReportContractInvoice,
-    OpenCostReportContractInvoicePosition,
-    OpenCostReportInvoice,
-    OpenCostReportInvoicePosition,
     OpenCostReportPublication,
     OpenCostReportPublicationContract,
 )
 from coda.apps.opencost.report_service import (
     generate_report as generate_report_service,
 )
-from coda.apps.opencost.validation import validate_report
+from coda.apps.opencost.services.issues import collect_issues
+from coda.apps.opencost.services.queries import transform_ready_reports
 from coda.apps.opencost.xml_generation import generate_xml
+from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import SimpleSearchEntityListView
 from coda.contexts.exports.dto.filters import ExportFiltersDto
 
@@ -135,10 +136,6 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
         contract_invoices_list = list(contract.invoices.all())
         setattr(contract, "invoices_count", len(contract_invoices_list))
 
-    # Pass pre-loaded data to validation to avoid duplicate queries
-    warnings = validate_report(report, contracts=contracts_list, publications=publications_list)
-    errors = [w for w in warnings if w.level == "error"]
-    warnings_only = [w for w in warnings if w.level == "warning"]
     applied_filters = build_applied_filters(report.filters)
     redo_url = create_redo_url(report.filters, "opencost:generate")
 
@@ -148,15 +145,30 @@ def report_detail(request: HttpRequest, report_id: int) -> HttpResponse:
         "publications_count": len(publications_list),
         "contracts": contracts_list,
         "contracts_count": len(contracts_list),
-        "warnings": warnings,
-        "errors": errors,
-        "warnings_only": warnings_only,
-        "has_issues": len(warnings) > 0,
         "applied_filters": applied_filters,
         "redo_url": redo_url,
     }
 
     return render(request, "opencost/report_detail.html", context)
+
+
+@require_GET
+@non_atomic_requests  # read-only, ~0.1 s, no txn held
+def report_issues(request: HttpRequest, report_id: int) -> HttpResponse:
+    if not request.user.is_authenticated:
+        raise PermissionDenied  # 403: a fragment target cannot use a login page
+    report = get_object_or_404(transform_ready_reports(), pk=report_id)
+    issues = collect_issues(report)
+    return render(
+        request,
+        "opencost/partials/report_issues.html",
+        {
+            "report": report,
+            "failed": issues is None,
+            "errors": [w for w in issues or () if w.level == "error"],
+            "warnings_only": [w for w in issues or () if w.level == "warning"],
+        },
+    )
 
 
 @login_required
@@ -185,9 +197,9 @@ def _build_issue_message(report: OpenCostReport, detail_url: str) -> str:
     issue_text = " and ".join(issue_parts)
 
     return mark_safe(
-        f"Report '{report.title}' generated with {report.publications.count()} publications "
+        f"Report '{escape(report.title)}' generated with {report.publications.count()} publications "
         f"and {report.contracts.count()} contracts, but has {issue_text}. "
-        f"<a href='{detail_url}'>View details</a>"
+        f"<a href='{detail_url}'>Review what the XML leaves out</a>"
     )
 
 
@@ -195,6 +207,34 @@ def _build_success_message(report: OpenCostReport) -> str:
     return (
         f"Report '{report.title}' generated successfully with {report.publications.count()} "
         f"publications and {report.contracts.count()} contracts."
+    )
+
+
+def _exclusion_message(excluded: list[ValidationWarning]) -> str:
+    """Summarise what the transformer had to leave out of the generated XML."""
+    count = f"{len(excluded)} record" if len(excluded) == 1 else f"{len(excluded)} records"
+    details = "; ".join(f"{warning.entity_name}: {warning.message}" for warning in excluded[:5])
+
+    hidden = len(excluded) - 5
+    if hidden > 0:
+        details += f" (and {hidden} more)"
+
+    return f"The openCost XML leaves out {count}: {details}"
+
+
+def _no_data_message(excluded: list[ValidationWarning]) -> str:
+    if not excluded:
+        return "No data to export — the report has no publications or contracts to transform."
+
+    details = "; ".join(f"{warning.entity_name}: {warning.message}" for warning in excluded[:5])
+
+    hidden = len(excluded) - 5
+    if hidden > 0:
+        details += f" (and {hidden} more)"
+
+    return (
+        "No file was downloaded: nothing in this report could be transformed into openCost XML. "
+        f"Reasons: {details}"
     )
 
 
@@ -217,6 +257,18 @@ def generate_report(request: HttpRequest) -> HttpResponse:
     cleaned = cast(FilterCleanedData, form.cleaned_data)
     title = cleaned["title"].strip() or "OpenCost Report"
     dto = ExportFiltersDto.from_form_data(cleaned)
+
+    prefs = GlobalPreferences.objects.select_related("home_institution").first()
+    if prefs is None or prefs.home_institution_id is None:
+        # without a home institution no snapshot carries institution data, every record is
+        # excluded, and the resulting XML would be empty — so do not create the report
+        messages.error(
+            request,
+            "No home institution is set — the report was not generated, because none of its "
+            "records could be exported to openCost XML. Set the home institution in "
+            "preferences and generate again.",
+        )
+        return redirect("opencost:generate")
 
     try:
         report = generate_report_service(
@@ -269,70 +321,19 @@ def _report_form_context(
 @login_required
 @require_GET
 def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
-    # Prefetch all related data upfront to avoid N+1 queries during XML generation
-    report = get_object_or_404(
-        OpenCostReport.objects.prefetch_related(
-            Prefetch(
-                "publications",
-                queryset=OpenCostReportPublication.objects.prefetch_related(
-                    "institution_identifiers",
-                    "links",
-                    Prefetch(
-                        "linked_contracts",
-                        queryset=OpenCostReportPublicationContract.objects.select_related(
-                            "contract",
-                        ).prefetch_related(
-                            Prefetch(
-                                "contract__links",
-                                queryset=ContractLink.objects.select_related("type"),
-                            ),
-                        ),
-                    ),
-                    Prefetch(
-                        "invoices",
-                        queryset=OpenCostReportInvoice.objects.prefetch_related(
-                            Prefetch(
-                                "positions",
-                                queryset=OpenCostReportInvoicePosition.objects.all(),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-            Prefetch(
-                "contracts",
-                queryset=OpenCostReportContract.objects.select_related(
-                    "report",
-                ).prefetch_related(
-                    "institution_identifiers",
-                    "secondary_identifiers",
-                    Prefetch(
-                        "invoices",
-                        queryset=OpenCostReportContractInvoice.objects.prefetch_related(
-                            Prefetch(
-                                "positions",
-                                queryset=OpenCostReportContractInvoicePosition.objects.all(),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-        pk=report_id,
-    )
+    report = get_object_or_404(transform_ready_reports(), pk=report_id)
 
     try:
         # Convert prefetched querysets to lists for transformer functions
         publications_list = list(report.publications.all())
         contracts_list = list(report.contracts.all())
 
-        xml_string = generate_xml(report, publications_list, contracts_list)
+        issues: list[ValidationWarning] = []
+        xml_string = generate_xml(report, publications_list, contracts_list, issues)
 
         if not xml_string:
-            messages.warning(
-                request,
-                "No data to export — all items were excluded due to missing required fields.",
-            )
+            errors = [w for w in issues if w.level == "error"]
+            messages.warning(request, _no_data_message(errors))
             return redirect(OPENCOST_LIST_URL)
 
         response = HttpResponse(xml_string, content_type="application/xml")
@@ -340,6 +341,10 @@ def download_xml(request: HttpRequest, report_id: int) -> HttpResponse:
         filename = f"{report.title}_{report.id}_{report.generated_at.strftime('%Y%m%d')}.xml"
 
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+        errors = [w for w in issues if w.level == "error"]
+        if errors:
+            messages.warning(request, _exclusion_message(errors))
 
         return response
 

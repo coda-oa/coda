@@ -6,6 +6,7 @@ import opencost
 from coda.apps.opencost.transformers import to_opencost
 
 if TYPE_CHECKING:
+    from coda.apps.opencost.issues import ValidationWarning
     from coda.apps.opencost.models import (
         OpenCostReport,
         OpenCostReportContract,
@@ -17,8 +18,9 @@ def generate_xml(
     report: OpenCostReport,
     publications: list[OpenCostReportPublication] | None = None,
     contracts: list[OpenCostReportContract] | None = None,
+    issues: list[ValidationWarning] | None = None,
 ) -> str:
-    data = to_opencost(report, publications, contracts)
+    data = to_opencost(report, publications, contracts, issues)
     if data is None:
         return ""
     return opencost.to_xml(data)
