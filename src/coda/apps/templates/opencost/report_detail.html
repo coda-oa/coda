@@ -71,7 +71,7 @@
                             </thead>
                             <tbody>
                                 {% for pub in publications %}
-                                    <tr {% if pub.status == "excluded" %}class="text-muted"{% endif %}>
+                                    <tr {% if pub.status == "excluded" %}class="opencost-excluded"{% endif %}>
                                         <td>
                                             {% if pub.fundingrequest_id %}
                                                 <a href="{% url 'fundingrequests:detail' pub.fundingrequest_id %}">{{ pub.title|truncatewords:10 }}</a>
@@ -141,7 +141,7 @@
                             </thead>
                             <tbody>
                                 {% for contract in contracts %}
-                                    <tr {% if contract.status == "excluded" %}class="text-muted"{% endif %}>
+                                    <tr {% if contract.status == "excluded" %}class="opencost-excluded"{% endif %}>
                                         <td>
                                             <a href="{% url 'contracts:detail' contract.contract_id %}">{{ contract.name }}</a>
                                         </td>
