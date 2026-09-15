@@ -77,7 +77,7 @@ TEMPLATE.innerHTML =  /*html*/ `
         }
 
         .selected-options:not(:empty) {
-            margin-bottom: var(--coda-spacing);
+            margin-bottom: 0.5rem;
             padding: calc(var(--coda-spacing) / 2);
             border: 1px solid var(--coda-border-color);
             border-top: none;
@@ -88,11 +88,12 @@ TEMPLATE.innerHTML =  /*html*/ `
         .selected-tag {
             background-color: var(--coda-secondary-background);
             color: var(--coda-secondary-inverse);
-            padding: calc(var(--coda-spacing) / 2);
+            padding: 0.125rem 0.5rem;
             border-radius: var(--coda-border-radius);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 0.25rem;
         }
 
         .selected-tag span {
@@ -101,7 +102,7 @@ TEMPLATE.innerHTML =  /*html*/ `
         }
 
         .remove-btn {
-            font-size: calc(var(--coda-font-size) * 1.25);
+            font-size: calc(var(--coda-font-size) * 1.1);
             cursor: pointer;
             border: none;
             background: none;
@@ -213,6 +214,16 @@ class SearchSelectMulti extends HTMLElement {
         container.querySelectorAll('.remove-btn').forEach(btn => {
             btn.addEventListener('click', () => this.removeSelectedOption(btn.dataset.option));
         });
+        this.syncPlaceholder();
+    }
+
+    syncPlaceholder() {
+        const placeholder = this.getAttribute('placeholder');
+        if (!placeholder) {
+            return;
+        }
+        const input = this.shadowRoot.querySelector('.search-input');
+        input.placeholder = this.selectedOptions.size > 0 ? '' : placeholder;
     }
 
     createSelectedTag(value, text, color) {
