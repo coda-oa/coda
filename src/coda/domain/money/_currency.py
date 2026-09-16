@@ -185,6 +185,10 @@ class Currency(Enum):
     def allcodes() -> set[str]:
         return {c.code for c in Currency}
 
+    @classmethod
+    def choices(cls) -> list[tuple[str, str]]:
+        return [(c.code, f"{c.code} - {c.name}") for c in cls]
+
     @property
     def code(self) -> str:
         return self.value.code

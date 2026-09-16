@@ -58,7 +58,9 @@ class PreloadedVocabularyProvider:
 
 
 class GlobalPreferences(models.Model):
-    home_currency = models.CharField(max_length=255, default=Currency.EUR.code)
+    home_currency = models.CharField(
+        max_length=3, default=Currency.EUR.code, choices=Currency.choices()
+    )
     home_institution = models.ForeignKey(
         "institutions.Institution",
         on_delete=models.SET_NULL,
@@ -193,7 +195,10 @@ class GlobalPreferences(models.Model):
     @staticmethod
     def get_home_currency() -> Currency:
         prefs, _ = GlobalPreferences.objects.get_or_create()
-        return Currency.from_code(prefs.home_currency)
+        try:
+            return Currency.from_code(prefs.home_currency)
+        except AttributeError:
+            return Currency.EUR
 
     @staticmethod
     def set_subject_classification_vocabulary(vocabulary: VocabularyProtocol) -> None:
