@@ -1,0 +1,27 @@
+{% load static %}
+<article>
+    <div class="flex justify-between align-center">
+        <div>
+            <h2 class="mb-1">
+                <a href="{% url 'exports:contracts_csv_detail' entity.id %}">{{ entity.name }}</a>
+            </h2>
+            <p>
+                <small>Generated: {{ entity.created_at }}</small>
+            </p>
+            <p>
+                <strong>Period:</strong> {{ entity.filters.period_start }} to {{ entity.filters.period_end }}
+                <br>
+            </p>
+            <p>
+                <strong>Number of records:</strong> {{ entity.record_count }}
+            </p>
+        </div>
+        <div class="flex">
+            <a href="{% url 'exports:contracts_csv_download' entity.id %}"
+               class="button secondary">Download CSV</a>
+            <button hx-post="{% url "exports:contracts_csv_delete" pk=entity.id %}"
+                    hx-confirm="Are you sure you want to delete this export?"
+                    class="danger">Delete Export</button>
+        </div>
+    </div>
+</article>

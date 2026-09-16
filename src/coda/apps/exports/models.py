@@ -15,3 +15,19 @@ class FundingRequestCSVExport(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.created_at.strftime('%Y-%m-%d')})"
+
+
+class ContractCSVExport(models.Model):
+    name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    filters = models.JSONField(help_text="Filter criteria used to generate this export")
+    record_count = models.IntegerField(help_text="Number of rows in export at creation time")
+    csv_file = models.FileField(upload_to="contract_exports/", null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Contract CSV Export"
+        verbose_name_plural = "Contract CSV Exports"
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.created_at.strftime('%Y-%m-%d')})"

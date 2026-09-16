@@ -28,6 +28,7 @@ def test__nav_template__loads_banner_via_htmx(
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__check_update_view__returns_empty_when_no_update(
     monkeypatch: pytest.MonkeyPatch,
     client: Client,
@@ -43,6 +44,7 @@ def test__check_update_view__returns_empty_when_no_update(
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__check_update_view__returns_banner_when_update_available(
     monkeypatch: pytest.MonkeyPatch,
     client: Client,
@@ -140,6 +142,8 @@ def test__nav__inside_group_mount__exactly_one_group_active(client: Client) -> N
     nav = _nav_html(client.get(reverse("fundingrequests:detail", args=[funding_request.pk])))
 
     assert nav.count("nav__group nav__group--active") == 1
+
+
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__nav__journal_detail__highlights_journals(client: Client) -> None:

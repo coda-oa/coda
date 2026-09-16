@@ -3,7 +3,7 @@
 CODA provides exporting your publication and contract data in the **openCost** format (XML). You can access the export features by navigating the menu item of the same name. 
 
 ```{admonition} Note
-CODA also provides exporting funding request data with their associated costs to CSV format. See [CSV Export](csv-export.md) for further explanation. 
+CODA also provides exporting data to CSV format. See [Funding Request CSV Export](csv-export.md) and [Contract CSV Export](contract-csv-export.md) for further explanation. 
 ```
 
 The openCost export feature allows you to generate standardized XML reports of your institution's publication costs and publishing contracts. openCost is a community-developed standard for exchanging publication cost data, making it easier to share transparent cost information with funding organizations, libraries, and other institutions.
