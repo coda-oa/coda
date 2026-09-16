@@ -18,7 +18,12 @@
                     class="inline-search-pill pill-right">Search</button>
         </fieldset>
         {% if publisher_error and request.method == "POST" and not selected_publisher %}
-            <ul class="errorlist" id="publisher-error">
+            <ul class="errorlist"
+                id="publisher-error"
+                hx-post="{% url 'fundingrequests:clear_validation_error' %}"
+                hx-trigger="change from:input[name='publisher'] once"
+                hx-target="this"
+                hx-swap="innerHTML">
                 <li>{{ publisher_error }}</li>
             </ul>
         {% endif %}

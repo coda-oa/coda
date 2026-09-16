@@ -217,14 +217,13 @@ class DOIPreviewSaveView(LoginRequiredMixin, MassImportAwareMixin, View):
 
 def _render_article_type_form(
     request: HttpRequest,
-    session_key: str,
     *,
     error: str = "",
 ) -> HttpResponse:
     """Render the article type-change form partial. Journal search is handled by wizard_find_journal."""
     context: dict[str, Any] = {
-        "session_key": session_key,
         "journals": [],
+        "suggested_journal": request.POST.get("journal_title", ""),
     }
     if error:
         context["error"] = error
@@ -233,7 +232,6 @@ def _render_article_type_form(
 
 def _render_monograph_type_form(
     request: HttpRequest,
-    session_key: str,
     original_metadata: dict[str, Any],
     *,
     error: str = "",
@@ -241,9 +239,7 @@ def _render_monograph_type_form(
     """Render the monograph type-change form partial, pre-filling from original metadata."""
     suggested_publisher = request.POST.get("publisher_name", original_metadata.get("publisher", ""))
     context: dict[str, Any] = {
-        "session_key": session_key,
         "suggested_publisher": suggested_publisher,
-        "publishers": [],
     }
     if error:
         context["error"] = error
@@ -304,7 +300,6 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
             if not journal_id_str:
                 return _render_article_type_form(
                     request,
-                    session_key,
                     error="Please select a journal before applying.",
                 )
 
@@ -315,7 +310,6 @@ def doi_preview_apply_type_change(request: HttpRequest, session_key: str) -> Htt
             if not publisher_id_str:
                 return _render_monograph_type_form(
                     request,
-                    session_key,
                     original_metadata,
                     error="Please select a publisher before applying.",
                 )
