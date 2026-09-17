@@ -1,4 +1,5 @@
-{% include "fundingrequests/partials/fundingrequest_filter_header.html" %}
-{% include "fundingrequests/partials/fundingrequest_active_filters.html" %}
+{% url 'fundingrequests:list' as filter_clear_url %}
+{% include "partials/filter_header.html" with filter_clear_url=filter_clear_url %}
+{% include "partials/filter_active_filters.html" with filter_list_id="fundingrequest-list" %}
 {% include "fundingrequests/forms/label_pills.html" %}
 {% include "fundingrequests/partials/fundingrequest_list_region.html" %}

@@ -87,7 +87,9 @@ def test__active_filter_chips__summary_shows_and_removes_in_place(
     label_attach(modelfactory.fundingrequest(title="Beta chip paper"), beta)
 
     list_page = FundingRequestListPage(coda_page, live_server.url)
-    list_page.navigate(label_ids=[alpha.pk, beta.pk])
+    list_page.navigate()
+    list_page.click_label_pill("Alpha chip")
+    list_page.click_label_pill("Beta chip")
 
     list_page.should_show_active_filter("Alpha chip")
     list_page.should_show_active_filter("Beta chip")
@@ -102,3 +104,32 @@ def test__active_filter_chips__summary_shows_and_removes_in_place(
     list_page.should_not_show_request("Alpha chip paper")
     list_page.should_have_url_query(f"labels={beta.pk}")
     list_page.should_not_have_url_query(f"labels={alpha.pk}")
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__chip_removal__resets_sidebar_controls(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    contract = modelfactory.contract()
+
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate()
+    list_page.filter_by_processing_status("approved")
+    list_page.filter_by_payment_status("paid")
+    list_page.select_publication_type("article")
+    list_page.choose_contract(contract.name)
+    list_page.show_only_invalid_contract_years()
+
+    chip_names = ("approved", "Paid", "Article", contract.name, "Invalid years only")
+    for name in chip_names:
+        list_page.should_show_active_filter(name)
+    for name in chip_names:
+        list_page.remove_active_filter(name)
+
+    list_page.should_have_no_selected_options("#processing_status")
+    list_page.should_have_no_selected_options("#id_payment_status")
+    list_page.should_be_checked("#publication_type_all")
+    list_page.should_have_unchecked_control("#publication_type_article")
+    list_page.should_have_form_value("#contract_name", "")
+    list_page.should_have_unchecked_control("#invalid_contract_years")

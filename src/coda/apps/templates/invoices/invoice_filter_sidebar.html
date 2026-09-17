@@ -1,0 +1,61 @@
+{% url 'invoices:list' as filter_clear_url %}
+{% include "partials/filter_header.html" with filter_clear_url=filter_clear_url %}
+{% include "partials/filter_active_filters.html" with filter_list_id="invoice-list" %}
+<div class="filter-group">
+    <h3 class="filter-group-title">Payment</h3>
+    {% include "invoices/partials/payment_status_filter.html" %}
+    {% include "invoices/partials/funding_source_filter.html" %}
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Contract</h3>
+    <div class="form-row">
+        <label for="contract_name">Contract</label>
+        <search-select id="contract_name" name="contract_name" class="w-100">
+        <li {% if not request.GET.contract_name %}selected{% endif %} value>-------</li>
+        {% for contract in contract_list %}
+            <li value="{{ contract.id }}"
+                {% if contract.id|stringformat:"s" == request.GET.contract_name %}selected{% endif %}>
+                {{ contract.name }}
+            </li>
+        {% endfor %}
+        </search-select>
+    </div>
+    <div class="form-row">
+        <label for="contract_year">Contract Year</label>
+        <input type="text"
+               id="contract_year"
+               name="contract_year"
+               value="{{ request.GET.contract_year }}">
+    </div>
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Invoice date</h3>
+    {% include "invoices/partials/date_range_filter.html" %}
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Data quality</h3>
+    <label class="filter-switch-row" for="has_external_id">
+        <input id="has_external_id"
+               type="checkbox"
+               name="has_external_id"
+               value="true"
+               {% if request.GET.has_external_id == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
+        <span>Show invoices without external IDs</span>
+    </label>
+    <label class="filter-switch-row" for="has_foreign_currency">
+        <input id="has_foreign_currency"
+               type="checkbox"
+               name="has_foreign_currency"
+               value="true"
+               {% if request.GET.has_foreign_currency == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
+        <span>Show invoices with foreign currencies and without conversion</span>
+    </label>
+    <label class="filter-switch-row" for="has_errors">
+        <input id="has_errors"
+               type="checkbox"
+               name="has_errors"
+               value="true"
+               {% if request.GET.has_errors == "true" %} aria-checked="true" checked {% else %} aria-checked="false" {% endif %}>
+        <span>Show invoices with errors</span>
+    </label>
+</div>

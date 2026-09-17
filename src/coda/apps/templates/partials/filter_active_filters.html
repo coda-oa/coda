@@ -7,7 +7,7 @@
               data-source="{{ chip.source_id }}"
               {% if chip.label_color %}style="--label-bg-color: {{ chip.label_color }}; --label-border-color: {{ chip.label_color }}"{% endif %}><span>{{ chip.text }}</span><a href="{{ chip.remove_url }}"
    hx-get="{{ chip.remove_fragment_url }}"
-   hx-target="#fundingrequest-list"
+   hx-target="#{{ filter_list_id }}"
    hx-push-url="{{ chip.remove_url }}"
    class="active-filter-remove"
    aria-label="Remove filter {{ chip.text }}">×</a></span>

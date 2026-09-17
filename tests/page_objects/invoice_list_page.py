@@ -4,11 +4,13 @@ from django.urls import reverse
 from playwright.sync_api import Page, expect
 
 
-class FundingRequestListPage:
+class InvoiceListPage:
+    """Drives the invoice list the way a user does: through the filter controls."""
+
     def __init__(self, page: Page, base_url: str):
         self._page = page
         self._base_url = base_url
-        self._list_region = page.locator("#fundingrequest-list")
+        self._list_region = page.locator("#invoice-list")
         self._active_filters = page.locator("#active-filters")
         self._search_input = page.locator(".filter-search")
         self._filter_count_badge = page.locator("#filter-sidebar-header .filter-count")
@@ -19,23 +21,30 @@ class FundingRequestListPage:
     def navigate(self) -> None:
         # Sidebar filter UI is only rendered at desktop width.
         self._page.set_viewport_size({"width": 1440, "height": 900})
-        self._page.goto(self._base_url + reverse("fundingrequests:list"))
+        self._page.goto(self._base_url + reverse("invoices:list"))
         self._page.wait_for_function("() => typeof htmx !== 'undefined'")
         # Readiness guard: fail fast here (sync, not a business assertion) if the page
         # chrome never renders, instead of inside the first test assertion.
         self._list_region.wait_for()
 
-    # Actions
+    # Filter actions (each triggers the live list update)
 
-    def select_publication_type(self, value: str) -> None:
-        self._page.locator(f'label[for="publication_type_{value}"]').click()
+    def type_search(self, term: str) -> None:
+        self._search_input.press_sequentially(term, delay=50)
+
+    def filter_by_payment_status(self, status: str) -> None:
+        self._page.select_option("#payment_status", status)
         self._wait_for_settled()
 
-    def filter_by_processing_status(self, value: str) -> None:
-        self._pick_option("#processing_status", value)
+    def set_contract_year(self, year: str) -> None:
+        self._commit_value("#contract_year", year)
 
-    def filter_by_payment_status(self, value: str) -> None:
-        self._pick_option("#id_payment_status", value)
+    def set_date_start(self, value: str) -> None:
+        self._commit_value("#date_start", value)
+
+    def show_only_errors(self) -> None:
+        self._page.check("#has_errors")
+        self._wait_for_settled()
 
     def choose_contract(self, name: str) -> None:
         host = self._page.locator("#contract_name")
@@ -43,33 +52,18 @@ class FundingRequestListPage:
         host.locator("li").filter(has_text=name).first.click()
         self._wait_for_settled()
 
-    def show_only_invalid_contract_years(self) -> None:
-        self._page.check("#invalid_contract_years")
-        self._wait_for_settled()
-
-    def type_search(self, term: str) -> None:
-        self._search_input.press_sequentially(term, delay=50)
-
-    def click_label_pill(self, name: str) -> None:
-        self._page.locator(f'.label-filter-pill:text-is("{name}")').click()
-        self._wait_for_settled()
-
     def remove_active_filter(self, name: str) -> None:
         chip = self._active_filters.locator(f'.active-filter:has-text("{name}")')
         chip.locator(".active-filter-remove").click()
         chip.wait_for(state="detached")
-        self._wait_for_settled()
 
     # Results region
 
-    def should_show_request(self, title: str) -> None:
-        expect(self._list_region).to_contain_text(title)
+    def should_show_invoice(self, number: str) -> None:
+        expect(self._list_region).to_contain_text(number)
 
-    def should_not_show_request(self, title: str) -> None:
-        expect(self._list_region).not_to_contain_text(title)
-
-    def should_show_empty_state(self) -> None:
-        expect(self._list_region).to_contain_text("No funding requests match")
+    def should_not_show_invoice(self, number: str) -> None:
+        expect(self._list_region).not_to_contain_text(number)
 
     # Filter state surfaced back to the user
 
@@ -91,6 +85,9 @@ class FundingRequestListPage:
     def should_not_have_url_query(self, fragment: str) -> None:
         expect(self._page).not_to_have_url(re.compile(re.escape(fragment)))
 
+    def should_have_control_value(self, selector: str, value: str) -> None:
+        expect(self._page.locator(selector)).to_have_value(value)
+
     def should_have_form_value(self, selector: str, value: str) -> None:
         # Form-associated custom elements are not input elements, so poll the
         # `value` property directly instead of using to_have_value.
@@ -102,24 +99,16 @@ class FundingRequestListPage:
             arg=[selector, value],
         )
 
-    def should_be_checked(self, selector: str) -> None:
-        expect(self._page.locator(selector)).to_be_checked()
-
     def should_have_unchecked_control(self, selector: str) -> None:
         expect(self._page.locator(selector)).not_to_be_checked()
 
-    def should_have_no_selected_options(self, selector: str) -> None:
-        expect(self._page.locator(selector).locator(".selected-tag")).to_have_count(0)
-
     # Internals
 
-    def _pick_option(self, host_selector: str, option_text: str) -> None:
-        # Opens the search-select-multi dropdown and clicks the matching option.
-        host = self._page.locator(host_selector)
-        host.locator(".search-input").click()
-        host.locator(".option").filter(
-            has_text=re.compile(rf"^{option_text}$", re.IGNORECASE)
-        ).first.click()
+    def _commit_value(self, selector: str, value: str) -> None:
+        # The sidebar reacts to `change`, which fires when the field is left.
+        field = self._page.locator(selector)
+        field.fill(value)
+        field.blur()
         self._wait_for_settled()
 
     def _wait_for_settled(self) -> None:

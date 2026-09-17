@@ -1,4 +1,3 @@
-from collections.abc import Iterator
 from typing import Any, cast
 
 import pytest
@@ -11,9 +10,17 @@ from coda.contexts.fundingrequest.services.labels import label_attach, label_cre
 from coda.domain.color import Color
 from coda.domain.fundingrequest.review import ReviewResult
 from tests import modelfactory
+from tests.filterdom import (
+    checked_radio_values,
+    clear_all_text,
+    hidden_values,
+    rendered_field_names,
+    selected_values,
+    walk,
+)
 
 
-def get_list(
+def goto_list_page(
     client: Client,
     query: dict[str, Any] | None = None,
 ) -> TemplateResponse:
@@ -27,37 +34,17 @@ def get_list_region(
     return cast(TemplateResponse, client.get(reverse("fundingrequests:list_region"), data=query))
 
 
-def _walk(element: Element) -> Iterator[Element]:
-    yield element
-    for child in element.children:
-        if isinstance(child, Element):
-            yield from _walk(child)
-
-
-def selected_values(dom: Element, name: str) -> list[str]:
-    """Return the `selected` option values of the search-select-multi named `name`."""
-    for element in _walk(dom):
-        attrs = dict(element.attributes)
-        if element.name == "search-select-multi" and attrs.get("name") == name:
-            return [
-                str(dict(option.attributes).get("value", ""))
-                for option in _walk(element)
-                if option.name == "option" and "selected" in dict(option.attributes)
-            ]
-    raise AssertionError(f"no <search-select-multi name={name!r}> in page")
-
-
 def pill_elements(dom: Element) -> list[Element]:
     return [
         element
-        for element in _walk(dom)
+        for element in walk(dom)
         if element.name == "a"
         and "label-filter-pill" in (dict(element.attributes).get("class") or "")
     ]
 
 
 def pill_by_name(dom: Element, name: str) -> Element:
-    for element in _walk(dom):
+    for element in walk(dom):
         if element.name != "a":
             continue
         attrs = dict(element.attributes)
@@ -80,7 +67,7 @@ def pill_state(dom: Element, name: str) -> str:
 def test__label_pill__link_points_at_filtered_list(client: Client) -> None:
     label_create("Pill A", Color())
 
-    response = get_list(client)
+    response = goto_list_page(client)
     pills = pill_elements(parse_html(response.content.decode()))
 
     assert pills, "no label pills rendered on the list page"
@@ -122,7 +109,7 @@ def test__label_filter__pills_reflect_active_filter(client: Client) -> None:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__filter_count__is_zero_without_filters(client: Client) -> None:
-    response = get_list(client)
+    response = goto_list_page(client)
 
     assert response.context["filter_count"] == 0
 
@@ -132,7 +119,7 @@ def test__filter_count__is_zero_without_filters(client: Client) -> None:
 def test__filter_count__counts_each_selected_value(client: Client) -> None:
     label = label_create("Counted Label", Color())
 
-    response = get_list(
+    response = goto_list_page(
         client,
         {
             "processing_status": [ReviewResult.Approved.value, ReviewResult.Rejected.value],
@@ -148,24 +135,15 @@ def test__filter_count__counts_each_selected_value(client: Client) -> None:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__filter_count__ignores_default_publication_type(client: Client) -> None:
-    response = get_list(client, {"publication_type": "all"})
+    response = goto_list_page(client, {"publication_type": "all"})
 
     assert response.context["filter_count"] == 0
-
-
-def checked_radio_values(dom: Element, name: str) -> list[str]:
-    values: list[str] = []
-    for element in _walk(dom):
-        attrs = dict(element.attributes)
-        if element.name == "input" and attrs.get("name") == name and "checked" in attrs:
-            values.append(str(attrs.get("value", "")))
-    return values
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__filter_ui__reflects_selected_processing_statuses(client: Client) -> None:
-    response = get_list(client, {"processing_status": ["approved", "rejected"]})
+    response = goto_list_page(client, {"processing_status": ["approved", "rejected"]})
 
     dom = parse_html(response.content.decode())
 
@@ -175,7 +153,7 @@ def test__filter_ui__reflects_selected_processing_statuses(client: Client) -> No
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__filter_ui__reflects_selected_payment_methods(client: Client) -> None:
-    response = get_list(client, {"payment_methods": ["direct"]})
+    response = goto_list_page(client, {"payment_methods": ["direct"]})
 
     dom = parse_html(response.content.decode())
 
@@ -185,7 +163,7 @@ def test__filter_ui__reflects_selected_payment_methods(client: Client) -> None:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__filter_ui__reflects_selected_publication_type(client: Client) -> None:
-    response = get_list(client, {"publication_type": "monograph"})
+    response = goto_list_page(client, {"publication_type": "monograph"})
 
     dom = parse_html(response.content.decode())
 
@@ -195,7 +173,7 @@ def test__filter_ui__reflects_selected_publication_type(client: Client) -> None:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__filter_ui__defaults_publication_type_to_all(client: Client) -> None:
-    response = get_list(client)
+    response = goto_list_page(client)
 
     dom = parse_html(response.content.decode())
 
@@ -204,20 +182,20 @@ def test__filter_ui__defaults_publication_type_to_all(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__list_region__returns_fragment_without_page_chrome(client: Client) -> None:
-    response = get_list_region(client)
+def test__list_region__returns_list_not_filter_controls(client: Client) -> None:
+    modelfactory.fundingrequest(title="Region content paper")
 
-    html = response.content.decode()
+    html = get_list_region(client).content.decode()
 
-    assert "filter-sidebar-form" not in html
-    assert "filter-toolbar-form" not in html
-    assert "<html" not in html.lower()
+    assert "Region content paper" in html
+    names = rendered_field_names(parse_html(html))
+    assert names.isdisjoint({"search_term", "processing_status", "payment_status"})
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__filter_count__excludes_search_and_sort(client: Client) -> None:
-    response = get_list(client, {"search_term": "x", "sort_by": "alphabetical"})
+    response = goto_list_page(client, {"search_term": "x", "sort_by": "alphabetical"})
 
     assert response.context["filter_count"] == 0
 
@@ -239,33 +217,13 @@ def test__clear_all__hidden_without_filters(client: Client) -> None:
     assert clear_all_text(response.content.decode()) is None
 
 
-def hidden_values(dom: Element, name: str) -> list[str]:
-    """Values of the hidden inputs named `name`, in DOM order."""
-    return [
-        str(dict(el.attributes).get("value", ""))
-        for el in _walk(dom)
-        if el.name == "input"
-        and dict(el.attributes).get("type") == "hidden"
-        and dict(el.attributes).get("name") == name
-    ]
-
-
-def clear_all_text(html: str) -> str | None:
-    """Text of the clear-all control, None when it isn't rendered."""
-    for el in _walk(parse_html(html)):
-        attrs = dict(el.attributes)
-        if el.name == "a" and "filter-clear" in (attrs.get("class") or "").split():
-            return "".join(c for c in el.children if isinstance(c, str)).strip()
-    return None
-
-
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
 def test__list_page__carries_label_state_for_form_submission(client: Client) -> None:
     alpha = label_create("Alpha", Color())
     beta = label_create("Beta", Color())
 
-    response = get_list(client, {"labels": [beta.pk, alpha.pk]})
+    response = goto_list_page(client, {"labels": [beta.pk, alpha.pk]})
 
     assert hidden_values(parse_html(response.content.decode()), "labels") == [
         str(alpha.pk),

@@ -1,0 +1,4 @@
+{% url 'invoices:list' as filter_clear_url %}
+{% include "partials/filter_header.html" with filter_clear_url=filter_clear_url %}
+{% include "partials/filter_active_filters.html" with filter_list_id="invoice-list" %}
+{% include "invoices/partials/invoice_list_region.html" %}

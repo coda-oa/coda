@@ -1,0 +1,15 @@
+<div class="filter-layout">
+    <div class="filter-main">
+        <form method="get" id="filter-toolbar-form">
+            {% include filter_toolbar_template %}
+        </form>
+        <div id="{{ filter_list_id }}"
+             class="filter-list"
+             hx-get="{{ filter_region_url }}"
+             hx-include="#filter-sidebar-form, #filter-toolbar-form"
+             hx-trigger="change from:#filter-sidebar-form, change from:#filter-toolbar-form, keyup delay:300ms from:#filter-toolbar-form, submit from:#filter-toolbar-form, submit from:#filter-sidebar-form">
+            {% include filter_list_region_template %}
+        </div>
+    </div>
+    {% include "partials/filter_drawer.html" %}
+</div>
