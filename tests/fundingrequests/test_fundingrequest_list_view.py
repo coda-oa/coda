@@ -184,14 +184,15 @@ def test__filter_ui__defaults_publication_type_to_all(client: Client) -> None:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__list_region__returns_list_not_filter_controls(client: Client) -> None:
+def test__list_region__returns_list_and_sidebar_not_toolbar(client: Client) -> None:
     modelfactory.fundingrequest(title="Region content paper")
 
     html = get_list_region(client).content.decode()
 
     assert "Region content paper" in html
     names = rendered_field_names(parse_html(html))
-    assert names.isdisjoint({"search_term", "processing_status", "payment_status"})
+    assert "processing_status" in names
+    assert names.isdisjoint({"search_term", "sort_by"})
 
 
 @pytest.mark.django_db

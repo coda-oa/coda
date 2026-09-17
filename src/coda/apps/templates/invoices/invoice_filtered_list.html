@@ -1,4 +1,8 @@
-{% url 'invoices:list' as filter_clear_url %}
-{% include "partials/filter_header.html" with filter_clear_url=filter_clear_url %}
-{% include "partials/filter_active_filters.html" with filter_list_id="invoice-list" %}
+{% comment %}
+    The whole sidebar is re-rendered from the URL so the server owns widget state.
+    The form's contents are swapped, not the form element: htmx binds its
+    `change from:#filter-sidebar-form` trigger to that element, so replacing it
+    would silence every later sidebar change.
+{% endcomment %}
+<div hx-swap-oob="innerHTML:#filter-sidebar-form">{% include "invoices/invoice_filter_sidebar.html" %}</div>
 {% include "invoices/partials/invoice_list_region.html" %}
