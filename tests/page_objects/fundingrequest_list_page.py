@@ -54,6 +54,15 @@ class FundingRequestListPage:
     def type_search(self, term: str) -> None:
         self._search_input.press_sequentially(term, delay=50)
 
+    def clear_search(self) -> None:
+        # Emulates the browser's <input type=search> clear icon: it sets the
+        # value to empty and fires `input` — not keyup, and not change either.
+        self._page.eval_on_selector(
+            ".filter-search",
+            "el => { el.value = ''; el.dispatchEvent(new Event('input', { bubbles: true })); }",
+        )
+        self._wait_for_settled()
+
     def click_label_pill(self, name: str) -> None:
         self._page.locator(f'.label-filter-pill:text-is("{name}")').click()
         self._wait_for_settled()
