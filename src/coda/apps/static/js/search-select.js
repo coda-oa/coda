@@ -1,5 +1,4 @@
-'use strict';
-
+"use strict";
 
 const htmlTemplate = /*html*/ `
 <div id="search-results-wrapper">
@@ -77,7 +76,8 @@ const htmlTemplate = /*html*/ `
         overflow-y: auto;
         z-index: 99;
 
-        margin-block: calc(-1 * var(--coda-spacing));
+        top: 100%;
+        margin-block: 0; /* UA default <ul> margin would gap the popup off the input */
         padding: calc(var(--coda-spacing) / 2);
 
         border: 1px solid var(--coda-muted-border-color);
@@ -116,251 +116,262 @@ const htmlTemplate = /*html*/ `
         opacity: 1;
     }
 </style>
-`
-
+`;
 
 class SearchSelect extends HTMLElement {
-  static formAssociated = true
+  static formAssociated = true;
 
   constructor() {
-    super()
-    this._internals = this.attachInternals()
+    super();
+    this._internals = this.attachInternals();
 
     this.attachShadow({
-      mode: "open"
-    })
-    const template = document.createElement("template")
-    template.innerHTML = htmlTemplate
-    this.shadowRoot.appendChild(template.content.cloneNode(template))
+      mode: "open",
+    });
+    const template = document.createElement("template");
+    template.innerHTML = htmlTemplate;
+    this.shadowRoot.appendChild(template.content.cloneNode(template));
   }
 
   connectedCallback() {
-    this._currentIndex = -1
-    this.searchBox = this.shadowRoot.querySelector("#search-box")
-    this.searchResults = this.shadowRoot.querySelector("#search-results")
-    this._slot = this.shadowRoot.querySelector("slot")
+    this._currentIndex = -1;
+    this.searchBox = this.shadowRoot.querySelector("#search-box");
+    this.searchResults = this.shadowRoot.querySelector("#search-results");
+    this._slot = this.shadowRoot.querySelector("slot");
 
-    this.value = null
+    this.value = null;
     this._slot.addEventListener("slotchange", () => {
-      this.listItems = this._slot.assignedElements()
-      this.visibleItems = this.listItems
-      this.validOptions = this.listItems.map(li => li.getAttribute("value"))
-      const selected = this.listItems.find(li => li.hasAttribute("selected"))
-      const index = this.listItems.indexOf(selected)
+      this.listItems = this._slot.assignedElements();
+      this.visibleItems = this.listItems;
+      this.validOptions = this.listItems.map((li) => li.getAttribute("value"));
+      const selected = this.listItems.find((li) => li.hasAttribute("selected"));
+      const index = this.listItems.indexOf(selected);
       if (selected !== undefined) {
-        this.searchBox.value = selected.textContent.trim()
-        this._currentIndex = index
-        this.value = selected.getAttribute("value")
+        this.searchBox.value = selected.textContent.trim();
+        this._currentIndex = index;
+        this.value = selected.getAttribute("value");
       }
-    })
+    });
 
     this.searchBox.addEventListener("keyup", (e) => {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        this.searchResults.classList.add("visible")
-        const direction = e.key === "ArrowDown" ? 1 : -1
-        this.navigateListItems(direction)
+        this.searchResults.classList.add("visible");
+        const direction = e.key === "ArrowDown" ? 1 : -1;
+        this.navigateListItems(direction);
       } else if (e.key === "Enter") {
-        this.searchBox.focus()
-        this.searchResults.classList.remove("visible")
-        this.dispatchChangeEvent()
+        this.searchBox.focus();
+        this.searchResults.classList.remove("visible");
+        this.dispatchChangeEvent();
       } else if (e.key === "Escape") {
-        this.searchBox.blur()
+        this.searchBox.blur();
       } else {
-        this.searchResults.classList.add("visible")
-        this.filterListItems()
+        this.searchResults.classList.add("visible");
+        this.filterListItems();
       }
-    })
+    });
 
     this.searchResults.addEventListener("mousedown", (e) => {
-      if (e.target.tagName === 'LI') {
-        this.searchBox.value = e.target.textContent.trim()
-        this.setActiveElement(e.target, this.visibleItems.indexOf(e.target))
-        this.setValueToActiveElementOrFirstMatch()
-        this.searchResults.classList.remove("visible")
-        this.dispatchChangeEvent()
+      if (e.target.tagName === "LI") {
+        this.searchBox.value = e.target.textContent.trim();
+        this.setActiveElement(e.target, this.visibleItems.indexOf(e.target));
+        this.setValueToActiveElementOrFirstMatch();
+        this.searchResults.classList.remove("visible");
+        this.dispatchChangeEvent();
       }
-    })
+    });
 
     this.searchBox.addEventListener("blur", () => {
-      this.searchResults.classList.remove("visible")
-      this.resetFilter()
-    })
+      this.searchResults.classList.remove("visible");
+      this.resetFilter();
+    });
 
     this.searchBox.addEventListener("focus", () => {
-      this.searchBox.select()
-      this.searchResults.classList.add("visible")
-    })
+      this.searchBox.select();
+      this.searchResults.classList.add("visible");
+    });
 
     this.searchBox.addEventListener("change", () => {
-      this.setValueToActiveElementOrFirstMatch()
-      this.filterListItems()
-      this.dispatchChangeEvent()
-    })
-
+      this.setValueToActiveElementOrFirstMatch();
+      this.filterListItems();
+      this.dispatchChangeEvent();
+    });
   }
 
   dispatchChangeEvent() {
-    this.dispatchEvent(new Event("change", { bubbles: true, composed: true }))
+    this.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
   }
 
   resetFilter() {
-    this.listItems.forEach(li => li.style.display = "list-item")
-    this.visibleItems = this.listItems
+    this.listItems.forEach((li) => (li.style.display = "list-item"));
+    this.visibleItems = this.listItems;
   }
 
   setValueToActiveElementOrFirstMatch() {
     if (this.activeElement !== undefined) {
-      this.value = this.activeElement.getAttribute("value")
-      this.searchBox.value = this.activeElement.textContent.trim()
+      this.value = this.activeElement.getAttribute("value");
+      this.searchBox.value = this.activeElement.textContent.trim();
     } else {
-      const match = this.firstMatch()
-      this.value = match?.getAttribute("value")
-      this.searchBox.value = match?.textContent.trim()
+      const match = this.firstMatch();
+      this.value = match?.getAttribute("value");
+      this.searchBox.value = match?.textContent.trim();
     }
   }
 
   firstMatch() {
-    return this.visibleItems.filter(li => this.matches(li))[0]
+    return this.visibleItems.filter((li) => this.matches(li))[0];
   }
 
   navigateListItems(direction) {
     if (this.visibleItems?.length === 0) {
-      return
+      return;
     }
 
-    const iter = new DoubleSidedIterator(this.visibleItems, this._currentIndex, direction)
-    this.setActiveElement(iter.next(), iter.index())
-    this.setValueToActiveElementOrFirstMatch()
+    const iter = new DoubleSidedIterator(
+      this.visibleItems,
+      this._currentIndex,
+      direction,
+    );
+    this.setActiveElement(iter.next(), iter.index());
+    this.setValueToActiveElementOrFirstMatch();
     this.activeElement.scrollIntoView({
-      block: "nearest"
-    })
+      block: "nearest",
+    });
   }
 
   filterListItems() {
-    const arr = Array.from(this.listItems)
-    arr.filter((li) => this.isVisible(li) && !this.matches(li))
-      .forEach(li => li.style.display = "none")
+    const arr = Array.from(this.listItems);
+    arr
+      .filter((li) => this.isVisible(li) && !this.matches(li))
+      .forEach((li) => (li.style.display = "none"));
 
-    arr.filter(li => !this.isVisible(li) && this.matches(li))
-      .forEach(li => li.style.display = "list-item")
+    arr
+      .filter((li) => !this.isVisible(li) && this.matches(li))
+      .forEach((li) => (li.style.display = "list-item"));
 
-    this.visibleItems = arr.filter(li => this.isVisible(li))
+    this.visibleItems = arr.filter((li) => this.isVisible(li));
     if (this.visibleItems.length > 0)
-      this.setActiveElement(this.visibleItems[0], 0)
+      this.setActiveElement(this.visibleItems[0], 0);
   }
 
   setActiveElement(li, index) {
-    this.activeElement?.classList.remove("focus")
+    this.activeElement?.classList.remove("focus");
 
-    this.activeElement = li
-    this.activeElement.classList.add("focus")
-    this._currentIndex = index
+    this.activeElement = li;
+    this.activeElement.classList.add("focus");
+    this._currentIndex = index;
   }
 
   isVisible(li) {
-    return li.style.display !== "none"
+    return li.style.display !== "none";
   }
 
   matches(li) {
-    const searchTerm = this.searchBox.value
-    return searchTerm.length == 0 || li.textContent.trim().toLowerCase().includes(searchTerm.toLowerCase())
+    const searchTerm = this.searchBox.value;
+    return (
+      searchTerm.length == 0 ||
+      li.textContent.trim().toLowerCase().includes(searchTerm.toLowerCase())
+    );
   }
 
   set value(value) {
-    this._internals.setFormValue(value)
-    this._value = value
-    this.updateValidity()
+    this._internals.setFormValue(value);
+    this._value = value;
+    this.updateValidity();
   }
 
   updateValidity() {
-    let validity, message
-    const required = this.getAttribute("required")
+    let validity, message;
+    const required = this.getAttribute("required");
     if (!this.isValidSelection() && required) {
       validity = {
-        badInput: true
-      }
-      message = `${this.value} is not a valid option`
+        badInput: true,
+      };
+      message = `${this.value} is not a valid option`;
     } else {
-      validity = this.searchBox.validity
-      message = this.searchBox.validationMessage
+      validity = this.searchBox.validity;
+      message = this.searchBox.validationMessage;
     }
-    this._internals.setValidity(validity, message, this.searchBox)
+    this._internals.setValidity(validity, message, this.searchBox);
   }
 
   isValidSelection() {
-    return this.validOptions?.includes(this.value)
+    return this.validOptions?.includes(this.value);
   }
 
   checkValidity() {
-    return this._internals.checkValidity()
+    return this._internals.checkValidity();
   }
 
   reportValidity() {
-    return this._internals.reportValidity()
+    return this._internals.reportValidity();
   }
 
   get validity() {
-    return this._internals.validity
+    return this._internals.validity;
   }
 
   get value() {
-    return this._value
+    return this._value;
   }
 
-
   get form() {
-    return this._internals.form
+    return this._internals.form;
   }
 
   get name() {
-    return this.getAttribute("name")
+    return this.getAttribute("name");
   }
 
   get type() {
-    return this.localName
+    return this.localName;
   }
 }
-
 
 class DoubleSidedIterator {
   constructor(array, start, direction = 1) {
-    this._array = array
-    this._index = start
-    this._direction = direction
+    this._array = array;
+    this._index = start;
+    this._direction = direction;
   }
 
   index() {
-    return this._index
+    return this._index;
   }
 
   current() {
-    return this._array[this._index ?? 0]
+    return this._array[this._index ?? 0];
   }
 
   next() {
-    this._index = this.normalizeIndex(this._index + this._direction, this._array)
+    this._index = this.normalizeIndex(
+      this._index + this._direction,
+      this._array,
+    );
     if (this._index >= this._array.length) {
-      this._index = 0
+      this._index = 0;
     }
-    return this._array[this._index]
+    return this._array[this._index];
   }
 
   previous() {
-    this._index = this.normalizeIndex(this._index - this._direction, this._array)
+    this._index = this.normalizeIndex(
+      this._index - this._direction,
+      this._array,
+    );
     if (this._index < 0) {
-      this._index = this._array.length - 1
+      this._index = this._array.length - 1;
     }
-    return this._array[this._index]
+    return this._array[this._index];
   }
   normalizeIndex(index, listItems) {
     if (index < 0) {
-      return listItems.length - 1
+      return listItems.length - 1;
     }
     if (index >= listItems.length) {
-      return 0
+      return 0;
     }
-    return index
+    return index;
   }
 }
 
-customElements.define("search-select", SearchSelect)
+customElements.define("search-select", SearchSelect);

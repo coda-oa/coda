@@ -40,7 +40,7 @@ TEMPLATE.innerHTML =  /*html*/ `
         .dropdown {
             display: none;
             position: absolute;
-            top: calc(var(--coda-form-element-spacing-vertical) + var(--coda-line-height));
+            top: 100%;
             left: 0;
 
             z-index: 99;
