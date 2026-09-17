@@ -93,7 +93,7 @@ class OpenCostReportInstitutionIdentifier(models.Model):
 
     identifier_type = models.CharField(
         max_length=50,
-        help_text="Type of identifier: ror, isni, or ringold (snapshot)",
+        help_text="Type of identifier: ror, isni, or ringgold (snapshot)",
     )
     value = models.CharField(
         max_length=500,
@@ -298,7 +298,7 @@ class OpenCostReportContractInstitutionIdentifier(models.Model):
 
     identifier_type = models.CharField(
         max_length=50,
-        help_text="Type of identifier: ror, isni, or ringold (snapshot)",
+        help_text="Type of identifier: ror, isni, or ringgold (snapshot)",
     )
     value = models.CharField(
         max_length=500,
