@@ -139,6 +139,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     payment_methods = [PaymentMethod(pm) for pm in request.GET.getlist("payment_methods")]
     show_invalid_contract_years = request.GET.get("invalid_contract_years") == "on"
     publication_states = request.GET.getlist("publication_states")
+    sort_order = fq.SortOrder.try_parse(request.GET.get("sort_by"))
 
     try:
         date_range = DateRange.try_fromisoformat(
@@ -147,7 +148,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
         )
     except ValueError as e:
         messages.warning(request, str(e))
-        return fq.search()
+        return fq.search(sort_order=sort_order)
 
     params = fq.FundingRequestSearchParams(
         date_range=date_range,
@@ -166,7 +167,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     )
 
     criteria = fq.build_criteria(params)
-    return fq.search(*criteria)
+    return fq.search(*criteria, sort_order=sort_order)
 
 
 def get_contract_list_context() -> dict[str, Any]:

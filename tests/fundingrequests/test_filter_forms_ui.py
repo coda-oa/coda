@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 from playwright.sync_api import Page
 from pytest_django.live_server_helper import LiveServer
@@ -133,3 +135,24 @@ def test__chip_removal__resets_sidebar_controls(
     list_page.should_have_unchecked_control("#publication_type_article")
     list_page.should_have_form_value("#contract_name", "")
     list_page.should_have_unchecked_control("#invalid_contract_years")
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__sort_change__reorders_list_in_place(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    alpha = modelfactory.fundingrequest(title="AA-alpha request")
+    zulu = modelfactory.fundingrequest(title="ZZ-zulu request")
+    FundingRequestModel.objects.filter(pk=alpha.pk).update(request_date=date(2024, 1, 1))
+    FundingRequestModel.objects.filter(pk=zulu.pk).update(request_date=date(2024, 6, 1))
+
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate()
+
+    list_page.should_show_request_before("ZZ-zulu request", "AA-alpha request")
+
+    list_page.sort_by("alphabetical")
+
+    list_page.should_show_request_before("AA-alpha request", "ZZ-zulu request")
+    list_page.should_have_url_query("sort_by=alphabetical")

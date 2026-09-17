@@ -34,6 +34,10 @@ class FundingRequestListPage:
     def filter_by_processing_status(self, value: str) -> None:
         self._pick_option("#processing_status", value)
 
+    def sort_by(self, value: str) -> None:
+        self._page.select_option("#sort_by", value)
+        self._wait_for_settled()
+
     def filter_by_payment_status(self, value: str) -> None:
         self._pick_option("#id_payment_status", value)
 
@@ -64,6 +68,9 @@ class FundingRequestListPage:
 
     def should_show_request(self, title: str) -> None:
         expect(self._list_region).to_contain_text(title)
+
+    def should_show_request_before(self, first: str, second: str) -> None:
+        expect(self._list_region).to_have_text(re.compile(rf".*{first}.*{second}.*", re.DOTALL))
 
     def should_not_show_request(self, title: str) -> None:
         expect(self._list_region).not_to_contain_text(title)
