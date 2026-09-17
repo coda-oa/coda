@@ -252,6 +252,10 @@ class SearchSelectMulti extends HTMLElement {
             });
             this.updateDropdown(this.options);
             this.updateSelectedOptions();
+            // Hydrated selections must reach the form value here: the swap that
+            // created this element may already have run formAssociatedCallback
+            // with an empty selection, and that ordering is engine-specific.
+            this.updateFormValue();
         }
     }
 

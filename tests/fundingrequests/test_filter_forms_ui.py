@@ -1,7 +1,8 @@
+import re
 from datetime import date
 
 import pytest
-from playwright.sync_api import Page
+from playwright.sync_api import Page, expect
 from pytest_django.live_server_helper import LiveServer
 
 from coda.apps.fundingrequests import repository
@@ -177,3 +178,84 @@ def test__search_clear_icon__resets_filter_in_place(
     list_page.should_show_request("Clear other request")
     list_page.should_show_request("Clear hit request")
     list_page.should_not_have_url_query("search_term=Clear+hit")
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__chip_removal__keeps_other_values_of_a_multi_value_filter(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate()
+    list_page.filter_by_processing_status("approved")
+    list_page.filter_by_processing_status("rejected")
+    list_page.should_show_active_filter("approved")
+    list_page.should_show_active_filter("rejected")
+
+    list_page.remove_active_filter("approved")
+
+    list_page.should_have_selected_options("#processing_status", ["rejected"])
+    list_page.should_have_active_filter_count(1)
+    list_page.should_have_url_query("processing_status=rejected")
+    list_page.should_not_have_url_query("processing_status=approved")
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__deep_linked_selection__survives_the_next_filter_change(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate("processing_status=approved")
+    list_page.should_have_selected_options("#processing_status", ["approved"])
+
+    list_page.select_publication_type("article")
+
+    list_page.should_have_url_query("processing_status=approved")
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__sidebar_rerender__keeps_mobile_drawer_open(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate()
+    coda_page.set_viewport_size({"width": 900, "height": 900})
+    coda_page.locator("#filter-drawer-toggle").click()
+    expect(coda_page.locator(".filter-layout")).to_have_class(re.compile("filter-drawer-open"))
+
+    list_page.select_publication_type("article")
+
+    expect(coda_page.locator(".filter-layout")).to_have_class(re.compile("filter-drawer-open"))
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__sidebar_rerender__keeps_hydrated_selection_in_the_next_request(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    """A re-rendered widget must still contribute its server-rendered value."""
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate("processing_status=approved")
+
+    list_page.select_publication_type("article")
+
+    list_page.should_have_selected_options("#processing_status", ["approved"])
+    list_page.show_only_invalid_contract_years()
+    list_page.should_have_url_query("processing_status=approved")
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__chip_body_click__flashes_the_control_holding_the_value(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    """The chip body points at its control; the × beside it is a separate action."""
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate("processing_status=approved")
+
+    list_page.click_active_filter_body("approved")
+
+    expect(coda_page.locator("#processing_status")).to_have_class(re.compile("filter-flash"))
+    list_page.should_have_selected_options("#processing_status", ["approved"])

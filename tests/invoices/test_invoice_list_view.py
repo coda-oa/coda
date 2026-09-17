@@ -18,6 +18,7 @@ from tests.filterdom import (
     is_checked,
     rendered_field_names,
     selected_option_values,
+    swap_targets,
 )
 
 
@@ -55,14 +56,25 @@ def create_invoice(
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
-def test__list_region__returns_list_not_filter_controls(client: Client) -> None:
+def test__list_region__returns_list_and_sidebar_not_toolbar(client: Client) -> None:
     create_invoice("REGION-42")
 
     html = get_list_region(client).content.decode()
 
     assert "REGION-42" in html
     names = rendered_field_names(parse_html(html))
-    assert names.isdisjoint({"search_term", "payment_status", "funding_source"})
+    assert "payment_status" in names
+    assert names.isdisjoint({"search_term", "sort_by"})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__invoice_list_region__rerenders_the_sidebar_from_the_url(client: Client) -> None:
+    html = get_list_region(client, {"payment_status": "unpaid"}).content.decode()
+
+    dom = parse_html(html)
+    assert "filter-sidebar-form" in swap_targets(dom)
+    assert selected_option_values(dom, "payment_status") == ["unpaid"]
 
 
 @pytest.mark.django_db

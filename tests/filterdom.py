@@ -25,6 +25,23 @@ def _has_class(element: Element, class_name: str) -> bool:
     return class_name in (_attrs(element).get("class") or "").split()
 
 
+def swap_targets(dom: Element) -> list[str]:
+    """Ids the fragment markup asks htmx to swap out-of-band, in document order.
+
+    ``hx-swap-oob="true"`` swaps the element carrying the attribute, so it
+    targets its own id; a swap style naming a selector (``"innerHTML:#id"``)
+    targets that element instead.
+    """
+    targets: list[str] = []
+    for element in walk(dom):
+        oob = _attrs(element).get("hx-swap-oob")
+        if not oob or oob == "false":
+            continue
+        _, _, selector = oob.partition(":")
+        targets.append(selector.lstrip("#") or str(_attrs(element).get("id", "")))
+    return targets
+
+
 def selected_values(dom: Element, name: str) -> list[str]:
     """Selected option values of the ``search-select-multi`` named ``name``."""
     for element in walk(dom):

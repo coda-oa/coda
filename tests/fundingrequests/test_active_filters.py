@@ -20,6 +20,7 @@ from typing import Any, cast
 import pytest
 from django.template.response import TemplateResponse
 from django.test import Client
+from django.test.html import parse_html
 from django.urls import reverse
 
 from coda.apps.contracts.models import Contract
@@ -28,6 +29,7 @@ from coda.contexts.fundingrequest.services.labels import label_attach, label_cre
 from coda.domain.color import Color
 from coda.domain.contract import PublicationBilling
 from tests import modelfactory
+from tests.filterdom import selected_values, swap_targets
 
 pytestmark = pytest.mark.django_db
 
@@ -189,3 +191,13 @@ def test__summary__tolerates_stale_references(client: Client) -> None:
 
     assert response.status_code == 200
     assert chip_texts(response) == ["99999", "Not: 99999"]
+
+
+@pytest.mark.usefixtures("logged_in")
+def test__list_region__rerenders_the_sidebar_from_the_url(client: Client) -> None:
+    """Widget state comes from the server: the fragment re-renders the whole sidebar."""
+    response = get_list_region(client, processing_status=["approved", "rejected"])
+
+    dom = parse_html(response.content.decode())
+    assert "filter-sidebar-form" in swap_targets(dom)
+    assert selected_values(dom, "processing_status") == ["approved", "rejected"]

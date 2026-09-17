@@ -16,10 +16,11 @@ class FundingRequestListPage:
 
     # Navigation
 
-    def navigate(self) -> None:
+    def navigate(self, query: str = "") -> None:
         # Sidebar filter UI is only rendered at desktop width.
         self._page.set_viewport_size({"width": 1440, "height": 900})
-        self._page.goto(self._base_url + reverse("fundingrequests:list"))
+        url = self._base_url + reverse("fundingrequests:list")
+        self._page.goto(f"{url}?{query}" if query else url)
         self._page.wait_for_function("() => typeof htmx !== 'undefined'")
         # Readiness guard: fail fast here (sync, not a business assertion) if the page
         # chrome never renders, instead of inside the first test assertion.
@@ -72,6 +73,10 @@ class FundingRequestListPage:
         chip.locator(".active-filter-remove").click()
         chip.wait_for(state="detached")
         self._wait_for_settled()
+
+    def click_active_filter_body(self, name: str) -> None:
+        # The chip body (not its × link): clicking it highlights the control.
+        self._active_filters.locator(f'.active-filter:has-text("{name}") > span').click()
 
     # Results region
 
@@ -126,6 +131,12 @@ class FundingRequestListPage:
 
     def should_have_no_selected_options(self, selector: str) -> None:
         expect(self._page.locator(selector).locator(".selected-tag")).to_have_count(0)
+
+    def should_have_selected_options(self, selector: str, texts: list[str]) -> None:
+        tags = self._page.locator(selector).locator(".selected-tag")
+        expect(tags).to_have_count(len(texts))
+        for text in texts:
+            expect(tags.filter(has_text=text).first).to_be_visible()
 
     # Internals
 
