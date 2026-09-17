@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any, cast
 
 import pytest
@@ -6,6 +7,7 @@ from django.test import Client
 from django.test.html import Element, parse_html
 from django.urls import reverse
 
+from coda.apps.fundingrequests.models import FundingRequest as FundingRequestModel
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from coda.domain.fundingrequest.review import ReviewResult
@@ -255,5 +257,21 @@ def test__empty_state__shown_when_no_match(client: Client) -> None:
     response = get_list_region(client, {"search_term": "definitely-no-such-title-xyz"})
 
     html = response.content.decode()
-
     assert "No funding requests match the selected filters." in html
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__sort_by__reorders_entities(client: Client) -> None:
+    alpha = modelfactory.fundingrequest(title="AA-alpha request")
+    zulu = modelfactory.fundingrequest(title="ZZ-zulu request")
+    FundingRequestModel.objects.filter(pk=alpha.pk).update(request_date=date(2024, 1, 1))
+    FundingRequestModel.objects.filter(pk=zulu.pk).update(request_date=date(2024, 6, 1))
+
+    default = goto_list_page(client)
+    titles = [item.publication_title for item in default.context["entities"]]
+    assert titles == ["ZZ-zulu request", "AA-alpha request"]
+
+    alphabetical = goto_list_page(client, {"sort_by": "alphabetical"})
+    titles = [item.publication_title for item in alphabetical.context["entities"]]
+    assert titles == ["AA-alpha request", "ZZ-zulu request"]

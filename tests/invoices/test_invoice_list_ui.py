@@ -10,11 +10,16 @@ from tests import modelfactory
 from tests.page_objects.invoice_list_page import InvoiceListPage
 
 
-def create_invoice(number: str, *, status: PaymentStatus = PaymentStatus.Unpaid) -> None:
+def create_invoice(
+    number: str,
+    *,
+    status: PaymentStatus = PaymentStatus.Unpaid,
+    invoice_date: date = date(2024, 6, 1),
+) -> None:
     creditor = modelfactory.creditor()
     invoice = Invoice.new(
         number=number,
-        date=date(2024, 6, 1),
+        date=invoice_date,
         creditor=CreditorId(creditor.pk),
         positions=(),
         status=status,
@@ -40,6 +45,27 @@ def test__invoice_live_search__typing_narrows_region_in_place(
     list_page.should_not_show_invoice("LIVE-OTHER-001")
     list_page.should_show_invoice("LIVE-MATCH-001")
     list_page.should_have_url_query("search_term=LIVE-MATCH")
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__sort_change__reorders_list_in_place(coda_page: Page, live_server: LiveServer) -> None:
+    create_invoice("ZZ-001", invoice_date=date(2024, 6, 1))
+    create_invoice("AA-001", invoice_date=date(2024, 1, 1))
+
+    list_page = InvoiceListPage(coda_page, live_server.url)
+    list_page.navigate()
+
+    list_page.should_show_invoice_before("ZZ-001", "AA-001")
+
+    list_page.sort_by("alphabetical")
+    list_page.should_show_invoice_before("AA-001", "ZZ-001")
+    list_page.should_have_url_query("sort_by=alphabetical")
+
+    list_page.sort_by("date_desc")
+
+    list_page.should_show_invoice_before("ZZ-001", "AA-001")
+    list_page.should_have_url_query("sort_by=date_desc")
 
 
 @pytest.mark.ui_test

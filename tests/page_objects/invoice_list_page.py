@@ -28,6 +28,9 @@ class InvoiceListPage:
         self._list_region.wait_for()
 
     # Filter actions (each triggers the live list update)
+    def sort_by(self, value: str) -> None:
+        self._page.select_option("#sort_by", value)
+        self._wait_for_settled()
 
     def type_search(self, term: str) -> None:
         self._search_input.press_sequentially(term, delay=50)
@@ -61,6 +64,9 @@ class InvoiceListPage:
 
     def should_show_invoice(self, number: str) -> None:
         expect(self._list_region).to_contain_text(number)
+
+    def should_show_invoice_before(self, first: str, second: str) -> None:
+        expect(self._list_region).to_have_text(re.compile(rf".*{first}.*{second}.*", re.DOTALL))
 
     def should_not_show_invoice(self, number: str) -> None:
         expect(self._list_region).not_to_contain_text(number)
