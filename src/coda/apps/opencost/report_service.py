@@ -10,6 +10,7 @@ from coda.apps.contracts.models import Contract
 from coda.apps.institutions.models import Institution
 from coda.apps.invoices.models import Position
 from coda.apps.opencost.data_aggregation import (
+    SUPPORTED_INSTITUTION_IDENTIFIER_TYPES,
     build_institution_hierarchy_cache,
     get_contracts_for_period,
     get_invoices_for_period,
@@ -281,12 +282,11 @@ def _build_home_institution_cache() -> HomeInstitutionCache:
 
     identifiers = []
     # Prefetch links with types in a single query
-    links = institution.links.filter(type__name__in=["ROR", "ISNI", "Ringold"]).select_related(
-        "type"
-    )
+    links = institution.links.filter(
+        type__name__in=SUPPORTED_INSTITUTION_IDENTIFIER_TYPES
+    ).select_related("type")
     for link in links:
-        identifier_type = link.type.name.lower()
-        identifiers.append((identifier_type, link.value))
+        identifiers.append((link.type.name.lower(), link.value))
 
     return HomeInstitutionCache(institution_name=institution_name, identifiers=identifiers)
 

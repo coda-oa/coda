@@ -20,6 +20,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Institution link types whose identifiers may reach openCost reports.
+# `InstitutionLinkType` names (see config/fixtures/institution_linktypes.json)
+# lowercase to the openCost InstitutionIdType values ("ror", "isni",
+# "ringgold"), so no name translation is needed when building snapshots.
+SUPPORTED_INSTITUTION_IDENTIFIER_TYPES = ["ROR", "ISNI", "Ringgold"]
+
 
 def get_publications_for_period(
     params: fundingrequest_query.FundingRequestSearchParams,
@@ -228,7 +234,8 @@ def _fetch_institution_links(all_institution_ids: set[int]) -> dict[int, list[tu
     """Fetch and group institution links by institution ID."""
     institution_links_qs = (
         InstitutionLink.objects.filter(
-            institution_id__in=all_institution_ids, type__name__in=["ROR", "ISNI", "Ringold"]
+            institution_id__in=all_institution_ids,
+            type__name__in=SUPPORTED_INSTITUTION_IDENTIFIER_TYPES,
         )
         .select_related("type")
         .values_list("institution_id", "type__name", "value")

@@ -507,14 +507,14 @@ def test__publication_with_corresponding_author_no_institution_identifiers__gene
 
 
 @pytest.mark.django_db
-def test__publication_with_author_with_different_institution_identifiers__generate_report__only_ror_isni_ringold_identifier_snapshots_created() -> (
+def test__publication_with_author_with_different_institution_identifiers__generate_report__only_ror_isni_ringgold_identifier_snapshots_created() -> (
     None
 ):
     author_institution = create_institution_with_identifiers(
         name="Department of Various Identifiers",
         ror="https://ror.org/various123",
         isni="https://isni.org/isni/0000000121032684",
-        ringold="https://ringold.com/id/987654",
+        ringgold="https://ringgold.com/id/987654",
     )
 
     # Add an "other" type identifier that should not be included
@@ -551,7 +551,7 @@ def test__publication_with_author_with_different_institution_identifiers__genera
         identifier_type="isni", value="https://isni.org/isni/0000000121032684"
     ).exists()
     assert identifier_snapshots.filter(
-        identifier_type="ringold", value="https://ringold.com/id/987654"
+        identifier_type="ringgold", value="https://ringgold.com/id/987654"
     ).exists()
     assert not identifier_snapshots.filter(
         identifier_type="otherid", value="https://otherid.com/id/555555"

@@ -17,7 +17,7 @@ OpenCost is a standardized XML format for exchanging publication cost data, enab
 - [ ] Export contract data in OpenCost XML format
 - [ ] Support multi-institutional cost sharing for publications
 - [ ] Handle multiple invoices per publication/contract
-- [ ] Institution identifier management (ROR, ISNI, Ringold)
+- [ ] Institution identifier management (ROR, ISNI, Ringgold)
 - [ ] Contract identifier management (ESAC, OAI, EZB, local)
 - [ ] Contract invoice period grouping (group_id linking)
 - [ ] Interactive web reports with navigation to current CODA pages
@@ -681,7 +681,7 @@ The bounded context will implement audit fields and data integrity constraints u
 
 #### **Recommended Approach: Institution Identifier Support**
 
-For OpenCost compliance, institutions will need identifier support (ROR, ISNI, Ringold). This will be implemented following CODA's existing Link pattern for flexibility.
+For OpenCost compliance, institutions will need identifier support (ROR, ISNI, Ringgold). This will be implemented following CODA's existing Link pattern for flexibility.
 
 **Benefits**:
 
@@ -723,7 +723,7 @@ Similarly, contracts will need identifier support for OpenCost (ESAC, OAI, EZB, 
 
 The bounded context approach will handle:
 
-- **Institution Identifiers**: Support for ROR, ISNI, Ringold IDs using CODA's flexible patterns
+- **Institution Identifiers**: Support for ROR, ISNI, Ringgold IDs using CODA's flexible patterns
 - **Contract Identifiers**: ESAC, OAI, EZB, local identifiers with the same flexibility
 - **Cost Sharing**: Publication-level cost sharing between institutions as required by OpenCost
 - **Performance Optimization**: Bulk data loading and efficient query patterns for large institutions
@@ -1169,7 +1169,7 @@ def populate_identifier_types(apps, schema_editor):
         {'name': 'isni', 'display_name': 'ISNI', 'is_primary': False,
          'url_pattern': 'https://isni.org/isni/{value}',
          'validation_regex': r'^[0-9]{4} [0-9]{4} [0-9]{4} [0-9]{3}[0-9X]$'},
-        {'name': 'ringold', 'display_name': 'Ringgold ID', 'is_primary': False},
+        {'name': 'ringgold', 'display_name': 'Ringgold ID', 'is_primary': False},
     ]
 
     for type_data in institution_types:

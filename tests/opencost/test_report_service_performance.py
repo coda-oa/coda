@@ -491,7 +491,7 @@ def _create_flat_institutions() -> list[Institution]:
         else:
             # Half are standalone with identifiers (1 level)
             inst = create_institution_with_identifiers(
-                name=f"Flat Institution {i}", ringold=f"RING-{i}"
+                name=f"Flat Institution {i}", ringgold=f"RING-{i}"
             )
             flat_institutions.append(inst)
 
