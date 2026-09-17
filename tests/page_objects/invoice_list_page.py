@@ -35,6 +35,15 @@ class InvoiceListPage:
     def type_search(self, term: str) -> None:
         self._search_input.press_sequentially(term, delay=50)
 
+    def clear_search(self) -> None:
+        # Emulates the browser's <input type=search> clear icon: it sets the
+        # value to empty and fires `input` — not keyup, and not change either.
+        self._page.eval_on_selector(
+            ".filter-search",
+            "el => { el.value = ''; el.dispatchEvent(new Event('input', { bubbles: true })); }",
+        )
+        self._wait_for_settled()
+
     def filter_by_payment_status(self, status: str) -> None:
         self._page.select_option("#payment_status", status)
         self._wait_for_settled()

@@ -49,6 +49,27 @@ def test__invoice_live_search__typing_narrows_region_in_place(
 
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
+def test__search_clear_icon__resets_filter_in_place(
+    coda_page: Page, live_server: LiveServer
+) -> None:
+    create_invoice("CLEAR-MATCH-001")
+    create_invoice("CLEAR-OTHER-001")
+
+    list_page = InvoiceListPage(coda_page, live_server.url)
+    list_page.navigate()
+
+    list_page.type_search("CLEAR-MATCH")
+    list_page.should_not_show_invoice("CLEAR-OTHER-001")
+
+    list_page.clear_search()
+
+    list_page.should_show_invoice("CLEAR-OTHER-001")
+    list_page.should_show_invoice("CLEAR-MATCH-001")
+    list_page.should_not_have_url_query("search_term=CLEAR-MATCH")
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
 def test__sort_change__reorders_list_in_place(coda_page: Page, live_server: LiveServer) -> None:
     create_invoice("ZZ-001", invoice_date=date(2024, 6, 1))
     create_invoice("AA-001", invoice_date=date(2024, 1, 1))
