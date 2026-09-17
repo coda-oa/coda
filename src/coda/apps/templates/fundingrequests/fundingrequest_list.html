@@ -1,19 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
     {% include "fundingrequests/fundingrequest_list_title_bar.html" with entity_name="Funding Requests" entity_create_url="fundingrequests:create_wizard" entity_secondary_create_url="fundingrequests:create_monograph" %}
-    <div class="filter-layout">
-        <div class="filter-main">
-            <form method="get" id="filter-toolbar-form">
-                {% include "fundingrequests/fundingrequest_filter_toolbar.html" %}
-            </form>
-            <div id="fundingrequest-list"
-                 class="filter-list"
-                 hx-get="{% url 'fundingrequests:list_region' %}"
-                 hx-include="#filter-sidebar-form, #filter-toolbar-form"
-                 hx-trigger="change from:#filter-sidebar-form, change from:#filter-toolbar-form, keyup delay:300ms from:#filter-toolbar-form, submit from:#filter-toolbar-form, submit from:#filter-sidebar-form">
-                {% include "fundingrequests/partials/fundingrequest_list_region.html" %}
-            </div>
-        </div>
-        {% include "fundingrequests/fundingrequest_filter_drawer.html" %}
-    </div>
+    {% url 'fundingrequests:list_region' as region_url %}
+    {% include "partials/filter_layout.html" with filter_toolbar_template="fundingrequests/fundingrequest_filter_toolbar.html" filter_sidebar_template="fundingrequests/fundingrequest_filter_sidebar.html" filter_list_region_template="fundingrequests/partials/fundingrequest_list_region.html" filter_region_url=region_url filter_list_id="fundingrequest-list" %}
 {% endblock content %}

@@ -23,7 +23,7 @@ from django.test import Client
 from django.urls import reverse
 
 from coda.apps.contracts.models import Contract
-from coda.apps.fundingrequests.views.listview import ActiveFilter
+from coda.apps.listfilters import ActiveFilter
 from coda.contexts.fundingrequest.services.labels import label_attach, label_create
 from coda.domain.color import Color
 from coda.domain.contract import PublicationBilling

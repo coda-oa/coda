@@ -28,6 +28,7 @@ from coda.apps.invoices.views.importview import import_invoices_view
 from coda.apps.invoices.views.inspect import (
     invoice_detail,
     invoice_list,
+    invoice_list_region,
     load_conversion_section,
     pay_invoice,
     position_cost_type_options,
@@ -53,6 +54,7 @@ app_name = "invoices"
 urlpatterns = [
     path("", finances_home, name="finances_home"),
     path("list/", invoice_list, name="list"),
+    path("list/region/", invoice_list_region, name="list_region"),
     path("<int:pk>/", invoice_detail, name="detail"),
     path("create/", create_invoice, name="create"),
     path("create/search-publications/", search_publications, name="pub_search"),

@@ -1,6 +1,7 @@
 {% load getlist %}
-{% include "fundingrequests/partials/fundingrequest_filter_header.html" %}
-{% include "fundingrequests/partials/fundingrequest_active_filters.html" %}
+{% url 'fundingrequests:list' as filter_clear_url %}
+{% include "partials/filter_header.html" with filter_clear_url=filter_clear_url %}
+{% include "partials/filter_active_filters.html" with filter_list_id="fundingrequest-list" %}
 <div class="filter-group">
     <h3 class="filter-group-title">Status</h3>
     <div class="form-row">

@@ -5,7 +5,7 @@ from typing import Any, Literal
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest
 from django.urls import reverse
 
 from coda.apps.breadcrumbs.decorators import breadcrumb
@@ -16,6 +16,12 @@ from coda.apps.fundingrequests.models import FundingRequest as FundingRequestMod
 from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
+from coda.apps.listfilters import (
+    ActiveFilter,
+    ListRegionMixin,
+    count_active_filters,
+    remove_value_url,
+)
 from coda.apps.views import EntityListView
 from coda.coda_itertools import map_or_none
 from coda.domain.date import DateRange
@@ -65,11 +71,12 @@ _single_value_fields = (
 
 
 def filter_count(request: HttpRequest) -> int:
-    count = sum(len(request.GET.getlist(key)) for key in _multi_value_fields)
-    count += sum(1 for key in _single_value_fields if request.GET.get(key))
-    if request.GET.get("publication_type") not in (None, _default_choices["publication_type"]):
-        count += 1
-    return count
+    return count_active_filters(
+        request,
+        multi_value_fields=_multi_value_fields,
+        single_value_fields=_single_value_fields,
+        default_choices=_default_choices,
+    )
 
 
 @breadcrumb("Funding Requests", parent_url_name="fundingrequests:home")
@@ -112,20 +119,9 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
         }
 
 
-class FundingRequestListRegionView(FundingRequestListView):
+class FundingRequestListRegionView(ListRegionMixin, FundingRequestListView):
     template_name = "fundingrequests/fundingrequest_filtered_list.html"
-
-    def render_to_response(self, context: dict[str, Any], **response_kwargs: Any) -> HttpResponse:
-        response = super().render_to_response(context, **response_kwargs)
-        if self.request.headers.get("HX-Request") == "true":
-            response["HX-Push-Url"] = self._push_url()
-        return response
-
-    def _push_url(self) -> str:
-        path = reverse("fundingrequests:list")
-        if self.request.GET:
-            return f"{path}?{self.request.GET.urlencode()}"
-        return path
+    region_url_name = "fundingrequests:list"
 
 
 fundingrequest_list = FundingRequestListView.as_view()
@@ -243,40 +239,6 @@ def build_label_pills(request: HttpRequest, labels: Sequence[Label]) -> list[Lab
     ]
 
 
-@dataclass(frozen=True)
-class ActiveFilter:
-    text: str
-    remove_url: str
-    remove_fragment_url: str
-    source_id: str
-    kind: Literal["neutral", "label"]
-    label_color: str | None
-
-
-def _remove_value_url(request: HttpRequest, url_name: str, *, key: str, value: str | None) -> str:
-    """List URL without one value of ``key``; other params preserved, ``page`` dropped.
-
-    ``value=None`` removes the whole key (single-value fields). For multi-value
-    keys one occurrence is dropped and the remaining order preserved; an emptied
-    key is omitted entirely.
-    """
-    params = request.GET.copy()
-    params.pop("page", None)
-    if value is None:
-        params.pop(key, None)
-    else:
-        remaining = list(params.getlist(key))
-        if value in remaining:
-            remaining.remove(value)
-        if remaining:
-            params.setlist(key, remaining)
-        else:
-            params.pop(key, None)
-    encoded = params.urlencode()
-    path = reverse(url_name)
-    return f"{path}?{encoded}" if encoded else path
-
-
 def build_active_filters(
     request: HttpRequest, labels: Sequence[Label], contracts: Sequence[Contract]
 ) -> list[ActiveFilter]:
@@ -298,8 +260,8 @@ def build_active_filters(
         chips.append(
             ActiveFilter(
                 text=text,
-                remove_url=_remove_value_url(request, "fundingrequests:list", key=key, value=value),
-                remove_fragment_url=_remove_value_url(
+                remove_url=remove_value_url(request, "fundingrequests:list", key=key, value=value),
+                remove_fragment_url=remove_value_url(
                     request, "fundingrequests:list_region", key=key, value=value
                 ),
                 source_id=source_id,
@@ -324,7 +286,7 @@ def build_active_filters(
         add("open_access_type", value, value, "open_access_type")
 
     publication_type = request.GET.get("publication_type")
-    if publication_type not in (None, _default_choices["publication_type"]):
+    if publication_type and publication_type != _default_choices["publication_type"]:
         add(
             "publication_type",
             publication_type,
