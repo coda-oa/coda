@@ -201,3 +201,13 @@ def test__list_region__rerenders_the_sidebar_from_the_url(client: Client) -> Non
     dom = parse_html(response.content.decode())
     assert "filter-sidebar-form" in swap_targets(dom)
     assert selected_values(dom, "processing_status") == ["approved", "rejected"]
+
+
+@pytest.mark.usefixtures("logged_in")
+def test__unparsable_contract_year__still_shows_a_removable_year_chip(client: Client) -> None:
+    """An ignored year still counts and stays removable, so the user can undo it."""
+    response = get_list_region(client, contract_year="abc")
+
+    assert chip_texts(response) == ["Year abc"]
+    assert response.context["filter_count"] == 1
+    assert "contract_year" not in chip_for(response, "Year abc").remove_fragment_url

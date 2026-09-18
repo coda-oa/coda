@@ -276,3 +276,15 @@ def test__sort_by__reorders_entities(client: Client) -> None:
     alphabetical = goto_list_page(client, {"sort_by": "alphabetical"})
     titles = [item.publication_title for item in alphabetical.context["entities"]]
     assert titles == ["AA-alpha request", "ZZ-zulu request"]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__unparsable_contract_id_filter__narrows_nothing(client: Client) -> None:
+    """A hand-typed contract id narrows nothing instead of erroring."""
+    modelfactory.fundingrequest(title="Alpha")
+    modelfactory.fundingrequest(title="Beta")
+
+    response = goto_list_page(client, {"contract_name": "abc"})
+
+    assert {item.publication_title for item in response.context["entities"]} == {"Alpha", "Beta"}
