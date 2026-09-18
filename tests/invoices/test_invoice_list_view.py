@@ -2,12 +2,15 @@ from datetime import date
 from typing import Any, cast
 
 import pytest
+from django.http import HttpRequest, QueryDict
 from django.template.response import TemplateResponse
 from django.test import Client
 from django.test.html import parse_html
 from django.urls import reverse
 
 from coda.apps.invoices import funding_source_repository
+from coda.apps.invoices import invoice_query as iq
+from coda.apps.invoices.views.inspect import build_query
 from coda.contexts.finance.services import invoice_service
 from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import CreditorId, Invoice, PaymentStatus
@@ -247,3 +250,43 @@ def test__empty_state__shown_when_no_match(client: Client) -> None:
 
     assert "No invoices match the selected filters." in html
     assert "Clear all filters" in html
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__step_mismatched_contract_year__region_renders_with_a_removable_year_chip(
+    client: Client,
+) -> None:
+    html = get_list_region(client, {"contract_year": "20.5"}).content.decode()
+
+    assert chip_texts(parse_html(html)) == ["Year 20.5"]
+    assert 'value="20.5"' in html
+
+
+def _get(query: str) -> HttpRequest:
+    request = HttpRequest()
+    request.GET = QueryDict(query)
+    return request
+
+
+def test__build_query__unparsable_contract_year__drops_only_the_year_criterion() -> None:
+    """A bad year drops itself; the filters beside it stay applied."""
+    assert build_query(_get("payment_status=unpaid&contract_year=abc")) == [
+        iq.PaymentStatusCriterion(PaymentStatus.Unpaid)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("contract_year=2024", iq.ContractYearCriterion(2024, contract_positions_only=False)),
+        (
+            "contract_year=2024&contract_positions_only=true",
+            iq.ContractYearCriterion(2024, contract_positions_only=True),
+        ),
+    ],
+)
+def test__build_query__contract_year__builds_the_year_criterion(
+    query: str, expected: iq.InvoiceSearchCriterion
+) -> None:
+    assert build_query(_get(query)) == [expected]
