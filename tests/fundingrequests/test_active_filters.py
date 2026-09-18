@@ -29,7 +29,7 @@ from coda.contexts.fundingrequest.services.labels import label_attach, label_cre
 from coda.domain.color import Color
 from coda.domain.contract import PublicationBilling
 from tests import modelfactory
-from tests.filterdom import selected_values, swap_targets
+from tests.filterdom import selected_values, swap_targets, walk
 
 pytestmark = pytest.mark.django_db
 
@@ -211,3 +211,38 @@ def test__unparsable_contract_year__still_shows_a_removable_year_chip(client: Cl
     assert chip_texts(response) == ["Year abc"]
     assert response.context["filter_count"] == 1
     assert "contract_year" not in chip_for(response, "Year abc").remove_fragment_url
+
+
+def _element_ids(html: str) -> set[str]:
+    return {
+        element_id
+        for element in walk(parse_html(html))
+        if (element_id := dict(element.attributes).get("id"))
+    }
+
+
+@pytest.mark.usefixtures("logged_in")
+def test__every_chip__points_at_a_control_present_in_the_response(client: Client) -> None:
+    """A chip body flashes its control, so the control id it names must exist.
+
+    Renaming a widget (develop converted the publication-state picker to
+    ``search-select-multi`` with id ``id_publication_states``) silently breaks
+    the flash, because ``filter-chips.js`` resolves the id and returns when the
+    element is absent.
+    """
+    response = get_list_region(
+        client,
+        processing_status="approved",
+        payment_status="unpaid",
+        publication_states="Published",
+        contract_year="2024",
+        exclude_labels="99999",
+    )
+
+    ids = _element_ids(response.content.decode())
+    assert ids, "region response carried no element ids"
+    assert {
+        chip.text: chip.source_id
+        for chip in response.context["active_filters"]
+        if chip.source_id not in ids
+    } == {}

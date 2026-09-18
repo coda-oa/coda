@@ -301,7 +301,7 @@ def build_active_filters(
             "publication_states",
             value,
             publication_state_labels.get(value, value),
-            f"publication-state-{value}",
+            "id_publication_states",
         )
 
     start_date = request.GET.get("start_date")
