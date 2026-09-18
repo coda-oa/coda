@@ -313,6 +313,12 @@
   }
 }
 
+/* Covers the list while the drawer is open; the drawer is position: fixed, so
+   nothing else dims the page or gives the user an obvious way to dismiss it. */
+.filter-sidebar-backdrop {
+  display: none;
+}
+
 /* Filter drawer (narrow screens) */
 @media screen and (width < 1400px) {
   .filter-sidebar {
@@ -340,9 +346,37 @@
     transition: transform 0.2s ease;
   }
 
+  .filter-sidebar-backdrop {
+    position: fixed;
+    display: block;
+    inset: 0;
+    background: rgb(0 0 0 / 0.4);
+    visibility: hidden;
+    opacity: 0;
+    transition:
+      opacity 0.2s ease,
+      visibility 0s 0.2s;
+    z-index: 99;
+  }
+
+  .filter-drawer-open .filter-sidebar-backdrop {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+  }
+
+  /* The drawer is an overlay, so the list behind it would otherwise keep
+     scrolling underneath. body's overflow propagates to the viewport here
+     because html's is visible. */
+  body.filter-drawer-open {
+    overflow: hidden;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .filter-sidebar,
-    .filter-drawer-open .filter-sidebar {
+    .filter-drawer-open .filter-sidebar,
+    .filter-sidebar-backdrop,
+    .filter-drawer-open .filter-sidebar-backdrop {
       transition: none;
     }
   }
