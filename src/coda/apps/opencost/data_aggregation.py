@@ -6,6 +6,9 @@ from django.db.models import Prefetch, QuerySet
 from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract, ContractLink
 from coda.apps.institutions.models import Institution, InstitutionLink
+
+# Link type names are lowercased where used and match opencost's InstitutionIdType members, so no name translation is needed when building snapshots.
+from coda.apps.institutions.services import IDENTIFIER_TYPES
 from coda.apps.invoices.models import FundingAssignment, Invoice, Position
 from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.publications.models import Publication
@@ -19,12 +22,6 @@ if TYPE_CHECKING:
     from coda.apps.opencost.report_service import InstitutionHierarchyCache
 
 logger = logging.getLogger(__name__)
-
-# Institution link types whose identifiers may reach openCost reports.
-# `InstitutionLinkType` names (see config/fixtures/institution_linktypes.json)
-# lowercase to the openCost InstitutionIdType values ("ror", "isni",
-# "ringgold"), so no name translation is needed when building snapshots.
-SUPPORTED_INSTITUTION_IDENTIFIER_TYPES = ["ROR", "ISNI", "Ringgold"]
 
 
 def get_publications_for_period(
@@ -235,7 +232,7 @@ def _fetch_institution_links(all_institution_ids: set[int]) -> dict[int, list[tu
     institution_links_qs = (
         InstitutionLink.objects.filter(
             institution_id__in=all_institution_ids,
-            type__name__in=SUPPORTED_INSTITUTION_IDENTIFIER_TYPES,
+            type__name__in=IDENTIFIER_TYPES,
         )
         .select_related("type")
         .values_list("institution_id", "type__name", "value")
