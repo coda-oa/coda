@@ -27,10 +27,10 @@
                                      class="mb-1">
                             </a>
                         {% elif counts.errors > 0 and counts.warnings > 0 %}
-                            <a data-tooltip="At generation: {{ counts.errors }} errors and {{ counts.warnings }} warnings. The report page has the current list."
+                            <a data-tooltip="At generation: {{ counts.errors }} error{{ counts.errors|pluralize }} and {{ counts.warnings }} warning{{ counts.warnings|pluralize }}. The report page has the current list."
                                href="{% url 'opencost:detail' entity.id %}">
                                 <img src="{% static "assets/exclamation.svg" %}"
-                                     alt="At generation: {{ counts.errors }} errors and {{ counts.warnings }} warnings. The report page has the current list."
+                                     alt="At generation: {{ counts.errors }} error{{ counts.errors|pluralize }} and {{ counts.warnings }} warning{{ counts.warnings|pluralize }}. The report page has the current list."
                                      height="auto"
                                      width="auto"
                                      class="mb-1">
