@@ -6,6 +6,7 @@ projection below only deals with typed values.
 """
 
 from dataclasses import dataclass
+from datetime import date
 from enum import Enum
 from typing import Any, get_args, get_origin
 from collections.abc import Callable
@@ -22,6 +23,7 @@ from coda.apps.fundingrequests.fundingrequest_query import (
 from coda.apps.fundingrequests.fundingrequest_query import PublicationEntityType
 from coda.apps.invoices.models import FundingSource
 from coda.contexts.exports.dto.filters import ExportFiltersDto
+from coda.domain.finance.invoice import PaymentStatus as InvoicePaymentStatus
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.money import DecimalSeparator
@@ -74,6 +76,42 @@ payment_status_choices: list[tuple[str, str]] = [
     (status.value, status.value.replace("_", " ").title()) for status in FundingRequestPaymentStatus
 ]
 
+invoice_payment_status_choices: list[tuple[str, str]] = [
+    (status.value, status.value.replace("_", " ").title()) for status in InvoicePaymentStatus
+]
+
+
+# ---------------------------------------------------------------------------
+# Shared filter keys that are common to both CSV exports and openCost reports.
+# ---------------------------------------------------------------------------
+
+_COMMON_OPTIONAL_FILTER_FIELDS: list[str] = list(
+    MULTI_VALUE_FILTER_FIELDS | SINGLE_VALUE_FILTER_FIELDS
+)
+
+
+def build_filters_from_request(
+    request: HttpRequest,
+    optional_fields: list[str] | None = None,
+) -> dict[str, str]:
+    """Build the raw filter dict from a POST request.
+
+    By default, the common set of optional filter fields
+    (``_COMMON_OPTIONAL_FILTER_FIELDS``) is used.  Pass ``optional_fields`` to
+    use a different set instead.
+    """
+    filters: dict[str, str] = {
+        "period_start": request.POST["period_start"],
+        "period_end": request.POST["period_end"],
+    }
+
+    for field in optional_fields if optional_fields is not None else _COMMON_OPTIONAL_FILTER_FIELDS:
+        values = [v for v in request.POST.getlist(field) if v]
+        if values:
+            filters[field] = ",".join(values)
+
+    return filters
+
 
 def build_filter_form_context() -> dict[str, object]:
     """Return the template context dict needed to render any filter form.
@@ -101,6 +139,11 @@ def create_redo_url(filters: dict[str, Any], url_name: str) -> str:
     """Rebuild the filter form URL for 'reuse filters', keys normalized via the DTO."""
     params = ExportFiltersDto.model_validate(filters).to_storage()
     return reverse(url_name) + "?" + urlencode(params, doseq=True)
+
+
+def create_contract_redo_url(filters: dict[str, Any], url_name: str) -> str:
+    """Rebuild the contract export URL; contract filters use invoice statuses the DTO would reject."""
+    return reverse(url_name) + "?" + urlencode(filters, doseq=True)
 
 
 @dataclass
@@ -164,6 +207,38 @@ def build_applied_filters(filters: dict[str, Any]) -> list[AppliedFilter]:
     return applied
 
 
+def build_applied_filters_for_contract(filters: dict[str, Any]) -> list[AppliedFilter]:
+    """Applied-filter rows for contract exports, which persist invoice payment statuses."""
+    values: dict[str, Any] = {
+        "payment_status": (
+            [
+                InvoicePaymentStatus(v.strip())
+                for v in filters["payment_status"].split(",")
+                if v.strip()
+            ]
+            if filters.get("payment_status")
+            else None
+        ),
+        "funding_source": filters.get("funding_source") or None,
+        "decimal_separator": (
+            DecimalSeparator(filters["decimal_separator"])
+            if filters.get("decimal_separator")
+            else None
+        ),
+    }
+    rows: list[AppliedFilter] = []
+    period = _period_row_from_strings(filters.get("period_start"), filters.get("period_end"))
+    if period is not None:
+        rows.append(period)
+    rows.extend(_rows_for(values))
+    return rows
+
+
+def _rows_for(values: dict[str, Any]) -> list[AppliedFilter]:
+    """Build display rows for the set fields, in the given insertion order."""
+    return [row for name, value in values.items() if (row := _row_for(name, value)) is not None]
+
+
 def _row_for(name: str, value: Any) -> AppliedFilter | None:
     """Build the display row for a single-field criterion, or ``None`` if unset."""
     if not value:
@@ -177,6 +252,16 @@ def _period_row(values: dict[str, Any]) -> AppliedFilter | None:
     start, end = values["period_start"], values["period_end"]
     if start is None or end is None:
         return None
+    return _period_filter(start, end)
+
+
+def _period_row_from_strings(start: str | None, end: str | None) -> AppliedFilter | None:
+    if not start or not end:
+        return None
+    return _period_filter(date.fromisoformat(start), date.fromisoformat(end))
+
+
+def _period_filter(start: date, end: date) -> AppliedFilter:
     return AppliedFilter(
         label=_PERIOD_LABEL,
         value=f"{start.strftime(_PERIOD_DATE_FORMAT)} to {end.strftime(_PERIOD_DATE_FORMAT)}",

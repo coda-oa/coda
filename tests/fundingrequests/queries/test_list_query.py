@@ -20,6 +20,7 @@ from coda.domain.color import Color
 from coda.domain.contract import ContractYear, PublicationBilling
 from coda.domain.date import DateRange
 from coda.domain.fundingrequest.fundingrequest import FundingOrganizationId
+from coda.domain.money import DecimalSeparator
 from coda.domain.publication import JournalId
 from tests import domainfactory, modelfactory
 
@@ -27,7 +28,7 @@ from tests import domainfactory, modelfactory
 def test__funding_request_search_params__without_decimal_separator__defaults_to_dot() -> None:
     params = fq.FundingRequestSearchParams()
 
-    assert params.decimal_separator == "."
+    assert params.decimal_separator == DecimalSeparator.English
 
 
 @pytest.mark.django_db
