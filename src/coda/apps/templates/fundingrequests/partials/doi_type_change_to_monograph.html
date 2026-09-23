@@ -1,26 +1,27 @@
 {# Form for changing to monograph type - requires publisher selection #}
-{# Parameters: session_key, suggested_publisher, publishers, selected_publisher, error #}
-{# Note: form submission requires JavaScript (HTMX). Non-JS fallback is not supported. #}
-{# Note: publisher results are loaded via wizard_find_publisher HTMX endpoint (outerHTML swap), #}
-{#       not from template context, so the submit button is always visible unlike the article form. #}
-<form method="post">
-    {% csrf_token %}
-    <input type="hidden" name="publication_type" value="monograph">
-    <h4 class="mt-1">Select Publisher</h4>
-    <p class="text-muted">Search for the publisher of this monograph.</p>
-    {% if error %}<p class="error">{{ error }}</p>{% endif %}
-    <fieldset role="group">
-        <input type="search"
-               name="publisher_name"
-               id="publisher_name"
-               placeholder="Search publisher by name..."
-               value="{{ suggested_publisher }}">
-        <button type="button"
-                hx-post="{% url 'fundingrequests:wizard_find_publisher' %}"
-                hx-include="[name='publisher_name']"
-                hx-target="#publisher-search-results"
-                hx-swap="outerHTML"
-                class="inline-search-pill pill-right">Search</button>
-    </fieldset>
-    {% include "fundingrequests/partials/publisher_search_results.html" %}
-</form>
+{# Parameters: suggested_publisher, error #}
+{# Note: the whole flow requires JavaScript (HTMX). Non-JS fallback is not supported. #}
+{# Publisher results are loaded via the wizard_find_publisher HTMX endpoint (outerHTML #}
+{# swap), not from template context. There is deliberately no form element: the Apply #}
+{# button hx-includes the #type-change-form wrapper, so Enter can only trigger the #}
+{# publisher search. #}
+<h4 class="mt-1">Select Publisher</h4>
+<p class="text-muted">Search for the publisher of this monograph.</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<fieldset role="group"
+          hx-post="{% url 'fundingrequests:wizard_find_publisher' %}"
+          hx-target="#publisher-search-results"
+          hx-include="#publisher_name"
+          hx-swap="outerHTML"
+          hx-trigger="keydown[key=='Enter'] from:#publisher_name, click from:#publisher_search_button">
+    <input type="search"
+           name="publisher_name"
+           id="publisher_name"
+           placeholder="Search publisher by name..."
+           value="{{ suggested_publisher }}">
+    <button type="button"
+            id="publisher_search_button"
+            class="inline-search-pill pill-right">Search</button>
+</fieldset>
+<input type="hidden" name="publication_type" value="monograph">
+{% include "fundingrequests/partials/publisher_search_results.html" %}
