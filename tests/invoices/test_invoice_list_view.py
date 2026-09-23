@@ -24,6 +24,7 @@ from tests.filterdom import (
     rendered_field_names,
     selected_option_values,
     swap_targets,
+    walk,
 )
 
 
@@ -78,8 +79,17 @@ def test__invoice_list_region__rerenders_the_sidebar_from_the_url(client: Client
     html = get_list_region(client, {"payment_status": "unpaid"}).content.decode()
 
     dom = parse_html(html)
-    assert "filter-sidebar-form" in swap_targets(dom)
+    assert {"filter-sidebar-form", "toolbar-filter-count"} <= set(swap_targets(dom))
     assert selected_option_values(dom, "payment_status") == ["unpaid"]
+
+    zero_dom = parse_html(get_list_region(client).content.decode())
+    assert "toolbar-filter-count" in swap_targets(zero_dom)
+    count = next(
+        element
+        for element in walk(zero_dom)
+        if dict(element.attributes).get("id") == "toolbar-filter-count"
+    )
+    assert "hidden" in dict(count.attributes)
 
 
 @pytest.mark.django_db

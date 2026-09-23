@@ -195,12 +195,21 @@ def test__summary__tolerates_stale_references(client: Client) -> None:
 
 @pytest.mark.usefixtures("logged_in")
 def test__list_region__rerenders_the_sidebar_from_the_url(client: Client) -> None:
-    """Widget state comes from the server: the fragment re-renders the whole sidebar."""
+    """Widget state and toolbar count come from the server fragment."""
     response = get_list_region(client, processing_status=["approved", "rejected"])
 
     dom = parse_html(response.content.decode())
-    assert "filter-sidebar-form" in swap_targets(dom)
+    assert {"filter-sidebar-form", "toolbar-filter-count"} <= set(swap_targets(dom))
     assert selected_values(dom, "processing_status") == ["approved", "rejected"]
+
+    zero_dom = parse_html(get_list_region(client).content.decode())
+    assert "toolbar-filter-count" in swap_targets(zero_dom)
+    count = next(
+        element
+        for element in walk(zero_dom)
+        if dict(element.attributes).get("id") == "toolbar-filter-count"
+    )
+    assert "hidden" in dict(count.attributes)
 
 
 @pytest.mark.usefixtures("logged_in")

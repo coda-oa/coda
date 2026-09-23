@@ -1,0 +1,6 @@
+<span id="toolbar-filter-count"
+      class="filter-count"
+      {% if not filter_count %}hidden{% endif %}
+      {% if toolbar_filter_count_oob %}hx-swap-oob="true"{% endif %}>
+    {% if filter_count %}{{ filter_count }}{% endif %}
+</span>

@@ -4,6 +4,7 @@
     `change from:#filter-sidebar-form` trigger to that element, so replacing it
     would silence every later sidebar change.
 {% endcomment %}
+{% include "partials/filter_toolbar_count.html" with toolbar_filter_count_oob=True %}
 <div hx-swap-oob="innerHTML:#filter-sidebar-form">
     {% include "fundingrequests/fundingrequest_filter_sidebar.html" %}
 </div>

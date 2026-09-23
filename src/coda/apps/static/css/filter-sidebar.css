@@ -83,6 +83,10 @@
   text-align: center;
 }
 
+.filter-count[hidden] {
+  display: none;
+}
+
 .filter-clear {
   font-size: 0.8rem;
   margin-inline-start: auto;

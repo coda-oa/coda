@@ -259,3 +259,26 @@ def test__chip_body_click__flashes_the_control_holding_the_value(
 
     expect(coda_page.locator("#processing_status")).to_have_class(re.compile("filter-flash"))
     list_page.should_have_selected_options("#processing_status", ["approved"])
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
+def test__toolbar_filter_count__tracks_mobile_filter_and_chip_removal(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate()
+    coda_page.set_viewport_size({"width": 900, "height": 900})
+    coda_page.locator("#filter-drawer-toggle").click()
+    expect(coda_page.locator(".filter-layout")).to_have_class(re.compile("filter-drawer-open"))
+
+    list_page.filter_by_processing_status("approved")
+
+    toolbar_count = coda_page.locator("#toolbar-filter-count")
+    expect(toolbar_count).to_be_visible()
+    expect(toolbar_count).to_have_text("1")
+
+    list_page.remove_active_filter("approved")
+
+    expect(toolbar_count).to_have_count(1)
+    expect(toolbar_count).to_be_hidden()

@@ -21,7 +21,7 @@
             aria-controls="filter-sidebar"
             aria-expanded="false">
         Filters
-        {% if filter_count %}<span class="filter-count">{{ filter_count }}</span>{% endif %}
+        {% include "partials/filter_toolbar_count.html" %}
     </button>
     {% include "fundingrequests/forms/label_pills.html" %}
 </div>
