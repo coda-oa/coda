@@ -5,7 +5,7 @@
 groups = ["default", "dev", "docs"]
 strategy = []
 lock_version = "4.5.1"
-content_hash = "sha256:a560e33b63984db70d9c92f765109a49d09399316ea29d66cea0aec903e03103"
+content_hash = "sha256:03b87bf9f6c143d754f2bcdecc6bb18b5ee04c4f3f2dc7862a182e6704c2c587"
 
 [[metadata.targets]]
 requires_python = ">=3.12"
@@ -1573,15 +1573,15 @@ files = [
 
 [[package]]
 name = "opencost"
-version = "0.1.1"
+version = "0.3.0"
 requires_python = ">=3.12"
 summary = "Pydantic models for the openCost publication-cost metadata schema, with XML de-/serialization"
 dependencies = [
     "pydantic>=2.10",
 ]
 files = [
-    {file = "opencost-0.1.1-py3-none-any.whl", hash = "sha256:4f793c137d27225033dbddfe9f2f9b419a60edbe2b2dc7af9b9297804e0aa4e4"},
-    {file = "opencost-0.1.1.tar.gz", hash = "sha256:d531f3841dcd6f0bc557c5c6fef1885e4bc898d57669641955dd3dc875f1a205"},
+    {file = "opencost-0.3.0-py3-none-any.whl", hash = "sha256:dce2b8ff3fe9b5ff85bc1e877c6af4eccd0673f5fd100d2d79fcef452732475f"},
+    {file = "opencost-0.3.0.tar.gz", hash = "sha256:6aee2d30fff4f91fe0bdd2bc0da203784b2faee61190d6dede3fc4aeca326789"},
 ]
 
 [[package]]

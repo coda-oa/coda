@@ -150,7 +150,7 @@ class Ringgold:
         return self._ringgold
 
     def url(self) -> str:
-        return f"https://isni.org/isni/{self.value()}"
+        return f"https://ido.ringgold.com/search/results?simple={self.value()}"
 
     def __str__(self) -> str:
         return self._ringgold

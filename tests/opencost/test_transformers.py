@@ -393,13 +393,19 @@ def test__report_publication_with_unmappable_institution_identifier__transformin
         identifier_type="isni",
         value="",
     )
+    OpenCostReportInstitutionIdentifier.objects.create(
+        report_publication=report_publication,
+        identifier_type="ringgold",
+        value="RING-GUARD-1",
+    )
 
     oc_publication = report_publication_to_pydantic(report_publication)
     assert oc_publication is not None
 
     assert oc_publication.institution.id is not None
     assert [(i.type, i.value) for i in oc_publication.institution.id] == [
-        (InstitutionIdType.ror, "https://ror.org/guard123")
+        (InstitutionIdType.ringgold, "RING-GUARD-1"),
+        (InstitutionIdType.ror, "https://ror.org/guard123"),
     ]
 
 
@@ -429,6 +435,11 @@ def test__report_contract_with_unmappable_institution_identifier__transforming_t
         identifier_type="isni",
         value="",
     )
+    OpenCostReportContractInstitutionIdentifier.objects.create(
+        report_contract=report_contract,
+        identifier_type="ringgold",
+        value="RING-GUARD-2",
+    )
 
     opencost_data = to_opencost(report)
     assert opencost_data is not None
@@ -438,7 +449,8 @@ def test__report_contract_with_unmappable_institution_identifier__transforming_t
 
     assert contract_data.institution.id is not None
     assert [(i.type, i.value) for i in contract_data.institution.id] == [
-        (InstitutionIdType.ror, "https://ror.org/guard456")
+        (InstitutionIdType.ringgold, "RING-GUARD-2"),
+        (InstitutionIdType.ror, "https://ror.org/guard456"),
     ]
 
 

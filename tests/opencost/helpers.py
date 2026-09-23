@@ -134,10 +134,10 @@ def create_institution_with_identifiers(
     name: str = "Test Institution",
     ror: str | None = None,
     isni: str | None = None,
-    ringold: str | None = None,
+    ringgold: str | None = None,
     parent: Institution | None = None,
 ) -> Institution:
-    """Create an institution with optional ROR, ISNI, and Ringold identifiers."""
+    """Create an institution with optional ROR, ISNI, and Ringgold identifiers."""
     institution = Institution.objects.create(name=name, parent=parent)
 
     if ror:
@@ -148,9 +148,9 @@ def create_institution_with_identifiers(
         isni_type, _ = InstitutionLinkType.objects.get_or_create(name="ISNI")
         InstitutionLink.objects.create(institution=institution, type=isni_type, value=isni)
 
-    if ringold:
-        ringold_type, _ = InstitutionLinkType.objects.get_or_create(name="Ringold")
-        InstitutionLink.objects.create(institution=institution, type=ringold_type, value=ringold)
+    if ringgold:
+        ringgold_type, _ = InstitutionLinkType.objects.get_or_create(name="Ringgold")
+        InstitutionLink.objects.create(institution=institution, type=ringgold_type, value=ringgold)
 
     return institution
 

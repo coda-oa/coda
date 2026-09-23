@@ -6,6 +6,9 @@ from django.db.models import Prefetch, QuerySet
 from coda.apps.authors.models import Author
 from coda.apps.contracts.models import Contract, ContractLink
 from coda.apps.institutions.models import Institution, InstitutionLink
+
+# Link type names are lowercased where used and match opencost's InstitutionIdType members, so no name translation is needed when building snapshots.
+from coda.apps.institutions.services import IDENTIFIER_TYPES
 from coda.apps.invoices.models import FundingAssignment, Invoice, Position
 from coda.apps.fundingrequests import fundingrequest_query
 from coda.apps.publications.models import Publication
@@ -228,7 +231,8 @@ def _fetch_institution_links(all_institution_ids: set[int]) -> dict[int, list[tu
     """Fetch and group institution links by institution ID."""
     institution_links_qs = (
         InstitutionLink.objects.filter(
-            institution_id__in=all_institution_ids, type__name__in=["ROR", "ISNI", "Ringold"]
+            institution_id__in=all_institution_ids,
+            type__name__in=IDENTIFIER_TYPES,
         )
         .select_related("type")
         .values_list("institution_id", "type__name", "value")

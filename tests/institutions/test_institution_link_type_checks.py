@@ -104,29 +104,30 @@ def test_isni_formatting_is_normalized() -> None:
     assert str(sut) == "0000000121032683"
 
 
-def test_can_create_valid_ringold() -> None:
+def test_can_create_valid_ringgold() -> None:
     """Ringgold format: numeric identifier."""
     sut = Ringgold("12345")
 
     assert str(sut) == "12345"
     assert sut.value() == "12345"
+    assert sut.url() == "https://ido.ringgold.com/search/results?simple=12345"
 
 
 @pytest.mark.parametrize(
-    "valid_ringold",
+    "valid_ringgold",
     [
         "12345",
         "123456",
         "1234567",
     ],
 )
-def test_valid_ringold_formats(valid_ringold: str) -> None:
-    sut = Ringgold(valid_ringold)
-    assert str(sut) == valid_ringold
+def test_valid_ringgold_formats(valid_ringgold: str) -> None:
+    sut = Ringgold(valid_ringgold)
+    assert str(sut) == valid_ringgold
 
 
 @pytest.mark.parametrize(
-    "invalid_ringold",
+    "invalid_ringgold",
     [
         "",
         " ",
@@ -135,11 +136,11 @@ def test_valid_ringold_formats(valid_ringold: str) -> None:
         "123.456",
     ],
 )
-def test_invalid_ringold_formats(invalid_ringold: str) -> None:
+def test_invalid_ringgold_formats(invalid_ringgold: str) -> None:
     with pytest.raises(ValueError):
-        Ringgold(invalid_ringold)
+        Ringgold(invalid_ringgold)
 
 
-def test_ringold_with_whitespace_gets_trimmed() -> None:
+def test_ringgold_with_whitespace_gets_trimmed() -> None:
     sut = Ringgold(" 12345 ")
     assert str(sut) == "12345"

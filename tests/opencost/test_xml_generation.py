@@ -324,7 +324,7 @@ def test__report_with_standalone_contract_with_institution__generate_xml__create
         name="Contract Test University",
         ror="https://ror.org/contract123",
         isni="https://isni.org/contract123",
-        ringold="RING-CONTRACT-123",
+        ringgold="RING-CONTRACT-123",
     )
 
     prefs, _ = GlobalPreferences.objects.get_or_create()
@@ -390,7 +390,7 @@ def test__report_with_standalone_contract_with_institution__generate_xml__create
     assert ids == {
         ("ror", "https://ror.org/contract123"),
         ("isni", "https://isni.org/contract123"),
-        ("ringold", "RING-CONTRACT-123"),
+        ("ringgold", "RING-CONTRACT-123"),
     }
 
     primary_id = xml_contract.find("oc:primary_identifier", ns)
