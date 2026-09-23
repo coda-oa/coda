@@ -18,7 +18,10 @@ from coda.apps.invoices.mappers._domain import InvoiceDomainMapper
 from coda.apps.invoices.models import FundingSource
 from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.views.position_context import DefaultContext as _DefaultContext
-from coda.apps.invoices.views.position_context import funding_sources_context
+from coda.apps.invoices.views.position_context import (
+    funding_source_options_context,
+    institutions_context,
+)
 from coda.apps.listfilters import (
     ChipBuilder,
     FilterSummary,
@@ -125,16 +128,15 @@ def get_contract_list_context() -> dict[str, Any]:
 
 
 @breadcrumb("Invoices", parent_url_name="invoices:finances_home")
-class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
+class _InvoiceListBaseView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
     paginate_by = 20
     entity_name = "Invoices"
-    template_name = "invoices/invoice_list.html"
     entity_list_item_template = "invoices/invoice_list_item.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
         ctx["payment_statuses"] = [p.value for p in PaymentStatus]
-        ctx.update(funding_sources_context())
+        ctx.update(funding_source_options_context())
         ctx["home_currency"] = GlobalPreferences.get_home_currency()
         ctx.update(get_contract_list_context())
         summary = build_filter_summary(self.request, ctx["contract_list"], ctx["funding_sources"])
@@ -149,7 +151,14 @@ class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
         return iq.search_to_list_items(*build_query(request), sort_by=sort_by)
 
 
-class InvoiceListRegionView(ListRegionMixin, InvoiceListView):
+class InvoiceListView(_InvoiceListBaseView):
+    template_name = "invoices/invoice_list.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        return super().get_context_data(**kwargs) | institutions_context()
+
+
+class InvoiceListRegionView(ListRegionMixin, _InvoiceListBaseView):
     template_name = "invoices/invoice_filtered_list.html"
     region_url_name = "invoices:list"
 
@@ -190,7 +199,7 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
         request,
         "invoices/detail.html",
         _DefaultContext
-        | funding_sources_context()
+        | funding_source_options_context()
         | {
             "invoice": base_vm,
             "conversions": invoice.conversions(),
