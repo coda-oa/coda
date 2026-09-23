@@ -44,14 +44,17 @@
         <input type="date"
                id="id_start_date"
                name="start_date"
-               value="{{ request.GET.start_date }}">
+               value="{{ request.GET.start_date }}"
+               {% if date_filter_error %}aria-invalid="true" aria-describedby="date-range-error"{% endif %}>
     </div>
     <div class="form-row">
         <label for="id_end_date">End Date</label>
         <input type="date"
                id="id_end_date"
                name="end_date"
-               value="{{ request.GET.end_date }}">
+               value="{{ request.GET.end_date }}"
+               {% if date_filter_error %}aria-invalid="true" aria-describedby="date-range-error"{% endif %}>
+        {% include "partials/filter_date_error.html" %}
     </div>
     {% include "fundingrequests/forms/publication_state.html" %}
 </div>

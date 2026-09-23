@@ -13,23 +13,22 @@ from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices import invoice_query as iq
 from coda.apps.invoices import repository
-from coda.apps.invoices.models import FundingSource
-from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.mappers import InvoiceDetailMapper
 from coda.apps.invoices.mappers._domain import InvoiceDomainMapper
+from coda.apps.invoices.models import FundingSource
+from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.views.position_context import DefaultContext as _DefaultContext
 from coda.apps.invoices.views.position_context import funding_sources_context
 from coda.apps.listfilters import (
-    ActiveFilter,
+    ChipBuilder,
+    FilterSummary,
     ListRegionMixin,
-    count_active_filters,
-    remove_value_url,
+    parse_date_filter,
 )
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 from coda.contexts.finance.dto.edit_position_dtos import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.contexts.finance.services import invoice_service
-from coda.domain.date import DateRange
 from coda.domain.finance.invoice import (
     FundingSourceId,
     Invoice,
@@ -40,17 +39,8 @@ from coda.domain.finance.invoice import (
 from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Currency
 
-_filter_single_value_fields = (
-    "payment_status",
-    "funding_source",
-    "contract_name",
-    "contract_year",
-    "date_start",
-    "date_end",
-    "has_external_id",
-    "has_foreign_currency",
-    "has_errors",
-)
+_DATE_START_KEY = "date_start"
+_DATE_END_KEY = "date_end"
 
 
 def _contract_year_criterion(param: str, request: HttpRequest) -> iq.InvoiceSearchCriterion | None:
@@ -87,93 +77,47 @@ def build_query(request: HttpRequest) -> list[iq.InvoiceSearchCriterion]:
             if criterion is not None:
                 query.append(criterion)
 
-    try:
-        if "date_start" in request.GET or "date_end" in request.GET:
-            date_range = DateRange.try_fromisoformat(
-                start=request.GET.get("date_start"),
-                end=request.GET.get("date_end"),
-            )
-            query.append(iq.DateRangeCriterion(date_range))
-    except ValueError as e:
-        messages.warning(request, str(e))
+    date_filter = parse_date_filter(request, start_key=_DATE_START_KEY, end_key=_DATE_END_KEY)
+    if date_filter.date_range is not None:
+        query.append(iq.DateRangeCriterion(date_filter.date_range))
 
     return query
 
 
-def filter_count(request: HttpRequest) -> int:
-    return count_active_filters(request, single_value_fields=_filter_single_value_fields)
-
-
-def build_active_filters(
+def build_filter_summary(
     request: HttpRequest,
     contracts: Sequence[Contract],
     funding_sources: Iterable[FundingSource],
-) -> list[ActiveFilter]:
-    """One removable chip per active filter, matching ``filter_count``.
+) -> FilterSummary:
+    """One removable chip per active filter, in the sidebar's group order.
 
-    Chip order mirrors the sidebar's group order. Unknown ids (stale URLs)
-    fall back to the raw value.
+    Unknown ids (stale URLs) fall back to the raw value.
     """
-
-    def add(key: str, value: str | None, text: str, source_id: str) -> None:
-        chips.append(
-            ActiveFilter(
-                text=text,
-                remove_url=remove_value_url(request, "invoices:list", key=key, value=value),
-                remove_fragment_url=remove_value_url(
-                    request, "invoices:list_region", key=key, value=value
-                ),
-                source_id=source_id,
-                kind="neutral",
-                label_color=None,
-            )
-        )
-
-    chips: list[ActiveFilter] = []
-
-    payment_status = request.GET.get("payment_status")
-    if payment_status:
-        add("payment_status", payment_status, payment_status, "payment_status")
-
-    funding_source = request.GET.get("funding_source")
-    if funding_source:
-        names = {str(source.pk): source.name for source in funding_sources}
-        add(
-            "funding_source",
-            funding_source,
-            names.get(funding_source, funding_source),
-            "funding_source",
-        )
-
-    contract_name = request.GET.get("contract_name")
-    if contract_name:
-        names = {str(contract.pk): contract.name for contract in contracts}
-        add(
-            "contract_name", contract_name, names.get(contract_name, contract_name), "contract_name"
-        )
-
-    contract_year = request.GET.get("contract_year")
-    if contract_year:
-        add("contract_year", contract_year, f"Year {contract_year}", "contract_year")
-
-    date_start = request.GET.get("date_start")
-    if date_start:
-        add("date_start", date_start, f"From {date_start}", "date_start")
-
-    date_end = request.GET.get("date_end")
-    if date_end:
-        add("date_end", date_end, f"To {date_end}", "date_end")
-
-    if request.GET.get("has_external_id"):
-        add("has_external_id", None, "Without external ID", "has_external_id")
-
-    if request.GET.get("has_foreign_currency"):
-        add("has_foreign_currency", None, "Foreign currency", "has_foreign_currency")
-
-    if request.GET.get("has_errors"):
-        add("has_errors", None, "With errors", "has_errors")
-
-    return chips
+    chips = ChipBuilder(
+        request, list_url_name="invoices:list", region_url_name="invoices:list_region"
+    )
+    chips.single("payment_status", "payment_status")
+    chips.single(
+        "funding_source",
+        "funding_source",
+        labels={str(source.pk): source.name for source in funding_sources},
+    )
+    chips.single(
+        "contract_name",
+        "contract_name",
+        labels={str(contract.pk): contract.name for contract in contracts},
+    )
+    chips.single("contract_year", "contract_year", prefix="Year ")
+    chips.date_range(
+        start_key=_DATE_START_KEY,
+        end_key=_DATE_END_KEY,
+        start_source_id=_DATE_START_KEY,
+        end_source_id=_DATE_END_KEY,
+    )
+    chips.switch("has_external_id", "Without external ID", "has_external_id")
+    chips.switch("has_foreign_currency", "Foreign currency", "has_foreign_currency")
+    chips.switch("has_errors", "With errors", "has_errors")
+    return chips.summary()
 
 
 def get_contract_list_context() -> dict[str, Any]:
@@ -193,10 +137,11 @@ class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
         ctx.update(funding_sources_context())
         ctx["home_currency"] = GlobalPreferences.get_home_currency()
         ctx.update(get_contract_list_context())
-        ctx["filter_count"] = filter_count(self.request)
-        ctx["active_filters"] = build_active_filters(
-            self.request, ctx["contract_list"], ctx["funding_sources"]
-        )
+        summary = build_filter_summary(self.request, ctx["contract_list"], ctx["funding_sources"])
+        ctx["active_filters"] = summary.chips
+        ctx["filter_count"] = summary.count
+        ctx["filter_errors"] = summary.errors
+        ctx["date_filter_error"] = summary.error_for(_DATE_START_KEY, _DATE_END_KEY)
         return ctx
 
     def get_entities(self, request: HttpRequest) -> list[InvoiceListItem]:

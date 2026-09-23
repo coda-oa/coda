@@ -2,7 +2,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
 from django.http import HttpRequest
@@ -17,14 +16,13 @@ from coda.apps.fundingrequests.models import Label
 from coda.apps.fundingrequests.queries import list as list_query
 from coda.apps.fundingrequests.queries.models import FundingRequestListItem
 from coda.apps.listfilters import (
-    ActiveFilter,
+    ChipBuilder,
+    FilterSummary,
     ListRegionMixin,
-    count_active_filters,
-    remove_value_url,
+    parse_date_filter,
 )
 from coda.apps.views import EntityListView
 from coda.coda_itertools import map_or_none
-from coda.domain.date import DateRange
 from coda.domain.fundingrequest.fundingrequest import PaymentMethod
 from coda.domain.fundingrequest.review import ReviewResult
 from coda.domain.publication import OpenAccessType
@@ -49,34 +47,11 @@ _publication_state_choices = [
     *((s.name, s.value) for s in UnpublishedState),
 ]
 
-_default_choices = {"publication_type": "all"}
-
-_multi_value_fields = (
-    "labels",
-    "exclude_labels",
-    "processing_status",
-    "open_access_type",
-    "payment_status",
-    "payment_methods",
-    "publication_states",
-)
-
-_single_value_fields = (
-    "start_date",
-    "end_date",
-    "contract_name",
-    "contract_year",
-    "invalid_contract_years",
-)
+_DEFAULT_PUBLICATION_TYPE = "all"
 
 
-def filter_count(request: HttpRequest) -> int:
-    return count_active_filters(
-        request,
-        multi_value_fields=_multi_value_fields,
-        single_value_fields=_single_value_fields,
-        default_choices=_default_choices,
-    )
+_DATE_START_KEY = "start_date"
+_DATE_END_KEY = "end_date"
 
 
 @breadcrumb("Funding Requests", parent_url_name="fundingrequests:home")
@@ -102,6 +77,7 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
         selected_publication_types = self.request.GET.get("publication_type")
 
         payment_methods = [(pm.value, pm.value) for pm in PaymentMethod]
+        summary = build_filter_summary(self.request, labels, ctx["contract_list"])
 
         return ctx | {
             "labels": labels,
@@ -113,9 +89,11 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
             "selected_publication_types": selected_publication_types,
             "payment_methods": payment_methods,
             "publication_states": _publication_state_choices,
-            "filter_count": filter_count(self.request),
+            "filter_count": summary.count,
+            "filter_errors": summary.errors,
+            "date_filter_error": summary.error_for("id_start_date", "id_end_date"),
             "label_state": sorted(_label_ids(self.request.GET.getlist("labels"))),
-            "active_filters": build_active_filters(self.request, labels, ctx["contract_list"]),
+            "active_filters": summary.chips,
         }
 
 
@@ -129,8 +107,6 @@ fundingrequest_list_region = FundingRequestListRegionView.as_view()
 
 
 def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
-    start_date = request.GET.get("start_date")
-    end_date = request.GET.get("end_date")
     review_results = [ReviewResult(rr) for rr in request.GET.getlist("processing_status")]
     open_access_types = [OpenAccessType(oat) for oat in request.GET.getlist("open_access_type")]
     requested_payment_statuses = [
@@ -139,19 +115,13 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
     payment_methods = [PaymentMethod(pm) for pm in request.GET.getlist("payment_methods")]
     show_invalid_contract_years = request.GET.get("invalid_contract_years") == "on"
     publication_states = request.GET.getlist("publication_states")
+    publication_type = request.GET.get("publication_type") or None
     sort_order = fq.SortOrder.try_parse(request.GET.get("sort_by"))
 
-    try:
-        date_range = DateRange.try_fromisoformat(
-            start=start_date,
-            end=end_date,
-        )
-    except ValueError as e:
-        messages.warning(request, str(e))
-        return fq.search(sort_order=sort_order)
-
     params = fq.FundingRequestSearchParams(
-        date_range=date_range,
+        date_range=parse_date_filter(
+            request, start_key=_DATE_START_KEY, end_key=_DATE_END_KEY
+        ).date_range,
         review_results=review_results,
         payment_statuses=requested_payment_statuses,
         labels=sorted(_label_ids(request.GET.getlist("labels"))),
@@ -159,7 +129,7 @@ def query(request: HttpRequest) -> QuerySet[FundingRequestModel]:
         payment_methods=payment_methods,
         open_access_types=open_access_types,
         publication_states=publication_states,
-        entity_type=fq.PublicationEntityType.try_parse(request.GET.get("publication_type")),
+        entity_type=fq.PublicationEntityType.try_parse(publication_type),
         search_term=request.GET.get("search_term", "").strip(),
         contract_id=map_or_none(int, request.GET.get("contract_name")),
         contract_year=map_or_none(int, request.GET.get("contract_year")),
@@ -240,110 +210,71 @@ def build_label_pills(request: HttpRequest, labels: Sequence[Label]) -> list[Lab
     ]
 
 
-def build_active_filters(
+def build_filter_summary(
     request: HttpRequest, labels: Sequence[Label], contracts: Sequence[Contract]
-) -> list[ActiveFilter]:
-    """One removable chip per active filter value, matching ``filter_count``.
+) -> FilterSummary:
+    """One removable chip per active filter value, in the rail's group order.
 
-    Order mirrors the rail's group order. Text is the bare value except where
-    that would be ambiguous (dates, contract year, excluded labels, switch).
-    Unknown ids (stale URLs) fall back to the raw value.
+    Text is the bare value except where that would be ambiguous (dates, contract
+    year, excluded labels, switch). Unknown ids (stale URLs) fall back to the raw
+    value.
     """
-
-    def add(
-        key: str,
-        value: str | None,
-        text: str,
-        source_id: str,
-        kind: Literal["neutral", "label"] = "neutral",
-        label_color: str | None = None,
-    ) -> None:
-        chips.append(
-            ActiveFilter(
-                text=text,
-                remove_url=remove_value_url(request, "fundingrequests:list", key=key, value=value),
-                remove_fragment_url=remove_value_url(
-                    request, "fundingrequests:list_region", key=key, value=value
-                ),
-                source_id=source_id,
-                kind=kind,
-                label_color=label_color,
-            )
-        )
-
-    chips: list[ActiveFilter] = []
-
-    for value in request.GET.getlist("processing_status"):
-        add("processing_status", value, value, "processing_status")
-
-    payment_labels = dict(_payment_status_choices)
-    for value in request.GET.getlist("payment_status"):
-        add("payment_status", value, payment_labels.get(value, value), "id_payment_status")
-
-    for value in request.GET.getlist("payment_methods"):
-        add("payment_methods", value, value, "payment_methods")
-
-    for value in request.GET.getlist("open_access_type"):
-        add("open_access_type", value, value, "open_access_type")
+    chips = ChipBuilder(
+        request,
+        list_url_name="fundingrequests:list",
+        region_url_name="fundingrequests:list_region",
+    )
+    chips.multi("processing_status", "processing_status")
+    chips.multi("payment_status", "id_payment_status", labels=dict(_payment_status_choices))
+    chips.multi("payment_methods", "payment_methods")
+    chips.multi("open_access_type", "open_access_type")
 
     publication_type = request.GET.get("publication_type")
-    if publication_type and publication_type != _default_choices["publication_type"]:
-        add(
+    if publication_type and publication_type != _DEFAULT_PUBLICATION_TYPE:
+        chips.add(
             "publication_type",
             publication_type,
             publication_type.title(),
             f"publication_type_{publication_type}",
         )
 
-    publication_state_labels = dict(_publication_state_choices)
-    for value in request.GET.getlist("publication_states"):
-        add(
-            "publication_states",
-            value,
-            publication_state_labels.get(value, value),
-            "id_publication_states",
-        )
+    chips.multi(
+        "publication_states", "id_publication_states", labels=dict(_publication_state_choices)
+    )
+    chips.date_range(
+        start_key=_DATE_START_KEY,
+        end_key=_DATE_END_KEY,
+        start_source_id="id_start_date",
+        end_source_id="id_end_date",
+    )
+    chips.single(
+        "contract_name",
+        "contract_name",
+        labels={str(contract.pk): contract.name for contract in contracts},
+    )
+    chips.single("contract_year", "contract_year", prefix="Year ")
+    chips.switch("invalid_contract_years", "Invalid years only", "invalid_contract_years")
 
-    start_date = request.GET.get("start_date")
-    if start_date:
-        add("start_date", start_date, f"From {start_date}", "id_start_date")
-
-    end_date = request.GET.get("end_date")
-    if end_date:
-        add("end_date", end_date, f"To {end_date}", "id_end_date")
-
-    contract_names = {str(contract.pk): contract.name for contract in contracts}
-    contract = request.GET.get("contract_name")
-    if contract:
-        add("contract_name", contract, contract_names.get(contract, contract), "contract_name")
-
-    contract_year = request.GET.get("contract_year")
-    if contract_year:
-        add("contract_year", contract_year, f"Year {contract_year}", "contract_year")
-
-    if request.GET.get("invalid_contract_years"):
-        add("invalid_contract_years", None, "Invalid years only", "invalid_contract_years")
-
-    label_index = {str(label.pk): label for label in labels}
+    names = {str(label.pk): label.name for label in labels}
+    colors = {str(label.pk): label.hexcolor for label in labels}
     for value in request.GET.getlist("labels"):
-        label = label_index.get(value)
-        add(
-            "labels",
-            value,
-            label.name if label else value,
-            "label-pills",
-            kind="label",
-            label_color=label.hexcolor if label else None,
-        )
+        if value:
+            chips.add(
+                "labels",
+                value,
+                names.get(value, value),
+                "label-pills",
+                kind="label",
+                label_color=colors.get(value),
+            )
     for value in request.GET.getlist("exclude_labels"):
-        label = label_index.get(value)
-        add(
-            "exclude_labels",
-            value,
-            f"Not: {label.name}" if label else f"Not: {value}",
-            "exclude_labels",
-            kind="label",
-            label_color=label.hexcolor if label else None,
-        )
-
-    return chips
+        if value:
+            chips.add(
+                "exclude_labels",
+                value,
+                f"Not: {names.get(value, value)}",
+                "exclude_labels",
+                kind="label",
+                label_color=colors.get(value),
+            )
+    return chips.summary()

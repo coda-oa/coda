@@ -109,6 +109,14 @@ def clear_all_text(html: str) -> str | None:
     return None
 
 
+def date_error_text(html: str) -> str | None:
+    """Text of the sidebar's inline date-range error, None when it isn't rendered."""
+    for element in walk(parse_html(html)):
+        if element.name == "small" and _attrs(element).get("id") == "date-range-error":
+            return "".join(c for c in element.children if isinstance(c, str)).strip()
+    return None
+
+
 def chip_texts(dom: Element) -> list[str]:
     """Texts of the active-filter chips, in render order (the × affordance dropped)."""
     texts: list[str] = []

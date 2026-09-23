@@ -29,7 +29,7 @@ from coda.contexts.fundingrequest.services.labels import label_attach, label_cre
 from coda.domain.color import Color
 from coda.domain.contract import PublicationBilling
 from tests import modelfactory
-from tests.filterdom import selected_values, swap_targets, walk
+from tests.filterdom import date_error_text, selected_values, swap_targets, walk
 
 pytestmark = pytest.mark.django_db
 
@@ -246,3 +246,93 @@ def test__every_chip__points_at_a_control_present_in_the_response(client: Client
         for chip in response.context["active_filters"]
         if chip.source_id not in ids
     } == {}
+
+
+@pytest.mark.usefixtures("logged_in")
+def test__inverted_date_range__claims_no_filter_and_flags_both_inputs(client: Client) -> None:
+    response = get_list_region(client, start_date="2025-01-01", end_date="2024-01-01")
+    html = response.content.decode()
+
+    assert chip_texts(response) == []
+    assert response.context["filter_count"] == 0
+    assert html.count('aria-invalid="true"') == 2
+    assert date_error_text(html) == "Start date 2025-01-01 must be before end date 2024-01-01"
+    assert [(error.message, error.source_ids) for error in response.context["filter_errors"]] == [
+        (
+            "Start date 2025-01-01 must be before end date 2024-01-01",
+            ("id_start_date", "id_end_date"),
+        ),
+    ]
+
+
+@pytest.mark.usefixtures("logged_in")
+def test__inverted_date_range__keeps_the_other_filters_applied(client: Client) -> None:
+    modelfactory.fundingrequest(title="Kepler paper")
+    modelfactory.fundingrequest(title="Nono paper")
+
+    html = get_list(
+        client, search_term="Kepler", start_date="2025-01-01", end_date="2024-01-01"
+    ).content.decode()
+
+    assert "Kepler paper" in html
+    assert "Nono paper" not in html
+
+
+@pytest.mark.usefixtures("logged_in")
+def test__summary__reports_every_active_filter_in_rail_order(client: Client) -> None:
+    """Every active filter gets exactly one chip, in the rail's group order."""
+    contract = modelfactory.contract()
+    alpha = label_create("Alpha", Color.from_rgb(255, 0, 0))
+    beta = label_create("Beta", Color.from_rgb(0, 255, 0))
+
+    response = get_list_region(
+        client,
+        processing_status=["approved", "rejected"],
+        payment_status="unpaid",
+        payment_methods="direct",
+        open_access_type="Gold",
+        publication_type="article",
+        publication_states="Accepted",
+        start_date="2025-01-01",
+        end_date="2026-12-31",
+        contract_name=str(contract.pk),
+        contract_year="2025",
+        invalid_contract_years="on",
+        labels=str(alpha.pk),
+        exclude_labels=str(beta.pk),
+    )
+
+    chips = response.context["active_filters"]
+    assert [(chip.text, chip.source_id, chip.kind) for chip in chips] == [
+        ("approved", "processing_status", "neutral"),
+        ("rejected", "processing_status", "neutral"),
+        ("Unpaid", "id_payment_status", "neutral"),
+        ("direct", "payment_methods", "neutral"),
+        ("Gold", "open_access_type", "neutral"),
+        ("Article", "publication_type_article", "neutral"),
+        ("Accepted", "id_publication_states", "neutral"),
+        ("From 2025-01-01", "id_start_date", "neutral"),
+        ("To 2026-12-31", "id_end_date", "neutral"),
+        (contract.name, "contract_name", "neutral"),
+        ("Year 2025", "contract_year", "neutral"),
+        ("Invalid years only", "invalid_contract_years", "neutral"),
+        ("Alpha", "label-pills", "label"),
+        ("Not: Beta", "exclude_labels", "label"),
+    ]
+    assert [(chip.label_color, chip.label_color) for chip in chips[-2:]] == [
+        (alpha.hexcolor, alpha.hexcolor),
+        (beta.hexcolor, beta.hexcolor),
+    ]
+    assert response.context["filter_count"] == len(chips)
+
+
+@pytest.mark.usefixtures("logged_in")
+def test__summary__treats_an_empty_value_as_no_filter(client: Client) -> None:
+    """A blank param value narrows nothing, so it gets no chip and no badge point."""
+    multi = get_list_region(client, publication_states=["", "Published"])
+    assert chip_texts(multi) == ["Published"]
+    assert multi.context["filter_count"] == 1
+
+    defaulted = get_list_region(client, publication_type="")
+    assert chip_texts(defaulted) == []
+    assert defaulted.context["filter_count"] == 0

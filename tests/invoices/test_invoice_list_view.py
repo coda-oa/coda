@@ -12,12 +12,14 @@ from coda.apps.invoices import funding_source_repository
 from coda.apps.invoices import invoice_query as iq
 from coda.apps.invoices.views.inspect import build_query
 from coda.contexts.finance.services import invoice_service
+from coda.domain.date import DateRange
 from coda.domain.finance.funding_sources import Budget
 from coda.domain.finance.invoice import CreditorId, Invoice, PaymentStatus
 from tests import domainfactory, modelfactory
 from tests.filterdom import (
     chip_texts,
     clear_all_text,
+    date_error_text,
     is_checked,
     rendered_field_names,
     selected_option_values,
@@ -181,6 +183,45 @@ def test__active_filter_chips__contract_shows_contract_name(client: Client) -> N
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("logged_in")
+def test__active_filter_summary__one_chip_per_active_filter_in_sidebar_order(
+    client: Client,
+) -> None:
+    """Every active filter gets exactly one chip, in the sidebar's group order."""
+    budget = modelfactory.budget(name="DFG Budget")
+    contract = modelfactory.contract()
+
+    response = goto_list_page(
+        client,
+        {
+            "payment_status": "unpaid",
+            "funding_source": str(budget.pk),
+            "contract_name": str(contract.pk),
+            "contract_year": "2024",
+            "date_start": "2024-01-01",
+            "date_end": "2024-12-31",
+            "has_external_id": "true",
+            "has_foreign_currency": "true",
+            "has_errors": "true",
+        },
+    )
+
+    chips = response.context["active_filters"]
+    assert [(chip.text, chip.source_id, chip.kind) for chip in chips] == [
+        ("unpaid", "payment_status", "neutral"),
+        ("DFG Budget", "funding_source", "neutral"),
+        (contract.name, "contract_name", "neutral"),
+        ("Year 2024", "contract_year", "neutral"),
+        ("From 2024-01-01", "date_start", "neutral"),
+        ("To 2024-12-31", "date_end", "neutral"),
+        ("Without external ID", "has_external_id", "neutral"),
+        ("Foreign currency", "has_foreign_currency", "neutral"),
+        ("With errors", "has_errors", "neutral"),
+    ]
+    assert response.context["filter_count"] == len(chips)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
 def test__date_range__narrows_invoice_list(client: Client) -> None:
     create_invoice("IN-RANGE", invoice_date=date(2024, 6, 1))
     create_invoice("OUT-RANGE", invoice_date=date(2025, 6, 1))
@@ -290,3 +331,66 @@ def test__build_query__contract_year__builds_the_year_criterion(
     query: str, expected: iq.InvoiceSearchCriterion
 ) -> None:
     assert build_query(_get(query)) == [expected]
+
+
+def test__build_query__valid_date_range__appends_the_date_criterion() -> None:
+    assert build_query(_get("date_start=2024-01-01&date_end=2024-12-31")) == [
+        iq.DateRangeCriterion(DateRange(date(2024, 1, 1), date(2024, 12, 31)))
+    ]
+
+
+def test__build_query__inverted_date_range__drops_only_the_date_criterion() -> None:
+    """A bad range drops itself; the filters beside it stay applied."""
+    assert build_query(_get("payment_status=unpaid&date_start=2025-01-01&date_end=2024-01-01")) == [
+        iq.PaymentStatusCriterion(PaymentStatus.Unpaid)
+    ]
+
+
+def test__build_query__malformed_date__drops_only_the_date_criterion() -> None:
+    assert build_query(_get("payment_status=unpaid&date_start=not-a-date")) == [
+        iq.PaymentStatusCriterion(PaymentStatus.Unpaid)
+    ]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__inverted_date_range__flags_both_inputs_and_claims_no_filter(client: Client) -> None:
+    response = get_list_region(client, {"date_start": "2025-01-01", "date_end": "2024-01-01"})
+    html = response.content.decode()
+
+    assert response.context["filter_count"] == 0
+    assert chip_texts(parse_html(html)) == []
+    assert html.count('aria-invalid="true"') == 2
+    assert date_error_text(html) == "Start date 2025-01-01 must be before end date 2024-01-01"
+    assert [(error.message, error.source_ids) for error in response.context["filter_errors"]] == [
+        (
+            "Start date 2025-01-01 must be before end date 2024-01-01",
+            ("date_start", "date_end"),
+        ),
+    ]
+    assert 'value="2025-01-01"' in html
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__malformed_date__flags_the_input_and_lets_the_search_through(client: Client) -> None:
+    create_invoice("KEEP-ME", invoice_date=date(2024, 6, 1))
+    create_invoice("DROP-ME", invoice_date=date(2024, 6, 1))
+
+    html = get_list_region(
+        client, {"date_start": "not-a-date", "search_term": "KEEP"}
+    ).content.decode()
+
+    assert "KEEP-ME" in html
+    assert "DROP-ME" not in html
+    assert date_error_text(html) == "'not-a-date' is not a valid date (YYYY-MM-DD)."
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("logged_in")
+def test__inverted_date_range__leaves_no_warning_to_resurface(client: Client) -> None:
+    """Region swaps must not queue a session message for a later page load."""
+    for _ in range(3):
+        get_list_region(client, {"date_start": "2025-01-01", "date_end": "2024-01-01"})
+
+    assert "must be before end date" not in goto_list_page(client).content.decode()
