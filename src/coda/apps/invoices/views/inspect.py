@@ -144,9 +144,9 @@ class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
         ctx["date_filter_error"] = summary.error_for(_DATE_START_KEY, _DATE_END_KEY)
         return ctx
 
-    def get_entities(self, request: HttpRequest) -> list[InvoiceListItem]:
+    def get_entities(self, request: HttpRequest) -> Sequence[InvoiceListItem]:
         sort_by = request.GET.get("sort_by") or "date_desc"
-        return list(iq.search_to_list_items(*build_query(request), sort_by=sort_by))
+        return iq.search_to_list_items(*build_query(request), sort_by=sort_by)
 
 
 class InvoiceListRegionView(ListRegionMixin, InvoiceListView):

@@ -8,6 +8,7 @@ from typing import TypeVar
 from django.db.models import Case, DecimalField, Exists, F, OuterRef, Q, QuerySet, Sum, Value, When
 from django.db.models.functions import Coalesce, ExtractYear
 
+from coda.apps.domainqueryset import LazyBulkQuerySet
 from coda.apps.invoices.mappers._list import InvoiceListMapper
 from coda.apps.search import words_icontains
 from coda.apps.invoices.models import Invoice as InvoiceModel
@@ -296,15 +297,22 @@ def search_to_list_items(
     }
     sort_function = sort_functions.get(sort_by, _ordered_date_desc)
     qs = _annotate_position_based_data(InvoiceListMapper.prefetch(sort_function(search(*criteria))))
+    return LazyBulkQuerySet(
+        queryset=qs,
+        bulk_converter=_map_invoice_list_items,
+    )
+
+
+def _map_invoice_list_items(models: QuerySet[InvoiceModel]) -> list[InvoiceListItem]:
     return [
         InvoiceListMapper.map(
             model,
-            net_total=getattr(model, "net_total"),
-            tax_total=getattr(model, "tax_total"),
-            first_position_currency=getattr(model, "first_position_currency"),
-            has_invalid_contract_years=getattr(model, "has_invalid_contract_years"),
+            net_total=model.net_total,
+            tax_total=model.tax_total,
+            first_position_currency=model.first_position_currency,
+            has_invalid_contract_years=model.has_invalid_contract_years,
         )
-        for model in qs
+        for model in models
     ]
 
 

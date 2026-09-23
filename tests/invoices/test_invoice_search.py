@@ -138,7 +138,7 @@ def test__searching_by_generic_criterion_finds_matching_invoices(
 
     actual = iq.search_to_list_items(iq.GenericSearchCriterion(matching_query.query_str))
 
-    assert actual == [
+    assert list(actual) == [
         list_item_from_invoice(matching_query.matching_invoice, matching_query.creditor_name)
     ]
 
@@ -167,7 +167,7 @@ def test__searching_by_payment_status_finds_matching_invoices(
 
     actual = iq.search_to_list_items(iq.PaymentStatusCriterion(matching_invoice.status))
 
-    assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
+    assert list(actual) == [list_item_from_invoice(matching_invoice, creditor.name)]
 
 
 @pytest.mark.django_db
@@ -187,7 +187,7 @@ def test__searching_by_date_range_finds_matching_invoices() -> None:
 
     actual = iq.search_to_list_items(iq.DateRangeCriterion(date_range))
 
-    assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
+    assert list(actual) == [list_item_from_invoice(matching_invoice, creditor.name)]
 
 
 @pytest.mark.django_db
@@ -223,7 +223,7 @@ def test__searching_by_funding_source_finds_matching_invoices() -> None:
 
     actual = iq.search_to_list_items(iq.FundingSourceCriterion(matching_budget_id))
 
-    assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
+    assert list(actual) == [list_item_from_invoice(matching_invoice, creditor.name)]
 
 
 @pytest.mark.django_db
@@ -241,7 +241,7 @@ def test__searching_by_missing_external_id__finds_invoices_without_external_id()
 
     actual = iq.search_to_list_items(iq.MissingExternalIdCriterion())
 
-    assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
+    assert list(actual) == [list_item_from_invoice(matching_invoice, creditor.name)]
 
 
 @pytest.mark.django_db
@@ -268,7 +268,7 @@ def test__searching_by_contract__finds_invoices_with_matching_contract() -> None
 
     actual = iq.search_to_list_items(iq.ContractCriterion(cast(ContractId, matching_contract.id)))
 
-    assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
+    assert list(actual) == [list_item_from_invoice(matching_invoice, creditor.name)]
 
 
 @pytest.mark.django_db
@@ -294,7 +294,7 @@ def test__searching_by_contract_year__finds_invoices_with_matching_contract_year
 
     actual = iq.search_to_list_items(iq.ContractYearCriterion(contract_year.year))
 
-    assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
+    assert list(actual) == [list_item_from_invoice(matching_invoice, creditor.name)]
 
 
 @pytest.mark.django_db
@@ -335,7 +335,7 @@ def test__searching_by_has_errors__finds_invoices_with_invalid_contract_years() 
 
     expected = replace(expected, has_invalid_contract_years=True)
 
-    assert actual == [expected]
+    assert list(actual) == [expected]
 
 
 @pytest.mark.django_db
@@ -364,7 +364,7 @@ def test__searching_by_foreign_currency__finds_invoices_with_foreign_currency_no
 
     actual = iq.search_to_list_items(iq.MissingCurrencyConversionCriterion(home_currency))
 
-    assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
+    assert list(actual) == [list_item_from_invoice(matching_invoice, creditor.name)]
 
 
 @pytest.mark.django_db
@@ -387,7 +387,7 @@ def test__searching_by_missing_currency_conversion__excludes_invoices_without_po
 
     actual = iq.search_to_list_items(iq.MissingCurrencyConversionCriterion(home_currency))
 
-    assert actual == [list_item_from_invoice(matching_invoice, creditor.name)]
+    assert list(actual) == [list_item_from_invoice(matching_invoice, creditor.name)]
 
 
 @pytest.mark.django_db
