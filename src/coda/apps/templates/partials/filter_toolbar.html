@@ -2,7 +2,8 @@
     <input type="search"
            name="search_term"
            value="{{ request.GET.search_term }}"
-           placeholder="Search by invoice number, creditor, external invoice ID or funding request ID"
+           placeholder="{{ filter_toolbar_search_placeholder }}"
+           {% if filter_toolbar_search_aria_label %}aria-label="{{ filter_toolbar_search_aria_label }}"{% endif %}
            class="filter-search">
     <label class="filter-sort-label" for="sort_by">
         Sort
@@ -25,4 +26,7 @@
         Filters
         {% include "partials/filter_toolbar_count.html" %}
     </button>
+    {% if filter_toolbar_extra_template %}
+        {% include filter_toolbar_extra_template %}
+    {% endif %}
 </div>
