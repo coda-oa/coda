@@ -118,7 +118,7 @@ def test__summary__clarifies_dates_years_and_switches(client: Client) -> None:
 @pytest.mark.usefixtures("logged_in")
 def test__summary__ignores_search_and_sort(client: Client) -> None:
     """Search and sort are toolbar state — neither summarized nor counted as filters."""
-    response = get_list_region(client, search_term="quantum", sort_by="date-asc")
+    response = get_list_region(client, search_term="quantum", sort_by="date_asc")
 
     assert chip_texts(response) == []
     assert response.context["filter_count"] == 0
