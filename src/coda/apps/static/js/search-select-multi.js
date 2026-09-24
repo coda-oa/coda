@@ -40,7 +40,7 @@ TEMPLATE.innerHTML =  /*html*/ `
         .dropdown {
             display: none;
             position: absolute;
-            top: calc(var(--coda-form-element-spacing-vertical) + var(--coda-line-height));
+            top: 100%;
             left: 0;
 
             z-index: 99;
@@ -77,7 +77,7 @@ TEMPLATE.innerHTML =  /*html*/ `
         }
 
         .selected-options:not(:empty) {
-            margin-bottom: var(--coda-spacing);
+            margin-bottom: 0.5rem;
             padding: calc(var(--coda-spacing) / 2);
             border: 1px solid var(--coda-border-color);
             border-top: none;
@@ -88,11 +88,12 @@ TEMPLATE.innerHTML =  /*html*/ `
         .selected-tag {
             background-color: var(--coda-secondary-background);
             color: var(--coda-secondary-inverse);
-            padding: calc(var(--coda-spacing) / 2);
+            padding: 0.125rem 0.5rem;
             border-radius: var(--coda-border-radius);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 0.25rem;
         }
 
         .selected-tag span {
@@ -101,7 +102,7 @@ TEMPLATE.innerHTML =  /*html*/ `
         }
 
         .remove-btn {
-            font-size: calc(var(--coda-font-size) * 1.25);
+            font-size: calc(var(--coda-font-size) * 1.1);
             cursor: pointer;
             border: none;
             background: none;
@@ -180,6 +181,7 @@ class SearchSelectMulti extends HTMLElement {
             this.updateFormValue();
             this.clearSearchInput();
             this.hideDropdown();
+            this.dispatchChangeEvent();
         }
     }
 
@@ -188,6 +190,7 @@ class SearchSelectMulti extends HTMLElement {
         this.updateSelectedOptions();
         this.updateOriginalOptionElement(optionValue, false);
         this.updateFormValue();
+        this.dispatchChangeEvent();
     }
 
     updateOriginalOptionElement(optionValue, isSelected) {
@@ -211,6 +214,16 @@ class SearchSelectMulti extends HTMLElement {
         container.querySelectorAll('.remove-btn').forEach(btn => {
             btn.addEventListener('click', () => this.removeSelectedOption(btn.dataset.option));
         });
+        this.syncPlaceholder();
+    }
+
+    syncPlaceholder() {
+        const placeholder = this.getAttribute('placeholder');
+        if (!placeholder) {
+            return;
+        }
+        const input = this.shadowRoot.querySelector('.search-input');
+        input.placeholder = this.selectedOptions.size > 0 ? '' : placeholder;
     }
 
     createSelectedTag(value, text, color) {
@@ -239,6 +252,10 @@ class SearchSelectMulti extends HTMLElement {
             });
             this.updateDropdown(this.options);
             this.updateSelectedOptions();
+            // Hydrated selections must reach the form value here: the swap that
+            // created this element may already have run formAssociatedCallback
+            // with an empty selection, and that ordering is engine-specific.
+            this.updateFormValue();
         }
     }
 
@@ -285,6 +302,10 @@ class SearchSelectMulti extends HTMLElement {
         if (e.target.classList.contains('option')) {
             this.selectOption(e.target.textContent);
         }
+    }
+
+    dispatchChangeEvent() {
+        this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
     }
 
     updateFormValue() {

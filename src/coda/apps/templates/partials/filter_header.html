@@ -1,0 +1,11 @@
+<div id="filter-sidebar-header" class="filter-sidebar-header">
+    <h2 class="filter-sidebar-title">
+        Filters
+        {% if filter_count %}<span class="filter-count">{{ filter_count }}</span>{% endif %}
+    </h2>
+    {% if filter_count %}<a href="{{ filter_clear_url }}" class="filter-clear">Clear all</a>{% endif %}
+    <button type="button"
+            id="filter-drawer-close"
+            class="filter-drawer-close"
+            aria-label="Close filters">×</button>
+</div>

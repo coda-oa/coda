@@ -1,0 +1,76 @@
+{% load getlist %}
+{% url 'fundingrequests:list' as filter_clear_url %}
+{% include "partials/filter_header.html" with filter_clear_url=filter_clear_url %}
+{% include "partials/filter_active_filters.html" with filter_list_id="fundingrequest-list" %}
+<div class="filter-group">
+    <h3 class="filter-group-title">Status</h3>
+    <div class="form-row">
+        <label for="processing_status">Processing Status</label>
+        <search-select-multi id="processing_status" name="processing_status" class="w-100" placeholder="Select statuses">
+        {% for status in processing_states %}
+            <option slot="options"
+                    value="{{ status }}"
+                    {% if status in request.GET|getlist:"processing_status" %}selected{% endif %}>{{ status }}</option>
+        {% endfor %}
+        </search-select-multi>
+    </div>
+    {% include "fundingrequests/forms/payment_status.html" %}
+    <div class="form-row">
+        <label for="payment_methods">Payment Method</label>
+        <search-select-multi id="payment_methods" name="payment_methods" class="w-100" placeholder="Select payment methods">
+        {% for value, label in payment_methods %}
+            <option slot="options"
+                    value="{{ value }}"
+                    {% if value in request.GET|getlist:"payment_methods" %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+        </search-select-multi>
+    </div>
+    {% include "fundingrequests/forms/open_access_type_dropdown.html" %}
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Publication</h3>
+    <div class="segment" role="radiogroup" aria-label="Publication type">
+        {% for type in publication_types %}
+            <input type="radio"
+                   id="publication_type_{{ type.0 }}"
+                   name="publication_type"
+                   value="{{ type.0 }}"
+                   {% if type.0 == selected_publication_types or not selected_publication_types and type.0 == "all" %}checked{% endif %}>
+            <label for="publication_type_{{ type.0 }}">{{ type.1 }}</label>
+        {% endfor %}
+    </div>
+    <div class="form-row">
+        <label for="id_start_date">Start Date</label>
+        <input type="date"
+               id="id_start_date"
+               name="start_date"
+               value="{{ request.GET.start_date }}"
+               {% if date_filter_error %}aria-invalid="true" aria-describedby="date-range-error"{% endif %}>
+    </div>
+    <div class="form-row">
+        <label for="id_end_date">End Date</label>
+        <input type="date"
+               id="id_end_date"
+               name="end_date"
+               value="{{ request.GET.end_date }}"
+               {% if date_filter_error %}aria-invalid="true" aria-describedby="date-range-error"{% endif %}>
+        {% include "partials/filter_date_error.html" %}
+    </div>
+    {% include "fundingrequests/forms/publication_state.html" %}
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Contract</h3>
+    {% include "partials/contract_filter_fields.html" %}
+    <label class="filter-switch-row">
+        <input type="checkbox"
+               name="invalid_contract_years"
+               id="invalid_contract_years"
+               role="switch"
+               {% if request.GET.invalid_contract_years %}checked aria-checked="true" {% else %}aria-checked="false" {% endif %}>
+        Invalid contract years only
+    </label>
+</div>
+<div class="filter-group">
+    <h3 class="filter-group-title">Labels</h3>
+    {% include "fundingrequests/forms/label_dropdown.html" %}
+</div>

@@ -1,7 +1,7 @@
 {% load getlist %}
 <div class="form-row">
     <label for="id_payment_status">Payment status</label>
-    <search-select-multi name="payment_status" class="w-100" id="id_payment_status">
+    <search-select-multi name="payment_status" class="w-100" id="id_payment_status" placeholder="Select payment statuses">
     {% for opt in payment_status_choices %}
         <option value="{{ opt.0 }}"
                 slot="options"

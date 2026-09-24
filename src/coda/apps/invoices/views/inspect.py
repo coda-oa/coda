@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,16 +13,25 @@ from coda.apps.breadcrumbs.decorators import breadcrumb, generate_dynamic_title
 from coda.apps.contracts.models import Contract
 from coda.apps.invoices import invoice_query as iq
 from coda.apps.invoices import repository
-from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.mappers import InvoiceDetailMapper
 from coda.apps.invoices.mappers._domain import InvoiceDomainMapper
+from coda.apps.invoices.models import FundingSource
+from coda.apps.invoices.models import Invoice as InvoiceModel
 from coda.apps.invoices.views.position_context import DefaultContext as _DefaultContext
-from coda.apps.invoices.views.position_context import funding_sources_context
+from coda.apps.invoices.views.position_context import (
+    funding_source_options_context,
+    institutions_context,
+)
+from coda.apps.listfilters import (
+    ChipBuilder,
+    FilterSummary,
+    ListRegionMixin,
+    parse_date_filter,
+)
 from coda.apps.preferences.models import GlobalPreferences
 from coda.apps.views import EntityListView
 from coda.contexts.finance.dto.edit_position_dtos import DEFAULT_TAX_RATE_PERCENTAGE
 from coda.contexts.finance.services import invoice_service
-from coda.domain.date import DateRange
 from coda.domain.finance.invoice import (
     FundingSourceId,
     Invoice,
@@ -33,16 +42,8 @@ from coda.domain.finance.invoice import (
 from coda.domain.invoice_list_item import InvoiceListItem
 from coda.domain.money import Currency
 
-_advanced_search_fields = [
-    "payment_status",
-    "date_start",
-    "date_end",
-    "funding_source",
-    "has_external_id",
-    "has_foreign_currency",
-    "contract_name",
-    "contract_year",
-]
+_DATE_START_KEY = "date_start"
+_DATE_END_KEY = "date_end"
 
 
 def _contract_year_criterion(param: str, request: HttpRequest) -> iq.InvoiceSearchCriterion | None:
@@ -79,17 +80,45 @@ def build_query(request: HttpRequest) -> list[iq.InvoiceSearchCriterion]:
             if criterion is not None:
                 query.append(criterion)
 
-    try:
-        if "date_start" in request.GET or "date_end" in request.GET:
-            date_range = DateRange.try_fromisoformat(
-                start=request.GET.get("date_start"),
-                end=request.GET.get("date_end"),
-            )
-            query.append(iq.DateRangeCriterion(date_range))
-    except ValueError as e:
-        messages.warning(request, str(e))
+    date_filter = parse_date_filter(request, start_key=_DATE_START_KEY, end_key=_DATE_END_KEY)
+    if date_filter.date_range is not None:
+        query.append(iq.DateRangeCriterion(date_filter.date_range))
 
     return query
+
+
+def build_filter_summary(
+    request: HttpRequest,
+    contracts: Sequence[Contract],
+    funding_sources: Iterable[FundingSource],
+) -> FilterSummary:
+    """One removable chip per active filter, in the sidebar's group order.
+
+    Unknown ids (stale URLs) fall back to the raw value.
+    """
+    chips = ChipBuilder(
+        request, list_url_name="invoices:list", region_url_name="invoices:list_region"
+    )
+    chips.single("payment_status")
+    chips.single(
+        "funding_source",
+        labels={str(source.pk): source.name for source in funding_sources},
+    )
+    chips.single(
+        "contract_name",
+        labels={str(contract.pk): contract.name for contract in contracts},
+    )
+    chips.single("contract_year", prefix="Year ")
+    chips.date_range(
+        start_key=_DATE_START_KEY,
+        end_key=_DATE_END_KEY,
+        start_source_id=_DATE_START_KEY,
+        end_source_id=_DATE_END_KEY,
+    )
+    chips.switch("has_external_id", "Without external ID")
+    chips.switch("has_foreign_currency", "Foreign currency")
+    chips.switch("has_errors", "With errors")
+    return chips.summary()
 
 
 def get_contract_list_context() -> dict[str, Any]:
@@ -97,29 +126,43 @@ def get_contract_list_context() -> dict[str, Any]:
 
 
 @breadcrumb("Invoices", parent_url_name="invoices:finances_home")
-class InvoiceListView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
+class _InvoiceListBaseView(LoginRequiredMixin, EntityListView[InvoiceListItem]):
     paginate_by = 20
     entity_name = "Invoices"
-    template_name = "invoices/invoice_list.html"
     entity_list_item_template = "invoices/invoice_list_item.html"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
         ctx["payment_statuses"] = [p.value for p in PaymentStatus]
-        ctx.update(funding_sources_context())
+        ctx.update(funding_source_options_context())
         ctx["home_currency"] = GlobalPreferences.get_home_currency()
-        ctx["expand_advanced_search"] = any(
-            self.request.GET.get(key) for key in _advanced_search_fields
-        )
         ctx.update(get_contract_list_context())
-
+        summary = build_filter_summary(self.request, ctx["contract_list"], ctx["funding_sources"])
+        ctx["active_filters"] = summary.chips
+        ctx["filter_count"] = summary.count
+        ctx["filter_errors"] = summary.errors
+        ctx["date_filter_error"] = summary.error_for(_DATE_START_KEY, _DATE_END_KEY)
         return ctx
 
-    def get_entities(self, request: HttpRequest) -> list[InvoiceListItem]:
-        return list(iq.search_to_list_items(*build_query(request)))
+    def get_entities(self, request: HttpRequest) -> Sequence[InvoiceListItem]:
+        sort_by = request.GET.get("sort_by") or "date_desc"
+        return iq.search_to_list_items(*build_query(request), sort_by=sort_by)
+
+
+class InvoiceListView(_InvoiceListBaseView):
+    template_name = "invoices/invoice_list.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        return super().get_context_data(**kwargs) | institutions_context()
+
+
+class InvoiceListRegionView(ListRegionMixin, _InvoiceListBaseView):
+    template_name = "invoices/invoice_filtered_list.html"
+    region_url_name = "invoices:list"
 
 
 invoice_list = InvoiceListView.as_view()
+invoice_list_region = InvoiceListRegionView.as_view()
 
 
 @dataclass
@@ -154,7 +197,7 @@ def invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
         request,
         "invoices/detail.html",
         _DefaultContext
-        | funding_sources_context()
+        | funding_source_options_context()
         | {
             "invoice": base_vm,
             "conversions": invoice.conversions(),
