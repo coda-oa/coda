@@ -12,6 +12,7 @@ from coda.domain.color import Color
 from coda.domain.contract import PublisherId
 from coda.domain.fundingrequest import FundingRequest
 from tests import domainfactory, modelfactory
+from tests.page_objects import filter_ui_expectations, filter_ui_selectors
 from tests.page_objects.fundingrequest_list_page import FundingRequestListPage
 
 
@@ -37,17 +38,29 @@ def test__filter_forms__values_are_sent_with_region_updates(
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate()
 
-    list_page.should_show_request(article_title)
-    list_page.should_show_request(monograph_title)
+    filter_ui_expectations.expect_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), article_title
+    )
+    filter_ui_expectations.expect_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), monograph_title
+    )
 
     list_page.select_publication_type("article")
-    list_page.should_not_show_request(monograph_title)
-    list_page.should_show_request(article_title)
-    list_page.should_have_url_query("publication_type=article")
+    filter_ui_expectations.expect_no_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), monograph_title
+    )
+    filter_ui_expectations.expect_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), article_title
+    )
+    filter_ui_expectations.expect_url_query(coda_page, "publication_type=article")
 
     list_page.type_search("zzz-no-such-title")
-    list_page.should_show_empty_state()
-    list_page.should_not_show_request(article_title)
+    filter_ui_expectations.expect_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), "No funding requests match"
+    )
+    filter_ui_expectations.expect_no_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), article_title
+    )
 
 
 @pytest.mark.ui_test
@@ -68,10 +81,10 @@ def test__search_blur__avoids_duplicate_and_clears_search_once(
             else None
         ),
     )
-    search = coda_page.locator(".filter-search")
+    search = coda_page.locator(filter_ui_selectors.FILTER_SEARCH)
     with coda_page.expect_request(lambda request: "/fundingrequests/list/region/" in request.url):
         search.fill("no-matching-title")
-    coda_page.wait_for_function("() => !document.querySelector('.htmx-request')")
+    coda_page.wait_for_function(filter_ui_selectors.HTMX_IDLE_EXPRESSION)
     assert len(search_requests) == 1
 
     search.press("Tab")
@@ -85,13 +98,15 @@ def test__search_blur__avoids_duplicate_and_clears_search_once(
             " element.dispatchEvent(new Event('change', { bubbles: true }));"
             "}"
         )
-    coda_page.wait_for_function("() => !document.querySelector('.htmx-request')")
-    expect(coda_page.locator("#fundingrequest-list")).to_contain_text(article.publication.title)
+    coda_page.wait_for_function(filter_ui_selectors.HTMX_IDLE_EXPRESSION)
+    expect(coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST)).to_contain_text(
+        article.publication.title
+    )
     assert len(search_requests) == 2
 
     with coda_page.expect_request(lambda request: "/fundingrequests/list/region/" in request.url):
         search.fill("no-second-match")
-    coda_page.wait_for_function("() => !document.querySelector('.htmx-request')")
+    coda_page.wait_for_function(filter_ui_selectors.HTMX_IDLE_EXPRESSION)
     assert len(search_requests) == 3
 
     with coda_page.expect_request(lambda request: "/fundingrequests/list/region/" in request.url):
@@ -102,8 +117,10 @@ def test__search_blur__avoids_duplicate_and_clears_search_once(
             " element.dispatchEvent(new Event('change', { bubbles: true }));"
             "}"
         )
-    coda_page.wait_for_function("() => !document.querySelector('.htmx-request')")
-    expect(coda_page.locator("#fundingrequest-list")).to_contain_text(article.publication.title)
+    coda_page.wait_for_function(filter_ui_selectors.HTMX_IDLE_EXPRESSION)
+    expect(coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST)).to_contain_text(
+        article.publication.title
+    )
     assert len(search_requests) == 4
 
 
@@ -122,18 +139,28 @@ def test__filter_forms__keep_label_filter_set_by_pills(
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate()
 
-    list_page.should_show_request(labeled_title)
-    list_page.should_show_request(unlabeled_title)
+    filter_ui_expectations.expect_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), labeled_title
+    )
+    filter_ui_expectations.expect_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), unlabeled_title
+    )
 
     list_page.click_label_pill("E2E State")
-    list_page.should_not_show_request(unlabeled_title)
+    filter_ui_expectations.expect_no_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), unlabeled_title
+    )
 
     list_page.select_publication_type("article")
-    list_page.should_have_url_query("publication_type=article")
+    filter_ui_expectations.expect_url_query(coda_page, "publication_type=article")
 
-    list_page.should_show_request(labeled_title)
-    list_page.should_not_show_request(unlabeled_title)
-    list_page.should_have_url_query(f"labels={label.pk}")
+    filter_ui_expectations.expect_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), labeled_title
+    )
+    filter_ui_expectations.expect_no_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), unlabeled_title
+    )
+    filter_ui_expectations.expect_url_query(coda_page, f"labels={label.pk}")
 
 
 @pytest.mark.ui_test
@@ -151,19 +178,27 @@ def test__active_filter_chips__summary_shows_and_removes_in_place(
     list_page.click_label_pill("Alpha chip")
     list_page.click_label_pill("Beta chip")
 
-    list_page.should_show_active_filter("Alpha chip")
-    list_page.should_show_active_filter("Beta chip")
-    list_page.should_have_filter_count(2)
-    list_page.should_show_request("Alpha chip paper")
+    filter_ui_expectations.expect_active_filter(coda_page, "Alpha chip")
+    filter_ui_expectations.expect_active_filter(coda_page, "Beta chip")
+    filter_ui_expectations.expect_filter_count(coda_page, 2)
+    filter_ui_expectations.expect_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), "Alpha chip paper"
+    )
 
     list_page.remove_active_filter("Alpha chip")
-    list_page.should_not_show_request("Alpha chip paper")
+    filter_ui_expectations.expect_no_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), "Alpha chip paper"
+    )
 
-    list_page.should_have_active_filter_count(1)
-    list_page.should_show_request("Beta chip paper")
-    list_page.should_not_show_request("Alpha chip paper")
-    list_page.should_have_url_query(f"labels={beta.pk}")
-    list_page.should_not_have_url_query(f"labels={alpha.pk}")
+    filter_ui_expectations.expect_active_filter_count(coda_page, 1)
+    filter_ui_expectations.expect_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), "Beta chip paper"
+    )
+    filter_ui_expectations.expect_no_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), "Alpha chip paper"
+    )
+    filter_ui_expectations.expect_url_query(coda_page, f"labels={beta.pk}")
+    filter_ui_expectations.expect_no_url_query(coda_page, f"labels={alpha.pk}")
 
 
 @pytest.mark.ui_test
@@ -183,16 +218,26 @@ def test__chip_removal__resets_sidebar_controls(
 
     chip_names = ("approved", "Paid", "Article", contract.name, "Invalid years only")
     for name in chip_names:
-        list_page.should_show_active_filter(name)
+        filter_ui_expectations.expect_active_filter(coda_page, name)
     for name in chip_names:
         list_page.remove_active_filter(name)
 
-    list_page.should_have_no_selected_options("#processing_status")
-    list_page.should_have_no_selected_options("#id_payment_status")
-    list_page.should_be_checked("#publication_type_all")
-    list_page.should_have_unchecked_control("#publication_type_article")
-    list_page.should_have_form_value("#contract_name", "")
-    list_page.should_have_unchecked_control("#invalid_contract_years")
+    filter_ui_expectations.expect_no_selected_options(
+        coda_page, filter_ui_selectors.PROCESSING_STATUS
+    )
+    filter_ui_expectations.expect_no_selected_options(
+        coda_page, filter_ui_selectors.ID_PAYMENT_STATUS
+    )
+    filter_ui_expectations.expect_checked_control(
+        coda_page, filter_ui_selectors.PUBLICATION_TYPE_ALL
+    )
+    filter_ui_expectations.expect_unchecked_control(
+        coda_page, filter_ui_selectors.PUBLICATION_TYPE_ARTICLE
+    )
+    filter_ui_expectations.expect_control_value(coda_page, filter_ui_selectors.CONTRACT_NAME, "")
+    filter_ui_expectations.expect_unchecked_control(
+        coda_page, filter_ui_selectors.INVALID_CONTRACT_YEARS
+    )
 
 
 @pytest.mark.ui_test
@@ -204,14 +249,16 @@ def test__contract_select__enter_updates_filter_chip_and_count(
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate()
 
-    search_box = coda_page.locator("#contract_name").locator("#search-box")
+    search_box = coda_page.locator(filter_ui_selectors.CONTRACT_NAME).locator(
+        filter_ui_selectors.SEARCH_SELECT_BOX
+    )
     search_box.click()
     search_box.press_sequentially(contract.name)
     search_box.press("Enter")
 
-    list_page.should_have_url_query(f"contract_name={contract.pk}")
-    list_page.should_show_active_filter(contract.name)
-    list_page.should_have_active_filter_count(1)
+    filter_ui_expectations.expect_url_query(coda_page, f"contract_name={contract.pk}")
+    filter_ui_expectations.expect_active_filter(coda_page, contract.name)
+    filter_ui_expectations.expect_active_filter_count(coda_page, 1)
 
 
 @pytest.mark.ui_test
@@ -227,12 +274,20 @@ def test__sort_change__reorders_list_in_place(
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate()
 
-    list_page.should_show_request_before("ZZ-zulu request", "AA-alpha request")
+    filter_ui_expectations.expect_text_before(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST),
+        "ZZ-zulu request",
+        "AA-alpha request",
+    )
 
     list_page.sort_by("alphabetical")
 
-    list_page.should_show_request_before("AA-alpha request", "ZZ-zulu request")
-    list_page.should_have_url_query("sort_by=alphabetical")
+    filter_ui_expectations.expect_text_before(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST),
+        "AA-alpha request",
+        "ZZ-zulu request",
+    )
+    filter_ui_expectations.expect_url_query(coda_page, "sort_by=alphabetical")
 
 
 @pytest.mark.ui_test
@@ -247,13 +302,19 @@ def test__search_clear_icon__resets_filter_in_place(
     list_page.navigate()
 
     list_page.type_search("Clear hit")
-    list_page.should_not_show_request("Clear other request")
+    filter_ui_expectations.expect_no_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), "Clear other request"
+    )
 
     list_page.clear_search()
 
-    list_page.should_show_request("Clear other request")
-    list_page.should_show_request("Clear hit request")
-    list_page.should_not_have_url_query("search_term=Clear+hit")
+    filter_ui_expectations.expect_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), "Clear other request"
+    )
+    filter_ui_expectations.expect_text(
+        coda_page.locator(filter_ui_selectors.FUNDINGREQUEST_LIST), "Clear hit request"
+    )
+    filter_ui_expectations.expect_no_url_query(coda_page, "search_term=Clear+hit")
 
 
 @pytest.mark.ui_test
@@ -265,15 +326,17 @@ def test__chip_removal__keeps_other_values_of_a_multi_value_filter(
     list_page.navigate()
     list_page.filter_by_processing_status("approved")
     list_page.filter_by_processing_status("rejected")
-    list_page.should_show_active_filter("approved")
-    list_page.should_show_active_filter("rejected")
+    filter_ui_expectations.expect_active_filter(coda_page, "approved")
+    filter_ui_expectations.expect_active_filter(coda_page, "rejected")
 
     list_page.remove_active_filter("approved")
 
-    list_page.should_have_selected_options("#processing_status", ["rejected"])
-    list_page.should_have_active_filter_count(1)
-    list_page.should_have_url_query("processing_status=rejected")
-    list_page.should_not_have_url_query("processing_status=approved")
+    filter_ui_expectations.expect_selected_options(
+        coda_page, filter_ui_selectors.PROCESSING_STATUS, ["rejected"]
+    )
+    filter_ui_expectations.expect_active_filter_count(coda_page, 1)
+    filter_ui_expectations.expect_url_query(coda_page, "processing_status=rejected")
+    filter_ui_expectations.expect_no_url_query(coda_page, "processing_status=approved")
 
 
 @pytest.mark.ui_test
@@ -283,11 +346,13 @@ def test__deep_linked_selection__survives_the_next_filter_change(
 ) -> None:
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate("processing_status=approved")
-    list_page.should_have_selected_options("#processing_status", ["approved"])
+    filter_ui_expectations.expect_selected_options(
+        coda_page, filter_ui_selectors.PROCESSING_STATUS, ["approved"]
+    )
 
     list_page.select_publication_type("article")
 
-    list_page.should_have_url_query("processing_status=approved")
+    filter_ui_expectations.expect_url_query(coda_page, "processing_status=approved")
 
 
 @pytest.mark.ui_test
@@ -299,14 +364,14 @@ def test__mobile_drawer__focuses_drawer_and_tabs_to_close_button(
     list_page.navigate()
     coda_page.set_viewport_size({"width": 900, "height": 900})
     # Avoid scroll-container focusability masking the drawer's explicit focus target.
-    coda_page.locator(".filter-sidebar").evaluate(
+    coda_page.locator(filter_ui_selectors.FILTER_SIDEBAR_CLASS).evaluate(
         "sidebar => { sidebar.style.overflow = 'visible'; }"
     )
-    coda_page.locator("#filter-drawer-toggle").click()
+    coda_page.locator(filter_ui_selectors.FILTER_DRAWER_TOGGLE).click()
 
-    expect(coda_page.locator("#filter-sidebar")).to_be_focused()
+    expect(coda_page.locator(filter_ui_selectors.FILTER_SIDEBAR)).to_be_focused()
     coda_page.keyboard.press("Tab")
-    expect(coda_page.locator("#filter-drawer-close")).to_be_focused()
+    expect(coda_page.locator(filter_ui_selectors.FILTER_DRAWER_CLOSE)).to_be_focused()
 
 
 @pytest.mark.ui_test
@@ -317,12 +382,16 @@ def test__sidebar_rerender__keeps_mobile_drawer_open(
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate()
     coda_page.set_viewport_size({"width": 900, "height": 900})
-    coda_page.locator("#filter-drawer-toggle").click()
-    expect(coda_page.locator(".filter-layout")).to_have_class(re.compile("filter-drawer-open"))
+    coda_page.locator(filter_ui_selectors.FILTER_DRAWER_TOGGLE).click()
+    expect(coda_page.locator(filter_ui_selectors.FILTER_LAYOUT)).to_have_class(
+        re.compile("filter-drawer-open")
+    )
 
     list_page.select_publication_type("article")
 
-    expect(coda_page.locator(".filter-layout")).to_have_class(re.compile("filter-drawer-open"))
+    expect(coda_page.locator(filter_ui_selectors.FILTER_LAYOUT)).to_have_class(
+        re.compile("filter-drawer-open")
+    )
 
 
 @pytest.mark.ui_test
@@ -336,9 +405,11 @@ def test__sidebar_rerender__keeps_hydrated_selection_in_the_next_request(
 
     list_page.select_publication_type("article")
 
-    list_page.should_have_selected_options("#processing_status", ["approved"])
+    filter_ui_expectations.expect_selected_options(
+        coda_page, filter_ui_selectors.PROCESSING_STATUS, ["approved"]
+    )
     list_page.show_only_invalid_contract_years()
-    list_page.should_have_url_query("processing_status=approved")
+    filter_ui_expectations.expect_url_query(coda_page, "processing_status=approved")
 
 
 @pytest.mark.ui_test
@@ -349,12 +420,14 @@ def test__toolbar_filter_count__tracks_mobile_filter_and_chip_removal(
     list_page = FundingRequestListPage(coda_page, live_server.url)
     list_page.navigate()
     coda_page.set_viewport_size({"width": 900, "height": 900})
-    coda_page.locator("#filter-drawer-toggle").click()
-    expect(coda_page.locator(".filter-layout")).to_have_class(re.compile("filter-drawer-open"))
+    coda_page.locator(filter_ui_selectors.FILTER_DRAWER_TOGGLE).click()
+    expect(coda_page.locator(filter_ui_selectors.FILTER_LAYOUT)).to_have_class(
+        re.compile("filter-drawer-open")
+    )
 
     list_page.filter_by_processing_status("approved")
 
-    toolbar_count = coda_page.locator("#toolbar-filter-count")
+    toolbar_count = coda_page.locator(filter_ui_selectors.TOOLBAR_FILTER_COUNT)
     expect(toolbar_count).to_be_visible()
     expect(toolbar_count).to_have_text("1")
 
