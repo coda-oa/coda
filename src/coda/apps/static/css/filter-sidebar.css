@@ -10,7 +10,7 @@
   flex-shrink: 0;
   position: sticky;
   top: 1rem;
-  height: 100dvh;
+  max-height: calc(100dvh - 1rem);
   overflow-y: auto;
 
   /* Three-step vertical rhythm: label binds to its control, fields bind to
@@ -183,7 +183,9 @@
   margin-bottom: var(--filter-field-gap);
 }
 
-.filter-group .form-row > :is(label, input, select, search-select, search-select-multi) {
+.filter-group
+  .form-row
+  > :is(label, input, select, search-select, search-select-multi) {
   margin-block-end: 0;
 }
 
