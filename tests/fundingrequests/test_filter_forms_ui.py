@@ -216,6 +216,25 @@ def test__deep_linked_selection__survives_the_next_filter_change(
 
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
+def test__mobile_drawer__focuses_drawer_and_tabs_to_close_button(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate()
+    coda_page.set_viewport_size({"width": 900, "height": 900})
+    # Avoid scroll-container focusability masking the drawer's explicit focus target.
+    coda_page.locator(".filter-sidebar").evaluate(
+        "sidebar => { sidebar.style.overflow = 'visible'; }"
+    )
+    coda_page.locator("#filter-drawer-toggle").click()
+
+    expect(coda_page.locator("#filter-sidebar")).to_be_focused()
+    coda_page.keyboard.press("Tab")
+    expect(coda_page.locator("#filter-drawer-close")).to_be_focused()
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
 def test__sidebar_rerender__keeps_mobile_drawer_open(
     link_types: None, coda_page: Page, live_server: LiveServer
 ) -> None:
