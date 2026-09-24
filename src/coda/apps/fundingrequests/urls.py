@@ -66,6 +66,7 @@ from coda.apps.fundingrequests.views.wizard.steps.publisher_step import (
     clear_publisher_error,
     find_publisher,
 )
+from coda.apps.fundingrequests.views.apc_panel import ApcPanelByJournalView, ApcPanelView
 from coda.apps.fundingrequests.views.wizard.update_article import (
     UpdateExtraInformationView,
     UpdateFundingView,
@@ -154,6 +155,11 @@ urlpatterns = [
         name="update_publication",
     ),
     path("update/funding/<int:pk>/", UpdateFundingView.as_view(), name="update_funding"),
+    path(
+        "update/funding/<int:pk>/apc-panel/",
+        ApcPanelView.as_view(),
+        name="apc_panel",
+    ),
     path("labels/", label_list_view, name="label_list"),
     path("labels/create/", label_create_view, name="label_create"),
     path("labels/create/<int:next>/", label_create_view, name="label_create"),
@@ -222,6 +228,11 @@ urlpatterns = [
         "partial/external-funding/",
         funding_formset.as_view(),
         name=funding_formset.name.removeprefix("fundingrequests:"),
+    ),
+    path(
+        "partial/apc-panel/journal/<int:pk>/",
+        ApcPanelByJournalView.as_view(),
+        name="apc_panel_by_journal",
     ),
     path("partial/search-publisher/", find_publisher, name="wizard_find_publisher"),
     path("partial/search-journal/", find_journal, name="wizard_find_journal"),

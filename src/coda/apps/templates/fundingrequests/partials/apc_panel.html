@@ -1,0 +1,166 @@
+{% load static %}
+<article>
+    <header class="flex justify-between align-center">
+        <h2 class="fundingrequest__detail-title">APC Price Estimates</h2>
+    </header>
+
+    {% if journal is None %}
+        <p>No journal associated with this funding request.</p>
+    {% elif pricing is None and journal_info is None %}
+        <p>
+            No APC data available for this journal.
+        </p>
+    {% else %}
+        {% if journal_info %}
+            <table class="fundingrequest-table">
+                <tbody>
+                <tr>
+                    <th scope="row">Journal</th>
+                    <td>{{ journal_info.journal_name|default:journal.title }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Publisher</th>
+                    <td>{{ journal_info.publisher_name|default:journal.publisher.name }}</td>
+                </tr>
+                {% if journal_info.pissn or journal_info.eissn or journal_info.lissn %}
+                    <tr>
+                        <th scope="row">ISSN</th>
+                        <td>
+                            {% if journal_info.pissn %}
+                                P-ISSN: <a
+                                    href="https://portal.issn.org/resource/ISSN/{{ journal_info.pissn }}">{{ journal_info.pissn }}</a>
+                                <br>{% endif %}
+                            {% if journal_info.eissn %}
+                                E-ISSN: <a
+                                    href="https://portal.issn.org/resource/ISSN/{{ journal_info.eissn }}">{{ journal_info.eissn }}</a>
+                                <br>{% endif %}
+                            {% if journal_info.lissn %}
+                                L-ISSN: <a
+                                    href="https://portal.issn.org/resource/ISSN/{{ journal_info.lissn }}">{{ journal_info.lissn }}</a>{% endif %}
+                        </td>
+                    </tr>
+                {% endif %}
+                </tbody>
+            </table>
+        {% else %}
+            {# Fallback: show what we have from the local DB #}
+            <table class="fundingrequest-table">
+                <tbody>
+                <tr>
+                    <th scope="row">Journal</th>
+                    <td>{{ journal.title }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Publisher</th>
+                    <td>{{ journal.publisher.name }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">E-ISSN</th>
+                    <td><a href="https://portal.issn.org/resource/ISSN/{{ journal.eissn }}">{{ journal.eissn }}</a></td>
+                </tr>
+                </tbody>
+            </table>
+        {% endif %}
+
+        {% if pricing and pricing.article_processing_charges %}
+            <h3 class="mt-1_5">Article Processing Charges</h3>
+            <table class="fundingrequest-table">
+                <thead>
+                <tr>
+                    <th scope="col">Article Type</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">Fee</th>
+                    <th scope="col">Per Page</th>
+                    <th scope="col">Per Figure</th>
+                    <th scope="col">License</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for apc in pricing.article_processing_charges %}
+                    <tr>
+                        <td>{{ apc.article_type|default:"" }}</td>
+                        <td>{{ apc.category|default:"" }}</td>
+                        <td>
+                            {% for fee in apc.fee %}
+                                {{ fee.value|floatformat:"0" }}&nbsp;{{ fee.currency }}
+                                {% if not forloop.last %}<br>{% endif %}
+                            {% empty %}
+                                —
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if apc.per_page %}
+                                <img src="{% static 'icons/flowbite/outline/general/check-circle.svg' %}" alt="Yes"/>
+                            {% else %}
+                                <img src="{% static 'icons/flowbite/outline/general/close-circle.svg' %}" alt="No"/>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if apc.per_figure %}
+                                <img src="{% static 'icons/flowbite/outline/general/check-circle.svg' %}" alt="Yes"/>
+                            {% else %}
+                                <img src="{% static 'icons/flowbite/outline/general/close-circle.svg' %}" alt="No"/>
+                            {% endif %}
+                        </td>
+                        <td>{{ apc.license_name|default:apc.license_type|default:"" }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+
+        {% if pricing and pricing.discounts %}
+            <h3 class="mt-1_5">Discounts / Waivers</h3>
+            <table class="fundingrequest-table">
+                <thead>
+                <tr>
+                    <th scope="col">Type</th>
+                    <th scope="col">Amount</th>
+                    <th scope="col">Mechanism</th>
+                    <th scope="col">Eligible Article Types</th>
+                    <th scope="col">Expires</th>
+                    <th scope="col">Eligibility</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for discount in pricing.discounts %}
+                    <tr>
+                        <td>{{ discount.type|title }}</td>
+                        <td>
+                            {% if discount.type == "waiver" %}
+                                100%
+                            {% elif discount.type == "percent" and discount.percentage is not None %}
+                                {{ discount.percentage }}%
+                            {% elif discount.type == "fixed" and discount.amount is not None %}
+                                {{ discount.amount.value|floatformat:"0" }}&nbsp;{{ discount.amount.currency }}
+                            {% endif %}
+                        </td>
+                        <td>{{ discount.eligibility_mechanism|default:"" }}</td>
+                        <td>
+                            {% if discount.eligible_article_types %}
+                                {{ discount.eligible_article_types|join:", " }}
+                            {% else %}
+                                All
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if discount.time_limited and discount.expires_after %}
+                                {{ discount.expires_after|date:"Y-m-d" }}
+                            {% endif %}
+                        </td>
+                        <td>{{ discount.eligibility }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+
+        <footer>
+            <small>
+                Source:
+                <a href="https://projekt-panter.de/" target="_blank" rel="noopener">Project Panter PriceMonitor</a>
+            </small>
+        </footer>
+
+    {% endif %}
+</article>

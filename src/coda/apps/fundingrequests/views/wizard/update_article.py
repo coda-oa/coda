@@ -174,4 +174,5 @@ class UpdateFundingView(LoginRequiredMixin, Wizard):
         cost, funding = strategy.load_funding()
         store["cost"] = cost.to_post_data()
         store["funding"] = [f.to_post_data() for f in funding]
+        store["funding_request_pk"] = int(self.kwargs["pk"])
         store.save()
