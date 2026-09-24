@@ -153,6 +153,13 @@ class SearchSelect extends HTMLElement {
       }
     });
 
+    // Prevent form submission before keyup commits the selected option.
+    this.searchBox.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+      }
+    });
+
     this.searchBox.addEventListener("keyup", (e) => {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         this.searchResults.classList.add("visible");
@@ -161,6 +168,7 @@ class SearchSelect extends HTMLElement {
       } else if (e.key === "Enter") {
         this.searchBox.focus();
         this.searchResults.classList.remove("visible");
+        this.setValueToActiveElementOrFirstMatch();
         this.dispatchChangeEvent();
       } else if (e.key === "Escape") {
         this.searchBox.blur();
@@ -218,7 +226,7 @@ class SearchSelect extends HTMLElement {
   }
 
   firstMatch() {
-    return this.visibleItems.filter((li) => this.matches(li))[0];
+    return this.visibleItems.find((li) => this.matches(li));
   }
 
   navigateListItems(direction) {

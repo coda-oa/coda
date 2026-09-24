@@ -197,6 +197,25 @@ def test__chip_removal__resets_sidebar_controls(
 
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
+def test__contract_select__enter_updates_filter_chip_and_count(
+    coda_page: Page, live_server: LiveServer
+) -> None:
+    contract = modelfactory.contract()
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate()
+
+    search_box = coda_page.locator("#contract_name").locator("#search-box")
+    search_box.click()
+    search_box.press_sequentially(contract.name)
+    search_box.press("Enter")
+
+    list_page.should_have_url_query(f"contract_name={contract.pk}")
+    list_page.should_show_active_filter(contract.name)
+    list_page.should_have_active_filter_count(1)
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
 def test__sort_change__reorders_list_in_place(
     link_types: None, coda_page: Page, live_server: LiveServer
 ) -> None:
