@@ -97,9 +97,13 @@ class FundingRequestListView(LoginRequiredMixin, EntityListView[FundingRequestLi
         }
 
 
+_LISTVIEW_URL = "fundingrequests:list"
+_LIST_REGION_URL = "fundingrequests:list_region"
+
+
 class FundingRequestListRegionView(ListRegionMixin, FundingRequestListView):
     template_name = "fundingrequests/fundingrequest_filtered_list.html"
-    region_url_name = "fundingrequests:list"
+    region_url_name = _LISTVIEW_URL
 
 
 fundingrequest_list = FundingRequestListView.as_view()
@@ -182,12 +186,12 @@ def label_pill_url(request: HttpRequest, *, labels: set[int]) -> str:
     the new label list. An empty list is omitted. ``exclude_labels`` is
     managed by the advanced-search.
     """
-    return _pill_url(request, "fundingrequests:list", labels=labels)
+    return _pill_url(request, _LISTVIEW_URL, labels=labels)
 
 
 def label_pill_fragment_url(request: HttpRequest, *, labels: set[int]) -> str:
     """List-region variant of `label_pill_url` for in-place list updates."""
-    return _pill_url(request, "fundingrequests:list_region", labels=labels)
+    return _pill_url(request, _LIST_REGION_URL, labels=labels)
 
 
 def build_label_pills(request: HttpRequest, labels: Sequence[Label]) -> list[LabelPill]:
@@ -221,8 +225,8 @@ def build_filter_summary(
     """
     chips = ChipBuilder(
         request,
-        list_url_name="fundingrequests:list",
-        region_url_name="fundingrequests:list_region",
+        list_url_name=_LISTVIEW_URL,
+        region_url_name=_LIST_REGION_URL,
     )
     chips.multi("processing_status", "processing_status")
     chips.multi("payment_status", "id_payment_status", labels=dict(_payment_status_choices))
