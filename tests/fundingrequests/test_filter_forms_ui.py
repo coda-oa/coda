@@ -52,6 +52,63 @@ def test__filter_forms__values_are_sent_with_region_updates(
 
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
+def test__search_blur__avoids_duplicate_and_clears_search_once(
+    link_types: None, coda_page: Page, live_server: LiveServer
+) -> None:
+    article = modelfactory.fundingrequest(title="E2E search clear")
+    list_page = FundingRequestListPage(coda_page, live_server.url)
+    list_page.navigate()
+
+    search_requests: list[str] = []
+    coda_page.on(
+        "request",
+        lambda request: (
+            search_requests.append(request.url)
+            if "/fundingrequests/list/region/" in request.url
+            else None
+        ),
+    )
+    search = coda_page.locator(".filter-search")
+    with coda_page.expect_request(lambda request: "/fundingrequests/list/region/" in request.url):
+        search.fill("no-matching-title")
+    coda_page.wait_for_function("() => !document.querySelector('.htmx-request')")
+    assert len(search_requests) == 1
+
+    search.press("Tab")
+    coda_page.wait_for_timeout(100)
+    assert len(search_requests) == 1
+
+    with coda_page.expect_request(lambda request: "/fundingrequests/list/region/" in request.url):
+        search.evaluate(
+            "element => {"
+            " element.value = '';"
+            " element.dispatchEvent(new Event('change', { bubbles: true }));"
+            "}"
+        )
+    coda_page.wait_for_function("() => !document.querySelector('.htmx-request')")
+    expect(coda_page.locator("#fundingrequest-list")).to_contain_text(article.publication.title)
+    assert len(search_requests) == 2
+
+    with coda_page.expect_request(lambda request: "/fundingrequests/list/region/" in request.url):
+        search.fill("no-second-match")
+    coda_page.wait_for_function("() => !document.querySelector('.htmx-request')")
+    assert len(search_requests) == 3
+
+    with coda_page.expect_request(lambda request: "/fundingrequests/list/region/" in request.url):
+        search.evaluate(
+            "element => {"
+            " element.value = '';"
+            " element.dispatchEvent(new Event('input', { bubbles: true }));"
+            " element.dispatchEvent(new Event('change', { bubbles: true }));"
+            "}"
+        )
+    coda_page.wait_for_function("() => !document.querySelector('.htmx-request')")
+    expect(coda_page.locator("#fundingrequest-list")).to_contain_text(article.publication.title)
+    assert len(search_requests) == 4
+
+
+@pytest.mark.ui_test
+@pytest.mark.django_db(transaction=True)
 def test__filter_forms__keep_label_filter_set_by_pills(
     link_types: None, coda_page: Page, live_server: LiveServer
 ) -> None:

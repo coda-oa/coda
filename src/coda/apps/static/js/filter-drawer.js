@@ -7,6 +7,11 @@
     return;
   }
   const backdrop = document.getElementById("filter-sidebar-backdrop");
+  // Suppress the blur change event when input already scheduled this search value.
+  const searchInput = layout.querySelector(".filter-search");
+  searchInput?.addEventListener("input", () => {
+    searchInput.dataset.lastInputValue = searchInput.value;
+  });
 
   const isOpen = () => layout.classList.contains("filter-drawer-open");
 
