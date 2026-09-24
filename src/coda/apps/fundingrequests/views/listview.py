@@ -228,23 +228,16 @@ def build_filter_summary(
         list_url_name=_LISTVIEW_URL,
         region_url_name=_LIST_REGION_URL,
     )
-    chips.multi("processing_status", "processing_status")
-    chips.multi("payment_status", "id_payment_status", labels=dict(_payment_status_choices))
-    chips.multi("payment_methods", "payment_methods")
-    chips.multi("open_access_type", "open_access_type")
+    chips.multi("processing_status")
+    chips.multi("payment_status", labels=dict(_payment_status_choices))
+    chips.multi("payment_methods")
+    chips.multi("open_access_type")
 
     publication_type = request.GET.get("publication_type")
     if publication_type and publication_type != _DEFAULT_PUBLICATION_TYPE:
-        chips.add(
-            "publication_type",
-            publication_type,
-            publication_type.title(),
-            f"publication_type_{publication_type}",
-        )
+        chips.add("publication_type", publication_type, publication_type.title())
 
-    chips.multi(
-        "publication_states", "id_publication_states", labels=dict(_publication_state_choices)
-    )
+    chips.multi("publication_states", labels=dict(_publication_state_choices))
     chips.date_range(
         start_key=_DATE_START_KEY,
         end_key=_DATE_END_KEY,
@@ -253,11 +246,10 @@ def build_filter_summary(
     )
     chips.single(
         "contract_name",
-        "contract_name",
         labels={str(contract.pk): contract.name for contract in contracts},
     )
-    chips.single("contract_year", "contract_year", prefix="Year ")
-    chips.switch("invalid_contract_years", "Invalid years only", "invalid_contract_years")
+    chips.single("contract_year", prefix="Year ")
+    chips.switch("invalid_contract_years", "Invalid years only")
 
     names = {str(label.pk): label.name for label in labels}
     colors = {str(label.pk): label.hexcolor for label in labels}
@@ -267,7 +259,6 @@ def build_filter_summary(
                 "labels",
                 value,
                 names.get(value, value),
-                "label-pills",
                 kind="label",
                 label_color=colors.get(value),
             )
@@ -277,7 +268,6 @@ def build_filter_summary(
                 "exclude_labels",
                 value,
                 f"Not: {names.get(value, value)}",
-                "exclude_labels",
                 kind="label",
                 label_color=colors.get(value),
             )

@@ -324,21 +324,6 @@ def test__sidebar_rerender__keeps_hydrated_selection_in_the_next_request(
 
 @pytest.mark.ui_test
 @pytest.mark.django_db(transaction=True)
-def test__chip_body_click__flashes_the_control_holding_the_value(
-    link_types: None, coda_page: Page, live_server: LiveServer
-) -> None:
-    """The chip body points at its control; the × beside it is a separate action."""
-    list_page = FundingRequestListPage(coda_page, live_server.url)
-    list_page.navigate("processing_status=approved")
-
-    list_page.click_active_filter_body("approved")
-
-    expect(coda_page.locator("#processing_status")).to_have_class(re.compile("filter-flash"))
-    list_page.should_have_selected_options("#processing_status", ["approved"])
-
-
-@pytest.mark.ui_test
-@pytest.mark.django_db(transaction=True)
 def test__toolbar_filter_count__tracks_mobile_filter_and_chip_removal(
     link_types: None, coda_page: Page, live_server: LiveServer
 ) -> None:

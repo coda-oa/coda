@@ -171,7 +171,6 @@ def test__active_filter_chips__one_per_active_param_with_remove_urls(client: Cli
     assert {chip.text for chip in chips} == {"unpaid", "Year 2024"}
 
     unpaid = next(chip for chip in chips if chip.text == "unpaid")
-    assert unpaid.source_id == "payment_status"
     assert unpaid.kind == "neutral"
     assert "contract_year=2024" in unpaid.remove_url
     assert "payment_status" not in unpaid.remove_url
@@ -188,7 +187,7 @@ def test__active_filter_chips__contract_shows_contract_name(client: Client) -> N
     response = goto_list_page(client, {"contract_name": str(contract.pk)})
 
     chips = response.context["active_filters"]
-    assert [(chip.text, chip.source_id) for chip in chips] == [(contract.name, "contract_name")]
+    assert [chip.text for chip in chips] == [contract.name]
 
 
 @pytest.mark.django_db
@@ -216,16 +215,16 @@ def test__active_filter_summary__one_chip_per_active_filter_in_sidebar_order(
     )
 
     chips = response.context["active_filters"]
-    assert [(chip.text, chip.source_id, chip.kind) for chip in chips] == [
-        ("unpaid", "payment_status", "neutral"),
-        ("DFG Budget", "funding_source", "neutral"),
-        (contract.name, "contract_name", "neutral"),
-        ("Year 2024", "contract_year", "neutral"),
-        ("From 2024-01-01", "date_start", "neutral"),
-        ("To 2024-12-31", "date_end", "neutral"),
-        ("Without external ID", "has_external_id", "neutral"),
-        ("Foreign currency", "has_foreign_currency", "neutral"),
-        ("With errors", "has_errors", "neutral"),
+    assert [(chip.text, chip.kind) for chip in chips] == [
+        ("unpaid", "neutral"),
+        ("DFG Budget", "neutral"),
+        (contract.name, "neutral"),
+        ("Year 2024", "neutral"),
+        ("From 2024-01-01", "neutral"),
+        ("To 2024-12-31", "neutral"),
+        ("Without external ID", "neutral"),
+        ("Foreign currency", "neutral"),
+        ("With errors", "neutral"),
     ]
     assert response.context["filter_count"] == len(chips)
 

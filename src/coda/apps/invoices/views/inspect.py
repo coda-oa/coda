@@ -99,27 +99,25 @@ def build_filter_summary(
     chips = ChipBuilder(
         request, list_url_name="invoices:list", region_url_name="invoices:list_region"
     )
-    chips.single("payment_status", "payment_status")
+    chips.single("payment_status")
     chips.single(
-        "funding_source",
         "funding_source",
         labels={str(source.pk): source.name for source in funding_sources},
     )
     chips.single(
         "contract_name",
-        "contract_name",
         labels={str(contract.pk): contract.name for contract in contracts},
     )
-    chips.single("contract_year", "contract_year", prefix="Year ")
+    chips.single("contract_year", prefix="Year ")
     chips.date_range(
         start_key=_DATE_START_KEY,
         end_key=_DATE_END_KEY,
         start_source_id=_DATE_START_KEY,
         end_source_id=_DATE_END_KEY,
     )
-    chips.switch("has_external_id", "Without external ID", "has_external_id")
-    chips.switch("has_foreign_currency", "Foreign currency", "has_foreign_currency")
-    chips.switch("has_errors", "With errors", "has_errors")
+    chips.switch("has_external_id", "Without external ID")
+    chips.switch("has_foreign_currency", "Foreign currency")
+    chips.switch("has_errors", "With errors")
     return chips.summary()
 
 

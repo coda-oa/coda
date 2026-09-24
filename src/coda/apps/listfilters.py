@@ -63,7 +63,6 @@ class ActiveFilter:
     text: str
     remove_url: str
     remove_fragment_url: str
-    source_id: str
     kind: Literal["neutral", "label"]
     label_color: str | None
 
@@ -81,9 +80,9 @@ class FilterSummary:
     """The sidebar's active-filter summary: removable chips, the badge count, rejections.
 
     ``errors`` is a list, not a single message, because any filter can reject a
-    value; each entry names the control ids it invalidates, the same identifiers
-    ``ActiveFilter.source_id`` uses, so a template can mark the right input invalid
-    without a second vocabulary. ``date_range`` is the only producer today.
+    value; each entry names the control ids it invalidates, so a template can mark
+    the right input invalid without a second vocabulary. ``date_range`` is the
+    only producer today.
     """
 
     chips: list[ActiveFilter]
@@ -121,7 +120,6 @@ class ChipBuilder:
         key: str,
         value: str | None,
         text: str,
-        source_id: str,
         *,
         kind: Literal["neutral", "label"] = "neutral",
         label_color: str | None = None,
@@ -136,7 +134,6 @@ class ChipBuilder:
                 remove_fragment_url=remove_value_url(
                     self._request, self._region_url_name, key=key, value=value
                 ),
-                source_id=source_id,
                 kind=kind,
                 label_color=label_color,
             )
@@ -145,7 +142,6 @@ class ChipBuilder:
     def single(
         self,
         key: str,
-        source_id: str,
         *,
         prefix: str = "",
         labels: Mapping[str, str] | None = None,
@@ -153,18 +149,18 @@ class ChipBuilder:
         """Chip for a single-valued param: ``prefix`` + looked-up name, raw value as fallback."""
         value = self._request.GET.get(key)
         if value:
-            self.add(key, value, prefix + (labels or {}).get(value, value), source_id)
+            self.add(key, value, prefix + (labels or {}).get(value, value))
 
-    def multi(self, key: str, source_id: str, *, labels: Mapping[str, str] | None = None) -> None:
+    def multi(self, key: str, *, labels: Mapping[str, str] | None = None) -> None:
         """One chip per value of a multi-valued param; an empty value is no filter."""
         for value in self._request.GET.getlist(key):
             if value:
-                self.add(key, value, (labels or {}).get(value, value), source_id)
+                self.add(key, value, (labels or {}).get(value, value))
 
-    def switch(self, key: str, text: str, source_id: str) -> None:
+    def switch(self, key: str, text: str) -> None:
         """Chip for a checkbox filter: one fixed text, removal drops the key."""
         if self._request.GET.get(key):
-            self.add(key, None, text, source_id)
+            self.add(key, None, text)
 
     def error(self, message: str | None, *source_ids: str) -> None:
         """Record a rejected filter value and the sidebar controls it invalidates.
@@ -191,13 +187,10 @@ class ChipBuilder:
         if parsed.date_range is None:
             return
 
-        for key, source_id, prefix in (
-            (start_key, start_source_id, "From "),
-            (end_key, end_source_id, "To "),
-        ):
+        for key, prefix in ((start_key, "From "), (end_key, "To ")):
             value = self._request.GET.get(key)
             if value:
-                self.add(key, value, f"{prefix}{value}", source_id)
+                self.add(key, value, f"{prefix}{value}")
 
     def summary(self) -> FilterSummary:
         return FilterSummary(chips=self._chips, count=len(self._chips), errors=self._errors)

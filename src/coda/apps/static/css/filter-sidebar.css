@@ -135,27 +135,6 @@
   opacity: 1;
 }
 
-.filter-flash {
-  animation: filter-flash 0.6s ease-out 2;
-}
-
-@keyframes filter-flash {
-  0%,
-  100% {
-    outline: 2px solid transparent;
-  }
-
-  50% {
-    outline: 2px solid var(--coda-primary);
-    outline-offset: 2px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .filter-flash {
-    animation: none;
-  }
-}
 
 /* Groups */
 .filter-group {

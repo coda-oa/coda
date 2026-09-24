@@ -74,10 +74,6 @@ class FundingRequestListPage:
         chip.wait_for(state="detached")
         self._wait_for_settled()
 
-    def click_active_filter_body(self, name: str) -> None:
-        # The chip body (not its × link): clicking it highlights the control.
-        self._active_filters.locator(f'.active-filter:has-text("{name}") > span').click()
-
     # Results region
 
     def should_show_request(self, title: str) -> None:
