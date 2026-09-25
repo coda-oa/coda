@@ -155,6 +155,7 @@
         .variant-ledger .position-core { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .variant-ledger .position-specific { padding-inline: 0.5rem; }
         .variant-sections .position-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "specific" "core" "assignments"; gap: 0.65rem; }
+        .variant-sections .position-core { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1.2fr); }
         .variant-sections .position-specific { border-left: 0; border-bottom: 1px solid var(--color-base-300); padding-inline: 0; }
         .variant-allocation #positions-summary { order: -1; }
         .variant-allocation .position-body { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-areas: "assignments core" "assignments specific"; }
@@ -182,7 +183,7 @@
             .variant-switcher .variant-name { min-width: 0; }
         }
         @media (max-width: 460px) {
-            .position-core, .variant-ledger .position-core { grid-template-columns: 1fr; }
+            .position-core, .variant-ledger .position-core, .variant-sections .position-core { grid-template-columns: 1fr; }
             .funding-assignment-row { grid-template-columns: 1fr; }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -250,7 +251,7 @@
     <script>
         const variants = [
             { key: "ledger", name: "A · Position ledger", caption: "Compact, aligned controls for comparing costs and funding." },
-            { key: "sections", name: "B · Expanded sections", caption: "Give each position its own vertical workspace." },
+            { key: "sections", name: "B · Expanded sections", caption: "Each open position keeps details grouped, with amount, tax, and cost type aligned on one row." },
             { key: "allocation", name: "C · Allocation first", caption: "Bring funding splits and remaining costs forward." },
         ];
         const positions = document.getElementById("positions");
