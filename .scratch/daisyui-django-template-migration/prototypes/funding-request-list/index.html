@@ -122,16 +122,16 @@
         .filter-layout { display: flex; align-items: flex-start; gap: 1rem; }
         .filter-main { flex: 1; min-width: 0; }
         .filter-toolbar {
-            display: flex;
-            align-items: flex-start;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            align-items: center;
             gap: 0.5rem;
             margin-bottom: 0.85rem;
         }
-        .filter-search { flex: 1 1 20rem; width: 100%; max-width: none; }
-        .filter-sort-label { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; font-size: 0.8rem; }
+        .filter-search { grid-column: 1 / -1; grid-row: 1; width: 100%; max-width: none; }
+        .filter-sort-label { grid-column: 1; grid-row: 3; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; font-size: 0.8rem; }
         .filter-sort { width: auto; max-width: none; margin: 0; }
-        .filter-drawer-toggle { display: none; }
+        .filter-drawer-toggle { display: none; grid-column: 2; grid-row: 3; justify-self: start; align-items: center; gap: 0.35rem; }
         .filter-sidebar {
             width: 280px;
             flex: 0 0 280px;
@@ -176,8 +176,9 @@
         .segment input:checked + label { background: var(--color-primary); color: var(--color-primary-content); }
         .segment input:focus-visible + label { outline: 2px solid var(--color-primary); outline-offset: -2px; }
         .filter-sidebar-backdrop { display: none; }
-        .label-pills { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+        .label-pills { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; min-width: 0; padding: 0.25rem 0 0.5rem; border-bottom: 1px solid var(--color-base-300); }
         .label-pill { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.22rem 0.55rem; border: 1px solid var(--color-base-300); border-radius: 999px; background: var(--label-bg-color, var(--color-base-100)); color: var(--color-base-content); font-size: 0.72rem; text-decoration: none; }
+        .label-pill.is-active { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 10%, var(--color-base-100)); }
         .active-filters { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.9rem; }
         .active-filter { display: inline-flex; align-items: center; gap: 0.35rem; max-width: 100%; padding: 0.22rem 0.55rem; border-radius: 999px; background: var(--color-base-300); color: var(--color-base-content); font-size: 0.73rem; text-decoration: none; }
         .active-filter-remove { font-weight: 700; text-decoration: none; }
@@ -251,7 +252,7 @@
         .queue-reference, .queue-date { color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.69rem; }
         .filter-layout[data-variant="queue"] .filter-sidebar { background: color-mix(in oklab, var(--color-primary) 4%, var(--color-base-100)); border-color: color-mix(in oklab, var(--color-primary) 24%, var(--color-base-300)); }
         .filter-layout[data-variant="queue"] .active-filters { padding: 0.55rem 0.65rem; border-left: 3px solid var(--color-primary); background: var(--color-base-100); }
-        .filter-layout[data-variant="queue"] .fundingrequest { display: grid; grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.32fr); gap: 0.25rem 1.25rem; padding: 1rem 0.75rem; border-left: 3px solid transparent; }
+        .filter-layout[data-variant="queue"] .fundingrequest { display: grid; grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.32fr); gap: 0.25rem 1.25rem; margin-block: 0.45rem; padding: 0.95rem 0.85rem; border: 1px solid var(--color-base-300); border-left: 3px solid color-mix(in oklab, var(--color-primary) 48%, var(--color-base-300)); border-radius: 0.4rem; background: var(--color-base-100); }
         .filter-layout[data-variant="queue"] .fundingrequest[data-contract-warning] { border-left-color: var(--color-warning); }
         .filter-layout[data-variant="queue"] .request-details { display: block; }
         .filter-layout[data-variant="queue"] .payment-block { padding-left: 0; border-left: 0; }
@@ -339,8 +340,16 @@
                         <button type="button" id="filter-drawer-toggle" class="filter-drawer-toggle btn btn-outline btn-sm" aria-controls="filter-sidebar" aria-expanded="false">Filters <span id="toolbar-filter-count" class="filter-count">4</span></button>
                         <div id="label-pills" class="label-pills" hx-swap-oob="true">
                             <input type="hidden" name="labels" value="41">
-                            <a class="label-pill" href="/fundingrequests/list/?labels=41" hx-get="/fundingrequests/list/region/?labels=41" hx-target="#fundingrequest-list" hx-push-url="/fundingrequests/list/?labels=41" title="Toggle label filter">OA Week</a>
-                            <a class="label-pill" href="/fundingrequests/list/?labels=52" hx-get="/fundingrequests/list/region/?labels=52" hx-target="#fundingrequest-list" hx-push-url="/fundingrequests/list/?labels=52" title="Toggle label filter">Institutional funding</a>
+                            <a class="label-pill is-active" href="/fundingrequests/list/?labels=41" hx-get="/fundingrequests/list/region/?labels=41" hx-target="#fundingrequest-list" hx-push-url="/fundingrequests/list/?labels=41" title="Toggle label filter">OA Week</a>
+                            <a class="label-pill is-active" href="/fundingrequests/list/?labels=52" hx-get="/fundingrequests/list/region/?labels=52" hx-target="#fundingrequest-list" hx-push-url="/fundingrequests/list/?labels=52" title="Toggle label filter">Institutional funding</a>
+                            <input type="hidden" name="labels" value="52">
+                            <a class="label-pill" href="/fundingrequests/list/?labels=63" hx-get="/fundingrequests/list/region/?labels=63" hx-target="#fundingrequest-list" hx-push-url="/fundingrequests/list/?labels=63" title="Toggle label filter">Open infrastructure</a>
+                            <a class="label-pill" href="/fundingrequests/list/?labels=74" hx-get="/fundingrequests/list/region/?labels=74" hx-target="#fundingrequest-list" hx-push-url="/fundingrequests/list/?labels=74" title="Toggle label filter">Monograph support</a>
+                            <a class="label-pill" href="/fundingrequests/list/?labels=85" hx-get="/fundingrequests/list/region/?labels=85" hx-target="#fundingrequest-list" hx-push-url="/fundingrequests/list/?labels=85" title="Toggle label filter">Repository priority</a>
+                            <a class="label-pill" href="/fundingrequests/list/?labels=96" hx-get="/fundingrequests/list/region/?labels=96" hx-target="#fundingrequest-list" hx-push-url="/fundingrequests/list/?labels=96" title="Toggle label filter">Publisher Open Access Agreement</a>
+                            <a class="label-pill" href="/fundingrequests/list/?labels=107" hx-get="/fundingrequests/list/region/?labels=107" hx-target="#fundingrequest-list" hx-push-url="/fundingrequests/list/?labels=107" title="Toggle label filter">Author Institution</a>
+                            <a class="label-pill" href="/fundingrequests/list/?labels=118" hx-get="/fundingrequests/list/region/?labels=118" hx-target="#fundingrequest-list" hx-push-url="/fundingrequests/list/?labels=118" title="Toggle label filter">Pilot Program</a>
+                            <a class="label-pill" href="/fundingrequests/list/?labels=129" hx-get="/fundingrequests/list/region/?labels=129" hx-target="#fundingrequest-list" hx-push-url="/fundingrequests/list/?labels=129" title="Toggle label filter">No Contract Required</a>
                         </div>
                     </div>
                 </form>
