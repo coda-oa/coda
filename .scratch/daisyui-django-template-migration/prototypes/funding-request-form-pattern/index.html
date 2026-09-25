@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CODA — Publication Details (prototype)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.46/daisyui.css">
+    <style>
+        @font-face {
+            font-family: Montserrat;
+            src: url("../../../../src/coda/apps/static/fonts/Montserrat-VariableFont_wght.ttf") format("truetype");
+            font-weight: 100 900;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --color-base-100: #ffffff;
+            --color-base-200: #f3f6fa;
+            --color-base-300: #dce4ee;
+            --color-base-content: #1b2a3b;
+            --color-primary: #285096;
+            --color-primary-content: #ffffff;
+            --color-error: #b42318;
+            --color-error-content: #ffffff;
+            --coda-line-height: 1.45;
+            --coda-font-size: 100%;
+            --coda-background-color: #ffffff;
+            --coda-primary: #2e67b8;
+            --coda-form-element-background-color: #ffffff;
+            --coda-form-element-spacing-vertical: 0.55rem;
+            --coda-form-element-spacing-horizontal: 0.75rem;
+            --coda-border-color: #cbd5e1;
+            --coda-muted-border-color: #dce4ee;
+            --coda-border-radius: 0.45rem;
+            --coda-border-width: 1px;
+            --coda-spacing: 1rem;
+            --coda-secondary-background: #596678;
+            --pico-icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 6l5 5 5-5' fill='none' stroke='%231b2a3b' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E");
+            --coda-secondary-inverse: #ffffff;
+        }
+
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --color-base-100: #0d0d0d;
+            --color-base-200: #121212;
+            --color-base-300: #282828;
+            --color-base-content: #e7ecf2;
+            --color-primary: #80a9f1;
+            --color-primary-content: #101722;
+            --color-error: #f08a82;
+            --color-error-content: #22100f;
+            --coda-line-height: 1.45;
+            --coda-font-size: 100%;
+            --coda-background-color: #0d0d0d;
+            --coda-primary: hsl(218 85% 65%);
+            --coda-form-element-background-color: #181818;
+            --coda-form-element-spacing-vertical: 0.55rem;
+            --coda-form-element-spacing-horizontal: 0.75rem;
+            --coda-border-color: #414141;
+            --coda-muted-border-color: #343434;
+            --coda-border-radius: 0.45rem;
+            --coda-border-width: 1px;
+            --coda-spacing: 1rem;
+            --coda-secondary-background: #48515d;
+            --pico-icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 6l5 5 5-5' fill='none' stroke='%23e7ecf2' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E");
+            --coda-secondary-inverse: #ffffff;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            min-width: 320px;
+            min-height: 100vh;
+            margin: 0;
+            padding-bottom: 6rem;
+            background: var(--color-base-200);
+            color: var(--color-base-content);
+            font-family: Montserrat, system-ui, sans-serif;
+            font-size: 0.94rem;
+            line-height: 1.5;
+        }
+        button, input, select, textarea { font: inherit; }
+        .masthead {
+            min-height: 3.8rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            padding: 0 clamp(1rem, 4vw, 3.5rem);
+            background: var(--color-base-100);
+            border-bottom: 1px solid var(--color-base-300);
+        }
+        .brand {
+            color: var(--color-primary);
+            font-size: 1.05rem;
+            font-weight: 750;
+            letter-spacing: -0.04em;
+        }
+        .masthead nav { display: flex; gap: 1.5rem; color: color-mix(in oklab, var(--color-base-content) 70%, transparent); font-size: 0.86rem; }
+        .masthead .preview-mark { margin-left: auto; font-size: 0.76rem; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); }
+        .app-shell { width: min(1320px, calc(100% - 2rem)); margin: 0 auto; }
+        .crumbs { padding: 1.1rem 0 0.7rem; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.78rem; }
+        .page-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 2rem;
+            padding: 0.5rem 0 1.2rem;
+            border-bottom: 1px solid var(--color-base-300);
+        }
+        .page-heading h1 { margin: 0; font-size: clamp(1.55rem, 2.4vw, 2rem); font-weight: 650; letter-spacing: -0.035em; }
+        .page-heading p { max-width: 45rem; margin: 0.4rem 0 0; color: color-mix(in oklab, var(--color-base-content) 68%, transparent); }
+        .theme-control { flex: none; }
+        .prototype-notice {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin: 1rem 0 1.25rem;
+            color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
+            font-size: 0.76rem;
+        }
+        .variant-caption { display: flex; align-items: baseline; gap: 0.75rem; margin: 0 0 1rem; }
+        .variant-caption h2 { margin: 0; font-size: 1.05rem; font-weight: 650; }
+        .variant-caption p { margin: 0; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.83rem; }
+        .variant-tag { flex: none; }
+        .form-layout { display: grid; gap: 1.2rem; }
+        .form-section { min-width: 0; padding: 1.25rem 0; border-top: 1px solid var(--color-base-300); }
+        .section-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 0.85rem; }
+        .section-heading h3 { margin: 0; font-size: 1.03rem; font-weight: 650; }
+        .section-heading p { margin: 0.2rem 0 0; color: color-mix(in oklab, var(--color-base-content) 62%, transparent); font-size: 0.82rem; }
+        .field-label { display: block; margin-bottom: 0.38rem; font-size: 0.78rem; font-weight: 600; }
+        .field { min-width: 0; }
+        .field .input, .field .select, .field .textarea { width: 100%; max-width: none; }
+        .field .textarea { min-height: 5rem; }
+        .field-help { margin: 0.35rem 0 0; color: color-mix(in oklab, var(--color-base-content) 58%, transparent); font-size: 0.73rem; }
+        .field-error { margin: 0.35rem 0 0; color: var(--color-error); font-size: 0.76rem; }
+        search-select { display: block; width: 100%; }
+        search-select::part(search-box) {
+            width: 100%;
+            height: 2.65rem;
+            padding: 0 0.75rem;
+            border: 1px solid var(--coda-border-color);
+            border-radius: var(--radius-field, 0.45rem);
+            background: var(--color-base-100);
+            color: var(--color-base-content);
+            font: inherit;
+        }
+        .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.15rem; }
+        .wide-field { grid-column: 1 / -1; }
+        .table-wrap { min-width: 0; overflow-x: auto; }
+        .author-table { min-width: 850px; }
+        .author-table th { font-size: 0.74rem; }
+        .author-table td { vertical-align: top; }
+        .author-table .input, .author-table .select { width: 100%; max-width: none; min-width: 7rem; }
+        .author-table search-select { min-width: 12rem; }
+        .author-table .remove-col { width: 5rem; }
+        .author-row-actions { display: flex; justify-content: flex-end; gap: 0.45rem; margin-top: 0.6rem; }
+        .author-records { display: grid; gap: 0.75rem; }
+        .author-record {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            align-items: end;
+            gap: 0.75rem;
+            padding: 0.85rem 0;
+            border-bottom: 1px solid var(--color-base-300);
+        }
+        .author-record:first-child { border-top: 1px solid var(--color-base-300); }
+        .author-record .input, .author-record .select { width: 100%; max-width: none; min-width: 0; }
+        .author-record search-select { min-width: 0; }
+        .record-index { align-self: center; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); font-size: 0.75rem; }
+        .metadata-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.15rem; }
+        .link-table { min-width: 510px; }
+        .link-table th { font-size: 0.74rem; }
+        .link-table .input, .link-table .select { width: 100%; max-width: none; }
+        .footer-actions { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--color-base-300); }
+        .footer-actions .next-actions { display: flex; gap: 0.6rem; }
+        .split-workspace { display: grid; grid-template-columns: minmax(320px, 0.92fr) minmax(480px, 1.45fr); gap: clamp(1rem, 2vw, 2rem); align-items: start; }
+        .split-authors { padding-right: clamp(0px, 1.4vw, 1.25rem); border-right: 1px solid var(--color-base-300); }
+        .split-author { padding: 0.8rem 0; border-top: 1px solid var(--color-base-300); }
+        .split-author .field-grid { grid-template-columns: 1fr; gap: 0.65rem; }
+        .split-author .field-grid .field { min-width: 0; }
+        .split-author .input, .split-author .select { width: 100%; max-width: none; }
+        .split-details .metadata-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .split-links { grid-column: 1 / -1; }
+        .variant-switcher {
+            position: fixed;
+            z-index: 20;
+            left: 50%;
+            bottom: 1rem;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.25rem 0.4rem;
+            border: 1px solid color-mix(in oklab, var(--color-neutral-content) 22%, transparent);
+            border-radius: 999px;
+            background: var(--color-neutral);
+            transition: transform 0.18s ease, opacity 0.18s ease;
+            color: var(--color-neutral-content);
+            box-shadow: 0 8px 28px #0003;
+        }
+        body:has(.wizard-form:focus-within) .variant-switcher { opacity: 0; pointer-events: none; transform: translate(-50%, calc(100% + 1rem)); }
+        .variant-switcher .btn { min-height: 1.6rem; height: 1.6rem; padding-inline: 0.45rem; border-color: transparent; color: inherit; font-size: 0.7rem; }
+        .variant-switcher .variant-name { min-width: 9rem; text-align: center; font-size: 0.72rem; font-weight: 600; }
+        :focus-visible { outline: 3px solid color-mix(in oklab, var(--color-primary) 72%, white); outline-offset: 2px; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+        @media (max-width: 1080px) {
+            .author-record { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .split-workspace { grid-template-columns: minmax(280px, 0.8fr) minmax(420px, 1.2fr); }
+        }
+        @media (max-width: 760px) {
+            .masthead { gap: 1rem; padding-inline: 1rem; }
+            .masthead nav { gap: 0.75rem; }
+            .masthead nav span:last-child { display: none; }
+            .masthead .preview-mark { font-size: 0.68rem; }
+            .app-shell { width: min(100% - 1.25rem, 1320px); }
+            .page-heading { align-items: flex-start; flex-direction: column; gap: 0.75rem; }
+            .theme-control { align-self: flex-start; }
+            .field-grid, .metadata-grid, .split-details .metadata-grid { grid-template-columns: 1fr; }
+            .author-record { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .split-workspace { grid-template-columns: 1fr; }
+            .split-authors { padding-right: 0; border-right: 0; }
+            .split-links { grid-column: auto; }
+            .variant-switcher { width: max-content; max-width: calc(100% - 1rem); justify-content: center; }
+            .variant-switcher .variant-name { min-width: 0; flex: 0 1 auto; }
+            .masthead nav { display: none; }
+            .masthead .preview-mark { font-size: 0.64rem; white-space: nowrap; }
+        }
+        @media (max-width: 460px) {
+            .author-record { grid-template-columns: 1fr; }
+            .footer-actions { align-items: stretch; }
+            .footer-actions .next-actions { justify-content: flex-end; }
+            .footer-actions .btn { padding-inline: 0.7rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+        }
+    </style>
+    <script defer src="../../../../src/coda/apps/static/js/search-select.js"></script>
+</head>
+<body>
+    <header class="masthead">
+        <a class="brand" href="#" aria-label="CODA home">CODA</a>
+        <nav aria-label="Primary navigation"><span>Request Center</span><span>Funding Requests</span></nav>
+        <span class="preview-mark">Static prototype · no Django actions</span>
+    </header>
+
+    <main class="app-shell">
+        <div class="crumbs">Request Center&nbsp; / &nbsp;New funding request</div>
+        <header class="page-heading">
+            <div>
+                <h1>Publication Details</h1>
+                <p>Describe the publication and its authors. Required fields are marked with an asterisk.</p>
+            </div>
+            <button class="btn btn-ghost btn-sm theme-control" type="button" id="theme-toggle" aria-pressed="false">Use dark theme</button>
+        </header>
+        <p class="prototype-notice"><span class="badge badge-outline">Prototype</span> daisyUI 5.7.46 CDN and sample values are preview-only; production CSS remains local. Form submits and HTMX requests are inert here.</p>
+        <div id="variant-content" aria-live="polite"></div>
+    </main>
+
+    <template id="variant-ledger">
+        <section class="variant">
+            <div class="variant-caption"><span class="badge badge-outline variant-tag">A</span><h2>Ledger</h2><p>Compact, table-first editing for authors and links.</p></div>
+            <form class="wizard-form" method="post" id="wizard-form" onsubmit="return false">
+                <section class="form-section">
+                    <div class="section-heading"><div><h3>Authors</h3><p>Relevant authors</p></div><span class="badge badge-outline">2 entries</span></div>
+                    <div class="table-wrap">
+                        <div class="htmx-formset-wrapper" hx-vals='{"prefix":"relevant-authors","mode":"inline","hx_include":"","extras":{}}'>
+                            <input type="hidden" name="relevant-authors-total_forms" value="2">
+                            <table class="table author-table inline-table-form">
+                                <thead><tr><th scope="col">Name*</th><th scope="col">Email</th><th scope="col">ORCID</th><th scope="col">Affiliation</th><th scope="col">Role</th><th class="remove-col"><span class="sr-only">Actions</span><button class="btn btn-sm btn-outline" type="button" name="form_action_add" value="add_form" hx-post="/authors/partial/author-formset/" hx-swap="outerHTML" hx-target="closest div.htmx-formset-wrapper">Add</button></th></tr></thead>
+                                <tbody>
+                                    <tr>
+                                        <td><label class="sr-only" for="id_relevant-authors-0-name">Name*</label><input class="input input-sm" type="text" id="id_relevant-authors-0-name" name="relevant-authors-0-name" value="Lena Hoffmann"></td>
+                                        <td><label class="sr-only" for="id_relevant-authors-0-email">Email</label><input class="input input-sm" type="email" id="id_relevant-authors-0-email" name="relevant-authors-0-email" value="lena.hoffmann@example.org"></td>
+                                        <td><label class="sr-only" for="id_relevant-authors-0-orcid">ORCID</label><input class="input input-sm" type="text" id="id_relevant-authors-0-orcid" name="relevant-authors-0-orcid" value="0000-0002-1825-0097"></td>
+                                        <td><label class="sr-only" for="id_relevant-authors-0-affiliation">Affiliation</label><search-select id="id_relevant-authors-0-affiliation" name="relevant-authors-0-affiliation" aria-label="Affiliation"><li value="1" selected>Technische Universität Braunschweig</li><li value="2">University of Oxford</li></search-select></td>
+                                        <td><label class="sr-only" for="id_relevant-authors-0-role">Role</label><select class="select select-sm" id="id_relevant-authors-0-role" name="relevant-authors-0-role"><option value="CORRESPONDING_AUTHOR" selected>Corresponding author</option><option value="CO_AUTHOR">Co-author</option></select></td>
+                                        <td><button class="btn btn-sm btn-ghost" type="button" name="form_action_delete" value="1" hx-post="/authors/partial/author-formset/" hx-swap="outerHTML" hx-target="closest div.htmx-formset-wrapper">Remove</button></td>
+                                    </tr>
+                                    <tr>
+                                        <td><label class="sr-only" for="id_relevant-authors-1-name">Name*</label><input class="input input-sm" type="text" id="id_relevant-authors-1-name" name="relevant-authors-1-name" value="Mikael Brandt"></td>
+                                        <td><label class="sr-only" for="id_relevant-authors-1-email">Email</label><input class="input input-sm" type="email" id="id_relevant-authors-1-email" name="relevant-authors-1-email" value="mikael.brandt@example.org"></td>
+                                        <td><label class="sr-only" for="id_relevant-authors-1-orcid">ORCID</label><input class="input input-sm" type="text" id="id_relevant-authors-1-orcid" name="relevant-authors-1-orcid" value=""></td>
+                                        <td><label class="sr-only" for="id_relevant-authors-1-affiliation">Affiliation</label><search-select id="id_relevant-authors-1-affiliation" name="relevant-authors-1-affiliation" aria-label="Affiliation"><li value="2" selected>University of Oxford</li></search-select></td>
+                                        <td><label class="sr-only" for="id_relevant-authors-1-role">Role</label><select class="select select-sm" id="id_relevant-authors-1-role" name="relevant-authors-1-role"><option value="CO_AUTHOR" selected>Co-author</option></select></td>
+                                        <td><button class="btn btn-sm btn-ghost" type="button" name="form_action_delete" value="2" hx-post="/authors/partial/author-formset/" hx-swap="outerHTML" hx-target="closest div.htmx-formset-wrapper">Remove</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                <section class="form-section">
+                    <div class="section-heading"><div><h3>Other Authors</h3><p>Paste names to parse them into individual authors.</p></div></div>
+                    <label class="sr-only" for="id_authors">Other Authors</label><textarea class="textarea" id="id_authors" name="authors" rows="3" placeholder="e.g. Alex Rivera, Sam Lee"></textarea>
+                    <button class="btn btn-outline btn-sm" type="submit" hx-post="/fundingrequests/partial/parse-authors/" hx-target="#id_authors" hx-include="#id_authors" hx-swap="outerHTML">Preview parsed authors</button>
+                </section>
+                <section class="form-section">
+                    <div class="section-heading"><div><h3>Publication Meta Data</h3><p>Publication identity and status</p></div></div>
+                    <div class="metadata-grid">
+                        <div class="field wide-field"><label class="field-label" for="id_title">Title*</label><input class="input input-bordered" id="id_title" name="title" aria-invalid="true" aria-describedby="id_title_error" value=""><p class="field-error" id="id_title_error">This field is required.</p></div>
+                        <div class="field"><label class="field-label" for="id_license">License*</label><select class="select" id="id_license" name="license"><option value="Unknown" selected>Unknown</option><option value="CC_BY">CC BY</option></select></div>
+                        <div class="field"><label class="field-label" for="id_publication_type">Publication type*</label><search-select id="id_publication_type" name="publication_type" aria-label="Publication type"><li value="journal-article" selected>Journal article</li><li value="book-chapter">Book chapter</li></search-select></div>
+                        <div class="field"><label class="field-label" for="id_subject_area">Subject area*</label><search-select id="id_subject_area" name="subject_area" aria-label="Subject area"><li value="computer-science" selected>Computer science</li><li value="economics">Economics</li></search-select></div>
+                        <div class="field"><label class="field-label" for="id_open_access_type">Publication open access type*</label><select class="select" id="id_open_access_type" name="open_access_type"><option value="Closed" selected>Closed</option><option value="Open">Open</option></select></div>
+                        <div class="field"><label class="field-label" for="id_publication_state">Publication state*</label><select class="select" id="id_publication_state" name="publication_state"><option value="Unknown" selected>Unknown</option><option value="Published">Published</option></select></div>
+                        <div class="field"><label class="field-label" for="id_online_publication_date">Online publication date</label><input class="input" type="date" id="id_online_publication_date" name="online_publication_date" value="2025-03-10"></div>
+                        <div class="field"><label class="field-label" for="id_print_publication_date">Print publication date</label><input class="input" type="date" id="id_print_publication_date" name="print_publication_date" value=""></div>
+                    </div>
+                </section>
+                <section class="form-section">
+                    <div class="section-heading"><div><h3>Links</h3><p>Identifiers and publication URLs</p></div></div>
+                    <div class="table-wrap"><table class="table link-table"><thead><tr><th scope="col">Link type</th><th scope="col">Link</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody id="linktable"><tr><td><select class="select" name="link_type"><option value="DOI" selected>DOI</option></select></td><td><input class="input" type="text" name="link_value" value="10.1234/coda.2026.01" aria-invalid="true" aria-describedby="link-value-error"><p class="field-error" id="link-value-error">Enter a valid DOI.</p></td><td><button class="btn btn-sm btn-ghost" type="button" onclick="this.closest('tr').remove()">Remove</button></td></tr></tbody><tfoot><tr><td colspan="3"><button class="btn btn-outline btn-sm" type="button" hx-post="/fundingrequests/partial/add-linkrow/" hx-target="#linktable" hx-swap="beforeend">Add link</button></td></tr></tfoot></table></div>
+                </section>
+                <div class="footer-actions"><button class="btn btn-outline" type="submit" name="action" value="back">Back</button><div class="next-actions"><button class="btn btn-primary" type="submit" name="action" value="next">Next</button></div></div>
+            </form>
+        </section>
+    </template>
+
+    <template id="variant-records">
+        <section class="variant">
+            <div class="variant-caption"><span class="badge badge-outline variant-tag">B</span><h2>Author records</h2><p>Labels stay close to each value; long forms remain scannable.</p></div>
+            <form class="wizard-form" method="post" id="wizard-form" onsubmit="return false">
+                <section class="form-section">
+                    <div class="section-heading"><div><h3>Authors</h3><p>Relevant authors</p></div><button class="btn btn-outline btn-sm" type="button" name="form_action_add" value="add_form" hx-post="/authors/partial/author-formset/" hx-swap="outerHTML" hx-target="closest div.htmx-formset-wrapper">Add author</button></div>
+                    <div class="htmx-formset-wrapper author-records" hx-vals='{"prefix":"relevant-authors","mode":"inline","hx_include":"","extras":{}}'>
+                        <input type="hidden" name="relevant-authors-total_forms" value="2">
+                        <article class="author-record">
+                            <div class="field"><label class="field-label" for="id_relevant-authors-0-name">Name*</label><input class="input input-sm" type="text" id="id_relevant-authors-0-name" name="relevant-authors-0-name" value="Lena Hoffmann"></div>
+                            <div class="field"><label class="field-label" for="id_relevant-authors-0-email">Email</label><input class="input input-sm" type="email" id="id_relevant-authors-0-email" name="relevant-authors-0-email" value="lena.hoffmann@example.org"></div>
+                            <div class="field"><label class="field-label" for="id_relevant-authors-0-orcid">ORCID</label><input class="input input-sm" type="text" id="id_relevant-authors-0-orcid" name="relevant-authors-0-orcid" value="0000-0002-1825-0097"></div>
+                            <div class="field"><label class="field-label" for="id_relevant-authors-0-affiliation">Affiliation</label><search-select id="id_relevant-authors-0-affiliation" name="relevant-authors-0-affiliation" aria-label="Affiliation"><li value="1" selected>Technische Universität Braunschweig</li><li value="2">University of Oxford</li></search-select></div>
+                            <div class="field"><label class="field-label" for="id_relevant-authors-0-role">Role</label><select class="select select-sm" id="id_relevant-authors-0-role" name="relevant-authors-0-role"><option value="CORRESPONDING_AUTHOR" selected>Corresponding author</option><option value="CO_AUTHOR">Co-author</option></select></div>
+                            <button class="btn btn-ghost btn-sm" type="button" name="form_action_delete" value="1" hx-post="/authors/partial/author-formset/" hx-swap="outerHTML" hx-target="closest div.htmx-formset-wrapper">Remove</button>
+                        </article>
+                        <article class="author-record">
+                            <div class="field"><label class="field-label" for="id_relevant-authors-1-name">Name*</label><input class="input input-sm" type="text" id="id_relevant-authors-1-name" name="relevant-authors-1-name" value="Mikael Brandt"></div>
+                            <div class="field"><label class="field-label" for="id_relevant-authors-1-email">Email</label><input class="input input-sm" type="email" id="id_relevant-authors-1-email" name="relevant-authors-1-email" value="mikael.brandt@example.org"></div>
+                            <div class="field"><label class="field-label" for="id_relevant-authors-1-orcid">ORCID</label><input class="input input-sm" type="text" id="id_relevant-authors-1-orcid" name="relevant-authors-1-orcid" value=""></div>
+                            <div class="field"><label class="field-label" for="id_relevant-authors-1-affiliation">Affiliation</label><search-select id="id_relevant-authors-1-affiliation" name="relevant-authors-1-affiliation" aria-label="Affiliation"><li value="2" selected>University of Oxford</li></search-select></div>
+                            <div class="field"><label class="field-label" for="id_relevant-authors-1-role">Role</label><select class="select select-sm" id="id_relevant-authors-1-role" name="relevant-authors-1-role"><option value="CO_AUTHOR" selected>Co-author</option></select></div>
+                            <button class="btn btn-ghost btn-sm" type="button" name="form_action_delete" value="2" hx-post="/authors/partial/author-formset/" hx-swap="outerHTML" hx-target="closest div.htmx-formset-wrapper">Remove</button>
+                        </article>
+                    </div>
+                </section>
+                <div class="form-layout">
+                    <section class="form-section">
+                        <div class="section-heading"><div><h3>Other Authors</h3><p>Paste names to parse them into individual authors.</p></div></div>
+                        <label class="sr-only" for="id_authors">Other Authors</label><textarea class="textarea" id="id_authors" name="authors" rows="3" placeholder="e.g. Alex Rivera, Sam Lee"></textarea>
+                        <button class="btn btn-outline btn-sm" type="submit" hx-post="/fundingrequests/partial/parse-authors/" hx-target="#id_authors" hx-include="#id_authors" hx-swap="outerHTML">Preview parsed authors</button>
+                    </section>
+                    <section class="form-section">
+                        <div class="section-heading"><div><h3>Publication Meta Data</h3><p>Publication identity and status</p></div></div>
+                        <div class="metadata-grid">
+                            <div class="field wide-field"><label class="field-label" for="id_title">Title*</label><input class="input" id="id_title" name="title" aria-invalid="true" aria-describedby="id_title_error" value=""><p class="field-error" id="id_title_error">This field is required.</p></div>
+                            <div class="field"><label class="field-label" for="id_license">License*</label><select class="select" id="id_license" name="license"><option value="Unknown" selected>Unknown</option><option value="CC_BY">CC BY</option></select></div>
+                            <div class="field"><label class="field-label" for="id_publication_type">Publication type*</label><search-select id="id_publication_type" name="publication_type" aria-label="Publication type"><li value="journal-article" selected>Journal article</li><li value="book-chapter">Book chapter</li></search-select></div>
+                            <div class="field"><label class="field-label" for="id_subject_area">Subject area*</label><search-select id="id_subject_area" name="subject_area" aria-label="Subject area"><li value="computer-science" selected>Computer science</li><li value="economics">Economics</li></search-select></div>
+                            <div class="field"><label class="field-label" for="id_open_access_type">Publication open access type*</label><select class="select" id="id_open_access_type" name="open_access_type"><option value="Closed" selected>Closed</option><option value="Open">Open</option></select></div>
+                            <div class="field"><label class="field-label" for="id_publication_state">Publication state*</label><select class="select" id="id_publication_state" name="publication_state"><option value="Unknown" selected>Unknown</option><option value="Published">Published</option></select></div>
+                            <div class="field"><label class="field-label" for="id_online_publication_date">Online publication date</label><input class="input" type="date" id="id_online_publication_date" name="online_publication_date" value="2025-03-10"></div>
+                            <div class="field"><label class="field-label" for="id_print_publication_date">Print publication date</label><input class="input" type="date" id="id_print_publication_date" name="print_publication_date" value=""></div>
+                        </div>
+                    </section>
+                </div>
+                <section class="form-section">
+                    <div class="section-heading"><div><h3>Links</h3><p>Identifiers and publication URLs</p></div></div>
+                    <div class="table-wrap"><table class="table link-table"><thead><tr><th scope="col">Link type</th><th scope="col">Link</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody id="linktable"><tr><td><select class="select" name="link_type"><option value="DOI" selected>DOI</option></select></td><td><input class="input" type="text" name="link_value" value="10.1234/coda.2026.01" aria-invalid="true" aria-describedby="link-value-error"><p class="field-error" id="link-value-error">Enter a valid DOI.</p></td><td><button class="btn btn-sm btn-ghost" type="button" onclick="this.closest('tr').remove()">Remove</button></td></tr></tbody><tfoot><tr><td colspan="3"><button class="btn btn-outline btn-sm" type="button" hx-post="/fundingrequests/partial/add-linkrow/" hx-target="#linktable" hx-swap="beforeend">Add link</button></td></tr></tfoot></table></div>
+                </section>
+                <div class="footer-actions"><button class="btn btn-outline" type="submit" name="action" value="back">Back</button><div class="next-actions"><button class="btn btn-primary" type="submit" name="action" value="next">Next</button></div></div>
+            </form>
+        </section>
+    </template>
+
+    <template id="variant-split">
+        <section class="variant">
+            <div class="variant-caption"><span class="badge badge-outline variant-tag">C</span><h2>Split workspace</h2><p>Keep author records beside publication identity, then give links the full width below.</p></div>
+            <form class="wizard-form" method="post" id="wizard-form" onsubmit="return false">
+                <div class="split-workspace">
+                    <section class="form-section split-authors">
+                        <div class="section-heading"><div><h3>Authors</h3><p>Relevant authors</p></div><button class="btn btn-outline btn-sm" type="button" name="form_action_add" value="add_form" hx-post="/authors/partial/author-formset/" hx-swap="outerHTML" hx-target="closest div.htmx-formset-wrapper">Add</button></div>
+                        <div class="htmx-formset-wrapper" hx-vals='{"prefix":"relevant-authors","mode":"inline","hx_include":"","extras":{}}'>
+                            <input type="hidden" name="relevant-authors-total_forms" value="2">
+                            <article class="split-author">
+                                <span class="record-index">Author 1 · relevant</span>
+                                <div class="field-grid">
+                                    <div class="field"><label class="field-label" for="id_relevant-authors-0-name">Name*</label><input class="input" type="text" id="id_relevant-authors-0-name" name="relevant-authors-0-name" value="Lena Hoffmann"></div>
+                                    <div class="field"><label class="field-label" for="id_relevant-authors-0-affiliation">Affiliation</label><search-select id="id_relevant-authors-0-affiliation" name="relevant-authors-0-affiliation" aria-label="Affiliation"><li value="1" selected>Technische Universität Braunschweig</li><li value="2">University of Oxford</li></search-select></div>
+                                    <div class="field"><label class="field-label" for="id_relevant-authors-0-email">Email</label><input class="input" type="email" id="id_relevant-authors-0-email" name="relevant-authors-0-email" value="lena.hoffmann@example.org"></div>
+                                    <div class="field"><label class="field-label" for="id_relevant-authors-0-orcid">ORCID</label><input class="input" type="text" id="id_relevant-authors-0-orcid" name="relevant-authors-0-orcid" value="0000-0002-1825-0097"></div>
+                                    <div class="field"><label class="field-label" for="id_relevant-authors-0-role">Role</label><select class="select" id="id_relevant-authors-0-role" name="relevant-authors-0-role"><option value="CORRESPONDING_AUTHOR" selected>Corresponding author</option><option value="CO_AUTHOR">Co-author</option></select></div>
+                                    <button class="btn btn-ghost btn-sm" type="button" name="form_action_delete" value="1" hx-post="/authors/partial/author-formset/" hx-swap="outerHTML" hx-target="closest div.htmx-formset-wrapper">Remove</button>
+                                </div>
+                            </article>
+                            <article class="split-author">
+                                <span class="record-index">Author 2 · response row</span>
+                                <div class="field-grid">
+                                    <div class="field"><label class="field-label" for="id_relevant-authors-1-name">Name*</label><input class="input" type="text" id="id_relevant-authors-1-name" name="relevant-authors-1-name" value="Mikael Brandt"></div>
+                                    <div class="field"><label class="field-label" for="id_relevant-authors-1-affiliation">Affiliation</label><search-select id="id_relevant-authors-1-affiliation" name="relevant-authors-1-affiliation" aria-label="Affiliation"><li value="2" selected>University of Oxford</li></search-select></div>
+                                    <div class="field"><label class="field-label" for="id_relevant-authors-1-email">Email</label><input class="input" type="email" id="id_relevant-authors-1-email" name="relevant-authors-1-email" value="mikael.brandt@example.org"></div>
+                                    <div class="field"><label class="field-label" for="id_relevant-authors-1-orcid">ORCID</label><input class="input" type="text" id="id_relevant-authors-1-orcid" name="relevant-authors-1-orcid" value=""></div>
+                                    <div class="field"><label class="field-label" for="id_relevant-authors-1-role">Role</label><select class="select" id="id_relevant-authors-1-role" name="relevant-authors-1-role"><option value="CO_AUTHOR" selected>Co-author</option></select></div>
+                                    <button class="btn btn-ghost btn-sm" type="button" name="form_action_delete" value="2" hx-post="/authors/partial/author-formset/" hx-swap="outerHTML" hx-target="closest div.htmx-formset-wrapper">Remove</button>
+                                </div>
+                            </article>
+                        </div>
+                    </section>
+                    <section class="form-section split-details">
+                        <div class="section-heading"><div><h3>Publication Meta Data</h3><p>Publication identity and status</p></div></div>
+                        <div class="metadata-grid">
+                            <div class="field wide-field"><label class="field-label" for="id_title">Title*</label><input class="input" id="id_title" name="title" aria-invalid="true" aria-describedby="id_title_error" value=""><p class="field-error" id="id_title_error">This field is required.</p></div>
+                            <div class="field"><label class="field-label" for="id_license">License*</label><select class="select" id="id_license" name="license"><option value="Unknown" selected>Unknown</option><option value="CC_BY">CC BY</option></select></div>
+                            <div class="field"><label class="field-label" for="id_publication_type">Publication type*</label><search-select id="id_publication_type" name="publication_type" aria-label="Publication type"><li value="journal-article" selected>Journal article</li><li value="book-chapter">Book chapter</li></search-select></div>
+                            <div class="field"><label class="field-label" for="id_subject_area">Subject area*</label><search-select id="id_subject_area" name="subject_area" aria-label="Subject area"><li value="computer-science" selected>Computer science</li><li value="economics">Economics</li></search-select></div>
+                            <div class="field"><label class="field-label" for="id_open_access_type">Publication open access type*</label><select class="select" id="id_open_access_type" name="open_access_type"><option value="Closed" selected>Closed</option><option value="Open">Open</option></select></div>
+                            <div class="field"><label class="field-label" for="id_publication_state">Publication state*</label><select class="select" id="id_publication_state" name="publication_state"><option value="Unknown" selected>Unknown</option><option value="Published">Published</option></select></div>
+                            <div class="field"><label class="field-label" for="id_online_publication_date">Online publication date</label><input class="input" type="date" id="id_online_publication_date" name="online_publication_date" value="2025-03-10"></div>
+                            <div class="field"><label class="field-label" for="id_print_publication_date">Print publication date</label><input class="input" type="date" id="id_print_publication_date" name="print_publication_date" value=""></div>
+                        </div>
+                    </section>
+                    <section class="form-section split-links">
+                        <div class="section-heading"><div><h3>Other Authors</h3><p>Paste names to parse them into individual authors.</p></div></div>
+                        <label class="sr-only" for="id_authors">Other Authors</label><textarea class="textarea" id="id_authors" name="authors" rows="3" placeholder="e.g. Alex Rivera, Sam Lee"></textarea>
+                        <button class="btn btn-outline btn-sm" type="submit" hx-post="/fundingrequests/partial/parse-authors/" hx-target="#id_authors" hx-include="#id_authors" hx-swap="outerHTML">Preview parsed authors</button>
+                    </section>
+                    <section class="form-section split-links">
+                        <div class="section-heading"><div><h3>Links</h3><p>Identifiers and publication URLs</p></div><button class="btn btn-outline btn-sm" type="button" hx-post="/fundingrequests/partial/add-linkrow/" hx-target="#linktable" hx-swap="beforeend">Add link</button></div>
+                        <div class="table-wrap"><table class="table link-table"><thead><tr><th scope="col">Link type</th><th scope="col">Link</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody id="linktable"><tr><td><select class="select" name="link_type"><option value="DOI" selected>DOI</option></select></td><td><input class="input" type="text" name="link_value" value="10.1234/coda.2026.01" aria-invalid="true" aria-describedby="link-value-error"><p class="field-error" id="link-value-error">Enter a valid DOI.</p></td><td><button class="btn btn-sm btn-ghost" type="button" onclick="this.closest('tr').remove()">Remove</button></td></tr></tbody></table></div>
+                    </section>
+                </div>
+                <div class="footer-actions"><button class="btn btn-outline" type="submit" name="action" value="back">Back</button><div class="next-actions"><button class="btn btn-primary" type="submit" name="action" value="next">Next</button></div></div>
+            </form>
+        </section>
+    </template>
+
+    <nav class="variant-switcher" aria-label="Prototype layout selector">
+        <button class="btn btn-sm btn-ghost" id="previous-variant" type="button" aria-label="Previous layout">←</button>
+        <span class="variant-name" id="variant-name"></span>
+        <button class="btn btn-sm btn-ghost" id="next-variant" type="button" aria-label="Next layout">→</button>
+    </nav>
+
+    <script>
+        const variations = [
+            { key: "ledger", title: "A · Ledger", template: "variant-ledger" },
+            { key: "records", title: "B · Author records", template: "variant-records" },
+            { key: "split", title: "C · Split workspace", template: "variant-split" },
+        ];
+        const mount = document.getElementById("variant-content");
+        const variantName = document.getElementById("variant-name");
+        const root = document.documentElement;
+        let current = 0;
+
+        function selectVariant(index, updateUrl = true) {
+            current = (index + variations.length) % variations.length;
+            const variant = variations[current];
+            mount.replaceChildren(document.getElementById(variant.template).content.cloneNode(true));
+            variantName.textContent = variant.title;
+            if (updateUrl) {
+                const url = new URL(window.location.href);
+                url.searchParams.set("variant", variant.key);
+                history.replaceState({}, "", url);
+            }
+        }
+
+        const requestedVariant = new URLSearchParams(window.location.search).get("variant");
+        const initialIndex = variations.findIndex((variant) => variant.key === requestedVariant);
+        selectVariant(initialIndex < 0 ? 0 : initialIndex, false);
+
+        document.getElementById("previous-variant").addEventListener("click", () => selectVariant(current - 1));
+        document.getElementById("next-variant").addEventListener("click", () => selectVariant(current + 1));
+        document.addEventListener("keydown", (event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            const typing = event.composedPath().some((node) => node instanceof Element && node.matches("input, textarea, select, search-select, [contenteditable='true']"));
+            if (typing) return;
+            selectVariant(current + (event.key === "ArrowRight" ? 1 : -1));
+        });
+
+        const themeToggle = document.getElementById("theme-toggle");
+        const storedTheme = localStorage.getItem("theme");
+        if (storedTheme === "light" || storedTheme === "dark") root.dataset.theme = storedTheme;
+        function syncThemeButton() {
+            const dark = root.dataset.theme === "dark";
+            themeToggle.textContent = dark ? "Use light theme" : "Use dark theme";
+            themeToggle.setAttribute("aria-pressed", String(dark));
+        }
+        syncThemeButton();
+        themeToggle.addEventListener("click", () => {
+            root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+            localStorage.setItem("theme", root.dataset.theme);
+            syncThemeButton();
+        });
+
+        document.addEventListener("submit", (event) => event.preventDefault());
+    </script>
+</body>
+</html>
